@@ -3342,6 +3342,15 @@ async def generate_game_decryption_v5(
             trap_record: Optional[Dict[str, Any]] = None
             opening_record: Optional[Dict[str, Any]] = None
             _caption_tier = "NONE"
+            # Mohit 2026-06-03 — bug repro: every regen on older games crashed at
+            # the move_output assembly (line ~3825) with UnboundLocalError because
+            # these locals were only set inside the central-pipeline try block, and
+            # the except path didn't reinitialize them. Declare with defaults here
+            # so the fallback path stays consistent with the success path.
+            _caption_severity_word = None
+            caption_captured_piece = None
+            principle_cue = ""
+            principle_id_used = None
             if CAPTION_V5_PIPELINE_ENABLED and _build_move_teaching_decision is not None:
                 try:
                     # SAN history (excluding current — central layer
