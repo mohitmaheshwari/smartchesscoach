@@ -124,7 +124,60 @@ Pure additive change. To reverse:
 | First-evaluation rule | If `last_evaluated_game_id` is None and the game IS a violation → counts as violation. If it's clean → counts as clean. No special "warm-up" period; the user's first analyzed game starts producing signal. |
 | Relevance requirement | A concept must be PRESENT in the game (fired in any user move's analysis) for streak math to apply. Absence is NOT clean demonstration — concepts that the user simply never faced don't accumulate streak. First-pass version skipped this check and auto-mastered concepts that had never come up; corrected 2026-06-04 mid-backfill. |
 
-## 11. Validated on Mohit (340 games)
+## 11. Population-wide aggregate (43 users with mastery signal)
+
+After full backfill across all users with prior concept tracking:
+
+| Metric | Count |
+|---|---|
+| Users with mastery signal | 43/51 (the other 8 had concept rows but no v5_data to evaluate) |
+| Total user×concept rows | 2,720 (up from 1,474 baseline; +1,246 auto-created in principle namespace) |
+| MASTERED rows | 379 |
+| STRUGGLING (≥3 violations) | 799 |
+| LEARNING (mid-streak) | 360 |
+
+### Top 10 universal struggles
+
+These are the highest-leverage targets for new R12 predicates + PWC live nudges:
+
+| # | Concept | Total violations | Users affected |
+|---|---|---|---|
+| 1 | **TAC_CHANGED_AFTER_MOVE** | 8,594 | 43/43 |
+| 2 | TAC_CHECKS_CAPTURES_THREATS | 5,489 | 43/43 |
+| 3 | TAC_HANGING_PIECE | 5,045 | 43/43 |
+| 4 | TAC_DEFENDER_COUNT | 3,877 | 43/43 |
+| 5 | MID_ROOK_OPEN_FILE | 2,380 | 41 |
+| 6 | MID_PAWN_BREAK | 2,048 | 40 |
+| 7 | MID_KEEP_ATTACKERS | 1,921 | 39 |
+| 8 | DEF_MOST_ATTACKED | 1,659 | 39 |
+| 9 | OP_SAME_PIECE_TWICE | 1,578 | 40 |
+| 10 | DEF_TRADE_ATTACKERS | 1,485 | 39 |
+
+### Top 10 widely-mastered
+
+These are the concepts to SUPPRESS in Phase 2's mastery gate first — they're already learned:
+
+| # | Concept | Users mastered |
+|---|---|---|
+| 1 | TAC_DISCOVERED_PATTERN | 38 |
+| 2 | TAC_PIN_PATTERN | 36 |
+| 3 | TAC_FORK_PATTERN | 33 |
+| 4 | OP_CLAIM_CENTER | 25 |
+| 5 | OP_FINISH_DEVELOPMENT | 23 |
+| 6 | OP_BISHOP_TRADE_DOUBLES_PAWN | 19 |
+| 7 | MID_KING_SAFETY | 18 |
+| 8 | END_KING_ACTIVE | 17 |
+| 9 | OP_NOT_CASTLED | 15 |
+| 10 | OP_PAWN_HEAVY | 15 |
+
+### Strategic findings
+
+1. **`TAC_CHANGED_AFTER_MOVE` is the #1 universal weakness** — 8,594 violations across literally every evaluated user. The "what did your opponent's move change?" prompt is the single highest-leverage coaching intervention we could ship.
+2. **Tactical pattern recognition is solid** — pin/fork/discovered mastered by 77-88% of users. Existing detectors and repetition coaching work for these.
+3. **Defense vocabulary is uniformly thin AND weakly mastered.** Only one DEF concept appears in the mastered tier; two appear in the struggling top 10. Suggests expanding the DEF_ taxonomy (4-6 new detectors) is a priority for Phase 2+.
+4. **Middlegame planning is the development gap** — rook on open file, pawn breaks, keeping attackers all in struggling top 10. The MID_ taxonomy has 5 concepts; needs to roughly double.
+
+## 12. Validated on Mohit (340 games)
 
 After backfill:
 - 76 concepts on file (41 original plan-namespace + 35 auto-created principle-namespace)
