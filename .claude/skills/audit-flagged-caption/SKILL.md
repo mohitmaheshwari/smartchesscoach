@@ -102,12 +102,20 @@ The engine doesn't lie. When your analysis doesn't match `cp_loss`, the engine i
 
 ## Output format
 
-End with one of four verdicts:
+End with one of FIVE verdicts:
 
 - **Caption correct** — the engine's refutation matches the caption's claim. User's complaint is based on miscalculation. Recommend: mark feedback `dismissed`, no override.
 - **Caption framing wrong** — the engine eval is right, the caption diagnosis is wrong (e.g. claims "Qf4+" when the cleaner refutation is Rxe4). Recommend: propose an override caption and (separately) consider whether a detector path needs adjusting. See [feedback_fix_framing_not_detection.md] — fix the template, not the trigger.
+- **Caption present but no coaching** ★ added 2026-06-04 after Mohit fb_44569957e99d. The engine eval is right AND the alternative is named, but the caption gives no position-specific WHY. Includes both: (a) bare shells like `"X is a mistake. Y was better."` / `"Opponent's X is a major blunder. Play Y."`, and (b) bare shells with a GENERIC floor-principle appended (v104+) that doesn't actually explain THIS position. **Do not mistake "principle present" for "WHY present"** — the floor bank is filler, not coaching. Recommend: file the missing-predicate pattern against [CAPTION_BACKLOG.md](../../CAPTION_BACKLOG.md), don't just write a one-off override.
 - **Caption hallucinated** — caption mentions a piece, square, or move that doesn't exist in the position. Recommend: file under `/triage-feedback` Class E, investigate the caption generator.
 - **Unclear — need probe** — engine eval and your walk disagree by a wide margin. Run `/probe-game {game_id} --move N` for the full engine PV before verdict.
+
+### Distinguishing "framing wrong" from "no coaching"
+
+- **Framing wrong** = caption claims X-happens-because-of-Y, but actually it's because of Z. The diagnosis is incorrect.
+- **No coaching** = caption claims X-is-mistake-and-Y-is-better, which is TRUE, but never explains why X fails or why Y is better for THIS position. The diagnosis is correct but hollow.
+
+The Qe2 case (fb_ec0098264c8e) and Ke3 case (fb_44569957e99d) are both "no coaching" — engine truth holds, but the user learns nothing transferable about the position.
 
 Show your work: a short paragraph for each of steps 2, 3, 4, 5 (especially 2). One sentence per step is enough — the goal is to PROVE you walked it, not to write an essay.
 
