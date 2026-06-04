@@ -52,6 +52,13 @@ __pycache__/
 venv/
 .venv/
 
+# Throwaway debug scripts — convention: prefix with .tmp_ so they live
+# locally for iterative debugging but never get committed. Matches the
+# "no hardcoded debug in production" feedback rule — use a scratch file,
+# not an `if move_san == 'X':` block in production code.
+.tmp_*.py
+backend/.tmp_*.py
+
 # Development tools
 chainlit.md
 .chainlit
