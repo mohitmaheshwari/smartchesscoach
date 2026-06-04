@@ -29,8 +29,16 @@ MASTERED = "mastered"
 # Phase transition thresholds
 INTRO_TO_AWARENESS_GAMES = 1    # After 1 game with guidance
 AWARENESS_TO_FREEPLAY_GAMES = 3  # After 3 games total
-FREEPLAY_TO_MASTERED_ACCURACY = 0.8  # 80% correct moves without help
-FREEPLAY_TO_MASTERED_GAMES = 3  # Need 3 free play games at 80%+
+# Two paths to MASTERED (Mohit 2026-06-04 — original 80%/3 games was too
+# steep for 600-1500 audience; only 1 of 36 user×opening rows was mastered
+# across the population). Loosened to:
+#   Path A — consistency: last 3 free-play games all ≥ 65% accuracy
+#   Path B — experience : ≥ 10 free-play games, average accuracy ≥ 55%
+# Either path qualifies.
+FREEPLAY_TO_MASTERED_ACCURACY = 0.65          # path A per-game floor
+FREEPLAY_TO_MASTERED_GAMES = 3                # path A streak length
+FREEPLAY_TO_MASTERED_EXPERIENCE_GAMES = 10    # path B total game count
+FREEPLAY_TO_MASTERED_EXPERIENCE_ACC = 0.55    # path B average floor
 
 
 # ─── MOVE IDEAS — loaded from JSON theory tree ───────────────────
@@ -304,11 +312,16 @@ def _compute_phase(current_phase: str, games_played: int, accuracy_history: List
         return AWARENESS
 
     if current_phase == FREE_PLAY:
-        # Need consistent high accuracy in free play
+        # Path A — consistency: last N games all above the per-game floor.
         recent = accuracy_history[-FREEPLAY_TO_MASTERED_GAMES:]
-        if len(recent) >= FREEPLAY_TO_MASTERED_GAMES:
-            if all(a >= FREEPLAY_TO_MASTERED_ACCURACY for a in recent):
-                return MASTERED
+        if (len(recent) >= FREEPLAY_TO_MASTERED_GAMES
+                and all(a >= FREEPLAY_TO_MASTERED_ACCURACY for a in recent)):
+            return MASTERED
+        # Path B — experience: long history at a moderate average.
+        if (len(accuracy_history) >= FREEPLAY_TO_MASTERED_EXPERIENCE_GAMES
+                and (sum(accuracy_history) / len(accuracy_history))
+                    >= FREEPLAY_TO_MASTERED_EXPERIENCE_ACC):
+            return MASTERED
         return FREE_PLAY
 
     return current_phase

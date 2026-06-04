@@ -1190,6 +1190,36 @@ def process_job(db, job):
         except Exception as _mast_err:
             logger.warning(f"[mastery-tracker] update failed (non-fatal): {_mast_err}")
 
+        # Engine 2 — trap mastery tracker. Mirrors concept_mastery_tracker
+        # but for traps: walks game.trap_fires and updates
+        # user_opening_mastery.traps_encountered / traps_handled /
+        # traps_fallen_for. Idempotent. Non-fatal on failure.
+        try:
+            import asyncio as _asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor
+            from services.trap_mastery_tracker import update_trap_mastery_for_game
+            _mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            _db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _update_trap_mastery():
+                _client = _AsyncMotor(_mongo_url)
+                _db = _client[_db_name]
+                try:
+                    return await update_trap_mastery_for_game(_db, user_id, game_id)
+                finally:
+                    _client.close()
+
+            _trap_summary = _asyncio.run(_update_trap_mastery())
+            if _trap_summary.get("fires_seen"):
+                logger.info(
+                    f"[trap-mastery] user {user_id[-12:]} game {game_id[-8:]}: "
+                    f"fires={_trap_summary['fires_seen']} "
+                    f"newly_handled={_trap_summary['newly_handled']} "
+                    f"newly_fallen={_trap_summary['newly_fallen_for']}"
+                )
+        except Exception as _trap_mast_err:
+            logger.warning(f"[trap-mastery] update failed (non-fatal): {_trap_mast_err}")
+
         # Update game status
         db.games.update_one(
             {"game_id": game_id},

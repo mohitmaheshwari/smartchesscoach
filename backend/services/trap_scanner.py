@@ -208,4 +208,4 @@ def scan_pgn_for_traps(pgn: str, user_color: str) -> List[Dict]:
 # Version stamp persisted alongside trap_fires. Bump when the library
 # changes (new traps added) or when classification logic changes so we
 # can re-scan only stale rows during future backfills.
-TRAP_SCANNER_VERSION = 1
+TRAP_SCANNER_VERSION = 2  # v2 (Mohit 2026-06-04): "London Move Order" trap was removed from traps.json on 2026-05-28 (52 stale fires found in stored trap_fires arrays — see docs/engine2_phase1_concept_mastery.md aggregate section). Bumping forces lazy rescan so old fires get cleaned out on next read.
