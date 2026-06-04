@@ -1159,6 +1159,37 @@ def process_job(db, job):
         except Exception as _op_err:
             logger.warning(f"[opening-profile] refresh failed (non-fatal): {_op_err}")
 
+        # Engine 2 Phase 1 (Mohit 2026-06-04) — concept mastery tracker.
+        # After v5 data is written and the opening profile is refreshed,
+        # compute mastery streaks for this user × game and update
+        # user_concept_understanding (streak_clean / acknowledged /
+        # mastered_at). Idempotent via last_evaluated_game_id. See
+        # services/concept_mastery_tracker.py.
+        try:
+            import asyncio as _asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor
+            from services.concept_mastery_tracker import update_user_mastery_for_game
+            _mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            _db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _update_mastery():
+                _client = _AsyncMotor(_mongo_url)
+                _db = _client[_db_name]
+                try:
+                    return await update_user_mastery_for_game(_db, user_id, game_id)
+                finally:
+                    _client.close()
+
+            _mastery_summary = _asyncio.run(_update_mastery())
+            logger.info(
+                f"[mastery-tracker] user {user_id[-12:]} game {game_id[-8:]}: "
+                f"clean={_mastery_summary['clean_count']} "
+                f"violated={_mastery_summary['violated_count']} "
+                f"mastered={_mastery_summary['mastered_count']}"
+            )
+        except Exception as _mast_err:
+            logger.warning(f"[mastery-tracker] update failed (non-fatal): {_mast_err}")
+
         # Update game status
         db.games.update_one(
             {"game_id": game_id},
