@@ -46,38 +46,53 @@ def _iso_now() -> str:
 def _opening_key_for_trap(trap_fire: Dict[str, Any]) -> Optional[str]:
     """Pull the opening_key the trap belongs to.
 
-    trap_scanner emits opening_key (e.g. "italian_game") on each fire.
-    Falls back to opening_name → opening_key lookup if needed.
+    Mohit 2026-06-04: traps.json + trap_scanner emit opening_key with
+    DASHES ("italian-game") while user_opening_mastery rows use
+    UNDERSCORES ("italian_game"). Normalize to underscores so lookups
+    against user_opening_mastery match.
     """
-    return (
-        trap_fire.get("opening_key")
-        or trap_fire.get("opening")
-        or None
-    )
+    raw = trap_fire.get("opening_key") or trap_fire.get("opening")
+    if not raw:
+        return None
+    return raw.replace("-", "_")
 
 
 def _classify_outcome(trap_fire: Dict[str, Any]) -> str:
     """Classify a single trap_fire into: handled / fallen_for / encountered.
 
-    Rules:
-      role="setter", completed_by_user=True   → "fallen_for" if user is the loser side,
-                                                 OR "handled_offense" if user is the winner side
-      role="setter", completed_by_user=False  → "missed" (user set up trap, opp escaped)
-      role="punisher", completed_by_user=True → "handled" (user punished opp's mistake)
-      role="punisher", completed_by_user=False → "missed_punish" (user had chance, didn't take it)
-      otherwise → "encountered"
+    Actual schema (Mohit 2026-06-04, verified against 200 game sample):
+      role: "setter" or "victim"
+      full_sprung: bool — did the trap fully complete?
+      sprung_moves: int — how many moves of the trap_line were played
+
+    Outcomes:
+      victim + full_sprung=True             → "fallen_for"
+                                                user fully fell into the trap
+      victim + full_sprung=False + sprung>0 → "handled"
+                                                user started falling, escaped
+                                                — demonstrates they know it
+      victim + full_sprung=False + sprung=0 → "encountered"
+                                                user reached setup position
+                                                but trap wasn't initiated
+      setter + full_sprung=True             → "handled_offense"
+                                                user landed the trap
+      setter + full_sprung=False            → "encountered"
+                                                user set up but trap didn't
+                                                trigger (e.g. opp didn't fall)
     """
     role = trap_fire.get("role")
-    completed = trap_fire.get("completed_by_user")
-    if role == "punisher" and completed is True:
-        return "handled"
-    if role == "punisher" and completed is False:
-        return "missed_punish"
-    if role == "setter" and completed is True:
-        # If user is the setter and trap completed, they landed it.
-        return "handled_offense"
-    if role == "setter" and completed is False:
-        return "fallen_for"
+    full_sprung = bool(trap_fire.get("full_sprung", False))
+    sprung_moves = int(trap_fire.get("sprung_moves") or 0)
+    if role == "victim":
+        if full_sprung:
+            return "fallen_for"
+        if sprung_moves > 0:
+            return "handled"
+        return "encountered"
+    if role == "setter":
+        if full_sprung:
+            return "handled_offense"
+        return "encountered"
     return "encountered"
 
 
@@ -130,9 +145,39 @@ async def update_trap_mastery_for_game(
             },
         )
         if not row:
-            # No opening mastery row yet for this user×opening. Skip —
-            # the opening mastery tracker will create it on next game.
-            continue
+            # No opening mastery row yet — auto-create a minimal one so
+            # trap mastery isn't silently dropped on users who have
+            # traps but haven't yet had the opening_mastery_tracker fire
+            # for them. opening_mastery_tracker will fill in
+            # accuracy/phase/games_played on its next run.
+            insert_doc = {
+                "user_id": user_id,
+                "opening_key": opening_key,
+                "phase": "introduction",
+                "games_played": 0,
+                "accuracy_history": [],
+                "moves_correct": 0,
+                "moves_total": 0,
+                "traps_encountered": [],
+                "traps_fallen_for": [],
+                "traps_handled": [],
+                "branches_seen": [],
+                "_evaluated_trap_fires": [],
+                "created_at": now,
+                "updated_at": now,
+            }
+            try:
+                result = await db.user_opening_mastery.insert_one(insert_doc)
+                row = {**insert_doc, "_id": result.inserted_id}
+            except Exception as e:
+                logger.info(f"[trap-mastery] auto-create skipped (dup ok): {e}")
+                row = await db.user_opening_mastery.find_one(
+                    {"user_id": user_id, "opening_key": opening_key},
+                    {"_id": 1, "traps_encountered": 1, "traps_fallen_for": 1,
+                     "traps_handled": 1, "_evaluated_trap_fires": 1},
+                )
+                if not row:
+                    continue
         evaluated = set(row.get("_evaluated_trap_fires") or [])
         encountered = set(row.get("traps_encountered") or [])
         fallen = set(row.get("traps_fallen_for") or [])
