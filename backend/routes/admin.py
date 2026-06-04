@@ -49,7 +49,7 @@ from routes.auth import User, get_current_user
 # To extend to multiple owners later, swap _ADMIN_EMAILS to read an
 # env var like os.environ.get("ADMIN_EMAILS", "...").split(",").
 
-_ADMIN_EMAILS = {"bhutramohit@gmail.com"}
+_ADMIN_EMAILS = {"bhutramohit@gmail.com", "shobhit.bhutra1993@gmail.com"}
 
 
 def _is_admin_email(email: Optional[str]) -> bool:
