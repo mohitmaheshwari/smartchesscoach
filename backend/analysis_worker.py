@@ -1220,6 +1220,37 @@ def process_job(db, job):
         except Exception as _trap_mast_err:
             logger.warning(f"[trap-mastery] update failed (non-fatal): {_trap_mast_err}")
 
+        # Engine-aware opening accuracy (Mohit 2026-06-04). Computes
+        # accuracy from cp_loss-graded user opening moves rather than
+        # the prior curriculum-exact-match measure (which punished
+        # any reasonable book alternative). Writes one new
+        # accuracy_history entry per game. Idempotent. Non-fatal.
+        try:
+            import asyncio as _asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor
+            from services.opening_mastery_tracker import update_mastery_from_analyzed_game
+            _mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            _db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _update_opening_acc():
+                _client = _AsyncMotor(_mongo_url)
+                _db = _client[_db_name]
+                try:
+                    return await update_mastery_from_analyzed_game(_db, user_id, game_id)
+                finally:
+                    _client.close()
+
+            _acc_result = _asyncio.run(_update_opening_acc())
+            if _acc_result:
+                logger.info(
+                    f"[opening-accuracy] user {user_id[-12:]} game {game_id[-8:]} "
+                    f"opening={_acc_result.get('opening_key')} "
+                    f"acc={_acc_result.get('accuracy', 0):.2f} "
+                    f"moves={_acc_result.get('n_moves_evaluated', 0)}"
+                )
+        except Exception as _acc_err:
+            logger.warning(f"[opening-accuracy] update failed (non-fatal): {_acc_err}")
+
         # Update game status
         db.games.update_one(
             {"game_id": game_id},
