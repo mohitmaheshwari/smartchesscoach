@@ -3627,12 +3627,109 @@ async def engine2_mastery_summary(user: User = Depends(get_current_user)):
     Returns the four-state model (unseen/learning/learned/stale) per skill,
     grouped by kind. Read-only — the underlying promotion logic runs inside
     record_skill_outcome; this endpoint just inspects the resulting state.
+
+    2026-06-06 cross-system override (docs/mastery_panel_cleanup_scope.md):
+    For the 4 skills that have a clean central-pipeline analog (see
+    data/coaching/engine2_skill_to_concept_map.json), look up
+    user_concept_understanding for the mapped concept_id. If the gate
+    classifies the concept as `mastered` or `slipping`, override the
+    engine2 state to a new `demonstrated` value with the clean_games_total
+    on the row — so MasteryPanel renders "Demonstrated in N games" instead
+    of "Not started" for a skill the user has clearly shown in their games.
     """
     from services.coach_memory import get_or_create_memory
     from services.concept_mastery_service import summarize_mastery
 
     memory = await get_or_create_memory(db, user.user_id)
-    return summarize_mastery(memory)
+    result = summarize_mastery(memory)
+
+    # Cross-system override: enrich with user_concept_understanding signal
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        from services.pwc_skill_gate import get_concept_mastery_state
+
+        _map_path = (
+            _Path(__file__).resolve().parent.parent
+            / "data" / "coaching" / "engine2_skill_to_concept_map.json"
+        )
+        with open(_map_path, "r", encoding="utf-8") as _f:
+            _raw_map = _json.load(_f)
+        # Strip _meta entries; keep only skill_id -> concept_id mappings
+        _skill_to_concept = {
+            k: v for k, v in _raw_map.items()
+            if not k.startswith("_") and isinstance(v, str)
+        }
+
+        if _skill_to_concept:
+            demonstrated_count = 0
+            slipping_count = 0
+            unseen_decrement = 0
+            for kind, records in result.get("by_kind", {}).items():
+                for rec in records:
+                    sid = rec.get("skill_id")
+                    cid = _skill_to_concept.get(sid)
+                    if not cid:
+                        continue
+                    # Only override 'unseen' — if the user already engaged
+                    # with the engine2 lesson, that signal stands.
+                    if rec.get("state") != "unseen":
+                        continue
+                    state = await get_concept_mastery_state(db, user.user_id, cid)
+                    if state not in ("mastered", "slipping"):
+                        continue
+                    # Pull clean_games_total from the row so the meta line
+                    # can say "Demonstrated in N games".
+                    row = await db.user_concept_understanding.find_one(
+                        {"user_id": user.user_id, "concept_id": cid},
+                        {"_id": 0, "clean_games_total": 1, "violations_total": 1},
+                    )
+                    rec["state"] = "demonstrated"
+                    rec["mapped_concept_id"] = cid
+                    rec["demonstrated_clean_games"] = (row or {}).get(
+                        "clean_games_total", 0
+                    )
+                    rec["demonstrated_slipping"] = (state == "slipping")
+                    rec["progress_hint"] = (
+                        f"Demonstrated in {rec['demonstrated_clean_games']} games"
+                        + (" · recent slip" if state == "slipping" else "")
+                    )
+                    demonstrated_count += 1
+                    if state == "slipping":
+                        slipping_count += 1
+                    unseen_decrement += 1
+
+            # Reflect overrides in the summary block
+            if demonstrated_count > 0:
+                summary = result.get("summary", {})
+                summary["demonstrated"] = demonstrated_count
+                summary["demonstrated_slipping"] = slipping_count
+                summary["unseen"] = max(
+                    0, (summary.get("unseen", 0) or 0) - unseen_decrement
+                )
+                result["summary"] = summary
+
+                # Re-sort each kind so demonstrated rows surface
+                # immediately after studied, before learning/stale/unseen.
+                _state_order = {
+                    "studied": 0, "demonstrated": 1, "learning": 2,
+                    "stale": 3, "unseen": 4,
+                }
+                for kind, recs in result.get("by_kind", {}).items():
+                    recs.sort(key=lambda r: (
+                        _state_order.get(r.get("state"), 99),
+                        r.get("days_since_studied") or 0,
+                        -(r.get("demonstrated_clean_games") or 0),
+                        -(r.get("seen") or 0),
+                        r.get("tier", 0),
+                    ))
+    except Exception as _enrich_err:
+        # Non-fatal: the original engine2 response is still returned
+        logger.warning(
+            f"[mastery-summary] concept-understanding enrichment failed: {_enrich_err}"
+        )
+
+    return result
 
 
 @router.get("/engine2/skill-evidence/{skill_id}")

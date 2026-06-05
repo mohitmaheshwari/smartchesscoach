@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "description": "Maps engine2 SkillProgress skill_ids to central-pipeline concept_ids. When a skill_id appears here and the user has user_concept_understanding mastery for the mapped concept_id, MasteryPanel renders 'Demonstrated in N games' instead of 'Not started'. See docs/mastery_panel_cleanup_scope.md (signed off 2026-06-06).",
+    "audit_date": "2026-06-05",
+    "source": "Hand-mapped after enumerating all 24 skills in skill_tree.json. Only skills with a CLEAN central-pipeline analog are included. Group A in the scope doc."
+  },
+  "coached_development":     "OP_FINISH_DEVELOPMENT",
+  "defend_fried_liver":      "OP_F2_F7_STRIKE",
+  "endgame_opposition":      "END_OPPOSITION",
+  "endgame_rule_of_square":  "END_RULE_OF_SQUARE"
+}

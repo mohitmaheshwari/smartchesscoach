@@ -54,9 +54,20 @@ const DRILLABLE_SKILLS = new Set([
   "endgame_philidor",
 ]);
 
-function StateIcon({ state }) {
+function StateIcon({ state, demonstrated_slipping }) {
   if (state === "studied") {
     return <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />;
+  }
+  if (state === "demonstrated") {
+    // 2026-06-06 (scope: mastery_panel_cleanup): cross-system override
+    // — concept_understanding shows the user has demonstrated this skill
+    // in real games. Emerald check when cleanly mastered, amber retro
+    // when slipping (recent violation within SLIPPING_N_GAMES).
+    return demonstrated_slipping ? (
+      <RotateCcw className="h-3.5 w-3.5 text-amber-500" strokeWidth={2.2} />
+    ) : (
+      <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />
+    );
   }
   if (state === "stale") {
     return <RotateCcw className="h-3.5 w-3.5 text-amber-500" strokeWidth={2.2} />;
@@ -75,6 +86,11 @@ function meta(record) {
     if (d === 1) return "Studied yesterday";
     return `Studied ${d} days ago`;
   }
+  if (record.state === "demonstrated") {
+    // 2026-06-06: progress_hint comes from the backend already formatted
+    // ("Demonstrated in N games" or "Demonstrated in N games · recent slip")
+    return record.progress_hint || "Demonstrated in your games";
+  }
   if (record.state === "stale") {
     const d = record.days_since_studied;
     return d != null
@@ -92,6 +108,11 @@ function SkillRow({ record, onOpenEvidence }) {
   const dimmed = record.state === "unseen";
   const hasLesson = !!record.lesson_url;
   const showEvidence = record.state === "studied" || record.state === "stale";
+  // 2026-06-06 Q2 LOCKED: hide Study button on demonstrated rows.
+  // The user has shown the skill in real games — surfacing a Study CTA
+  // reads as patronizing. The lesson is still reachable via "why?" /
+  // future evidence modal; not the primary action on demonstrated rows.
+  const hideStudyButton = record.state === "demonstrated";
 
   const goToLesson = (e) => {
     e.stopPropagation();
@@ -109,7 +130,7 @@ function SkillRow({ record, onOpenEvidence }) {
       }`}
     >
       <div className="w-4 flex items-center justify-center">
-        <StateIcon state={record.state} />
+        <StateIcon state={record.state} demonstrated_slipping={record.demonstrated_slipping} />
       </div>
       <div className="min-w-0">
         <div className="font-serif text-[14.5px] text-foreground leading-snug truncate">
@@ -129,7 +150,7 @@ function SkillRow({ record, onOpenEvidence }) {
             why?
           </button>
         )}
-        {hasLesson && (
+        {hasLesson && !hideStudyButton && (
           <button
             onClick={goToLesson}
             className="text-[11px] text-violet-500 hover:text-violet-400 transition-colors inline-flex items-center gap-1"
@@ -380,11 +401,12 @@ function KindSection({ kind, records, onOpenEvidence }) {
       acc[r.state] = (acc[r.state] || 0) + 1;
       return acc;
     },
-    { studied: 0, learning: 0, stale: 0, unseen: 0 }
+    { studied: 0, learning: 0, stale: 0, unseen: 0, demonstrated: 0 }
   );
 
   const summary = [
     counts.studied && `${counts.studied} studied`,
+    counts.demonstrated && `${counts.demonstrated} demonstrated`,
     counts.learning && `${counts.learning} in progress`,
     counts.stale && `${counts.stale} to refresh`,
     counts.unseen && `${counts.unseen} to explore`,
@@ -481,7 +503,7 @@ export default function MasteryPanel() {
 
   const { summary, by_kind } = data;
   const hasAnyActivity =
-    summary.studied + summary.learning + summary.stale > 0;
+    summary.studied + summary.learning + summary.stale + (summary.demonstrated || 0) > 0;
 
   return (
     <section className="mb-16 md:mb-20" data-testid="mastery-panel">
@@ -491,6 +513,7 @@ export default function MasteryPanel() {
         </div>
         <div className="text-[11px] text-muted-foreground tabular-nums">
           {summary.studied} of {summary.total_skills} studied
+          {summary.demonstrated > 0 && ` · ${summary.demonstrated} demonstrated`}
           {summary.stale > 0 && ` · ${summary.stale} to refresh`}
         </div>
       </div>
