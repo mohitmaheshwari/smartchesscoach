@@ -73,10 +73,45 @@ Per `[[feedback_complete_every_item_on_overnight_lists]]`.
 
 6. **Pattern table (the existing output)** of items with their class, engine-truth verdict, and recommendation. Cluster by class so patterns are visible. Then 2-3 line summary of "the actual signal" — what these flags collectively tell us.
 
+6.5. **Fix Quality Gate (MANDATORY for any item recommending a fix).** Added 2026-06-06 after Mohit pointed out that the skill produces "Actioned" stamps without judging whether the proposed fix is actually good. Three dimensions; an item must PASS all three to keep "Actioned" status. Any FAIL demotes to "Investigating" with the failure reason recorded.
+
+   **Dimension 1 — Generalization confidence.** Does the proposed fix work for ALL positions/geometries where this caption fires, or only the specific board Parth flagged? Rate as:
+   - **HIGH** — fix targets the template / detector branch directly; I've confirmed (grep, predicate read) that no other positions break
+   - **MEDIUM** — fix is plausibly general but I haven't verified against all firing positions; would need a snapshot probe before shipping
+   - **LOW** — fix only solves the flagged board; fixing it here would create regressions elsewhere. This is a position-specific patch, not a real fix.
+
+   For each HIGH/MEDIUM rating, state in one line WHY confidence is at that level ("HIGH — change is in the template constructor, applies to all R12 fires" / "MEDIUM — need to grep for other call sites").
+
+   **Dimension 2 — Language accessibility (1200 audience).** Apply [[caption_voice_avoid_chess_jargon]] Reading B (updated 2026-06-06):
+   - PASS if standard chess concept words name something precisely (`zwischenzug`, `fianchetto`, `prophylaxis`, `pin`, `fork`, `outpost`, `opposition`, etc. all fine)
+   - FAIL if jargon is decoration when a concrete square/piece would teach more
+   - FAIL if made-up coach compound when a standard chess word exists (`aligned pieces` → use `battery`)
+   - FAIL if sub-cultural shorthand (`ply`, `book`, `en prise`)
+
+   **Dimension 3 — Teaching value (not principle-bank filler).** Per [[principle_bank_is_filler]]:
+   - **REAL** — the fix teaches something position-specific the user can apply ("Qe2 abandons defense of d4 pawn" — concrete cause and effect)
+   - **FILLER** — the fix appends a generic principle that reads like teaching but isn't ("fix your worst piece first" / "develop with a follow-up") — no position-specific insight, no failure mode named, no alternative promoted with rationale
+
+   FILLER demotes to "Investigating" with note: needs predicate work to surface the real failure mode + concrete alternative.
+
+   **Format the assessment as a short block per fixed item, BEFORE Step 7's table:**
+
+   ```
+   FIX QUALITY — item N (fb_xxx):
+     Generalization: HIGH / MEDIUM / LOW — <one line why>
+     Language:       PASS / FAIL (which dimension violated)
+     Teaching:       REAL / FILLER — <one line why>
+     Verdict:        Actioned (3/3 pass) OR Investigating (gate N failed)
+   ```
+
+   Dismissed and Already-shipped items SKIP this step (no fix is being proposed).
+
 7. **Per-item accounting table (MANDATORY — coverage gate).** After the pattern table, render a flat list with one row per `feedback_id` from the Step 0 roster. Every row has these columns:
 
-   | # | feedback_id | game m# played | class | recommendation | status |
-   |---|---|---|---|---|---|
+   | # | feedback_id | game m# played | class | recommendation | gen | lang | teach | status |
+   |---|---|---|---|---|---|---|---|---|
+
+   The three middle-right columns (`gen` / `lang` / `teach`) come from Step 6.5. For Dismissed/Already-shipped items they're "n/a".
 
    `status` is one of:
    - **Actioned** — filed against a CAPTION_BACKLOG item / shipped a fix / opened a new backlog entry. Include the link.
