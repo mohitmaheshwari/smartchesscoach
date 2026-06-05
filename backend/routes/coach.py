@@ -1094,6 +1094,17 @@ async def get_per_move_captions(
         shape_pattern_name = rec.get("shape_pattern_name")
         shape_pattern_desc = rec.get("shape_pattern_desc")
         shape_pattern_targets = rec.get("shape_pattern_targets") or []
+        # 2026-06-06 fix (fb_96c28ed0b759): when a shape pattern's
+        # description is empty (authored silence — see shape_patterns.py
+        # comments on double_attack_line and weak_squares), the frontend
+        # still rendered the bare NAME ("Aligned Pieces") as a label
+        # with no body. Honor the authored silence — suppress name +
+        # id when desc is empty so the frontend's conditional render
+        # gate fails.
+        if shape_pattern_desc is not None and not str(shape_pattern_desc).strip():
+            shape_pattern_id = None
+            shape_pattern_name = None
+            shape_pattern_targets = []
 
         # LLM caption (new V5.1 backfill, written by scripts/backfill_llm_captions.py).
         # Wins over moments and the deterministic caption when present.
