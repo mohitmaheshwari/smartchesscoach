@@ -641,6 +641,9 @@ def _r12_render(f):
         "target_square": f.get("target_square"),
         "moving_piece_type": f.get("moving_piece_type") or "piece",
         "captured_piece_type": f.get("opp_reply_captures_piece_type"),
+        # Recapture collision (Mohit 2026-06-06, fb_22528b6266b1)
+        "opp_reply_recaptures_on_played_square": bool(f.get("opp_reply_recaptures_on_played_square")),
+        "played_to_square": f.get("played_to_square"),
         "opp_reply_san_is_check": bool(opp_reply and (opp_reply.endswith("+") or opp_reply.endswith("#"))),
         "pieces_now_undefended_present": user_hanging is not None,
         "piece_type": (user_hanging or {}).get("piece_type") if f.get("mover_is_user") is not False else (opp_hanging or {}).get("piece_type"),

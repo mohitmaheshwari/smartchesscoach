@@ -4886,6 +4886,13 @@ def extract_facts(
     opp_reply_san: Optional[str] = None
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
+    # Mohit 2026-06-06 (fb_22528b6266b1, Parth): when the played move is
+    # a capture AND opp_reply captures on the same square, both SANs
+    # render identically ("Bxe5 hangs to Bxe5 winning your bishop") —
+    # a confusing tautology. This fact lets the template switch to a
+    # recapture-specific branch that names the square instead.
+    opp_reply_recaptures_on_played_square: bool = False
+    played_to_square: Optional[str] = None
     # Mohit 2026-06-02: fork detection (Phase 2 of why_played_wrong
     # spec). Covers m24 Qb8 from the 2026-06-01 feedback batch — Qb8
     # didn't walk into an attack on the queen itself (opp_reply_attacks_
@@ -4920,6 +4927,17 @@ def extract_facts(
                         opp_reply_captures_piece_type = PIECE_TYPE_NAMES.get(
                             captured.piece_type, "piece"
                         )
+                    # Recapture detection (2026-06-06): the played move
+                    # was a capture AND opp_reply captures on the same
+                    # square. Without this branch, the failure template
+                    # renders "Bxe5 hangs to Bxe5 winning your bishop" —
+                    # confusing tautology.
+                    if (
+                        board_before.is_capture(played_move)
+                        and opp_mv.to_square == played_move.to_square
+                    ):
+                        opp_reply_recaptures_on_played_square = True
+                        played_to_square = chess.SQUARE_NAMES[played_move.to_square]
                 sim = board_after.copy()
                 sim.push(opp_mv)
                 # After opp's reply, does its piece attack the square our
@@ -5253,6 +5271,11 @@ def extract_facts(
         "opp_reply_san": opp_reply_san,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
+        # Recapture collision (Mohit 2026-06-06, fb_22528b6266b1) —
+        # when both played + opp_reply land on the same square the SANs
+        # render identically; switch to a recapture-specific template.
+        "opp_reply_recaptures_on_played_square": opp_reply_recaptures_on_played_square,
+        "played_to_square": played_to_square,
         # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
         # Drives failure_allows_fork in R12_blunder.json. See in-place
         # comment at the extraction site.
