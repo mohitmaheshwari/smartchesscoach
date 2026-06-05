@@ -1890,6 +1890,54 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
         sections["weaknesses"] = []
         sections["archived_weaknesses"] = []
 
+    # ─── 3b. PERSONAL CONCEPT SHELF (UnifiedProgress v2, Path A) ───
+    # Locked Formula C 2026-06-05 via 10-user bake-off
+    # (docs/unified_progress_v2_scope.md §Q1). One concept per family,
+    # ranked by decay_sum × max(median_cp, p75_cp/2), with most-recent
+    # game metadata so the page can render "Review the game" CTA.
+    try:
+        from services.personal_concept_ranker import rank_top_concept_per_family
+        from services.caption_principles import PRINCIPLES_BY_ID
+        shelf_raw = await rank_top_concept_per_family(db, user_id, max_families=3)
+        shelf = []
+        for entry in shelf_raw:
+            cid = entry["concept_id"]
+            principle = PRINCIPLES_BY_ID.get(cid)
+            label = (principle or {}).get("name") or cid.replace("_", " ").title()
+            mr_gid = entry.get("most_recent_game_id")
+            opponent = None
+            date_played = None
+            result = None
+            if mr_gid:
+                g = await db.games.find_one(
+                    {"game_id": mr_gid, "user_id": user_id},
+                    {"_id": 0, "opponent": 1, "date_played": 1, "result": 1,
+                     "user_color": 1, "white": 1, "black": 1},
+                )
+                if g:
+                    opponent = (
+                        g.get("opponent")
+                        or (g.get("black") if g.get("user_color") == "white" else g.get("white"))
+                    )
+                    date_played = g.get("date_played") or entry.get("most_recent_imported_at")
+                    result = g.get("result")
+            shelf.append({
+                "concept_id": cid,
+                "family": entry["family"],
+                "headline": label,
+                "recurrence": entry["recurrence"],
+                "most_recent_game_id": mr_gid,
+                "most_recent_opponent": opponent,
+                "most_recent_date": date_played,
+                "most_recent_result": result,
+                "earlier_game_ids": entry.get("earlier_game_ids", []),
+                "score": entry["score"],
+            })
+        sections["concept_shelf"] = shelf
+    except Exception as ranker_err:
+        logger.debug(f"[narrative] concept_shelf ranker failed: {ranker_err}")
+        sections["concept_shelf"] = []
+
     # ─── 4. YOUR OPENINGS ───
     try:
         mastery_docs = await db.user_opening_mastery.find(

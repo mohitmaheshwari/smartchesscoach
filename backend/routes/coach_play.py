@@ -7131,27 +7131,94 @@ async def _process_move_and_respond(
                     logger.exception("[live_v5.glossary] lookup failed (non-fatal)")
                     _glossary_prefix = None
 
-                _insert_doc = {
-                    "session_id": session_id,
-                    "type": "v5_teaching",
-                    "move_number": move_number,
-                    "move_san": user_move,
-                    "anchor_name": _v5_block["anchor_name"],
-                    "anchor_detail": _v5_block["anchor_detail"],
-                    "message": _v5_block["deterministic_draft"],
-                    "principle_id": _v5_block.get("principle_id"),
-                    "shape_pattern_id": _v5_block.get("shape_pattern_id"),
-                    "polish_status": _v5_block.get("polish_status", "draft"),
-                    "is_coach_move_teaching": _v5_block.get("is_coach_move_teaching", False),
-                    "protected_entities": _v5_block.get("protected_entities") or [],
-                    "created_at": datetime.now(timezone.utc),
-                    "read": False,
-                }
-                if _recall_block is not None:
-                    _insert_doc["recall_block"] = _recall_block
-                if _glossary_prefix:
-                    _insert_doc["glossary_prefix"] = _glossary_prefix
-                _insert_result = await db.coach_messages.insert_one(_insert_doc)
+                # Path C EXPAND (2026-06-05): concept_key tagging.
+                # principle_id carries the central-pipeline concept
+                # (TAC_*, OP_*, MID_*, END_*, DEF_*, STR_*). Surface it
+                # as concept_key so the skill gate + downstream
+                # consumers don't have to know the principle_id alias.
+                _concept_key_for_msg = _v5_block.get("principle_id")
+
+                # PWC Mastery Gate — check user mastery before emitting.
+                # Default-off behind PWC_SKILL_GATE_ENABLED; pure no-op
+                # when the flag is false. When the user has mastered
+                # this concept, drop the message entirely. When slipping,
+                # replace with a brief reminder per family.
+                _gate_decision = "show"
+                _gate_state = "unseen"
+                _downgrade_text = ""
+                try:
+                    from services.pwc_skill_gate import (
+                        is_enabled as _gate_is_enabled,
+                        get_concept_mastery_state,
+                        gate_decision_for_concept,
+                        GATE_SUPPRESS,
+                        GATE_DOWNGRADE,
+                        log_gate_event,
+                    )
+                    if _gate_is_enabled() and session_doc.get("user_id") and _concept_key_for_msg:
+                        _gate_state = await get_concept_mastery_state(
+                            db,
+                            user_id=session_doc["user_id"],
+                            concept_id=_concept_key_for_msg,
+                        )
+                        _decision_dict = gate_decision_for_concept(
+                            _gate_state, _concept_key_for_msg,
+                        )
+                        _gate_decision = _decision_dict["decision"]
+                        _downgrade_text = _decision_dict["downgrade_text"]
+                        await log_gate_event(
+                            db,
+                            user_id=session_doc["user_id"],
+                            session_id=session_id,
+                            concept_id=_concept_key_for_msg,
+                            state=_gate_state,
+                            decision=_gate_decision,
+                            move_number=move_number,
+                        )
+                        if _gate_decision == GATE_SUPPRESS:
+                            logger.info(
+                                f"[pwc_gate] SUPPRESS user={session_doc['user_id'][:8]} "
+                                f"concept={_concept_key_for_msg} move={move_number}"
+                            )
+                except Exception as _gate_err:
+                    logger.debug(f"[pwc_gate] check failed (non-fatal): {_gate_err}")
+                    _gate_decision = "show"
+
+                # If the gate said SUPPRESS, skip the insert entirely.
+                if _gate_decision == "suppress":
+                    # Skip every downstream side-effect that would
+                    # surface a coaching message — but keep state
+                    # updates (recall_pids, glossary, etc.) untouched.
+                    pass
+                else:
+                    _msg_text = _v5_block["deterministic_draft"]
+                    if _gate_decision == "downgrade" and _downgrade_text:
+                        _msg_text = _downgrade_text
+
+                    _insert_doc = {
+                        "session_id": session_id,
+                        "type": "v5_teaching",
+                        "move_number": move_number,
+                        "move_san": user_move,
+                        "anchor_name": _v5_block["anchor_name"],
+                        "anchor_detail": _v5_block["anchor_detail"],
+                        "message": _msg_text,
+                        "principle_id": _v5_block.get("principle_id"),
+                        "concept_key": _concept_key_for_msg,
+                        "shape_pattern_id": _v5_block.get("shape_pattern_id"),
+                        "polish_status": _v5_block.get("polish_status", "draft"),
+                        "is_coach_move_teaching": _v5_block.get("is_coach_move_teaching", False),
+                        "protected_entities": _v5_block.get("protected_entities") or [],
+                        "gate_state": _gate_state,
+                        "gate_decision": _gate_decision,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                    }
+                    if _recall_block is not None:
+                        _insert_doc["recall_block"] = _recall_block
+                    if _glossary_prefix:
+                        _insert_doc["glossary_prefix"] = _glossary_prefix
+                    _insert_result = await db.coach_messages.insert_one(_insert_doc)
 
                 # Persist the recall-suppression state so the next
                 # move's lookup sees it.

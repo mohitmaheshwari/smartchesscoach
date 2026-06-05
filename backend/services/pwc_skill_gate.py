@@ -246,6 +246,157 @@ def is_enabled() -> bool:
     return os.environ.get("PWC_SKILL_GATE_ENABLED", "false").lower() == "true"
 
 
+# ─── Concept-mastery gate (Path C, 2026-06-05) ───────────────────────────
+#
+# The original gate above works against the nudge_id → skill_id map +
+# Engine 2 SkillProgress records. After Engine 2 Phase 1 shipped
+# (user_concept_understanding with mastered_at + streak_clean), we have
+# a stronger signal: per-user × per-concept mastery driven by real game
+# outcomes. This block adds a parallel gate that consumes that signal
+# directly, keyed by concept_id (the central pipeline namespace).
+#
+# Slipping threshold LOCKED 2026-06-05 via probe across all
+# user_concept_understanding rows with mastered_at set: N=10 games
+# (docs/pwc_mastery_gate_scope.md Q1 LOCKED).
+
+# Slipping definition: mastered + violation within last N games.
+SLIPPING_N_GAMES = 10
+
+# Per-family downgrade strings. Family prefix → 6-8 word reminder.
+DOWNGRADE_BY_FAMILY = {
+    "TAC_": "Quick check — anything hanging here?",
+    "OP_":  "You know this opening shape — careful.",
+    "MID_": "Trade defenders, keep attackers — quick reminder.",
+    "END_": "Endgame technique — you've got this one.",
+    "DEF_": "King safety — quick check.",
+    "STR_": "Long-term plan — stay on theme.",
+}
+
+GATE_SHOW = "show"  # learning + unseen + no_concept → SHOW (default)
+
+
+async def get_concept_mastery_state(
+    db,
+    user_id: str,
+    concept_id: Optional[str],
+) -> str:
+    """Return one of: 'mastered', 'slipping', 'learning', 'unseen'.
+
+    'mastered'  — user_concept_understanding row has mastered_at set
+                  AND no violation within last SLIPPING_N_GAMES games
+    'slipping'  — has mastered_at AND has a violation in last N games
+    'learning'  — row exists, mastered_at is null
+    'unseen'    — no row OR no concept_id at all
+    """
+    if not concept_id or not user_id:
+        return "unseen"
+
+    row = await db.user_concept_understanding.find_one(
+        {"user_id": user_id, "concept_id": concept_id},
+        {"_id": 0, "mastered_at": 1, "last_violation_at": 1,
+         "last_evaluated_game_id": 1},
+    )
+    if not row:
+        return "unseen"
+    if not row.get("mastered_at"):
+        return "learning"
+    last_violation = row.get("last_violation_at")
+    if not last_violation:
+        return "mastered"
+    # Slipping check: count games imported AFTER last_violation. If
+    # fewer than SLIPPING_N_GAMES, the violation is "recent" → slipping.
+    try:
+        count = await db.games.count_documents({
+            "user_id": user_id,
+            "is_analyzed": True,
+            "imported_at": {"$gt": last_violation if isinstance(last_violation, str) else last_violation.isoformat()},
+        })
+        if count < SLIPPING_N_GAMES:
+            return "slipping"
+        return "mastered"
+    except Exception:
+        # If the count fails we'd rather show full coaching than risk
+        # suppressing a real warning — fall through to mastered only if
+        # we KNOW the violation is old; here we don't, so be cautious.
+        return "slipping"
+
+
+def _family_prefix(concept_id: str) -> str:
+    """Map a concept_id to its family prefix used by DOWNGRADE_BY_FAMILY."""
+    if not concept_id:
+        return ""
+    for p in ("TAC_", "OP_", "MID_", "END_", "DEF_", "STR_"):
+        if concept_id.startswith(p):
+            return p
+    return ""
+
+
+def gate_decision_for_concept(
+    state: str,
+    concept_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Translate a concept's mastery state into a gate decision.
+
+    Returns:
+        {
+          "decision":       "suppress" | "downgrade" | "show",
+          "reason":         short tag for logging
+          "downgrade_text": brief reminder string (only when downgrade);
+                            "" otherwise
+        }
+
+    SUPPRESS = mastered (drop the message entirely)
+    DOWNGRADE = slipping (replace with brief reminder)
+    SHOW    = learning, unseen, or no signal (no change)
+    """
+    if state == "mastered":
+        return {
+            "decision": GATE_SUPPRESS,
+            "reason": "mastered",
+            "downgrade_text": "",
+        }
+    if state == "slipping":
+        family = _family_prefix(concept_id or "")
+        text = DOWNGRADE_BY_FAMILY.get(family, "Quick check on this pattern.")
+        return {
+            "decision": GATE_DOWNGRADE,
+            "reason": "slipping",
+            "downgrade_text": text,
+        }
+    # learning, unseen, anything else → SHOW
+    return {
+        "decision": GATE_SHOW,
+        "reason": state or "unknown",
+        "downgrade_text": "",
+    }
+
+
+async def log_gate_event(
+    db,
+    *,
+    user_id: str,
+    session_id: str,
+    concept_id: Optional[str],
+    state: str,
+    decision: str,
+    move_number: Optional[int] = None,
+) -> None:
+    """Telemetry write per scope §3. Best-effort; never raises."""
+    try:
+        from datetime import datetime, timezone
+        await db.pwc_skill_gate_events.insert_one({
+            "user_id": user_id,
+            "session_id": session_id,
+            "concept_id": concept_id,
+            "mastery_state": state,
+            "gate_decision": decision,
+            "move_number": move_number,
+            "created_at": datetime.now(timezone.utc),
+        })
+    except Exception as e:
+        logger.debug(f"[pwc_skill_gate] event log failed (non-fatal): {e}")
+
+
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 

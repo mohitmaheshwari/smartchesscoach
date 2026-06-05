@@ -413,7 +413,13 @@ const UnifiedProgress = ({ user }) => {
       proof?.trend ||
       null;
 
-    return { active, tracked, archived, headline, subhead, spark };
+    // Concept shelf — UnifiedProgress v2 enrichment (Formula C locked 2026-06-05).
+    // Top concept across all families with most-recent-game metadata so
+    // the Active card can show "What you keep doing" + Review-game CTA.
+    const conceptShelf = narrative?.concept_shelf || [];
+    const topConcept = conceptShelf[0] || null;
+
+    return { active, tracked, archived, headline, subhead, spark, topConcept };
   }, [narrative, proof]);
 
   // ─── Loading ─────────────────────────────────────────────────────────
@@ -534,6 +540,36 @@ const UnifiedProgress = ({ user }) => {
                     <p className="mt-5 font-serif italic text-[14px] text-foreground/80 leading-snug max-w-[420px]">
                       "{derived.active.coachLine}"
                     </p>
+                  )}
+
+                  {/* ─── V2: What you keep doing (Formula C top concept) ─── */}
+                  {derived.topConcept && (
+                    <div className="mt-6 pt-5 border-t border-violet-400/15">
+                      <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500/80 dark:text-violet-300/80 font-semibold mb-2">
+                        What you keep doing
+                      </div>
+                      <p className="text-[14px] text-foreground/90 leading-snug mb-2">
+                        {derived.topConcept.headline}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground">
+                        Seen {derived.topConcept.recurrence} times across your recent games
+                        {derived.topConcept.most_recent_opponent
+                          ? ` — last time vs ${derived.topConcept.most_recent_opponent}`
+                          : ""}.
+                      </p>
+                      {derived.topConcept.most_recent_game_id && (
+                        <button
+                          onClick={() =>
+                            navigate(`/game/${derived.topConcept.most_recent_game_id}`)
+                          }
+                          data-testid="review-game-cta"
+                          className="mt-3 h-9 px-4 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-300 font-medium text-[12.5px] transition-colors inline-flex items-center gap-1.5"
+                        >
+                          Review the game
+                          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex md:flex-col items-start md:items-end gap-4 justify-between md:justify-start">
