@@ -107,7 +107,14 @@ function SkillRow({ record, onOpenEvidence }) {
   const navigate = useNavigate();
   const dimmed = record.state === "unseen";
   const hasLesson = !!record.lesson_url;
-  const showEvidence = record.state === "studied" || record.state === "stale";
+  // 2026-06-06 V2: demonstrated rows also show the "why?" evidence
+  // link — clicking opens the in-game evidence modal (same shell,
+  // routes to /coach/concepts/evidence/{id} via mapped_concept_id).
+  const showEvidence = (
+    record.state === "studied" ||
+    record.state === "stale" ||
+    record.state === "demonstrated"
+  );
   // 2026-06-06 Q2 LOCKED: hide Study button on demonstrated rows.
   // The user has shown the skill in real games — surfacing a Study CTA
   // reads as patronizing. The lesson is still reachable via "why?" /
@@ -173,17 +180,49 @@ function EvidenceModal({ skill, onClose, onDemote }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // 2026-06-06 V2 (scope: mastery_panel_cleanup): when the row carries
+  // a mapped_concept_id (cross-system override fired), fetch evidence
+  // from the user_concept_understanding endpoint instead of the
+  // engine2/SkillProgress endpoint. Transform the response so the
+  // existing modal renderer stays unchanged.
+  const isConceptEvidence = Boolean(skill?.mapped_concept_id);
+
   useEffect(() => {
     if (!skill) return;
     setLoading(true);
-    fetch(`${API}/engine2/skill-evidence/${skill.skill_id}`, {
-      credentials: "include",
-    })
+    const url = isConceptEvidence
+      ? `${API}/coach/concepts/evidence/${skill.mapped_concept_id}`
+      : `${API}/engine2/skill-evidence/${skill.skill_id}`;
+    fetch(url, { credentials: "include" })
       .then((r) => r.json())
-      .then((j) => setData(j))
+      .then((j) => {
+        if (isConceptEvidence && j && Array.isArray(j.evidence)) {
+          // Concept endpoint returns flat shape: { game_id, move_san,
+          //   move_number, fen_before, outcome: "clean"|"violated",
+          //   cp_loss, opponent, date_played, result, platform,
+          //   opening_name }
+          // Engine2 endpoint shape uses { ..., game: { opening_name,
+          //   date_played, platform, result }, outcome: "applied"|"wrong" }
+          // Normalize so the existing renderer stays untouched.
+          const OUTCOME_MAP = { clean: "applied", violated: "wrong" };
+          const normalized = j.evidence.map((ev) => ({
+            ...ev,
+            outcome: OUTCOME_MAP[ev.outcome] || ev.outcome,
+            game: {
+              opening_name: ev.opening_name,
+              date_played: ev.date_played,
+              platform: ev.platform,
+              result: ev.result,
+            },
+          }));
+          setData({ ...j, evidence: normalized });
+        } else {
+          setData(j);
+        }
+      })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [skill]);
+  }, [skill, isConceptEvidence]);
 
   if (!skill) return null;
 
@@ -378,7 +417,13 @@ function EvidenceModal({ skill, onClose, onDemote }) {
                   Yes, I get it
                 </button>
                 <button
-                  onClick={() => onDemote(skill.skill_id)}
+                  onClick={() =>
+                    onDemote(
+                      isConceptEvidence
+                        ? { conceptId: skill.mapped_concept_id }
+                        : { skillId: skill.skill_id }
+                    )
+                  }
                   className="flex-1 h-9 rounded-lg border border-border text-foreground hover:bg-muted text-[13px] font-medium transition-colors"
                 >
                   Not really — re-teach me
@@ -452,14 +497,24 @@ export default function MasteryPanel() {
     } catch {}
   };
 
-  const handleDemote = async (skillId) => {
+  const handleDemote = async (target) => {
+    // 2026-06-06 V2: target is { skillId } for engine2 rows,
+    // { conceptId } for in-game concept rows. Route to the matching
+    // endpoint.
     try {
-      await fetch(`${API}/engine2/skill-demote`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skill_id: skillId, outcome: "wrong" }),
-      });
+      if (target && target.conceptId) {
+        await fetch(`${API}/coach/concepts/demote/${target.conceptId}`, {
+          method: "POST",
+          credentials: "include",
+        });
+      } else if (target && target.skillId) {
+        await fetch(`${API}/engine2/skill-demote`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skill_id: target.skillId, outcome: "wrong" }),
+        });
+      }
       setEvidenceSkill(null);
       await refreshMastery();
     } catch {

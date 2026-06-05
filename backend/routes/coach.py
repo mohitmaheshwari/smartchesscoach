@@ -1305,6 +1305,192 @@ async def get_principles_catalog():
         return {"total": 0, "principles": [], "error": str(e)}
 
 
+@router.get("/concepts/evidence/{concept_id}")
+async def get_concept_evidence(concept_id: str, user: User = Depends(get_current_user)):
+    """Per-concept evidence audit trail — MasteryPanel V2 evidence modal.
+
+    Built 2026-06-06 per docs/mastery_panel_cleanup_scope.md V2 section.
+    Returns the user's in-game moves where this concept fired (both
+    clean and violated). Lets the user verify "the coach credited me
+    on these moves" with the actual game + position + outcome.
+
+    Sibling to /engine2/skill-evidence/{skill_id} which works on the
+    SkillProgress namespace. This endpoint works on the
+    user_concept_understanding namespace (the gate's data source).
+    """
+    global db
+    try:
+        from services.caption_principles import PRINCIPLES_BY_ID
+
+        # Fetch the user_concept_understanding row + game metadata
+        row = await db.user_concept_understanding.find_one(
+            {"user_id": user.user_id, "concept_id": concept_id},
+            {"_id": 0},
+        )
+        if not row:
+            return {
+                "concept_id": concept_id,
+                "label": (PRINCIPLES_BY_ID.get(concept_id) or {}).get("name") or concept_id,
+                "found": False,
+                "evidence": [],
+                "counts": {"clean": 0, "violated": 0, "total": 0},
+            }
+
+        # Walk the user's recent analyzed games (cap at 50) and pull out
+        # moves where this concept_id fired. Cheap enough for the modal.
+        cursor = db.games.find(
+            {"user_id": user.user_id, "is_analyzed": True},
+            {"_id": 0, "game_id": 1, "imported_at": 1, "date_played": 1,
+             "opponent": 1, "white": 1, "black": 1, "user_color": 1,
+             "result": 1, "platform": 1, "opening_name": 1},
+        ).sort("imported_at", -1).limit(50)
+        recent_games = await cursor.to_list(50)
+
+        evidence = []
+        VIOLATING = {"mistake", "blunder", "serious"}
+        for g in recent_games:
+            gid = g["game_id"]
+            ga = await db.game_analyses.find_one(
+                {"game_id": gid},
+                {"_id": 0, "decryption_v5_data": 1},
+            )
+            if not ga:
+                continue
+            v5 = ga.get("decryption_v5_data") or []
+            if not isinstance(v5, list):
+                continue
+            for rec in v5:
+                if not isinstance(rec, dict):
+                    continue
+                if not rec.get("is_user_move"):
+                    continue
+                # Concept fires when any of these reference it
+                refs = set()
+                pid = rec.get("principle_id_used")
+                if pid:
+                    refs.add(pid)
+                plan = rec.get("plan") or {}
+                if isinstance(plan, dict):
+                    cid = plan.get("concept_id")
+                    if cid:
+                        refs.add(cid)
+                for p in rec.get("caption_facts_principles_violated") or []:
+                    if isinstance(p, dict):
+                        ppid = p.get("principle_id")
+                        if ppid:
+                            refs.add(ppid)
+                if concept_id not in refs:
+                    continue
+                severity = rec.get("severity") or "good"
+                outcome = "violated" if severity in VIOLATING else "clean"
+                opponent_name = (
+                    g.get("opponent")
+                    or (g.get("black") if g.get("user_color") == "white" else g.get("white"))
+                )
+                evidence.append({
+                    "game_id": gid,
+                    "move_number": rec.get("move_number"),
+                    "move_san": rec.get("move_san"),
+                    "fen_before": rec.get("fen_before"),
+                    "fen_after": rec.get("fen_after"),
+                    "outcome": outcome,
+                    "severity": severity,
+                    "cp_loss": rec.get("cp_loss") or 0,
+                    "opponent": opponent_name,
+                    "date_played": g.get("date_played") or g.get("imported_at"),
+                    "result": g.get("result"),
+                    "platform": g.get("platform"),
+                    "opening_name": g.get("opening_name"),
+                })
+                if len(evidence) >= 30:
+                    break
+            if len(evidence) >= 30:
+                break
+
+        # Sort: most recent + clean first
+        evidence.sort(key=lambda e: (
+            0 if e["outcome"] == "clean" else 1,
+            -(int(_iso_to_ts(e.get("date_played")) or 0)),
+        ))
+
+        clean_count = sum(1 for e in evidence if e["outcome"] == "clean")
+        violated_count = sum(1 for e in evidence if e["outcome"] == "violated")
+
+        return {
+            "concept_id": concept_id,
+            "label": (PRINCIPLES_BY_ID.get(concept_id) or {}).get("name") or concept_id,
+            "found": True,
+            "mastered_at": row.get("mastered_at"),
+            "last_violation_at": row.get("last_violation_at"),
+            "streak_clean": row.get("streak_clean", 0),
+            "clean_games_total": row.get("clean_games_total", 0),
+            "violations_total": row.get("violations_total", 0),
+            "evidence": evidence,
+            "counts": {
+                "clean": clean_count,
+                "violated": violated_count,
+                "total": len(evidence),
+            },
+        }
+
+    except Exception as e:
+        logger.exception(f"[concepts/evidence/{concept_id}] failed: {e}")
+        return {"concept_id": concept_id, "evidence": [], "error": str(e)}
+
+
+def _iso_to_ts(s):
+    """Helper: parse ISO date string to unix timestamp for sorting."""
+    if not s:
+        return 0
+    try:
+        from datetime import datetime
+        if isinstance(s, str):
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        else:
+            dt = s
+        return dt.timestamp()
+    except Exception:
+        return 0
+
+
+@router.post("/concepts/demote/{concept_id}")
+async def demote_concept(concept_id: str, user: User = Depends(get_current_user)):
+    """User-triggered honest demotion — MasteryPanel V2 demote button.
+
+    Built 2026-06-06 per docs/mastery_panel_cleanup_scope.md V2 section.
+    Mirror of /engine2/skill-demote but for the user_concept_understanding
+    namespace. When the user clicks "I don't really get this" on a
+    demonstrated row, this clears the mastered_at stamp and resets the
+    streak — surfacing the concept for fresh coaching attention.
+
+    NOT a destructive operation: clean_games_total / violations_total
+    history is preserved. Only the mastery STAMP is removed.
+    """
+    global db
+    try:
+        result = await db.user_concept_understanding.update_one(
+            {"user_id": user.user_id, "concept_id": concept_id},
+            {"$set": {
+                "mastered_at": None,
+                "acknowledged": False,
+                "streak_clean": 0,
+                "demoted_at": (await _now_iso_str()),
+                "demoted_by_user": True,
+            }},
+        )
+        if result.matched_count == 0:
+            return {"success": False, "error": "concept_id not found for this user"}
+        return {"success": True, "concept_id": concept_id, "demoted": True}
+    except Exception as e:
+        logger.exception(f"[concepts/demote/{concept_id}] failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def _now_iso_str():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 @router.get("/concepts/mastery-detail")
 async def get_mastery_detail(user: User = Depends(get_current_user)):
     """
