@@ -28,9 +28,30 @@ Do NOT invoke for:
 - The feature name (used as `docs/<name>_scope.md` filename)
 - A rough description from Mohit of what the product should do
 
-## The 7-section template
+## The 7-section template (+ Section 0 audit)
 
-Every scope document has exactly these 7 sections. Don't add more. Don't skip any.
+Every scope document has exactly these 7 sections, **preceded by a mandatory Section 0 audit**. Don't add more. Don't skip any.
+
+### 0. Existing surfaces audit (mandatory, BEFORE writing any other section)
+
+Added 2026-06-05 after Mohit caught a real failure: I wrote a full scope doc for "PersonalConceptCard" without checking that the existing UnifiedProgress page already had three surfaces for the same concept (Currently working on / Also tracking / Archived). Same data, same user need, different vocabulary. The new feature would have created shelf clutter.
+
+**Before writing Section 1**, answer these:
+
+1. **What existing pages/components/surfaces touch this user need?** Grep / glob the frontend for related routes (`Progress`, `Insights`, `Lab`, `Home`, etc.), backend for related collections (anything ending in `_understanding`, `_mastery`, `_progress`, `_pattern`), and CLAUDE.md / memory notes for prior work.
+
+2. **For each existing surface found, what does it ALREADY provide?** Be specific — render-output level, not "it does coaching." Example: *"UnifiedProgress page renders an 'Active pattern' card with reduction% over 90 days and clean-streak count, sourced from `narrative.weaknesses[0]` + `proof.primary_pattern.reduction_pct`."*
+
+3. **Where is the OVERLAP and where is the GENUINE differentiation?** List both honestly. Overlap doesn't kill the feature; unacknowledged overlap does.
+
+4. **Decision based on overlap:** one of three paths:
+   - **EXTEND existing** — the new value lands as an upgrade to an existing surface. Lower risk. Recommended default.
+   - **PARALLEL feature** — the differentiation is strong enough to justify a separate surface. Must be explicitly argued.
+   - **REPLACE existing** — the new feature obsoletes the old. Rare; requires migration plan.
+
+**This audit blocks the rest of the document.** If you skip it and Mohit catches an overlap later, the scope doc is invalidated and you start over. The cost of doing it now is 10 minutes of grep + reading. The cost of skipping it is a rewritten scope, a confused build, or a shipped clutter.
+
+Anti-pattern this catches: writing "What it is" before checking what already IS. See [[check-for-existing-UI-before-building-offline]] memory note.
 
 ### 1. What it is
 
@@ -107,11 +128,13 @@ Examples:
 ## Steps to run this skill
 
 1. Identify the feature name (use snake_case, e.g. `personal_concept_card`).
-2. Confirm the file path: `docs/<feature_name>_scope.md`.
-3. Write the document using the 7-section template above.
-4. **Surface the document to Mohit for signoff.** Either paste it inline or push it as a PR. Do not assume signoff.
-5. Wait for explicit signoff ("locked", "ship it", "yes go").
-6. ONLY THEN hand off to `/lock-via-data` (for numeric thresholds) and `/audit-pre-code` (pre-code checklist).
+2. **Run Section 0 FIRST** — grep / glob / read existing surfaces, document overlap honestly. Don't write any other section until this is complete.
+3. **Pause and surface the Section 0 findings to Mohit before writing more.** If Section 0 reveals significant overlap, the right next move may be `EXTEND` (modify scope to enhance existing) or `REPLACE`, not the proposed parallel feature. Don't write 6 more sections only to invalidate them.
+4. Once Section 0 path is agreed (EXTEND / PARALLEL / REPLACE), confirm the file path: `docs/<feature_name>_scope.md`.
+5. Write sections 1-7 using the template.
+6. **Surface the document to Mohit for signoff.** Either paste it inline or push it as a PR. Do not assume signoff.
+7. Wait for explicit signoff ("locked", "ship it", "yes go").
+8. ONLY THEN hand off to `/lock-via-data` (for numeric thresholds) and `/audit-pre-code` (pre-code checklist).
 
 ## Output format
 
@@ -121,13 +144,14 @@ The deliverable is the scope document itself, plus a confirmation message:
 SCOPE DOCUMENT WRITTEN: docs/<feature_name>_scope.md
 
 Sections covered:
-  ✅ What it is
-  ✅ What the user sees (mockup)
-  ✅ In scope (V1)
-  ✅ Explicitly out of scope
-  ✅ Success criteria
-  ✅ Open questions ({N})
-  ✅ Pre-code requirements
+  ✅ 0. Existing surfaces audit (EXTEND / PARALLEL / REPLACE: <choice>)
+  ✅ 1. What it is
+  ✅ 2. What the user sees (mockup)
+  ✅ 3. In scope (V1)
+  ✅ 4. Explicitly out of scope
+  ✅ 5. Success criteria
+  ✅ 6. Open questions ({N})
+  ✅ 7. Pre-code requirements
 
 AWAITING MOHIT SIGNOFF before any code is written.
 After signoff, run /lock-via-data on the numeric decisions, then /audit-pre-code before the first file.

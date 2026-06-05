@@ -1,8 +1,12 @@
 # PersonalConceptCard V1 — Scope Document
 
-**Status:** AWAITING MOHIT SIGNOFF (2026-06-05)
-**Skill applied:** `/scope-driven-development`
-**Next skills:** `/lock-via-data` (for ranking formula, once mongo's back) → `/audit-pre-code` (before first file)
+> ⚠️ **SUPERSEDED 2026-06-05** — Mohit caught significant overlap with the existing UnifiedProgress page surfaces ("Currently working on" / "Also tracking" / "Archived"). This scope doc was written WITHOUT the Section 0 existing-surfaces audit (the audit didn't exist in the skill yet — it was added after this failure). Decision: **EXTEND existing UnifiedProgress** instead of building a parallel surface. Replaced by [unified_progress_v2_scope.md](unified_progress_v2_scope.md). The Phase 2 / PWC integration referenced in `Path C` will get its own scope doc in a later session.
+>
+> Kept on disk as a historical artifact of how the original PersonalConceptCard was framed before the overlap audit.
+
+**Status:** SUPERSEDED (2026-06-05) — see banner above
+**Skill applied:** `/scope-driven-development` (pre-Section-0 version — failed the overlap check)
+**Replaced by:** `docs/unified_progress_v2_scope.md`
 
 ---
 
