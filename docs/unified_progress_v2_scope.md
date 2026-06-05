@@ -167,12 +167,22 @@ The existing layout, with new body content inside each pattern card:
 
 ## 6. Open questions
 
-### Q1. Which concept inside a bucket gets surfaced in the body?
+### Q1. Which concept inside a bucket gets surfaced in the body? [LOCKED 2026-06-05]
 
-A user's `calculation_depth` bucket might cover several concepts. Which one shows in the "What you keep doing" body?
+**LOCKED: Formula C — `score = decay_sum × max(median_cp, p75_cp / 2)`**
 
-- **Why unresolved:** depends on the ranking formula bake-off we couldn't finish (mongo blocked). The same A/B/C/D candidates apply here.
-- **Unblocking step:** mongo on port 27018 reachable → resume the bake-off workflow → lock with `/lock-via-data`.
+Bake-off across 10 stratified users showed:
+- C wins outright on catastrophic_tail (DEF_WALK_KING p75=1000 lifted to score 319 under C vs 86 under B vs 3 under D)
+- C wins outright on broad_family
+- C ties B on dominant_weakness and balanced
+- A fails on balanced (recency-bias inverts ordering) and catastrophic_tail (volume-bias suppresses tail signal)
+- D fails on catastrophic_tail (log compression destroys severity differentiation)
+
+Confidence: medium. 6 of 10 users had identical shelf identity across all 4 formulas; differentiating data is effectively 4 users.
+
+**Two V1.1 follow-ups documented** (not in V1):
+1. Family cap is the bottleneck for 4 of 10 users (single-card shelves on tactical-only) — V1.1 should soften the cap when no non-tactical concept qualifies
+2. p75=1000 mate-cap creates an artifact C is sensitive to — V1.1 should clip p75 to 700 or separate mate-driven vs cp-driven p75
 
 ### Q2. Plain-language conversion — author 10-12 rules or ship with concept names?
 

@@ -1,6 +1,6 @@
 # PWC Mastery Gate (Engine 2 Phase 2) — Scope Document
 
-**Status:** AWAITING MOHIT SIGNOFF (2026-06-05)
+**Status:** SIGNED OFF 2026-06-05 (re-signed after EXPAND finding)
 **Skill applied:** `/scope-driven-development` (with Section 0 existing-surfaces audit)
 **Predecessor design draft:** [engine2_phase2_mastery_gate.md](engine2_phase2_mastery_gate.md) — earlier sketch, superseded by this scope
 **Next skills:** `/lock-via-data` (for any new numeric thresholds) → `/audit-pre-code` (before first file)
@@ -133,12 +133,14 @@ The user-visible change is **strictly subtractive on coaching volume**, not addi
 
 ## 3. In scope (V1)
 
+- **Tag PWC coach-typed messages with `concept_key`** (the EXPAND) — extend `coaching_policy` so every emitted coaching message carries the concept it's about
 - Wire `services/pwc_skill_gate.py.gate_decision()` into PWC's per-move coaching emission path
 - For each concept tagged on a coaching message, call the gate to decide SUPPRESS / DOWNGRADE / SHOW (`learning` and `unseen` collapse into SHOW)
 - For DOWNGRADE, emit a brief reminder template per family (TAC_ / OP_ / MID_ / END_ / DEF_) — about 6-8 words each
 - Behind env flag `PWC_SKILL_GATE_ENABLED`, default off, A/B rollout: 0% → Mohit's own session → 10% cohort → 50% → 100%
 - Per-decision telemetry: log `{user_id, concept_id, mastery_state, gate_decision}` to a new `pwc_skill_gate_events` collection
 - Cohort assignment via stable user-ID hash; `users.skill_gate_cohort` field set at first session post-rollout
+- `slipping` definition: `mastered_at IS NOT NULL` AND violation within last 10 games (Q1 locked)
 
 ---
 
@@ -176,12 +178,16 @@ Why two metrics: the gate's value is "less noise"; the risk is "less help when h
 
 ## 6. Open questions
 
-### Q1. What's the threshold for `slipping` vs back-to-`learning`?
+### Q1. What's the threshold for `slipping` vs back-to-`learning`? [LOCKED 2026-06-05]
 
-A user who was mastered, then violated once recently — are they "slipping" (DOWNGRADE) or back to "learning" (SHOW)? The earlier design draft said "previously mastered + violation within last 7 days." But 7 days is time-based; we already have a memory rule about not mixing time with games.
+**LOCKED: N=10 games.** A user is `slipping` if they have a `mastered_at` timestamp on the concept AND have a violation within the last 10 of their games.
 
-- **Why unresolved:** the existing pattern_decay_service uses games not days. Need to decide: "previously mastered + violation in last N games" (with N TBD via `/lock-via-data`)
-- **Unblocking step:** measure mastered→violation→back-to-clean game spacing across users; pick N at the cliff
+Probe ran across all `user_concept_understanding` rows with `mastered_at` set:
+- 83% (10/12 measured concepts) had any post-mastery violation appear within 10 games
+- Tail (median spacing for those that recurred) sat at ~6 games — 10 covers the cliff with margin
+- Cap at 10 because beyond that we're outside the "recent" intuition
+
+**Caveat:** 749 of 763 `mastered_at` stamps are from a one-shot backfill on 2026-06-04. Steady-state spacing data will accrue over the next 2-4 weeks of natural events. Re-measure then; expect the locked threshold to shift modestly. V1 ships with N=10; V1.1 will re-derive.
 
 ### Q2. DOWNGRADE message bank — author 5 (one per family) or skip and SUPPRESS even on slipping?
 
@@ -197,12 +203,17 @@ Sticky-by-user-ID gives clean A/B. Session-level could surface inconsistent beha
 - **Why unresolved:** small choice not yet made
 - **Unblocking step:** default to sticky-by-user-ID hash; session-level only if cohort assignment lags first session
 
-### Q4. PWC coaching messages currently come from the "second engine" — does the gate need to know which concept_id is on the message?
+### Q4. PWC coaching messages currently come from the "second engine" — does the gate need to know which concept_id is on the message? [EXPAND, LOCKED 2026-06-05]
 
-PWC's `move_critique` / `coaching_policy` / `coaching_voice` path doesn't always tag concept_ids on messages. The gate needs the concept_id to look up mastery.
+**EXPAND: yes, and the scope grows by one file to do it.**
 
-- **Why unresolved:** depends on what fraction of PWC messages already carry usable concept tags
-- **Unblocking step:** probe a sample of PWC coaching events, measure % that have a usable concept_id. If <50%, this scope needs to ALSO tag messages — which would push it beyond V1.
+Probe finding: only 21% of recent `coach_messages` carry ANY concept tag (`concept_key`, `rule_id`, or `concept` free-text). Strict machine-readable `concept_key` is at 11%. The fields I originally listed in this scope (`principle_id_used`, `plan.concept_id`, `caption_facts_principles_violated`) **don't exist** on `coach_messages` — those are V5/post-game-review fields. PWC uses its own taxonomy.
+
+**Concrete expand:** V1 now also writes `concept_key` on every coach-typed message that comes out of PWC's `coaching_policy` path. That's one file's worth of edit (`backend/coach_play/coaching_policy.py` plus wherever `coaching_voice` finalizes the message). Without this, the gate has no key to look up mastery on — it would return SHOW for 79% of messages, defeating the point.
+
+Family taxonomy: PWC's existing `concept_key` strings already map to `TAC_*`, `OP_*`, `MID_*`, `END_*`, `DEF_*` — no new naming required. Just ensure the field is populated where it's currently null.
+
+V1 now contains both the gate AND the tagging that the gate depends on.
 
 ---
 
