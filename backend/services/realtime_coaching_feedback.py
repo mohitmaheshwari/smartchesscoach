@@ -1295,7 +1295,18 @@ async def generate_move_feedback(
         # a clear win. socratic_question / encouragement / etc. stay
         # on PWC's engine for this phase; those are separate surfaces
         # and not in scope.
-        if os.environ.get("PWC_USE_CENTRAL_CAPTION_PIPELINE", "false").lower() == "true":
+        # 2026-06-06 — divergence telemetry. Even when the flag is OFF,
+        # we shadow-call the central pipeline and log when central
+        # would have spoken differently. This gives us prod data for
+        # Phase 3 rollout decisions without affecting user-facing
+        # behavior. Best-effort; failures are silent.
+        _pwc_central_telemetry_only = os.environ.get(
+            "PWC_CENTRAL_CAPTION_TELEMETRY", "false"
+        ).lower() == "true"
+        _pwc_central_active = os.environ.get(
+            "PWC_USE_CENTRAL_CAPTION_PIPELINE", "false"
+        ).lower() == "true"
+        if _pwc_central_active or _pwc_central_telemetry_only:
             try:
                 from services.caption_pipeline import (
                     build_move_teaching_decision, MoveInputs, CrossMoveState,
@@ -1337,7 +1348,32 @@ async def generate_move_feedback(
                 _central_caption = (
                     getattr(getattr(_decision, "text", None), "caption", None) or ""
                 ).strip()
-                if _central_caption:
+
+                # Divergence telemetry — emit a structured log line for
+                # every shadow call so Phase 3 rollout has a concrete
+                # signal to gate on. Categories match the migration
+                # spec §5 diff-baseline taxonomy.
+                _pwc_msg = (coaching_message or "").strip()
+                if _pwc_msg and _central_caption:
+                    if _pwc_msg == _central_caption:
+                        _divergence = "agree_clean"
+                    else:
+                        _divergence = "disagree_content"
+                elif _central_caption and not _pwc_msg:
+                    _divergence = "central_only"
+                elif _pwc_msg and not _central_caption:
+                    _divergence = "pwc_only"
+                else:
+                    _divergence = "both_silent"
+                logger.info(
+                    f"[pwc_central_telemetry] move={move_number} san={user_move} "
+                    f"divergence={_divergence} flag_active={_pwc_central_active} "
+                    f"pwc_len={len(_pwc_msg)} central_len={len(_central_caption)}"
+                )
+
+                # Apply the override ONLY when the active flag is on.
+                # Telemetry-only mode logs but doesn't change behavior.
+                if _pwc_central_active and _central_caption:
                     logger.info(
                         f"[pwc_central_migration] replacing PWC caption with central for "
                         f"move {move_number} {user_move}"

@@ -1,8 +1,26 @@
 # PWC Migration to Central Caption Pipeline — Spec
 
-**Status:** DRAFT v1 — **HIGH-RISK ARCHITECTURAL REWRITE. Awaiting Mohit explicit sign-off.**
-**Version:** v1 (2026-06-02).
+**Status:** v2 — Phase 1 baseline DONE, Phase 2 wired, Phase 3 prep IN PROGRESS (telemetry shipped 2026-06-06).
+**Version:** v2 (2026-06-06) supersedes v1 (2026-06-02).
 **Scope:** largest of the three PWC specs; multi-day, not half-day. Per [memory/project_pwc_runs_second_coaching_engine]: "Major rewrite, needs sign-off."
+
+---
+
+## Migration progress as of 2026-06-06
+
+| Phase | Status | Commit |
+|---|---|---|
+| 1 — Diff baseline (20 games) | ✅ DONE | `22eac125` (2026-06-02). 89% one-silent cases = central enrichment over PWC. 38 PWC-only cases ~all filler/cp=0. |
+| 2 — Feature-flagged dual-run | ✅ WIRED | Same commit. `PWC_USE_CENTRAL_CAPTION_PIPELINE` env flag overrides `coaching_message`. Default off. |
+| 2.5 — Divergence telemetry | ✅ SHIPPED 2026-06-06 (this session) | Adds `PWC_CENTRAL_CAPTION_TELEMETRY` flag. When ON, shadow-calls central even if main flag is off; logs structured `[pwc_central_telemetry]` line per move with divergence category (agree_clean / disagree_content / central_only / pwc_only / both_silent). Lets us collect prod data for Phase 3 rollout decisions without changing user-facing behavior. |
+| 3 — Production rollout (10% → 100%) | ⏳ PENDING | Blocked on telemetry data + Mohit sign-off on §7 questions. |
+| 4 — Legacy module cleanup | ⏳ FUTURE | After 2 weeks clean at 100%. |
+
+**Path forward (next session):**
+1. Flip `PWC_CENTRAL_CAPTION_TELEMETRY=true` on prod (no behavior change; just logs)
+2. After 1 week of organic PWC sessions, analyze the telemetry log
+3. If divergence categories match the Phase 1 baseline shape, proceed to Phase 3 rollout
+4. Otherwise, file the cases that don't match and address before flipping
 
 ---
 
