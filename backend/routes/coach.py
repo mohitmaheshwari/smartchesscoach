@@ -1305,6 +1305,17 @@ async def get_mastery_detail(user: User = Depends(get_current_user)):
     using the same logic the live coaching path uses. Useful as a
     debugging surface AND as a "what does the coach think I know"
     transparency view.
+
+    2026-06-05 filter: only LIVE-namespace concepts are returned.
+    `golden_*` and lowercase v5-plan-namespace rows (knight_fork,
+    piece_without_purpose, etc.) are filtered out — they're from a
+    deprecated taxonomy that the central pipeline doesn't emit
+    anymore. They had `mastered_at` stamped by the 2026-06-04 backfill
+    only because rows existed, not because the user demonstrated
+    mastery. Surfacing them in the UI was misleading. The gate is
+    already safe — PWC writes only TAC_/OP_/MID_/END_/DEF_/STR_
+    concept_keys, so dead-namespace IDs never reach gate_decision in
+    the live path.
     """
     global db
     try:
@@ -1313,6 +1324,10 @@ async def get_mastery_detail(user: User = Depends(get_current_user)):
             gate_decision_for_concept,
             SLIPPING_N_GAMES,
         )
+
+        # LIVE namespace = central-pipeline prefixed IDs only. Anything
+        # not matching is from the deprecated v5-plan taxonomy.
+        LIVE_PREFIXES = ("TAC_", "OP_", "MID_", "END_", "DEF_", "STR_")
 
         cursor = db.user_concept_understanding.find(
             {"user_id": user.user_id},
@@ -1324,8 +1339,12 @@ async def get_mastery_detail(user: User = Depends(get_current_user)):
         rows = await cursor.to_list(500)
 
         out = []
+        skipped_dead = 0
         for r in rows:
             cid = r.get("concept_id") or ""
+            if not any(cid.startswith(p) for p in LIVE_PREFIXES):
+                skipped_dead += 1
+                continue
             state = await get_concept_mastery_state(db, user.user_id, cid)
             decision = gate_decision_for_concept(state, cid)
             out.append({
@@ -1355,6 +1374,7 @@ async def get_mastery_detail(user: User = Depends(get_current_user)):
             "slipping": sum(1 for c in out if c["mastery_state"] == "slipping"),
             "learning": sum(1 for c in out if c["mastery_state"] == "learning"),
             "slipping_window_games": SLIPPING_N_GAMES,
+            "dead_namespace_skipped": skipped_dead,
         }
 
         return {"summary": summary, "concepts": out}

@@ -301,15 +301,36 @@ async def get_concept_mastery_state(
     if not row.get("mastered_at"):
         return "learning"
     last_violation = row.get("last_violation_at")
+    mastered_at = row.get("mastered_at")
     if not last_violation:
         return "mastered"
+
+    # 2026-06-05 BUG FIX: only count post-mastery violations toward
+    # slipping. If the violation predates mastery, the user has since
+    # accumulated a clean streak that EARNED the mastery — they're
+    # still mastered, not slipping.
+    #
+    # Symptom on prod: dozens of "slipping" rows where last_violation_at
+    # was 11-16 seconds BEFORE mastered_at — those were the violations
+    # that initially reset the streak; mastery came AFTER. Without this
+    # comparison the gate would over-DOWNGRADE for the user's lifetime.
+    #
+    # String compare works on ISO timestamps. mastered_at may be a
+    # datetime or a string depending on how the row was written.
+    def _norm(ts):
+        if ts is None:
+            return ""
+        return ts if isinstance(ts, str) else ts.isoformat()
+    if _norm(last_violation) <= _norm(mastered_at):
+        return "mastered"
+
     # Slipping check: count games imported AFTER last_violation. If
     # fewer than SLIPPING_N_GAMES, the violation is "recent" → slipping.
     try:
         count = await db.games.count_documents({
             "user_id": user_id,
             "is_analyzed": True,
-            "imported_at": {"$gt": last_violation if isinstance(last_violation, str) else last_violation.isoformat()},
+            "imported_at": {"$gt": _norm(last_violation)},
         })
         if count < SLIPPING_N_GAMES:
             return "slipping"
