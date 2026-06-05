@@ -206,4 +206,62 @@ failure_mode_clauses_opp:
 
 ---
 
+## 12. v100 failure-mode gaps — "explain blunder" still fires bare
+
+**Status:** Filed 2026-06-06. Acknowledges v100 covers most cases; this is the long tail.
+
+**Example:** `fb_644107b00f68` — Rh4 m16 in 087ea000. cp_loss=293, serious. Caption rendered: *"Rh4 is a serious mistake. exf6 was better. Before any tactical move, count attackers and defenders on every key square."*
+
+The teaching principle suffix is v104's floor principle (working as designed). But Parth wants a v100-style failure clause: WHY Rh4 specifically loses and WHY exf6 specifically helps. Neither fired.
+
+**Why it slipped:** v100 failure clauses fire only when concrete facts activate (opp_reply_san_is_check, opp_reply_creates_fork, captured_piece_type, is_exchange_losing, opp_reply_attacks_played_piece, pieces_now_undefended_present). For Rh4 specifically: opponent's PV reply may not create any of these visible facts — possibly the punishment is a multi-move plan that's not captured by single-fact predicates.
+
+**Audit needed:**
+- Pull all v104-floor-principle captions (no v100 clause fired) from the last 200 audited games
+- Categorize by what facts WERE present (opp_reply_san, eval swing, etc.)
+- Identify N most common slip patterns
+- Design 1-2 new failure-mode predicates per pattern
+
+**Why filed:** the cleanup is the same shape as the v100 work itself — find ≥2 concrete examples of each gap, design the predicate. Don't pre-build on one example. Wait for the audit corpus.
+
+---
+
+## 13. Punishment-capture recommendation ignores material balance
+
+**Status:** Filed 2026-06-06. One concrete example from Mohit.
+
+**Example:** `fb_9f984e9753fc` — Nxf7 m9 in 13ad8b4a. Caption rendered: *"Opponent's Nxf7 is a major blunder. They drop the knight — play Rxf7 to take it."* Mohit: *"better coaching is, 2 minor developed pieces are never better than a rook."*
+
+**Issue:** the punish-capture recommendation (Rxf7) tells user to take the knight, but if Rxf7 leads to a material exchange that loses the rook for a knight (likely if f7 is defended), the recommendation is technically winning material in piece count but losing in trade value (knight=3 vs rook=5).
+
+The engine cp_loss reflects the right material count, but the COACHING — "play Rxf7 to take it" — should warn when the punishment capture is a worse trade than alternatives.
+
+**Probe needed:**
+- Verify the actual best move per engine in this position. If Rxf7 is engine-best, then engine sees compensation (positional value > -2 points material) — coaching should explain WHY. If engine-best is something else, the caption is picking the wrong "punish" move.
+- Check `why_opp_punish_capture` template's gating: does it require the captured piece value ≥ moving piece value? If not, it'll recommend bad trades.
+
+**Fix sketch:** add a guard in the punish-capture predicate — fire only when `captured_piece_value >= moving_piece_value` (e.g. user_best_reply piece value ≤ what's being captured). Otherwise fall to a different variant.
+
+**Why filed:** needs engine verification on the position before designing the gate. The user is reporting bad coaching, not a confabulation — the underlying engine call may be right and only the user-facing rationale needs adjustment.
+
+---
+
+## 14. Principle-bank floor still leaking on rushed-pawn-break case
+
+**Status:** Filed 2026-06-06. Third concrete example of `[[principle_bank_is_filler]]`.
+
+**Example:** `fb_0589638c6580` — g5 m14 in 1780f8bc. cp_loss=157, mistake. Caption rendered: *"g5 is a mistake. h4 was better. When defending in the middlegame, fix your worst piece first — don't just react to the threat."*
+
+The floor principle ("fix your worst piece first") is the v104 fallback when no v100 failure clause fires. Parth's narrative: g5 is premature; Black plays Nh5 and locks the position, neutralizing the attack. The real teaching is "before pushing a pawn break, consider opponent's best defensive response."
+
+**Pattern:** v100 failure-mode predicates don't cover "rushed pawn break that fails to its defensive refutation." v104 floor principle fires generic-but-wrong-flavor teaching.
+
+**Fix sketch (predicate):**
+- `played_is_pawn_break_with_defensive_refutation`: played move is a pawn push to a square that creates a structural break, AND opp's best reply locks the structure (e.g. opp knight reaches a strong outpost that the played pawn can no longer kick).
+- Predicate text: "{played} is a rushed pawn break — Black's {opp_response_piece} {opp_response_san} locks the structure and your break loses its punch."
+
+**Why filed:** specific to pawn-break-locking, needs ≥2 concrete examples before predicate work. Third confirmation of the v104-floor-principle gap shape but the SPECIFIC predicate is unique to this case.
+
+---
+
 *Last updated: 2026-06-06*
