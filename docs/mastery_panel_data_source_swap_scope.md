@@ -1,6 +1,6 @@
 # Mastery Panel Data-Source Swap — Scope Document
 
-**Status:** AWAITING MOHIT SIGNOFF (2026-06-05)
+**Status:** SIGNED OFF 2026-06-05
 **Skill applied:** `/scope-driven-development` (with Section 0 existing-surfaces audit)
 **Next skills:** `/lock-via-data` (if numeric thresholds emerge) → `/audit-pre-code` (before first file)
 
@@ -160,31 +160,21 @@ This is a UX-discoverability criterion, not a CTR metric, because the section is
 
 ## 6. Open questions
 
-### Q1. Where exactly does the section render — above or below MasteryPanel?
+### Q1. Where exactly does the section render — above or below MasteryPanel? [LOCKED 2026-06-05]
 
-- **Why unresolved:** trade-off between freshness (newest signal first — argues for above) and continuity (existing users land on the familiar MasteryPanel — argues for below).
-- **Unblocking step:** Mohit's call after seeing a side-by-side preview, or default to BELOW.
+**LOCKED: BELOW.** Existing users land on familiar MasteryPanel first; new section augments rather than displaces.
 
-### Q2. What's the empty-state policy for a user with zero `user_concept_understanding` rows?
+### Q2. What's the empty-state policy for a user with zero `user_concept_understanding` rows? [LOCKED 2026-06-05]
 
-A brand-new user has no rows yet. The section can either hide entirely OR show an empty-state card.
+**LOCKED: HIDE the section entirely when there are no rows.** Mohit's call (2026-06-05): "don't show if there is no data." Zero rows means the user hasn't accrued any game-analysis-driven signal yet, and an empty-state card on a non-feature would be clutter.
 
-- **Why unresolved:** subtractive-at-small-N argues "show the card so new users see the system exists"; "no clutter" argues "hide until there's something."
-- **Unblocking step:** ship with the empty-state card (additive) by default; observe.
+### Q3. Should we cap the total rows rendered to prevent runaway lists? [LOCKED 2026-06-05]
 
-### Q3. Should we cap the total rows rendered to prevent runaway lists?
+**LOCKED: NO hard cap.** The per-tier collapse (top 5 + "Show all" expand) already handles the visual fold. Without distribution data, adding a hard cap would be the threshold-before-distribution sin. If p95 turns out >50 in prod, we add a cap in V1.1.
 
-Some users will have 50+ concepts in `learning` state after the backfill. The collapse helps, but a hard cap might be cleaner.
+### Q4. Should the section header link to a "/concepts/all" page for the full list? [LOCKED 2026-06-05]
 
-- **Why unresolved:** real distribution unknown — could be 5-150 concepts/user.
-- **Unblocking step:** measure `user_concept_understanding` row count per user in production. If p95 > 30, add a cap; if not, defer.
-
-### Q4. Should the section header link to a "/concepts/all" page for the full list?
-
-In case a user with 80 concepts wants to drill into one specific one without scrolling.
-
-- **Why unresolved:** building a /concepts/all page is V2 effort.
-- **Unblocking step:** default NO for V1. Collapse handles the long tail.
+**LOCKED: NO.** The per-tier collapse + "Show all" handles the long tail. Building a /concepts/all page is V2; defer until collapse proves insufficient.
 
 ---
 

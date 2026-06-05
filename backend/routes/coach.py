@@ -1276,6 +1276,24 @@ async def get_acknowledged_concepts(
         return {"total": 0, "by_type": {}, "concepts": [], "error": str(e)}
 
 
+@router.get("/principles-catalog")
+async def get_principles_catalog():
+    """Catalog of all central-pipeline principles with human names.
+
+    Built 2026-06-05 for the InGameMasteryPanel — the panel needs to
+    render PRINCIPLES_BY_ID[id].name for each concept_id without
+    bundling the full catalog in the frontend. Small (~2KB / 33
+    entries today), cacheable, no per-user logic.
+    """
+    try:
+        from services.caption_principles import PRINCIPLES
+        out = [{"id": p["id"], "name": p.get("name") or p["id"]} for p in PRINCIPLES]
+        return {"total": len(out), "principles": out}
+    except Exception as e:
+        logger.exception(f"[principles-catalog] failed: {e}")
+        return {"total": 0, "principles": [], "error": str(e)}
+
+
 @router.get("/concepts/mastery-detail")
 async def get_mastery_detail(user: User = Depends(get_current_user)):
     """

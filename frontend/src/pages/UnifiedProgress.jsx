@@ -36,6 +36,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import MasteryPanel from "@/components/coach/MasteryPanel";
+import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
 
 // ─── Weakness → training-pattern key (same mapping Home uses) ───────────────
 
@@ -720,6 +721,12 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ─── Mastery — what you've learned ─── */}
         <MasteryPanel />
+
+        {/* ─── In-game concept mastery — what the PWC gate considers
+             mastered, sourced from user_concept_understanding. Sibling
+             to MasteryPanel; auto-hides when the user has no rows.
+             See docs/mastery_panel_data_source_swap_scope.md. ─── */}
+        <InGameMasteryPanel />
 
         {/* ─── Empty-patterns fallback ─── */}
         {!derived.active && derived.tracked.length === 0 && (
