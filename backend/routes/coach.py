@@ -1240,18 +1240,18 @@ async def get_acknowledged_concepts(
 ):
     """
     Get all concepts the user has acknowledged understanding.
-    
+
     This shows what the user has learned over time.
     """
     global db
-    
+
     try:
         cursor = db.user_concept_understanding.find(
             {"user_id": user.user_id, "acknowledged": True},
             {"_id": 0, "concept_id": 1, "concept_type": 1, "concept_text": 1, "acknowledged_at": 1}
         )
         concepts = await cursor.to_list(100)
-        
+
         # Group by type
         by_type = {
             "opening": [],
@@ -1259,21 +1259,91 @@ async def get_acknowledged_concepts(
             "tactical": [],
             "positional": []
         }
-        
+
         for c in concepts:
             ct = c.get("concept_type", "positional")
             if ct in by_type:
                 by_type[ct].append(c)
-        
+
         return {
             "total": len(concepts),
             "by_type": by_type,
             "concepts": concepts
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting acknowledged concepts: {e}")
         return {"total": 0, "by_type": {}, "concepts": [], "error": str(e)}
+
+
+@router.get("/concepts/mastery-detail")
+async def get_mastery_detail(user: User = Depends(get_current_user)):
+    """
+    Per-concept mastery + the PWC Mastery Gate's verdict on each.
+
+    Built 2026-06-05 to close the visibility gap on the gate Mohit just
+    shipped. Returns every user_concept_understanding row with the
+    gate's classification (mastered / slipping / learning) computed
+    using the same logic the live coaching path uses. Useful as a
+    debugging surface AND as a "what does the coach think I know"
+    transparency view.
+    """
+    global db
+    try:
+        from services.pwc_skill_gate import (
+            get_concept_mastery_state,
+            gate_decision_for_concept,
+            SLIPPING_N_GAMES,
+        )
+
+        cursor = db.user_concept_understanding.find(
+            {"user_id": user.user_id},
+            {"_id": 0, "concept_id": 1, "concept_type": 1,
+             "mastered_at": 1, "last_violation_at": 1,
+             "streak_clean": 1, "violations_total": 1,
+             "clean_games_total": 1, "shown_count": 1},
+        )
+        rows = await cursor.to_list(500)
+
+        out = []
+        for r in rows:
+            cid = r.get("concept_id") or ""
+            state = await get_concept_mastery_state(db, user.user_id, cid)
+            decision = gate_decision_for_concept(state, cid)
+            out.append({
+                "concept_id": cid,
+                "concept_type": r.get("concept_type") or "general",
+                "mastery_state": state,
+                "gate_decision": decision["decision"],
+                "mastered_at": r.get("mastered_at"),
+                "last_violation_at": r.get("last_violation_at"),
+                "streak_clean": r.get("streak_clean", 0),
+                "violations_total": r.get("violations_total", 0),
+                "clean_games_total": r.get("clean_games_total", 0),
+            })
+
+        out.sort(
+            key=lambda c: (
+                {"mastered": 0, "slipping": 1, "learning": 2, "unseen": 3}.get(
+                    c["mastery_state"], 4
+                ),
+                -(c.get("clean_games_total") or 0),
+            )
+        )
+
+        summary = {
+            "total": len(out),
+            "mastered": sum(1 for c in out if c["mastery_state"] == "mastered"),
+            "slipping": sum(1 for c in out if c["mastery_state"] == "slipping"),
+            "learning": sum(1 for c in out if c["mastery_state"] == "learning"),
+            "slipping_window_games": SLIPPING_N_GAMES,
+        }
+
+        return {"summary": summary, "concepts": out}
+
+    except Exception as e:
+        logger.exception(f"[concepts/mastery-detail] failed: {e}")
+        return {"summary": {}, "concepts": [], "error": str(e)}
 
 
 @router.get("/concepts/learning-progress")
