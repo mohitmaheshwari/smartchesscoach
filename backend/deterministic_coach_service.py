@@ -1762,7 +1762,7 @@ def generate_drill_positions(analysis: Dict, game: Dict, weakness_patterns: Dict
             "correctMoves": [m.get("best_move")],
             "gameId": game.get("game_id"),
             "moveNumber": m.get("move_number"),
-            "hint": f"Avoid {m.get('move', '')} which loses {round(cp_loss/100, 1)} pawns" if cp_loss >= 100 else None,
+            "hint": f"Avoid {m.get('move', '')} — it leaves the position about {round(cp_loss/100, 1)} pawns' worth worse" if cp_loss >= 100 else None,
             "yourMove": m.get("move"),
             "evalSwing": -cp_loss
         }
