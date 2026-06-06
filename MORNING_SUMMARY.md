@@ -41,6 +41,29 @@ docker exec chess-coach-backend python /app/backend/scripts/backfill_game_metada
 
 ---
 
+## 3b. FULL-CORPUS scale of the why-gap (2026-06-07, all 6,610 games)
+
+The flagged 511 was a sample. Scanning every game's stored captions for bare mistakes (cp_loss≥100, no position-specific why):
+
+| | count |
+|---|---|
+| **USER bare mistakes** | **27,381** |
+| **OPP bare mistakes** | **32,198** |
+
+User failure-mode distribution → **prioritized addressable buckets**:
+| bucket | N | covered by |
+|---|---|---|
+| mid_loss_other (100-300cp) | 13,043 | hard — positional drift, often no sharp why |
+| big_loss_other (≥300cp) | 6,112 | many are **played_HANGS** (my detector) / discoveries my cheap classifier missed |
+| missed_capture (trade) | 3,415 | extend missed_capture predicate |
+| missed_check | 2,305 | missed-forcing predicate |
+| **missed_FREE_capture** | **1,995** | ⚠️ v110 missed_capture predicate SHOULD cover these — **investigate** (stale pre-v110 renders, or a predicate gap) |
+| **missed_MATE** | **511** | ✅ `missed_mate_detector` (`f2cd22e8`, tested) |
+
+**Caveats:** (1) This is an UPPER bound — many are stale pre-v110 renders that re-analysis is actively replacing (same mechanism as the "loses about N pawns" stale data). It shrinks as the queue drains. (2) The 1,995 still-bare missed_FREE_captures are the most actionable anomaly — if they're at v110 and still bare, the missed_capture predicate has a coverage gap worth a focused look.
+
+**Takeaway for prioritizing the build:** wiring `played_hangs` + `missed_mate` + investigating the missed_FREE_capture gap addresses a large, clean slice; the opp buckets (V3/V4) are the other half; `mid_loss_other` is the long-tail hard part.
+
 ## 3. The caption "why"-gap — data-locked roadmap (the core product task)
 
 Forensics on the flagged-bare captions (158→166 true-bare, FENs saved). Failure-mode distribution of the **user-move** bare captions:
