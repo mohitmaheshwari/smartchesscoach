@@ -12,6 +12,7 @@
 | `3416b4f8` | **PWC telemetry flag** in docker-compose (starts Phase-3 soak; shadow-only) | Low (env-only, no user-facing change) | safe |
 | `663fd63b` | **played_hangs_detector** — standalone, tested, **NOT wired** | None (nothing calls it yet) | n/a until wired |
 | `57dd1984` | **severity_mismatch_guard** — standalone, tested (4 fires/0 false), **NOT wired** | None (nothing calls it yet) | n/a until wired |
+| `5f72086f` | **opp_quiet_threat_detector v0.1** — opp left a piece hanging (154 fires/408g), **NEEDS REVIEW** (gate caveat) | None (nothing calls it yet) | n/a until wired |
 | earlier | V4-LLM gate (`b3d57cde`), worker healthcheck fix (`ad661644`), 2 cp_loss reframes (`47f017af`) | Low | safe |
 | earlier | Frontend: eval bar+graph, "Open Game" btn, shape-promotion | Low (frontend) | needs frontend-builder rebuild |
 
