@@ -11,6 +11,7 @@
 | `571d6586` | **Metadata fix** — canonical opponent/white/black + date_played in sync + backfill script | Low (isolated to import path) | safe |
 | `3416b4f8` | **PWC telemetry flag** in docker-compose (starts Phase-3 soak; shadow-only) | Low (env-only, no user-facing change) | safe |
 | `663fd63b` | **played_hangs_detector** — standalone, tested, **NOT wired** | None (nothing calls it yet) | n/a until wired |
+| `57dd1984` | **severity_mismatch_guard** — standalone, tested (4 fires/0 false), **NOT wired** | None (nothing calls it yet) | n/a until wired |
 | earlier | V4-LLM gate (`b3d57cde`), worker healthcheck fix (`ad661644`), 2 cp_loss reframes (`47f017af`) | Low | safe |
 | earlier | Frontend: eval bar+graph, "Open Game" btn, shape-promotion | Low (frontend) | needs frontend-builder rebuild |
 
@@ -82,9 +83,9 @@ Then add to the returned facts dict: `"played_hangs_clause": clause_for(played_h
 
 ## 5. Designs ready to build (data-locked, NOT shipped unattended)
 
-### A. Severity-mismatch guard (CAPTION_BACKLOG #18, and the §3 finding)
-**Rule:** the caption's severity word must come from the canonical `severity` field — never a positive/bland framing when `severity ∈ {blunder, mistake}` / cp_loss is large.
-**Build:** a final guard in the V5 render — if `is_user and cp_loss >= 200` and the caption lacks a severity word (or has positive framing like "is safe"/"joins the game"), suppress the positive caption and fall to the bare-but-honest "{move} is a {severity}." (Then a why-predicate fills the why.) Low misfire — it's a correction, not a new explanation. **Highest value/risk ratio of the remaining work.**
+### A. Severity-mismatch guard (CAPTION_BACKLOG #18) — ✅ BUILT + TESTED (`57dd1984`), NOT wired
+`backend/services/severity_mismatch_guard.py` + test. `is_severity_mismatch(caption, cp_loss, is_user)` returns True when a user move's caption positively frames a real blunder. Validated: 4 fires / 0 false-fires on a 29-caption control.
+**Wiring (your review):** in the V5 render, after the caption is built, if `is_severity_mismatch(caption, cp_loss, is_user)` → suppress the positive caption and fall to an honest `"{move} is a {severity}."` (a why-predicate then fills the reason). Low misfire — correction, not new explanation. **Highest value/risk ratio of the remaining work — recommend wiring first.**
 
 ### B. Opp-failure V3 — traded_active_for_inactive (the Nxf7 class)
 **Needs:** opp recapture-chain PV (now stored, Phase 0) + active/inactive piece classification. **Lock the active/inactive threshold on the corpus distribution first** (threshold-before-distribution) — do NOT guess it. ~part of the 52 opp-move bucket.
