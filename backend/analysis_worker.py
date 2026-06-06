@@ -431,7 +431,15 @@ def claim_next_job(db):
                 "updated_at": datetime.now(timezone.utc)
             }
         },
-        sort=[("queued_at", 1)],  # FIFO - oldest first
+        # 2026-06-06: priority-first, then FIFO. Live games (freshly
+        # finished, enqueued by the import path) get priority=10 so they
+        # jump ahead of bulk re-analysis jobs (priority=0 or missing).
+        # MongoDB sorts missing fields as null; with priority DESC, null
+        # sorts LAST — so legacy/bulk jobs without a priority field fall
+        # behind explicit high-priority live games. Within the same
+        # priority, oldest-first (queued_at ASC) preserves fairness.
+        # Prevents the "900 bulk jobs block a game I just played" problem.
+        sort=[("priority", -1), ("queued_at", 1)],
         return_document=True
     )
     return job

@@ -203,6 +203,10 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
                 "status": "pending",
                 "queued_at": datetime.now(timezone.utc).isoformat(),
                 "attempts": 0,
+                # 2026-06-06: live games (freshly imported/finished) get
+                # high priority so they jump ahead of bulk re-analysis
+                # jobs (priority=0). Worker sorts priority DESC, queued_at ASC.
+                "priority": 10,
             })
         except Exception as q_err:
             logger.error(f"Failed to queue game {doc['game_id']} for analysis: {q_err}")

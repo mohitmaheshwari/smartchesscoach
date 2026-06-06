@@ -104,6 +104,9 @@ async def run(args):
                     "queued_at": datetime.now(timezone.utc).isoformat(),
                     "attempts": 0,
                     "enqueued_by": "reanalyze_recent_games_2026-06-06",
+                    # 2026-06-06: bulk re-analysis is LOW priority so it
+                    # never blocks freshly-played live games (priority=10).
+                    "priority": 0,
                 })
             enq += 1
             total_enqueued += 1
