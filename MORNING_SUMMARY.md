@@ -20,9 +20,10 @@ The bare-caption "gap" is **entirely stale pre-v110 renders.** The current capti
 **Revised real work:**
 1. **Let the queue drain** — this IS the fix. Consider re-prioritizing/scaling workers (within the 4-core limit) to drain faster.
 2. **Spot-check**: after a game re-renders at v110, confirm its bare captions gained whys (validates the stale-render theory). If any v110 render is STILL bare, THAT specific case is a real gap — but expect very few.
-3. **Opp V3/V4** — the opp-failure framework is the newest, so these are the *only* plausibly-net-new additions. But given I was 3/3 redundant tonight, **verify V3/V4 against existing opp machinery (`opp_failure_*`) before building.** V4 detector `5f72086f` is v0.1; treat the data-locked designs (§5) as the starting point, not a green light.
+3. **Opp V4 is ALSO redundant** — `why_opp_hanging` (R12:232/348, "Their {piece} on {square} is now undefended — take it", gated by `opp_pieces_now_undefended_present`) already covers `opp_quiet_threat_detector`. So **4 of 5 detectors are redundant** (played_hangs, missed_mate, severity_mismatch, opp_quiet_threat).
+4. **Opp V3 (traded_active_for_inactive)** is the ONLY one with no existing clause found — so it's the lone plausibly-net-new caption predicate. But I was 4/5 redundant tonight, so **verify it carefully against the full opp_failure_* + why_opp_* set before building.** Its corpus data (§5B) is real regardless.
 
-**Net:** keep metadata fix + PWC flag (clean, real). Delete/ignore the 3 caption detectors. The genuinely valuable output is this DIAGNOSIS — it saves you from building ~5 redundant predicates and points the fix at re-analysis throughput.
+**Net:** keep metadata fix + PWC flag — they're the only clean, real code changes of the night. **Delete/ignore all 5 caption detectors** (4 redundant, 1 to-verify). The genuinely valuable output is the **DIAGNOSIS**: the v110 caption system is already comprehensive; the 59k "bare" captions are stale pre-v110 renders; **re-analysis is the complete fix** — so the highest-leverage action is maximizing re-analysis throughput, not writing predicates. Lesson logged: grep the existing layer BEFORE building ([[feedback_check_for_existing_ui_before_building_offline]]).
 
 ---
 
