@@ -89,6 +89,13 @@ class MoveEvaluation:
     eval_swing: int = 0                  # Absolute eval change
     is_sacrifice: bool = False           # Material sacrifice detected
     is_brilliant: bool = False           # Brilliant move (sacrifice + only good move)
+    # 2026-06-06: opp-move analysis. Previously only USER moves got a
+    # detail record; opponent best_move/PV were computed then discarded.
+    # Now opponent mistakes/blunders also get a record so the caption
+    # layer can explain WHY the opponent's move was bad (what they
+    # should have played + the punishment line). This flag lets
+    # user-stats computation exclude opponent records.
+    is_opponent_move: bool = False
 
 @dataclass
 class GameAnalysis:
@@ -499,6 +506,12 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
             return {"error": "Failed to parse PGN"}
         
         moves_analysis = []
+        # 2026-06-06: opponent mistake/blunder detail records kept in a
+        # SEPARATE list so the widely-consumed user-only `moves` structure
+        # (cognitive-gap extraction, puzzle extraction, positional prev-eval
+        # indexing) stays untouched. The V5 caption layer merges this into
+        # its FEN-keyed eval_lookup so opp moves can carry best_move + PV.
+        opponent_analysis = []
         white_cp_losses = []
         black_cp_losses = []
         white_classifications = []  # Track classifications for CAPS2-style accuracy
@@ -687,7 +700,65 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         is_brilliant=move_is_brilliant
                     )
                     moves_analysis.append(move_eval)
-                
+
+                # 2026-06-06 — OPPONENT-MOVE DETAIL for opp mistakes/blunders.
+                # Mirror of the user-move record above, gated on the move being
+                # the opponent's AND classified as an error. The engine already
+                # computed best_move (line ~530) + the eval; previously that was
+                # discarded for opponent moves. Storing it lets the caption layer
+                # explain WHY the opponent's move was bad (missed capture, missed
+                # mate, traded active pieces for inactive, etc.). Cost is bounded:
+                # only opp errors get the PV treatment, same gate as user PV.
+                else:
+                    _opp_is_error = classification in (
+                        MoveClassification.INACCURACY,
+                        MoveClassification.MISTAKE,
+                        MoveClassification.BLUNDER,
+                    )
+                    if _opp_is_error:
+                        # board currently has the played move pushed (line ~535).
+                        board.pop()  # undo to reach the pre-move (opp-to-move) position
+                        opp_fen_before = board.fen()
+                        # best_move / best_move_san were computed above (lines
+                        # ~530-531) for THIS pre-move position — reuse them.
+                        opp_pv_after_played: List[str] = []
+                        opp_pv_after_best: List[str] = []
+                        if best_move != move:
+                            _bb = board.copy()
+                            _bb.push(best_move)
+                            opp_pv_after_best = engine.get_principal_variation(_bb, depth=12, pv_length=4)
+                            _pb = board.copy()
+                            _pb.push(move)
+                            opp_pv_after_played = engine.get_principal_variation(_pb, depth=12, pv_length=4)
+                        board.push(move)  # redo
+                        opp_fen_after = board.fen()
+                        opponent_analysis.append(MoveEvaluation(
+                            move_number=(move_number + 1) // 2,
+                            move_san=move_san,
+                            move_uci=move.uci(),
+                            player=player,
+                            fen_before=opp_fen_before,
+                            eval_before=prev_eval,
+                            eval_after=current_eval,
+                            cp_loss=cp_loss,
+                            classification=classification,
+                            best_move_san=best_move_san if best_move != move else move_san,
+                            best_move_uci=best_move.uci() if best_move != move else move.uci(),
+                            is_mate_before=prev_mate is not None,
+                            is_mate_after=current_mate is not None,
+                            mate_in_before=prev_mate,
+                            mate_in_after=current_mate,
+                            pv_after_played=opp_pv_after_played,
+                            pv_after_best=opp_pv_after_best,
+                            threat_after_played=None,
+                            fen_after=opp_fen_after,
+                            is_turning_point=False,
+                            eval_swing=abs(current_eval - prev_eval),
+                            is_sacrifice=False,
+                            is_brilliant=False,
+                            is_opponent_move=True,
+                        ))
+
                 # Update previous evaluation for next iteration
                 prev_eval = current_eval
                 prev_mate = current_mate
@@ -696,8 +767,9 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         accuracy_white = calculate_accuracy(white_cp_losses, white_classifications)
         accuracy_black = calculate_accuracy(black_cp_losses, black_classifications)
         
-        # User-specific stats
-        user_moves = [m for m in moves_analysis]
+        # User-specific stats. moves_analysis is user-only (opp records live
+        # in opponent_analysis); the filter is defensive but a no-op now.
+        user_moves = [m for m in moves_analysis if not getattr(m, "is_opponent_move", False)]
         user_blunders = sum(1 for m in user_moves if m.classification == MoveClassification.BLUNDER)
         user_mistakes = sum(1 for m in user_moves if m.classification == MoveClassification.MISTAKE)
         user_inaccuracies = sum(1 for m in user_moves if m.classification == MoveClassification.INACCURACY)
@@ -709,38 +781,45 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         user_cp_losses = white_cp_losses if user_color == "white" else black_cp_losses
         user_accuracy = accuracy_white if user_color == "white" else accuracy_black
 
+        def _serialize_move(m):
+            return {
+                "move_number": m.move_number,
+                "move": m.move_san,
+                "move_uci": m.move_uci,
+                "fen_before": m.fen_before,
+                "fen_after": m.fen_after,
+                "evaluation": m.classification,
+                "cp_loss": m.cp_loss,
+                "eval_before": m.eval_before,
+                "eval_after": m.eval_after,
+                "eval_swing": m.eval_swing,
+                "best_move": m.best_move_san,
+                "best_move_uci": m.best_move_uci,
+                "is_best": m.cp_loss <= CP_THRESHOLDS["excellent"],
+                "is_turning_point": m.is_turning_point,
+                "mate_info": {
+                    "before": m.mate_in_before,
+                    "after": m.mate_in_after
+                } if m.is_mate_before or m.is_mate_after else None,
+                # PV data for explaining WHY moves are good/bad
+                "pv_after_played": m.pv_after_played,   # Line showing the problem
+                "pv_after_best": m.pv_after_best,       # Line showing better continuation
+                "threat": m.threat_after_played,        # Immediate threat opponent has
+                # Brilliant move data
+                "is_sacrifice": m.is_sacrifice,
+                "is_brilliant": m.is_brilliant,
+                # 2026-06-06: marks opponent mistake/blunder records.
+                "is_opponent_move": m.is_opponent_move,
+            }
+
         return {
             "success": True,
-            "moves": [
-                {
-                    "move_number": m.move_number,
-                    "move": m.move_san,
-                    "move_uci": m.move_uci,
-                    "fen_before": m.fen_before,
-                    "fen_after": m.fen_after,
-                    "evaluation": m.classification,
-                    "cp_loss": m.cp_loss,
-                    "eval_before": m.eval_before,
-                    "eval_after": m.eval_after,
-                    "eval_swing": m.eval_swing,
-                    "best_move": m.best_move_san,
-                    "best_move_uci": m.best_move_uci,
-                    "is_best": m.cp_loss <= CP_THRESHOLDS["excellent"],
-                    "is_turning_point": m.is_turning_point,
-                    "mate_info": {
-                        "before": m.mate_in_before,
-                        "after": m.mate_in_after
-                    } if m.is_mate_before or m.is_mate_after else None,
-                    # PV data for explaining WHY moves are good/bad
-                    "pv_after_played": m.pv_after_played,   # Line showing the problem
-                    "pv_after_best": m.pv_after_best,       # Line showing better continuation
-                    "threat": m.threat_after_played,        # Immediate threat opponent has
-                    # Brilliant move data
-                    "is_sacrifice": m.is_sacrifice,
-                    "is_brilliant": m.is_brilliant
-                }
-                for m in moves_analysis
-            ],
+            "moves": [_serialize_move(m) for m in moves_analysis],
+            # 2026-06-06: opponent mistake/blunder detail (best_move + PV),
+            # kept separate from user `moves`. The V5 caption layer merges
+            # these into its FEN-keyed eval_lookup so opp captions can
+            # explain WHY (missed capture, missed mate, bad trade).
+            "opponent_moves": [_serialize_move(m) for m in opponent_analysis],
             "user_stats": {
                 "blunders": user_blunders,
                 "mistakes": user_mistakes,

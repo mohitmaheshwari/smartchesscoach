@@ -192,6 +192,11 @@
     {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present", "moving_piece_type": "present", "cp_loss": {"gte": 50}}, "variant": "failure_played_piece_attacked"},
     {"when": {"pieces_now_undefended_present": true, "lost_defender_lead_clause": "absent"}, "variant": "failure_hangs_piece"}
   ],
+  "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
+  "failure_mode_clauses_opp": [
+    {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
+    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"}
+  ],
   "teaching_principles": {
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
     "failure_allows_fork":                "When two of your pieces a knight's jump apart, check for forks before any move",
@@ -228,11 +233,13 @@
     {"when": {"opp_played_landed_unsafe": true, "target_square": "present"}, "variant": "why_opp_unsafe"}
   ],
   "suppression": [
-    {"when": {"mover_is_user": false, "why_clause": "absent", "cp_loss": {"lt": 250}}},
-    {"when": {"mover_is_user": false, "opp_has_concrete_why": "absent", "cp_loss": {"lt": 100}}},
+    {"when": {"mover_is_user": false, "why_clause": "absent", "opp_failure_clause": "absent", "cp_loss": {"lt": 250}}},
+    {"when": {"mover_is_user": false, "opp_has_concrete_why": "absent", "opp_failure_clause": "absent", "cp_loss": {"lt": 100}}},
     {"when": {"mover_is_user": true, "why_clause": "absent", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"lt": 250}}}
   ],
   "select_variant": [
+    {"when": {"mover_is_user": false, "opp_failure_clause": "present", "why_clause": "present"}, "variant": "opp_with_failure_and_why"},
+    {"when": {"mover_is_user": false, "opp_failure_clause": "present"}, "variant": "opp_with_failure"},
     {"when": {"mover_is_user": false, "opp_has_concrete_why": true, "why_clause": "present"}, "variant": "opp_with_why"},
     {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
     {"when": {"mover_is_user": false}, "variant": "opp"},
@@ -266,6 +273,10 @@
     "user_with_failure_and_principle": "{played_san} {failure_clause}. {teaching_principle}.",
     "opp": "Opponent's {played_san} {severity_phrase}.",
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
+    "opp_with_failure_and_why": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}. {why_clause}",
+    "opp_with_failure": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}.",
+    "opp_failure_missed_capture": "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
+    "opp_failure_missed_mate": "they missed {opp_missed_mate_san}, which forced checkmate",
 
     "failure_walks_into_check": "loses to {opp_reply_san}",
     "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",

@@ -656,6 +656,14 @@ def _r12_render(f):
         ),
         "opp_pieces_now_undefended_present": opp_hanging is not None,
         "opp_played_landed_unsafe": bool(f.get("opp_played_landed_unsafe")),
+        # Opp failure-mode inputs (2026-06-06) — opp had a better move and
+        # didn't play it. Drives failure_mode_clauses_opp in R12_blunder.json.
+        "opp_failure_missed_capture": bool(f.get("opp_failure_missed_capture")),
+        "opp_missed_capture_san": f.get("opp_missed_capture_san"),
+        "opp_missed_capture_piece": f.get("opp_missed_capture_piece"),
+        "opp_missed_capture_square": f.get("opp_missed_capture_square"),
+        "opp_failure_missed_mate": bool(f.get("opp_failure_missed_mate")),
+        "opp_missed_mate_san": f.get("opp_missed_mate_san"),
     })
     # For opp-side why_clauses, captured_piece_type comes from a different
     # source (the user's best reply, not opp's reply). Override when opp side.

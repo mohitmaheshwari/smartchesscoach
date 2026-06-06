@@ -330,6 +330,20 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
                     if principle:
                         facts["teaching_principle"] = principle
 
+    # 2026-06-06 — opponent-side failure-mode clauses, mirror of the
+    # user-side block above but for OPPONENT moves. Explains WHY the
+    # opponent's move was bad (missed capture / missed mate) instead of
+    # the bare "Opponent's X is a mistake." shell. Sets opp_failure_clause
+    # so the opp_with_failure variant can render it.
+    if cfg.get("failure_mode_clauses_opp") and facts.get("mover_is_user") is False:
+        ofm_match = select_first_match(cfg["failure_mode_clauses_opp"], facts)
+        if ofm_match:
+            ofm_variant = ofm_match.get("variant")
+            if ofm_variant:
+                rendered = render_template(rule_name, ofm_variant, facts)
+                if rendered:
+                    facts["opp_failure_clause"] = rendered
+
     if is_suppressed(rule_name, facts):
         return None
 

@@ -4810,6 +4810,52 @@ def extract_facts(
     is_check = board_after.is_check()
     is_checkmate = board_after.is_checkmate()
     is_castling = board_before.is_castling(played_move)
+
+    # ── OPPONENT FAILURE-MODE facts (2026-06-06) ───────────────────────
+    # Only meaningful for OPPONENT moves where the engine's best_move was
+    # available (Phase 0: stockfish_service now stores opp best_move + PV
+    # for opp mistakes/blunders). These explain WHY the opponent's move
+    # was bad — what they should have played — instead of the bare
+    # "Opponent's X is a mistake." shell. Parallel to the user-side
+    # failure_mode_clauses but from the opponent's perspective.
+    #
+    # missed_capture: opp had a capture available (best_move) that wins
+    #   material, and played something else. The canonical case
+    #   (fb_4899b11157fa Nbd7): Black could play Qxd4 grabbing a free
+    #   pawn but played Nbd7 instead.
+    opp_failure_missed_capture = False
+    opp_missed_capture_san: Optional[str] = None
+    opp_missed_capture_piece: Optional[str] = None
+    opp_missed_capture_square: Optional[str] = None
+    opp_failure_missed_mate = False
+    opp_missed_mate_san: Optional[str] = None
+    if (mover_is_user is False and best_move_san
+            and not played_is_best):
+        try:
+            _bm = board_before.parse_san(best_move_san)
+            # missed capture: best move is a capture of a real piece
+            if board_before.is_capture(_bm):
+                if board_before.is_en_passant(_bm):
+                    _cap_pc = chess.Piece(chess.PAWN, not board_before.turn)
+                    _cap_sq = _bm.to_square
+                else:
+                    _cap_pc = board_before.piece_at(_bm.to_square)
+                    _cap_sq = _bm.to_square
+                if _cap_pc is not None:
+                    opp_failure_missed_capture = True
+                    opp_missed_capture_san = best_move_san
+                    opp_missed_capture_piece = PIECE_TYPE_NAMES.get(
+                        _cap_pc.piece_type, "piece"
+                    )
+                    opp_missed_capture_square = chess.SQUARE_NAMES[_cap_sq]
+            # missed mate: the best-move PV forces mate
+            if pv_after_best and any("#" in m for m in pv_after_best[:6]):
+                opp_failure_missed_mate = True
+                opp_missed_mate_san = best_move_san
+        except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError, AssertionError):
+            # best_move_san didn't parse on board_before (PGN/eval drift).
+            # Leave facts unset rather than raising.
+            pass
     is_promotion = played_move.promotion is not None
     forced_recapture = _is_forced_recapture(board_before, played_move)
 
@@ -5276,6 +5322,14 @@ def extract_facts(
         # render identically; switch to a recapture-specific template.
         "opp_reply_recaptures_on_played_square": opp_reply_recaptures_on_played_square,
         "played_to_square": played_to_square,
+        # OPPONENT FAILURE-MODE (2026-06-06) — opp had a better move and
+        # didn't play it. Drives failure_mode_clauses_opp in R12.
+        "opp_failure_missed_capture": opp_failure_missed_capture,
+        "opp_missed_capture_san": opp_missed_capture_san,
+        "opp_missed_capture_piece": opp_missed_capture_piece,
+        "opp_missed_capture_square": opp_missed_capture_square,
+        "opp_failure_missed_mate": opp_failure_missed_mate,
+        "opp_missed_mate_san": opp_missed_mate_san,
         # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
         # Drives failure_allows_fork in R12_blunder.json. See in-place
         # comment at the extraction site.

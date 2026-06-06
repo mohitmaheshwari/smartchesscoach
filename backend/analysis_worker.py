@@ -1033,7 +1033,13 @@ def process_job(db, job):
                 "brilliant_moves": sf_stats.get("brilliant_moves", 0),
                 "sacrifices": sf_stats.get("sacrifices", 0),
                 "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
-                "move_evaluations": move_evaluations
+                "move_evaluations": move_evaluations,
+                # 2026-06-06: opponent mistake/blunder detail (best_move + PV).
+                # Separate from move_evaluations (user-only) so downstream
+                # user-move consumers are untouched. The V5 caption layer
+                # merges this into its eval_lookup so opp captions can
+                # explain WHY (missed capture / mate / bad trade).
+                "opponent_move_evaluations": stockfish_result.get("opponent_moves", []),
             },
             # NEW: Behavioral interpretation summary
             "interpretation": interpretation_summary if interpretation_summary else {},
@@ -1116,6 +1122,10 @@ def process_job(db, job):
                     return await generate_game_decryption_v5(
                         pgn, user_color, move_evaluations, user_id, async_db,
                         game_id=game_id,
+                        # 2026-06-06: pass opp analysis so opp-mistake captions
+                        # get best_move + PV on first analysis (the doc isn't
+                        # in db yet here, so the fallback query would miss).
+                        opponent_move_evaluations=stockfish_result.get("opponent_moves", []),
                     )
                 finally:
                     async_client.close()

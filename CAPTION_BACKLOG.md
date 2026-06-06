@@ -264,4 +264,42 @@ The floor principle ("fix your worst piece first") is the v104 fallback when no 
 
 ---
 
+## 15. Opp failure-mode: traded_active_for_inactive (Nxf7 class)
+
+**Status:** Filed 2026-06-06. The opp-side failure-mode framework shipped with 2 of 4 scoped variants (`missed_capture`, `missed_mate` — see v110). This is the 3rd.
+
+**Example:** `fb_9f984e9753fc` — Nxf7 m9 in 13ad8b4a. Opponent (White) sacrifices Nxf7. Engine confirms Rxf7 wins (eval -1.94 for Black). The WHY (Mohit-authored, engine-verified): "White traded their two developed pieces — the knight on g5 and bishop on c4 — for your rook that was sitting on f8 doing nothing yet. A sacrifice only works when it removes your active pieces, not the opponent's inactive ones."
+
+**Why deferred from v110:** unlike `missed_capture` (clean: best_move is a capture), this needs:
+1. Classify each traded piece as active (off home rank AND attacks ≥1 square in opp half) vs inactive
+2. Walk the forced recapture chain (Nxf7 Rxf7 Bxf7+ Kxf7) to identify which pieces leave the board on each side
+3. Detect the asymmetry: mover's active pieces traded for defender's inactive pieces
+This is materially more complex than the 2 shipped variants and was building-tired-at-5am risk. The override (CAPTION_BACKLOG-adjacent) already handles this specific position.
+
+**Predicate sketch (`opp_failure_traded_active_for_inactive`):**
+- Played move is a capture by a piece off its home rank (developed)
+- pv_after_played shows a forced recapture sequence
+- Net material across the sequence is ~equal (within 1 pawn) BUT mover loses ≥2 developed minors while defender loses an undeveloped rook/piece + pawn
+- Fire clause: "{played} trades their {dev_piece_1} and {dev_piece_2} for your {inactive_piece} that wasn't doing anything yet"
+- Principle ending: "A sacrifice only works when it removes your active pieces, not the opponent's inactive ones."
+
+**When to build:** next focused session, alongside variant 4 below. Both need the recapture-chain + activity-classification machinery.
+
+## 16. Opp failure-mode: quiet_when_threatened (4th variant)
+
+**Status:** Filed 2026-06-06. 4th of the scoped opp-failure variants.
+
+**Pattern:** opponent had a piece/square under attack and played a quiet move that didn't address it, when the engine's best move was the defensive line.
+
+**Predicate sketch (`opp_failure_quiet_when_threatened`):**
+- Before opp's move, opp had a piece attacked by the user (or a square under pressure)
+- Opp's played move is NOT a defense of that piece (doesn't move it, doesn't add a defender, doesn't capture the attacker)
+- Engine's best_move WAS the defensive line
+- **Gating (scope Q3):** require the threat be punishable-by-user — don't fire "opp ignored the attack" when the user can't actually win the piece (it's defended enough)
+- Fire clause: "they left the {threatened_piece} on {square} hanging — {best_move_san} was the defense"
+
+**When to build:** next session, with variant 3 above.
+
+---
+
 *Last updated: 2026-06-06*
