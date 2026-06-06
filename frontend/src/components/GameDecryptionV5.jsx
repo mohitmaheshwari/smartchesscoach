@@ -1603,21 +1603,26 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
-        {/* TIER 3 shape pattern — visual danger language. The pattern
-            NAME is what the player remembers (Class 6-8 English).
-            Description sits on the same line in lighter weight so
-            kids see both the label and the picture at once. */}
+        {/* Shape pattern — visual tactical/danger language. 2026-06-06
+            (fb_eb62358ce3b3): promoted from a small teal sub-badge to
+            PRIMARY caption prominence (Mohit: "all shapes -> primary").
+            text-sm + readable description matches the main caption weight,
+            so a decisive shape (e.g. the In-Between Move / zwischenzug)
+            reads as the lesson it is, not a footnote. The teal accent +
+            bold name still mark it as a tactical-pattern line. Positional
+            shapes with empty descriptions (aligned_pieces, weak_squares)
+            still render nothing — auto-silenced — so no noise. */}
         {move.shape_pattern_id && move.shape_pattern_name && (
           <div
-            className="leading-relaxed group mt-1.5 pl-3 border-l-2 border-teal-500/40"
+            className="leading-relaxed group mt-2 pl-3 border-l-2 border-teal-500/60"
             data-testid="move-shape-pattern"
           >
-            <p className="text-xs">
+            <p className="text-sm">
               <span className="font-semibold text-teal-700 dark:text-teal-300">
                 {move.shape_pattern_name}
               </span>
               {move.shape_pattern_desc && (
-                <span className="text-teal-700/80 dark:text-teal-300/70">
+                <span className="text-foreground/90">
                   {" — "}{move.shape_pattern_desc}
                 </span>
               )}
