@@ -946,6 +946,28 @@ def determine_user_color(game: Dict, platform: str, username: str) -> str:
         return "white" if white_player == username.lower() else "black"
 
 
+def _parse_pgn_date(pgn: str) -> Optional[str]:
+    """Parse PGN [UTCDate]/[Date] "YYYY.MM.DD" (+ optional [UTCTime]) into an
+    ISO8601 UTC string for game_doc['date_played']. Returns None if absent or
+    malformed (e.g. the "????.??.??" placeholder). Prefers UTCDate over Date."""
+    if not pgn:
+        return None
+    dm = re.search(r'\[UTCDate\s+"(\d{4})\.(\d{2})\.(\d{2})"\]', pgn) \
+        or re.search(r'\[Date\s+"(\d{4})\.(\d{2})\.(\d{2})"\]', pgn)
+    if not dm:
+        return None
+    tm = re.search(r'\[UTCTime\s+"(\d{2}):(\d{2}):(\d{2})"\]', pgn)
+    try:
+        if tm:
+            return datetime(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)),
+                            int(tm.group(1)), int(tm.group(2)), int(tm.group(3)),
+                            tzinfo=timezone.utc).isoformat()
+        return datetime(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)),
+                        tzinfo=timezone.utc).isoformat()
+    except (ValueError, TypeError):
+        return None
+
+
 async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     """
     Sync and auto-analyze games for a single user.
@@ -1064,7 +1086,22 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 game_doc["opponent_name"] = black_player or "Opponent"
             else:
                 game_doc["opponent_name"] = white_player or "Opponent"
-            
+
+            # Canonical name fields (2026-06-06). Some surfaces read
+            # g.opponent / g.white / g.black (Dashboard.jsx 505/586/978,
+            # LabV2 nextGame) which were never populated — only the
+            # *_player / *_name variants were — so those rendered blank.
+            # Populate the canonical fields too so every consumer works
+            # regardless of which name it reads. (PROGRESS_BACKLOG #4)
+            game_doc["opponent"] = game_doc["opponent_name"]
+            game_doc["white"] = white_player
+            game_doc["black"] = black_player
+
+            # date_played — parse PGN [UTCDate]/[Date] "YYYY.MM.DD" (+ [UTCTime]
+            # if present). Was never populated, so date sorting/labels had
+            # nothing to use. Prefer UTCDate; store ISO8601 UTC.
+            game_doc["date_played"] = _parse_pgn_date(pgn)
+
             # Extract additional metadata
             if platform == "chess.com":
                 game_doc["time_control"] = game_data.get("time_class", "")
