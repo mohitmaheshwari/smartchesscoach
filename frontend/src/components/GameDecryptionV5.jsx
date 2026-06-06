@@ -12,6 +12,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
+import EvalBar from "@/components/EvalBar";
+import EvalGraph from "@/components/EvalGraph";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
 import ClickableCaption from "@/components/ClickableCaption";
 import TruthHeadline from "@/components/TruthHeadline";
@@ -930,7 +932,22 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
       <div className="lg:w-1/2 space-y-4">
-        <div className="aspect-square max-w-[500px] mx-auto relative">
+        {/* Board + vertical eval bar (2026-06-06). Bar reads the current
+            move's white-POV eval; flips with orientation. */}
+        <div className="flex gap-2 justify-center items-stretch max-w-[540px] mx-auto">
+          <EvalBar
+            evalCp={
+              (planMode || showingFutureMoves)
+                ? (currentMove?.eval_after ?? null)
+                : (currentMove
+                    ? currentMove.eval_after
+                    : (decryptionData?.[0]?.eval_before ?? 20))
+            }
+            mateIn={(!planMode && !showingFutureMoves && currentMove)
+              ? (currentMove.mate_in_after ?? null) : null}
+            orientation={orientation}
+          />
+        <div className="aspect-square w-full max-w-[500px] relative">
           <LichessBoard
             ref={boardRef}
             fen={planMode && planBoard ? planBoard.fen() : boardFen}
@@ -1017,6 +1034,18 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             </div>
           )}
         </div>
+        {/* close board+eval-bar flex row */}
+        </div>
+
+        {/* Horizontal eval graph below the board — whole-game timeline,
+            click to jump (2026-06-06). Hidden in plan mode. */}
+        {!planMode && (
+          <EvalGraph
+            data={decryptionData}
+            currentIndex={currentMoveIndex}
+            onSeek={goToMove}
+          />
+        )}
 
         <div className="flex items-center justify-center gap-2">
           <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex === -1} data-testid="btn-go-start">
