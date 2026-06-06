@@ -54,13 +54,37 @@ DEFAULT_CLEAN_MIN = 5         # Min clean games to claim mastery
 DEFAULT_VIOLATION_MAX = 3      # Above this, need a higher clean floor
 DEFAULT_CLEAN_HIGH_FLOOR = 20  # Clean games needed when violations exceed max
 
+# 2026-06-06 — the dry-run histogram revealed the high-clean bucket
+# (clean=165-169, 41 rows) is entirely DEAD-NAMESPACE concepts
+# (piece_without_purpose, knight_fork, blocked_bishop, etc.) — the
+# deprecated lowercase v5-plan IDs the central pipeline no longer
+# emits. These are ALREADY filtered from the PWC gate + InGameMastery
+# panel (commit 42f4b0be), so their mastered_at is functionally inert.
+# Live-namespace concepts (these prefixes) are the ones that reach the
+# gate and cause real over-suppression — the clean/violation rule
+# applies to THEM. Dead-namespace mastered_at gets stripped as pure
+# stale-data cleanup (no downside; they're already ignored downstream).
+LIVE_PREFIXES = ("TAC_", "OP_", "MID_", "END_", "DEF_", "STR_")
+
+
+def _is_live_namespace(concept_id: str) -> bool:
+    return bool(concept_id) and any(concept_id.startswith(p) for p in LIVE_PREFIXES)
+
 
 def should_keep_mastery(row: dict, args) -> tuple[bool, str]:
-    """Per-row keep/strip decision per Rule R1 (scope §3).
+    """Per-row keep/strip decision.
+
+    Dead-namespace concepts: always strip (stale, already filtered from
+    gate/UI — see 42f4b0be). Live-namespace: apply the clean/violation
+    rule (Rule R1, scope §3) — these are the rows that affect the gate.
 
     Returns:
         (keep: bool, reason: str) — reason is the rule branch that decided.
     """
+    concept_id = row.get("concept_id") or ""
+    if not _is_live_namespace(concept_id):
+        return (False, "dead_namespace_stale (already filtered from gate/UI)")
+
     clean = int(row.get("clean_games_total") or 0)
     violations = int(row.get("violations_total") or 0)
 
@@ -126,6 +150,13 @@ async def run(args):
     keeps = 0
     per_user_before = defaultdict(int)
     per_user_strip = defaultdict(int)
+    # Namespace split (2026-06-06): isolate the rows that actually
+    # affect the PWC gate (live-namespace) from the inert dead-namespace
+    # ones, so the threshold lock is judged against the live distribution.
+    ns_counts = {
+        "live_keep": 0, "live_strip": 0,
+        "dead_keep": 0, "dead_strip": 0,
+    }
 
     async for row in cursor:
         uid = row.get("user_id", "")
@@ -133,9 +164,15 @@ async def run(args):
         keep, reason = should_keep_mastery(row, args)
         clean = int(row.get("clean_games_total") or 0)
         violations = int(row.get("violations_total") or 0)
-        clean_bucket = f"clean={(clean // 5) * 5}-{(clean // 5) * 5 + 4}"
-        violation_bucket = f"violations={(violations // 5) * 5}-{(violations // 5) * 5 + 4}"
-        histogram[f"keep={keep}, {clean_bucket}, {violation_bucket}"] += 1
+        is_live = _is_live_namespace(row.get("concept_id") or "")
+        ns = "live" if is_live else "dead"
+        ns_counts[f"{ns}_{'keep' if keep else 'strip'}"] += 1
+        # Histogram only over LIVE-namespace (the rows that matter for
+        # the gate) so the keep/strip cliff isn't drowned by dead rows.
+        if is_live:
+            clean_bucket = f"clean={(clean // 5) * 5}-{(clean // 5) * 5 + 4}"
+            violation_bucket = f"violations={(violations // 5) * 5}-{(violations // 5) * 5 + 4}"
+            histogram[f"keep={keep}, {clean_bucket}, {violation_bucket}"] += 1
         if not keep:
             strips.append({
                 "_id": str(row["_id"]),
@@ -144,6 +181,7 @@ async def run(args):
                 "clean_games_total": clean,
                 "violations_total": violations,
                 "mastered_at": row.get("mastered_at"),
+                "namespace": ns,
                 "reason": reason,
             })
             per_user_strip[uid] += 1
@@ -154,8 +192,12 @@ async def run(args):
     print(f"  Would KEEP:  {keeps}")
     print(f"  Would STRIP: {len(strips)}")
     print()
-
-    print("Histogram (top 20 by count):")
+    print("Namespace split (live = reaches the PWC gate; dead = already filtered, inert):")
+    print(f"  LIVE  keep={ns_counts['live_keep']:>4}  strip={ns_counts['live_strip']:>4}")
+    print(f"  DEAD  keep={ns_counts['dead_keep']:>4}  strip={ns_counts['dead_strip']:>4}  (dead always strips)")
+    print("  >>> Lock thresholds against the LIVE numbers — dead is pure cleanup.")
+    print()
+    print("LIVE-namespace histogram (the keep/strip cliff that matters, top 20):")
     for bucket, count in sorted(histogram.items(), key=lambda x: -x[1])[:20]:
         print(f"  {count:5}  {bucket}")
     print()
