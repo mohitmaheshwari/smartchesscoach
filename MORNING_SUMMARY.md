@@ -12,13 +12,17 @@ Late in the night I finally grepped the existing caption layer (should have done
 - **Therefore my `played_hangs_detector` (≈ `failure_hangs_piece`) and `missed_mate_detector` (≈ `why_user_missed_mate`) are REDUNDANT. Do NOT wire them.** They were an avoidable build — I didn't check the existing system first (violates [[feedback_check_for_existing_ui_before_building_offline]]).
 - **The 27k user + 32k opp "bare" captions are predominantly STALE pre-v100/v110 renders** — the machinery existed but those games were rendered before it. **Re-analysis (the draining queue) is the fix, not new predicates.** Same pattern as the "loses about N pawns" stale data.
 
-**Revised real work (much smaller than the 59k suggested):**
-1. **Let the queue drain** — it clears the stale bare renders. (Main fix, already running.)
-2. **Investigate the genuine gap**: re-render a handful of bare games at v110 — if they're STILL bare after v110, that's a real coverage gap (e.g. `pieces_now_undefended_present` not firing on some hangs). That's the targeted work, not new detectors.
-3. **`severity_mismatch_guard`** (`57dd1984`) — *likely still net-new*: it guards POSITIVE captions on blunders ("King is safe" on cp_loss 698), which come from a non-R12 positive-move path the existing severity machinery doesn't cover. **Verify where that positive caption originates before wiring**, but this one is probably worth keeping.
-4. **Opp V3/V4** — the opp-failure framework IS newer/less-covered, so these remain the most likely genuine additions (V4 detector `5f72086f` v0.1, data-locked designs in §5).
+**UPDATE — ALL THREE detectors are redundant.** Further grep found `severity_mismatch_guard` is *also* covered: `caption_facts.py:1494` already gates the king_safety category with `_tactic_ok` — "when the engine flags this castle as a mistake or worse, fall through to blunder/mistake so R12 renders the real cost" — citing the *exact same* feedback `fb_f35ee12cdd51` (O-O-O cpl=698). So played_hangs, missed_mate, AND severity_mismatch all duplicate existing v110 machinery.
 
-**Net:** keep metadata fix + PWC flag (clean). Treat played_hangs/missed_mate as throwaway learning. Focus on queue-drain + the v110-still-bare investigation + opp V3/V4.
+**THE REAL CONCLUSION (the night's actual deliverable):**
+The bare-caption "gap" is **entirely stale pre-v110 renders.** The current caption system is already comprehensive for these failure modes. **Re-analysis (the draining queue) is the complete fix — NO new caption predicates are needed for the user-side buckets.** My 3 detectors were wasted effort (verify-before-build failure); they're committed-but-unwired and can be deleted.
+
+**Revised real work:**
+1. **Let the queue drain** — this IS the fix. Consider re-prioritizing/scaling workers (within the 4-core limit) to drain faster.
+2. **Spot-check**: after a game re-renders at v110, confirm its bare captions gained whys (validates the stale-render theory). If any v110 render is STILL bare, THAT specific case is a real gap — but expect very few.
+3. **Opp V3/V4** — the opp-failure framework is the newest, so these are the *only* plausibly-net-new additions. But given I was 3/3 redundant tonight, **verify V3/V4 against existing opp machinery (`opp_failure_*`) before building.** V4 detector `5f72086f` is v0.1; treat the data-locked designs (§5) as the starting point, not a green light.
+
+**Net:** keep metadata fix + PWC flag (clean, real). Delete/ignore the 3 caption detectors. The genuinely valuable output is this DIAGNOSIS — it saves you from building ~5 redundant predicates and points the fix at re-analysis throughput.
 
 ---
 
