@@ -91,8 +91,12 @@ Then add to the returned facts dict: `"played_hangs_clause": clause_for(played_h
 **Corpus probe (408 re-analyzed games, the available opp-PV subset):** 2,396 opp mistakes (cp_loss≥100); **456 (19%) are captures**; given-up piece = bishop 116 / knight 92 / queen 85 / pawn 83 / rook 68; **recapture PV present for 444/456**. So the addressable bucket (capture-mistakes by a minor/major with a recapture chain) is ~361/408 games ≈ **~5,800 corpus-wide** once fully re-analyzed.
 **Still needs (the hard, high-risk part):** the active/inactive piece *classifier* — what makes a piece "active" (off home rank? attacks enemy half? mobility count?). This must be locked on the activity distribution, then the predicate fires only on the "gave up active, kept inactive" slice + punishable-by-user gate. **Recommend building WITH review — it's the highest-misfire predicate; data substrate is ready, classifier is not.**
 
-### C. Opp-failure V4 — quiet_when_threatened
-Opp had a piece under attack, played a non-defending move, engine best was the defense, threat is punishable-by-user. Concrete gating needed; ~part of the 52.
+### C. Opp-failure V4 — quiet_when_threatened — lock-via-data DONE
+**Corpus probe (same 408 games):** of 2,397 opp mistakes (cp_loss≥100), **571 (23%) IGNORED a pre-existing threat** — a winnable opp piece existed before the move and *survived* it (e.g. Qf6 cpl=288 left bishop on g3; Qxd5 cpl=242 left bishop on h3). Reuses `played_hangs_detector._winnable_squares`. Scales to ~9,300 corpus-wide.
+**This is the UPPER bound** — tighten with gates before shipping: (1) ignored piece is a minor/major (not an incidental pawn — pawn cases are noisy), (2) `best_move` actually addresses the threat, (3) the user can punish on their move. **Build WITH review** (shares V3's misfire risk); data substrate + the winnable-square primitive are ready.
+
+### Opp V3+V4 coverage note
+Together V3 (19% captures) + V4 (23% ignored-threat) address ~40% of opp mistakes — the bulk of the ~52 opp-move bare bucket and ~15k corpus-wide. The detection primitives exist + are tested (`played_hangs_detector`); the remaining work is the activity classifier (V3) + the 3 gates (V4), both review-gated.
 
 ---
 
