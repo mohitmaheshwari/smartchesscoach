@@ -1,6 +1,26 @@
 # Morning Summary — overnight work 2026-06-06 (Mohit away ~15h)
 
-**TL;DR:** 5 commits, all on `working-code`, **none deployed** (no prod shell — see deploy runbook). Caption "why"-gap forensics done + data-locked roadmap. `played_hangs` predicate built + tested (not wired — needs your review). Metadata fix + PWC telemetry flag shipped to branch. Feedback pending 395→323. Queue draining on its own.
+**TL;DR:** commits on `working-code`, **none deployed**. Metadata fix + PWC flag = clean, ship them. **⚠️ READ §0 FIRST** — a late-night verification found that 2 of my 3 caption detectors DUPLICATE existing machinery, and the real bare-caption problem is stale renders, not missing predicates. Feedback pending 395→312 (cleared, ongoing). Queue draining on its own.
+
+---
+
+## 0. ⚠️ IMPORTANT CORRECTION (verify-before-build failure — my mistake)
+
+Late in the night I finally grepped the existing caption layer (should have done this FIRST). Findings:
+
+- **The user-side why machinery is already rich**: `failure_hangs_piece` ("leaves your {piece} on {square} undefended"), `is_exchange_losing`, `why_user_missed_mate` ("led to mate in N"), `missed_tactic_kind`, `missed_capture_target_piece/square` (v100+), ~17 best-move detectors, + the v104 principle-bank floor.
+- **Therefore my `played_hangs_detector` (≈ `failure_hangs_piece`) and `missed_mate_detector` (≈ `why_user_missed_mate`) are REDUNDANT. Do NOT wire them.** They were an avoidable build — I didn't check the existing system first (violates [[feedback_check_for_existing_ui_before_building_offline]]).
+- **The 27k user + 32k opp "bare" captions are predominantly STALE pre-v100/v110 renders** — the machinery existed but those games were rendered before it. **Re-analysis (the draining queue) is the fix, not new predicates.** Same pattern as the "loses about N pawns" stale data.
+
+**Revised real work (much smaller than the 59k suggested):**
+1. **Let the queue drain** — it clears the stale bare renders. (Main fix, already running.)
+2. **Investigate the genuine gap**: re-render a handful of bare games at v110 — if they're STILL bare after v110, that's a real coverage gap (e.g. `pieces_now_undefended_present` not firing on some hangs). That's the targeted work, not new detectors.
+3. **`severity_mismatch_guard`** (`57dd1984`) — *likely still net-new*: it guards POSITIVE captions on blunders ("King is safe" on cp_loss 698), which come from a non-R12 positive-move path the existing severity machinery doesn't cover. **Verify where that positive caption originates before wiring**, but this one is probably worth keeping.
+4. **Opp V3/V4** — the opp-failure framework IS newer/less-covered, so these remain the most likely genuine additions (V4 detector `5f72086f` v0.1, data-locked designs in §5).
+
+**Net:** keep metadata fix + PWC flag (clean). Treat played_hangs/missed_mate as throwaway learning. Focus on queue-drain + the v110-still-bare investigation + opp V3/V4.
+
+---
 
 ---
 
