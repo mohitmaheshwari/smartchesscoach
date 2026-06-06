@@ -126,17 +126,19 @@ These modules might be retired entirely, OR kept as a fallback path behind a fea
 
 ---
 
-## 7. Open questions (Mohit must answer before phase 1)
+## 7. Open questions — ANSWERED 2026-06-06
 
-1. **Severity divergence tolerance.** If phase 1 shows central says "Inaccuracy" where legacy said "Mistake" 30% of the time, is that acceptable? (The 1200 user perceives the severity word as the dominant signal.)
-2. **Teaching-mode integration.** PWC's trap teaching and endgame teaching layer narrative on top of the per-move base. The central pipeline doesn't currently know about teaching modes. Do we:
-   - (a) Make teaching mode bypass the central pipeline (today's behaviour),
-   - (b) Pass teaching context as facts into the central pipeline so its R-rules can adapt, or
-   - (c) Stop using the central pipeline during teaching mode and route to a third path?
+1. **Severity divergence tolerance.** → **LOCKED: Central wins, any drift OK.** Trust the central pipeline's severity classification fully, even where it differs from PWC's legacy engine. The central layer is the newer, better-maintained classifier; users see its (better) severity word. No rollout gate on divergence %. *(Mohit 2026-06-06.)*
 
-   My recommendation: (a). Teaching mode is a different surface; not all surfaces share the central layer.
-3. **Cleanup timing.** When the legacy modules retire (phase 4), the imports in unrelated files might break. Acceptable cleanup time: 1-2 days of post-migration triage. Mohit's tolerance?
-4. **Diff sign-off.** Who reviews the phase 1 diff baseline? Mohit alone, or also Parth (for chess accuracy)?
+2. **Teaching-mode integration.** → **LOCKED: Teaching bypasses central (option a).** When in trap/endgame teaching mode, skip the central pipeline and keep today's teaching-mode narrative. Teaching is a different surface; not all surfaces share the central layer. The migration flag only swaps the BASE per-move narrative outside teaching mode. *(Mohit 2026-06-06.)*
+
+3. **Cleanup timing.** Default accepted: 1-2 days of post-migration triage when legacy modules retire (phase 4). Not a blocker for phase 3.
+
+4. **Diff sign-off.** Default: Mohit reviews the rollout telemetry; Parth loops in for chess-accuracy spot checks if divergence surfaces odd captions. Not a blocker.
+
+**Phase 3 is now unblocked on decisions** — gated only on ~1 week of `PWC_CENTRAL_CAPTION_TELEMETRY` data to confirm the divergence shape matches the Phase 1 baseline before flipping `PWC_USE_CENTRAL_CAPTION_PIPELINE` to the rollout cohort.
+
+**Implementation note for phase 3** (from the locked answers): since teaching bypasses central (Q2) and central severity wins (Q1), the rollout wiring is: `if PWC_USE_CENTRAL_CAPTION_PIPELINE and not in_teaching_mode: use central caption + central severity`. The teaching-mode guard already exists in the realtime_coaching_feedback path — verify it gates the central call too.
 
 ---
 
