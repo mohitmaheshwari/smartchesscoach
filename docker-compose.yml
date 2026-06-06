@@ -41,7 +41,10 @@ services:
     container_name: chess-coach-backend
     restart: unless-stopped
     ports:
-      - "8001:8002"
+      # 2026-06-06: host 8002 (NOT 8001). 8001 is taken by matrimonial_fastapi
+      # on this server; binding it collides and the backend can't start. This
+      # reverts an errant 8001 change. nginx proxies to 8002.
+      - "8002:8002"
     environment:
       - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
       - DB_NAME=chess_coach
