@@ -1109,8 +1109,13 @@ def process_job(db, job):
                 async_client = AsyncIOMotorClient(mongo_url)
                 async_db = async_client[db_name]
                 try:
+                    # 2026-06-06 fix: pass game_id so authored_caption_overrides
+                    # lookup actually runs during initial-analysis caption render.
+                    # Without this, new games never pick up Parth's authored
+                    # overrides for their positions on first analysis.
                     return await generate_game_decryption_v5(
-                        pgn, user_color, move_evaluations, user_id, async_db
+                        pgn, user_color, move_evaluations, user_id, async_db,
+                        game_id=game_id,
                     )
                 finally:
                     async_client.close()

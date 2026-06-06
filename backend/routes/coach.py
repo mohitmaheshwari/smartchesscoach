@@ -892,8 +892,15 @@ async def get_game_decryption_v5(
                     pgn = game.get("pgn", "")
                     move_evaluations = full_analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
                     
+                    # 2026-06-06 fix: pass game_id so authored_caption_overrides
+                    # lookup actually runs. Previously omitted → game_id defaulted
+                    # to None → override block silently skipped on every regen
+                    # (bug confirmed via fb_4899b11157fa Nbd7 case where the
+                    # override row existed in mongo but never reached the
+                    # stored caption). See feedback_query_engine_before_authoring.
                     decryption_data = await generate_game_decryption_v5(
-                        pgn, user_color, move_evaluations, user.user_id, db
+                        pgn, user_color, move_evaluations, user.user_id, db,
+                        game_id=game_id,
                     )
                     
                     if decryption_data:
