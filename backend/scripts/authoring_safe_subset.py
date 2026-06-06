@@ -59,12 +59,25 @@ HOLLOW_PATTERNS = [
 ]
 
 JARGON_WORDS = [
-    "fianchetto", "zwischenzug", "zugzwang", "prophylaxis",
-    "prophylactic", "luft", "deflection", "outpost",
+    # 2026-06-06 — aligned with Reading B of
+    # [[caption_voice_avoid_chess_jargon]]. Standard chess concept
+    # words (fianchetto, zwischenzug, prophylaxis, deflection, outpost,
+    # pin, fork, skewer, opposition, tempo, initiative) are FINE —
+    # they name something precisely with no plain-English equivalent.
+    # Reading B's actual fail list:
+    #   - Sub-cultural shorthand: 'ply'/'plies', 'book' (as theory),
+    #     'en prise', 'won game' (as noun)
+    #   - 'luft' — German chess term, no Reading B PASS coverage,
+    #     borderline → keep gated
+    # Previously banned but NOW ACCEPTED per Reading B:
+    #   fianchetto, zwischenzug, zugzwang, prophylaxis, prophylactic,
+    #   deflection, outpost
+    "luft",
+    "en prise",
 ]
 # Note: "tempo" deliberately NOT in jargon list — Parth uses it in
 # valid teaching contexts ("comes with tempo, attacking the pawn").
-# It's borderline, but excluding it from the gate avoids over-rejecting.
+# Reading B confirms tempo + initiative are accepted.
 
 JUNK_PATTERNS = [
     r"\.[a-z]+\.[a-z]+\.",     # dot-separated words like "Look.for.loose.pieces"
