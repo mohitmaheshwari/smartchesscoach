@@ -329,3 +329,25 @@ Which shapes deserve PRIMARY prominence vs staying secondary?
 3. Frontend `GameDecryptionV5.jsx`: primary shapes use the main caption styling, not the small teal sub-line.
 
 **Why filed not built:** needs the which-shapes-promote product decision (subtractive/additive at 1200-1500 — don't drown the headline) + frontend rendering work. Recurring (every in_between_move badge), so a one-off override is wrong. Pairs with the eval-bar/review polish.
+
+---
+
+## 18. Opening moves mislabeled "inaccuracy" when severity=good (caption text vs severity-field mismatch)
+
+**Status:** Filed 2026-06-06. `fb_d524596d3894` (game c99c480f, move 1 b3).
+
+**The bug:** caption read *"b3 is an inaccuracy. e4 was better. The curriculum starts with d4."* — but the move record's `severity=good` (cp_loss=63). The caption text **contradicts its own severity field**: it derived "inaccuracy" from raw cp_loss tiers instead of deferring to the canonical `severity` (which already accounts for opening/practical context and says *good*).
+
+**Why it's wrong (3 layers):**
+1. **Text vs severity mismatch** — `severity=good` but text says "inaccuracy." Caption must defer to the canonical severity word, not recompute from cp_loss.
+2. **Move-1 engine preference ≠ inaccuracy** — at move 1 there are ~5 equally sound first moves (e4/d4/c4/Nf3/b3). A 63cp gap vs the engine's #1 is *preference*, not an error. b3 = Nimzo-Larsen, a real opening.
+3. **Self-contradicting recommendation** — "e4 was better" AND "curriculum starts with d4" stapled together (engine #1 vs curriculum line — which is it?).
+
+**Recurring:** any early move (move 1-3) that isn't the engine's top pick gets the same false "inaccuracy" treatment.
+
+**Fix sketch (gating, not a one-off override):**
+- Caption layer must NOT emit "X is an inaccuracy/mistake" when canonical `severity ∈ {good, best, excellent}`. The severity WORD in the caption must come from the canonical severity field, never re-derived from cp_loss.
+- For early-opening curriculum nudges, reframe neutrally: NOT "b3 is an inaccuracy, e4 was better" but "Our curriculum focuses on d4 openings — b3 (Nimzo-Larsen) is perfectly sound if you prefer it." Curriculum guidance ≠ error labeling.
+- Drop the "{engine_best} was better" clause for move-1 alternatives entirely (no first move is "better" than another sound one).
+
+**Related:** CAPTION_BACKLOG #9 (severity-cliff probe) is the INVERSE (good labeled, should be mistake). Both are caption-text-vs-canonical-severity consistency issues — likely worth one unified pass: "the caption's severity word is ALWAYS the canonical severity field, never re-derived from cp_loss."
