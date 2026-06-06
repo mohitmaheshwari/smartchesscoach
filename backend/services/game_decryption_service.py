@@ -369,8 +369,18 @@ def generate_game_decryption(
         logger.info(f"[DECRYPTION V4] {len(llm_moves)} user mistakes going to LLM")
 
         # ── PHASE 3: Call LLM for mistakes ───────────────────────
+        # 2026-06-06: gated behind V4_LLM_ENABLED (default OFF) per the
+        # "no LLM in coaching" rule. The V5 deterministic pipeline is the
+        # real coaching surface; this legacy V4 LLM batch was still
+        # calling OpenAI on every analysis (401-spamming from any IP not
+        # on OpenAI's allowlist, e.g. the local-tunnel workers). When the
+        # flag is off, llm_moves fall through to PHASE 4's rule-based
+        # narrative — the SAME path already exercised whenever the LLM
+        # call failed, so behavior is graceful and well-tested. Flip
+        # V4_LLM_ENABLED=true to restore the legacy LLM narratives.
+        _v4_llm_enabled = os.environ.get("V4_LLM_ENABLED", "false").lower() == "true"
         llm_results = {}
-        if llm_moves:
+        if llm_moves and _v4_llm_enabled:
             # Build game context for LLM
             pgn_short = _extract_short_pgn(pgn)
             opening_context = ""
