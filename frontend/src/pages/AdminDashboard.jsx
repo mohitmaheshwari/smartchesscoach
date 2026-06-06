@@ -14,7 +14,7 @@ import {
   Loader2, Users, BarChart3, MessageSquareWarning, Search,
   UserPlus, ShieldCheck, Shield, User as UserIcon, ChevronRight,
   ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download, Copy, Check,
-  Sparkles,
+  Sparkles, ExternalLink,
 } from "lucide-react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
@@ -1372,6 +1372,25 @@ const FeedbackTab = () => {
                           <><Copy className="w-3 h-3" strokeWidth={2.4} /> Copy for Claude</>
                         )}
                       </button>
+
+                      {/* Open Game button — opens the game review in a new
+                          tab at the flagged move via the ?move=N query param
+                          (read by GameAnalysis). Only when a game_id exists. */}
+                      {fb.game_id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const moveQ = fb.move_number != null ? `?move=${fb.move_number}` : "";
+                            window.open(`/game/${fb.game_id}${moveQ}`, "_blank", "noopener");
+                          }}
+                          className="ml-3 text-[10.5px] uppercase tracking-[0.18em] inline-flex items-center gap-1.5 font-semibold transition-colors"
+                          style={{ color: GOLD_TEXT }}
+                          data-testid={`open-game-${fb.feedback_id}`}
+                          title={fb.move_number != null ? `Open game at move ${fb.move_number}` : "Open game"}
+                        >
+                          <ExternalLink className="w-3 h-3" strokeWidth={2.4} /> Open Game
+                        </button>
+                      )}
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 pt-1">
