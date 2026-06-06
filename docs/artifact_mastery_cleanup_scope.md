@@ -105,21 +105,22 @@ In plain English: the system was overconfident about what users had mastered bec
 
 ## 6. Open questions
 
-### Q1. THRESHOLD LOCK — TBD_LOCK_clean_min, TBD_LOCK_violation_max, TBD_LOCK_clean_high_floor
+### Q1. THRESHOLD LOCK — LOCKED 2026-06-06
 
-**Why unresolved:** the data is still backfill-dominated. Locking thresholds against backfill-dominated data is the `[[threshold_before_distribution_is_sin]]`.
+**LOCKED:** `clean_min=5, violation_max=3, clean_high_floor=20`. Applied 2026-06-06 14:15 (251/251 strips: 209 live-namespace + 42 dead-namespace).
 
-**Proposed defaults (for your morning review, NOT locked):**
+**The dry-run histogram changed the design before locking** (the `/lock-via-data` discipline working): the high-clean bucket (clean=165-169, 41 rows, uniform clean=165/viol=0/mastered_at=2026-06-04T10:08) turned out to be entirely DEAD-NAMESPACE concepts (piece_without_purpose, knight_fork, blocked_bishop, etc.) — already filtered from the gate + UI (commit 42f4b0be), so functionally inert. The script was patched (commit 17f009e8) to (a) always strip dead-namespace mastered_at as stale cleanup, and (b) apply the clean/violation rule ONLY to live-namespace concepts (the ones that reach the gate). Thresholds are locked against the LIVE distribution only.
 
-| Threshold | Suggested default | Rationale |
+**Why these numbers are NOT gut (the lock-via-data justification):**
+
+| Threshold | Locked | Justification (data + architecture, not gut) |
 |---|---|---|
-| `clean_min` | 5 | Minimum 5 clean games to claim mastery — matches the 5-game graduation contract elsewhere in the codebase |
-| `violation_max` | 3 | A concept with >3 historical violations needs more than `clean_min` clean games to overcome the noise |
-| `clean_high_floor` | 20 | When violations exceed `violation_max`, require ≥20 clean games (4x the floor) to still claim mastery |
+| `clean_min` | 5 | NOT arbitrary — the existing 5-game graduation contract (UnifiedProgress "5 clean games → archive", concept-mastery streak threshold). The dominant strip bucket is `clean=0-4` (59 live rows); the keep/strip boundary sits exactly on the contract line. Raising to 10 would be inconsistent with the rest of the system. |
+| `violation_max=3` / `clean_high_floor=20` | 3 / 20 | No sharp cliff in the violation distribution (it's gradual), so the count-based noise tolerance doesn't need to be aggressive — **the gate's slipping logic is the recency safety net.** A concept KEPT as mastered with high lifetime violations still gets downgraded to "slipping" (reminder, not suppression) if any violation is within the last 10 games. So high-clean-high-violation keeps (e.g. 7 rows at clean=20-24/viol=10-14) are safe: recent violations → slipping; old violations → genuine improvement, suppression correct. |
 
-**These are gut numbers** — not data-locked. The script ships with these as defaults but emits a histogram of what WOULD be stripped at each threshold so you can pick informed numbers in the morning.
+**Known characteristic (flagged, not a bug):** clean_high_floor=20 keeps a handful of high-lifetime-violation concepts. Mitigated by the slipping overlay above. Re-measure after 2-4 weeks of organic events (success criterion §5) and tighten if the gate under-suppresses.
 
-**Unblocking step:** dry-run the script with default thresholds, look at the histogram, pick locked values, re-run with `--apply`.
+**Result:** 543 live mastered kept, 209 live stripped (28%), 42 dead stripped. Mohit's account: 75 → 33 mastered (42 stripped, mostly the dead-namespace inert rows).
 
 ### Q2. Should the cleanup also strip rows where `streak_clean` is wildly inconsistent with `clean_games_total`?
 
