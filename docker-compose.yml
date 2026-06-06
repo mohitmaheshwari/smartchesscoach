@@ -41,9 +41,9 @@ services:
     container_name: chess-coach-backend
     restart: unless-stopped
     ports:
-      - "8002:8002"
+      - "8001:8002"
     environment:
-      - MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017
+      - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
       - DB_NAME=chess_coach
       - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
@@ -75,6 +75,42 @@ services:
           memory: 2G
         reservations:
           memory: 512M
+
+  # ============================================
+  # Analysis Worker (dedicated, scalable) — 2026-06-06
+  # ============================================
+  # Drains the analysis_queue in parallel with N replicas. Reuses the
+  # backend image (Stockfish baked in) and runs the existing worker loop
+  # (analysis_worker.run_worker via __main__) which has NO single-job
+  # throttle and claims atomically (find_one_and_update) — so multiple
+  # replicas are race-safe. The in-app fallback in server.py stays as a
+  # safety net (it self-throttles and yields whenever anything is processing).
+  #
+  # NO container_name — required so `docker compose up -d --scale
+  # analysis-worker=N` can run N replicas. Default replica count set at
+  # deploy via --scale (recommend 4: 12 cores, 1 thread/engine, ~2G/4 mem).
+  #
+  # Env is intentionally minimal: analysis only needs Mongo + Stockfish +
+  # (the legacy/dead) OpenAI key. Auth/SMTP/Razorpay are API-only.
+  analysis-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "analysis_worker.py"]
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
+      - DB_NAME=chess_coach
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 256M
 
   # ============================================
   # Frontend Builder (builds React & deploys to host nginx dir)
