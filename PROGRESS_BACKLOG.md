@@ -35,3 +35,23 @@ Kept as a historical note so the same false alarm doesn't get re-filed.
 - Let natural events re-master the legitimate ones over 2-4 weeks
 
 **When to design:** ~2 weeks after deploy (let natural events accrue first so the distribution is meaningful, not backfill-dominated).
+
+---
+
+## 4. Game metadata: Dashboard reads wrong field + date_played never set
+
+**Status:** Filed 2026-06-06. Investigated — NOT the broad "metadata not extracted" I first thought (that was me querying wrong field names).
+
+**Reality:** sync (`journey_service.sync_user_games`) DOES capture player names, under `white_player` / `black_player` / `opponent_name`. The `opponent` / `white` / `black` fields are unused (None). So:
+- `GameAnalysis.jsx` (review page) reads `black_player`/`white_player` → correct ✓
+- `LabV2.jsx` reads `opponent_name` → correct ✓
+- **`Dashboard.jsx` (lines 505/586/978) + `LabV2.jsx:279` read `g.opponent` → blank ✗** (field is None; data is in `opponent_name`)
+- **`date_played` is genuinely never populated** — sync doesn't parse the PGN `[Date]` / `[UTCDate]` header.
+
+**Two fix options (needs a decision):**
+- **(a) Frontend-only:** change Dashboard.jsx + LabV2:279 to read `opponent_name` (or `opponent || opponent_name`). Minimal, fixes the visible symptom. No backfill.
+- **(b) Backend canonical fields:** populate `opponent`, `white`, `black`, `date_played` on the game doc at sync time so every consumer works regardless of field name. More robust, but needs a backfill for existing games (all have None today).
+
+**date_played fix (either way):** in `sync_user_games`, parse the PGN `[UTCDate]`+`[UTCTime]` (or `[Date]`) into `date_played`. The PGN has it (e.g. `[UTCDate "2026.06.06"]`).
+
+**Recommendation:** (b) for opponent/white/black canonical fields + add date_played parsing — one robust fix. Frontend (a) is the quick stopgap if you just want Dashboard names back now.
