@@ -303,3 +303,29 @@ This is materially more complex than the 2 shipped variants and was building-tir
 ---
 
 *Last updated: 2026-06-06*
+
+---
+
+## 17. Promote high-value tactical shape patterns to PRIMARY caption prominence
+
+**Status:** Filed 2026-06-06. `fb_eb62358ce3b3` (game cc02e327, m37 hxg3, opp_blunder cp_loss=9457).
+
+**The complaint (NOT correctness):** the "In-Between Move — Before recapturing, you have a check or bigger threat first. Play that first." caption is *correct and valuable* — it's telling Black (the user), after White's blundering hxg3, *don't auto-recapture on g3; play Rh2+ first* (the mating zwischenzug; engine confirms forced mate). But it renders as the **small teal secondary badge**, and the user wants it as the **main caption**:
+> "this was showing as in-between, but with smaller texts, this is actually a great lesson and should be part of caption"
+
+**Root cause (verified):**
+- `in_between_move` is a real shape (`shape_patterns.py:302`).
+- `promotion_ladder.json` makes shapes **Tier 2 — fill only `when caption_empty=true`**, and they render via the small teal `shape_pattern_name`/`shape_pattern_desc` sub-line (`GameDecryptionV5.jsx:~1586`), never as the primary caption.
+- So even a decisive tactical shape (zwischenzug at a 9457-cp_loss moment) is visually demoted to a footnote.
+
+**The decision needed (product, not a guess):**
+Which shapes deserve PRIMARY prominence vs staying secondary?
+- **Tactical/decisive** (promote to primary): `in_between_move`, `back_rank_trap`, `h7_attack`, `queen_knight_mate`, pin/skewer/fork shapes — these ARE the lesson.
+- **Positional/ambient** (stay secondary): `aligned_pieces`, `weak_squares`, `strong_knight_square` — context, not the headline.
+
+**Build sketch (after the decision):**
+1. Tag each shape in `shape_patterns.py` with a `prominence: "primary" | "secondary"` field.
+2. Promotion ladder / V5 render: when a `primary` shape fires, render it as the main caption (or merge into it), not just the teal badge.
+3. Frontend `GameDecryptionV5.jsx`: primary shapes use the main caption styling, not the small teal sub-line.
+
+**Why filed not built:** needs the which-shapes-promote product decision (subtractive/additive at 1200-1500 — don't drown the headline) + frontend rendering work. Recurring (every in_between_move badge), so a one-off override is wrong. Pairs with the eval-bar/review polish.
