@@ -101,6 +101,12 @@ services:
       dockerfile: Dockerfile.backend
     command: ["python", "analysis_worker.py"]
     restart: unless-stopped
+    # Disable the inherited Dockerfile.backend HEALTHCHECK: it curls
+    # localhost:8002/api/health, but workers run analysis_worker.py (no
+    # API server), so it always reports "unhealthy" — a false signal.
+    # The worker's real liveness is the queue draining, not an HTTP probe.
+    healthcheck:
+      disable: true
     environment:
       - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
       - DB_NAME=chess_coach
