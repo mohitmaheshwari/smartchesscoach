@@ -87,8 +87,9 @@ Then add to the returned facts dict: `"played_hangs_clause": clause_for(played_h
 `backend/services/severity_mismatch_guard.py` + test. `is_severity_mismatch(caption, cp_loss, is_user)` returns True when a user move's caption positively frames a real blunder. Validated: 4 fires / 0 false-fires on a 29-caption control.
 **Wiring (your review):** in the V5 render, after the caption is built, if `is_severity_mismatch(caption, cp_loss, is_user)` → suppress the positive caption and fall to an honest `"{move} is a {severity}."` (a why-predicate then fills the reason). Low misfire — correction, not new explanation. **Highest value/risk ratio of the remaining work — recommend wiring first.**
 
-### B. Opp-failure V3 — traded_active_for_inactive (the Nxf7 class)
-**Needs:** opp recapture-chain PV (now stored, Phase 0) + active/inactive piece classification. **Lock the active/inactive threshold on the corpus distribution first** (threshold-before-distribution) — do NOT guess it. ~part of the 52 opp-move bucket.
+### B. Opp-failure V3 — traded_active_for_inactive (the Nxf7 class) — lock-via-data DONE
+**Corpus probe (408 re-analyzed games, the available opp-PV subset):** 2,396 opp mistakes (cp_loss≥100); **456 (19%) are captures**; given-up piece = bishop 116 / knight 92 / queen 85 / pawn 83 / rook 68; **recapture PV present for 444/456**. So the addressable bucket (capture-mistakes by a minor/major with a recapture chain) is ~361/408 games ≈ **~5,800 corpus-wide** once fully re-analyzed.
+**Still needs (the hard, high-risk part):** the active/inactive piece *classifier* — what makes a piece "active" (off home rank? attacks enemy half? mobility count?). This must be locked on the activity distribution, then the predicate fires only on the "gave up active, kept inactive" slice + punishable-by-user gate. **Recommend building WITH review — it's the highest-misfire predicate; data substrate is ready, classifier is not.**
 
 ### C. Opp-failure V4 — quiet_when_threatened
 Opp had a piece under attack, played a non-defending move, engine best was the defense, threat is punishable-by-user. Concrete gating needed; ~part of the 52.
