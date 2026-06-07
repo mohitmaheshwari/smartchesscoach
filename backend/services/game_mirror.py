@@ -142,12 +142,18 @@ def _pattern_observation(pattern: str, top_count: int, n: int) -> str:
     was decided by this pattern).
     """
     noun = _pattern_voice(pattern, form="noun")
+    # When the pattern spans EVERY game (top_count == n), the set usually
+    # includes wins/draws too — so "came down to" (= decided the game)
+    # overclaims. Use presence language there. Keep the stronger
+    # "came down to" only for the partial case, which skews to losses.
+    # (Mohit 2026-06-07: flagged "All seven came down to hanging pieces"
+    # as an overclaim when 2 of the 7 were wins.)
     if top_count == n:
         if n == 1:
             return f"Came down to {noun}."
         if n == 2:
-            return f"Both came down to {noun}."
-        return f"All {_num_word(n).lower()} came down to {noun}."
+            return f"{noun[0].upper()}{noun[1:]} showed up in both."
+        return f"{noun[0].upper()}{noun[1:]} showed up in all {_num_word(n).lower()}."
     if top_count == 1:
         return f"One came down to {noun}."
     return f"{_num_word(top_count)} of {_num_word(n).lower()} came down to {noun}."
