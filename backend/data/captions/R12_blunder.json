@@ -195,7 +195,8 @@
   "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
   "failure_mode_clauses_opp": [
     {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
-    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"}
+    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
+    {"when": {"opp_failure_traded_active": true, "opp_traded_piece": "present", "opp_traded_recapture_san": "present"}, "variant": "opp_failure_traded_active"}
   ],
   "teaching_principles": {
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
@@ -277,6 +278,7 @@
     "opp_with_failure": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}.",
     "opp_failure_missed_capture": "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
     "opp_failure_missed_mate": "they missed {opp_missed_mate_san}, which forced checkmate",
+    "opp_failure_traded_active": "it trades off their active {opp_traded_piece} — take back with {opp_traded_recapture_san} and you're left with the better pieces",
 
     "failure_walks_into_check": "loses to {opp_reply_san}",
     "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",

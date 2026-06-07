@@ -4856,6 +4856,26 @@ def extract_facts(
             # best_move_san didn't parse on board_before (PGN/eval drift).
             # Leave facts unset rather than raising.
             pass
+    # OPP-FAILURE V3 (2026-06-07): opp traded an ACTIVE piece. Opp captured
+    # with a developed, mobile minor/major that gets recaptured (a trade), on
+    # a mistake — their good piece comes off and the user is left better.
+    # Corpus-locked thresholds live in opp_traded_active_detector (87 fires /
+    # 408 games, 0 misfires on 696 good moves). Completes the opp-failure
+    # framework's bare-shell gap (the ~26% of opp mistakes V1/V2 didn't cover).
+    opp_failure_traded_active = False
+    opp_traded_piece: Optional[str] = None
+    opp_traded_recapture_san: Optional[str] = None
+    if mover_is_user is False:
+        try:
+            from services.opp_traded_active_detector import detect_opp_traded_active
+            _v3 = detect_opp_traded_active(board_before, played_move, pv_after_played, cp_loss)
+            if _v3:
+                opp_failure_traded_active = True
+                opp_traded_piece = _v3["piece"]
+                opp_traded_recapture_san = _v3["recapture_san"]
+        except Exception:
+            pass
+
     is_promotion = played_move.promotion is not None
     forced_recapture = _is_forced_recapture(board_before, played_move)
 
@@ -5330,6 +5350,10 @@ def extract_facts(
         "opp_missed_capture_square": opp_missed_capture_square,
         "opp_failure_missed_mate": opp_failure_missed_mate,
         "opp_missed_mate_san": opp_missed_mate_san,
+        # OPP-FAILURE V3 (2026-06-07) — opp traded off an active piece.
+        "opp_failure_traded_active": opp_failure_traded_active,
+        "opp_traded_piece": opp_traded_piece,
+        "opp_traded_recapture_san": opp_traded_recapture_san,
         # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
         # Drives failure_allows_fork in R12_blunder.json. See in-place
         # comment at the extraction site.
