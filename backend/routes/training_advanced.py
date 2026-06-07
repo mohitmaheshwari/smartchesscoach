@@ -1247,9 +1247,17 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     # Coach games appear at the bottom — they're for reference, not the review focus.
     games = imported_games + coach_games
 
-    # Only load move_evaluations fields we actually use (not the full array)
+    # Only load analyses for the games we actually score below (not ALL of the
+    # user's analyzed games). 2026-06-07: the unbounded `_own_filter` load was
+    # O(all analyzed games) — for a user with ~290 analyzed games + large v110
+    # decryption docs the cache-miss recompute got slow enough to time out the
+    # Lab (empty "Nothing to review" + concurrent recomputes spiking server load).
+    # `analyses` is only looked up by the loaded games' ids (see `for g in games`
+    # below), so scope the query to those ids. Also load only the move_eval
+    # fields we use, not the full array.
+    _lab_game_ids = [g.get("game_id") for g in games if g.get("game_id")]
     analyses_cursor = db.game_analyses.find(
-        _own_filter,
+        {"game_id": {"$in": _lab_game_ids}, **_own_filter},
         {"_id": 0, "game_id": 1, "user_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
          "stockfish_analysis.accuracy": 1,
          "stockfish_analysis.move_evaluations.cognitive_gap": 1,
