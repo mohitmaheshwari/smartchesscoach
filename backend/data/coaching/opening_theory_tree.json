@@ -6946,7 +6946,42 @@
     ],
     "white_plan": "Accept the gambit, develop solidly",
     "black_plan": "Sacrifice a pawn for tricks",
-    "variations": {}
+    "variations": {
+      "englund_accepted": {
+        "name": "Englund Gambit Accepted",
+        "moves_from_parent": [
+          "dxe5"
+        ],
+        "continuation": [
+          "Nc6",
+          "Nf3",
+          "Qe7",
+          "Nc3"
+        ],
+        "white_plan": "Take the free pawn with dxe5, then develop normally — Nf3 to hold the e5 pawn, Nc3 to cover the b4 square. Keep the extra pawn and steer toward a better endgame.",
+        "black_plan": "Try to win back e5 with tricks (Qe7 hits the pawn) and hope White walks into the famous Qb4+ trap.",
+        "critical_positions": {
+          "after_qe7": {
+            "fen_pattern": "r1b1kbnr/ppppqppp/2n5/4P3/8/5N2/PPP1PPPP/RNBQKB1R w KQkq -",
+            "key_decision": "Black's queen on e7 attacks the e5 pawn and sets the trap. White must develop while keeping the b4 square covered.",
+            "best_moves": {
+              "Nc3": {
+                "idea": "Develop the knight AND cover b4.",
+                "why_good": "Stops the Qb4+ trick, defends the e-pawn indirectly, and keeps White a clean pawn up."
+              }
+            },
+            "mistake_moves": {
+              "Bf4": {
+                "why_bad": "The famous Englund trap — the natural-looking 4.Bf4?? walks straight into Qb4+.",
+                "consequence": "After 4...Qb4+ 5.Bd2 Qxb2 Black wins the b-pawn and hits the rook on a1; in the main line (6.Bc3 Bb4 7.Qd2 Bxc3 8.Qxc3 Qc1#) it's even checkmate.",
+                "better_move": "Nc3",
+                "learning": "When the enemy queen sits on e7 and your b2 pawn is loose, check for Qb4+ before you develop the bishop. Cover b4 first with Nc3."
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "albin_counter_gambit": {
     "name": "Albin Counter-Gambit",
