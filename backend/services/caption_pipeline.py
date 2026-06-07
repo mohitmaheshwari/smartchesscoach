@@ -1203,10 +1203,26 @@ def inject_opp_side_narration_facts(
                     _ur_move = _post_opp_board.parse_san(_user_reply)
                     _captured = _post_opp_board.piece_at(_ur_move.to_square)
                     if _captured:
-                        _piece_name = chess.piece_name(_captured.piece_type)
-                        caption_facts["user_best_reply_captures_piece_type"] = _piece_name
-                        caption_facts["captured_piece_type"] = _piece_name
-                        caption_facts["target_square"] = chess.square_name(_ur_move.to_square)
+                        # Only frame as "they drop the X / take it" when the
+                        # user's capture actually WINS material — not an even
+                        # trade. Parth fb_4e0609c302bb: "drop the pawn" misfired
+                        # on c6 -> dxc6, an even pawn trade (engine even preferred
+                        # O-O). Gate (SEE-lite, one ply): free (no recapturer) OR
+                        # the captured piece is worth more than the capturing one.
+                        _VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+                                chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+                        _b2 = _post_opp_board.copy()
+                        _b2.push(_ur_move)
+                        _recapturers = _b2.attackers(_b2.turn, _ur_move.to_square)
+                        _atk_pt = _post_opp_board.piece_at(_ur_move.from_square)
+                        _atk_val = _VAL.get(_atk_pt.piece_type, 0) if _atk_pt else 0
+                        _victim_val = _VAL.get(_captured.piece_type, 0)
+                        _wins_material = (not _recapturers) or (_victim_val > _atk_val)
+                        if _wins_material:
+                            _piece_name = chess.piece_name(_captured.piece_type)
+                            caption_facts["user_best_reply_captures_piece_type"] = _piece_name
+                            caption_facts["captured_piece_type"] = _piece_name
+                            caption_facts["target_square"] = chess.square_name(_ur_move.to_square)
                 except Exception:
                     pass
     except Exception:

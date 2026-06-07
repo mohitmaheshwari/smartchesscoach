@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 112  # v112 (2026-06-07): disabled opp-failure V3 - verification showed it fired on material-drops (already covered), not active-for-inactive trades. v111 (V3 wiring, reverted). v110 floor-principle + overrides.
+V5_COACHING_VERSION = 113  # v113 (2026-06-07): Parth batch - d4 'from the side'->center pawn, 1.d4 e5->Englund Gambit, and the 'drop the pawn' material-win gate (no false 'drop' on even trades like c6/dxc6). v112 disabled opp-V3.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
