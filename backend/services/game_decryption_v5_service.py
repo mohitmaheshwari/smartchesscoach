@@ -351,8 +351,8 @@ def get_opening_introduction(
             "black_response_hint": "You can match with e5 (Open Game) or fight back with c5 (Sicilian), e6 (French), c6 (Caro-Kann), or d5 (Scandinavian)."
         },
         "d4": {
-            "name": "Queen's Pawn Opening", 
-            "idea": "White controls the center from the side. Games tend to be more closed and strategic.",
+            "name": "Queen's Pawn Opening",
+            "idea": "White puts a pawn in the center and opens the dark-squared bishop. Games tend to be more closed and strategic.",
             "black_response_hint": "d5 is solid (closed games), Nf6 is flexible (Indian systems), f5 is aggressive (Dutch)."
         },
         "c4": {
@@ -430,6 +430,15 @@ def get_opening_introduction(
         ("d5", "e4", 1): {
             "name": "Scandinavian Defense",
             "idea": "Black challenges the centre immediately. After 2.exd5 Qxd5, Black's queen comes out early to recapture — and White develops with tempo by Nc3.",
+        },
+        # Parth fb_d7de4f963f39 (2026-06-07): 1.d4 e5 is the Englund
+        # Gambit, NOT the "Open Game" (that's 1.e4 e5). The move-keyed
+        # dict has e5 -> "Open Game"; disambiguate when the prior move
+        # was d4. Black offers a pawn for activity; White's dxe5 keeps
+        # the edge with accurate play.
+        ("e5", "d4", 1): {
+            "name": "Englund Gambit",
+            "idea": "Black offers a pawn for fast activity. White can take it with dxe5 and keep the advantage with careful play.",
         },
         # Parth fb_95ff0d1ec513 (2026-05-31): "it is not exactly
         # Italian yet. It can transpose to italian though." The
