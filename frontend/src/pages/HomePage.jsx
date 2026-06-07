@@ -399,7 +399,9 @@ const HomePage = ({ user }) => {
                           <span className="tabular-nums font-medium">
                             {proof.primary_pattern?.reduction_pct}% fewer
                           </span>{" "}
-                          {proof.primary_pattern?.label?.toLowerCase() || "mistakes"}
+                          {proof.primary_pattern?.label
+                            ? `${proof.primary_pattern.label.toLowerCase()} mistakes`
+                            : "mistakes"}
                         </p>
                         <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground mt-1.5 font-medium">
                           Last 10 games vs previous 10
