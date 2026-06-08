@@ -27,6 +27,14 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+# Severities where promoting a "better approach" is appropriate. A "good"
+# move (engine-best / near-best) is deliberately excluded — suggesting an
+# alternative there reads as over-flagging the best move. (2026-06-08.)
+_PROMOTE_ALT_SEVERITIES = {
+    "inaccuracy", "mistake", "blunder", "serious",
+    "opp_inaccuracy", "opp_mistake", "opp_blunder",
+}
+
 
 async def generate_concise_narrative(
     move_san: str,
@@ -116,11 +124,17 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
             return problem
         return f"{move_san}: {problem}" if move_san else problem
 
-    if better:
+    # Only promote a "better approach" on a move that's actually flagged.
+    # On a good/best move (severity not a flagged one), a leftover
+    # better_approach must NOT surface — else captions read "Rxd6 — Kb8
+    # keeps your king safer" on the engine-BEST move. Parth flagged ~32
+    # of these (2026-06-08 batch). Inaccuracy/mistake/blunder still show it.
+    if better and severity in _PROMOTE_ALT_SEVERITIES:
         return f"{move_san} — {better}" if move_san else better
 
-    # No concrete data — return empty to signal "suppress narrative,
-    # fall through to V5 caption pipeline."
+    # No concrete data (or a good move with only a stray alternative) —
+    # return empty to signal "suppress narrative, fall through to V5
+    # caption pipeline" (which gives good moves proper praise).
     return ""
 
 
