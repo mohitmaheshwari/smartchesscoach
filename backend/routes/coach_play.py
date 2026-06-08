@@ -25,8 +25,13 @@ import chess
 
 logger = logging.getLogger(__name__)
 
-def _detect_opening_from_moves(moves: list, user_color: str) -> str:
-    """Detect which curriculum opening matches these moves."""
+def _detect_opening_from_moves(moves: list, user_color: str) -> tuple:
+    """Detect which curriculum opening matches these moves.
+
+    Returns (opening_key, match_depth_plies). match_depth is how many plies the
+    game followed the opening's line before diverging — a CONFIDENCE signal so
+    callers can ignore a shallow match. E.g. 1.c4 then 2.e4 transposes out of the
+    English at depth 2; don't label/teach 'English' off that. (Mohit 2026-06-09.)"""
     from services.opening_curriculum_engine import _load_curriculum
     curriculum = _load_curriculum()
 
@@ -70,7 +75,7 @@ def _detect_opening_from_moves(moves: list, user_color: str) -> str:
             best_depth = depth
             best_match = key
 
-    return best_match
+    return best_match, best_depth
 
 
 
@@ -3715,8 +3720,8 @@ async def get_opening_guide(
 
     # Auto-detect opening from moves (after 3+ moves)
     if not opening_key and len(moves_san) >= 3:
-        opening_key = _detect_opening_from_moves(moves_san, user_color)
-        if opening_key:
+        opening_key, _od = _detect_opening_from_moves(moves_san, user_color)
+        if opening_key and _od >= 3:
             await db.coach_sessions.update_one(
                 {"session_id": session_id},
                 {"$set": {"teaching_opening": opening_key}}
@@ -7746,8 +7751,13 @@ async def _process_move_and_respond(
                         ]
                         _msan = [m for m in _msan if m]
                         if len(_msan) >= 3:
-                            _ok = _detect_opening_from_moves(_msan, user_color)
-                            if _ok:
+                            _ok, _depth = _detect_opening_from_moves(_msan, user_color)
+                            # Confidence gate: only treat it as opening X if the user
+                            # actually played INTO it (matched past their 2nd move,
+                            # depth >= 3). A shallow match means they transposed out
+                            # (1.c4 then 2.e4 = depth 2) — don't label/teach the wrong
+                            # opening. (Mohit 2026-06-09.)
+                            if _ok and _depth >= 3:
                                 await db.coach_sessions.update_one(
                                     {"session_id": session_id},
                                     {"$set": {
