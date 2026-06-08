@@ -46,6 +46,7 @@
     {"when": {"phase": "opening", "moving_piece_type": "knight"}, "variant": "coach_opening_develop_knight"},
     {"when": {"phase": "opening", "moving_piece_type": "bishop"}, "variant": "coach_opening_develop_bishop"},
     {"when": {"phase": "opening", "moving_piece_type": "pawn"}, "variant": "coach_opening_generic"},
+    {"when": {"moving_piece_type": "pawn"}, "variant": "coach_pawn_quiet"},
     {"variant": "coach_quiet_repositioning"}
   ],
   "variants": {
@@ -132,6 +133,12 @@
       "plan": "Develop pieces, control the center, castle early — in that order.",
       "teaching_point": "The opening is about getting pieces active and the king safe, not about creating threats.",
       "hint_for_user": "What's your slowest piece right now? Develop it next."
+    },
+    "coach_pawn_quiet": {
+      "explanation": "{played_san} — a quiet pawn move, making a little room.",
+      "plan": "Quiet pawn moves gain space or open a line — small gains that add up over time.",
+      "teaching_point": "Not every move is a strike. A useful pawn push improves your position bit by bit — but it also leaves behind a square it can no longer guard.",
+      "hint_for_user": "Did that pawn gain space or open a line for you — or just create a weakness?"
     },
     "coach_quiet_repositioning": {
       "explanation": "{played_san} — improving the piece's position.",
