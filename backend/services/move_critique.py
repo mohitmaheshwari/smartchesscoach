@@ -312,6 +312,22 @@ def classify_move(
             move_history_san=move_history_san,
         )
 
+    # Priority 0: a move that loses almost nothing (sub-inaccuracy, < 60cp) is a
+    # FINE move that simply isn't the engine's top pick — NOT a "walked into a
+    # problem" / mistake. Gate the harsh deviation critiques below this floor;
+    # without it, PWC badged d3 (cp_loss=25) as a "Mistake" and told the user
+    # they walked into a threat (Mohit 2026-06-08, engine-confirmed d3=25cp).
+    # Render it as a gentle on-plan nudge instead.
+    if cp_loss < 60:
+        return MoveCritique(
+            deviation_type=DeviationType.ON_PLAN_NUDGE,
+            cp_loss=cp_loss,
+            played_category=played_facts.move_category,
+            best_category=best_facts.move_category,
+            played_move_san=played_san,
+            best_move_san=best_san,
+        )
+
     # Priority 1: WALKED_INTO — played move created a problem best avoided
     walked_into = _played_walked_into_something(played_facts, best_facts)
     if walked_into:
