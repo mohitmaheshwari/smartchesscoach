@@ -999,6 +999,32 @@ async def get_coach_play_move_feedback(
                 "falling back to legacy coaching_message"
             )
 
+    # Record the rendered caption so PWC coaching has a HISTORY. It was
+    # previously ephemeral — generated live on every poll and discarded, so
+    # there was no record of what the coach actually said (auditing captions
+    # required replaying the whole game). Persist the exact feedback the user
+    # saw, keyed by move number so repeated polling upserts the same doc
+    # instead of duplicating. Best-effort: recording must NEVER break the
+    # feedback response. (Mohit 2026-06-08.)
+    if feedback and (feedback.get("coaching_message") or "").strip():
+        try:
+            _mh = session_doc.get("move_history") or []
+            _move_num = sum(1 for _m in _mh if _m.get("by") == "player")
+            if _move_num:
+                await db.coach_messages.update_one(
+                    {"session_id": session_id, "type": "move_feedback", "move_number": _move_num},
+                    {"$set": {
+                        "session_id": session_id,
+                        "type": "move_feedback",
+                        "move_number": _move_num,
+                        "feedback": feedback,
+                        "rendered_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+        except Exception as _rec_exc:
+            logger.info(f"[pwc_caption_record] failed for {session_id}: {_rec_exc}")
+
     return {"feedback": feedback}
 
 
