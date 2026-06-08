@@ -647,11 +647,24 @@ def _move_context(move: str, tactical: Dict) -> str:
         else:
             parts.append(f"Attacks the {attacks[0]} and {attacks[1]}.")
 
-    # Any threats to watch?
+    # Any SERIOUS threats to watch? Warning on EVERY move reads as nagging
+    # (Mohit 2026-06-08, PWC caption audit). Skip (a) trivial pawn-trades and
+    # (b) recaptures of the square you just moved to — those aren't dangers,
+    # they're the obvious continuation. Only surface a threat that wins a piece.
     if tactical.get("threats_created"):
-        threats = tactical["threats_created"][:1]
-        if threats:
-            parts.append(f"Watch out — opponent now threatens {threats[0]}.")
+        import re as _re
+        _dest = None
+        _md = _re.search(r"([a-h][1-8])[+#]?$", move or "")
+        if _md:
+            _dest = _md.group(1)
+        serious = [
+            t for t in tactical["threats_created"]
+            if "takes pawn" not in t.lower()
+            and "takes the pawn" not in t.lower()
+            and not (_dest and f"on {_dest}" in t.lower())
+        ]
+        if serious:
+            parts.append(f"Watch out — opponent now threatens {serious[0]}.")
 
     # Pieces left hanging?
     if tactical.get("pieces_hanging_after"):
@@ -818,10 +831,12 @@ def _generate_coaching_message(
         ])
         context = _move_context(user_move, tactical_analysis)
         result["coaching_message"] = f"{base}{context}"
-        if best_move and best_move != user_move:
-            result["coaching_message"] += f" {best_move} was a touch sharper."
+        # No "{best} was a touch sharper" on a GOOD move — the move is good,
+        # and second-guessing every solid move reads as nagging (Mohit
+        # 2026-06-08, PWC caption audit). Promote an alternative only on
+        # inaccuracies/mistakes, handled in the branches below.
         return result
-    
+
     # ========== INACCURACIES ==========
     elif quality == "inaccuracy":
         # Try contrastive explanation (position + phase aware)
