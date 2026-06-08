@@ -46,6 +46,25 @@ def _first_moves(pgn: str, n: int = 12):
         return []
 
 
+# An "accurate opening game" = the user played the OPENING PHASE cleanly: no move
+# in their first N moves lost >= MISTAKE_CP centipawns (i.e. no opening mistake or
+# blunder). This is deliberately STRONG — playing the opening is `seen`; playing it
+# *without an opening mistake* is `correct` and what counts toward mastery. We do
+# NOT credit accuracy we can't measure (no analysis -> not accurate, just seen).
+_OPENING_PHASE_MOVES = 10
+_MISTAKE_CP = 150
+
+
+def _opening_accurate(analysis: dict):
+    """True/False if assessable, None if no per-move data (can't judge)."""
+    me = ((analysis or {}).get("stockfish_analysis") or {}).get("move_evaluations") or []
+    opening = me[:_OPENING_PHASE_MOVES]
+    if not opening:
+        return None
+    worst = max((m.get("cp_loss", 0) or 0) for m in opening if isinstance(m, dict))
+    return worst < _MISTAKE_CP
+
+
 async def recompute(user_id: str, write: bool = False):
     db = AsyncIOMotorClient(os.environ["MONGO_URL"], serverSelectionTimeoutMS=10000)[
         os.environ.get("DB_NAME", "chess_coach")
@@ -62,9 +81,11 @@ async def recompute(user_id: str, write: bool = False):
         if isinstance(v, dict) and v.get("kind") == "opening" and v.get("content_ref")
     }
 
-    counts = Counter()          # content_ref -> games
+    counts = Counter()          # content_ref -> games played (seen)
+    accurate = Counter()        # content_ref -> opening-accurate games (correct)
     gated = Counter()           # content_ref -> shallow/transposed (excluded)
     scanned = 0
+    no_analysis = 0
     async for g in db.games.find(
         {"user_id": user_id}, {"_id": 0, "pgn": 1, "moves": 1, "user_color": 1, "game_id": 1}
     ):
@@ -75,16 +96,30 @@ async def recompute(user_id: str, write: bool = False):
         key, depth = _detect_opening_from_moves(moves, (g.get("user_color") or "white"))
         if not key:
             continue
-        if depth >= _MIN_CONFIDENCE_DEPTH:
-            counts[key] += 1
-        else:
+        if depth < _MIN_CONFIDENCE_DEPTH:
             gated[key] += 1
+            continue
+        counts[key] += 1
+        # opening accuracy -> `correct` (only when the opening was played cleanly)
+        gid = g.get("game_id")
+        analysis = await db.game_analyses.find_one(
+            {"game_id": gid}, {"_id": 0, "stockfish_analysis.move_evaluations": 1}
+        ) if gid else None
+        acc = _opening_accurate(analysis)
+        if acc is True:
+            accurate[key] += 1
+        elif acc is None:
+            no_analysis += 1
 
-    print(f"scanned {scanned} games for {user_id}")
-    print(f"\n=== recomputed games-per-opening (confident, depth >= {_MIN_CONFIDENCE_DEPTH}) ===")
+    print(f"scanned {scanned} games for {user_id} "
+          f"({no_analysis} confident games lacked analysis -> counted as played-only)")
+    print(f"\n=== recomputed per-opening (confident, depth >= {_MIN_CONFIDENCE_DEPTH}) ===")
+    print("    played = games in this opening; accurate = opening played without a mistake")
     for ref, c in counts.most_common():
         sid = valid.get(ref, f"(untracked:{ref})")
-        print(f"  {ref}: {c} games  -> skill {sid}")
+        acc = accurate.get(ref, 0)
+        status = "GRADUATES" if (c >= 5 and acc >= 3) else f"need {max(0, 3 - acc)} more accurate"
+        print(f"  {ref}: {c} played / {acc} accurate  -> {sid}  [{status}]")
     if gated:
         print(f"\n  excluded (shallow/transposed, < depth {_MIN_CONFIDENCE_DEPTH}):")
         for ref, c in gated.most_common():
@@ -116,6 +151,7 @@ async def recompute(user_id: str, write: bool = False):
             )
             memory.learning.skills.append(skill)
         skill.seen = max(skill.seen, c)
+        skill.correct = max(skill.correct, accurate.get(ref, 0))
         applied += 1
     await db.coach_memory.update_one(
         {"user_id": user_id}, {"$set": _memory_to_doc(memory)}, upsert=True
