@@ -8676,6 +8676,25 @@ async def get_fundamentals_summary(session_id: str, user=Depends(get_current_use
 
 # ─── IMPROVEMENT PROOF ──────────────────────────────────────────
 
+_IMPROVEMENT_LABELS = {
+    "check_opponents_move": "checking opponent threats",
+    "hanging_pieces": "keeping your pieces safe",
+    "king_safety": "king safety",
+    "calculate": "calculating before moving",
+    "development": "developing pieces",
+    "center_control": "center control",
+    "have_a_plan": "playing with a plan",
+}
+
+
+def improvement_label(fundamental: str) -> str:
+    """Human-readable label for a fundamental / cognitive-gap key. De-underscores
+    any unmapped key so a raw snake_case key (e.g. 'piece_activity') never reaches
+    the user. Single source for the endpoint AND pwc_coaching_lint (Mohit 2026-06-08
+    found 'piece_activity' leaking the underscore)."""
+    return _IMPROVEMENT_LABELS.get(fundamental, (fundamental or "").replace("_", " "))
+
+
 @router.get("/improvement-proof")
 async def get_improvement_proof(user: User = Depends(get_current_user)):
     """
@@ -8749,20 +8768,9 @@ async def get_improvement_proof(user: User = Depends(get_current_user)):
     message = ""
     if improvements:
         best = improvements[0]
-        labels = {
-            "check_opponents_move": "checking opponent threats",
-            "hanging_pieces": "keeping your pieces safe",
-            "king_safety": "king safety",
-            "calculate": "calculating before moving",
-            "development": "developing pieces",
-            "center_control": "center control",
-            "have_a_plan": "playing with a plan",
-        }
-        # Fallback de-underscores any key not in the map (e.g. cognitive-gap
-        # keys like "piece_activity") so the raw snake_case never reaches the
-        # user — the screen showed "getting better at piece_activity!" (Mohit
-        # 2026-06-08). Pluralize "mistake" so it doesn't read "1 mistakes".
-        label = labels.get(best["fundamental"], best["fundamental"].replace("_", " "))
+        # Single-source label resolution (de-underscores unmapped keys); pluralize
+        # "mistake" so it doesn't read "1 mistakes". (Mohit 2026-06-08.)
+        label = improvement_label(best["fundamental"])
         n_before = best["before"]
         noun = "mistake" if n_before == 1 else "mistakes"
         message = f"You're getting better at {label}! ({n_before} {noun} → {best['after']})"

@@ -123,6 +123,26 @@ def run():
             lint(f"sel/{san}/{fld}", getattr(ce, fld, None), is_pawn=is_pawn); n += 1
     print(f"  rendered+linted {len(corpus)} coach moves x4 fields")
 
+    # ── Pass 4: progress card labels (improvement_label, all keys) ──────
+    print("\n=== Pass 4: progress-card labels (every fundamental/gap key) ===")
+    from routes.coach_play import improvement_label
+    KEYS = [
+        "check_opponents_move", "hanging_pieces", "king_safety", "calculate",
+        "development", "center_control", "have_a_plan",
+        "piece_safety", "missed_tactic", "tactical_oversight", "calculation_depth",
+        "pawn_structure", "piece_activity", "time_pressure", "opening_knowledge",
+        "endgame_technique",
+        "advantage_collapse", "threat_blindness", "hanging_piece_blindness",
+        "positional_misread", "defensive_lapse", "overconfidence",
+    ]
+    n = 0
+    for k in KEYS:
+        for nb in (1, 3):
+            noun = "mistake" if nb == 1 else "mistakes"
+            msg = f"You're getting better at {improvement_label(k)}! ({nb} {noun} → 0)"
+            lint(f"progress/{k}/n{nb}", msg, expect_text=True); n += 1
+    print(f"  linted {n} progress-card messages (all keys x singular/plural)")
+
     # ── Report ──────────────────────────────────────────────────────────
     print("\n" + "=" * 60)
     if not flags:
@@ -139,5 +159,57 @@ def run():
     return 1
 
 
+async def lint_live(n_sessions=2):
+    """Pass 5 (slow, DB) — replay caption_for_pwc_move over recent real sessions.
+    BOUNDED (n_sessions small) so it doesn't time out over the SSH tunnel. Opt-in
+    via LINT_LIVE=1 so the default run stays fast."""
+    import os
+    from motor.motor_asyncio import AsyncIOMotorClient
+    db = AsyncIOMotorClient(os.environ["MONGO_URL"], serverSelectionTimeoutMS=10000)[
+        os.environ.get("DB_NAME", "chess_coach")
+    ]
+    await db.command("ping")
+    from services.pwc_caption_bridge import caption_for_pwc_move
+    flags = []
+    sessions = await db.coach_sessions.find(
+        {"move_history.5": {"$exists": True}}, {"_id": 0, "session_id": 1, "move_history": 1}
+    ).sort("_id", -1).limit(n_sessions).to_list(n_sessions)
+    n = 0
+    for s in sessions:
+        sid = s["session_id"]; mh = s.get("move_history") or []; seen = {}
+        for i, mv in enumerate(mh):
+            if mv.get("by") != "player":
+                continue
+            try:
+                cap = await caption_for_pwc_move(db, sid, i)
+            except Exception:
+                continue
+            if cap is None:
+                continue
+            n += 1
+            is_pawn = (mv.get("move") or mv.get("san") or "")[:1].islower()
+            for typ, detail in lint_text(cap, is_pawn=is_pawn):
+                flags.append({"type": typ, "where": f"cap/{sid[:8]}/m{i}",
+                              "detail": detail, "text": str(cap)})
+            seen[cap] = seen.get(cap, 0) + 1
+        for cap, c in seen.items():
+            if c >= 3:
+                flags.append({"type": "REPETITION", "where": f"cap/{sid[:8]}",
+                              "detail": f"x{c}", "text": cap})
+    print(f"\n=== Pass 5 (LIVE): {n} user-move captions over {len(sessions)} sessions ===")
+    if not flags:
+        print("  RESULT: live captions CLEAN")
+    else:
+        print(f"  RESULT: {len(flags)} live-caption defects")
+        for f in flags:
+            print(f"  [{f['type']}] {f['where']}: {f['detail']}  ::  {f['text'][:80]!r}")
+    return flags
+
+
 if __name__ == "__main__":
-    sys.exit(run())
+    import os
+    import asyncio
+    code = run()
+    if os.environ.get("LINT_LIVE") == "1":
+        asyncio.run(lint_live())
+    sys.exit(code)
