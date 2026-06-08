@@ -8757,8 +8757,14 @@ async def get_improvement_proof(user: User = Depends(get_current_user)):
             "center_control": "center control",
             "have_a_plan": "playing with a plan",
         }
-        label = labels.get(best["fundamental"], best["fundamental"])
-        message = f"You're getting better at {label}! ({best['before']} mistakes → {best['after']})"
+        # Fallback de-underscores any key not in the map (e.g. cognitive-gap
+        # keys like "piece_activity") so the raw snake_case never reaches the
+        # user — the screen showed "getting better at piece_activity!" (Mohit
+        # 2026-06-08). Pluralize "mistake" so it doesn't read "1 mistakes".
+        label = labels.get(best["fundamental"], best["fundamental"].replace("_", " "))
+        n_before = best["before"]
+        noun = "mistake" if n_before == 1 else "mistakes"
+        message = f"You're getting better at {label}! ({n_before} {noun} → {best['after']})"
     elif recent_total < earlier_total:
         message = f"Fewer mistakes overall! ({earlier_total} → {recent_total})"
     elif recent_wins > earlier_wins:
