@@ -93,7 +93,75 @@ def _load_traps_from_json() -> Dict[str, VerifiedOpeningTrap]:
     return registry
 
 
+def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
+    """Load the admin-editable trap content from data/traps.json (the real ~54
+    traps incl. the Fried Liver) and map it into the VerifiedOpeningTrap shape so
+    the PWC move-flow detection (get_applicable_traps_for_moves) actually finds
+    traps. The legacy opening_theory_tree.json source above is currently empty.
+    (Mohit 2026-06-09: traps weren't wired — detection read the empty file while
+    the real content sat unused in traps.json.) Existing data only — no new traps."""
+    import ast
+    path = os.path.join(os.path.dirname(__file__), "..", "data", "traps.json")
+    registry: Dict[str, VerifiedOpeningTrap] = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logger.warning(f"[TRAPS] Could not load traps.json: {e}")
+        return registry
+    if not isinstance(data, dict):
+        return registry
+
+    def _as_list(v):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = ast.literal_eval(v)
+                return parsed if isinstance(parsed, list) else []
+            except Exception:
+                return []
+        return []
+
+    for raw_key, traps in data.items():
+        if not isinstance(traps, list) or raw_key.startswith("_"):
+            continue
+        opening_key = raw_key.replace("-", "_")          # 'italian-game' -> 'italian_game'
+        opening_name = raw_key.replace("-", " ").title()  # -> 'Italian Game'
+        for t in traps:
+            if not isinstance(t, dict) or not t.get("name"):
+                continue
+            setup = _as_list(t.get("setup_moves"))
+            trap_line = _as_list(t.get("trap_line"))
+            line_moves = [m.get("move", "") for m in trap_line if isinstance(m, dict) and m.get("move")]
+            trap_move = line_moves[0] if line_moves else ""
+            trap_color = t.get("trap_color", "")
+            victim = "black" if trap_color == "white" else "white" if trap_color == "black" else ""
+            trap_id = f"{opening_key}_{t['name'].lower().replace(' ', '_')}"
+            registry[trap_id] = VerifiedOpeningTrap(
+                trap_id=trap_id,
+                name=t["name"],
+                opening_key=opening_key,
+                opening_name=opening_name,
+                variation_name="",
+                setup_moves=setup,
+                full_line=list(setup) + line_moves,
+                trap_move=trap_move,
+                explanation=t.get("description", ""),
+                refutation=t.get("success_message", ""),
+                victim_color=victim,
+                trap_for=trap_color,
+                difficulty=t.get("difficulty", "beginner"),
+                category="trap",
+            )
+    logger.info(f"[TRAPS] Loaded {len(registry)} traps from traps.json")
+    return registry
+
+
 ALL_REGISTRY = _load_traps_from_json()
+# The theory-tree source above is currently empty; the real admin-editable trap
+# content lives in data/traps.json. Merge it so PWC trap detection actually fires.
+ALL_REGISTRY.update(_load_traps_from_library_json())
 VERIFIED_TRAP_REGISTRY = {k: v for k, v in ALL_REGISTRY.items() if v.category == "trap"}
 OPENING_WARNINGS = {k: v for k, v in ALL_REGISTRY.items() if v.category == "warning"}
 
