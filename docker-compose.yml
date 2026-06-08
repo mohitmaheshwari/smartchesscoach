@@ -52,12 +52,16 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
-      # PWC central-pipeline divergence telemetry (2026-06-06). Shadow-only:
-      # on each PWC move, also run the central caption pipeline and log when
-      # it would have spoken differently. NO user-facing change (the active
-      # flag PWC_USE_CENTRAL_CAPTION_PIPELINE stays OFF). Starts the ~1-week
-      # soak whose data gates the Phase 3 rollout decision.
+      # PWC central-pipeline migration (2026-06-08). The divergence baseline
+      # (commit 22eac125) confirmed a clear win: 100% content agreement where
+      # both engines speak, 89% of one-silent cases are central enrichment PWC
+      # missed, and PWC-only cases were filler/cp=0 false positives. So the
+      # ACTIVE flag is now ON — PWC move captions route through the central
+      # caption pipeline, inheriting all the Lab caption quality (simple-English,
+      # root-cause fixes, verified templates, one voice). Telemetry stays on to
+      # keep monitoring divergence in prod after the flip.
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
+      - PWC_USE_CENTRAL_CAPTION_PIPELINE=true
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
       - FRONTEND_URL=https://chessguru.ai
