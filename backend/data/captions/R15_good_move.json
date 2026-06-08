@@ -34,7 +34,7 @@
     "capture": "{played_san} — takes the {good_move_captured_piece}.",
     "central_break": "{played_san} — fights for the center. Control the center and your pieces get the best squares.",
     "bishop_pair_trade": "{played_san} — offers to trade {good_move_trade_target_color}-square bishops. Opponent has the bishop pair; trading one removes that advantage.",
-    "controls_key_squares": "{played_san} — controls {good_move_controlled_squares}, denying opponent pieces an outpost there.",
+    "controls_key_squares": "{played_san} — controls {good_move_controlled_squares}, keeping enemy pieces off those squares.",
     "supports_central_pawn": "{played_san} — supports your central pawn on {good_move_supported_pawn_square}.",
     "connects_rooks": "{played_san} — clears the back rank, connecting your rooks.",
     "develop": "{played_san} — develops a piece. Get every piece into the game before you attack.",
