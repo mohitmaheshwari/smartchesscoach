@@ -953,6 +953,23 @@ const CoachPlaySidebar = ({
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
+            {/* ═══ Today's Goal — coaching-presence v1 (spine arc) ═══
+                Pinned at the top for the whole game; accountability + the
+                post-game story refer back to it. Calm, single subtle accent. */}
+            {session?.session_goal?.text && !gameOver && (
+              <div
+                className="rounded-lg border border-border bg-muted/30 px-3.5 py-3"
+                data-testid="session-goal-card"
+              >
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-1.5">
+                  Today's goal
+                </p>
+                <p className="text-[13.5px] leading-relaxed text-foreground">
+                  {session.session_goal.text}
+                </p>
+              </div>
+            )}
+
             {/* ═══ V2 COACHING ONLY — one voice ═══ */}
 
             {/* Pre-Move Fundamentals Reminder — disabled, v2 handles this */}

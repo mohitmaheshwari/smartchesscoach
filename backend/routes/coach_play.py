@@ -6108,6 +6108,7 @@ async def start_play_with_coach(
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
             "message": welcome_message,
+            "session_goal": session.session_goal,  # coaching-presence v1: today's goal
             "opening_key": opening_key,
             "evaluation": {
                 "score": eval_score,

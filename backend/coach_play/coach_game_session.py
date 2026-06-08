@@ -90,7 +90,12 @@ class CoachGameSession:
     # to in their imported games.
     student_weaknesses: List[str] = field(default_factory=list)
     teaching_focus: Optional[str] = None
-    
+
+    # Coaching-presence v1 (spine arc): one session goal set at start, derived
+    # from the player identity engine (personal) or a rating-band default.
+    # {text, focus_area, source, confidence, band?}. See session_goal_service.
+    session_goal: Optional[Dict] = None
+
     # Async coaching state
     coach_move_pending: bool = False  # Whether coach is still thinking
     last_coach_move: Optional[Dict] = None  # Last move made by coach
@@ -247,6 +252,20 @@ async def start_coach_session(
     except Exception as e:
         logger.warning(f"established_patterns lookup failed for {user_id}: {e}")
 
+    # Coaching-presence v1 (spine arc — Session Goal): derive ONE goal for today
+    # from the existing player identity engine (personal) or a rating-band default.
+    # Best-effort — never blocks the session start.
+    session_goal = None
+    try:
+        from services.session_goal_service import derive_session_goal
+        session_goal = await derive_session_goal(db, user_id, user_rating)
+        logger.info(
+            f"session_goal for {user_id}: source={session_goal.get('source')} "
+            f"focus={session_goal.get('focus_area')}"
+        )
+    except Exception as e:
+        logger.warning(f"session_goal derivation failed for {user_id}: {e}")
+
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
         user_id=user_id,
@@ -262,6 +281,7 @@ async def start_coach_session(
         coach_skill_level=skill_level,
         pedagogical_mode_active=True,  # Enable pedagogical opponent by default
         student_weaknesses=student_weaknesses,
+        session_goal=session_goal,
     )
     
     # Add practice mode metadata

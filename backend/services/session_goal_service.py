@@ -44,6 +44,15 @@ _PHASE_GOALS = {
     "endgame":    "Today, let's focus on the endgame — patient, precise, convert the advantage.",
 }
 
+# Appended to the leak goal to anchor WHERE it shows up. Gives leak x phase
+# differentiation so two users with the same leak but different weak phases get
+# different goals (avoids the 83%-identical "advantage_collapse" goal problem).
+_PHASE_TAIL = {
+    "opening":    "Watch the opening especially — early slips set the tone.",
+    "middlegame": "It bites most when the position gets complex.",
+    "endgame":    "Watch the endgame especially — that's where it tends to slip.",
+}
+
 # Rating-band default (no confident identity yet). Mirrors the per-band "thinking we
 # install" table in the scope doc. Band keys match deterministic_coach_service.RATING_BANDS.
 _BAND_GOALS = {
@@ -98,14 +107,23 @@ async def derive_session_goal(db, user_id: str, user_rating: Optional[int] = Non
     phase = raw.get("phase") if isinstance(raw.get("phase"), str) else None
     conf = (identity.get("confidence") or {}).get("label", "")
 
-    text = _LEAK_GOALS.get(leak) or _PHASE_GOALS.get(phase)
+    core = _LEAK_GOALS.get(leak)
+    if core:
+        tail = _PHASE_TAIL.get(phase)
+        text = f"{core} {tail}" if tail else core
+        focus = f"{leak}+{phase}" if phase else leak
+    else:
+        # no leak mapping — fall back to a phase-only goal
+        text = _PHASE_GOALS.get(phase)
+        focus = phase
+
     if not text:
-        # identity exists but the leak/phase don't map — stay honest, use band default
+        # identity exists but neither leak nor phase maps — stay honest, band default
         return _band_default_goal(user_rating)
 
     return {
         "text": text,
-        "focus_area": leak or phase,
+        "focus_area": focus,
         "source": "identity",
         "confidence": conf or "forming",
     }
