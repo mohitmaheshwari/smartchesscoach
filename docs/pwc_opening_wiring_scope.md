@@ -67,6 +67,17 @@ works:
   Fried Liver, etc., from the 18-trap library).
 - **Teaching offer** — the offer paths can key off a real detected opening.
 
+### Data: existing JSONs ONLY — create nothing new (Mohit 2026-06-09)
+This fix authors **no new data**. It reads files that already exist:
+- **`data/opening_curriculum.json`** — the detector's source (20 curated openings +
+  trees), via `opening_curriculum_engine`.
+- **`verified_opening_traps.py`** (existing verified-trap data) — `get_applicable_traps_for_moves`
+  already reads it; we just stop gating it on a `None` opening.
+- **`data/eco_openings.json`** — the broad ECO name database, already present, available
+  if we want *any* opening named (not only the 20 curriculum ones).
+
+**No new JSON, no new openings, no new traps. Pure wiring over the common data files.**
+
 ### Acceptance (what "done" looks like)
 On replaying session `908b8da0`:
 - `detected_opening == "italian_game"` after move 3.
@@ -133,8 +144,13 @@ in the live flow. Fixing this wire is a prerequisite, not just a cosmetic fix.
 - **Should the name show in the header/coaching by default**, or only when a trap or
   teaching moment is relevant? (Restraint vs. always-on naming — ties to the
   "opening name only at critical lessons" rule, [[feedback_opening_name_only_at_critical_lessons]].)
-- **Traps:** is the existing 18-trap library's Italian coverage enough for v1, or is
-  trap-content a separate follow-up?
+- **Naming coverage:** name only the **20 curriculum openings** (the detector's source),
+  or broaden to **any opening** using the already-present `data/eco_openings.json`?
+  Either way it's existing data — no new content.
+
+_Resolved 2026-06-09 (Mohit):_ **Use the common existing JSONs only — create nothing new.**
+Traps come from the existing `verified_opening_traps` data as-is (trap *content* is NOT
+in scope, not a follow-up — we use what's there).
 
 ---
 
