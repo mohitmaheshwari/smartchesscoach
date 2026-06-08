@@ -37,6 +37,36 @@ moves** — promoted to the whole product. See [memory/feedback_users_remember_p
 
 ---
 
+## Reality check — the coaching *brain* is already built (verified 2026-06-08)
+
+A code audit + live runs proved most of what we'd filed as "Year-2 roadmap" **already
+exists, is wired, and produces good output:**
+
+- **`player_identity_engine.py` + `journey_intelligence_service.py`**
+  (`compute_journey_intelligence`, routed at `journey.py:372` → the Journey page;
+  `compute_player_identity` also used at `coach.py:2002`) produce a **player identity**
+  (stability + primary leak + weak phase), **rating ceiling / plateau**, **growth delta**,
+  pattern engine, and phase discipline — all human, jargon-free, confidence-scaled.
+- **Live proof** (200-game account): _"You are a cautious player whose level swings
+  significantly between games. Most losses come from failing to convert in the endgame."_
+  + plateau _"peak 1955 / average 1849 — the gap comes from losing focus when ahead."_
+  Confidence label: "Definitive."
+
+**So the brain is built — it's just siloed on the Journey page, not inside a game.** The
+premium PWC work is therefore mostly **connect + present**, not **build**.
+
+**The one real caveat:** it runs on the `cognitive_gap_history` collection, which is
+**not populated for all users** (a 354-game account returned `has_data: False`). For the
+brain to light up for everyone, that pipeline must be fixed (backfill + analysis-worker
+hook). **This is a v1 dependency, not optional.**
+
+**Three pattern sources now exist — use the right one:** all-time severity in
+`get_pattern_summary` is **saturated** (41/42 users "critical") — do NOT gate on it; use
+`pattern_decay_service` for the **recency / ACTIVE** gate; and **`player_identity_engine`
+is the source of truth for "who is this player."** Do not add a fourth.
+
+---
+
 # PART 1 — Premium PWC v1 (Day 1, buildable now)
 
 This is the committed scope. Everything here is feelable **immediately** and needs
@@ -44,16 +74,19 @@ This is the committed scope. Everything here is feelable **immediately** and nee
 chess products offer.
 
 ### The six v1 capabilities
-1. **Session Goal** — the coach opens with one thing to work on today ("today, let's
-   not lose a piece in the first 10 moves").
+1. **Session Goal** — the coach opens with one thing to work on today, **derived from the
+   identity engine's primary leak / weak phase** ("today, let's focus on converting the
+   endgame" / "let's not lose focus when you're ahead"), gated by recency (decay ACTIVE);
+   band-default when `cognitive_gap_history` is thin.
 2. **Pre-move coaching** — the coach occasionally speaks _before_ you move, to shape
    _how_ you think (never to hand you the move). The single biggest shift.
 3. **Focus Areas** — the one or two things the coach is working on with you right now.
 4. **Accountability** — the coach remembers today's goal and holds you to it.
 5. **Post-game Story** — the game told back as **one lesson**, not an analysis report.
-6. **Early Profile (low confidence)** — a few honest observations with a confidence
-   label ("Aggressive · comfortable attacking · often rushes development — Confidence:
-   Low"). The honest seed of the future theory engine; it matures without a rewrite.
+6. **Early Profile** — **surfaces the EXISTING `player_identity_engine`** (identity +
+   leak + weak phase), which is already confidence-scaled and evolves with games. Not a
+   new thin profile — the brain exists; v1 *connects* it into the game. Falls back to
+   "still getting to know you" when `cognitive_gap_history` is thin.
 
 ### The honest Day-1 → Week-1 warmth gradient (read this before promising "personal")
 Half of v1 is feelable on **literal game 1** with zero user data; the other half only
@@ -213,6 +246,13 @@ These make the coach feel _human_, but they only pay off once enough per-user da
 exists. They are **deferred, not dropped.** Crucially, **they are not seven independent
 features — they are one keystone plus a stack that hangs off it.**
 
+**Update 2026-06-08: the keystone (Theory of You), plateau (rating ceiling), and growth
+delta are ALREADY BUILT and live** (see "Reality check" above). So for those three, Part 2
+is **surface + connect into PWC**, not build. What remains genuinely-new in Part 2:
+**prediction** (pre-mistake), **learning transfer**, **coach interventions**, and the
+**journal narration** layer — plus closing the `cognitive_gap_history` pipeline gap so the
+existing brain lights up for all users, not just data-rich ones.
+
 ### The keystone: Theory of You
 A player **identity**, not a stat list ("you're an attacker whose mistakes come from
 forcing play when the position needs patience"). **Everything below derives from it** —
@@ -300,5 +340,7 @@ _Resolved 2026-06-08:_ **Voice** = simple English, no Hinglish/jargon, via exist
 Signed off when Mohit blesses: the north star, the **v1 scope (Part 1)** including the
 warmth gradient and the spine arc, the two constraints, voice, the rating-band model,
 and the **roadmap split (Part 2)**. No implementation begins before that. **First build
-when greenlit: the spine arc (Goal → Accountability → Post-game Story)** — pure Day-1
-state, zero engine risk — with **pre-move coaching prototyped next to de-risk it.**
+when greenlit: wire the EXISTING identity engine into the spine arc** — Session Goal
+derived from the identity's leak/phase → Accountability → Post-game Story that references
+the identity + growth — plus the **`cognitive_gap_history` pipeline fix** so the brain
+lights up for all users (not just data-rich ones). **Pre-move coaching prototyped next.**
