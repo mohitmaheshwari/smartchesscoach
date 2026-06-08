@@ -2050,6 +2050,18 @@ def _compute_r17_derived_facts(caption_facts: Dict[str, Any]) -> None:
         caption_facts["coach_v2_sub_checks"] = sub.get("checks", 0) or 0
         caption_facts["coach_v2_sub_undefended"] = sub.get("undefended", 0) or 0
 
+    # Opening move-type signal: a central pawn push (pawn to a c-f file, rank
+    # 4-5) in the opening is "controlling the center", not "quiet repositioning".
+    # Lets opening coach moves WITHOUT a v2 teaching intent get phase-appropriate
+    # narration instead of the generic terminal. (Mohit 2026-06-08: the coach's
+    # e5 was mislabelled "improving the piece's position".)
+    mpt = caption_facts.get("moving_piece_type")
+    tsq = caption_facts.get("target_square") or ""
+    caption_facts["coach_pawn_central"] = bool(
+        mpt == "pawn" and caption_facts.get("phase") == "opening"
+        and len(tsq) == 2 and tsq[0] in "cdef" and tsq[1] in "45"
+    )
+
 
 def _format_r17_field(template_str: str, facts: Dict[str, Any]) -> str:
     """Format an R17 template string with caption_facts. Tolerates

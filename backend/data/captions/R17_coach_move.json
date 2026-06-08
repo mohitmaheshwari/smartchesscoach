@@ -42,6 +42,10 @@
     {"when": {"coach_intent": "opening_guidance", "moving_piece_type": "bishop"}, "variant": "coach_opening_develop_bishop"},
     {"when": {"coach_intent": "opening_guidance", "moving_piece_type": "pawn"}, "variant": "coach_opening_central_pawn"},
     {"when": {"coach_intent": "opening_guidance"}, "variant": "coach_opening_generic"},
+    {"when": {"coach_pawn_central": true}, "variant": "coach_opening_central_pawn"},
+    {"when": {"phase": "opening", "moving_piece_type": "knight"}, "variant": "coach_opening_develop_knight"},
+    {"when": {"phase": "opening", "moving_piece_type": "bishop"}, "variant": "coach_opening_develop_bishop"},
+    {"when": {"phase": "opening", "moving_piece_type": "pawn"}, "variant": "coach_opening_generic"},
     {"variant": "coach_quiet_repositioning"}
   ],
   "variants": {
