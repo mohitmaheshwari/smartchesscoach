@@ -125,7 +125,7 @@ def _render_hanging_piece(details: Dict) -> Optional[str]:
     if not piece or not sq:
         return None
     # Most-valuable hanging piece — usually decisive on its own.
-    return f"Your {piece} on {sq} was hanging. They could take it for free."
+    return f"Your {piece} on {sq} was not defended. They could take it for nothing."
 
 
 def _render_trapped_piece(details: Dict) -> Optional[str]:

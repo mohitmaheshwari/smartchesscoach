@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 116  # v116 (2026-06-08): simple-English batch 2 - per_move_caption (rook 'joins the game'->becomes active; 'for free'->for nothing; castle plainer) + R12 ('the exchange'->'material in the trade', general per SEE detector; 'with tempo'->'forces an answer, gain time'). v115 opening ideas.
+V5_COACHING_VERSION = 117  # v117 (2026-06-08): simple-English batch 3 - opening_book (fianchetto->'bishop on g7', cramped->tight, undermine->break up, retreats->moves back) + concept_templates (hanging/for free->'not defended'/'for nothing'). v116 per_move_caption+R12.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

@@ -58,7 +58,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "f4"],
         "name": "kings_gambit",
-        "caption": "King's Gambit. White offers a pawn to undermine Black's centre and seek rapid attack.",
+        "caption": "King's Gambit. White gives up a pawn to break up Black's center and attack fast.",
     },
     {
         "moves": ["e4", "e5", "f4", "exf4"],
@@ -101,7 +101,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e6"],
         "name": "french_defense",
-        "caption": "French Defense. Black prepares ...d5 with a slightly cramped but solid structure.",
+        "caption": "French Defense. Black prepares ...d5. The position is solid but a bit tight.",
     },
     # === Scandinavian ===
     {
@@ -229,7 +229,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "d6"],
         "name": "pirc_or_modern_setup",
-        "caption": "Pirc / Modern setup. Black plans a fianchetto with ...g6 and ...Bg7, letting White take the centre and counter-attacking later.",
+        "caption": "Pirc / Modern setup. Black puts the bishop on g7 (with ...g6 and ...Bg7), lets White take the center, and counter-attacks later.",
     },
     {
         "moves": ["e4", "g6"],
@@ -311,7 +311,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7"],
         "name": "kings_indian_main",
-        "caption": "King's Indian main line. Black builds a fianchetto setup and plans ...e5 or ...c5 to challenge White's centre.",
+        "caption": "King's Indian main line. Black puts the bishop on g7 and plans ...e5 or ...c5 to fight for the center.",
     },
     {
         "moves": ["d4", "Nf6", "c4", "g6", "Nc3", "d5"],
@@ -321,7 +321,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "Nf6", "c4", "c5"],
         "name": "benoni_defense",
-        "caption": "Benoni Defense. Black challenges the centre with c5, accepting a slightly cramped but counterattacking structure.",
+        "caption": "Benoni Defense. Black hits the center with c5, taking a slightly tight but counter-attacking position.",
     },
     {
         "moves": ["d4", "Nf6", "Nf3", "e6", "g3"],
@@ -342,7 +342,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4"],
         "name": "ruy_lopez_morphy_main",
-        "caption": "Ruy Lopez, Morphy main line. White retreats the bishop along the a4-e8 diagonal, keeping pressure on c6.",
+        "caption": "Ruy Lopez, Morphy main line. White moves the bishop back along the a4-e8 diagonal, keeping pressure on c6.",
     },
     {
         "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"],
