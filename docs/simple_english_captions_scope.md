@@ -83,5 +83,27 @@ take, attack, defend, move, castle, open file, square names (e4, f3, …).
 - Every rewritten template render-tested; linter passes; zero detector-meaning
   changes; no item left in "Needs Mohit" unresolved.
 
+## Progress log
+- **Batch 1 (v115)** — opening one-liner ideas (`get_opening_introduction`). Done.
+- **Batch 2 (v116)** — `per_move_caption` (castle/captures) + R12 ("the exchange"→general, "with tempo"). Done.
+- **Batch 3 (v117)** — `opening_book` (fianchetto/cramped/undermine/retreats) + `concept_templates` (hanging/for-free). Done.
+- All render-tested, detector-verified, small commits. Comment/docstring hits skipped.
+
+## Remaining (next sessions)
+- **Complete the audit** of lower-frequency caption files not yet swept:
+  `decryption_voice/middlegame_patterns.py` (the real "outpost" caption),
+  endgame modules, `game_mirror.py` (home/recap cards), and the V5 per-pattern
+  builders in `game_decryption_v5_service.py` (lines ~188-2283 have
+  strategic/positional/initiative/outpost/"trades off" in *some* captions —
+  needs comment-vs-caption triage like batch 3).
+- **Linter** — the existing pre-commit hook scans the WHOLE staged file, so a
+  whole-file idiom block can't be enabled until every caption file is clean
+  (else it blocks commits to uncleaned files). Decision: build it as a
+  **diff-only** guard (scan added lines in `git diff --cached`, like the
+  cp-loss rule but diff-scoped) so it blocks *reintroduction* without requiring
+  100% pre-existing cleanliness. Build after the audit completes, or as the
+  diff-only variant whenever.
+
 ## Needs Mohit (judgment calls parked here, not guessed)
-- _(none yet — populated as I hit ambiguous cases)_
+- _(none so far — no meaning-change/ambiguous-detector cases hit; the "exchange"
+  one was resolved by checking the SEE detector.)_
