@@ -105,9 +105,9 @@ def _castle_caption(move_san: str, is_user_move: bool) -> Optional[str]:
         return None
     side = "kingside" if move_san.startswith("O-O") and not move_san.startswith("O-O-O") else "queenside"
     if is_user_move:
-        base = f"Castled {side}. Your king is safer and your rook joins the game."
+        base = f"Castled {side}. Your king is safer and your rook becomes active."
     else:
-        base = f"They castle {side}, tucking their king and connecting rooks."
+        base = f"They castle {side} to make their king safe."
     return base + _check_tail(move_san, is_user_move)
 
 
@@ -259,7 +259,7 @@ def _capture_caption(
 
     if is_user_move:
         if not enemy_attackers:
-            base = f"Takes the {captured_name} on {sq_name}. Nothing recaptures, so it's free."
+            base = f"Takes the {captured_name} on {sq_name}. Nothing can take it back, so you win it for nothing."
         elif captured_value > moving_value:
             base = f"Takes the {captured_name} on {sq_name}. You win material — {captured_name} for {moving_name}."
         elif captured_value == moving_value:
@@ -269,7 +269,7 @@ def _capture_caption(
         return base + tail
     # opp's capture
     if not enemy_attackers:
-        return f"They take the {captured_name} on {sq_name} for free." + tail
+        return f"They take the {captured_name} on {sq_name} for nothing." + tail
     if captured_value > moving_value:
         return f"They take the {captured_name} on {sq_name} — wins material." + tail
     if captured_value == moving_value:
