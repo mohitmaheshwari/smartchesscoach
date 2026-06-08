@@ -58,7 +58,8 @@ chess products offer.
 ### The honest Day-1 → Week-1 warmth gradient (read this before promising "personal")
 Half of v1 is feelable on **literal game 1** with zero user data; the other half only
 becomes **personal** after a few games. Don't promise day-1 personalization we can't
-deliver until ~game 5.
+deliver until ~game 5. (This gradient is keyed to the **user's game count, not the
+calendar** — a 40-game user is already past it. See "Serving a mixed base" below.)
 
 | Feelable on game 1 (no data) | Becomes personal ~game 3–5 (needs early profile) |
 |---|---|
@@ -176,6 +177,36 @@ across both: it never feeds the move, and never speaks to fill space.
 
 ---
 
+## Serving a mixed base — the coach is data-adaptive per user
+
+The user base is spread across the data curve **at all times**: fresh players with 0
+games _and_ players (like Mohit) with 40+ analyzed games — simultaneously. So v1 and the
+roadmap are **not two products or two phases**; they are **one coach whose depth dials to
+each user's game count.** The warmth gradient is keyed to **the user's games, not the
+calendar** — a 40-game user is already past the cold start on day one.
+
+What this locks in:
+- **Depth scales with the user's game count, not wall-clock time:**
+  - **0 games** → band-generic v1 only ("still getting to know you"; goal = band default)
+  - **~5–10 games** → personalized v1 (Early Profile fills, Focus Areas become real)
+  - **40+ games** → the Early Profile is already meaningful ("you're an attacker who
+    rushes development"), brushing up against the roadmap's "Theory of You"
+- **One Early Profile, dynamic confidence** — not "low confidence for everyone"; its
+  confidence/depth is computed from the user's game count. Same feature, different depth.
+- **The data check runs NOW** — data-rich users (40-game cohort) are the gift: we don't
+  wait a year to validate Part 2; the data already exists, so we test *today* whether
+  credible patterns/identities emerge and build the roadmap engine *informed by real
+  data* rather than guessing.
+- **Honest limit:** data existing makes the roadmap **validatable and buildable sooner,
+  not free** — the theory/prediction/journal *engines* still have to be built. Data-rich
+  users mean it will *work* once built and we can *validate now*; not that it ships tomorrow.
+
+**The trap to avoid:** building v1 as if everyone is a beginner, then bolting on a
+separate "advanced mode" later. That is the two-scopes trap. **One curve, one coach,
+depth dialed by data** — built that way from the first line.
+
+---
+
 # PART 2 — Roadmap (multipliers, data-gated)
 
 These make the coach feel _human_, but they only pay off once enough per-user data
@@ -243,8 +274,9 @@ built; the **detection trigger** is the new (data-gated) work.
 
 v1 needs no behavioral data. Before we build any **roadmap** layer, one investigation:
 **do users have detectable, stable, evidenced player identities — and at what data
-volume do they become honest?** That answer decides which multipliers we can build
-truthfully *now* vs. which must wait. (Per [memory/feedback_threshold_before_distribution_is_sin]
+volume do they become honest?** **This runs NOW, on the data-rich cohort (40+ games) —
+we don't wait for data to accumulate.** That answer decides which multipliers we can
+build truthfully *now* vs. which must wait. (Per [memory/feedback_threshold_before_distribution_is_sin]
 and `/lock-via-data`.) If the signal is thin, the honest first version is retrospective
 ("across your last 10 games I'm starting to see…") until it's strong enough to go
 pre-move and confident.
