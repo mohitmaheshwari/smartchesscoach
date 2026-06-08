@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 114  # v114 (2026-06-08): root-cause #1 - narrator no longer promotes a 'better approach' on GOOD moves (over-flagging the best move; Parth ~32 flags). v113 Parth opening+drop-gate fixes.
+V5_COACHING_VERSION = 115  # v115 (2026-06-08): simple-English captions batch 1 - opening one-liner ideas plain-worded (no strategic/positional/symmetric/committing/transpose/'grab space'). See docs/simple_english_captions_scope.md. v114 over-flag fix.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -347,34 +347,34 @@ def get_opening_introduction(
         # White first moves
         "e4": {
             "name": "King's Pawn Opening",
-            "idea": "White stakes a claim in the center. Most popular opening - leads to open games.",
-            "black_response_hint": "You can match with e5 (Open Game) or fight back with c5 (Sicilian), e6 (French), c6 (Caro-Kann), or d5 (Scandinavian)."
+            "idea": "White takes a share of the center. The most popular opening - it leads to open games.",
+            "black_response_hint": "You can match with e5 (Open Game) or hit back with c5 (Sicilian), e6 (French), c6 (Caro-Kann), or d5 (Scandinavian)."
         },
         "d4": {
             "name": "Queen's Pawn Opening",
-            "idea": "White puts a pawn in the center and opens the dark-squared bishop. Games tend to be more closed and strategic.",
+            "idea": "White puts a pawn in the center and opens the dark-squared bishop. These games are often slower and need more planning.",
             "black_response_hint": "d5 is solid (closed games), Nf6 is flexible (Indian systems), f5 is aggressive (Dutch)."
         },
         "c4": {
             "name": "English Opening",
-            "idea": "White controls d5 without committing the d-pawn. Flexible and positional.",
-            "black_response_hint": "c5 for symmetry, e5 to grab space, Nf6 for flexibility."
+            "idea": "White controls d5 without moving the d-pawn yet. Flexible, and slow to build up.",
+            "black_response_hint": "c5 for symmetry, e5 to take space, Nf6 for flexibility."
         },
         "Nf3": {
             "name": "Réti Opening",
-            "idea": "White develops without committing pawns. Can transpose to many openings.",
-            "black_response_hint": "d5 is the most principled. Nf6 mirrors White's approach."
+            "idea": "White develops a piece without moving pawns yet. It can turn into many other openings.",
+            "black_response_hint": "d5 is the most principled. Nf6 copies White's plan."
         },
-        
+
         # Common Black responses to e4
-        "e5": {"name": "Open Game", "idea": "Symmetric center control. Leads to tactical play."},
-        "c5": {"name": "Sicilian Defense", "idea": "Asymmetric counter-attack. Black fights for d4 control."},
-        "e6": {"name": "French Defense", "idea": "Solid but cramped. Black will undermine with c5 and sometimes f6."},
+        "e5": {"name": "Open Game", "idea": "Both sides fight for the center. It leads to sharp, tactical games."},
+        "c5": {"name": "Sicilian Defense", "idea": "Black counter-attacks on a different side and fights for the d4 square."},
+        "e6": {"name": "French Defense", "idea": "Solid but a bit tight. Black will hit back with c5 and sometimes f6."},
         "c6": {"name": "Caro-Kann Defense", "idea": "Very solid. Black develops the bishop to f5 or g4 before e6."},
-        
+
         # Common Black responses to d4
-        "d5": {"name": "Closed Game", "idea": "Solid central control. Strategic middlegames."},
-        "Nf6": {"name": "Indian Defense", "idea": "Flexible - can become King's Indian, Nimzo-Indian, or Queen's Indian."},
+        "d5": {"name": "Closed Game", "idea": "Solid control of the center. Slow games that need planning."},
+        "Nf6": {"name": "Indian Defense", "idea": "Flexible - it can become a King's Indian, Nimzo-Indian, or Queen's Indian."},
         
         # Common follow-ups
         "Nc3": {"idea": "Develops naturally, prepares e4 or supports d5."},
