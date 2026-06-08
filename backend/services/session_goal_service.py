@@ -1,0 +1,111 @@
+"""
+Session Goal Service — Coaching Presence v1 (spine arc, step 1).
+
+Derives ONE forward-framed session goal for a Play-with-Coach game, in simple
+English, from the EXISTING player identity engine (player_identity_engine.py) —
+the brain is already built; this connects it to the in-the-moment coaching.
+
+Source of truth (per docs/coaching_presence_scope.md "Reality check"):
+  - `compute_player_identity` (primary leak + weak phase) = WHO the player is.
+  - If the identity is confident enough -> a PERSONAL goal from the leak/phase.
+  - Otherwise (thin data, <8 analyzed games) -> a rating-BAND default.
+
+Truth constraint: we never assert a personal focus the data can't support — the
+identity engine already gates on >=8 games and carries a confidence label; below
+that we fall back to the band default ("still getting to know you" honesty).
+
+Voice: simple English, no jargon (routes through the same discipline as captions —
+/check-voice, /rewrite-for-1200). No "fianchetto/zwischenzug"; name the action.
+"""
+
+import logging
+from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+# Primary-leak -> forward-framed goal (simple English, one thing to work on today).
+# Keys match player_identity_engine.LEAK_INTERPRETATIONS.
+_LEAK_GOALS = {
+    "hanging_piece_blindness": "Today's one rule: before every move, a quick check — is anything of mine left undefended?",
+    "threat_blindness":        "Today, before each move, ask one question: what is my opponent trying to do right now?",
+    "calculation_depth":       "Today, let's slow down and look one move further before you commit.",
+    "tactical_oversight":      "Today, look for forcing moves first — checks, captures, and threats — before quiet moves.",
+    "time_pressure":           "Today, let's keep a steady pace, so you're not rushing the important moves at the end.",
+    "advantage_collapse":      "Today, when you're winning, slow down and close it out — the win isn't done until it's done.",
+    "overconfidence":          "Today, when you're ahead, stay careful — keep playing solid moves instead of rushing.",
+    "positional_misread":      "Today, pick one clear plan each move and stick with it.",
+    "defensive_lapse":         "Today, when you're under pressure, slow down and find the solid, safe move.",
+}
+
+# Weak-phase -> goal (used when the leak has no clean mapping).
+_PHASE_GOALS = {
+    "opening":    "Today, let's get a clean start — develop your pieces and get your king safe early.",
+    "middlegame": "Today, when the position gets busy, slow down and check before you commit.",
+    "endgame":    "Today, let's focus on the endgame — patient, precise, convert the advantage.",
+}
+
+# Rating-band default (no confident identity yet). Mirrors the per-band "thinking we
+# install" table in the scope doc. Band keys match deterministic_coach_service.RATING_BANDS.
+_BAND_GOALS = {
+    "beginner_low":  "Today's one rule: before every move, check — can my opponent take any of my pieces?",
+    "beginner_high": "Today, before each move, ask: what is my opponent threatening right now?",
+    "intermediate":  "Today, let's look one move deeper — what's my opponent's best reply — before you commit.",
+    "advanced":      "Today, let's focus on converting your advantages cleanly, without letting the win slip.",
+}
+_BAND_GOAL_FALLBACK = "Today, let's keep your pieces safe — a quick check before each move."
+
+
+def _band_default_goal(user_rating: Optional[int]) -> Dict:
+    # Compute the band KEY directly from the documented RATING_BANDS thresholds
+    # (<1000 / 1000-1399 / 1400-1799 / 1800+). We don't call get_rating_band here
+    # because it returns the band *dict*, not the key — using that as a lookup key
+    # raises "unhashable type: dict".
+    r = user_rating or 800
+    band = ("beginner_low" if r < 1000 else "beginner_high" if r < 1400
+            else "intermediate" if r < 1800 else "advanced")
+    return {
+        "text": _BAND_GOALS.get(band, _BAND_GOAL_FALLBACK),
+        "focus_area": None,
+        "source": "band_default",
+        "band": band,
+        "confidence": "getting_to_know_you",
+    }
+
+
+async def derive_session_goal(db, user_id: str, user_rating: Optional[int] = None) -> Dict:
+    """
+    Return one session goal:
+      {text, focus_area, source: "identity"|"band_default", confidence, band?}
+
+    Personal (from the identity engine's leak/phase) when the player has a
+    confident identity; otherwise a rating-band default. Never raises — any error
+    degrades to the band default.
+    """
+    try:
+        from player_identity_engine import compute_player_identity
+        identity = await compute_player_identity(db, user_id)
+    except Exception as e:
+        logger.warning("derive_session_goal: identity failed (%s) — band default", str(e)[:80])
+        return _band_default_goal(user_rating)
+
+    if not identity or not identity.get("has_identity"):
+        return _band_default_goal(user_rating)
+
+    raw = identity.get("raw", {}) or {}
+    # Coerce to str-or-None: the engine normally returns string keys, but guard
+    # against an unexpected dict shape so a .get() never raises "unhashable type".
+    leak = raw.get("leak") if isinstance(raw.get("leak"), str) else None
+    phase = raw.get("phase") if isinstance(raw.get("phase"), str) else None
+    conf = (identity.get("confidence") or {}).get("label", "")
+
+    text = _LEAK_GOALS.get(leak) or _PHASE_GOALS.get(phase)
+    if not text:
+        # identity exists but the leak/phase don't map — stay honest, use band default
+        return _band_default_goal(user_rating)
+
+    return {
+        "text": text,
+        "focus_area": leak or phase,
+        "source": "identity",
+        "confidence": conf or "forming",
+    }
