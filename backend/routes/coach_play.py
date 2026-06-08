@@ -7730,7 +7730,36 @@ async def _process_move_and_respond(
                 # === NEW: Check for opening and offer interactive teaching ===
                 move_history = session_doc.get("move_history", [])
                 user_id = session_doc.get("user_id", "unknown")
-                
+
+                # Persist the detected opening so the NAME + TRAPS + postgame work in
+                # NORMAL free play — not only when a teaching lesson is accepted (the
+                # old detected_opening write lived in start_opening_lesson). Uses the
+                # working curriculum detector over the WHOLE curriculum (every opening),
+                # idempotent + best-effort. Unlocks trap detection (gated on
+                # detected_opening) + the opening name. (Mohit 2026-06-09: Italian game
+                # surfaced no name/traps because detected_opening was never set.)
+                if not session_doc.get("detected_opening"):
+                    try:
+                        _msan = [
+                            (mv.get("san") or mv.get("move") or "")
+                            for mv in move_history if isinstance(mv, dict)
+                        ]
+                        _msan = [m for m in _msan if m]
+                        if len(_msan) >= 3:
+                            _ok = _detect_opening_from_moves(_msan, user_color)
+                            if _ok:
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {
+                                        "detected_opening": _ok,
+                                        "teaching_opening": session_doc.get("teaching_opening") or _ok,
+                                    }},
+                                )
+                                session_doc["detected_opening"] = _ok
+                                logger.info(f"[opening] persisted detected_opening={_ok} for {session_id}")
+                    except Exception as e:
+                        logger.warning(f"[opening] persist failed for {session_id}: {e}")
+
                 # Only check in opening phase (first 12 moves per side)
                 if len(move_history) <= 24 and not session_doc.get("opening_offer_shown"):
                     try:
