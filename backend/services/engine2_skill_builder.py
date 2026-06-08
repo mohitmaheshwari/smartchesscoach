@@ -41,6 +41,49 @@ _TREE_PATH = Path(__file__).resolve().parent.parent / "data" / "coaching" / "ski
 _TREE_CACHE: Optional[Dict] = None
 
 
+_CURRICULUM_PATH = Path(__file__).resolve().parent.parent / "data" / "opening_curriculum.json"
+
+
+def _augment_openings_from_curriculum(skills: Dict) -> None:
+    """Derive a tracking skill for every curriculum opening that doesn't already
+    have one — so adding an opening to opening_curriculum.json is the ONLY step
+    and the skill tree can never fall out of sync (Mohit 2026-06-09: English was
+    in the curriculum but missing here, so it never showed on the progress page).
+
+    Additive + best-effort: existing entries are preserved (never clobbered), and
+    a curriculum load failure leaves the tree exactly as authored. Auto-assigns a
+    tier (white openings -> T2, defences/gambit-responses -> T3); tunable by adding
+    an explicit entry to skill_tree.json, which wins (we only fill gaps)."""
+    try:
+        with open(_CURRICULUM_PATH, "r", encoding="utf-8") as f:
+            cur = json.load(f)
+    except Exception as e:
+        logger.warning(f"[skill-tree] curriculum augment skipped: {e}")
+        return
+    tracked = {
+        v.get("content_ref") for v in skills.values()
+        if isinstance(v, dict) and v.get("kind") == "opening"
+    }
+    for ck, co in cur.items():
+        if ck.startswith("_") or not isinstance(co, dict) or ck in tracked:
+            continue
+        color = co.get("color", "white")
+        name = co.get("name", ck.replace("_", " ").title())
+        tier = 2 if (color == "white" and ck not in
+                     ("modern_defense", "philidor_defense", "englund_gambit_response")) else 3
+        skills[f"opening_{ck}"] = {
+            "kind": "opening",
+            "label": f"{name} ({'White' if color == 'white' else 'Black'})",
+            "fixes": "expanding your opening repertoire",
+            "content_ref": ck,
+            "prerequisites": [],
+            "rating_min": 1400 if tier == 2 else 1800,
+            "rating_max": 1799 if tier == 2 else 9999,
+            "tier": tier,
+        }
+        logger.info(f"[skill-tree] derived opening skill from curriculum: opening_{ck}")
+
+
 def _load_tree() -> Dict:
     """Load and cache the skill tree JSON. Filters out `_meta` and `_*_note` keys."""
     global _TREE_CACHE
@@ -53,6 +96,9 @@ def _load_tree() -> Dict:
                 k: v for k, v in (raw.get("skills") or {}).items()
                 if not k.startswith("_") and isinstance(v, dict)
             }
+            # Auto-derive any curriculum opening missing a tracking skill, so the
+            # tree stays in sync with the curriculum without manual edits.
+            _augment_openings_from_curriculum(skills)
             _TREE_CACHE = {"skills": skills, "_meta": raw.get("_meta", {})}
         except Exception as e:
             logger.error(f"Failed to load skill tree: {e}")
