@@ -2711,6 +2711,46 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
         upsert=True
     )
 
+    # Verify route (Mohit 2026-06-09): passing the quiz at a strong bar (>=80%) marks
+    # the opening KNOWN (VERIFIED) — the honest "studied" signal the progress page
+    # reads (skill_id in openings_learned). This is the ONLY way to become "studied"
+    # without the full lesson: you PROVED you know it (we don't infer it from play).
+    # Best-effort; maps the quiz key -> skill via content_ref. Never blocks the result.
+    marked_known = False
+    if score >= 80:
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            from services.engine2_skill_builder import _load_tree
+            _skills = _load_tree().get("skills", {})
+            _ref_to_sid = {
+                v.get("content_ref"): k for k, v in _skills.items()
+                if isinstance(v, dict) and v.get("kind") == "opening" and v.get("content_ref")
+            }
+            skill_id = _ref_to_sid.get(opening_key)
+            if skill_id:
+                from services.coach_memory import (
+                    get_or_create_memory, _memory_to_doc, SkillProgress,
+                )
+                memory = await get_or_create_memory(db, user.user_id)
+                ol = list(memory.learning.openings_learned or [])
+                if skill_id not in ol:
+                    ol.append(skill_id)
+                    memory.learning.openings_learned = ol
+                now_iso = _dt.now(_tz.utc).isoformat()
+                sk = next((s for s in memory.learning.skills
+                           if s.skill_id == skill_id and s.skill_type == "opening"), None)
+                if sk is None:
+                    sk = SkillProgress(skill_id=skill_id, skill_type="opening", first_seen=now_iso)
+                    memory.learning.skills.append(sk)
+                sk.learned_at = now_iso
+                sk.last_seen = now_iso
+                await db.coach_memory.update_one(
+                    {"user_id": user.user_id}, {"$set": _memory_to_doc(memory)}, upsert=True
+                )
+                marked_known = True
+        except Exception as e:
+            logger.warning(f"[opening-quiz] mark-known failed for {opening_key}: {e}")
+
     return {
         "opening": opening_key,
         "opening_name": opening["name"],
@@ -2719,6 +2759,7 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
         "total": total,
         "mastery_level": new_level,
         "mastery_feedback": mastery_feedback,
+        "marked_known": marked_known,
         "results": results
     }
 
