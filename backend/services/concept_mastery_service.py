@@ -84,7 +84,7 @@ def _days_since(ts: Optional[str], *, now: Optional[datetime] = None) -> Optiona
     return max(0, delta.days)
 
 
-def _progress_hint(skill, kind: str) -> str:
+def _progress_hint(skill, kind: str, studied: bool = False) -> str:
     """One short line describing how close the user is to graduation.
 
     Kind-aware so the hint matches the actual graduation rule. The
@@ -119,9 +119,12 @@ def _progress_hint(skill, kind: str) -> str:
         # for real mastery — playing it, however well, is NEVER called "studied".
         # (`correct` here = games where the opening phase was played cleanly — a
         # play-quality fact, not knowledge. Real "studied" comes from the lesson.)
+        plural = "s" if seen != 1 else ""
+        if studied:
+            clean = f", {correct} cleanly" if correct else ""
+            return f"Studied. Played {seen} time{plural}{clean} — you know this one. Keep it sharp."
         if seen < 1:
             return "Not played yet. Study it to learn the ideas."
-        plural = "s" if seen != 1 else ""
         if correct < 1:
             return (f"Played {seen} time{plural}, but the opening hasn't gone cleanly "
                     f"yet. Study it to learn the ideas.")
@@ -142,7 +145,8 @@ def _progress_hint(skill, kind: str) -> str:
     return "Studied."
 
 
-def _state_for_skill(skill, kind: str, *, now: Optional[datetime] = None) -> Tuple[str, Optional[int]]:
+def _state_for_skill(skill, kind: str, *, now: Optional[datetime] = None,
+                     studied_override: Optional[bool] = None) -> Tuple[str, Optional[int]]:
     """Compute (state, days_since_studied) for a single SkillProgress entry.
 
     State machine:
@@ -157,6 +161,16 @@ def _state_for_skill(skill, kind: str, *, now: Optional[datetime] = None) -> Tup
     rule is "completed the guided lesson", not proof of retention.
     """
     n = now or datetime.now(timezone.utc)
+
+    # Openings: "studied" means the user did the LESSON, not that they played it
+    # accurately (play != knowledge — Mohit 2026-06-09: Philidor showed "studied"
+    # off games played). The caller passes studied_override = skill_id in
+    # openings_learned; play-based is_learned() / learned_at are IGNORED for
+    # openings so playing one, however well, is never reported as "studied".
+    if kind == "opening" and studied_override is not None:
+        if studied_override:
+            return "studied", _days_since(skill.learned_at, now=n)
+        return "learning", None
 
     graduated_now = skill.is_learned()
     days_graduated = _days_since(skill.learned_at, now=n)
@@ -248,6 +262,12 @@ def summarize_mastery(memory) -> Dict:
         s.skill_id: s for s in (getattr(memory.learning, "skills", []) or [])
     }
 
+    # Real opening study = the user completed the LESSON, recorded in openings_learned
+    # by skill_id. The old play-promotion path stored opening NAMES ("Philidor Defense")
+    # not skill_ids, so by-skill_id membership cleanly separates real study from play.
+    _learned = getattr(memory.learning, "openings_learned", None) or []
+    studied_opening_ids = {x for x in _learned if isinstance(x, str) and x.startswith("opening_")}
+
     by_kind: Dict[str, List[Dict]] = {}
     counts = {"unseen": 0, "learning": 0, "studied": 0, "stale": 0}
     now = datetime.now(timezone.utc)
@@ -280,7 +300,8 @@ def summarize_mastery(memory) -> Dict:
             })
             counts["unseen"] += 1
         else:
-            state, days = _state_for_skill(progress, kind, now=now)
+            studied_override = (skill_id in studied_opening_ids) if kind == "opening" else None
+            state, days = _state_for_skill(progress, kind, now=now, studied_override=studied_override)
             record.update({
                 "state": state,
                 "seen": progress.seen,
@@ -288,7 +309,7 @@ def summarize_mastery(memory) -> Dict:
                 "wrong": progress.wrong,
                 "learned_at": progress.learned_at,
                 "days_since_studied": days,
-                "progress_hint": _progress_hint(progress, kind),
+                "progress_hint": _progress_hint(progress, kind, studied=bool(studied_override)),
             })
             counts[state] += 1
 
