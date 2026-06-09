@@ -152,6 +152,13 @@ async def sync_focus_with_brain(db, user_id: str, brain_focus: str) -> Optional[
     rule_config = FOCUS_RULES.get(cluster, {})
     existing = await get_user_focus(db, user_id)
 
+    # Universal Habit Coach: a pilot / universal focus is AUTHORITATIVE. The brain must not
+    # overwrite it — doing so wiped the holdout arm (reminder_enabled) and the universal flag
+    # the moment a pilot user's game was analyzed, silently corrupting the experiment. The
+    # brain keeps its own state in coach_memory; it just stops clobbering users.focus here.
+    if existing and existing.get("universal"):
+        return existing
+
     if existing and existing.get("cluster") == cluster:
         # Same cluster — keep the progress tracker, only refresh rule text
         # (cheap no-op write, keeps things consistent).

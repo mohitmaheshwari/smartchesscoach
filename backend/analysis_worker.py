@@ -717,11 +717,15 @@ def process_job(db, job):
         
         user_color = game.get("user_color", "white")
         
-        # Get user's rating for this game (used for module detection)
+        # Get user's rating for this game (used for module detection).
+        # `white`/`black` may be a dict ({rating: N, username: ...}) OR a bare username
+        # string depending on the import path — guard against both (a string has no .get).
+        def _side_rating(side):
+            return side.get("rating") if isinstance(side, dict) else None
         if user_color == "white":
-            user_rating = game.get("white_rating") or game.get("white", {}).get("rating", 1200)
+            user_rating = game.get("white_rating") or _side_rating(game.get("white")) or 1200
         else:
-            user_rating = game.get("black_rating") or game.get("black", {}).get("rating", 1200)
+            user_rating = game.get("black_rating") or _side_rating(game.get("black")) or 1200
         user_rating = int(user_rating) if user_rating else 1200
         
         # Update game status to show it's being processed
