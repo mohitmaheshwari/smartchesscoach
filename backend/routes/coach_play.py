@@ -4707,7 +4707,12 @@ async def evaluate_pending_move(
         # Ambient = "this is happening". Objective, position-specific.
         # NOT praise. NOT generic. Must be tied to actual board state.
         position_reasonable = _position_is_reasonable(eval_result, user_color)
-        if layer == "silent" and move_quality in ("good", "inaccuracy") and position_reasonable:
+        # Founder feedback 2026-06-09: ambient orientation fired far too often (≈1 per other
+        # move → relentless). Gate it to a minimum 6-ply quiet gap so it can't pile up; combined
+        # with dropping the generic orientation priorities below, the coach speaks about your
+        # position only when something real happens, not on a loop.
+        if (layer == "silent" and move_quality in ("good", "inaccuracy")
+                and position_reasonable and moves_since_last_msg >= 6):
             opp_threat = fast_signals.get("opponent_created_threat")
 
             # PRIORITY 1: Opponent idea (most important ambient signal)
@@ -4742,7 +4747,10 @@ async def evaluate_pending_move(
                 text = tmpl["text"]
 
             # PRIORITY 4: King still uncommitted
-            elif fast_signals.get("king_unsafe") and move_number >= 10:
+            # DISABLED 2026-06-09 (founder feedback): generic "king uncommitted" orientation
+            # platitude, not position-specific teaching. Ambient now only fires on a concrete
+            # opponent threat/activity (priorities 1-3).
+            elif False and fast_signals.get("king_unsafe") and move_number >= 10:
                 layer = "ambient"
                 concept_key = "king_safety_ambient"
                 category = "opening_orientation"
@@ -4751,7 +4759,9 @@ async def evaluate_pending_move(
                 text = tmpl["text"]
 
             # PRIORITY 5: Opening phase orientation
-            elif fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase") and move_number >= 5:
+            # DISABLED 2026-06-09 (founder feedback): this produced the "this is a development
+            # position" platitude. Not teaching; removed.
+            elif False and fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase") and move_number >= 5:
                 layer = "ambient"
                 concept_key = "opening_phase"
                 category = "opening_orientation"
@@ -7299,12 +7309,13 @@ async def _process_move_and_respond(
             ) or {}
             _hp_rating = _hp_user_doc.get("rating")
             if (_hp_rating is None or _hp_rating < 1400) and move_number and move_number % 5 == 0:
-                # Don't double-fire if a habit_prompt was already
-                # surfaced for this exact move_number this session.
+                # CAP: at most ONE habit prompt per game (founder feedback 2026-06-09 —
+                # firing every 5 moves was relentless generic spam, ~8 repeated prompts a game;
+                # a coach should not nag on a blind timer). Fires once, then stays quiet for the
+                # rest of the game. (Position-specific coaching is the real fix; this kills the spam.)
                 _hp_existing = await db.coach_messages.find_one({
                     "session_id": session_id,
                     "type": "habit_prompt",
-                    "move_number": move_number,
                 })
                 if not _hp_existing:
                     _HABIT_PROMPTS = [
