@@ -45,6 +45,17 @@ ENFORCEMENT_LEVELS = {
 # ─── FOCUS RULES PER CLUSTER ─────────────────────────────────────
 
 FOCUS_RULES = {
+    # Universal Habit Coach V1 (CANDIDATE habit). Detected mistake = piece_safety only
+    # ("anything hanging?"); the threat-detection half is not reliably measurable yet
+    # (see services/core_habit.py). The opponent-threat clause is intentionally omitted
+    # from the rule text so the reminder matches what we actually measure.
+    "threat_scan": {
+        "name": "Threat Scan",
+        "rule": "Before you move, check: is any piece of yours hanging?",
+        "short_rule": "Anything hanging?",
+        "puzzle_type": "piece_safety",
+        "puzzle_query": {"pattern_type": {"$in": ["piece_safety"]}},
+    },
     "threat_awareness": {
         "name": "Threat Awareness",
         "rule": "Before every move, ask: what is my opponent attacking?",
@@ -235,6 +246,37 @@ async def set_user_focus(db, user_id: str, root_problem: Dict) -> Dict:
     return focus
 
 
+async def set_universal_focus(db, user_id: str, reminder_enabled: bool = True,
+                              habit: str = "threat_scan") -> Dict:
+    """Task 3 — assign the FIXED universal habit. No per-user weakness detection (we proved
+    mistake-frequency doesn't differentiate players). Every cohort user gets the same habit.
+
+    `reminder_enabled` is the L4 holdout switch: True = TREATMENT (gets the in-game reminder),
+    False = CONTROL (focus tracked + measured identically, but NO reminder). Both arms are
+    measured by focus_measurement; only the reminder differs — that's the causal variable."""
+    from services.core_habit import HABITS
+    h = HABITS.get(habit, {})
+    rule_cfg = FOCUS_RULES.get(habit, {})
+    focus = {
+        "cluster": habit,
+        "habit": habit,
+        "universal": True,                      # set by Task 3, not by weakness detection
+        "reminder_enabled": reminder_enabled,   # L4 holdout arm (treatment vs control)
+        "name": h.get("label", "Threat Scan"),
+        "rule": rule_cfg.get("rule", h.get("rule", "")),
+        "short_rule": rule_cfg.get("short_rule", "Anything hanging?"),
+        "enforcement_level": "LIGHT",
+        "set_at": datetime.now(timezone.utc).isoformat(),
+        "games_with_focus": 0,
+        "game_results": [],
+        "games_target": 5,
+        "clean_threshold": 3,
+    }
+    await db.users.update_one({"user_id": user_id}, {"$set": {"focus": focus}}, upsert=True)
+    logger.info(f"[FOCUS] Universal habit set for {user_id}: {habit} (reminder={reminder_enabled})")
+    return focus
+
+
 async def update_focus_after_game(
     db, user_id: str, behavior_summary: Dict, root_problem: Dict,
     game_id: str = None, session_id: str = None,
@@ -246,72 +288,56 @@ async def update_focus_after_game(
     """
     current_focus = await get_user_focus(db, user_id)
 
+    # No focus yet -> SET one. Setting a focus requires a detected primary; this is the
+    # DETECTION system's job, kept separate from measurement below.
     if not current_focus:
         return await set_user_focus(db, user_id, root_problem)
 
-    primary = root_problem.get("primary")
-    if not primary:
-        return current_focus
-
+    # ─── MEASUREMENT (decoupled system — services/focus_measurement.py) ───
+    # Runs whenever a focus exists. It is NEVER gated on root re-detection (the old
+    # `if not primary: return current_focus` silent-skip hit 96% of games -> games_with_focus=0
+    # for 50/51 users) and NEVER reads the sparse legacy behavior_summary (6% populated).
+    # It reads cognitive_gap from game_analyses — the same source as the L4 metric — idempotently.
+    from services.focus_measurement import measure_user
+    habit = current_focus.get("habit", "threat_scan")  # V1 universal habit (candidate)
+    measurement = await measure_user(db, user_id, habit, write=True)
+    results = measurement.get("game_results", [])
     current_cluster = current_focus.get("cluster")
 
-    # ─── CHECK IF THIS GAME WAS CLEAN FOR THE FOCUS BEHAVIOR ───
-    from services.root_behavior_engine import ROOT_CLUSTERS
-    cluster_signals = ROOT_CLUSTERS.get(current_cluster, {}).get("signals", [])
-    violations = behavior_summary.get("counts", {})
-    cluster_violations = sum(violations.get(s, 0) for s in cluster_signals)
-
-    # A game is "clean" if zero violations of the focus behavior
-    is_clean = cluster_violations == 0
-
-    # Update game results (keep last 5)
-    game_results = list(current_focus.get("game_results", []))
-    game_results.append({
-        "clean": is_clean,
-        "violations": cluster_violations,
-        "game_id": game_id or session_id or "",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-    game_results = game_results[-5:]  # Keep only last 5
-
-    games = current_focus.get("games_with_focus", 0) + 1
+    # ─── GRADUATION (reads the measurement; 3-of-last-5 clean) ───
+    games = measurement["games_with_focus"]
     clean_threshold = current_focus.get("clean_threshold", 3)
     games_target = current_focus.get("games_target", 5)
-
-    # ─── CHECK GRADUATION ───
-    graduated = False
-    if len(game_results) >= games_target:
-        clean_count = sum(1 for r in game_results if r["clean"])
-        if clean_count >= clean_threshold:
-            graduated = True
-            logger.info(f"[FOCUS] GRADUATED {user_id}: {current_cluster} ({clean_count}/{games_target} clean)")
+    last_n = results[-games_target:]
+    graduated = (
+        len(last_n) >= games_target
+        and sum(1 for r in last_n if r["clean"]) >= clean_threshold
+    )
 
     if graduated:
-        # Save graduation to history
+        clean_count = sum(1 for r in last_n if r["clean"])
+        logger.info(f"[FOCUS] GRADUATED {user_id}: {current_cluster} ({clean_count}/{games_target} clean)")
         await db.focus_history.insert_one({
             "user_id": user_id,
             "cluster": current_cluster,
             "name": current_focus.get("name"),
             "rule": current_focus.get("rule"),
             "games_played": games,
-            "game_results": game_results,
+            "game_results": last_n,
             "graduated_at": datetime.now(timezone.utc).isoformat(),
             "started_at": current_focus.get("set_at"),
         })
-
-        # Auto-pick next focus — the SECOND highest problem
+        # Re-detection: pick the next focus (DETECTION system; needs a primary/secondary).
         secondary = root_problem.get("secondary", [])
         if secondary:
-            next_problem = {"primary": secondary[0]}
             logger.info(f"[FOCUS] Next focus for {user_id}: {secondary[0].get('key')}")
-            return await set_user_focus(db, user_id, next_problem)
-        else:
-            # No secondary problem — clear focus
-            await db.users.update_one(
-                {"user_id": user_id},
-                {"$set": {"focus": None}}
-            )
-            return None
+            return await set_user_focus(db, user_id, {"primary": secondary[0]})
+        await db.users.update_one({"user_id": user_id}, {"$set": {"focus": None}})
+        return None
+
+    # Not graduated -> keep the focus. (Re-detection/refocus only happens on graduation.
+    # Measurement already recorded above, independent of whether root_problem had a primary.)
+    return current_focus
 
     # ─── NOT GRADUATED — UPDATE STATS ───
     new_cluster = primary["key"]
@@ -386,6 +412,12 @@ def get_enforcement_message(focus: Dict, violation_count: int) -> Optional[Dict]
     Returns None if no enforcement needed.
     """
     if not focus:
+        return None
+
+    # L4 HOLDOUT: control-arm users are measured identically but never reminded.
+    # This is the single causal variable of the experiment — gate it here so every
+    # reminder call site (PWC pre-move, etc.) honours the arm automatically.
+    if focus.get("reminder_enabled") is False:
         return None
 
     level = focus.get("enforcement_level", "LIGHT")

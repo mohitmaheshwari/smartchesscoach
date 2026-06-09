@@ -1182,6 +1182,30 @@ def process_job(db, job):
         except Exception as _op_err:
             logger.warning(f"[opening-profile] refresh failed (non-fatal): {_op_err}")
 
+        # Universal Habit Coach — MEASUREMENT live hook (decoupled from detection).
+        # The game now carries cognitive_gap tags, so the focus measurement can record whether
+        # this game was clean of the targeted mistake. Only acts if the user has a focus; the
+        # recompute is idempotent. Same isolated-client pattern as above; non-fatal.
+        try:
+            import asyncio as _asyncio2
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor2
+
+            async def _record_focus_measurement():
+                _client = _AsyncMotor2(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+                _db = _client[os.environ.get("DB_NAME", "chess_coach")]
+                try:
+                    from services.focus_measurement import record_game
+                    return await record_game(_db, user_id, analysis_doc)
+                finally:
+                    _client.close()
+
+            _m = _asyncio2.run(_record_focus_measurement())
+            if _m:
+                logger.info(f"[focus-measurement] {user_id}: games_with_focus={_m.get('games_with_focus')} "
+                            f"clean={_m.get('clean_games')} targeted={_m.get('targeted_mistakes')}")
+        except Exception as _fm_err:
+            logger.warning(f"[focus-measurement] hook failed (non-fatal): {_fm_err}")
+
         # Engine 2 Phase 1 (Mohit 2026-06-04) — concept mastery tracker.
         # After v5 data is written and the opening profile is refreshed,
         # compute mastery streaks for this user × game and update

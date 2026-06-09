@@ -23,6 +23,17 @@ from typing import Dict, List, Optional
 # ─── CLUSTER DEFINITIONS ─────────────────────────────────────────
 
 ROOT_CLUSTERS = {
+    # Universal Habit Coach V1 (Task 4). Reminder fires on the realtime "hung_pieces" concept
+    # only — kept PURE to match the measured mistake (cognitive_gap=piece_safety, "anything
+    # hanging?"). Deliberately NOT including ignored_threat/king_safety: the king_safety audit
+    # (2026-06-09) showed 80% were a different habit, and the reminder must match what we measure.
+    "threat_scan": {
+        "label": "Threat Scan",
+        "description": "You are leaving pieces unprotected",
+        "coaching": "Before you move, check: is any piece of yours hanging?",
+        "signals": ["hung_pieces"],
+        "tier": 1,
+    },
     "threat_awareness": {
         "label": "Threat Awareness",
         "description": "You are not checking what your opponent is doing",
