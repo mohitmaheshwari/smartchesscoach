@@ -112,19 +112,21 @@ def _progress_hint(skill, kind: str) -> str:
             return "Recent stumble — clean attempt needed."
         return "Lesson cleared."
     if kind == "opening":
-        # Mohit 2026-05-28: the old "Played {seen}/5 times" / "{correct}/3
-        # correct" phrasings read as ratios (2 out of 3) when they actually
-        # meant "current vs. graduation goal." Rewritten to make the goal
-        # explicit and stop misleading the user.
-        if seen < 5:
-            remaining = 5 - seen
-            return f"{seen} games so far. {remaining} more to reach the {seen + remaining}-game baseline."
-        if correct < 3:
-            need = 3 - correct
-            return f"{seen} games played. Need {need} more accurate game{'s' if need != 1 else ''} to graduate."
-        if "wrong" in last_two:
-            return "Last two attempts had a slip — clean games needed."
-        return "Played enough to count as studied."
+        # Honest model (Mohit 2026-06-09): playing an opening — even accurately —
+        # shows you HANDLE the structure well; it does NOT mean you've STUDIED or
+        # KNOW it (you may have transposed in, or played sensible general moves that
+        # happened to land in this opening). So we report the FACT and point to study
+        # for real mastery — playing it, however well, is NEVER called "studied".
+        # (`correct` here = games where the opening phase was played cleanly — a
+        # play-quality fact, not knowledge. Real "studied" comes from the lesson.)
+        if seen < 1:
+            return "Not played yet. Study it to learn the ideas."
+        plural = "s" if seen != 1 else ""
+        if correct < 1:
+            return (f"Played {seen} time{plural}, but the opening hasn't gone cleanly "
+                    f"yet. Study it to learn the ideas.")
+        return (f"Played {seen} time{plural} — {correct} cleanly; you handle it well. "
+                f"Study it to learn the theory and play it on purpose.")
     if kind == "coached_play":
         if correct < 3:
             need = 3 - correct
