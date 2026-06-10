@@ -29,6 +29,7 @@ import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import CommentaryPanel from "@/components/coach/CommentaryPanel";
 import PredictMovePanel from "@/components/coach/PredictMovePanel";
+import RateMovePanel from "@/components/coach/RateMovePanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -485,6 +486,12 @@ const CoachPlay = ({ user }) => {
   // additive + fail-open — see docs/predict_coach_move_scope.md.
   const [pendingPrediction, setPendingPrediction] = useState(null);
   const lastOfferedFenRef = useRef(null);
+
+  // Rate-your-move state (self-grade the move before the verdict). ratedFenRef stops re-offering for the
+  // same move; ratingsThisGameRef is a simple per-game cap. Additive + fail-open — see rate_your_move_scope.md.
+  const [pendingRating, setPendingRating] = useState(null);
+  const ratedFenRef = useRef(null);
+  const ratingsThisGameRef = useRef(0);
 
   // Check for escape squares teaching moment
   const checkEscapeSquares = useCallback(async () => {
@@ -1229,6 +1236,31 @@ const CoachPlay = ({ user }) => {
             checklist: v5Data.checklist_snapshot,
             narrative: v5Data.narrative?.substring(0, 50),
           }));
+
+          // ── RATE YOUR MOVE (additive, FAIL-OPEN) — grade the move before the verdict shows ──
+          // Fire only on instructive moves (best / mistake / blunder), once per move, capped per game.
+          // Withhold the verdict via early-return; the grade re-fetches and reveals it. Any error falls
+          // through to the normal verdict below. See docs/rate_your_move_scope.md.
+          try {
+            const _q = (quality || "").toLowerCase();
+            const _fen = v5Data.fen_before;
+            const _instructive = _q === "best" || _q === "mistake" || _q === "blunder";
+            if (_instructive && _fen && _fen !== ratedFenRef.current && !pendingRating
+                && ratingsThisGameRef.current < 3) {
+              ratedFenRef.current = _fen;
+              ratingsThisGameRef.current += 1;
+              setPendingRating({
+                playedMove: v5Data.move_san,
+                fenBefore: _fen,
+                actualQuality: _q,
+                revealText: v5Data.narrative,
+              });
+              return; // withhold the verdict; reveal resumes when they grade (onComplete re-fetches)
+            }
+          } catch (_e) {
+            /* fail-open: fall through to the normal verdict below */
+          }
+
           setV5Coaching(v5Data);
 
           // Track fundamental violations for post-game summary
@@ -2830,6 +2862,23 @@ const CoachPlay = ({ user }) => {
             onComplete={() => {
               setPendingPrediction(null);
               if (pollFnRef.current) pollFnRef.current();
+            }}
+          />
+        </div>
+      )}
+      {/* Rate-your-move ("grade your move") — shown before the verdict; fixed overlay, always
+          resolvable (can't hang). onComplete re-fetches coaching to reveal the verdict. */}
+      {pendingRating && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+          <RateMovePanel
+            playedMove={pendingRating.playedMove}
+            fenBefore={pendingRating.fenBefore}
+            actualQuality={pendingRating.actualQuality}
+            revealText={pendingRating.revealText}
+            sessionId={session?.session_id}
+            onComplete={() => {
+              setPendingRating(null);
+              if (session?.session_id) fetchInteractiveCoaching(session.session_id);
             }}
           />
         </div>
