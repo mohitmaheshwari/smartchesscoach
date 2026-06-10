@@ -433,6 +433,54 @@
       "rating_min": 1800,
       "rating_max": 9999,
       "tier": 3
+    },
+    "opening_kings_gambit_white": {
+      "kind": "opening",
+      "label": "King's Gambit (White)",
+      "fixes": "not knowing how to attack as White after 1.e4 e5",
+      "content_ref": "kings_gambit",
+      "prerequisites": [
+        "coached_development"
+      ],
+      "rating_min": 1200,
+      "rating_max": 1799,
+      "tier": 2
+    },
+    "opening_four_knights_white": {
+      "kind": "opening",
+      "label": "Four Knights (White)",
+      "fixes": "not knowing what to play as White after 1.e4 e5",
+      "content_ref": "four_knights_game",
+      "prerequisites": [
+        "coached_development"
+      ],
+      "rating_min": 1000,
+      "rating_max": 1499,
+      "tier": 1
+    },
+    "opening_pirc_white": {
+      "kind": "opening",
+      "label": "Pirc Defense (White, Classical)",
+      "fixes": "not knowing how to meet Black's d6/g6 (Pirc/Modern) setups",
+      "content_ref": "pirc_defense",
+      "prerequisites": [
+        "coached_development"
+      ],
+      "rating_min": 1200,
+      "rating_max": 1799,
+      "tier": 2
+    },
+    "opening_alekhine_black": {
+      "kind": "opening",
+      "label": "Alekhine Defense (Black vs 1.e4)",
+      "fixes": "not knowing what to play vs 1.e4",
+      "content_ref": "alekhine_defense",
+      "prerequisites": [
+        "coached_development"
+      ],
+      "rating_min": 1200,
+      "rating_max": 1799,
+      "tier": 2
     }
   }
 }

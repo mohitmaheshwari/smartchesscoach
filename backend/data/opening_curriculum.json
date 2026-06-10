@@ -601,6 +601,50 @@
                 }
               }
             }
+          },
+          "c3": {
+            "name": "Alapin (2.c3)",
+            "idea_opponent": "White props the centre with c3, planning d4 — dodging the Open Sicilian.",
+            "next": "d5",
+            "hint": "Strike the centre at once, before White gets in d4.",
+            "right_feedback": "d5 — hit back immediately. With the pawn on c3, White can't develop the knight to c3, so your queen won't get chased after the trade.",
+            "wrong_feedback": "Against the Alapin, d5 is the most reliable — strike the centre while White's c3 pawn blocks the natural Nc3 development. Nf6 (inviting 3.e5) is the other main try, but d5 is the simplest equaliser.",
+            "responses": {
+              "exd5": {
+                "name": "Alapin — Main",
+                "idea_opponent": "White takes the pawn.",
+                "next": "Qxd5",
+                "right_feedback": "Qxd5 — and here it's safe: White has no Nc3 (the pawn's on c3), so your queen sits comfortably. Develop next.",
+                "responses": {}
+              }
+            }
+          },
+          "d4": {
+            "name": "Smith-Morra Gambit",
+            "idea_opponent": "White offers a pawn (2.d4 cxd4 3.c3) for fast development and open lines.",
+            "next": "cxd4",
+            "hint": "Take the pawn — but you don't have to keep grabbing.",
+            "right_feedback": "cxd4 — take it. If White then plays c3 (the Morra), you can decline the second pawn and just develop.",
+            "responses": {
+              "c3": {
+                "name": "Smith-Morra — declined",
+                "idea_opponent": "White offers a second pawn for a big lead in development.",
+                "next": "Nf6",
+                "hint": "Develop and hit e4 instead of getting greedy.",
+                "right_feedback": "Nf6 — decline cleanly. Develop and put a question to e4 rather than grabbing dxc3, which hands White exactly the fast, open game the gambit wants.",
+                "wrong_feedback": "Grabbing the second pawn with dxc3 is greedy and walks straight into the Smith-Morra: open c- and d-files, quick development, a real attack. Nf6 declines and keeps you solid.",
+                "responses": {}
+              }
+            }
+          },
+          "Bc4": {
+            "name": "Bowdler Attack (2.Bc4)",
+            "idea_opponent": "White aims the bishop at f7 early, skipping the Open Sicilian.",
+            "next": "e6",
+            "hint": "Prepare to challenge that bishop with d5.",
+            "right_feedback": "e6 — prepares d5, which both hits the c4 bishop and grabs the centre. Simple and strong.",
+            "wrong_feedback": "Against the early Bc4, e6 is clean — it prepares d5, kicking the bishop and taking the centre. Don't rush ...e5 or leave f7 loose while the bishop stares at it.",
+            "responses": {}
           }
         }
       }
@@ -723,7 +767,31 @@
                 "hint": "Get the light-square bishop OUT before you play e6.",
                 "right_feedback": "Bf5 — same defining idea as the Classical: bishop outside the chain before e6 locks it in.",
                 "wrong_feedback": "In the Caro-Kann Advance, Bf5 is the move — your light-square bishop MUST get out before e6 traps it. The Caro-Kann's main complaint about the French is the bishop-on-c8 problem; don't recreate it here. c5 (challenging the chain) is also fine but Bf5 first is more accurate.",
-                "responses": {}
+                "responses": {
+                  "Nf3": {
+                    "name": "Advance — Short System",
+                    "idea_opponent": "White develops calmly (the Short System), squeezing with space.",
+                    "next": "e6",
+                    "hint": "Your bishop's already outside the chain, so this is safe now.",
+                    "right_feedback": "e6 — safe here because the light-square bishop is already on f5, not buried. Next build with Nd7, Ne7 and the c5 break.",
+                    "responses": {
+                      "Be2": {
+                        "name": "Advance — Main",
+                        "idea_opponent": "White develops the bishop and castles.",
+                        "next": "c5",
+                        "right_feedback": "c5 — hit the base of White's pawn chain (d4). This is Black's main freeing break in the Advance.",
+                        "responses": {}
+                      }
+                    }
+                  },
+                  "c3": {
+                    "name": "Advance — c3 line",
+                    "idea_opponent": "White supports d4 with c3 before developing.",
+                    "next": "e6",
+                    "right_feedback": "e6 — solidify with the bishop already out, then strike with c5 or bring the knight to e7.",
+                    "responses": {}
+                  }
+                }
               },
               "exd5": {
                 "name": "Caro-Kann — Exchange Variation",
@@ -2378,6 +2446,379 @@
     "endgame_tips": [
       "Up-a-pawn endings: trade pieces, push passed pawns.",
       "The Englund Gambit's pawn advantage typically persists into the endgame."
+    ]
+  },
+  "kings_gambit": {
+    "name": "King's Gambit",
+    "color": "white",
+    "summary": "1.e4 e5 2.f4. You offer the f-pawn to tear open the centre and the f-file for a fast attack on Black's king. Sharp and fun — strongest when you know the first few moves. After 2...exf4, play 3.Nf3 (it stops the queen check on h4), aim the bishop at f7 with Bc4, castle, and attack.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "e4",
+      "f4",
+      "Nf3",
+      "Bc4",
+      "O-O"
+    ],
+    "golden_rules": [
+      "After Black takes on f4, play Nf3 at once — it stops the queen check on h4.",
+      "Aim the light bishop at f7 (Bc4) and castle quickly; the open f-file is your attacking lane.",
+      "Don't chase the pawn back on f4 — finish developing and open lines instead.",
+      "If Black hits back with 2...d5, take with exd5 and keep developing — don't panic."
+    ],
+    "traps": [],
+    "tree": {
+      "e4": {
+        "idea": "Take the centre.",
+        "next": "f4",
+        "responses": {
+          "e5": {
+            "name": "Open Game",
+            "idea_opponent": "Black claims their share of the centre.",
+            "next": "f4",
+            "hint": "Offer the f-pawn — 2.f4, the King's Gambit.",
+            "right_feedback": "f4 — the King's Gambit. You give up a pawn to rip open the centre and aim at f7.",
+            "wrong_feedback": "For the King's Gambit the move is f4 — offering the pawn to blast the centre open. Nf3 is the calm Italian/Ruy path instead (also fine, just not the gambit).",
+            "responses": {
+              "exf4": {
+                "name": "King's Gambit Accepted",
+                "idea_opponent": "Black grabs the pawn on f4.",
+                "next": "Nf3",
+                "hint": "Play Nf3 — it stops Black's queen from checking on h4.",
+                "right_feedback": "Nf3 — the key move. It covers h4 (no more queen check) and develops toward the kingside.",
+                "wrong_feedback": "Develop with Nf3 first. Skip it and Black plays Qh4+, dragging your king out before you're ready. Nf3 covers h4 and brings a piece out.",
+                "responses": {
+                  "g5": {
+                    "name": "Classical Defence",
+                    "idea_opponent": "Black props up the extra pawn with g5.",
+                    "next": "h4",
+                    "right_feedback": "h4 — challenge the g5 pawn before Black builds a wall of pawns.",
+                    "responses": {}
+                  },
+                  "d5": {
+                    "name": "Modern Defence",
+                    "idea_opponent": "Black hits the centre back instead of holding the pawn.",
+                    "next": "exd5",
+                    "right_feedback": "exd5 — open the centre while you're ahead in development.",
+                    "responses": {}
+                  },
+                  "Nf6": {
+                    "name": "Schallopp Defence",
+                    "idea_opponent": "Black develops and eyes the e4 pawn.",
+                    "next": "e5",
+                    "right_feedback": "e5 — push the pawn, grab space and kick the knight.",
+                    "responses": {}
+                  }
+                }
+              },
+              "Bc5": {
+                "name": "Classical Declined",
+                "idea_opponent": "Black declines and points the bishop at g1, making your castling awkward.",
+                "next": "Nf3",
+                "hint": "Just develop with Nf3 — don't grab on e5.",
+                "right_feedback": "Nf3 — develop. Taking fxe5 here opens lines for Black's queen with Qh4+ ideas.",
+                "wrong_feedback": "Develop with Nf3. Grabbing fxe5 lets Black play Qh4+ and chase your king. Keep it solid and bring pieces out.",
+                "responses": {}
+              },
+              "d5": {
+                "name": "Falkbeer Counter-Gambit",
+                "idea_opponent": "Black counter-attacks the centre instead of taking on f4.",
+                "next": "exd5",
+                "hint": "Take the pawn — exd5 — then develop calmly.",
+                "right_feedback": "exd5 — take it, then finish your development. Don't cling to the pawn; get your pieces out.",
+                "wrong_feedback": "Take with exd5. Against the Falkbeer, grabbing the pawn and developing is simplest — fxe5 instead lets Black's pieces flood out with the lead.",
+                "responses": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "middlegame_plans": {
+      "when_equal": {
+        "plan": "Finish developing toward the king: Nf3 + Bc4 + O-O, then aim down the open f-file at f7. The half-open f-file is the whole point of the gambit.",
+        "ideas": [
+          "Double rooks on the f-file once the king is castled.",
+          "Use the d4 pawn break to open the centre when your king is safer than Black's.",
+          "Win the f4 pawn back later if it's free, but never at the cost of development."
+        ]
+      },
+      "when_ahead": {
+        "plan": "Open lines and attack — push d4 and bring everything at the king. A development lead in the King's Gambit is meant to be cashed in fast.",
+        "ideas": [
+          "Sacrifice the gambit pawn (or another) to open the f-file and the centre.",
+          "Bring the rook to f1 and the knight to g5/e5 toward f7."
+        ]
+      },
+      "when_behind": {
+        "plan": "If the attack fizzles and you're just down the pawn, trade pieces and head for an endgame where the extra pawn matters least.",
+        "ideas": [
+          "Trade queens to kill Black's attacking chances.",
+          "Keep your pawns connected; avoid more weaknesses around the king."
+        ]
+      }
+    },
+    "endgame_tips": [
+      "If you never won the f4 pawn back, you may be a pawn down — trade into rook endings where one pawn is hardest to convert.",
+      "Open f-file rooks stay strong into the endgame; keep at least one rook active."
+    ]
+  },
+  "four_knights_game": {
+    "name": "Four Knights Game",
+    "color": "white",
+    "summary": "1.e4 e5 2.Nf3 Nc6 3.Nc3 Nf6. Both sides bring both knights out — a calm, classical, very safe way to play 1.e4. Aim the bishop at b5 (Spanish-style), castle, and play a sound game with a tiny edge from the extra move.",
+    "difficulty": "beginner",
+    "setup_order": [
+      "e4",
+      "Nf3",
+      "Nc3",
+      "Bb5",
+      "O-O"
+    ],
+    "golden_rules": [
+      "Knights before bishops: Nf3 and Nc3 first, then decide where the bishop goes.",
+      "Bb5 copies the Ruy Lopez — it leans on the c6 knight that guards e5.",
+      "Castle early and keep the position solid; the Four Knights rarely blows up.",
+      "If Black pins your c3 knight with Bb4, you can mirror with Bb5 — symmetry is fine."
+    ],
+    "traps": [],
+    "tree": {
+      "e4": {
+        "idea": "Take the centre.",
+        "next": "Nf3",
+        "responses": {
+          "e5": {
+            "name": "Open Game",
+            "idea_opponent": "Black mirrors in the centre.",
+            "next": "Nf3",
+            "hint": "Develop the king's knight and hit the e5 pawn.",
+            "right_feedback": "Nf3 — develop and attack e5, the natural start.",
+            "wrong_feedback": "Start with Nf3 — develop a piece and put a question to the e5 pawn. That's the backbone of every 1.e4 e5 opening.",
+            "responses": {
+              "Nc6": {
+                "name": "Two Knights territory",
+                "idea_opponent": "Black defends e5 and develops.",
+                "next": "Nc3",
+                "hint": "Bring the queen's knight out too — heading for the Four Knights.",
+                "right_feedback": "Nc3 — both knights out. This is the Four Knights, calm and solid.",
+                "wrong_feedback": "Nc3 develops your second knight and defends e4 — the Four Knights. (Bc4 is the Italian, also fine; Bb5 is the Ruy. For the Four Knights, Nc3.)",
+                "responses": {
+                  "Nf6": {
+                    "name": "Four Knights — Main",
+                    "idea_opponent": "Black develops symmetrically and eyes e4.",
+                    "next": "Bb5",
+                    "right_feedback": "Bb5 — Spanish-style. You lean on the c6 knight that holds e5. Castle next.",
+                    "responses": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "middlegame_plans": {
+      "when_equal": {
+        "plan": "Finish developing and castle: Bb5 + O-O + d3 + Bg5. The Four Knights is a slow build — small, safe edges, no early fireworks.",
+        "ideas": [
+          "Trade the b5 bishop for the c6 knight only when it wins something or wrecks Black's pawns.",
+          "Use the d4 or Nd5 break in the centre when your pieces are ready.",
+          "Keep the position symmetrical if you're happy with a small, safe edge."
+        ]
+      },
+      "when_ahead": {
+        "plan": "Open the centre with d4 once you're developed and use the extra tempo to push.",
+        "ideas": [
+          "Play d4 to open lines.",
+          "Jump a knight to d5 to pressure Black's position."
+        ]
+      },
+      "when_behind": {
+        "plan": "Symmetry is your friend — trade pieces and steer toward an equal endgame.",
+        "ideas": [
+          "Trade queens.",
+          "Keep your pawns sound."
+        ]
+      }
+    },
+    "endgame_tips": [
+      "Four Knights endings are usually balanced — the bishop pair is the asset to fight for.",
+      "Doubled c-pawns (if you take on c6) can be a long-term target either way; know which side they help."
+    ]
+  },
+  "pirc_defense": {
+    "name": "Pirc Defense (Classical System)",
+    "color": "white",
+    "summary": "Black plays d6 and g6 and lets you build a big pawn centre, planning to chip at it later. The simplest reply is the Classical: take the centre with e4 + d4, develop Nc3 + Nf3 + Be2, castle, and hold your space. Don't overpush — let the extra space do the work.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "e4",
+      "d4",
+      "Nc3",
+      "Nf3",
+      "Be2",
+      "O-O"
+    ],
+    "golden_rules": [
+      "Take the whole centre — e4 and d4 — when Black plays the modest d6/g6 setup.",
+      "Classical and calm: Nc3 + Nf3 + Be2 + O-O. You don't need a sharp attack to keep your edge.",
+      "Defend e4 with Nc3 before Black's pressure builds.",
+      "Hold your centre; don't lash out with early pawn pushes that create weaknesses."
+    ],
+    "traps": [],
+    "tree": {
+      "e4": {
+        "idea": "Take the centre.",
+        "next": "d4",
+        "responses": {
+          "d6": {
+            "name": "Pirc / Modern setup",
+            "idea_opponent": "Black invites you to build a big centre, planning to hit it later with pieces and ...e5/...c5.",
+            "next": "d4",
+            "hint": "Grab the full centre while you can.",
+            "right_feedback": "d4 — take the big centre. The Pirc invites this; now develop and hold it.",
+            "wrong_feedback": "Take the centre with d4. Black's d6/g6 plan deliberately gives you space — accept it, then develop solidly.",
+            "responses": {
+              "Nf6": {
+                "name": "Pirc — attacking e4",
+                "idea_opponent": "Black develops and pokes your e4 pawn.",
+                "next": "Nc3",
+                "hint": "Defend e4 and develop the queen's knight.",
+                "right_feedback": "Nc3 — defends e4 and develops. Solid and natural.",
+                "responses": {
+                  "g6": {
+                    "name": "Pirc — Main",
+                    "idea_opponent": "Black fianchettoes the bishop to g7, aiming at your centre.",
+                    "next": "Nf3",
+                    "hint": "Calm development — knight to f3, then bishop and castle (the Classical).",
+                    "right_feedback": "Nf3 — the Classical system. Be2 and O-O next; keep your big centre.",
+                    "responses": {
+                      "Bg7": {
+                        "name": "Pirc — Classical",
+                        "idea_opponent": "Black's bishop eyes your centre down the long diagonal.",
+                        "next": "Be2",
+                        "right_feedback": "Be2 — modest and solid. Castle next and sit on your space.",
+                        "responses": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "middlegame_plans": {
+      "when_equal": {
+        "plan": "You have more space — develop everything, castle, and slowly improve. Re1, Bf4/Be3, Qd2. Don't rush; space wins slow games.",
+        "ideas": [
+          "Meet Black's ...e5 or ...c5 break by keeping the centre solid, not panicking.",
+          "Trade Black's good g7 bishop with Be3 + Qd2 + Bh6 if you can.",
+          "Use your space to manoeuvre; avoid trades that relieve Black's cramped position."
+        ]
+      },
+      "when_ahead": {
+        "plan": "Expand with the extra space — push in the centre or on the kingside once you're fully developed.",
+        "ideas": [
+          "Consider a kingside pawn storm if Black has castled there.",
+          "Open the centre when your pieces are better placed."
+        ]
+      },
+      "when_behind": {
+        "plan": "Hold the centre and trade pieces; your space gives you a cushion even when worse.",
+        "ideas": [
+          "Trade attackers.",
+          "Don't create pawn weaknesses around your king."
+        ]
+      }
+    },
+    "endgame_tips": [
+      "Your extra central space often means a freer endgame — keep rooks active on open files.",
+      "Watch Black's ...c5/...e5 breaks; meeting them cleanly keeps your structure healthy into the ending."
+    ]
+  },
+  "alekhine_defense": {
+    "name": "Alekhine Defense",
+    "color": "black",
+    "summary": "1.e4 Nf6. You poke the e4 pawn straight away and invite White to push pawns forward and chase your knight. The plan: let White build a big centre, hop the knight to safety, then strike back at the overextended pawns with d6 and c5. Provocative but fun.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "Nf6",
+      "Nd5",
+      "d6",
+      "dxe5"
+    ],
+    "golden_rules": [
+      "1...Nf6 dares White to chase you — when the pawn comes to e5, hop to d5, not back home.",
+      "After Nd5, strike at White's big centre with d6 — don't let those pawns settle.",
+      "Trade off White's e5 spearhead pawn (dxe5) to free your pieces.",
+      "Develop the light-square bishop actively (often Bg4 or Bf5) before locking it in."
+    ],
+    "traps": [],
+    "tree": {
+      "e4": {
+        "idea_opponent": "White takes the centre.",
+        "next": "Nf6",
+        "hint": "Which knight move attacks the e4 pawn at once and dares White to chase it?",
+        "right_feedback": "Nf6 — the Alekhine. You poke e4 and invite White to overextend.",
+        "responses": {
+          "e5": {
+            "name": "Alekhine — the Chase",
+            "idea_opponent": "White kicks the knight and grabs space.",
+            "next": "Nd5",
+            "hint": "Where does the knight go to stay safe AND active — not back to where it came from?",
+            "right_feedback": "Nd5 — hop forward, out of the pawn's reach. Retreating to g8 would waste the whole idea.",
+            "wrong_feedback": "Jump to d5 — forward, not back. Ng8 undoes your first move; Nd5 keeps the knight active and central while White's pawns hang in the air.",
+            "responses": {
+              "d4": {
+                "name": "Alekhine — Modern",
+                "idea_opponent": "White builds a broad pawn centre and dares you to break it.",
+                "next": "d6",
+                "hint": "Strike at the centre before it rolls over you.",
+                "right_feedback": "d6 — hit White's centre right away, before those pawns get comfortable.",
+                "responses": {
+                  "Nf3": {
+                    "name": "Alekhine — Modern Main",
+                    "idea_opponent": "White develops calmly, trying to keep the big centre.",
+                    "next": "dxe5",
+                    "right_feedback": "dxe5 — trade off White's spearhead pawn and free your game.",
+                    "responses": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "middlegame_plans": {
+      "when_equal": {
+        "plan": "You traded space for targets — White's advanced pawns are weaknesses if you keep hitting them. Develop actively (Bg4/Bf5, e6, Be7, O-O) and pile on the centre with c5.",
+        "ideas": [
+          "Pressure White's d4/e5 pawns with pieces and the ...c5 break.",
+          "Get your light-square bishop out BEFORE ...e6 locks it in.",
+          "Castle and complete development; don't grab pawns while behind in pieces."
+        ]
+      },
+      "when_ahead": {
+        "plan": "If White's centre has cracked, open lines and target the weak pawns directly.",
+        "ideas": [
+          "Open the position to exploit White's loose pawns.",
+          "Trade into endings where the weak pawns fall."
+        ]
+      },
+      "when_behind": {
+        "plan": "If White's space holds, stay solid and look for one clean break (...c5 or ...f6) to free yourself.",
+        "ideas": [
+          "Trade pieces to reduce White's space advantage.",
+          "Avoid passive piece shuffles — find a pawn break."
+        ]
+      }
+    },
+    "endgame_tips": [
+      "If White's e5/d4 pawns survive into the endgame, blockade them with a knight on d5 or e6.",
+      "Your queenside majority can become a passed pawn once the centre is traded off."
     ]
   }
 }
