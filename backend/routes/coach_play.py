@@ -167,12 +167,10 @@ def is_common_opening_move(move_san: str) -> bool:
     return move_san in mainline_moves
 
 
-def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str = "", move_number: int = 0, move_history: list = None) -> str:
+def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str = "", move_number: int = 0) -> str:
     """
     Generate position-aware explanation for coach's move.
     Analyzes what the move actually DOES: captures, threats, development, etc.
-    move_history (optional SAN/dict list): when given in the opening, the move is named by its
-    opening ("in the Italian Game: ...") via coach_engine.opening_plans, instead of a generic line.
     """
     try:
         board_before = chess.Board(fen_before)
@@ -232,22 +230,6 @@ def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str = 
 
         if new_threat:
             return f"{move_san} — now attacking your {new_threat[0]} on {new_threat[1]}. How will you respond?"
-
-        # Opening phase: name the opening + its idea instead of a generic "developing the X".
-        # Comes AFTER the tactical checks above — a capture/check/threat matters more than the name.
-        if move_number <= 8 and move_history:
-            try:
-                from coach_engine.opening_plans import build_opening_coaching_context
-                _san = [(m.get("san") or m.get("move")) if isinstance(m, dict) else m for m in move_history]
-                _san = [s for s in _san if s]
-                _ctx = build_opening_coaching_context(_san)
-                if _ctx and _ctx.get("name"):
-                    _idea = next((i for i in (_ctx.get("main_ideas") or []) if i), None)
-                    if _idea:
-                        return f"{move_san} — in the {_ctx['name']}: {_idea}"
-                    return f"{move_san} — a typical {_ctx['name']} move."
-            except Exception as _e:
-                logger.warning(f"opening-name lookup failed (non-fatal): {_e}")
 
         # Piece-specific explanations
         if piece.piece_type == chess.PAWN:
@@ -8356,7 +8338,7 @@ async def _process_move_and_respond(
                             "move": coach_move,
                             "uci": chess_move.uci(),
                             "timestamp": datetime.now(timezone.utc).isoformat(),
-                            "explanation": get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, len(move_history) // 2, move_history),
+                            "explanation": get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, len(move_history) // 2),
                         },
                         "status": status,
                         "result": coach_result,
