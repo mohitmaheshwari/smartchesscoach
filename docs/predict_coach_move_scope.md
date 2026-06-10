@@ -73,19 +73,39 @@ Routine/forced positions (recaptures, only-moves): **no prompt** — it would be
 - **Predict-then-reveal panel** — extends the COACH PLAYED panel; reuses the `EscapeSquaresQuiz` interaction shape and the `candidate_moves` arrows/click.
 - **`POST /coach/play/predict-move/check`** — given session + position, decides whether a prediction should fire, and if so returns 2–3 candidate options (the coach's real move + 1–2 plausible decoys) **without** revealing which is real.
 - **`POST /coach/play/predict-move/answer`** — records the guess; returns hit/miss + the coach's actual move + the reveal text (the existing deterministic coach-move commentary, incl. opening names — **no LLM in V1**).
-- **Evidence log** — a `move_predictions` collection: one row per fired prediction `{session_id, user_id, move_number, fen_before, options[], coach_move, guessed_move, correct, user_rating, fired_reason, ts}`. V1 **only logs** this; it does not model it.
-- **Adaptive firing (simple, rating-banded)** — fire-rate + decoy difficulty scale by band; a per-game cap; never on routine/forced moves. (The full conductor is later; V1 is a banded rule.)
+- **Evidence log = the student model's INPUT INTERFACE** (a wiring point, not a side-table). A `move_predictions`
+  collection, append-only + over-captured + forward-compatible: one row per fired prediction
+  `{session_id, user_id, move_number, fen_before, options[], coach_move, guessed_move, correct, difficulty,
+  user_rating, fired_reason, ts}`. V1 **writes** it; the model (next phase) **reads** it — no migration.
+- **Firing decision = a SEAM (the conductor's plug point).** One function
+  `should_fire_prediction(session, position) -> {fire, difficulty}` decides whether to fire + at what difficulty.
+  V1 fills it with a simple rating-banded rule (frequent+easy <1000, rare+hard 1400+; per-game cap; never on
+  routine/forced moves). The conductor later **replaces the rule's body — not the seam or its callers.**
+- **Reveal teaching = a SEAM (the narrator's plug point).** `reveal_teaching(facts) -> text` returns the
+  why-on-reveal. V1 fills it with the existing deterministic coach-move commentary (incl. opening names); the LLM
+  narrator swaps into the same seam once the transport is decided. **No caller changes when it's swapped.**
 - **Skippable / non-blocking** — ignoring the prompt and just continuing is fine (like EscapeSquares is optional).
 - Passes `backend/scripts/pwc_coaching_lint.py` on all reveal text.
 
 ## 4. Explicitly out of scope (V1)
 
-- **The student model / Theory-of-Player.** V1 only *logs* the evidence; the model is a separate later feature (parent S3), gated on the separability validation.
-- **The conductor** (intervention-budget arbitration). V1 uses a simple banded firing rule, not the full conductor (parent S4).
-- **The separability/validation analysis** — run once enough evidence accumulates; not a V1 deliverable.
-- **LLM-grounded teaching on reveal** — V1 uses the existing deterministic commentary; the grounded narrator waits on the transport decision.
-- **Rate-your-own-move** (the self-mirror) — separate feature.
-- **Predicting the student's *own* move / "which system are you heading into" doorways** — separate.
+**This feature is the CORE.** The student model and conductor are NOT excluded — they **wire around** this. V1
+builds the core **plus the wiring points** so they plug in later with no retrofit (this is the "wire it in at the
+right place" rule from the morning). The split is *interfaces in V1, logic next*:
+
+**Logic built in the NEXT phase, wiring into V1's seams (NOT disconnected):**
+- **Student model / Theory-of-Player** — its *logic* is gated on the separability proof, but its **input interface
+  is V1's `move_predictions` evidence log** (§3). When built, it *reads* that log — no schema migration. (Parent S3.)
+- **The conductor** — its *arbitration logic* is later, but **V1's firing decision is a single seam** (§3) the
+  conductor drops into. V1 fills that seam with a simple banded rule; the conductor replaces the rule, not the wiring.
+  (Parent S4.)
+- **Separability/validation analysis** — run on the accumulated evidence log; it's what unlocks building the model's logic.
+- **LLM-grounded teaching on reveal** — the reveal text is produced by a seam too (V1 = deterministic commentary);
+  the grounded narrator swaps into that seam once the transport is decided.
+
+**Genuinely separate features (not this one):**
+- **Rate-your-own-move** (the self-mirror) — its own feature; it will feed the *same* evidence model.
+- **Predicting the student's *own* move / "which system are you heading into" doorways.**
 - **Hit-rate self-calibration** of difficulty — V1 is rating-banded; per-player calibration is later.
 - **"Predict the plan/idea" (non-move) variant** — V1 is move-prediction with rating-scaled decoy difficulty.
 
