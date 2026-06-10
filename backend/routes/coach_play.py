@@ -2287,6 +2287,46 @@ async def predict_move_answer(request: Dict = Body(...), user: User = Depends(ge
     return {"correct": guessed == coach_move, "coach_move": coach_move, "reveal": reveal}
 
 
+@router.post("/rate-move/log")
+async def rate_move_log(request: Dict = Body(...), user: User = Depends(get_current_user)):
+    """Log a self-rating guess (the student graded their OWN move before the verdict was shown). LOG ONLY
+    — the actual quality was already computed by the V5 feedback; this records {guessed, actual, correct}
+    to move_self_ratings, the student model's second evidence interface (alongside move_predictions).
+    Fully fail-open: any problem returns {ok: False} and never raises. See docs/rate_your_move_scope.md."""
+    global db
+    from services.rate_your_move import rating_correct
+    try:
+        session_id = request.get("session_id")
+        if not session_id:
+            return {"ok": False}
+        session_doc = await db.coach_sessions.find_one(
+            {"session_id": session_id}, {"user_id": 1, "user_rating": 1, "move_history": 1}
+        )
+        if not session_doc or session_doc.get("user_id") != user.user_id:
+            return {"ok": False}
+        guessed = request.get("guessed_quality")
+        actual = request.get("actual_quality")
+        mh = session_doc.get("move_history") or []
+        correct = rating_correct(guessed, actual)
+        await db.move_self_ratings.insert_one({
+            "session_id": session_id,
+            "user_id": user.user_id,
+            "move_number": (len(mh) + 1) // 2,
+            "fen_before": request.get("fen_before"),
+            "played_move": request.get("played_move"),
+            "options": request.get("options", []),
+            "guessed_quality": guessed,
+            "actual_quality": actual,
+            "correct": correct,
+            "rating": session_doc.get("user_rating", 1200),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"ok": True, "correct": correct}
+    except Exception as e:
+        logger.warning(f"[rate-move] log failed (non-fatal): {e}")
+        return {"ok": False}
+
+
 @router.get("/opening-plan")
 async def get_opening_plan(
     session_id: str,
