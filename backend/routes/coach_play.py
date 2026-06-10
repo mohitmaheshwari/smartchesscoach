@@ -3158,6 +3158,24 @@ async def get_interactive_coaching(
                     "SAN-only fallback. Investigate the pipeline."
                 )
 
+            # Name the SPECIFIC opening, once at entry — reliable exact-prefix match
+            # (services/opening_namer) against opening_theory_tree; never mislabels (unknown/
+            # transposed lines stay unnamed). Once per opening via session.last_named_opening.
+            try:
+                if coach_explanation and coach_explanation.get("explanation"):
+                    from services.opening_namer import name_opening
+                    _named = name_opening([m.get("move", "") for m in move_history if m.get("move")])
+                    if _named and session_doc.get("last_named_opening") != _named[0]:
+                        coach_explanation["explanation"] = (
+                            f"In the {_named[0]}: {coach_explanation['explanation']}"
+                        )
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"last_named_opening": _named[0]}},
+                        )
+            except Exception as _open_err:
+                logger.debug(f"[opening-name] augmentation skipped (non-fatal): {_open_err}")
+
             # Add intent badge data for frontend.
             # "Creating Threats" must only show when the move ACTUALLY created
             # a threat — otherwise it fires for every quiet move (bug observed
