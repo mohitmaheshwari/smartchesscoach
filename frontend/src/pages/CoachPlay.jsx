@@ -28,6 +28,7 @@ import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import CommentaryPanel from "@/components/coach/CommentaryPanel";
+import PredictMovePanel from "@/components/coach/PredictMovePanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -478,6 +479,12 @@ const CoachPlay = ({ user }) => {
 
   // Escape Squares Quiz state
   const [escapeSquaresQuiz, setEscapeSquaresQuiz] = useState(null);
+
+  // Predict-coach-move state ("Call My Move"). pendingPrediction holds the options while the board is
+  // held at the pre-coach position; lastOfferedFenRef stops re-offering for the same move. Fully
+  // additive + fail-open — see docs/predict_coach_move_scope.md.
+  const [pendingPrediction, setPendingPrediction] = useState(null);
+  const lastOfferedFenRef = useRef(null);
 
   // Check for escape squares teaching moment
   const checkEscapeSquares = useCallback(async () => {
@@ -1970,6 +1977,36 @@ const CoachPlay = ({ user }) => {
             
             // Update board - only if we have valid FEN
             setSession(data.session);
+
+            // ── PREDICT-COACH-MOVE ("Call My Move") — additive, FAIL-OPEN ──────────────────
+            // Before revealing the coach's move, ask /offer. If a prediction fires, HOLD the board at
+            // the pre-coach position + show the panel; the reveal resumes on the guess (onComplete
+            // re-polls). ANY problem falls through to the normal reveal below — a game never blocks.
+            try {
+              const _coachEntry = (data.session?.move_history || []).slice(-1)[0];
+              const _fenBefore = _coachEntry?.fen_before;
+              if (_fenBefore && _fenBefore !== lastOfferedFenRef.current && !pendingPrediction) {
+                const _offerRes = await fetch(`${API}/coach/play/predict-move/offer`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ session_id: session.session_id }),
+                });
+                if (_offerRes.ok) {
+                  const _offer = await _offerRes.json();
+                  if (_offer.has_prediction && _offer.options?.length) {
+                    lastOfferedFenRef.current = _fenBefore; // never re-offer for this move
+                    setCurrentFen(_offer.fen_before || _fenBefore); // HOLD at pre-coach position
+                    setPendingPrediction({ options: _offer.options, prompt: _offer.prompt });
+                    setCoachThinking(false);
+                    return; // defer the reveal until the guess
+                  }
+                }
+              }
+            } catch (_e) {
+              /* fail-open: fall through to the normal reveal below */
+            }
+
             if (data.current_fen) {
               setCurrentFen(data.current_fen);
             }
@@ -2781,6 +2818,22 @@ const CoachPlay = ({ user }) => {
   // Game screen
   return (
     <Layout user={user}>
+      {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
+          overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
+          always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
+      {pendingPrediction && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+          <PredictMovePanel
+            options={pendingPrediction.options}
+            prompt={pendingPrediction.prompt}
+            sessionId={session?.session_id}
+            onComplete={() => {
+              setPendingPrediction(null);
+              if (pollFnRef.current) pollFnRef.current();
+            }}
+          />
+        </div>
+      )}
       {/* Premium upsell modal — fires when /coach/play/start returns 402.
           Replaces the generic error toast with a clear path forward. */}
       {upgradeInfo && (
