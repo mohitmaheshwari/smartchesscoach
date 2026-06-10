@@ -2174,74 +2174,74 @@ async def answer_escape_squares(
     return {"result": result}
 
 
-@router.post("/predict-move/check")
-async def predict_move_check(request: Dict = Body(...), user: User = Depends(get_current_user)):
-    """If it's the coach's turn AND a prediction should fire, return 2-3 candidate options (the coach's
-    real move + decoys) WITHOUT revealing which is real, and store the pending coach move so the reveal
-    + /trigger-coach-move apply the SAME move. See docs/predict_coach_move_scope.md. No LLM (V1)."""
+@router.post("/predict-move/offer")
+async def predict_move_offer(request: Dict = Body(...), user: User = Depends(get_current_user)):
+    """Called by the frontend right AFTER /move (which already applied + returned the coach's reply) and
+    BEFORE that reply is revealed on the board. Reads the coach's JUST-PLAYED move from move_history (so
+    it is the exact move /move applied — no recompute), decides whether a prediction should fire, and if
+    so returns 2-3 options (the coach move + decoys, without saying which) + stores pending_prediction.
+
+    /move itself is UNTOUCHED. Fully fail-open: any problem returns {has_prediction: False} so a game
+    never blocks on a prediction. The coach move is NOT returned here (the frontend gets it from /answer
+    after guessing), so the answer can't be read off the network. See docs/predict_coach_move_scope.md."""
     global db
     import asyncio
+    import chess
     import chess.engine
-    from coach_play.coach_opponent import CoachOpponent
     from services.predict_coach_move import should_fire, build_options, difficulty_for
     from stockfish_service import STOCKFISH_PATH
-
-    session_id = request.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id is required")
-    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
-    if not session_doc:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session_doc.get("user_id") != user.user_id:
-        raise HTTPException(status_code=403, detail="Not your session")
-    if session_doc.get("status") != "active":
-        return {"has_prediction": False}
-
-    current_fen = session_doc.get("current_fen")
     try:
-        board = chess.Board(current_fen)
-    except (ValueError, TypeError):
-        return {"has_prediction": False}
-    # Must be the COACH's turn (not the player's).
-    if (board.turn == chess.WHITE) == (session_doc.get("user_color") == "white"):
-        return {"has_prediction": False}
+        session_id = request.get("session_id")
+        if not session_id:
+            return {"has_prediction": False}
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        if not session_doc or session_doc.get("user_id") != user.user_id:
+            return {"has_prediction": False}
+        mh = session_doc.get("move_history") or []
+        if not mh or not isinstance(mh[-1], dict) or mh[-1].get("by") != "coach":
+            return {"has_prediction": False}
+        coach_move = mh[-1].get("move")
+        fen_before = mh[-1].get("fen_before")
+        if not coach_move or not fen_before:
+            return {"has_prediction": False}
+        rating = session_doc.get("user_rating", 1200)
+        board = chess.Board(fen_before)
 
-    rating = session_doc.get("user_rating", 1200)
-    coach_move_san = await CoachOpponent(user_rating=rating).get_move(current_fen)
-    if not coach_move_san:
-        return {"has_prediction": False}
+        def _multipv(fen, n=5):
+            b = chess.Board(fen)
+            out = []
+            try:
+                with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as eng:
+                    for info in eng.analyse(b, chess.engine.Limit(time=0.4), multipv=n):
+                        pv = info.get("pv")
+                        if pv:
+                            out.append((b.san(pv[0]), info["score"].pov(b.turn).score(mate_score=10000)))
+            except Exception as e:
+                logger.warning(f"[predict-offer] multipv failed: {e}")
+            return out
 
-    def _multipv(fen, n=5):
-        b = chess.Board(fen)
-        out = []
-        try:
-            with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as eng:
-                for info in eng.analyse(b, chess.engine.Limit(time=0.4), multipv=n):
-                    pv = info.get("pv")
-                    if pv:
-                        out.append((b.san(pv[0]), info["score"].pov(b.turn).score(mate_score=10000)))
-        except Exception as e:
-            logger.warning(f"[predict-move] multipv failed: {e}")
-        return out
-
-    multipv = await asyncio.to_thread(_multipv, current_fen, 5)
-    if not multipv:
+        multipv = await asyncio.to_thread(_multipv, fen_before, 5)
+        if not multipv:
+            return {"has_prediction": False}
+        rank = next((i + 1 for i, (s, _) in enumerate(multipv) if s == coach_move), None)
+        if not should_fire(rank, board.legal_moves.count(),
+                           session_doc.get("predictions_this_game", 0), rating):
+            return {"has_prediction": False}
+        options = build_options(multipv, coach_move, rating)
+        if not options or coach_move not in options:
+            return {"has_prediction": False}
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"pending_prediction": {
+                "coach_move": coach_move, "fen_before": fen_before,
+                "options": options, "difficulty": difficulty_for(rating),
+            }}},
+        )
+        return {"has_prediction": True, "options": options, "fen_before": fen_before,
+                "prompt": "What do you think I'll play?"}
+    except Exception as e:
+        logger.warning(f"[predict-offer] non-fatal: {e}")
         return {"has_prediction": False}
-    rank = next((i + 1 for i, (s, _) in enumerate(multipv) if s == coach_move_san), None)
-    if not should_fire(rank, board.legal_moves.count(), session_doc.get("predictions_this_game", 0), rating):
-        return {"has_prediction": False}
-    options = build_options(multipv, coach_move_san, rating)
-    if not options or coach_move_san not in options:
-        return {"has_prediction": False}
-
-    await db.coach_sessions.update_one(
-        {"session_id": session_id},
-        {"$set": {"pending_prediction": {
-            "coach_move": coach_move_san, "fen": current_fen,
-            "options": options, "difficulty": difficulty_for(rating),
-        }}},
-    )
-    return {"has_prediction": True, "options": options, "prompt": "What do you think I'll play?"}
 
 
 @router.post("/predict-move/answer")
@@ -2265,17 +2265,25 @@ async def predict_move_answer(request: Dict = Body(...), user: User = Depends(ge
         raise HTTPException(status_code=400, detail="No pending prediction")
 
     coach_move = pending["coach_move"]
+    fen_before = pending.get("fen_before") or pending.get("fen")
     move_history = session_doc.get("move_history", [])
-    reveal = get_coach_move_explanation(coach_move, pending["fen"], "", len(move_history) // 2, move_history)
+    try:
+        reveal = get_coach_move_explanation(coach_move, fen_before, "", len(move_history) // 2, move_history)
+    except Exception:
+        reveal = ""
     row = prediction_log_row(
         session_id=session_id, user_id=user.user_id, move_number=len(move_history) // 2 + 1,
-        fen_before=pending["fen"], options=pending.get("options", []), coach_move=coach_move,
+        fen_before=fen_before, options=pending.get("options", []), coach_move=coach_move,
         guessed_move=guessed, rating=session_doc.get("user_rating", 1200),
         difficulty=pending.get("difficulty"), fired_reason="top3_cap",
         ts=datetime.now(timezone.utc).isoformat(),
     )
     await db.move_predictions.insert_one(dict(row))
-    await db.coach_sessions.update_one({"session_id": session_id}, {"$inc": {"predictions_this_game": 1}})
+    # Clear pending + count this prediction toward the per-game cap.
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$inc": {"predictions_this_game": 1}, "$unset": {"pending_prediction": ""}},
+    )
     return {"correct": guessed == coach_move, "coach_move": coach_move, "reveal": reveal}
 
 
@@ -2419,18 +2427,10 @@ async def trigger_coach_move_endpoint(
     
     try:
         user_rating = session_doc.get("user_rating", 1200)
-        # If the student just predicted against THIS position, apply the same move that was shown to
-        # them — don't re-compute (it must match the prediction). See predict_coach_move / scope S2.
-        _pending = session_doc.get("pending_prediction")
-        if _pending and _pending.get("fen") == current_fen and _pending.get("coach_move"):
-            coach_move = _pending["coach_move"]
-            await db.coach_sessions.update_one(
-                {"session_id": session_id}, {"$unset": {"pending_prediction": ""}}
-            )
-        else:
-            coach = CoachOpponent(user_rating=user_rating)
-            # Get coach's move using FEN - returns SAN notation
-            coach_move = await coach.get_move(current_fen)
+        coach = CoachOpponent(user_rating=user_rating)
+
+        # Get coach's move using FEN - returns SAN notation
+        coach_move = await coach.get_move(current_fen)
 
         if not coach_move:
             raise HTTPException(status_code=500, detail="Coach couldn't find a move")
