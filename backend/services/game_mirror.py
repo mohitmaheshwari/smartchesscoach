@@ -747,11 +747,10 @@ def _compose_verdict(
             headline = f"You {verb} again."
 
         parts: List[str] = []
-        anchor = _find_concrete_anchor([game], top)
-        if anchor:
-            sent = _anchor_sentence(anchor, top, multi_game=False)
-            if sent:
-                parts.append(sent)
+        # No move reference on the Home card — the card leads with the PATTERN,
+        # not SAN/move-numbers. Move-by-move detail lives in the Lab breakdown,
+        # the right surface for it. (Mohit 2026-06-11;
+        # feedback_users_remember_patterns_not_moves.)
         if len(repeated) > 1:
             second_noun = _pattern_voice(repeated[1], form="noun")
             parts.append(f"{second_noun.capitalize()} showed up too.")
@@ -874,13 +873,11 @@ def _aggregate_verdict(
 
     detail_parts: List[str] = []
 
-    # Anchor: pull a concrete move from the worst game flagged with this
-    # pattern. Without an anchor we'd just be restating the pattern name.
-    anchor = _find_concrete_anchor(games_data, top_pattern)
-    if anchor:
-        sent = _anchor_sentence(anchor, top_pattern, multi_game=(n > 1))
-        if sent:
-            detail_parts.append(sent)
+    # NO move reference on the Home card. It leads with the PATTERN, not SAN or
+    # move-numbers — the 600-1500 audience remembers the idea ("my king got
+    # caught in the open"), not "Kg7". The concrete move detail lives in the Lab
+    # session breakdown (games_breakdown), the right surface for move-by-move
+    # evidence. (Mohit 2026-06-11; feedback_users_remember_patterns_not_moves.)
 
     # Second pattern note — only when it actually shows up in the window
     # AND we have something to say about it. Anchor it too if we can.
