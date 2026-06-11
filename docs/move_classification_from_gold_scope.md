@@ -96,6 +96,40 @@ same gold→verify→score→iterate discipline as `teach-detectors-from-gold`.
   riskier than the king phase-gate (which is a clear correctness win, 95% precision).
 - Server-side per [[project_local_container_not_prod]].
 
+## 8b. LOCKED TAXONOMY (Mohit 2026-06-11) — fundamentals-first, depth as the spine
+
+Derived from the **existing** `mistake_classifier` types (hangs/forks/pins/walked-into)
++ 4 new engine-decidable detectors. `cognitive_gap` is rewired to THIS set (one
+taxonomy — no third layer). `time_pressure` is a modifier flag, not a category.
+
+**Precedence (single-label; highest confirmed wins). Phase gates apply first
+(endgame/opening eligibility), then this severity order:**
+
+| # | Category | Engine signal | Tier |
+|---|----------|---------------|------|
+| 1 | `allowed_mate` ⭐NEW | opponent has forced mate after the move (eval≈mate vs user) | fund |
+| 2 | `one_move_blunder` | hung material, taken in 1 (HANGING_PIECE/MATERIAL_BLUNDER) | fund |
+| 3 | `walked_into_tactic` | material lost to a 2–3 move tactic (WALKED_INTO_*) | fund |
+| 4 | `bad_trade` ⭐NEW | voluntary unequal exchange (material delta) | fund |
+| 5 | `missed_mate` ⭐NEW | had forced mate, lost it (eval≈mate before → gone) | fund |
+| 6 | `missed_tactic` | missed a 1–3 move fork/pin/skewer (MISSED_*) | fund |
+| 7 | `missed_free_material` ⭐NEW | best move takes free/hanging material, played didn't | fund |
+| 8 | `conversion` | was winning (eval≥~+200 for user) → slipped to ≤0 | fund |
+| 9 | `king_safety` | real attack on exposed king, queens/pieces ON | concept |
+| 10 | `endgame_technique` | queens-off endgame conversion / king activity | concept |
+| 11 | `calculation_depth` | genuinely deep (>3) miscalc | concept |
+| 12 | `ignore_threat` | ignored a non-material threat (already in code) | concept |
+| 13 | `pawn_structure` | lasting pawn weakness — **judgment (LLM)** | concept |
+| 14 | `piece_activity` | passive piece, no material/tactic — **judgment (LLM)** | concept |
+| 15 | `opening_knowledge` | opening-phase departure from theory | concept |
+
+Folded (not separate): `missed_defense` → `missed_tactic`; `tactical_oversight`
+RETIRED (was the vague bucket → splits into walked_into_tactic / missed_tactic);
+`piece_safety` RETIRED as a surfaced label → umbrella only (rolls up 2–4).
+
+**Engine-decidable (hard gold, no LLM): 1–12, 15.** LLM only needed for **13–14**.
+**Rating-tier surfacing:** <1300 sees the fundamentals (1–8); >1300 leans concept (9–15).
+
 ## 9. Open questions for Mohit
 1. **Precedence (§1) — sign off or reorder?** Specifically: does `king_safety`
    outrank `missed_tactic` when a king is both exposed AND there's a missed fork?
