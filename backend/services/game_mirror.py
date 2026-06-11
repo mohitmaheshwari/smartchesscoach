@@ -832,22 +832,32 @@ def _aggregate_verdict(
     # Listening signal: what changed since the previous closed window?
     listening = ""
     if last_snapshot:
-        prev_flagged = set(last_snapshot.get("patterns_flagged") or [])
+        prev_list = last_snapshot.get("patterns_flagged") or []
+        prev_flagged = set(prev_list)
         now_repeated = {p for p, _ in repeated}
         improved = prev_flagged - now_repeated
         persisted = prev_flagged & now_repeated
         if prev_flagged and improved and not persisted:
-            voice = _pattern_voice(next(iter(improved)), form="noun")
-            listening = (
-                f"Last session it was {voice}. This session, none. "
-                f"You listened."
-            )
+            # First previously-flagged pattern that cleared up. Follow the
+            # stored order — NOT set iteration — so the line is deterministic.
+            first_improved = next((p for p in prev_list if p in improved), None)
+            if first_improved:
+                voice = _pattern_voice(first_improved, form="noun")
+                listening = (
+                    f"Last session it was {voice}. This session, none. "
+                    f"You listened."
+                )
         elif persisted:
-            voice = _pattern_voice(next(iter(persisted)), form="noun")
-            listening = (
-                f"Second time {voice} have shown up — these are real now, "
-                f"not noise."
-            )
+            # The TOP repeated persisted pattern — matches the headline's lead.
+            # Was `next(iter(persisted))`, which picked an arbitrary set element
+            # (the "passive pieces" → "shallow calculation" flip bug).
+            top_persisted = next((p for p, _ in repeated if p in persisted), None)
+            if top_persisted:
+                voice = _pattern_voice(top_persisted, form="noun")
+                listening = (
+                    f"Second time {voice} have shown up — these are real now, "
+                    f"not noise."
+                )
 
     if not repeated:
         # None of the user's known patterns recurred this window.

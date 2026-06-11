@@ -6578,6 +6578,69 @@ def _classify_move(eval_before: float, eval_after: float, user_color: str, user_
     return _classify_move_quality(eval_before, eval_after, user_color, user_rating)
 
 
+def _build_enriched_coach_move_evaluations(move_history: list, user_color: str):
+    """Build move_evaluations from a coach session's move_history and run the
+    SAME cognitive-gap enrichment imported games get, so coach mistakes are
+    visible to the Mirror / decay model / missions.
+
+    Unlike the legacy builder this keeps BOTH sides' moves (schema-identical to
+    chess.com games, gives the classifier real ply continuity), carries
+    `move_uci` (the live session already has it as `uci`) and `is_user_move` so
+    the gap classifier can fire, and scores accuracy with the canonical CAPS2
+    formula instead of the crude linear one that collapsed to 0/1.
+
+    Returns (move_evaluations, accuracy, blunders, mistakes). No Stockfish pass —
+    reuses the depth-12 live evals. See docs/pwc_live_analysis_reuse_scope.md.
+    """
+    from analysis_interpreter import enrich_with_cognitive_gaps
+    from stockfish_service import calculate_accuracy
+
+    move_evaluations = []
+    for i, m in enumerate(move_history):
+        if not isinstance(m, dict):
+            continue
+        is_user = m.get("by") == "player"
+        eb = m.get("eval_before")
+        ea = m.get("eval_after")
+        has_eval = eb is not None and ea is not None
+        cp_loss = 0
+        if is_user and has_eval:
+            if user_color == "white":
+                cp_loss = max(0, int((eb - ea) * 100))
+            else:
+                cp_loss = max(0, int((ea - eb) * 100))
+        move_evaluations.append({
+            "move": m.get("move"),
+            "move_uci": m.get("uci", ""),
+            "move_number": i // 2 + 1,
+            "fen_before": m.get("fen_before", ""),
+            "fen_after": m.get("fen_after", ""),
+            "is_user_move": is_user,
+            # Coerce missing evals (opponent moves have none in the live
+            # session) to 0.0 — downstream position-context classification
+            # can't handle None, and these moves carry cp_loss=0 so they are
+            # never classified as a user gap anyway.
+            "eval_before": float(eb) if eb is not None else 0.0,
+            "eval_after": float(ea) if ea is not None else 0.0,
+            "has_eval": bool(is_user and has_eval),
+            "cp_loss": cp_loss,
+            "best_move": m.get("best_move"),
+            "evaluation": m.get("evaluation"),
+            "threat": m.get("threat"),
+        })
+
+    # Shared enrichment — tags cognitive_gap on every move in place.
+    enrich_with_cognitive_gaps(move_evaluations, user_color)
+
+    # Stats over user moves that actually carried a live eval.
+    user_cp = [me["cp_loss"] for me in move_evaluations if me.get("has_eval")]
+    blunders = sum(1 for cp in user_cp if cp >= 300)
+    mistakes = sum(1 for cp in user_cp if 100 <= cp < 300)
+    accuracy = calculate_accuracy(user_cp) if user_cp else 100.0
+
+    return move_evaluations, accuracy, blunders, mistakes
+
+
 async def _promote_session_to_game(db, session_id: str, user_id: str):
     """
     Convert a completed coach session into a games + game_analyses document
@@ -6651,46 +6714,55 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         "black_player": "Coach" if user_color == "white" else "You",
     }
 
-    # Build move evaluations from session data
-    move_evaluations = []
-    user_moves_only = [m for m in move_history if isinstance(m, dict) and m.get("by") == "player"]
+    # Build move evaluations from session data.
+    from config import PWC_GAP_ENRICHMENT
 
-    blunders = 0
-    mistakes = 0
-    total_cp_loss = 0
+    if PWC_GAP_ENRICHMENT:
+        # New path: schema-identical to imported games, gap-enriched, CAPS2 accuracy.
+        move_evaluations, accuracy, blunders, mistakes = _build_enriched_coach_move_evaluations(
+            move_history, user_color
+        )
+    else:
+        # ---- Legacy path (user moves only, no gap enrichment) ----
+        move_evaluations = []
+        user_moves_only = [m for m in move_history if isinstance(m, dict) and m.get("by") == "player"]
 
-    for m in user_moves_only:
-        eb = m.get("eval_before")
-        ea = m.get("eval_after")
-        if eb is None or ea is None:
-            continue
+        blunders = 0
+        mistakes = 0
+        total_cp_loss = 0
 
-        if user_color == "white":
-            cp_loss = max(0, int((eb - ea) * 100))
-        else:
-            cp_loss = max(0, int((ea - eb) * 100))
+        for m in user_moves_only:
+            eb = m.get("eval_before")
+            ea = m.get("eval_after")
+            if eb is None or ea is None:
+                continue
 
-        total_cp_loss += cp_loss
-        if cp_loss >= 300:
-            blunders += 1
-        elif cp_loss >= 100:
-            mistakes += 1
+            if user_color == "white":
+                cp_loss = max(0, int((eb - ea) * 100))
+            else:
+                cp_loss = max(0, int((ea - eb) * 100))
 
-        move_evaluations.append({
-            "move": m.get("move"),
-            "move_number": move_history.index(m) // 2 + 1,
-            "eval_before": eb,
-            "eval_after": ea,
-            "cp_loss": cp_loss,
-            "best_move": m.get("best_move"),
-            "fen_before": m.get("fen_before", ""),
-            "cognitive_gap": m.get("cognitive_gap"),
-            "threat": m.get("threat"),
-        })
+            total_cp_loss += cp_loss
+            if cp_loss >= 300:
+                blunders += 1
+            elif cp_loss >= 100:
+                mistakes += 1
 
-    total_user_moves = len(user_moves_only)
-    accuracy = round((1 - total_cp_loss / max(total_user_moves * 100, 1)) * 100)
-    accuracy = max(0, min(100, accuracy))
+            move_evaluations.append({
+                "move": m.get("move"),
+                "move_number": move_history.index(m) // 2 + 1,
+                "eval_before": eb,
+                "eval_after": ea,
+                "cp_loss": cp_loss,
+                "best_move": m.get("best_move"),
+                "fen_before": m.get("fen_before", ""),
+                "cognitive_gap": m.get("cognitive_gap"),
+                "threat": m.get("threat"),
+            })
+
+        total_user_moves = len(user_moves_only)
+        accuracy = round((1 - total_cp_loss / max(total_user_moves * 100, 1)) * 100)
+        accuracy = max(0, min(100, accuracy))
 
     analysis_doc = {
         "game_id": game_id,

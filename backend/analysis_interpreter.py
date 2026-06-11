@@ -746,5 +746,46 @@ def interpret_game_analysis(
     
     # Add position context to all moves
     enriched_moves = enrich_moves_with_context(enriched_moves, user_color)
-    
+
     return enriched_moves, summary
+
+
+# Fields the behavioral interpreter adds on top of the raw Stockfish move-eval.
+# Centralized so the import worker and the coach-session conversion merge the
+# SAME set back onto their move dicts — one source of truth for what
+# "enriched" means (see docs/pwc_live_analysis_reuse_scope.md).
+_GAP_MERGE_FIELDS = (
+    ("cognitive_gap", None),
+    ("is_critical", False),
+    ("critical_reason", None),
+    ("gap_confidence", 0),
+    ("gap_evidence", ""),
+    ("coaching_focus", ""),
+)
+
+
+def enrich_with_cognitive_gaps(
+    move_evaluations: List[Dict],
+    user_color: str = "white",
+    db=None
+) -> Tuple[List[Dict], Dict]:
+    """Run behavioral interpretation and merge the cognitive_gap / criticality
+    fields back onto the ORIGINAL move_evaluations in place — preserving every
+    pre-existing key (is_user_move, move_uci, eval_*, best_move, ...).
+
+    This is the single enrichment entry point shared by:
+      • analysis_worker.py (imported chess.com/lichess games), and
+      • routes/coach_play.py (Play-with-Coach sessions promoted to games).
+
+    Both paths previously hand-rolled this merge; the coach path skipped it
+    entirely, leaving every coach move untagged. Returns (move_evaluations,
+    summary) where move_evaluations is the same list object passed in.
+    """
+    enriched_moves, summary = interpret_game_analysis(move_evaluations, user_color, db)
+    for i, move in enumerate(move_evaluations):
+        if i >= len(enriched_moves):
+            break
+        e = enriched_moves[i]
+        for key, default in _GAP_MERGE_FIELDS:
+            move[key] = e.get(key, default)
+    return move_evaluations, summary

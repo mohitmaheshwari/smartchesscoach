@@ -799,24 +799,17 @@ def process_job(db, job):
         logger.info(f"[INTERPRET] Starting behavioral interpretation for {game_id}...")
         
         try:
-            from analysis_interpreter import interpret_game_analysis
-            
-            enriched_moves, interpretation_summary = interpret_game_analysis(
+            # Shared enrichment — merges cognitive_gap + criticality back onto
+            # move_evaluations in place. Same helper the coach-session promotion
+            # uses, so both paths produce identical gap tags (one source of
+            # truth — see docs/pwc_live_analysis_reuse_scope.md).
+            from analysis_interpreter import enrich_with_cognitive_gaps
+
+            move_evaluations, interpretation_summary = enrich_with_cognitive_gaps(
                 move_evaluations,
-                user_color=user_color
+                user_color=user_color,
             )
-            
-            # Merge interpretation back into move evaluations
-            for i, move in enumerate(move_evaluations):
-                if i < len(enriched_moves):
-                    enriched = enriched_moves[i]
-                    move["cognitive_gap"] = enriched.get("cognitive_gap")
-                    move["is_critical"] = enriched.get("is_critical", False)
-                    move["critical_reason"] = enriched.get("critical_reason")
-                    move["gap_confidence"] = enriched.get("gap_confidence", 0)
-                    move["gap_evidence"] = enriched.get("gap_evidence", "")
-                    move["coaching_focus"] = enriched.get("coaching_focus", "")
-            
+
             critical_count = interpretation_summary.get("critical_moves", 0)
             primary_issue = interpretation_summary.get("primary_issue", "none")
             

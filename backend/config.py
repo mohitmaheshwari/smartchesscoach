@@ -3,6 +3,18 @@ Centralized Configuration for Chess Coach App
 Change settings here - they apply everywhere.
 """
 
+import os
+
+# =============================================================================
+# FEATURE FLAGS (default-off rollout — A/B → 10% → 100% → delete legacy)
+# =============================================================================
+
+# Route Play-with-Coach games through the SAME cognitive-gap enrichment the
+# imported-game worker uses, so coach mistakes are visible to the Mirror /
+# decay model / missions. Default OFF until validated.
+# See docs/pwc_live_analysis_reuse_scope.md.
+PWC_GAP_ENRICHMENT = os.getenv("PWC_GAP_ENRICHMENT", "false").lower() == "true"
+
 # =============================================================================
 # LLM CONFIGURATION
 # =============================================================================
