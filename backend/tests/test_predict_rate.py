@@ -19,14 +19,16 @@ from services.rate_your_move import quality_bucket, rating_correct, is_instructi
 
 
 # ── predict_coach_move ─────────────────────────────────────────────────────
-def test_should_fire_eligibility_and_cap():
-    assert should_fire(2, 5, 0, 900) is True          # top-2, room under cap
-    assert should_fire(4, 5, 0, 900) is False         # rank > top-3 -> never
-    assert should_fire(None, 5, 0, 900) is False      # not in the engine's list
-    assert should_fire(1, 2, 0, 900) is False         # < 3 legal -> near-forced
-    assert should_fire(1, 5, 3, 900) is False         # beginner cap (3) hit
-    assert should_fire(1, 5, 1, 1500) is False        # intermediate cap (1) hit
-    assert should_fire(1, 5, 0, 1500) is True
+def test_should_fire_clear_best_only():
+    G = 200  # a clearly-best gap (>= CLEAR_BEST_GAP_CP)
+    assert should_fire(1, G, 5, 0, 900) is True       # coach plays the clearly-best move -> fire
+    assert should_fire(2, G, 5, 0, 900) is False      # coach did NOT play the best -> no fire
+    assert should_fire(1, 50, 5, 0, 900) is False     # gap too small (opening/quiet, all moves fine) -> no fire
+    assert should_fire(1, None, 5, 0, 900) is False   # no gap info -> no fire
+    assert should_fire(1, G, 2, 0, 900) is False      # < 3 legal -> near-forced
+    assert should_fire(1, G, 5, 3, 900) is False      # beginner cap (3) hit
+    assert should_fire(1, G, 5, 1, 1500) is False     # intermediate cap (1) hit
+    assert should_fire(1, G, 5, 0, 1500) is True
 
 
 def test_bands():

@@ -29,15 +29,24 @@ PER_GAME_CAP = {"beginner": 3, "improver": 2, "intermediate": 1}
 # Difficulty = decoy closeness in cp: beginner gets clearly-worse decoys; intermediate near-equal.
 DIFFICULTY = {"beginner": "easy", "improver": "medium", "intermediate": "hard"}
 
-ELIGIBLE_MAX_RANK = 3   # only predict when the coach's move is a top-3 engine move
 MIN_LEGAL = 3           # need a real choice, not a near-forced position
+# A prediction is only meaningful where there's a move to FIND — a clearly-best move (a tactic, a forced
+# defense, a strong continuation). In openings + quiet positions several moves are equally fine, so there
+# is NOTHING to predict — you can't read the coach's arbitrary choice among equals. So fire ONLY when the
+# coach plays the engine's BEST move AND it is clearly best (the eval gap to the 2nd-best is large).
+# Data (448-position probe): median coach-move gap ~16cp (most positions = "any move is fine"); 120cp is
+# well into the upper tail = a genuinely findable move. Tunable via /lock-via-data when Mongo's reachable.
+CLEAR_BEST_GAP_CP = 120
 
 
-def should_fire(coach_move_rank: Optional[int], num_legal: int,
+def should_fire(coach_move_rank: Optional[int], gap_cp: Optional[int], num_legal: int,
                 predictions_this_game: int, rating: Optional[int]) -> bool:
-    """The firing SEAM. V1 = rating-banded eligibility + per-game cap.
-    The conductor (later) replaces THIS BODY, not the seam or its callers."""
-    if coach_move_rank is None or coach_move_rank > ELIGIBLE_MAX_RANK:
+    """The firing SEAM — fire ONLY on a CALCULABLE moment: the coach plays the clearly-best move, so
+    there is a definite answer to FIND. Openings + quiet positions (near-equal moves) never fire.
+    V1 = clear-best + per-game cap; the conductor (later) replaces THIS BODY, not the seam or its callers."""
+    if coach_move_rank != 1:                           # coach must be playing the engine's best move
+        return False
+    if gap_cp is None or gap_cp < CLEAR_BEST_GAP_CP:    # not clearly best -> nothing to predict
         return False
     if num_legal < MIN_LEGAL:
         return False

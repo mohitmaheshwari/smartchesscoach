@@ -8260,7 +8260,8 @@ async def _process_move_and_respond(
 
                         _mp = await _aio.to_thread(_mpv, fen_after_user, 5)
                         _rank = next((i + 1 for i, (s, _) in enumerate(_mp) if s == coach_move), None)
-                        if _mp and should_fire(_rank, chess.Board(fen_after_user).legal_moves.count(),
+                        _gap = (_mp[0][1] - _mp[1][1]) if len(_mp) >= 2 else None  # best - 2nd (mover POV)
+                        if _mp and should_fire(_rank, _gap, chess.Board(fen_after_user).legal_moves.count(),
                                                session_doc.get("predictions_this_game", 0), _rating):
                             _opts = build_options(_mp, coach_move, _rating)
                             if _opts and coach_move in _opts:
