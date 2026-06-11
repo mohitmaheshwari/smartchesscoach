@@ -31,6 +31,13 @@ import CommentaryPanel from "@/components/coach/CommentaryPanel";
 import PredictMovePanel from "@/components/coach/PredictMovePanel";
 import RateMovePanel from "@/components/coach/RateMovePanel";
 
+// KILL-SWITCHES (2026-06-11): the "withhold the reveal after /move applied it" approach LEAKS — the
+// coach move shows on the board + in the COACH PLAYED sidebar while the panel still asks you to predict
+// it. The reveal must be deferred at the SOURCE (the /move flow), not withheld after. Disabled until
+// that rework lands. Flip to true only after the deferred-at-source fix is verified.
+const PREDICT_MOVE_ENABLED = false;
+const RATE_MOVE_ENABLED = false;
+
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1245,7 +1252,7 @@ const CoachPlay = ({ user }) => {
             const _q = (quality || "").toLowerCase();
             const _fen = v5Data.fen_before;
             const _instructive = _q === "best" || _q === "mistake" || _q === "blunder";
-            if (_instructive && _fen && _fen !== ratedFenRef.current && !pendingRating
+            if (RATE_MOVE_ENABLED && _instructive && _fen && _fen !== ratedFenRef.current && !pendingRating
                 && ratingsThisGameRef.current < 3) {
               ratedFenRef.current = _fen;
               ratingsThisGameRef.current += 1;
@@ -2017,7 +2024,7 @@ const CoachPlay = ({ user }) => {
             try {
               const _coachEntry = (data.session?.move_history || []).slice(-1)[0];
               const _fenBefore = _coachEntry?.fen_before;
-              if (_fenBefore && _fenBefore !== lastOfferedFenRef.current && !pendingPrediction) {
+              if (PREDICT_MOVE_ENABLED && _fenBefore && _fenBefore !== lastOfferedFenRef.current && !pendingPrediction) {
                 const _offerRes = await fetch(`${API}/coach/play/predict-move/offer`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
