@@ -61,6 +61,25 @@ Per `[[feedback_complete_every_item_on_overnight_lists]]`.
    - Class B: does the engine's `best_move` match what the caption recommended? Does the user's intuition about the "real" mistake hold up against `cp_loss`?
    - Class E: do the piece names / moves mentioned in the caption actually exist in the position?
 
+3.5. **Rating-band tolerance gate (added 2026-06-11 — the Parth / stronger-engine fix).** Parth reviews captions with a stronger engine than ours (Stockfish depth 18) and across a SPREAD of users' games (the June-8 batch ran 759–2041, median ~1754). A caption is NOT wrong merely because his deeper engine prefers a different move — what matters is whether the move was a real mistake **for the rating of the user whose game it is**.
+
+   **Look up the GAME'S user rating — not Parth's.** The caption is shown to the player who played the game; Parth is only the reviewer. For each `game_id`: `games.user_id → users.assessed_rating` (fallback `detected_rating`/`fide_rating`/`lichess_rating`). Map to the band `mistake_cp` from `deterministic_coach_service.RATING_BANDS` (already shipped — do not invent a number):
+
+   | User rating | Band | `mistake_cp` tolerance |
+   |---|---|---|
+   | <1000 | beginner_low | 150 |
+   | 1000–1399 | beginner_high | 100 |
+   | 1400–1799 | intermediate | 75 |
+   | 1800+ | advanced | 50 |
+
+   **The gate is a RE-EXAMINATION FILTER, not an auto-dismiss.** If the played move's `cp_loss < band mistake_cp`, the position wasn't a real mistake for that user → route the flag to the guardrail below. Never mark `WRONG_NEEDS_FIX` on move-precision alone when the move is below band.
+
+   **The guardrail decides (cp_loss NEVER excuses these — fix them at every rating):**
+   - **Confabulation** (caption names a piece/move not on the board), **material miscount** ("they drop the pawn" on an even trade or on a best move), **wrong reasoning** (names the wrong tactic/cause) → **STILL FIX**. A "wrong caption" on a ~0cp move is *more* likely a confabulation than a quibble — read it before dismissing.
+   - **Pure move-precision** (caption's move is sound but not engine-#1) AND `cp_loss < band` → **DISMISS** as `DISMISS_AUDIENCE_APPROPRIATE`. Reason line must cite "cp_loss N < band tolerance T for a ~R player; deeper-engine preference is master-level precision they don't need."
+
+   **Where the band actually decides:** the mid-cp range (~30–150cp minor inaccuracies). Same flag, opposite verdict by user rating — a fine alternative is OK for a 1000 player (dismiss) but worth teaching to a 1700 player (fix). At/above the band, hold to the stronger-engine standard: Parth's gap is valid — fix it. Record the band + tolerance in the reason line so the call is auditable.
+
 4. **Cross-reference CAPTION_BACKLOG.md.** For each item, check if it matches an existing filed backlog item. Use [CAPTION_BACKLOG.md](../../CAPTION_BACKLOG.md) — items 1-4 cover sac-aware extensions, "why played wrong" (now shipped), marginal-cpl in losing, long-range central control. If an item matches an existing entry, note "already filed under item N" — don't propose re-filing.
 
 5. **Recommendation per item.** One of:
@@ -126,7 +145,7 @@ Per `[[feedback_complete_every_item_on_overnight_lists]]`.
    - **Filed-for-second** — promising pattern; one of two needed; noted in the relevant backlog item.
    - **Already-shipped** — solved by prior work; cite the commit / shipped scope.
    - **Investigating** — needs deeper engine cross-check or codebase dive that doesn't fit this triage pass. Open a new line in PROGRESS_BACKLOG.md / CAPTION_BACKLOG.md.
-   - **Dismissed (reason)** — off-topic / pebble-not-rock / dupe-of-already-resolved. Reason must be one of those three, NOT "didn't seem important."
+   - **Dismissed (reason)** — off-topic / pebble-not-rock / dupe-of-already-resolved / audience-appropriate (below-band precision quibble — cite cp_loss < band tolerance, per Step 3.5). Reason must be one of those four, NOT "didn't seem important."
 
    **Coverage gate: row count must equal the roster count.** Before submitting the response, count rows. If it doesn't match the roster size, GO BACK and find the missing item(s). The triage isn't done until every feedback_id has a row.
 

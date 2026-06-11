@@ -100,11 +100,14 @@ When fact fires → R12 failure_mode_clause: *"{played} just leaves {target_squa
 
 ## 7. Opp-side failure-mode predicate framework
 
-**Status:** Filed 2026-06-06 (Parth batch). Two examples + one related case.
+**Status:** BUILD-READY as of 2026-06-10. Filed 2026-06-06 (Parth batch, 2 examples); the 2026-06-10 Mohit batch supplied the ≥3 needed. The dominant variant is `opp_played_abandons_defense` (3 of 5 examples).
 
 **Examples:**
 - `fb_44ab295462d0` — Opp's cxd5 in 1780f8bc m12. Caption rendered: *"Opponent's cxd5 is a mistake. Play f3."* Parth's narrative: cxd5 blocks Black's light-squared bishop behind own pawns; exd5 keeps the bishop active.
 - `fb_771714e55f1f` — Opp's c3 in 24eecbfe m13. Caption rendered: *"Opponent's c3 is a serious mistake. Play Ne4 winning the bishop on f4."* Parth wants the WHY explained — c3 fails to address that Bf4 is already undefended.
+- `fb_69096be0ece2` — Opp's Qg5 in 98c0c27f m18 (cp_loss 609, eval −479→+130). Caption: *"Opponent's Qg5 is a major blunder. Play Rxe2."* Engine-verified: Qg5 stopped defending the e2 bishop, so Rxe2 wins it. The WHY (`abandons_defense`) is exactly what's missing. Mohit: *"why? it is important to know for a 1200."*
+- `fb_78a839dd8931` — Opp's Rxd6 in a19ec007 m32 (opp_inaccuracy). Caption gave the user's recapture but no opp-why. (Also has a confabulated target clause — see #19.)
+- `fb_f64573d24a1b` — Opp's Bxc3 in 98c0c27f m7 (opp_inaccuracy). No opp-why. (Also has a confabulated Qxd7+ clause + a same-move dup-SAN templating bug — see #19.)
 
 **Pattern:** R12 opp-side variants have rich USER-RESPONSE why-clauses (`why_opp_punish_capture`, `why_opp_user_finds_mate`, etc.) but no OPPONENT-FAILURE-MODE clause analogous to `failure_mode_clauses_user`. When the opp made a positional mistake (no piece dropped, no immediate tactic punishable), the caption falls to `why_opp_punish_default` = bare "Play X." with no teaching about WHY the opp move was bad.
 
@@ -121,7 +124,7 @@ failure_mode_clauses_opp:
                                       (opp had a piece/square under threat; the played move didn't defend)
 ```
 
-**Why filed:** the underlying facts don't exist yet. `opp_played_landed_unsafe` is the closest analog but only fires for the opp piece itself, not for OTHER pieces becoming undefended due to the opp move. Building this is a similar-sized predicate to `played_piece_was_sole_defender_of_attacked_target` (item 6) but on the opp side. Wait for ≥3 examples to confirm the predicate set; we have 2.
+**Why filed:** the underlying facts don't exist yet. `opp_played_landed_unsafe` is the closest analog but only fires for the opp piece itself, not for OTHER pieces becoming undefended due to the opp move. Building this is a similar-sized predicate to `played_piece_was_sole_defender_of_attacked_target` (item 6) but on the opp side. **Now have 5 examples (≥3 met) — `opp_played_abandons_defense` is the clear first variant to build.**
 
 **Adjacent (file separately when third example arrives):**
 - `fb_9c4ad043240b` — Nxg3 trades a defensive piece. Needs "defensive piece value > exchange material value" detector. Distinct from positional weakening; this is about the *valuation* of the traded piece.
@@ -180,6 +183,10 @@ failure_mode_clauses_opp:
 - OR: rename matches to be honest about what they actually identify ("d6 setup" not "Philidor"; "King-pawn opening" not "Bishop's Opening")
 
 **Why filed:** the detector lives in opening_curriculum_engine.py or similar (need to grep). The fix touches opening identification which feeds the curriculum tracker — risk surface beyond just captions. Worth scope-doc work.
+
+**Addendum (2026-06-11, Parth re-triage batch).** Two more mislabels of the same shape:
+- `fb_d0454a4088f3` — Nf3 m3 in af668c65 labeled *"Réti Opening"* but White's pawns are already advanced (a King's Gambit structure, `1.e4 e5 2.f4 …`). Réti requires the un-committed-pawn setup; the label ignores the actual pawns.
+- `fb_26deef7b13b1` — Nc6 m2 in 75afffcf labeled a *"deviation"* (*"book continues with d6"*) when Nc6 is **exact** Accelerated-Dragon theory (1.e4 c5 2.Nf3 Nc6 …). False-deviation flag on a book move — same "label ignores context" root.
 
 ---
 
@@ -302,7 +309,7 @@ This is materially more complex than the 2 shipped variants and was building-tir
 
 ---
 
-*Last updated: 2026-06-06*
+*Last updated: 2026-06-10*
 
 ---
 
@@ -351,3 +358,114 @@ Which shapes deserve PRIMARY prominence vs staying secondary?
 - Drop the "{engine_best} was better" clause for move-1 alternatives entirely (no first move is "better" than another sound one).
 
 **Related:** CAPTION_BACKLOG #9 (severity-cliff probe) is the INVERSE (good labeled, should be mistake). Both are caption-text-vs-canonical-severity consistency issues — likely worth one unified pass: "the caption's severity word is ALWAYS the canonical severity field, never re-derived from cp_loss."
+
+**Addendum (2026-06-10 batch):**
+- `fb_bbfe9b9510ab` — m2 e4 (cp_loss 10), caption rendered **empty** on a routine opening move. Mohit: *"do we need any commentary here?"* No. Routine low-cpl opening moves should render no caption, and the empty-string render itself is a bug. Same family as this entry's "early move shouldn't be error-labeled" — extend the suppression to "no caption at all on routine opening moves," and fix the empty-render.
+
+**Addendum (2026-06-11, Parth re-triage batch) — over-eager variation naming:**
+- `fb_b711b4f50735` — c6 m1 in 1b196a4f labeled *"Caro-Kann Advance Botvinnik-Carls Defense"* at **move 1**. At 1…c6 only "Caro-Kann" is known; the Advance/Botvinnik-Carls sub-variation hasn't been determined. Over-specify the variation too early. Pair with the depth-confidence gate (the `depth>=3` rule used for *detection* should also gate the *label* text).
+- `fb_39f14438b76d` — same Advance label **re-printed at m17 (endgame)**. The opening name should stop rendering after the opening phase, not repeat every move into the middle/endgame.
+
+---
+
+## 19. Confabulated target/tactic — caption names a gain that isn't on the board
+
+**Status:** Filed 2026-06-10 (Mohit batch). THREE engine-verified examples — designable now.
+
+**The failure:** the why-clause asserts a concrete tactical result (a won piece, an attacked enemy pawn, a follow-up check) that Stockfish does not see on the actual board. Distinct from #8 (sac mislabel) and #13 (bad-trade valuation) — those are *valuation* errors on a real move; this is *hallucinated geometry*: the named target/tactic does not exist.
+
+**Examples:**
+- `fb_4c4187178e98` — a4 in a19ec007 m26. Caption: *"Rd1 was better. it wins the rook."* Engine: `Rd1 = +356` (Rd1 only hits the d6 **pawn**; no rook is won — a won rook would be ~+500 more). "Wins the rook" is invented. Mohit: *"it wins the rook??? how?"*
+- `fb_78a839dd8931` — Rxd6 in a19ec007 m32. Caption: *"attacks their undefended pawn on f6."* User is Black; **f6 is the user's OWN pawn**. The enemy pawn the rook actually hits on rank 6 is b6. Wrong square + wrong ownership. *(Ownership inferred from FEN + `severity=opp_inaccuracy` + side-to-move; `user_color` not readable at triage time — verify on build.)*
+- `fb_f64573d24a1b` — Bxc3 in 98c0c27f m7. Caption: *"opens the line so your queen can play Qxd7+ to chase their king."* `Qxd7+` drops the queen (d7 defended by Ke8, Qd8, Bc8). Pure confabulation. **Also**: the same move is labeled both *"Opponent's Bxc3"* and *"Play Bxc3"* — a same-move dup-SAN templating bug worth fixing alongside.
+
+**Pattern:** the why-target render (the "{move} — {what it does}" clause and the alternative-promotion clause) emits a stated target/follow-up without verifying it against the post-move board. Three failure shapes: (a) claims material won that isn't (`it wins the rook` at +356), (b) names the wrong square / mis-attributes ownership (own pawn called "their pawn"), (c) suggests a follow-up that loses material (`Qxd7+`).
+
+**Fix sketch (guard, not delete — per [[feedback_fix_framing_not_detection]]):** before rendering any "wins/attacks/then play X" clause, verify it on the board:
+- "wins the {piece}" → require the eval delta or a forced win of that piece type in the PV; otherwise drop the clause.
+- "attacks their {pawn/piece} on {sq}" → require {sq} to actually hold an *enemy* piece that the moved piece attacks post-move.
+- "so you can play {follow_up}" → require {follow_up} to be in the engine PV (not eval-losing).
+When the claim fails verification, fall back to the plain severity line — silence beats a fabricated target.
+
+**Why filed not built:** 3 clean examples but the guard touches the shared why-clause renderer (broad surface). Needs a scope pass + a probe of how often these clauses fire unverified across the corpus before tightening.
+
+**Addendum (2026-06-11, Parth re-triage batch).** Four more engine-/board-verified confabulations, all on *below-band* moves (cp_loss ≈ 0 — which is the signature: the move is fine, the caption invents a tactic about it):
+- `fb_a906eb9a84fc` — Qxd2 m14 in 1b196a4f. Caption: *"Qxd2 — Skewer. It hits the queen on d2…"* It's a plain **recapture of a bishop**; no skewer on the board.
+- `fb_e152cc7e8056` — Bxf3 m12 in 1b196a4f. Caption: *"Bxf3 — clean pin on their knight."* It's a **capture**, not a pin.
+- `fb_39f14438b76d` — exd6 m17 in 1b196a4f. Caption: *"They won a pawn with that capture."* It won the **exchange** (rook for knight), not a pawn — material-delta miscount (same family as the "it wins the rook"/+356 example above).
+- `fb_b137c10813b9` — bxc6 m5 in 75afffcf. Caption: *"Nothing recaptures, so it's free."* The move **was** the recapture; nothing is "free."
+
+Confirms the fix sketch: gate tactic-name + material-gain clauses on the actual board (a "skewer"/"pin" needs its geometry; "won a {piece}" needs the real material delta). The geometric-gating half overlaps #11 (shape-detector overreach).
+
+---
+
+## 20. Disconnected "reason" clauses — engine-correct move, unrelated rationale
+
+**Status:** Filed 2026-06-10 (Mohit batch). Two examples. Same shape as #14 ([[principle_bank_is_filler]]) but the move recommended is engine-correct — only the *reason* is filler.
+
+**Examples:**
+- `fb_971847cddbde` — Qc2 in a19ec007 m14. Engine best = `Qd1` ✓ (matches recommendation), but reason given is *"your bishop on e2 is passive"* — unrelated to why Qd1 beats Qc2. Mohit: *"Qd1 doesn't relate to bishop."*
+- `fb_b68bbeb1bf25` — Bd2 in 98c0c27f m7. Engine best = `Bd3` ✓, reason *"6 of your pieces are still on your side of the board"* — generic development count, not the actual Bd2-vs-Bd3 difference. Mohit: *"don't think the reason is correct."*
+
+**Pattern:** the alternative is correctly identified, but `good_move_reason` falls back to a generic positional principle that doesn't explain *why this alternative over the played move*. Reads as confident-but-wrong teaching.
+
+**Fix sketch:** when the alternative-promotion clause can't produce a reason tied to the *delta* between played and best (what best does that played doesn't), drop the reason rather than stapling a generic principle. Folds into the #14 / #2 "why-better must be delta-grounded" work.
+
+**Note (item 8, `fb_896762a9722b`):** Qb3 in a19ec007 m10 — a **−59cp inaccuracy** (engine best `Nxe5`; eval +19→−44) rendered as a positive *"Hidden Attack"* shape badge. Shape detector fires on a move that's actually bad → sibling of #11 (shape-detector overreach: gate shapes on the move not being an inaccuracy/mistake). Logged here; investigate under #11.
+
+---
+
+## 21. "Only move" / "forcing move available" template overclaims
+
+**Status:** Filed 2026-06-11 (Parth re-triage batch). Three examples. The template asserts uniqueness/forcing-ness without checking the engine.
+
+**Examples:**
+- `fb_f49d896177d8` — exd5 m3 in e2815608. Caption: *"exd5 — only move."* Parth: not the only move (e5, Nc3, Nd2 all playable).
+- `fb_0bc718b251da` — Qxc4 m14 in e2815608. Caption: *"Qxc4 — only move."* Parth: alternatives exist.
+- `fb_dab0594291ec` — Bf4 m9 in 0a5af44c. Caption: *"Forcing move available — check, capture, or threat. Strongest move here."* No forcing move exists, and Bf4 isn't best (engine top-2 = Nc3 / f3). cp_loss 46.
+
+**Pattern:** the "only move" and "forcing move available / strongest" clauses fire on a label/heuristic, not on the eval gap to the 2nd-best move (and not on whether a check/capture/threat actually exists).
+
+**Fix sketch:** only emit "only move" when engine #2 is losing by a real margin (e.g. ≥ the band blunder_cp); only emit "forcing move available" when a check/capture/material-threat is on the board; never call a non-#1 move "strongest."
+
+**Why filed:** recurring template overclaim, ≥2 examples. Gating is a clean engine-gap check; no per-position prose. Worth a small predicate-gate pass.
+
+---
+
+## 22. False positional cue — caption asserts a wrong positional fact (not just filler)
+
+**Status:** Filed 2026-06-11 (Parth re-triage batch). Five examples. Distinct from #14/#20 ([[principle_bank_is_filler]]): there the reason is *generic*; here the asserted positional fact is *false*.
+
+**Examples:**
+- `fb_2db2e2ce5429` — Nf3 m7 in 1b196a4f. Caption: *"doesn't claim the center."* Nf3 does influence d4/e5.
+- `fb_235ae451cb7f` — Nc3 m10 in 1b196a4f. Caption: *"doesn't control the center effectively."* Misses that Nc3 **threatens to win the isolated d5 pawn** — the actual point of the move.
+- `fb_37c24d0e2723` — Bd2 m11 in 1b196a4f. Caption: *"develops but blocks the bishop."* Bd2 **breaks a pin** on the c3 knight; doesn't block.
+- `fb_abc1b9a602a0` — g6 m2 in 4ec5dfca. Caption: *"Pushing pawns near your king before castling weakens it."* g6 is a **fianchetto**, the standard not-weakening setup. Wrong cue.
+- `fb_c71898c82f58` — Nf6 m3 in af668c65. Caption: *"Nf6 mirrors White's approach."* Nf6 is actually a **blunder** in that position — "mirrors" mischaracterizes it.
+
+**Pattern:** generic positional cues ("doesn't control the center", "pushing pawns near the king weakens it", "blocks the bishop", "mirrors") fire from a template without reading the board, and assert something the position contradicts.
+
+**Fix sketch:** suppress each cue unless the position actually matches — exempt fianchetto pawns (g6/b6/g3/b3) from the king-weakening cue; don't emit "doesn't control/claim the center" when the piece hits central squares or makes a central threat; don't say "blocks the bishop" when the move breaks a pin / opens a line. Where no verifiable positional fact applies, fall to the plain severity line.
+
+**Why filed:** ≥2 examples, recurring. Touches the positional-cue templates broadly (probe how often each fires unverified before tightening).
+
+---
+
+## 23. Caption references the wrong move / asserts false engine-disagreement
+
+**Status:** Filed 2026-06-11 (Parth re-triage batch). Correctness bug (not wording). Two+ examples.
+
+**Examples:**
+- `fb_bf79c3079b95` — m3 in de3e0756. The move **played was Nc3**, but the caption says *"Played Bg5 — book continues with e3."* Names the wrong move (and a line not in the position). Likely a move-reference / indexing mismatch.
+- `fb_4d29ff16e253` — Rxd6 m16 in 1b196a4f. Caption: *"Engine wants something else."* But Rxd6 **is** the engine-best move (Parth + engine confirm). False engine-disagreement.
+- (Related) `fb_0c47660461f0` — Qxd4 m20 in 1b196a4f rendered as an inaccuracy when it's the best move — overlaps #18 (caption severity word vs canonical severity).
+
+**Pattern:** (a) the captioned SAN ≠ the move actually played, or (b) an "engine wants other / inaccuracy" clause fires when the played move IS engine #1.
+
+**Fix sketch:** assert `captioned_san == played_san` before render (catch the indexing bug); only emit "engine wants something else" / inaccuracy framing when `played_san != engine_best` AND canonical severity is not in {good, best, excellent}.
+
+**Why filed:** correctness, not style — a caption tied to the wrong move or contradicting its own engine-best is the most damaging class. Engine-verify the indexing path on build.
+
+---
+
+*Last updated: 2026-06-11 (Parth re-triage batch — augmented #10/#18/#19, added #21/#22/#23).*
