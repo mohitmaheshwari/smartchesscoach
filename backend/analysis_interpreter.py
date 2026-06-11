@@ -393,6 +393,10 @@ class AnalysisInterpreter:
             logger.warning(f"Shape detection failed at move {move.get('move_number')}: {exc}")
             shapes = []
 
+        # Engine-hard category precedence + phase gates (signed off 2026-06-11;
+        # docs/move_classification_from_gold_scope.md). Right-or-original.
+        cognitive_gap = _precedence_adjust(cognitive_gap, move)
+
         return InterpretedMove(
             move_number=move.get("move_number", 0),
             move_uci=move.get("move_uci", ""),
@@ -762,6 +766,66 @@ _GAP_MERGE_FIELDS = (
     ("gap_evidence", ""),
     ("coaching_focus", ""),
 )
+
+
+def _precedence_adjust(cognitive_gap, move):
+    """Apply the engine-hard category precedence + phase gates to a finalized
+    cognitive_gap. **Right-or-original**: only reclassifies when the board
+    *deterministically* proves a higher-priority category; otherwise returns the
+    input unchanged. Never raises (classifier must not crash on a bad FEN).
+
+    Engine-hard tier only — positional categories (piece_activity, pawn_structure,
+    calculation_depth, tactical_oversight) are left to the LLM-gold phase.
+
+    Rules (per docs/move_classification_from_gold_scope.md, signed off 2026-06-11):
+      A. piece_safety is precedence #1 — a move that hangs its OWN moved piece is
+         piece_safety, outranking whatever tactical/positional label it got.
+      B. king_safety phase-gate — a KING move in a queens-off endgame (<=6 non-pawn
+         pieces, not in check) is king ACTIVITY, not safety -> endgame_technique.
+         (Validated: 64 such moves in the last-500 scan; king-and-pawn opposition
+         errors are the canonical case.)
+    """
+    if not cognitive_gap:
+        return cognitive_gap
+    try:
+        import chess
+        fen = move.get("fen_before") or ""
+        if not fen:
+            return cognitive_gap
+        board = chess.Board(fen)
+        uci = move.get("move_uci") or ""
+        if not uci:
+            san = move.get("move") or ""
+            if san:
+                try:
+                    uci = board.parse_san(san).uci()
+                except Exception:
+                    uci = ""
+
+        # Rule A: hang precedence -> piece_safety (#1 beats all lower tiers).
+        if cognitive_gap != "piece_safety" and uci:
+            try:
+                if _played_move_hangs_piece(fen, uci):
+                    return "piece_safety"
+            except Exception:
+                pass
+
+        # Rule B: king_safety on a queens-off endgame king move -> endgame_technique.
+        if cognitive_gap == "king_safety" and uci and len(uci) >= 4:
+            queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
+            nonpawn = sum(
+                len(board.pieces(pt, c))
+                for pt in (chess.ROOK, chess.BISHOP, chess.KNIGHT)
+                for c in (chess.WHITE, chess.BLACK)
+            )
+            if queens == 0 and nonpawn <= 6 and not board.is_check():
+                pc = board.piece_at(chess.parse_square(uci[:2]))
+                if pc and pc.piece_type == chess.KING:
+                    return "endgame_technique"
+
+        return cognitive_gap
+    except Exception:
+        return cognitive_gap
 
 
 def enrich_with_cognitive_gaps(
