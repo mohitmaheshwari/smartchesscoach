@@ -35,7 +35,8 @@ import RateMovePanel from "@/components/coach/RateMovePanel";
 // coach move shows on the board + in the COACH PLAYED sidebar while the panel still asks you to predict
 // it. The reveal must be deferred at the SOURCE (the /move flow), not withheld after. Disabled until
 // that rework lands. Flip to true only after the deferred-at-source fix is verified.
-const PREDICT_MOVE_ENABLED = false;
+const PREDICT_MOVE_ENABLED = true;  // re-enabled with the defer-at-source fix (coach move not applied
+                                    // until you guess, so nothing leaks). RATE stays off until verified.
 const RATE_MOVE_ENABLED = false;
 
 const CoachPlay = ({ user }) => {
@@ -2008,7 +2009,20 @@ const CoachPlay = ({ user }) => {
         
         if (response.ok) {
           const data = await response.json();
-          
+
+          // ── PREDICT-COACH-MOVE: the coach's move was DEFERRED for a prediction (the server did NOT
+          // apply it). Show the panel — the board stays on YOUR move, so nothing can leak. The guess
+          // triggers the coach move + reveal. Fail-open: if anything's off, the normal flow proceeds.
+          if (PREDICT_MOVE_ENABLED && data.session?.pending_prediction && !pendingPrediction) {
+            const _pp = data.session.pending_prediction;
+            if (_pp.options?.length) {
+              setPendingPrediction({ options: _pp.options, prompt: "What do you think I'll play?" });
+              setCoachThinking(false);
+              if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
+              return; // wait for the guess; onComplete triggers the reveal
+            }
+          }
+
           // Check if coach has moved
           if (!data.session.coach_move_pending) {
             // Remove thinking message from chat
@@ -2016,36 +2030,6 @@ const CoachPlay = ({ user }) => {
             
             // Update board - only if we have valid FEN
             setSession(data.session);
-
-            // ── PREDICT-COACH-MOVE ("Call My Move") — additive, FAIL-OPEN ──────────────────
-            // Before revealing the coach's move, ask /offer. If a prediction fires, HOLD the board at
-            // the pre-coach position + show the panel; the reveal resumes on the guess (onComplete
-            // re-polls). ANY problem falls through to the normal reveal below — a game never blocks.
-            try {
-              const _coachEntry = (data.session?.move_history || []).slice(-1)[0];
-              const _fenBefore = _coachEntry?.fen_before;
-              if (PREDICT_MOVE_ENABLED && _fenBefore && _fenBefore !== lastOfferedFenRef.current && !pendingPrediction) {
-                const _offerRes = await fetch(`${API}/coach/play/predict-move/offer`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({ session_id: session.session_id }),
-                });
-                if (_offerRes.ok) {
-                  const _offer = await _offerRes.json();
-                  if (_offer.has_prediction && _offer.options?.length) {
-                    lastOfferedFenRef.current = _fenBefore; // never re-offer for this move
-                    setCurrentFen(_offer.fen_before || _fenBefore); // HOLD at pre-coach position
-                    setPendingPrediction({ options: _offer.options, prompt: _offer.prompt });
-                    setCoachThinking(false);
-                    return; // defer the reveal until the guess
-                  }
-                }
-              }
-            } catch (_e) {
-              /* fail-open: fall through to the normal reveal below */
-            }
-
             if (data.current_fen) {
               setCurrentFen(data.current_fen);
             }
@@ -2861,14 +2845,15 @@ const CoachPlay = ({ user }) => {
           overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
           always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
       {pendingPrediction && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+        <div className="fixed z-50 top-24 right-6 w-80 max-w-[90vw]">
           <PredictMovePanel
             options={pendingPrediction.options}
             prompt={pendingPrediction.prompt}
             sessionId={session?.session_id}
             onComplete={() => {
               setPendingPrediction(null);
-              if (pollFnRef.current) pollFnRef.current();
+              // The coach move was deferred — apply it now (this reveals it + the coaching).
+              if (session?.session_id) triggerCoachMove(session.session_id);
             }}
           />
         </div>

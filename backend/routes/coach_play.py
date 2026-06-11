@@ -882,7 +882,15 @@ async def get_coach_play_state(
     state = await get_session_state(db, session_id)
     if not state:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
+    # Surface pending_prediction (a raw DB field, not on the session dataclass) so the frontend can show
+    # the predict-coach-move panel while the coach's reply is deferred. Additive + fail-safe.
+    try:
+        if isinstance(state, dict) and isinstance(state.get("session"), dict):
+            state["session"]["pending_prediction"] = session_doc.get("pending_prediction")
+    except Exception:
+        pass
+
     return state
 
 
@@ -2279,10 +2287,10 @@ async def predict_move_answer(request: Dict = Body(...), user: User = Depends(ge
         ts=datetime.now(timezone.utc).isoformat(),
     )
     await db.move_predictions.insert_one(dict(row))
-    # Clear pending + count this prediction toward the per-game cap.
+    # Count this prediction toward the per-game cap. Do NOT clear pending here — /trigger-coach-move
+    # reads it to apply the SAME move, then clears it. (Logging only; the move is applied on reveal.)
     await db.coach_sessions.update_one(
-        {"session_id": session_id},
-        {"$inc": {"predictions_this_game": 1}, "$unset": {"pending_prediction": ""}},
+        {"session_id": session_id}, {"$inc": {"predictions_this_game": 1}}
     )
     return {"correct": guessed == coach_move, "coach_move": coach_move, "reveal": reveal}
 
@@ -2467,10 +2475,18 @@ async def trigger_coach_move_endpoint(
     
     try:
         user_rating = session_doc.get("user_rating", 1200)
-        coach = CoachOpponent(user_rating=user_rating)
-
-        # Get coach's move using FEN - returns SAN notation
-        coach_move = await coach.get_move(current_fen)
+        # If a prediction was just answered for THIS position, apply the same pending move (don't
+        # re-compute — it must match what was predicted). See predict_coach_move / defer-at-source.
+        _pend = session_doc.get("pending_prediction")
+        if _pend and _pend.get("fen_before") == current_fen and _pend.get("coach_move"):
+            coach_move = _pend["coach_move"]
+            await db.coach_sessions.update_one(
+                {"session_id": session_id}, {"$unset": {"pending_prediction": ""}}
+            )
+        else:
+            coach = CoachOpponent(user_rating=user_rating)
+            # Get coach's move using FEN - returns SAN notation
+            coach_move = await coach.get_move(current_fen)
 
         if not coach_move:
             raise HTTPException(status_code=500, detail="Coach couldn't find a move")
@@ -8142,6 +8158,51 @@ async def _process_move_and_respond(
                         "hide_eval": False,  # V2 moves don't hide eval — they're teaching by position
                         "source": "v2_selector",
                     }
+
+                # ── PREDICT-COACH-MOVE: defer the reveal at the SOURCE (the correct fix) ──────────
+                # If a prediction should fire, DON'T apply the coach move now — store it pending and
+                # RETURN, leaving the board at fen_after_user (the coach genuinely hasn't moved, so
+                # nothing can leak). The frontend shows the panel; /predict-move/answer logs the guess,
+                # then /trigger-coach-move applies THIS pending move. FAIL-OPEN: any error falls through
+                # to the normal apply below, so PWC can never break. See predict_coach_move_scope.md.
+                if coach_move:
+                    try:
+                        import asyncio as _aio
+                        import chess.engine as _ce
+                        from services.predict_coach_move import should_fire, build_options, difficulty_for
+                        from stockfish_service import STOCKFISH_PATH as _SF
+                        _rating = session_doc.get("user_rating", 1200)
+
+                        def _mpv(fen, n=5):
+                            b = chess.Board(fen)
+                            out = []
+                            try:
+                                with _ce.SimpleEngine.popen_uci(_SF) as eng:
+                                    for info in eng.analyse(b, _ce.Limit(time=0.4), multipv=n):
+                                        pv = info.get("pv")
+                                        if pv:
+                                            out.append((b.san(pv[0]), info["score"].pov(b.turn).score(mate_score=10000)))
+                            except Exception:
+                                pass
+                            return out
+
+                        _mp = await _aio.to_thread(_mpv, fen_after_user, 5)
+                        _rank = next((i + 1 for i, (s, _) in enumerate(_mp) if s == coach_move), None)
+                        if _mp and should_fire(_rank, chess.Board(fen_after_user).legal_moves.count(),
+                                               session_doc.get("predictions_this_game", 0), _rating):
+                            _opts = build_options(_mp, coach_move, _rating)
+                            if _opts and coach_move in _opts:
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"pending_prediction": {
+                                        "coach_move": coach_move, "fen_before": fen_after_user,
+                                        "options": _opts, "difficulty": difficulty_for(_rating),
+                                    }}},
+                                )
+                                logger.info(f"[predict] deferring coach move {coach_move} for a prediction")
+                                return  # do NOT apply — board stays at fen_after_user; the panel asks, then /trigger reveals
+                    except Exception as _pe:
+                        logger.warning(f"[predict] defer setup failed (non-fatal, applying normally): {_pe}")
 
                 if coach_move:
                     chess_move = board.parse_san(coach_move)
