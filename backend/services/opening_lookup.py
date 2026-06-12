@@ -74,6 +74,11 @@ def _load() -> List[Dict[str, Any]]:
             "golden_rules": list(entry.get("golden_rules") or []),
             "setup_order": setup,
             "setup_order_norm": [_strip_san(m) for m in setup],
+            # Authored move tree (named sub-variations live here). Kept so the
+            # sub-variation matcher can walk it; setup_order alone is the
+            # LEARNER's own moves and cannot distinguish anti-lines that the
+            # OPPONENT chooses (Alapin 2.c3, Smith-Morra 2.d4, Caro Advance 3.e5).
+            "tree": entry.get("tree") if isinstance(entry.get("tree"), dict) else None,
         })
     _CACHE = flat
     logger.info(f"[opening] loaded {len(flat)} curriculum entries")
@@ -106,6 +111,99 @@ doesn't claim a specific opening prematurely — moves 1 and 2 fall
 back to primary_reason category teaching ("claims the centre",
 "develops a knight").
 """
+
+
+def _walk_sub_variation(
+    tree: Dict[str, Any], moves_norm: List[str]
+) -> tuple:
+    """Walk one opening's authored move `tree` against the actual game moves
+    and return ``(name, depth)`` of the DEEPEST node carrying a ``name`` — the
+    most specific named sub-variation the game reached — or ``(None, 0)`` if
+    the game left book before any named node.
+
+    Tree model (uniform across colours — verified against the curriculum):
+      node = {"name"?, "next"?, "responses"?}
+        next      : the LEARNER's single expected reply (one ply, not branched)
+        responses : {opponent_move: child_node} — the BRANCHING plies. The
+                    named sub-variations live here because they are created by
+                    the OPPONENT's choice (White's 2.c3 = Alapin, 3.e5 = Caro
+                    Advance), which is exactly what setup_order can't see.
+
+    `moves_norm` is the full alternating SAN sequence (White first), already
+    +/#-stripped. At each step exactly one of {the node's ``next``, a
+    ``responses`` key} matches the next game move — ``next`` is the learner's
+    move and ``responses`` are the opponent's, so only one side is to move.
+    """
+    if not isinstance(tree, dict) or not tree:
+        return (None, 0)
+    deepest_name: Optional[str] = None
+    deepest_depth = 0
+    level: Any = tree            # {move: node} at the current branching ply
+    i = 0
+    while i < len(moves_norm) and isinstance(level, dict) and level:
+        node = level.get(moves_norm[i])
+        if not isinstance(node, dict):
+            break
+        name = node.get("name")
+        if name:
+            deepest_name = name
+            deepest_depth = i + 1
+        nxt = node.get("next")
+        nxt = _strip_san(str(nxt)) if (nxt and str(nxt) != "None") else None
+        resp = node.get("responses") or {}
+        if nxt and i + 1 < len(moves_norm) and moves_norm[i + 1] == nxt:
+            # learner played the expected reply; the branch sits one ply later
+            i += 2
+        else:
+            # the next ply is itself the branch (opponent to move)
+            i += 1
+        level = resp
+    return (deepest_name, deepest_depth)
+
+
+def match_sub_variation(
+    played_moves_san: List[str],
+    opening_key: Optional[str] = None,
+    min_depth: int = DEFAULT_MIN_MATCHED_STEPS,
+) -> Optional[Dict[str, Any]]:
+    """Return the most specific named sub-variation the game reached.
+
+    Sub-variations (Alapin, Smith-Morra, Bowdler, Caro-Kann Advance, …) are
+    defined by the OPPONENT's choice, which `match_opening_for_mover` (keyed
+    off the learner's own setup_order) cannot distinguish — and in anti-lines
+    the learner's moves often deviate from the main-line setup, so the family
+    may not even match. This walks the full alternating move sequence against
+    the authored `tree`, so it labels the sub-line directly from the moves.
+
+    Args:
+        played_moves_san: full SAN sequence so far (both sides, White first).
+        opening_key: restrict to one curriculum opening's tree; if None, scan
+            every opening and keep the deepest hit (cross-opening false matches
+            are avoided by the exact move-tree walk + the min_depth gate).
+        min_depth: plies that must match before we name a sub-variation
+            (default 3 — same confidence gate as DEFAULT_MIN_MATCHED_STEPS; a
+            2-ply line like 1.e4 c5 is just "Sicilian", not yet a sub-line).
+
+    Returns {name, depth, opening_key} of the deepest named line, or None.
+    """
+    if not played_moves_san:
+        return None
+    moves_norm = [_strip_san(m) for m in played_moves_san]
+    best_name: Optional[str] = None
+    best_depth = 0
+    best_key: Optional[str] = None
+    for entry in _load():
+        if opening_key is not None and entry["key"] != opening_key:
+            continue
+        tree = entry.get("tree")
+        if not tree:
+            continue
+        name, depth = _walk_sub_variation(tree, moves_norm)
+        if name and depth > best_depth:
+            best_name, best_depth, best_key = name, depth, entry["key"]
+    if not best_name or best_depth < min_depth:
+        return None
+    return {"name": best_name, "depth": best_depth, "opening_key": best_key}
 
 
 def match_opening_for_mover(
@@ -165,6 +263,11 @@ def match_opening_for_mover(
         if best_steps < len(best["setup_order"])
         else None
     )
+    # Sub-variation tag (additive): the specific named line the game reached
+    # (e.g. "Alapin (2.c3)") so progress can label the sub-line, not just the
+    # family. Scoped to the matched opening's tree. None when still on the
+    # generic main line. Existing consumers ignore the extra keys.
+    sub = match_sub_variation(played_moves_san, opening_key=best["key"])
     return {
         "name": best["name"],
         "color": best["color"],
@@ -172,4 +275,6 @@ def match_opening_for_mover(
         "golden_rules": list(best["golden_rules"]),
         "matched_steps": best_steps,
         "next_expected": next_expected,
+        "sub_variation": sub["name"] if sub else None,
+        "sub_variation_depth": sub["depth"] if sub else 0,
     }
