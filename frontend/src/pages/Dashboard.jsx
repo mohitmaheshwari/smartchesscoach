@@ -20,11 +20,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import {
   fadeInUp,
-  cardGlowEnter,
   glowPulseAmber,
-  gameRowProps,
-  listFadeSwap,
   revealOnScroll,
+  pageEnter,
+  staggerContainer,
+  staggerItem,
+  scaleIn,
+  MOTION_TIMING,
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
@@ -446,7 +448,11 @@ const Dashboard = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div
+      <motion.div
+        variants={pageEnter}
+        initial="initial"
+        animate="animate"
+        exit="exit"
         className="min-h-screen text-foreground"
         data-testid="lab-page"
       >
@@ -597,7 +603,7 @@ const Dashboard = ({ user }) => {
           {/* ━━━━━━━━━━ COACH'S PICK ━━━━━━━━━━ */}
           {featuredGame && (
             <motion.section
-              variants={cardGlowEnter}
+              variants={scaleIn}
               initial="initial"
               animate="animate"
               className="mb-16 md:mb-24"
@@ -975,8 +981,10 @@ const Dashboard = ({ user }) => {
                 layoutId (shared layout animation). */}
             <div className="flex items-center gap-5 md:gap-6 mb-6 pb-4 border-b border-border/60 overflow-x-auto">
               {FILTERS.map((f) => (
-                <button
+                <motion.button
                   key={f.key}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setFilter(f.key)}
                   className={`relative pb-1 text-[12.5px] transition-colors whitespace-nowrap ${
                     filter === f.key
@@ -994,7 +1002,7 @@ const Dashboard = ({ user }) => {
                       className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full bg-amber-400"
                     />
                   )}
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -1003,10 +1011,13 @@ const Dashboard = ({ user }) => {
             <AnimatePresence mode="wait">
             <motion.div
               key={filter}
-              variants={listFadeSwap}
+              variants={staggerContainer}
               initial="initial"
               animate="animate"
-              exit="exit"
+              exit={{
+                opacity: 0,
+                transition: { duration: MOTION_TIMING.micro.duration / 1000 },
+              }}
               className="space-y-0"
             >
               {filteredGames.length === 0 ? (
@@ -1014,7 +1025,7 @@ const Dashboard = ({ user }) => {
                   No games match this filter.
                 </div>
               ) : (
-                filteredGames.slice(0, 24).map((g, rowIndex) => {
+                filteredGames.slice(0, 24).map((g) => {
                   const r = resultLetter(g);
                   // Quality filter: only render the diagnosis line when it
                   // adds signal. Bland fallbacks from compute_game_summary
@@ -1030,7 +1041,7 @@ const Dashboard = ({ user }) => {
                   return (
                     <motion.div
                       key={g.game_id || g._id}
-                      {...gameRowProps(rowIndex)}
+                      variants={staggerItem}
                       // 2026-05-19: route to interactive LabV2 surface (has V5 + guided-review quiz).
                       onClick={() => navigate(`/lab/game/${g.game_id}`)}
                       className="group grid grid-cols-[12px_1fr_40px_60px_14px] md:grid-cols-[12px_1fr_48px_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
@@ -1097,7 +1108,7 @@ const Dashboard = ({ user }) => {
             )}
           </section>
         </motion.div>
-      </div>
+      </motion.div>
     </Layout>
   );
 };
