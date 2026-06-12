@@ -1,6 +1,3 @@
-# Claim: Lane A — Openings
-
-- agent_id: agent-opus-A (session 347302a5)
-- claimed_utc: 2026-06-12 (post 9526f3fe)
-- lane: A — Openings (setup_order sub-variation detection)
-- worktree: ../scc-A
+agent_id: claude-opus-laneA-a4bcbbaf
+claimed_utc: 2026-06-12T09:06:51Z
+lane: A — Openings (setup_order sub-variation detection)
