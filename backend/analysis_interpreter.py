@@ -768,6 +768,55 @@ _GAP_MERGE_FIELDS = (
 )
 
 
+_PIECE_VAL_CP = {chess.PAWN: 100, chess.KNIGHT: 300, chess.BISHOP: 300,
+                 chess.ROOK: 500, chess.QUEEN: 900}
+
+
+def _pv_material_loss(move):
+    """ENGINE-grounded material-loss test (replaces the geometry hang-checker,
+    which false-positived ~37% — verified 2026-06-12). Walks the engine line
+    `pv_after_played`; if the mover's net material drops >=100cp, returns
+    'immediate' (lost by ply<=2) or 'deeper' (ply 3+); else None.
+
+    The mover IS the user here, so user color = side-to-move in fen_before — no
+    user_color arg needed. Never raises.
+    """
+    fen = move.get("fen_before") or ""
+    pv = move.get("pv_after_played") or []
+    if not fen or not pv:
+        return None
+    try:
+        board = chess.Board(fen)
+        uc = board.turn  # the side about to move = the user making this move
+        uci = move.get("move_uci") or ""
+        if not uci:
+            uci = board.parse_san(move.get("move", "")).uci()
+        board.push(chess.Move.from_uci(uci))
+    except Exception:
+        return None
+
+    def _umat(b):
+        return sum(_PIECE_VAL_CP[pt] * len(b.pieces(pt, uc)) for pt in _PIECE_VAL_CP)
+
+    start = _umat(board)
+    mats = []
+    for mv in pv[:6]:
+        pushed = False
+        for fn in (board.parse_san, lambda x: chess.Move.from_uci(x)):
+            try:
+                board.push(fn(mv)); pushed = True; break
+            except Exception:
+                pass
+        if not pushed:
+            break
+        mats.append(_umat(board))
+    if not mats or mats[-1] >= start - 100:
+        return None  # no net material actually lost in the engine line
+    depth = (next((i for i, v in enumerate(mats, 1) if v <= start - 200), None)
+             or next((i for i, v in enumerate(mats, 1) if v <= start - 100), 99))
+    return "immediate" if depth <= 2 else "deeper"
+
+
 def _precedence_adjust(cognitive_gap, move):
     """Apply the engine-hard category precedence + phase gates to a finalized
     cognitive_gap. **Right-or-original**: only reclassifies when the board
@@ -802,10 +851,13 @@ def _precedence_adjust(cognitive_gap, move):
                 except Exception:
                     uci = ""
 
-        # Rule A: hang precedence -> piece_safety (#1 beats all lower tiers).
-        if cognitive_gap != "piece_safety" and uci:
+        # Rule A: piece_safety (#1) — ENGINE confirms the move loses material
+        # immediately. PV-grounded, NOT the geometry hang-checker (which
+        # false-positived ~37%: pinned/overloaded defender, capture-walks-into-
+        # tactic, x-ray). Only an engine-confirmed immediate loss overrides.
+        if cognitive_gap != "piece_safety":
             try:
-                if _played_move_hangs_piece(fen, uci):
+                if _pv_material_loss(move) == "immediate":
                     return "piece_safety"
             except Exception:
                 pass

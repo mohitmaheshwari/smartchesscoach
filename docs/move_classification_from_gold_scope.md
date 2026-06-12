@@ -130,6 +130,36 @@ RETIRED (was the vague bucket → splits into walked_into_tactic / missed_tactic
 **Engine-decidable (hard gold, no LLM): 1–12, 15.** LLM only needed for **13–14**.
 **Rating-tier surfacing:** <1300 sees the fundamentals (1–8); >1300 leans concept (9–15).
 
+### 8b-update (Mohit 2026-06-12) — PHASE categories are fundamentals too
+
+`opening_knowledge` and `endgame_technique` moved from concept → **FUNDAMENTALS
+tier**. Rationale: for <1300 the *phase* skills (develop/castle/centre; king
+activity/promote/basic mates) are core fundamentals — it's inconsistent to call
+the tactical fundamentals "fundamental" but not the phase ones. So the
+**fundamentals tier = 10**: one_move_blunder, walked_into_tactic, bad_trade,
+allowed_mate, missed_mate, missed_tactic, missed_free_material, conversion,
+**opening_knowledge, endgame_technique**. Concept tier (now 5): king_safety,
+calculation_depth, ignore_threat, pawn_structure, piece_activity.
+
+**`opening_knowledge` detection (the move<=8 heuristic was garbage, 0/12):** sits
+**below** material/mate/tactic in precedence (an opening hang is one_move_blunder,
+not opening_knowledge). "Real" opening_knowledge = a non-blunder opening error —
+**early queen, same piece moved twice, no castle by ~move 12, off-book vs the
+opening DB** (reuse `EARLY_QUEEN` + `detect_opening_from_moves` + opening
+curriculum). Engine/rule-based, not the cp-only heuristic.
+
+### 8b-correction (2026-06-12) — material detection must be PV-grounded, NOT geometry
+
+VERIFIED against the engine: the geometry hang-checker
+(`_played_move_hangs_piece`) false-positives **~37%** ("attacked+undefended" but
+the engine doesn't actually win it — pinned/overloaded defender, capture
+walks-into-a-tactic, x-ray) AND misses material losses not on the moved piece.
+`one_move_blunder`/`walked_into_tactic` (and the shipped `_precedence_adjust`
+rule A) must classify from the **engine PV**: walk `pv_after_played`, net material
+lost at ply ≤2 → one_move_blunder; ply 3+ → walked_into_tactic; never lost → defer.
+Corrected fundamentals on the 3 users: one_move_blunder fell 41→28% (shobhit),
+32→19% (mohit) once FPs were removed.
+
 ## 9. Open questions for Mohit
 1. **Precedence (§1) — sign off or reorder?** Specifically: does `king_safety`
    outrank `missed_tactic` when a king is both exposed AND there's a missed fork?

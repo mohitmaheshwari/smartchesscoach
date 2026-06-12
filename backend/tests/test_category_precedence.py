@@ -35,12 +35,28 @@ def test_rule_b_does_not_overfire_with_queens_on():
 
 
 def test_rule_a_hang_precedence():
-    # White rook moves to d5, attacked by the c6 pawn and undefended → hangs the
-    # moved piece. piece_safety (#1) must win over any positional label.
+    # White Rd5; the engine line is ...cxd5 winning the rook for nothing → an
+    # engine-confirmed immediate material loss. piece_safety (#1) must win.
     hang = {"fen_before": "4k3/8/2p5/8/8/8/8/3RK3 w - - 0 1",
-            "move": "Rd5", "move_uci": "d1d5"}
+            "move": "Rd5", "move_uci": "d1d5", "pv_after_played": ["cxd5"]}
     assert _precedence_adjust("piece_activity", hang) == "piece_safety"
     assert _precedence_adjust("tactical_oversight", hang) == "piece_safety"
+
+
+def test_rule_a_no_loss_does_not_override():
+    # Same move shape but the engine line does NOT win material (opponent just
+    # moves the king) → rule A must NOT override (this is the ~37% FP the
+    # geometry checker used to mislabel). Gap is preserved.
+    no_loss = {"fen_before": "4k3/8/8/8/8/8/8/3RK3 w - - 0 1",
+               "move": "Rd5", "move_uci": "d1d5", "pv_after_played": ["Ke7"]}
+    assert _precedence_adjust("piece_activity", no_loss) == "piece_activity"
+
+
+def test_rule_a_no_pv_does_not_override():
+    # No engine line to check → abstain, never guess from geometry.
+    no_pv = {"fen_before": "4k3/8/2p5/8/8/8/8/3RK3 w - - 0 1",
+             "move": "Rd5", "move_uci": "d1d5"}
+    assert _precedence_adjust("piece_activity", no_pv) == "piece_activity"
 
 
 def test_no_gap_passthrough():
