@@ -130,6 +130,34 @@ def _opp_reply_is_capture(facts: Dict[str, Any]) -> bool:
         return False
 
 
+_PIECE_VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+              chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+
+
+def _played_capture_net(facts: Dict[str, Any]) -> Optional[int]:
+    """Net material of the played move ASSUMING the moved piece is then
+    recaptured on its landing square: value(piece the played move captured) -
+    value(the played piece itself).
+
+    Returns None when the played move was NOT a capture (the recapture framing
+    does not apply). A result >= -1 means an even-or-better trade — i.e. the
+    moved piece was NOT hung; it was traded. That makes any "you hang / lose
+    your {piece}" material claim false: it is a (positionally bad) trade, which
+    is narrator territory, not a material hang. NO Stockfish — board geometry
+    only, consistent with this module's contract."""
+    try:
+        b = chess.Board(facts["fen_before"])
+        mv = b.parse_san(facts["played_san"])
+        if not b.is_capture(mv):
+            return None
+        cap_v = 1 if b.is_en_passant(mv) else _PIECE_VAL.get(
+            (b.piece_at(mv.to_square) or chess.Piece(chess.PAWN, True)).piece_type, 0)
+        played_v = _PIECE_VAL.get(b.piece_at(mv.from_square).piece_type, 0)
+        return cap_v - played_v
+    except Exception:
+        return None
+
+
 def _verify_blunder(facts: Dict[str, Any]) -> Tuple[bool, str]:
     """Blunder why-clause. The engine PV is the arbiter (a tactical win counts,
     not just a simple hang). Verify:
@@ -155,6 +183,16 @@ def _verify_blunder(facts: Dict[str, Any]) -> Tuple[bool, str]:
             or facts.get("opp_reply_captures_piece_type")):
         if not _opp_reply_is_capture(facts):
             return (False, "blunder_reply_not_capture")
+        # "hangs your {piece} — opponent recaptures on {sq}" is a MATERIAL claim.
+        # If the played move was itself a capture and the recapture nets even-or-
+        # better material (>= -1), the piece was TRADED, not hung — the move is a
+        # positional mistake, not a material loss. Shipping "you hang it" is then
+        # a confident false claim (53 such moves in a 3k-game scan, e.g. Nxf5
+        # exf5, Bxd5 cxd5: net 0, cp_loss>=100 for positional reasons). Abstain
+        # so the narrator explains the real (positional) why. See CAPTION_BACKLOG #24.
+        net = _played_capture_net(facts)
+        if net is not None and net >= -1:
+            return (False, "blunder_recapture_even_trade")
     # "best opens the line, your {piece} plays {follow_up} to chase the king"
     # (Légal-family clearance-then-check). The named follow-up move is a claim
     # about the engine's BEST line — it must actually appear in pv_after_best,
