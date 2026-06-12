@@ -468,4 +468,20 @@ Confirms the fix sketch: gate tactic-name + material-gain clauses on the actual 
 
 ---
 
-*Last updated: 2026-06-11 (Parth re-triage batch — augmented #10/#18/#19, added #21/#22/#23).*
+## 24. Failure-mode "you lose/hang the {piece}" mis-frames check-sacs and recapture-trades
+
+**Status:** Filed 2026-06-12 (Lane B). Candidate mechanisms — **NOT built** (the `author-r12-predicate` skill gates on ≥2 clean engine-verified same-mechanism examples; the corpus + engine were unreachable at filing — Docker daemon down — so the example count is unconfirmed). `caption_claim_verifier._verify_blunder` already passes these *geometrically* (the opponent's reply IS a real capture), but the **framing** is misleading when the move the user PLAYED was itself a check or a capture.
+
+**Two candidate mechanisms (validate separately — each needs its own ≥2):**
+
+- **(a) check-sac mis-framed as a hang.** When `played_san` is a CHECK (e.g. `Bxf7+`), the `is_exchange_losing` / `opp_reply_attacks_played_piece` clauses can read "you lose the bishop" — but a check-sac is an intentional idea (tempo/initiative), not a hang. The geometric claim (the piece is taken) verifies, yet "you hung it" misreads the move.
+  - *Verifier-gate sketch (right-or-silent):* if `played_san` is a check (ends `+`/`#`, or a `played_is_check` fact), the bare "you lose/hang your {piece}" framing is **unverified as a clean loss** → abstain (the narrator carries the sac nuance) UNLESS the engine confirms it is simply losing (a bad sac, no compensation) AND ≥2 clean examples justify a dedicated `check_sac_unsound` clause.
+
+- **(b) recapture-trade mis-framed as a clean loss.** When `played_san` is itself a CAPTURE (e.g. `Qxf3` taking a piece, then recaptured), the `opp_reply_recaptures_on_played_square` / `opp_reply_captures_piece_type` clause says "they take your queen" as if it were a clean loss — but the queen **captured first**, so the net is a trade/recapture (net = captured value − recaptured value), not a hang.
+  - *Verifier-gate sketch (right-or-silent):* if `played_san` is a capture (or `material_delta_played_cp` shows the played move won material back), the "you lose your {piece}" framing must **net the captured material** — it is a trade, not a clean loss → abstain or reframe as a trade, UNLESS the net is genuinely losing AND ≥2 clean examples justify a `down_trade` clause.
+
+**Why filed (not built):** building without ≥2 engine-verified examples risks a phantom-gap predicate (cf. the piece_safety "had none — don't force it" note). **Next (when the engine/corpus is back):** scan user blunder captions where `played_san` is a check / a capture AND a hang/recapture clause fired; engine-verify each is actually a sac/trade; if a mechanism reaches ≥2 clean, build its gate in `caption_claim_verifier.py` (geometric — check / capture / net-material — **no gateway needed**) and probe to ≥85% on the relevant gold slice.
+
+---
+
+*Last updated: 2026-06-12 (Lane B — added #24: check-sac / recapture-trade mis-framing candidates, filed-not-built — engine was down).*
