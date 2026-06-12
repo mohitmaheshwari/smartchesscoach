@@ -3754,6 +3754,104 @@ async def generate_game_decryption_v5(
                     f"{move_san}: {_override_err}"
                 )
 
+            # Verified-detector loop (2026-06-11). RIGHT-OR-SILENT: a flagged
+            # USER move ships its detector caption ONLY if the claim VERIFIES
+            # against board + engine line (caption_claim_verifier). If it can't
+            # be verified, the detector ABSTAINS and the narrator writes the why.
+            # Every abstention is logged to a file (the training queue for the
+            # next detector). Runs AFTER authored overrides (human override wins).
+            try:
+                from services.narrator_fallback import narrate_why, needs_narrator
+                from services.caption_claim_verifier import verify as _verify_claim
+                from services.caption_facts import extract_primary_reason
+                _flagged = is_user and (cp_loss or 0) >= 30
+                if _flagged:
+                    _pr = extract_primary_reason(caption_facts or {})
+                    _ok, _note = _verify_claim(caption_facts or {}, _pr)
+                    _has_cap = bool((caption_payload.get("caption") or "").strip())
+                    # ABSTAIN when: the rendered caption is a filler/fallback rule
+                    # (R16/R_FALLBACK/principle — the caption text is NOT a real why,
+                    # even if extract_primary_reason finds some other verifiable fact),
+                    # OR the claim doesn't verify, OR the caption is empty.
+                    _is_filler = needs_narrator(caption_payload.get("caption"),
+                                                caption_payload.get("rule_name"),
+                                                cp_loss, is_user)
+                    if _is_filler or (not _ok) or (not _has_cap):
+                        # ABSTAIN -> log + narrator
+                        try:
+                            import json as _json
+                            with open("/app/backend/data/caption_abstentions.jsonl",
+                                      "a", encoding="utf-8") as _af:
+                                _af.write(_json.dumps({
+                                    "game_id": game_id, "move_number": full_move_number,
+                                    "move_san": move_san,
+                                    "fen": (caption_facts or {}).get("fen_before"),
+                                    "cp_loss": cp_loss,
+                                    "category": (_pr or {}).get("category"),
+                                    "verify_note": _note,
+                                    "detector_caption": caption_payload.get("caption"),
+                                    "rule_name": caption_payload.get("rule_name"),
+                                }, default=str) + "\n")
+                        except Exception:
+                            pass
+                        _nar = narrate_why(
+                            fen=(caption_facts or {}).get("fen_before") or "",
+                            move=move_san,
+                            evaluation=((caption_facts or {}).get("severity_canonical")
+                                        or (caption_facts or {}).get("severity")
+                                        or "mistake"),
+                            cp_loss=cp_loss or 0,
+                            best=(caption_facts or {}).get("best_move_san") or "",
+                            pv_best=(caption_facts or {}).get("pv_after_best") or [],
+                            pv_played=(caption_facts or {}).get("pv_after_played") or [],
+                        )
+                        # The narrator hallucinates ~15% even fed engine truth (m14
+                        # "queen on b6/no recapture"; scale test). VERIFY its claim
+                        # against the board before shipping — right-or-silent on the
+                        # narrator side too. Fail -> drop -> HOLD (re-narrate offline).
+                        if _nar:
+                            try:
+                                from services.narrator_claim_verifier import verify_caption as _verify_narr
+                                _nviol = _verify_narr(_nar, {
+                                    "fen_before": (caption_facts or {}).get("fen_before"),
+                                    "move_san": move_san,
+                                    "is_user_move": is_user,
+                                    "best_move_san": (caption_facts or {}).get("best_move_san"),
+                                    "pv_after_played": (caption_facts or {}).get("pv_after_played") or [],
+                                })
+                                if _nviol:
+                                    _nar = None  # narrator failed verification -> HOLD
+                            except Exception:
+                                pass
+                        if _nar:
+                            caption_payload["caption"] = _nar
+                            caption_payload["rule_name"] = (
+                                (caption_payload.get("rule_name") or "") + "→NARRATOR"
+                            )
+                            caption_llm_polished = _nar
+                        else:
+                            # Narrator unavailable OR failed verification -> HOLD
+                            # (don't ship a bad caption) + flag the move for re-run.
+                            try:
+                                import json as _json2
+                                with open("/app/backend/data/caption_held_moves.jsonl",
+                                          "a", encoding="utf-8") as _hf:
+                                    _hf.write(_json2.dumps({
+                                        "game_id": game_id,
+                                        "move_number": full_move_number,
+                                        "move_san": move_san,
+                                        "fen": (caption_facts or {}).get("fen_before"),
+                                    }, default=str) + "\n")
+                            except Exception:
+                                pass
+                            caption_payload["caption"] = ""
+                            caption_payload["rule_name"] = (
+                                (caption_payload.get("rule_name") or "") + "→HELD"
+                            )
+            except Exception as _nar_err:
+                logger.info(f"[verified_loop] m{full_move_number} {move_san} "
+                            f"skipped: {_nar_err}")
+
             # v100 FINAL: _caption_tier set inside central call above
             # from _decision.teaching_meta.caption_tier.
             move_output = {
