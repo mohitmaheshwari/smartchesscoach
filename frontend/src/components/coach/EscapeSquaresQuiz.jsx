@@ -6,6 +6,8 @@
  */
 
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { slideInRight } from "@/lib/motion";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +51,13 @@ const EscapeSquaresQuiz = ({ quiz, sessionId, onComplete }) => {
   const choices = [0, 1, 2, 3, 4, 5, 6];
 
   return (
-    <div
+    // Quiz panel slides in from the right (300ms standard); wrap the call
+    // site in <AnimatePresence> to get the matching slide-out on dismiss.
+    <motion.div
+      variants={slideInRight}
+      initial="initial"
+      animate="animate"
+      exit="exit"
       className="rounded-lg border border-amber-500/30 bg-amber-500/5 overflow-hidden"
       data-testid="escape-squares-quiz"
     >
@@ -163,7 +171,7 @@ const EscapeSquaresQuiz = ({ quiz, sessionId, onComplete }) => {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

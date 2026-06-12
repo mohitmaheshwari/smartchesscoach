@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { Chessground } from "chessground";
 import { Chess } from "chess.js";
+import { motion } from "framer-motion";
+import { springPop, BOARD_PIECE_MS } from "@/lib/motion";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
@@ -394,7 +396,8 @@ const LichessBoard = forwardRef(({
         },
         animation: {
           enabled: true,
-          duration: 200,
+          // Locked piece-slide timing (motion.js BOARD_PIECE_MS = 200ms).
+          duration: BOARD_PIECE_MS,
         },
         premovable: {
           enabled: false,
@@ -611,9 +614,17 @@ const LichessBoard = forwardRef(({
             height: "12.5%",
           }}
         >
-          <div className={`absolute -top-3 -right-2 px-2 py-1 rounded-md ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-xs font-bold shadow-lg z-10 border border-white/40 whitespace-nowrap`}>
+          {/* Move-quality chip pops in with a subtle spring; re-keyed per
+              square+type so each new verdict pops again. */}
+          <motion.div
+            key={`${classSquare}-${moveClassification.type}`}
+            variants={springPop}
+            initial="initial"
+            animate="animate"
+            className={`absolute -top-3 -right-2 px-2 py-1 rounded-md ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-xs font-bold shadow-lg z-10 border border-white/40 whitespace-nowrap`}
+          >
             {classIcon.symbol}
-          </div>
+          </motion.div>
         </div>
       )}
     </div>

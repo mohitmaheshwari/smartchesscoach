@@ -26,6 +26,19 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
+import {
+  AnimatedNumber,
+  staggerContainer,
+  fadeInUp,
+  scaleIn,
+  rowStaggerContainer,
+  rowStaggerItem,
+  revealOnScroll,
+  ROW_STAGGER_STEP,
+  chartDrawTransition,
+  GLOW,
+  MOTION_TIMING,
+} from "@/lib/motion";
 import Layout from "@/components/Layout";
 import {
   ChevronRight,
@@ -74,11 +87,22 @@ const humanize = (cat) =>
 // ─── Visual components ──────────────────────────────────────────────────────
 
 function Pips({ streak, target }) {
+  // Progress pips fill left-to-right on viewport entry (scope §Charts:
+  // "pattern-card progress bars fill") — 40ms/pip, scaleX from the left.
   return (
     <div className="flex items-center gap-1.5">
       {Array.from({ length: target }).map((_, i) => (
-        <span
+        <motion.span
           key={i}
+          initial={{ scaleX: 0, opacity: 0 }}
+          whileInView={{ scaleX: 1, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{
+            duration: MOTION_TIMING.standard.duration / 1000,
+            ease: MOTION_TIMING.standard.easing,
+            delay: (i * ROW_STAGGER_STEP) / 1000,
+          }}
+          style={{ originX: 0 }}
           className={`h-2 w-6 rounded-full ${
             i < streak
               ? "bg-emerald-500/80 dark:bg-emerald-400/70"
@@ -101,14 +125,16 @@ function Sparkline({ data }) {
   const max = Math.max(...data);
   const span = max - min || 1;
   const goal = min + span * 0.15; // goal line: near the best
-  const pts = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / span) * 85 - 20;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const coords = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * width,
+    y: height - ((v - min) / span) * 85 - 20,
+  }));
+  const pts = coords.map((c) => `${c.x},${c.y}`).join(" ");
+  const last = coords[coords.length - 1];
   const goalY = height - ((goal - min) / span) * 85 - 20;
+  // Draw-in: pathLength 0 → 1 over the chart timing (800ms), then the
+  // endpoint dot pops in. Timing from motion.js, no inline numbers.
+  const drawSeconds = MOTION_TIMING.chart.duration / 1000;
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -143,12 +169,30 @@ function Sparkline({ data }) {
       >
         goal · {goal.toFixed(1)}
       </text>
-      <polyline
+      <motion.polyline
         points={pts}
         fill="none"
         className="text-emerald-500 dark:text-emerald-400"
         stroke="currentColor"
         strokeWidth="1.6"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={chartDrawTransition}
+      />
+      {/* Endpoint dot pops in once the line finishes drawing */}
+      <motion.circle
+        cx={Math.min(last.x, width - 4)}
+        cy={last.y}
+        r="3.5"
+        className="fill-emerald-500 dark:fill-emerald-400"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          delay: drawSeconds,
+          duration: MOTION_TIMING.micro.duration / 1000,
+          ease: MOTION_TIMING.micro.easing,
+        }}
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
       />
     </svg>
   );
@@ -471,14 +515,14 @@ const UnifiedProgress = ({ user }) => {
   return (
     <Layout user={user}>
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
         className="max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
         data-testid="progress-page"
       >
         {/* ─── Page head ─── */}
-        <div className="mb-12 md:mb-16">
+        <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
           <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
             Progress · the ledger
           </p>
@@ -488,18 +532,22 @@ const UnifiedProgress = ({ user }) => {
           <p className="mt-5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[520px]">
             {derived.subhead}
           </p>
-        </div>
+        </motion.div>
 
         {/* ─── Sparkline — only when we have real data ─── */}
         {derived.spark && derived.spark.length >= 3 && (
-          <section className="mb-16 md:mb-20">
+          <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
             <div className="flex items-baseline justify-between mb-4">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                 Blunders per game · recent window
               </div>
               <div className="text-[11px] text-muted-foreground tabular-nums">
-                {derived.spark[0]?.toFixed(1)} →{" "}
-                {derived.spark[derived.spark.length - 1]?.toFixed(1)}
+                {/* Headline numbers count up over the chart timing */}
+                <AnimatedNumber value={derived.spark[0]} decimals={1} /> →{" "}
+                <AnimatedNumber
+                  value={derived.spark[derived.spark.length - 1]}
+                  decimals={1}
+                />
               </div>
             </div>
             <Sparkline data={derived.spark} />
@@ -508,16 +556,25 @@ const UnifiedProgress = ({ user }) => {
               <span>·</span>
               <span>today</span>
             </div>
-          </section>
+          </motion.section>
         )}
 
         {/* ─── Active pattern ─── */}
         {derived.active && (
-          <section className="mb-12">
+          <motion.section variants={fadeInUp} className="mb-12">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold mb-5">
               Currently working on
             </div>
-            <div className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-6 md:p-7">
+            {/* Card scales in; hover lifts with a teal data-accent glow */}
+            <motion.div
+              variants={scaleIn}
+              whileHover={{ y: -4, boxShadow: GLOW.teal }}
+              transition={{
+                duration: MOTION_TIMING.micro.duration / 1000,
+                ease: MOTION_TIMING.micro.easing,
+              }}
+              className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-6 md:p-7"
+            >
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 md:gap-8 items-start">
                 <div>
                   <h2 className="font-serif text-[22px] md:text-[26px] leading-[1.2] tracking-[-0.015em] font-medium text-foreground mb-2">
@@ -591,26 +648,35 @@ const UnifiedProgress = ({ user }) => {
                         Decay
                       </div>
                       <div className="font-serif text-[20px] md:text-[22px] tabular-nums text-foreground leading-none mt-1.5">
-                        {Math.round(derived.active.decay * 100)}%
+                        <AnimatedNumber
+                          value={Math.round(derived.active.decay * 100)}
+                        />
+                        %
                       </div>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          </section>
+            </motion.div>
+          </motion.section>
         )}
 
         {/* ─── Tracked patterns ─── */}
         {derived.tracked.length > 0 && (
-          <section className="mb-16 md:mb-20">
+          <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
               Also tracking
             </div>
-            <div>
+            {/* Rows stagger in at the dense-list step (40ms/row) */}
+            <motion.div
+              variants={rowStaggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {derived.tracked.map((p, i) => (
-                <div
+                <motion.div
                   key={i}
+                  variants={rowStaggerItem}
                   className="group grid grid-cols-[1fr_auto] md:grid-cols-[1fr_180px_110px_80px] gap-4 md:gap-8 items-center py-4 md:py-5 border-b border-border/50 hover:bg-muted/20 -mx-3 px-3 transition-colors"
                 >
                   {/* Name + desc */}
@@ -680,15 +746,15 @@ const UnifiedProgress = ({ user }) => {
                   >
                     Drill →
                   </button>
-                </div>
+                </motion.div>
               ))}
-            </div>
-          </section>
+            </motion.div>
+          </motion.section>
         )}
 
-        {/* ─── Archived — you beat these ─── */}
+        {/* ─── Archived — you beat these (below fold → reveal on scroll) ─── */}
         {derived.archived.length > 0 && (
-          <section>
+          <motion.section {...revealOnScroll}>
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70 font-semibold mb-5">
               Archived · you've been consistent at
             </div>
@@ -716,7 +782,7 @@ const UnifiedProgress = ({ user }) => {
                 </div>
               ))}
             </div>
-          </section>
+          </motion.section>
         )}
 
         {/* ─── Mastery — what you've learned ─── */}

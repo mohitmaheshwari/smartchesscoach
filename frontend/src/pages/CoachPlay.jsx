@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
+import { motion } from "framer-motion";
+import { navFade, fadeInUp } from "@/lib/motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
@@ -2962,7 +2964,12 @@ const CoachPlay = ({ user }) => {
           interior redesign (eval-bar-left, board-center, coach-right grid)
           would require rebuilding ~5000 lines of working teaching logic.
           This strip delivers the most visible design value at zero risk. */}
-      <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm">
+      <motion.div
+        variants={navFade}
+        initial="initial"
+        animate="animate"
+        className="border-b border-border/50 bg-background/80 backdrop-blur-sm"
+      >
         <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
           <div className="flex items-baseline gap-4 min-w-0">
             <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
@@ -2982,9 +2989,17 @@ const CoachPlay = ({ user }) => {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="h-[calc(100vh-80px-44px)] flex" data-testid="coach-play-game">
+      {/* Page entrance — fade+rise on the game container (transform/opacity
+          only; content stays interactive while animating in). */}
+      <motion.div
+        variants={fadeInUp}
+        initial="initial"
+        animate="animate"
+        className="h-[calc(100vh-80px-44px)] flex"
+        data-testid="coach-play-game"
+      >
         {/* Left: Board + controls */}
         <CoachPlayBoard
           ref={boardRef}
@@ -3130,7 +3145,7 @@ const CoachPlay = ({ user }) => {
             });
           }}
         />
-      </div>
+      </motion.div>
 
       {/* Level 3 Enforcement: Checkbox Modal */}
       {guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (

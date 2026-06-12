@@ -6,6 +6,8 @@
  */
 
 import { forwardRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { MOTION_TIMING } from "@/lib/motion";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +140,26 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               showDests={true}
               moveClassification={moveClassification}
             />
+
+            {/* Board lock — while the coach's feedback must be acknowledged,
+                the board dims (fade 150ms). Clicks are already blocked via
+                interactive=false; this is the visual cue for why. */}
+            <AnimatePresence>
+              {coachingLocked && !gameOver && !isInTeachingMode && (
+                <motion.div
+                  key="board-lock-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{
+                    duration: MOTION_TIMING.micro.duration / 1000,
+                    ease: MOTION_TIMING.micro.easing,
+                  }}
+                  className="absolute inset-0 z-10 bg-black/30 pointer-events-none"
+                  data-testid="board-lock-overlay"
+                />
+              )}
+            </AnimatePresence>
 
             {/* Pedagogical Opportunity Hint Overlay */}
             {hideEvalBar && isPlayerTurn && !gameOver && (

@@ -2,14 +2,25 @@ import { useTheme } from "@/context/ThemeContext";
 import { ChevronRight, Code, Zap, Brain, Target, TrendingUp, MessageSquare, Crown, Eye, Swords, FlaskConical, BarChart3, ArrowRight, Check, X as XIcon, Shield, BookOpen, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { API } from "@/App";
+import { pageEnter, navFade, heroHeadline, wordRise, MOTION_TIMING } from "@/lib/motion";
+import { AnimatedButton } from "@/components/AnimatedButton";
 
 const Landing = () => {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [devMode, setDevMode] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
+
+  // Subtle scroll parallax for the hero background blobs (25px amplitude),
+  // fading out as the user scrolls past the bottom of the hero.
+  const { scrollY } = useScroll();
+  const blobY = useTransform(scrollY, [0, 500], [0, -25]);
+  const blobOpacity = useTransform(scrollY, [400, 800], [1, 0]);
+  // Hero visual (coaching demo) drifts 25px the other way and fades out
+  // below the hero — locked parallax spec (scope §"Landing Parallax").
+  const heroVisualY = useTransform(scrollY, [0, 500], [0, 25], { clamp: true });
 
   const getPostAuthRedirect = () => window.sessionStorage.getItem("post_auth_redirect") || "/dashboard";
 
@@ -50,10 +61,12 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
+    <motion.div variants={pageEnter} initial="initial" animate="animate"
+      className="min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
 
       {/* ═══ NAVBAR ═══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#06060B]/80 backdrop-blur-2xl">
+      <motion.header variants={navFade} initial="initial" animate="animate"
+        className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#06060B]/80 backdrop-blur-2xl">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2.5">
@@ -87,14 +100,16 @@ const Landing = () => {
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* ═══ HERO ═══ */}
       <section className="relative min-h-[100vh] flex items-center pt-16">
         {/* Background effects */}
         <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[180px] bg-amber-500/[0.07]" />
-          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[150px] bg-amber-600/[0.05]" />
+          <motion.div style={{ y: blobY, opacity: blobOpacity }}
+            className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[180px] bg-amber-500/[0.07]" />
+          <motion.div style={{ y: blobY, opacity: blobOpacity }}
+            className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[150px] bg-amber-600/[0.05]" />
           {/* Grid */}
           <div className="absolute inset-0 opacity-[0.03]"
             style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
@@ -110,16 +125,33 @@ const Landing = () => {
                 AI Chess Coach for 600–1500 Rated Players
               </motion.div>
 
-              <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+              {/* Headline rises word by word — heroHeadline staggers children
+                  by STAGGER_STEP, each word uses the wordRise variant. */}
+              <motion.h1 variants={heroHeadline} initial="hidden" animate="visible"
                 className="text-[3.2rem] sm:text-[4rem] font-heading font-bold tracking-[-0.04em] leading-[0.95] text-white mb-3">
-                The AI chess coach
+                {"The AI chess coach".split(" ").map((word, i) => (
+                  <motion.span key={`l1-${i}`} variants={wordRise} className="inline-block mr-[0.22em]">
+                    {word}
+                  </motion.span>
+                ))}
                 <br />
-                that knows
+                {"that knows".split(" ").map((word, i) => (
+                  <motion.span key={`l2-${i}`} variants={wordRise} className="inline-block mr-[0.22em]">
+                    {word}
+                  </motion.span>
+                ))}
                 <br />
                 <span className="relative inline-block">
-                  <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">your mistakes.</span>
+                  {"your mistakes.".split(" ").map((word, i) => (
+                    <motion.span key={`l3-${i}`} variants={wordRise}
+                      className="inline-block mr-[0.22em] last:mr-0 bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">
+                      {word}
+                    </motion.span>
+                  ))}
                   <motion.div className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-amber-400/60 to-transparent"
-                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.6 }} style={{ transformOrigin: "left" }} />
+                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                    transition={{ delay: 0.8, duration: MOTION_TIMING.page.duration / 1000, ease: MOTION_TIMING.page.easing }}
+                    style={{ transformOrigin: "left" }} />
                 </span>
               </motion.h1>
 
@@ -135,16 +167,17 @@ const Landing = () => {
 
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
                 className="flex flex-col sm:flex-row gap-4 mb-8">
-                <button onClick={handleLogin} data-testid="hero-cta-button"
-                  className="group px-8 py-4 text-base font-semibold text-black rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center gap-2">
+                <AnimatedButton variant="primary" onClick={handleLogin} data-testid="hero-cta-button"
+                  className="group px-8 py-4 text-base rounded-xl hover:from-amber-300 hover:to-amber-400 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center gap-2">
                   Start Free with Google
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-                  className="px-8 py-4 text-base text-gray-400 border border-white/10 rounded-xl hover:border-white/20 hover:text-white transition-all"
+                </AnimatedButton>
+                <AnimatedButton variant="secondary"
+                  onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                  className="px-8 py-4 text-base rounded-xl hover:border-white/20 hover:text-white"
                   data-testid="learn-more-button">
                   See what it does
-                </button>
+                </AnimatedButton>
               </motion.div>
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
@@ -154,10 +187,14 @@ const Landing = () => {
               </motion.div>
             </div>
 
-            {/* Right: Coaching Demo */}
+            {/* Right: Coaching Demo — outer div handles the entrance, inner
+                div carries the scroll parallax (25px drift, fades below hero)
+                so the two opacity animations don't fight. */}
             <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 0.7 }}
               className="hidden lg:block">
-              <CoachingDemo />
+              <motion.div style={{ y: heroVisualY, opacity: blobOpacity }}>
+                <CoachingDemo />
+              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -540,11 +577,11 @@ const Landing = () => {
             </p>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <button onClick={handleLogin} data-testid="cta-button"
-              className="group px-10 py-4 text-base font-semibold text-black rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 inline-flex items-center gap-2">
+            <AnimatedButton variant="primary" onClick={handleLogin} data-testid="cta-button"
+              className="group px-10 py-4 text-base rounded-xl hover:from-amber-300 hover:to-amber-400 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 inline-flex items-center gap-2">
               Start Free with Google
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </AnimatedButton>
           </FadeIn>
           <FadeIn delay={0.3}>
             <p className="text-xs text-gray-700 mt-6">No credit card required. Free tier available.</p>
@@ -572,7 +609,7 @@ const Landing = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 };
 
@@ -978,6 +1015,7 @@ const FeatureRow = ({ badge, title, description, points, visual, reverse = false
 
 
 // ── Scroll-triggered fade-in ──
+// Timing comes from motion.js (standard tier) — no inline magic numbers.
 const FadeIn = ({ children, delay = 0, className = "" }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-60px" });
@@ -985,7 +1023,11 @@ const FadeIn = ({ children, delay = 0, className = "" }) => {
     <motion.div ref={ref}
       initial={{ opacity: 0, y: 20 }}
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      transition={{
+        duration: MOTION_TIMING.standard.duration / 1000,
+        delay,
+        ease: MOTION_TIMING.standard.easing,
+      }}
       className={className}>
       {children}
     </motion.div>

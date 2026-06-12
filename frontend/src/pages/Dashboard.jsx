@@ -16,8 +16,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
+import {
+  fadeInUp,
+  cardGlowEnter,
+  glowPulseAmber,
+  gameRowProps,
+  listFadeSwap,
+  revealOnScroll,
+} from "@/lib/motion";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import {
@@ -303,10 +311,46 @@ const Dashboard = ({ user }) => {
 
   // ─── Loading / empty ─────────────────────────────────────────────────
   if (loading) {
+    // Skeleton shimmer while loading (scope §Lab) — page-shaped rows
+    // instead of a spinner so the layout doesn't jump when data lands.
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <div
+          className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
+          data-testid="lab-skeleton"
+        >
+          {/* Head */}
+          <div className="relative overflow-hidden rounded-lg bg-muted/40 h-4 w-40 mb-6">
+            <div className="absolute inset-0 animate-shimmer" />
+          </div>
+          <div className="relative overflow-hidden rounded-lg bg-muted/40 h-10 w-[420px] max-w-full mb-12">
+            <div className="absolute inset-0 animate-shimmer" />
+          </div>
+          {/* Coach's Pick block */}
+          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-12 mb-16">
+            <div className="relative overflow-hidden rounded-xl bg-muted/40 w-full md:w-[240px] aspect-square">
+              <div className="absolute inset-0 animate-shimmer" />
+            </div>
+            <div className="space-y-4">
+              <div className="relative overflow-hidden rounded-lg bg-muted/40 h-6 w-3/4">
+                <div className="absolute inset-0 animate-shimmer" />
+              </div>
+              <div className="relative overflow-hidden rounded-lg bg-muted/40 h-4 w-1/2">
+                <div className="absolute inset-0 animate-shimmer" />
+              </div>
+            </div>
+          </div>
+          {/* Archive rows */}
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="relative overflow-hidden rounded-lg bg-muted/30 h-11"
+              >
+                <div className="absolute inset-0 animate-shimmer" />
+              </div>
+            ))}
+          </div>
         </div>
       </Layout>
     );
@@ -407,8 +451,9 @@ const Dashboard = ({ user }) => {
         data-testid="lab-page"
       >
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
           className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
         >
           {/* ─── Page head ─── */}
@@ -551,22 +596,32 @@ const Dashboard = ({ user }) => {
 
           {/* ━━━━━━━━━━ COACH'S PICK ━━━━━━━━━━ */}
           {featuredGame && (
-            <section className="mb-16 md:mb-24">
+            <motion.section
+              variants={cardGlowEnter}
+              initial="initial"
+              animate="animate"
+              className="mb-16 md:mb-24"
+            >
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Coach's Pick · most educational
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-12 items-start">
-                {/* Mini board */}
+                {/* Mini board — one-shot amber glow pulse on entrance */}
                 <div className="w-full md:w-[240px] shrink-0">
                   {featuredGame.critical_fen ? (
-                    <div className="rounded-xl overflow-hidden ring-1 ring-border">
+                    <motion.div
+                      variants={glowPulseAmber}
+                      initial="initial"
+                      animate="animate"
+                      className="rounded-xl overflow-hidden ring-1 ring-border"
+                    >
                       <LichessBoard
                         fen={featuredGame.critical_fen}
                         viewOnly={true}
                         width={240}
                       />
-                    </div>
+                    </motion.div>
                   ) : (
                     <div className="aspect-square rounded-xl bg-muted/40 ring-1 ring-border flex items-center justify-center">
                       <span className="text-[11px] text-muted-foreground">
@@ -676,7 +731,7 @@ const Dashboard = ({ user }) => {
                   </div>
                 </div>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━━━━━━━━━ TRAP INTELLIGENCE ━━━━━━━━━━ */}
@@ -685,7 +740,7 @@ const Dashboard = ({ user }) => {
               training. Nothing fabricated — if has_data is false the card
               never mounts. */}
           {trapIntel?.has_data && trapIntel.top_insight && (
-            <section className="mb-16 md:mb-24">
+            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300/80 font-semibold mb-5">
                 Trap intelligence
               </div>
@@ -730,7 +785,7 @@ const Dashboard = ({ user }) => {
                   {trapIntel.top_insight.cta}
                 </button>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━━━━━━━━━ OPENING REPORT CARD ━━━━━━━━━━ */}
@@ -740,7 +795,7 @@ const Dashboard = ({ user }) => {
               falls back to the opening overview page so we never route
               "Study this opening" to generic training puzzles. */}
           {openingReport?.has_data && openingReport.problem_opening && (
-            <section className="mb-16 md:mb-24">
+            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-rose-500 dark:text-rose-300/80 font-semibold mb-5">
                 Opening report
               </div>
@@ -768,7 +823,7 @@ const Dashboard = ({ user }) => {
                   </p>
                 )}
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━━━━━━━━━ OPENINGS THAT FIT YOU ━━━━━━━━━━ */}
@@ -777,7 +832,7 @@ const Dashboard = ({ user }) => {
               openings reward what they already do, and which keep
               punishing the weakness they haven't fixed yet. */}
           {openingFit?.has_data && (openingFit.play_more?.length > 0 || openingFit.avoid?.length > 0) && (
-            <section className="mb-16 md:mb-24">
+            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-teal-600 dark:text-teal-300/80 font-semibold mb-5">
                 Openings that fit you
               </div>
@@ -839,7 +894,7 @@ const Dashboard = ({ user }) => {
                   Based on your rating ({openingFit.rating_used}) and recent patterns
                 </p>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━━━━━━━━━ REPEAT MISTAKE PATTERN ━━━━━━━━━━ */}
@@ -847,7 +902,7 @@ const Dashboard = ({ user }) => {
               pattern detection that mirrors what a human coach would
               notice over multiple sessions. */}
           {repeatMistakes?.has_data && repeatMistakes.top_pattern && (
-            <section className="mb-16 md:mb-24">
+            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Pattern across your games
               </div>
@@ -880,14 +935,14 @@ const Dashboard = ({ user }) => {
                   Train this pattern
                 </button>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━━━━━━━━━ GRADUATION / IMPROVEMENT TRAJECTORY ━━━━━━━━━━ */}
           {/* Celebration (graduate) OR roadmap (struggler). Silent for users
               with <20 games or no improvement data. */}
           {graduation?.has_data && graduation.status === "graduate" && (
-            <section className="mb-16 md:mb-24">
+            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300/80 font-semibold mb-5">
                 You're improving
               </div>
@@ -899,7 +954,7 @@ const Dashboard = ({ user }) => {
                   {graduation.subline}
                 </p>
               </div>
-            </section>
+            </motion.section>
           )}
           {/* ━━━━━━━━━━ ARCHIVE ━━━━━━━━━━ */}
           <section id="lab-archive">
@@ -916,31 +971,50 @@ const Dashboard = ({ user }) => {
               </button>
             </div>
 
-            {/* Filters */}
+            {/* Filters — the active underline morphs between pills via
+                layoutId (shared layout animation). */}
             <div className="flex items-center gap-5 md:gap-6 mb-6 pb-4 border-b border-border/60 overflow-x-auto">
               {FILTERS.map((f) => (
                 <button
                   key={f.key}
                   onClick={() => setFilter(f.key)}
-                  className={`text-[12.5px] transition-colors whitespace-nowrap ${
+                  className={`relative pb-1 text-[12.5px] transition-colors whitespace-nowrap ${
                     filter === f.key
                       ? "text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {f.label}
+                  {filter === f.key && (
+                    <motion.span
+                      layoutId="lab-filter-active"
+                      // Spring specified for the pill morph (scope §Lab) —
+                      // the one place choreography uses spring, not tween.
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full bg-amber-400"
+                    />
+                  )}
                 </button>
               ))}
             </div>
 
-            {/* Table */}
-            <div className="space-y-0">
+            {/* Table — keyed by filter so AnimatePresence fades the old
+                rows out (150ms) and staggers the new rows in (40ms/row). */}
+            <AnimatePresence mode="wait">
+            <motion.div
+              key={filter}
+              variants={listFadeSwap}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="space-y-0"
+            >
               {filteredGames.length === 0 ? (
                 <div className="py-12 text-center text-[12.5px] text-muted-foreground">
                   No games match this filter.
                 </div>
               ) : (
-                filteredGames.slice(0, 24).map((g) => {
+                filteredGames.slice(0, 24).map((g, rowIndex) => {
                   const r = resultLetter(g);
                   // Quality filter: only render the diagnosis line when it
                   // adds signal. Bland fallbacks from compute_game_summary
@@ -954,8 +1028,9 @@ const Dashboard = ({ user }) => {
                     raw === "Game ended in a draw.";
                   const diagnosis = isWeak ? "" : raw;
                   return (
-                    <div
+                    <motion.div
                       key={g.game_id || g._id}
+                      {...gameRowProps(rowIndex)}
                       // 2026-05-19: route to interactive LabV2 surface (has V5 + guided-review quiz).
                       onClick={() => navigate(`/lab/game/${g.game_id}`)}
                       className="group grid grid-cols-[12px_1fr_40px_60px_14px] md:grid-cols-[12px_1fr_48px_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
@@ -1002,11 +1077,12 @@ const Dashboard = ({ user }) => {
 
                       {/* Chevron */}
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-muted-foreground transition-colors" />
-                    </div>
+                    </motion.div>
                   );
                 })
               )}
-            </div>
+            </motion.div>
+            </AnimatePresence>
 
             {/* Load more */}
             {filteredGames.length > 24 && (

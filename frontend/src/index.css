@@ -239,3 +239,106 @@
   border: 2px solid hsl(var(--primary));
   animation: pulse-ring 1.5s ease-out infinite;
 }
+
+/* ─── PREMIUM UX FOUNDATION (2026-06-12) ─── */
+/* Note: keyframes named `shimmer-sweep` to avoid colliding with the
+   existing `shimmer` keyframes above (used by the .shimmer loading class). */
+@layer utilities {
+  @keyframes shimmer-sweep {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer-sweep 2s infinite;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 20%,
+      rgba(255, 255, 255, 0) 40%
+    );
+    background-size: 1000px 100%;
+  }
+
+  /* Mobile touch feedback */
+  @media (hover: none) {
+    .btn-primary:active {
+      @apply scale-95;
+    }
+
+    .btn-secondary:active {
+      @apply scale-95;
+    }
+  }
+}
+
+/* ─── PREMIUM UX PHASE 2 (2026-06-12) — page implementations ─── */
+
+/* Gradient sweep on hover (hero CTAs / AnimatedButton primary).
+   transform-only animation — no layout properties touched. */
+.btn-sweep {
+  position: relative;
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn-sweep::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.35) 50%,
+      transparent 65%
+    );
+    transform: translateX(-120%);
+    transition: transform 600ms ease-out;
+  }
+  .btn-sweep:hover::after {
+    transform: translateX(120%);
+  }
+}
+
+/* PWC board feel — chessground squares are positioned with transform:
+   translate(), so we only animate box-shadow here (paint-only, runs once
+   per move). Amber last-move glow fades over 800ms (locked timing). */
+@media (prefers-reduced-motion: no-preference) {
+  .cg-wrap square.last-move {
+    animation: last-move-glow 800ms ease-in-out;
+  }
+}
+@keyframes last-move-glow {
+  0% {
+    box-shadow: inset 0 0 30px rgba(251, 191, 36, 0.6);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+/* Capture effect — chessground tags the captured piece with `.fading`
+   during the move animation (base css holds it at opacity .5 and JS
+   removes the element when the 200ms slide completes). We layer a 150ms
+   fade+shrink (locked: fade to 0, scale to 0.7, easeOut). The standalone
+   `scale` property composes with the piece's `transform: translate()`
+   positioning, so the piece shrinks in place. */
+@media (prefers-reduced-motion: no-preference) {
+  .cg-wrap piece.fading {
+    animation: capture-fade-shrink 150ms ease-out forwards;
+  }
+}
+@keyframes capture-fade-shrink {
+  0% {
+    opacity: 0.9;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.7;
+  }
+}

@@ -79,7 +79,25 @@ module.exports = {
                                 good: '#3B82F6',
                                 excellent: '#10B981',
                                 brilliant: '#14B8A6',
-                        }
+                        },
+                        // Locked palette additions (2026-06-12) — premium UX redesign
+                        "teal-500": "#14B8A6",
+                        "teal-200": "#CDF2F8", // hover variant
+                        "teal-700": "#0D9488", // darker variant
+                        "emerald-500": "#10B981",
+                        "emerald-200": "#D1FAE5",
+                        "emerald-700": "#047857",
+                        "rose-500": "#F43F5E",
+                        "rose-200": "#FEE2E2",
+                        "rose-700": "#BE123C",
+                },
+                boxShadow: {
+                        // Glow effects for premium feel (premium UX redesign 2026-06-12)
+                        "glow-amber": "0 0 20px rgba(251, 191, 36, 0.5)",
+                        "glow-teal": "0 0 20px rgba(20, 184, 166, 0.4)",
+                        "glow-emerald": "0 0 20px rgba(16, 185, 129, 0.4)",
+                        "glow-rose": "0 0 20px rgba(244, 63, 94, 0.3)",
+                        "glow-sm": "0 0 10px rgba(251, 191, 36, 0.3)",
                 },
                 keyframes: {
                         'accordion-down': {

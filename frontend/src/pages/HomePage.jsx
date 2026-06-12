@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
+import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn, GLOW, MOTION_TIMING } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
@@ -169,14 +170,17 @@ const HomePage = ({ user }) => {
               </p>
 
               <div className="mt-10 flex flex-wrap items-center gap-5">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: MOTION_TIMING.micro.duration / 1000, ease: MOTION_TIMING.micro.easing }}
                   onClick={() => navigate("/play-with-coach")}
                   className="h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
                 >
                   <Swords className="h-4 w-4" strokeWidth={2} />
                   {coachGamesPlayed === 0 ? "Play my first game" : "Play another game"}
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </button>
+                </motion.button>
               </div>
             </section>
 
@@ -251,17 +255,27 @@ const HomePage = ({ user }) => {
   // ─── Main render ─────────────────────────────────────────────────────
   return (
     <Layout user={user}>
-      <div
+      {/* Page entrance (600ms fade+rise) — smooth arrival from the
+          previous route; sections then stagger inside. */}
+      <motion.div
+        variants={pageEnter}
+        initial="initial"
+        animate="animate"
         className="max-w-[880px] mx-auto px-6 md:px-10 py-10 md:py-16"
         data-testid="home-page"
       >
+        {/* Choreographed entrance — sections stagger in via the shared
+            container (60ms step): greeting → prescription → evidence → tiles. */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
         >
           {/* ─── Greeting strip ─── */}
-          <div className="flex items-baseline justify-between mb-10 md:mb-12">
+          <motion.div
+            variants={fadeInUp}
+            className="flex items-baseline justify-between mb-10 md:mb-12"
+          >
             <p className="text-muted-foreground text-[13px]">
               {displayName
                 ? `${timeOfDayGreeting()}, ${displayName}.`
@@ -270,12 +284,14 @@ const HomePage = ({ user }) => {
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">
               {formatWhen()}
             </p>
-          </div>
+          </motion.div>
 
-          {/* ━━ HERO PRESCRIPTION (via TodayHero) ━━ */}
-          <section className="mb-16 md:mb-20">
+          {/* ━━ HERO PRESCRIPTION (via TodayHero) ━━
+              scaleIn (0.95 → 1) — the hero card lands with weight instead
+              of just appearing. */}
+          <motion.section variants={scaleIn} className="mb-16 md:mb-20">
             <TodayHero />
-          </section>
+          </motion.section>
 
           {/* ━━ PATTERN OF THE DAY ━━
               TIER 3 visual-danger-language: the named shape that fires
@@ -283,7 +299,7 @@ const HomePage = ({ user }) => {
               name is the memory anchor; description is the picture in
               plain English. Drill until it stops appearing. */}
           {data?.pattern_of_the_day && (
-            <section className="mb-16 md:mb-20">
+            <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
                 Pattern of the day
               </div>
@@ -298,7 +314,7 @@ const HomePage = ({ user }) => {
                   Seen {data.pattern_of_the_day.count}× across {data.pattern_of_the_day.games} game{data.pattern_of_the_day.games === 1 ? "" : "s"}
                 </p>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━ RECENT PLAY ━━ */}
@@ -307,7 +323,7 @@ const HomePage = ({ user }) => {
               user opens this in Lab (or clicks through to a specific
               game review) — until then the verdict is stable. */}
           {hasEvidence && (
-            <section className="mb-16 md:mb-20">
+            <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
                 Recent play
                 {lastSession?.window_size > 1 && (
@@ -318,9 +334,9 @@ const HomePage = ({ user }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-10 items-start">
-                {/* Board thumb */}
+                {/* Board thumb — last-session card scales in (300ms standard) */}
                 {lastBoard && (
-                  <div>
+                  <motion.div variants={scaleIn}>
                     <div className="rounded-lg overflow-hidden ring-1 ring-border w-[168px]">
                       <LichessBoard fen={lastBoard} viewOnly={true} width={168} />
                     </div>
@@ -340,7 +356,7 @@ const HomePage = ({ user }) => {
                         .filter(Boolean)
                         .join(" · ")}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Story + trend + link */}
@@ -427,18 +443,30 @@ const HomePage = ({ user }) => {
                   </button>
                 </div>
               </div>
-            </section>
+            </motion.section>
           )}
 
           {/* ━━ NAV TILES — quiet row ━━ */}
-          <section>
+          <motion.section variants={fadeInUp}>
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
               Elsewhere
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {/* Tiles stagger in; hover lifts 2px with a quiet amber glow,
+                tap gives scale feedback (works as :active on touch too). */}
+            <motion.div
+              variants={staggerContainer}
+              className="grid grid-cols-2 md:grid-cols-4 gap-2"
+            >
               {NAV.map((n) => (
-                <button
+                <motion.button
                   key={n.id}
+                  variants={staggerItem}
+                  whileHover={{ y: -2, boxShadow: GLOW.amberLift }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{
+                    duration: MOTION_TIMING.micro.duration / 1000,
+                    ease: MOTION_TIMING.micro.easing,
+                  }}
                   onClick={() => navigate(n.href)}
                   className="group text-left rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border transition-colors px-4 py-4"
                 >
@@ -452,12 +480,12 @@ const HomePage = ({ user }) => {
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {n.sub}
                   </div>
-                </button>
+                </motion.button>
               ))}
-            </div>
-          </section>
+            </motion.div>
+          </motion.section>
         </motion.div>
-      </div>
+      </motion.div>
     </Layout>
   );
 };

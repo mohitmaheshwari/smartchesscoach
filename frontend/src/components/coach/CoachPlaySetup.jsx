@@ -7,6 +7,8 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { scaleIn, staggerContainer, staggerItem } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +58,10 @@ const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening })
   );
 
   return (
-    <div
+    <motion.div
+      variants={scaleIn}
+      initial="initial"
+      animate="animate"
       className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border"
       data-testid="opening-suggestions"
     >
@@ -111,7 +116,7 @@ const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening })
           Coach recommends: <span className="font-medium text-foreground">{best.name}</span> ({best.win_rate}% win rate)
         </p>
       )}
-    </div>
+    </motion.div>
   );
 };
 
@@ -149,6 +154,9 @@ const CoachPlaySetup = ({
           Back to Home
         </Button>
 
+        {/* Setup card scales in (0.95 → 1); the sections inside stagger
+            via the shared container — fade + scale per the locked spec. */}
+        <motion.div variants={scaleIn} initial="initial" animate="animate">
         <Card className="border-primary/20">
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -168,9 +176,16 @@ const CoachPlaySetup = ({
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+              className="space-y-6"
+            >
             {/* Practice Mode Indicator */}
             {practiceMode && practicePosition && (
-              <div
+              <motion.div
+                variants={staggerItem}
                 className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-200"
                 data-testid="practice-mode-indicator"
               >
@@ -182,11 +197,11 @@ const CoachPlaySetup = ({
                   You'll start from the position where you made a mistake.
                   Try playing differently and see if you can win!
                 </p>
-              </div>
+              </motion.div>
             )}
 
             {/* Color Selection */}
-            <div>
+            <motion.div variants={staggerItem}>
               <label className="text-sm font-medium mb-3 block">
                 Choose Your Color
               </label>
@@ -217,11 +232,14 @@ const CoachPlaySetup = ({
                   Color is set based on your original game position.
                 </p>
               )}
-            </div>
+            </motion.div>
 
             {/* Past Games Memory */}
             {!practiceMode && pastGamesHistory?.sessions?.length > 0 && (
-              <div className="p-4 rounded-lg border border-border bg-muted/30">
+              <motion.div
+                variants={staggerItem}
+                className="p-4 rounded-lg border border-border bg-muted/30"
+              >
                 <div className="flex items-center gap-2 mb-3">
                   <History className="w-4 h-4 text-primary" />
                   <span className="font-medium text-sm">Coach Remembers</span>
@@ -283,10 +301,13 @@ const CoachPlaySetup = ({
                     </Badge>
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
 
-            {/* Opening Suggestions */}
+            {/* Opening Suggestions — animates its own root (it mounts
+                later, after its fetch resolves, so it can't join the
+                initial stagger; an outer wrapper would leave an empty
+                spaced div while it returns null). */}
             {!practiceMode && (
               <OpeningSuggestions
                 selectedColor={selectedColor}
@@ -297,7 +318,7 @@ const CoachPlaySetup = ({
 
             {/* Guide Mode Toggle — only when an opening is selected */}
             {!practiceMode && selectedOpening && (
-              <div>
+              <motion.div variants={staggerItem}>
                 <label className="text-sm font-medium mb-3 block">
                   How would you like to practice?
                 </label>
@@ -325,10 +346,11 @@ const CoachPlaySetup = ({
                     </div>
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Start Button */}
+            <motion.div variants={staggerItem}>
             <Button
               onClick={startGame}
               disabled={loading}
@@ -352,16 +374,22 @@ const CoachPlaySetup = ({
                 </>
               )}
             </Button>
+            </motion.div>
 
             {/* Info */}
-            <div className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+            <motion.div
+              variants={staggerItem}
+              className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground"
+            >
               <Brain className="w-4 h-4 inline mr-2" />
               The coach will adapt to your play and help you improve. Future
               updates will add real-time interventions when you're about to make
               mistakes.
-            </div>
+            </motion.div>
+            </motion.div>
           </CardContent>
         </Card>
+        </motion.div>
       </div>
 
       {/* Pre-Game Streak Popup */}

@@ -62,6 +62,7 @@ import PrototypeInteractiveMoment from "@/pages/PrototypeInteractiveMoment";
 // Components
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { MotionConfig } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
@@ -424,12 +425,15 @@ function AppRouter() {
 function App() {
   return (
     <ThemeProvider>
-      <div className="App min-h-screen bg-background">
-        <BrowserRouter>
-          <AppRouter />
-        </BrowserRouter>
-        <Toaster position="bottom-right" />
-      </div>
+      {/* reducedMotion="user" — all Framer Motion animations respect prefers-reduced-motion */}
+      <MotionConfig reducedMotion="user">
+        <div className="App min-h-screen bg-background">
+          <BrowserRouter>
+            <AppRouter />
+          </BrowserRouter>
+          <Toaster position="bottom-right" />
+        </div>
+      </MotionConfig>
     </ThemeProvider>
   );
 }

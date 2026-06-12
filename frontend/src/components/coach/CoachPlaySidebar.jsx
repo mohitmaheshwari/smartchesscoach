@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { slideInRight, scaleIn } from "@/lib/motion";
 import { API } from "@/App";
 import LessonPicker from "@/components/coach/LessonPicker";
 import EscapeSquaresQuiz from "@/components/coach/EscapeSquaresQuiz";
@@ -71,7 +73,11 @@ const GuardianPanel = ({
   if (!guardianIntervention || !pendingMove) return null;
 
   return (
-    <div
+    <motion.div
+      variants={slideInRight}
+      initial="initial"
+      animate="animate"
+      exit="exit"
       data-testid="guardian-intervention-inline"
       className={`p-4 rounded-lg border-2 ${
         guardianIntervention.risk_level === "critical"
@@ -205,7 +211,7 @@ const GuardianPanel = ({
           Play Anyway
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -897,10 +903,13 @@ const CoachPlaySidebar = ({
     handleStartLesson(lessonData);
   };
 
-  // Show lesson picker overlay
+  // Show lesson picker overlay — slides in from the right (300ms standard)
   if (showLessonPicker && session && !gameOver && !isInTeachingMode) {
     return (
-      <div
+      <motion.div
+        variants={slideInRight}
+        initial="initial"
+        animate="animate"
         className="w-[380px] border-l border-border flex flex-col h-full"
         data-testid="coach-chat-panel"
       >
@@ -910,7 +919,7 @@ const CoachPlaySidebar = ({
           onStartLesson={handleLessonFromPicker}
           onClose={() => setShowLessonPicker(false)}
         />
-      </div>
+      </motion.div>
     );
   }
 
@@ -992,13 +1001,21 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Guardian Intervention */}
-            <GuardianPanel
-              guardianIntervention={guardianIntervention}
-              pendingMove={pendingMove}
-              cancelRiskyMove={cancelRiskyMove}
-              confirmRiskyMove={confirmRiskyMove}
-            />
+            {/* Guardian Intervention — conditional render inside
+                AnimatePresence so the panel slides out when the user
+                confirms/cancels (the internal null-check stays as a
+                safety net). */}
+            <AnimatePresence>
+              {guardianIntervention && pendingMove && (
+                <GuardianPanel
+                  key="guardian-panel"
+                  guardianIntervention={guardianIntervention}
+                  pendingMove={pendingMove}
+                  cancelRiskyMove={cancelRiskyMove}
+                  confirmRiskyMove={confirmRiskyMove}
+                />
+              )}
+            </AnimatePresence>
 
             {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
                 From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
@@ -1021,6 +1038,29 @@ const CoachPlaySidebar = ({
               }}
             />
 
+            {/* Coach is thinking — shimmer placeholder while move feedback
+                is being generated (scope: PWC coach-message shimmer). */}
+            <AnimatePresence>
+              {loadingFeedback && !gameOver && (
+                <motion.div
+                  key="coach-thinking-shimmer"
+                  variants={slideInRight}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="relative overflow-hidden rounded-xl border border-border bg-muted/20 px-4 py-3"
+                  data-testid="coach-thinking-shimmer"
+                >
+                  <p className="text-[12px] text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Coach is thinking…
+                  </p>
+                  <div className="absolute inset-0 animate-shimmer pointer-events-none" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
             {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
               // Single flag context for the whole Teaching Moment card.
               // Every coach-generated text block inside gets an InlineFlag
@@ -1035,7 +1075,13 @@ const CoachPlaySidebar = ({
                 component: "CoachPlaySidebar.TeachingMoment",
               };
               return (
-              <article className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-5 space-y-3">
+              <motion.article
+                key={`teaching-${lastCoachMoveSan || "moment"}`}
+                variants={slideInRight}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-5 space-y-3">
                 {/* Eyebrow: TEACHING MOMENT / COACH PLAYED + SAN + optional v2 label */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold">
@@ -1233,13 +1279,21 @@ const CoachPlaySidebar = ({
                     I see it — let me play
                   </button>
                 )}
-              </article>
+              </motion.article>
               );
             })()}
+            </AnimatePresence>
 
-            {/* ═══ User's Move Feedback ═══ */}
+            {/* ═══ User's Move Feedback — slides in from the right ═══ */}
+            <AnimatePresence>
             {v5Coaching && !session?.curriculum_active && (
-              <>
+              <motion.div
+                key={`v5-${v5Coaching.move_san || v5Coaching.concept_id || "card"}`}
+                variants={slideInRight}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
                 <V5CoachingCard
                   coaching={v5Coaching}
                   moveSan={v5Coaching.move_san}
@@ -1263,8 +1317,9 @@ const CoachPlaySidebar = ({
                     I understand — let me play
                   </button>
                 )}
-              </>
+              </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Trap Result — fell for or avoided a known trap */}
             {interactiveCoaching?.trapResult && (() => {
@@ -1391,7 +1446,12 @@ const CoachPlaySidebar = ({
               activeLesson &&
               lessonInstruction &&
               !lessonComplete && (
-                <div className="rounded-xl border border-amber-400/30 bg-amber-500/[0.04] px-4 py-3">
+                <motion.div
+                  variants={scaleIn}
+                  initial="initial"
+                  animate="animate"
+                  className="rounded-xl border border-amber-400/30 bg-amber-500/[0.04] px-4 py-3"
+                >
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <BookOpen
                       className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300"
@@ -1415,7 +1475,7 @@ const CoachPlaySidebar = ({
                   >
                     Exit lesson
                   </button>
-                </div>
+                </motion.div>
               )}
           </div>
 
