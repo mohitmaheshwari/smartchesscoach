@@ -323,7 +323,12 @@ def _r08_render(f):
 
 # R09 — King safety (castling)
 def _r09_trigger(f):
-    return bool(f.get("is_castling"))
+    # Severity gate (2026-06-11, gold-vs-pipeline loop): "King is safe; rook
+    # joins the game" is a POSITIVE line. On an engine-flagged castle
+    # (cp_loss >= 30) it praises a mistake/blunder (judge: 5/5 such fires were
+    # MISS vs gold). Probe: 24 GOOD / 5 BAD; gating to cp_loss < 30 keeps the
+    # 24 correct fires and drops the 5 wrong ones.
+    return bool(f.get("is_castling")) and (f.get("cp_loss") or 0) < 30
 
 
 def _r09_render(f):
@@ -344,7 +349,17 @@ def _r09_render(f):
 def _r10_trigger(f):
     threats = f.get("threats_created") or []
     max_see = max((t.get("see_cp", 0) for t in threats), default=0)
-    return should_fire("R10_threat", {"max_threat_see_cp": max_see})
+    # Severity gate (2026-06-11, gold-vs-pipeline loop): R10 emits a POSITIVE
+    # "{move} threatens {piece}" line. On engine-flagged moves (cp_loss >= 30)
+    # that threat is usually empty/refuted/loses-tempo, so the positive framing
+    # is wrong (judge: 22/22 such fires were MISS vs gold). Fire-rate probe:
+    # R10 fires 71 GOOD / 29 BAD; gating to cp_loss < 30 keeps the 71 correct
+    # good-move fires and drops the 29 wrong ones. cp_loss<30 = codebase's
+    # established near-best/"good move" boundary (yellow-bucket).
+    return should_fire("R10_threat", {
+        "max_threat_see_cp": max_see,
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r10_render(f):

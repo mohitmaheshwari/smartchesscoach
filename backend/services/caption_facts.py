@@ -4932,6 +4932,7 @@ def extract_facts(
     opp_reply_san: Optional[str] = None
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
+    opp_reply_captures_square: Optional[str] = None
     # Mohit 2026-06-06 (fb_22528b6266b1, Parth): when the played move is
     # a capture AND opp_reply captures on the same square, both SANs
     # render identically ("Bxe5 hangs to Bxe5 winning your bishop") —
@@ -4973,6 +4974,7 @@ def extract_facts(
                         opp_reply_captures_piece_type = PIECE_TYPE_NAMES.get(
                             captured.piece_type, "piece"
                         )
+                        opp_reply_captures_square = chess.SQUARE_NAMES[opp_mv.to_square]
                     # Recapture detection (2026-06-06): the played move
                     # was a capture AND opp_reply captures on the same
                     # square. Without this branch, the failure template
@@ -5317,6 +5319,7 @@ def extract_facts(
         "opp_reply_san": opp_reply_san,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
+        "opp_reply_captures_square": opp_reply_captures_square,
         # Recapture collision (Mohit 2026-06-06, fb_22528b6266b1) —
         # when both played + opp_reply land on the same square the SANs
         # render identically; switch to a recapture-specific template.

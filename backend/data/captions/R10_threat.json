@@ -9,7 +9,8 @@
   "requires": ["played_san", "target_piece_type", "target_square"],
   "trigger": {
     "when": {
-      "max_threat_see_cp": {"gte": 200}
+      "max_threat_see_cp": {"gte": 200},
+      "cp_loss": {"lt": 30}
     }
   },
   "variants": {
