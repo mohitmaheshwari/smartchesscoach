@@ -470,7 +470,7 @@ Confirms the fix sketch: gate tactic-name + material-gain clauses on the actual 
 
 ## 24. Failure-mode "you lose/hang the {piece}" mis-frames check-sacs and recapture-trades
 
-**Status:** Filed 2026-06-12 (Lane B). Candidate mechanisms — **NOT built** (the `author-r12-predicate` skill gates on ≥2 clean engine-verified same-mechanism examples; the corpus + engine were unreachable at filing — Docker daemon down — so the example count is unconfirmed). `caption_claim_verifier._verify_blunder` already passes these *geometrically* (the opponent's reply IS a real capture), but the **framing** is misleading when the move the user PLAYED was itself a check or a capture.
+**Status:** RESOLVED 2026-06-13 (Lane B) — corpus + engine came up, both mechanisms validated against 3000 games / 33,624 blunder captions. **(a) check-sac: NOT observed → closed (do not build).** **(b) recapture-trade: BUILT** — the even-trade gate now ships in `_verify_blunder`. (Originally filed 2026-06-12 when the engine was unreachable.) See the **Resolution** block below.
 
 **Two candidate mechanisms (validate separately — each needs its own ≥2):**
 
@@ -486,8 +486,20 @@ Confirms the fix sketch: gate tactic-name + material-gain clauses on the actual 
 
 So the build is purely an **added gate** in `_verify_blunder` (Lane-B-owned, geometric, no gateway). What is still missing is the **≥2 clean real examples** that prove the clauses actually fire on check/capture played moves in production — that needs the corpus scan.
 
-**Why filed (not built):** building without ≥2 engine-verified examples risks a phantom-gap predicate (cf. the piece_safety "had none — don't force it" note). **Next (when the engine/corpus is back):** scan user blunder captions where `played_san` is a check / a capture AND a hang/recapture clause fired; engine-verify each is actually a sac/trade; if a mechanism reaches ≥2 clean, add the gate in `_verify_blunder` (check / capture / net-material — **no gateway needed**) and probe to ≥85% on the relevant gold slice.
+**Why filed (not built) [original]:** building without ≥2 engine-verified examples risks a phantom-gap predicate (cf. the piece_safety "had none — don't force it" note).
 
 ---
 
-*Last updated: 2026-06-12 (Lane B — #24 check-sac / recapture-trade mis-framing: filed-not-built; code-path confirmed in `_verify_blunder` once Stockfish was up, but the ≥2-real-examples gate still needs the prod Mongo corpus (port 27018 tunnel down)).*
+### Resolution (2026-06-13, Lane B — corpus + Stockfish 17.1 up)
+
+Scanned 3000 games (33,624 user blunder captions ≥100cp). Verdicts:
+
+**(a) check-sac mis-framed as a hang — NOT OBSERVED → closed.** Every check-played blunder caption that mentions losing/hanging actually routes to a *different* template — defeatism ("you were already losing"), king-shelter ("lost 2 of its pawn shelter"), or "position is lost." **Zero** frame a check-sac as "you hung your {piece}." The phantom-gap concern was correct; no gate built. Do not build on a future singleton without the same ≥2-clean bar.
+
+**(b) recapture-trade mis-framed as a clean loss — BUILT.** The real shape is narrower and sharper than first sketched: not "queen took a knight, net still losing," but **even trades framed as hangs**. 53 moves (of 110 recapture-on capture-blunders) where the user captured and the forced recapture nets **even material (net 0)** — `Nxf5`/`exf5`, `Bxd5`/`cxd5`, `Nxc6`/`dxc6`, `Bxg2`/`Kxg2`… — yet the caption says "**hangs your {piece} — opponent recaptures on {sq}**". The move IS a mistake (cp_loss 105–400+) but for a **positional** reason; "hang" is a false material claim. 14/14 engine-PV-verified; the gate's even/loss split confirmed across all 110 (53 fire, 57 real losses net≤−2 kept).
+
+*Gate (shipped):* `caption_claim_verifier._played_capture_net()` + a branch in `_verify_blunder`'s recapture block — when the recapture clause fires AND the played move was a capture netting **≥ −1** (even-or-better), return `(False, "blunder_recapture_even_trade")` → **abstain** → the narrator explains the positional why. Geometric (material arithmetic), **no gateway, no runtime Stockfish** — consistent with the module contract. Real losses (knight-for-pawn etc., net ≤ −2: `Nxe5`, `Qxa6` −4, `Nxf2`, `Nxe6`) are **untouched** — their "you lose material" framing is fair. Takes effect on the next caption render after deploy (bump `V5_COACHING_VERSION` / `refresh-v5-captions`).
+
+---
+
+*Last updated: 2026-06-13 (Lane B — #24 RESOLVED: (a) check-sac not observed → closed; (b) recapture-trade even-trade gate BUILT in `_verify_blunder`, 53/110 mis-frames suppressed, 14/14 engine-verified, real losses untouched).*
