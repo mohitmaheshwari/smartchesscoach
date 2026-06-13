@@ -3779,9 +3779,51 @@ def build_move_teaching_decision(
         bs_window_size=1,
     )
 
+    # ─── 9. ASSESSMENT-CONFLICT GATE (2026-06-13 feedback pattern #2) ─
+    # fb_f901258f7831 / fb_c7b7be53b387 / fb_05710bfc7125 feedback: coach
+    # says "mistake" when severity='good', or vice versa (assessment conflict).
+    # Gate: don't render critique caption if cp_loss is below rating-band
+    # threshold for the user's rating. Allows concrete-tactic captions (fork,
+    # check, capture) through even on low cp_loss, but suppresses bare "is a
+    # mistake" when it's not meeting the band's standard.
+    #
+    # Only applies to USER moves (opp moves always render per suppression).
+    # Only suppresses if: (1) user move, (2) no concrete tactic fact fired,
+    # (3) cp_loss < band threshold for user's rating.
+    _should_gate_low_cp_caption = False
+    if (inputs.mover_is_user and inputs.user_rating
+            and (int(inputs.cp_loss or 0) or 0) > 0):
+        # Map user rating to band and get threshold
+        _rating = int(inputs.user_rating)
+        if _rating < 1000:
+            _cp_threshold = 150  # beginner: only flag blunders
+        elif _rating < 1400:
+            _cp_threshold = 75   # improving: flag mistakes
+        elif _rating < 1800:
+            _cp_threshold = 50   # intermediate: flag bigger inaccuracies
+        else:
+            _cp_threshold = 30   # advanced: flag subtle inaccuracies
+
+        _cp_loss = int(inputs.cp_loss or 0)
+        # Check if the move has a concrete-tactic reason to render despite
+        # low cp_loss (fork, check, capture, piece hang, etc.)
+        _has_concrete_tactic = (
+            caption_facts.get("queen_fork_sub_kind")
+            or caption_facts.get("missed_clearance_attack_square")
+            or caption_facts.get("attack_with_tempo_piece")
+            or caption_facts.get("missed_tactic_kind") == "mate"
+            or (caption_facts.get("is_capture") and
+                caption_facts.get("captured_piece_type") in ("queen", "rook"))
+            or caption_facts.get("opp_reply_san_is_check")
+        )
+
+        # Gate: suppress caption if below threshold AND no concrete tactic
+        if (_cp_loss < _cp_threshold and not _has_concrete_tactic):
+            _should_gate_low_cp_caption = True
+
     # ─── 9. Render caption (caption_renderer) ────────────────────
     caption_payload: Dict[str, Any] = {"caption": "", "rule_name": "R_FALLBACK"}
-    if render_caption_dict is not None:
+    if render_caption_dict is not None and not _should_gate_low_cp_caption:
         try:
             rendered = render_caption_dict(caption_facts)
             if isinstance(rendered, dict):
