@@ -205,7 +205,9 @@
     "failure_exchange_losing_with_reply": "A trade that loses material is not a fair trade — count the piece values first",
     "failure_exchange_losing_no_reply":   "A trade that loses material is not a fair trade — count the piece values first",
     "failure_played_piece_attacked":      "Before every move, ask what your opponent's strongest reply does to your pieces",
-    "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender"
+    "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
+    "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
+    "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -277,8 +279,6 @@
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
     "opp_with_failure_and_why": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}. {why_clause}",
     "opp_with_failure": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}.",
-    "opp_failure_missed_capture": "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
-    "opp_failure_missed_mate": "they missed {opp_missed_mate_san}, which forced checkmate",
 
     "failure_walks_into_check": "loses to {opp_reply_san}",
     "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",

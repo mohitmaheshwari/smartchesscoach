@@ -336,23 +336,44 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
     # the bare "Opponent's X is a mistake." shell. Sets opp_failure_clause
     # so the opp_with_failure variant can render it.
     if cfg.get("failure_mode_clauses_opp") and facts.get("mover_is_user") is False:
+        logger.debug(f"[DEBUG] {rule_name}: Checking opp_failure_mode_clauses. opp_failure_missed_capture={facts.get('opp_failure_missed_capture')}, opp_missed_capture_san={facts.get('opp_missed_capture_san')}")
         ofm_match = select_first_match(cfg["failure_mode_clauses_opp"], facts)
         if ofm_match:
+            logger.debug(f"[DEBUG] {rule_name}: Matched failure-mode clause: {ofm_match.get('variant')}")
             ofm_variant = ofm_match.get("variant")
             if ofm_variant:
-                rendered = render_template(rule_name, ofm_variant, facts)
-                if rendered:
-                    facts["opp_failure_clause"] = rendered
+                # Look up the teaching principle and substitute facts into it
+                principle = (cfg.get("teaching_principles") or {}).get(ofm_variant)
+                if principle:
+                    try:
+                        rendered = principle.format(**facts)
+                        logger.debug(f"[DEBUG] {rule_name}: Rendered opp_failure clause: {rendered}")
+                        facts["opp_failure_clause"] = rendered
+                    except (KeyError, IndexError, ValueError) as exc:
+                        logger.debug(f"[DEBUG] {rule_name}: Failed to render {ofm_variant}: {exc}")
+                else:
+                    logger.debug(f"[DEBUG] {rule_name}: No teaching principle found for {ofm_variant}")
+        else:
+            logger.debug(f"[DEBUG] {rule_name}: No failure-mode clause matched")
 
-    if is_suppressed(rule_name, facts):
+    # Debug: Check suppression
+    suppress_check = is_suppressed(rule_name, facts)
+    if suppress_check:
+        logger.debug(f"[DEBUG] {rule_name}: Caption SUPPRESSED")
         return None
 
+    logger.debug(f"[DEBUG] {rule_name}: Caption not suppressed. opp_failure_clause={facts.get('opp_failure_clause')}, why_clause={facts.get('why_clause')}")
+
     variant = resolve_variant(rule_name, facts)
+    logger.debug(f"[DEBUG] {rule_name}: Resolved variant: {variant}")
     if not variant:
         # No select_variant block, or none matched → try "default".
         variant = "default"
+        logger.debug(f"[DEBUG] {rule_name}: No variant matched, using default")
 
-    return render_template(rule_name, variant, facts)
+    rendered = render_template(rule_name, variant, facts)
+    logger.debug(f"[DEBUG] {rule_name}: Final rendered result from variant '{variant}': {rendered}")
+    return rendered
 
 
 _PROMOTION_LADDER: Optional[Dict[str, Any]] = None
