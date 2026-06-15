@@ -57,14 +57,19 @@ def gold_for(facts, scol):
     return (None,"HELD")
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("--per-gap",type=int,default=12); ap.add_argument("--apply",action="store_true"); a=ap.parse_args()
+    ap=argparse.ArgumentParser(); ap.add_argument("--per-gap",type=int,default=12); ap.add_argument("--apply",action="store_true")
+    ap.add_argument("--user",default=None,help="scope gold to ONE user_id's games (e.g. Shobhit)")
+    ap.add_argument("--tag",default="gold_set_v1",help="created_by tag — keeps per-user gold sets separate so a run never wipes another's gold")
+    a=ap.parse_args()
     db=pymongo.MongoClient(os.environ["MONGO_URL"])[os.environ.get("DB_NAME","chess_coach")]
-    ucol={g["game_id"]:g.get("user_color","white") for g in db.games.find({"is_analyzed":True},{"game_id":1,"user_color":1})}
+    _gq={"is_analyzed":True}
+    if a.user: _gq["user_id"]=a.user
+    ucol={g["game_id"]:g.get("user_color","white") for g in db.games.find(_gq,{"game_id":1,"user_color":1})}
     buckets={g:[] for g in GAPS}
     # stratified sample via aggregation: pull ONLY flagged user moves with a target
     # gap (small payload) instead of scanning full move arrays over the tunnel.
     pipeline=[
-        {"$match":{"stockfish_analysis.move_evaluations":{"$exists":True}}},
+        {"$match":{**({"game_id":{"$in":list(ucol.keys())}} if a.user else {}),"stockfish_analysis.move_evaluations":{"$exists":True}}},
         {"$project":{"game_id":1,"me":"$stockfish_analysis.move_evaluations"}},
         {"$unwind":"$me"},
         {"$match":{"me.is_opponent_move":{"$ne":True},"me.cp_loss":{"$gte":80},"me.cognitive_gap":{"$in":GAPS}}},
@@ -80,20 +85,49 @@ def main():
         if all(len(b)>=a.per_gap for b in buckets.values()): break
     targets=[x for b in buckets.values() for x in b]
     print("sampled per gap:", {g:len(b) for g,b in buckets.items()}, "| total", len(targets), "| mode", "APPLY" if a.apply else "DRY")
-    out=[]; stats={"verified":0,"verified_after_correction":0,"HELD":0,"narrator_unavailable":0}
-    for t in targets:
-        scol=(ucol.get(t["game_id"]) or "black").capitalize()
-        cap,status=gold_for(t,scol); stats[status]=stats.get(status,0)+1
-        rec={**{k:t[k] for k in ("game_id","cognitive_gap","move_number","fen_before","move_san","cp_loss","best_move_san")},"gold_caption":cap,"verify_status":status}
-        out.append(rec)
-        print(f"  [{t['cognitive_gap']}] {t['move_san']} cpl={t['cp_loss']} ({status}): {(cap or '(HELD)')[:80]}")
-    print("\nstats:",stats)
-    json.dump(out,open("/app/backend/data/gold_set_v1.json","w"),indent=1)
+    out=[]; stats={"verified":0,"verified_after_correction":0,"HELD":0,"narrator_unavailable":0,"skip_done":0}
+    # RESUME: skip targets already gold-stored under this tag (crash-resilient on
+    # an unstable env — a vanished container can't wipe finished work).
+    done=set()
     if a.apply:
-        verified=[r for r in out if r["gold_caption"]]
-        if verified:
-            db.gold_captions.delete_many({"created_by":"gold_set_v1"})
-            db.gold_captions.insert_many([{**r,"created_by":"gold_set_v1"} for r in verified])
-        print(f"stored {len(verified)} verified golds to db.gold_captions")
+        for d in db.gold_captions.find({"created_by":a.tag},{"game_id":1,"move_number":1,"_id":0}):
+            done.add((d.get("game_id"),d.get("move_number")))
+        print(f"resume: {len(done)} already stored under tag {a.tag}; will skip those")
+    pending=[t for t in targets if not (a.apply and (t["game_id"],t.get("move_number")) in done)]
+    stats["skip_done"]=len(targets)-len(pending)
+    # PARALLEL: the exposer now allows concurrency; fan out up to WORKERS at once.
+    # gold_for = exposer call (urllib, per-call) + verify_caption (own chess.Board)
+    # + a pymongo upsert (MongoClient is thread-safe). Each gold persists immediately.
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    WORKERS=6
+    lock=threading.Lock()
+    def work(t):
+        scol=(ucol.get(t["game_id"]) or "black").capitalize()
+        cap,status=gold_for(t,scol)
+        rec={**{k:t[k] for k in ("game_id","cognitive_gap","move_number","fen_before","move_san","cp_loss","best_move_san")},"gold_caption":cap,"verify_status":status}
+        if a.apply and cap:
+            db.gold_captions.update_one(
+                {"created_by":a.tag,"game_id":rec["game_id"],"move_number":rec["move_number"]},
+                {"$set":{**rec,"created_by":a.tag}}, upsert=True)
+        return t,status,cap,rec
+    print(f"parallel gold gen: {len(pending)} targets x {WORKERS} workers (skipping {stats['skip_done']} done)", flush=True)
+    done_ct=0
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        futs=[ex.submit(work,t) for t in pending]
+        for fut in as_completed(futs):
+            try: t,status,cap,rec=fut.result()
+            except Exception as e:
+                with lock: stats["work_err"]=stats.get("work_err",0)+1
+                print("  [work err]",str(e)[:70], flush=True); continue
+            with lock:
+                stats[status]=stats.get(status,0)+1; out.append(rec); done_ct+=1
+            print(f"  [{done_ct}/{len(pending)}] [{t['cognitive_gap']}] {t['move_san']} ({status}): {(cap or '(HELD)')[:65]}", flush=True)
+    print("\nstats:",stats)
+    try: json.dump(out,open(f"/app/backend/data/gold_{a.tag}.json","w"),indent=1)
+    except Exception: pass
+    if a.apply:
+        print(f"stored (incrementally) {sum(1 for r in out if r['gold_caption'])} new verified golds under tag {a.tag}; "
+              f"total now: {db.gold_captions.count_documents({'created_by':a.tag})}")
 
 main()
