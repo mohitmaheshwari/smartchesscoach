@@ -503,3 +503,25 @@ Scanned 3000 games (33,624 user blunder captions ≥100cp). Verdicts:
 ---
 
 *Last updated: 2026-06-13 (Lane B — #24 RESOLVED: (a) check-sac not observed → closed; (b) recapture-trade even-trade gate BUILT in `_verify_blunder`, 53/110 mis-frames suppressed, 14/14 engine-verified, real losses untouched).*
+
+---
+
+### #25 — Beginner captions are truthful-but-GENERIC vs gold (Shobhit report card, 2026-06-14, from Lane C/D)
+
+**Source:** judge_vs_gold against a new 71-move engine-verified gold set for Shobhit (600, beginner; `db.gold_captions` tag `gold_shobhit`). Detector FIRED on 49/71, abstained on 22. Of the 49 judged vs gold: **MATCH 10, PARTIAL 36, MISS 3.** So R12 is *truthful* (3 wrong) but *generic* — 73% PARTIAL, consistently weaker/less position-specific than the gold. NOT a detection problem; a FRAMING problem (`feedback_principle_bank_is_filler`, `feedback_mistake_must_explain_why`).
+
+**Generator trace (all R12; `caption_rules.py:434 _r12_render` → `R12_blunder.json`):**
+- **P1 rigid template:** `user_with_failure_and_alternative` (`R12_blunder.json:248/:275`) = `{played} {failure_clause}. {best} was better — {why_clause}`. `failure_walks_into_check` (:283) renders only "loses to {opp_reply}" (no consequence); `why_user_defensive_pawn_push` (:311) appends a **positionless principle** "— In the opening, don't waste tempo…". → "g4 loses to Bxf2+. Qg3 was better — In the opening, don't waste tempo…" (reproduced live).
+- **P2 defeatism:** `why_user_position_already_losing_since_known` (:320) → "You were already in trouble since move 8. Kc2 only slows it." (sibling :321). Fact from `eval_trajectory.py:114-115`.
+- **P3 calc-over-principle:** `why_user_missed_piece` (:294) — truthful but no transferable idea.
+
+**Proposed minimal fixes (pure template/selection; right-or-silent preserved; all use EXISTING facts):**
+- **(B) BIGGEST LEVER — drop the generic-principle tail when a concrete failure clause already fired.** In `select_variant`, when `failure_clause` present AND the only why is a positionless-principle variant (`why_user_defensive_pawn_push`/`_un_developing`/`_knight_on_rim`), route to `user_with_failure_and_best` (`:276`, "{played} {failure_clause}. {best} was better.") instead of `…_and_alternative`. No detection lost; the tactic stays.
+- **(C) kill the 2 defeatist variants (:320–321)** → neutral forward framing, e.g. "{best} holds better — it keeps your pieces defending each other." (`position_was_already_losing` DETECTION stays; only wording changes.)
+- **(A) `failure_walks_into_check` (:283) name the consequence** using existing `opp_reply_captures_*` facts → "lets {opp_reply} — the check wins material" when the check also wins material.
+
+**Engine-verified before→after (Stockfish d18-20, real FENs):**
+- g4 `rnb3r1/pp3kpp/2p5/q1b1Qp2/2P5/2N5/PP3PPP/R1B1KBNR w KQ - 1 12` (Bxf2+ check, +359→−273): → "g4 is a mistake — Bxf2+ comes with check and wins material. Qg3 keeps your king safe."
+- h3 `1k5r/1p1b1p2/7p/4n3/3pP1nb/1P1P4/P2KB2P/2R3R1 w - - 2 29` (−569 before, Bg5+ check): → "h3 lets Bg5+ — the check drives your king off and costs your rook. Kc2 keeps your pieces defending each other."
+
+**Recommendation:** Lane B template fix, **no new predicate** — B and C are pure JSON variant/selection edits; A is a one-fact sub-variant split. ⚠️ Line numbers are from `working-code` before Lane B's latest even-trade/assessment-conflict commits — reconcile `select_variant` ordering before applying.
