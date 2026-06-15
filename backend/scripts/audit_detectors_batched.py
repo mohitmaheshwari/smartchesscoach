@@ -27,8 +27,8 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import argparse
 
-EXPOSER_URL = os.environ.get("LLM_EXPOSER_URL", "http://host.docker.internal:8000")
-EXPOSER_KEY = os.environ.get("LLM_EXPOSER_KEY", "")
+EXPOSER_URL = os.environ.get("LLM_EXPOSER_URL", os.environ.get("LLM_API_BASE", "http://host.docker.internal:8000"))
+EXPOSER_KEY = os.environ.get("LLM_EXPOSER_KEY", os.environ.get("LLM_API_KEY", ""))
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
@@ -37,10 +37,8 @@ def fetch_feedbacks(pattern=None, limit=20):
     client = MongoClient(MONGO_URL)
     db = client[DB_NAME]
 
+    # Fetch pending items (classification field added during triage)
     query = {"status": "pending"}
-
-    if pattern:
-        query["classification"] = pattern
 
     feedbacks = list(db.move_feedback.find(
         query,
@@ -122,8 +120,8 @@ Return JSON:
             task_id = result.get("task_id")
             print(f"[Batch {batch_num}] Task queued: {task_id}")
 
-            # Poll with longer timeout (up to 60 seconds)
-            for attempt in range(30):
+            # Poll with longer timeout (up to 120 seconds)
+            for attempt in range(60):
                 time.sleep(2)
                 task_response = requests.get(
                     f"{EXPOSER_URL}/tasks/{task_id}",
@@ -142,7 +140,7 @@ Return JSON:
                             "count": len(feedbacks)
                         }
 
-            print(f"[Batch {batch_num}] Timeout after 60s polling")
+            print(f"[Batch {batch_num}] Timeout after 120s polling")
             return {
                 "batch": batch_num,
                 "status": "timeout",
