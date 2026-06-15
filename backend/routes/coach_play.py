@@ -7607,7 +7607,10 @@ async def _process_move_and_respond(
         # Also surfaces ONE critical-moment alert when a known trap
         # setup is on the board (also once per trap per session).
         try:
-            from services.opening_lookup import match_opening_for_mover
+            from services.opening_lookup import (
+                match_opening_for_mover,
+                match_sub_variation,
+            )
             from services.trap_library import get_all_traps
 
             _opening_session = await db.coach_sessions.find_one(
@@ -7627,8 +7630,34 @@ async def _process_move_and_respond(
                 and _played_san_list
             ):
                 _opening_match = match_opening_for_mover(_played_san_list, _po_color)
-                if _opening_match:
-                    _open_name = _opening_match.get("name") or "this opening"
+                _sub_match = match_sub_variation(_played_san_list)
+
+                def _clean_open_name(n):
+                    # Make authored tree names read naturally in a spoken
+                    # announcement: "Alapin — Main" -> "Alapin"; "Bowdler Attack
+                    # (2.Bc4)" -> "Bowdler Attack"; "Caro-Kann — Advance
+                    # Variation" -> "Caro-Kann, Advance Variation".
+                    if not n:
+                        return None
+                    for _suf in (" — Main", " — main"):
+                        if n.endswith(_suf):
+                            n = n[: -len(_suf)]
+                    if n.endswith(")") and "(" in n:
+                        n = n[: n.rindex("(")].rstrip()
+                    n = n.replace(" — ", ", ")  # em-dash -> natural apposition
+                    return n.strip().strip(",").strip() or None
+
+                # Prefer the specific sub-line (Alapin, Caro-Kann Advance, …):
+                # it teaches more than the family, and the setup_order family
+                # lookup misses anti-lines outright (the learner's moves deviate
+                # from the rigid main-line setup), so the standalone
+                # sub-variation walk is also what lets those games get announced
+                # at all.
+                _open_name = (
+                    _clean_open_name(_sub_match.get("name") if _sub_match else None)
+                    or (_opening_match.get("name") if _opening_match else None)
+                )
+                if _open_name:
                     await db.coach_messages.insert_one({
                         "session_id": session_id,
                         "type": "opening_announcement",
