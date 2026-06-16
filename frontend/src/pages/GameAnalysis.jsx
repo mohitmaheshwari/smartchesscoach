@@ -785,7 +785,7 @@ const GameAnalysis = ({ user }) => {
                       {/* Main Caption: prefer caption_llm when toggle ON
                           and value non-empty; else fall back to caption;
                           else narrative (legacy). */}
-                      <p className="text-sm text-zinc-300 leading-relaxed">
+                      <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
                         {(useLlmCaption && currentMoveData.caption_llm)
                           || currentMoveData.caption
                           || currentMoveData.narrative}
