@@ -784,7 +784,15 @@ const GameAnalysis = ({ user }) => {
 
                       {/* Main Caption: prefer caption_llm when toggle ON
                           and value non-empty; else fall back to caption;
-                          else narrative (legacy). */}
+                          else narrative (legacy). When the tester gold panel
+                          is present we label this as "ChessGuru" so the two
+                          read as distinct, comparable sections. */}
+                      {currentMoveData
+                        && goldMap[`${currentMoveData.move_number}:${currentMoveData.move_san}`] && (
+                        <div className="text-xs uppercase tracking-wide text-emerald-400 font-medium mb-1">
+                          ChessGuru
+                        </div>
+                      )}
                       <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
                         {(useLlmCaption && currentMoveData.caption_llm)
                           || currentMoveData.caption
@@ -795,11 +803,11 @@ const GameAnalysis = ({ user }) => {
                           gold-baked games (goldMap empty otherwise -> nothing renders). */}
                       {currentMoveData
                         && goldMap[`${currentMoveData.move_number}:${currentMoveData.move_san}`] && (
-                        <div className="mt-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/30">
+                        <div className="mt-3 pt-3 border-t border-zinc-700/60">
                           <div className="text-xs uppercase tracking-wide text-amber-400 font-medium mb-1">
                             Claude gold (tester)
                           </div>
-                          <p className="text-sm text-amber-100/90 leading-relaxed">
+                          <p className="text-sm text-amber-100/90 leading-relaxed whitespace-pre-line">
                             {goldMap[`${currentMoveData.move_number}:${currentMoveData.move_san}`]}
                           </p>
                         </div>
