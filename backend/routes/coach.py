@@ -1038,10 +1038,10 @@ async def get_game_gold_captions(
     user: User = Depends(get_current_user),
 ):
     """TESTER tool: per-move Claude GOLD captions for side-by-side evaluation on the
-    game-review UI. Reads pre-baked gold from authored_caption_overrides
-    (source_feedback_id claude_gold_review / _opp). Returns a map keyed by
-    "{move_number}:{move_san}" so the frontend can show the gold next to the served
-    caption. Empty for games that have not been gold-baked yet."""
+    game-review UI. Reads pre-baked gold from the SEPARATE gold_tester_captions
+    store (kept apart from authored_caption_overrides so it never masks the served
+    caption). Returns a map keyed by "{move_number}:{move_san}" so the frontend can
+    show the gold next to the served caption. Empty for un-gold-baked games."""
     global db
     try:
         # gold_tester_captions is a SEPARATE store (not authored_caption_overrides) so the gold
