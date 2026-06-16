@@ -1,0 +1,72 @@
+{
+ "templates": {
+  "one_move_blunder": "{played_san} hangs your {hung_piece} on {hung_square}, and after {opp_reply_san} you simply lose it for nothing; better was {best_san}, since {best_purpose}. Before you commit a move, check what your opponent can capture and count the trade first.",
+  "walked_into_tactic": "{front}; instead {best_san} was stronger because {best_purpose}, whereas {played_san} hands material away. Before any quiet move, check that it doesn't walk into a tactic that drops a piece.",
+  "missed_free_material": "{played_san} isn't a blunder, but {best_san} {win}, so you left material on the board. When an enemy piece sits undefended, grab it before making a quiet developing move.",
+  "missed_mate": "Instead of {played_san}, {best_san} was far stronger, throwing a forcing move at the exposed king and keeping the attack rolling. Always look hard at your checks and forcing moves before settling for a quieter line.",
+  "allowed_mate": "{played_san} lets your opponent force mate, so play {best_san} instead to shore up your king's safety. Before every move, ask what checks and captures your opponent gets.",
+  "opening_knowledge": "Your {played_san} brings the queen out too early, so Black can attack it with tempo and force a retreat while gaining development. Play {best_san} instead\u2014it develops with purpose, fights for the center, and keeps your queen safe; develop your pieces before chasing with the queen."
+ },
+ "scorecard": {
+  "one_move_blunder": {
+   "n_total": 77,
+   "n_test": 25,
+   "verified_pct": 100,
+   "match_pct": 80,
+   "status": "baseline"
+  },
+  "walked_into_tactic": {
+   "n_total": 69,
+   "n_test": 23,
+   "verified_pct": 95,
+   "match_pct": 26,
+   "status": "baseline"
+  },
+  "missed_free_material": {
+   "n_total": 17,
+   "n_test": 5,
+   "verified_pct": 100,
+   "match_pct": 40,
+   "status": "baseline"
+  },
+  "missed_tactic": {
+   "n": 0,
+   "status": "thin-gold (skip)"
+  },
+  "missed_mate": {
+   "n_total": 27,
+   "n_test": 9,
+   "verified_pct": 100,
+   "match_pct": 55,
+   "status": "PV-capped"
+  },
+  "allowed_mate": {
+   "n_total": 7,
+   "n_test": 4,
+   "verified_pct": 100,
+   "match_pct": 25,
+   "status": "baseline"
+  },
+  "opening_knowledge": {
+   "n_total": 10,
+   "n_test": 4,
+   "verified_pct": 100,
+   "match_pct": 50,
+   "status": "baseline"
+  }
+ },
+ "defer_count": 204,
+ "good_move_templates": {
+  "develop": "{move} brings your {piece} out to {to_square} and gets it into the game \u2014 in the opening, develop your knights and bishops off the back row early so you can castle and fight for the center.",
+  "pawn": "{move} puts your {piece} on {to_square} to fight for space and open good squares for your other pieces; in the opening, make moves that give your pieces room to come out and join the game.",
+  "capture": "{move} snaps up the {piece} on {to_square} for free, winning material \u2014 when an enemy piece sits with nothing guarding it and it is safe to take, take it.",
+  "other": "{move} repositions your {piece} to {to_square}, a safer and more useful square \u2014 good habit: place each piece where it stays safe while doing the most work.",
+  "castle": "{move}: {piece} castles to safety on {to_square}, tucking your king into the corner and bringing a rook toward the center \u2014 castle early to get your king safe before the position opens up.",
+  "centralize": "{move} centralizes your {piece} on {to_square}, an active central square where it controls more of the board \u2014 put your pieces on central squares where they influence the most.",
+  "queen_safety": "{move} brings your {piece} back to {to_square}, off the open line and out of danger onto a calm square connected to your other pieces \u2014 when a piece feels exposed, move it to safety before pushing your own plans.",
+  "space": "{move} pushes your {piece} to {to_square}, grabbing space on that part of the board and giving your pieces room \u2014 when a pawn push gains space safely, it is usually worth playing.",
+  "luft": "{move} advances your {piece} to {to_square}, giving your king a little breathing room and denying your opponent a useful square \u2014 when nothing is urgent, quietly improving your king's safety is a good use of a move.",
+  "rook_activity": "{move} brings your {piece} to {to_square} where it stays active on a real target instead of sitting idle \u2014 put your rooks where they stay mobile and threaten something.",
+  "rook_open_file": "{move} brings your {piece} to {to_square}, seizing an open file where it controls the most squares \u2014 place your rooks on open files (columns with no pawns), where they reach the farthest."
+ }
+}

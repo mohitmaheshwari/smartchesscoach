@@ -51,6 +51,7 @@ MIGRATION STATUS (2026-05-26):
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -3447,6 +3448,12 @@ def inject_practical_severity_facts(
 # PIPELINE ENTRY POINT
 # ────────────────────────────────────────────────────────────────────
 
+# Distilled-caption rollout flag (default OFF). When "1"/"true", the caption TEXT is
+# replaced by the validated distilled-template render (services.distilled_caption_service)
+# when available; otherwise the existing R12 cascade caption is kept. Flip per env on the
+# server for a flag-gated rollout (off -> 10% -> 100%). See docs/caption_distillation_*.md.
+_DISTILLED_CAPTIONS_ENABLED = os.environ.get("DISTILLED_CAPTIONS_ENABLED", "0") not in ("0", "false", "False", "")
+
 
 def build_move_teaching_decision(
     inputs: MoveInputs,
@@ -4079,6 +4086,21 @@ def build_move_teaching_decision(
         caption_text=caption_payload.get("caption") or "",
         rule_name=caption_payload.get("rule_name") or "",
     )
+
+    # ─── DISTILLED CAPTIONS (flag-gated, default OFF) ────────────
+    # Swap the caption TEXT with the validated distilled-template render when one is
+    # available + engine-verified; all other surfaces (visual/teaching_meta/etc.) stay
+    # exactly as the pipeline produced them. Abstain (None) -> keep existing caption.
+    # Validated 91% coverage / 99% truth (backend/scripts/validate_everymove.py).
+    if _DISTILLED_CAPTIONS_ENABLED:
+        try:
+            from services.distilled_caption_service import try_distilled_caption as _tdc
+            _dc = _tdc(inputs)
+            if _dc and _dc[0]:
+                caption_payload["caption"] = _dc[0]
+                caption_payload["rule_name"] = _dc[1]
+        except Exception:
+            pass
 
     # ─── Build the decision ──────────────────────────────────────
     text = TextSurface(
