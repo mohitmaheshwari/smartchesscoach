@@ -1044,8 +1044,10 @@ async def get_game_gold_captions(
     caption. Empty for games that have not been gold-baked yet."""
     global db
     try:
-        rows = await db.authored_caption_overrides.find(
-            {"game_id": game_id, "source_feedback_id": {"$in": ["claude_gold_review", "claude_gold_review_opp"]}},
+        # gold_tester_captions is a SEPARATE store (not authored_caption_overrides) so the gold
+        # is shown only in the tester panel and does NOT mask the served (distilled/R12) caption.
+        rows = await db.gold_tester_captions.find(
+            {"game_id": game_id},
             {"_id": 0, "move_number": 1, "move_san": 1, "caption": 1},
         ).to_list(length=400)
     except Exception as e:
