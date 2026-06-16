@@ -1032,6 +1032,28 @@ async def get_game_decryption_v5(
         return {"error": str(e), "decryption_data": None}
 
 
+@router.get("/decryption/gold/{game_id}")
+async def get_game_gold_captions(
+    game_id: str,
+    user: User = Depends(get_current_user),
+):
+    """TESTER tool: per-move Claude GOLD captions for side-by-side evaluation on the
+    game-review UI. Reads pre-baked gold from authored_caption_overrides
+    (source_feedback_id claude_gold_review / _opp). Returns a map keyed by
+    "{move_number}:{move_san}" so the frontend can show the gold next to the served
+    caption. Empty for games that have not been gold-baked yet."""
+    global db
+    try:
+        rows = await db.authored_caption_overrides.find(
+            {"game_id": game_id, "source_feedback_id": {"$in": ["claude_gold_review", "claude_gold_review_opp"]}},
+            {"_id": 0, "move_number": 1, "move_san": 1, "caption": 1},
+        ).to_list(length=400)
+    except Exception as e:
+        return {"gold": {}, "count": 0, "error": str(e)[:80]}
+    gold = {f"{r.get('move_number')}:{r.get('move_san')}": r.get("caption") for r in rows if r.get("caption")}
+    return {"gold": gold, "count": len(gold)}
+
+
 @router.get("/decryption/per-move/{game_id}")
 async def get_per_move_captions(
     game_id: str,

@@ -200,6 +200,9 @@ const GameAnalysis = ({ user }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [decryptionLoading, setDecryptionLoading] = useState(false);
   const [decryptionStatus, setDecryptionStatus] = useState(null);
+  // Tester-only: per-move Claude GOLD captions for side-by-side evaluation.
+  // Populated only for games that have been gold-baked (empty otherwise -> no panel).
+  const [goldMap, setGoldMap] = useState({});
   // Toggle: when ON show LLM-polished caption (caption_llm) if available;
   // when OFF show the deterministic template (caption). Persisted in
   // localStorage so it syncs with /admin/captions toggle.
@@ -296,6 +299,15 @@ const GameAnalysis = ({ user }) => {
       } catch (e) { console.error("Pattern misses fetch failed:", e); }
     })();
   }, [analysis, gameId]);
+
+  // Tester: fetch per-move Claude GOLD captions (empty for non-baked games -> no panel)
+  useEffect(() => {
+    if (!gameId) return;
+    fetch(`${API}/coach/decryption/gold/${gameId}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setGoldMap((d && d.gold) || {}))
+      .catch(() => setGoldMap({}));
+  }, [gameId]);
 
   // Fetch V5 decryption data
   useEffect(() => {
@@ -778,6 +790,20 @@ const GameAnalysis = ({ user }) => {
                           || currentMoveData.caption
                           || currentMoveData.narrative}
                       </p>
+
+                      {/* Claude Gold (tester) — side-by-side evaluation; only shows on
+                          gold-baked games (goldMap empty otherwise -> nothing renders). */}
+                      {currentMoveData
+                        && goldMap[`${currentMoveData.move_number}:${currentMoveData.move_san}`] && (
+                        <div className="mt-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/30">
+                          <div className="text-xs uppercase tracking-wide text-amber-400 font-medium mb-1">
+                            Claude gold (tester)
+                          </div>
+                          <p className="text-sm text-amber-100/90 leading-relaxed">
+                            {goldMap[`${currentMoveData.move_number}:${currentMoveData.move_san}`]}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Pattern Spotted — visual shape detector layer.
                           Only renders on moves where a shape was detected
