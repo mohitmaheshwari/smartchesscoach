@@ -27,7 +27,24 @@ On top of those three data sources sit **~5 recognizers** that each answer "whic
 
 ---
 
-## 2. Target state (one canonical source)
+## 1b. Phase-1 DATA FINDING (2026-06-17) — design revised
+
+Ran `scripts/analyze_opening_sources.py` (normalizes every entry to a family via `opening_normalizer`). The sources are **two granularities, not three copies of one list**:
+
+- **`opening_book` (66 entries)** = fine-grained move-sequence → caption. **25 normalize to "Other"** — specific lines (Bowdler, Giuoco, Two Knights…) with no family-level equivalent. Its **captions are unique** (the review-caption text nothing else has).
+- **`tree` (27) + `curriculum` (24)** = coarse **family**-level knowledge. **9 families appear in both** — this is the genuine duplicate (same family name + plans/golden_rules stored twice).
+
+**Implication:** merging all three into one FEN-keyed file (original §2 plan) is the WRONG shape — it flattens a legitimate two-layer design. Revised target below.
+
+## 2. Target state — REVISED (two layers, each single-source)
+
+**Layer A — Family knowledge base (the real duplicate to kill):** merge `tree` + `curriculum` into ONE family-level source (name, eco, white/black plans, golden_rules, repertoire setup_order, main_line, critical_positions, FEN patterns). ~30 families. PWC + tracking read this. *Adding a family = one edit here.*
+
+**Layer B — Recognition→caption index:** `opening_book` stays as the fine-grained move-sequence→caption recognizer (it's a different job/granularity), BUT references Layer-A families by id instead of re-storing family names/plans. Its per-line **captions remain** (unique). *Adding a recognized line+caption = one edit here.*
+
+The duplication we kill: the same FAMILY's facts living in BOTH tree and curriculum. The cross-layer link is by id, not copied data. "One edit" holds *within each layer*; a new family flows to PWC+tracking from one edit, a new recognized caption-line flows to review-captions from one edit.
+
+### (original single-canonical target — superseded by the finding above)
 
 **One canonical opening knowledge base, FEN-keyed, that every surface reads.**
 
