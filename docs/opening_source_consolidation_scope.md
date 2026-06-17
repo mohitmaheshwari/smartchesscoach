@@ -15,6 +15,15 @@
 
 **Recommendation:** close the big-merge plan. Optionally build the small family-identity registry and/or an add-opening scaffold. Everything below is superseded by this verdict (kept for the audit trail).
 
+### ✅ DELIVERED: add-opening scaffold (`scripts/add_opening.py`)
+
+One command stubs schema-correct entries for a new opening across all sources with a SINGLE identity (guards against duplicate/drift):
+```
+python scripts/add_opening.py --name "Vienna Game" --color white \
+    --moves "e4 e5 Nc3" --eco C25 --caption "Vienna Game. ..." --apply
+```
+Writes stubs to `opening_theory_tree.json` (theory), `opening_curriculum.json` (repertoire), `traps.json` (canonical traps home, `[]`), and the `_OPENINGS` recognizer in `opening_book.py`; leaves TODO placeholders for content. Dry-run by default; aborts if the opening already exists. This addresses the real pain ("multiple files per new opening") without merging the purpose-built KBs. Family-identity registry NOT built (low value) — revisit only if name-drift actually bites.
+
 ---
 
 **Status:** SUPERSEDED by the Final Verdict above. No code until Mohit approves.
