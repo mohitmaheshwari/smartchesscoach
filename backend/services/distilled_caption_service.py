@@ -23,6 +23,7 @@ except Exception:
     _DATA = {}
 MISTAKE_T = _DATA.get("templates", {})
 GOOD_T = _DATA.get("good_move_templates", {})
+OPP_T = _DATA.get("opp_move_templates", {})  # opponent-voice good-move templates
 
 
 def _upov(x, uc):
@@ -191,7 +192,16 @@ def _mistake_caption(inp, lab):
             return None
     except Exception:
         return None
-    tmpl = MISTAKE_T.get(lab) or _SEED_MISTAKE.get(lab)
+    is_user = bool(getattr(inp, "mover_is_user", True))
+    if not is_user:
+        # Opponent's error = a gift to the user. Only one_move_blunder reframes
+        # cleanly (its slots carry no player-voice); abstain on the rest so we
+        # never narrate the opponent's mistake in the player's voice.
+        if lab != "one_move_blunder":
+            return None
+        tmpl = _OPP_MISTAKE["one_move_blunder"]
+    else:
+        tmpl = MISTAKE_T.get(lab) or _SEED_MISTAKE.get(lab)
     if not tmpl:
         return None
     try:
@@ -205,6 +215,10 @@ def _mistake_caption(inp, lab):
     cap = re.sub(r"\s{2,}", " ", cap).replace(" .", ".").replace(" ,", ",").strip()
     return cap or None
 
+
+_OPP_MISTAKE = {
+    "one_move_blunder": "{played_san} leaves the {hung_piece} on {hung_square} hanging — you can win it with {opp_reply_san}. When your opponent drops a piece, take the free material.",
+}
 
 _SEED_MISTAKE = {
     "one_move_blunder": "{played_san} hangs your {hung_piece} on {hung_square} to {opp_reply_san}; instead play {best_san} — {best_purpose}. Before any capture or move, check what can recapture and count the material first.",
@@ -250,6 +264,9 @@ def _good_caption(inp):
         b = chess.Board(fb); mv = b.parse_san(san)
     except Exception:
         return None, None
+    is_user = bool(getattr(inp, "mover_is_user", True))
+    TSET = GOOD_T if is_user else OPP_T
+    prefix = "good_" if is_user else "opp_"
     pc = b.piece_at(mv.from_square)
     piece = P.get(pc.piece_type, "piece") if pc else "piece"
     to_sq = chess.square_name(mv.to_square)
@@ -258,12 +275,18 @@ def _good_caption(inp):
     elif b.is_capture(mv):
         # gate "free": only if the captured piece is undefended after the capture
         after = b.copy(); after.push(mv); target = b.piece_at(mv.to_square)
-        if target and len(after.attackers(not b.turn, mv.to_square)) == 0:
-            return ("good_capture_free", f"{san} snaps up the free {P[target.piece_type]}, winning material — when an enemy piece sits undefended and it is safe to take, take it.")
-        return ("good_recapture", f"{san} recaptures to keep material even — when your opponent takes, take back so you don't fall behind.")
+        free = bool(target and len(after.attackers(not b.turn, mv.to_square)) == 0)
+        if is_user:
+            if free:
+                return ("good_capture_free", f"{san} snaps up the free {P[target.piece_type]}, winning material — when an enemy piece sits undefended and it is safe to take, take it.")
+            return ("good_recapture", f"{san} recaptures to keep material even — when your opponent takes, take back so you don't fall behind.")
+        # opponent capturing
+        if free:
+            return ("opp_capture_free", f"{san} grabs your undefended {P[target.piece_type]} — before each move, check which of your pieces are unguarded so you don't hand over material.")
+        return ("opp_recapture", f"{san} recaptures to keep the material even — the trade is fair, so carry on with your own plan.")
     else:
         st = _subtype(b, mv)
-        if st and GOOD_T.get(st):
+        if st and TSET.get(st):
             gt = st
         elif pc and pc.piece_type == chess.PAWN:
             gt = "pawn"
@@ -271,7 +294,7 @@ def _good_caption(inp):
             gt = "develop"
         else:
             gt = "other"
-    tmpl = GOOD_T.get(gt) or GOOD_T.get("other")
+    tmpl = TSET.get(gt) or TSET.get("other")
     if not tmpl:
         return None, None
     try:
@@ -279,7 +302,7 @@ def _good_caption(inp):
     except Exception:
         return None, None
     import re
-    return ("good_" + gt, re.sub(r"\s{2,}", " ", cap).strip())
+    return (prefix + gt, re.sub(r"\s{2,}", " ", cap).strip())
 
 
 def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:

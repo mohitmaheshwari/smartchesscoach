@@ -68,5 +68,17 @@
     "luft": "{move} gives your king a little breathing room and denies your opponent a useful square — when nothing is urgent, quietly improving your king's safety is a good move.",
     "rook_activity": "{move} swings your {piece} onto a real target instead of leaving it idle — put your rooks where they stay mobile and threaten something.",
     "rook_open_file": "{move} seizes an open file where your {piece} controls the most squares — place your rooks on open files (columns with no pawns), where they reach the farthest."
+  },
+  "opp_move_templates": {
+    "develop": "{move} brings the opponent's {piece} into the game — keep pace: develop your own pieces and get your king castled.",
+    "pawn": "{move} grabs space for the opponent and frees their pieces — answer by fighting for the center and getting your own pieces active.",
+    "other": "{move} improves the opponent's {piece} — stay alert to their plan and keep your own pieces active and defended.",
+    "castle": "{move} tucks the opponent's king to safety — they can play freely now, so make sure your own king is safe too.",
+    "centralize": "{move} plants the opponent's {piece} on an active central square — note what it now attacks and keep those squares defended.",
+    "queen_safety": "{move} tucks the opponent's {piece} back to safety — no free attack on it now, so carry on with your own plan.",
+    "space": "{move} grabs space for the opponent on that side — meet it by striking in the center or claiming space of your own.",
+    "luft": "{move} gives the opponent's king an escape square — no back-rank tricks there now, so look elsewhere for your plan.",
+    "rook_activity": "{move} activates the opponent's {piece} on a target — watch what it threatens and keep that area defended.",
+    "rook_open_file": "{move} swings the opponent's {piece} onto an open file — contest the file with your own rook before they dominate it."
   }
 }
