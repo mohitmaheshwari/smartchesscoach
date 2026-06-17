@@ -4,18 +4,20 @@
 **Method:** codebase sweep (Explore agent) for concepts encoded in >1 place. Enforcement principle + procedure: `/single-source-of-truth` skill; standing rule: memory `feedback_single_source_of_truth`.
 **ADD-COST** = number of files you must edit to add ONE new item of that concept.
 
-> Note on counts: top-level *opening* counts in the consolidation scope (24 / 28 / 67) are distinct openings; the agent's higher numbers (166 / 97) count nested lesson/line entries. Same sources, different granularity.
+> ⚠️ **Audit findings are HYPOTHESES, not facts.** This register was first produced by an Explore agent and **over-flagged**. Live verification (loading each source in the container) corrected several. **Always verify a duplication live before scoping it** — the `/single-source-of-truth` skill's "distinguish real duplicate from legitimate concern" step exists for exactly this. Verified status below.
 
-## Ranked findings
+> Note on counts: top-level *opening* counts (24 / 28 / 67) are distinct openings; the agent's higher numbers (166 / 97) counted nested lesson/line entries.
 
-| # | Concept | Sources | ADD-COST | Verdict |
+## Ranked findings (post-verification)
+
+| # | Concept | Sources | ADD-COST | Verified verdict |
 |---|---|---|---|---|
-| 1 | **Traps** | `data/traps.json` (~41) **+** traps nested in `data/coaching/opening_theory_tree.json` | **6+** | DUPLICATE — `trap_library.py` reads one, `verified_opening_traps.py` reads the other; no canonical authority |
-| 2 | **Openings** | `opening_curriculum.json` **+** `opening_theory_tree.json` **+** `opening_book.py` `_OPENINGS` (inline) | **3–4 + recognizers** | DUPLICATE — see `opening_source_consolidation_scope.md` |
-| 3 | **Move severity thresholds** | `services/severity.py` (canonical, Mohit-locked 2026-05-25) **+** inline per-band thresholds in `realtime_coaching_feedback.py` | **2** | INVESTIGATE — may be a true duplicate OR legitimately different (cp_loss vs eval-delta). Decide + lock or reconcile. |
-| 4 | **Endgames** | `data/endgames.json` **+** `data/coaching/endgame_theory_tree.json` | **2** | DUPLICATE — `endgame_teaching.py` vs `endgame_theory_service.py` read different ones |
-| 5 | **ECO / opening-name normalization** | `data/eco_openings.json` (reference) **+** hardcoded names in `opening_normalizer.py` | **2** | PARTIAL — normalizer should source canonical names FROM eco_openings.json, not hardcode |
-| 6 | **Caption principles** | `data/captions/principle_bank.json` **+** `services/caption_principles.py` (110+ hand-authored dict) | **2–3** | INVESTIGATE — both answer "what principle should this caption teach?"; clarify split or merge |
+| 1 | **Openings** | `opening_curriculum.json` (24) **+** `opening_theory_tree.json` (28) **+** `opening_book.py` `_OPENINGS` (67, inline) | **3–4 + recognizers** | ✅ **REAL** — three populated lists, different recognizers. Scoped → `opening_source_consolidation_scope.md`. |
+| 2 | **Endgames** | `data/endgames.json` (6 flat lessons) **+** `data/coaching/endgame_theory_tree.json` (7 categories) | 2 | ❓ **UNCONFIRMED** — different *structures* (flat named lessons vs category tree). Verify FEN/content overlap before calling it a duplicate; may be legitimately different teaching organizations. |
+| 3 | **ECO / opening-name normalization** | `data/eco_openings.json` (reference) **+** hardcoded names in `opening_normalizer.py` | 2 | ❓ **PARTIAL/UNVERIFIED** — normalizer *should* source canonical names FROM eco_openings.json rather than hardcode. Verify before scoping. |
+| 4 | **Caption principles** | `data/captions/principle_bank.json` **+** `services/caption_principles.py` | 2–3 | ❓ **UNVERIFIED** — do both answer "what principle?" Check overlap before scoping. |
+| — | ~~**Traps**~~ | `data/traps.json` (54) | **1** | ❌ **FALSE POSITIVE** — `traps.json` is the SINGLE source. Both `trap_library.py` and `verified_opening_traps.py` read it (the latter via `_load_traps_from_library_json`, wired 2026-06-09). The `opening_theory_tree.json` trap branch loads **0** (vestigial dead code). Adding a trap = edit `traps.json` only. *Optional tidy:* delete the dead `_load_traps_from_json()` theory-tree branch that misled this audit. |
+| — | ~~**Move severity**~~ | `severity.py` (cp_loss tiers) **+** `realtime_coaching_feedback._classify_move_quality` (eval-delta, rating-band) | n/a | ⚠️ **NOT A SIMPLE DUPLICATE** — two genuinely different models (cp_loss caption tiers vs the rating-aware eval-delta differentiator). Their divergence is the already-documented **PWC-second-engine** issue (`project_pwc_runs_second_coaching_engine`), not a file merge. |
 
 ## Healthy (single source — leave alone, use as the model)
 
@@ -26,13 +28,15 @@
 | Pattern/puzzle taxonomy | `data/pattern_catalog.json` | ~15 readers, schema-documented |
 | Caption RULE templates | `data/captions/*.json` via one loader (`caption_templates.py`) | centralized directory + single loader |
 
-## Recommended order of attack (each = its own scope-driven consolidation)
+## Recommended order of attack (post-verification)
 
-1. **Openings** — scope already drafted (`opening_source_consolidation_scope.md`). Canonical = FEN-keyed `opening_theory_tree.json`.
-2. **Traps** — highest ADD-COST (6+). Pick canonical (likely fold standalone `traps.json` into the opening theory tree, or make `traps.json` canonical and reference from the tree). One trap reader.
-3. **Move severity** — quick + high-value: confirm whether `realtime_coaching_feedback.py` should import `severity.py`; reconcile or document+lock the intentional split.
-4. **Endgames** — mirror the openings/traps decision (one tree is canonical; deprecate the flat file or make it a view).
-5. **ECO normalization** — `opening_normalizer.py` reads names from `eco_openings.json`.
-6. **Caption principles** — decide if `principle_bank.json` and `caption_principles.py` are one concept; merge if so.
+1. **Openings** — the one CONFIRMED clean duplicate. Scope drafted (`opening_source_consolidation_scope.md`). Canonical = FEN-keyed `opening_theory_tree.json`. **Ready for sign-off.**
+2. **Endgames** — first VERIFY content overlap (do the 6 flat lessons duplicate positions in the 7-category tree?). Only scope if overlap is real.
+3. **ECO normalization** — VERIFY, then likely a small fix: `opening_normalizer.py` reads canonical names from `eco_openings.json` instead of hardcoding.
+4. **Caption principles** — VERIFY whether `principle_bank.json` and `caption_principles.py` encode the same thing before scoping.
 
-Each consolidation: pick canonical → migrate readers to it → collapse duplicate recognizers/loaders to one → add a guard test ("adding one item = one file; no reader references a retired source"). Do NOT start any without a signed-off scope.
+**Not on the list (verified away):**
+- **Traps** — false positive; already single-source (`traps.json`). Optional 5-min tidy: delete the dead `_load_traps_from_json()` theory-tree branch.
+- **Move severity** — not a file-merge; it's the known PWC-second-engine divergence (already memorialized). Handle there, not here.
+
+Each real consolidation: pick canonical → migrate readers → collapse duplicate recognizers/loaders to one → guard test ("adding one item = one file; no reader references a retired source"). **Verify the duplication is real, then get a signed-off scope, before any code.**
