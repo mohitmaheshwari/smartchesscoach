@@ -26,7 +26,10 @@ def main():
     for m in dd:
         san = m.get("move_san")
         existing = (m.get("narrative") or "").strip()
-        if existing:
+        # Regenerate our OWN prior distilled output (so template fixes take
+        # effect on re-run); preserve any non-distilled (live/original) caption.
+        is_ours = str(m.get("rule_name") or "").startswith("distilled:")
+        if existing and not is_ours:
             kept += 1
             hist.append(san)
             continue

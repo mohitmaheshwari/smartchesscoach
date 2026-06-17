@@ -259,8 +259,8 @@ def _good_caption(inp):
         # gate "free": only if the captured piece is undefended after the capture
         after = b.copy(); after.push(mv); target = b.piece_at(mv.to_square)
         if target and len(after.attackers(not b.turn, mv.to_square)) == 0:
-            return ("good_capture_free", f"{san} snaps up the {P[target.piece_type]} on {to_sq} for free — when an enemy piece sits undefended and it is safe to take, take it.")
-        return ("good_recapture", f"{san} captures on {to_sq}; when your opponent takes, look to recapture and keep material even.")
+            return ("good_capture_free", f"{san} snaps up the free {P[target.piece_type]}, winning material — when an enemy piece sits undefended and it is safe to take, take it.")
+        return ("good_recapture", f"{san} recaptures to keep material even — when your opponent takes, take back so you don't fall behind.")
     else:
         st = _subtype(b, mv)
         if st and GOOD_T.get(st):
