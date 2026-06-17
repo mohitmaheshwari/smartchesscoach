@@ -49,48 +49,11 @@ class VerifiedOpeningTrap:
 
 # ─── LOAD FROM JSON ──────────────────────────────────────────────
 
-def _load_traps_from_json() -> Dict[str, VerifiedOpeningTrap]:
-    """Load all traps from opening_theory_tree.json."""
-    tree_path = os.path.join(os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json")
-    registry = {}
-    try:
-        with open(tree_path, encoding="utf-8") as f:
-            tree = json.load(f)
-    except Exception as e:
-        logger.warning(f"[TRAPS] Could not load opening_theory_tree.json: {e}")
-        return registry
-
-    for opening_key, opening in tree.items():
-        if not isinstance(opening, dict) or opening_key.startswith("_"):
-            continue
-        traps_list = opening.get("traps", [])
-        for trap_data in traps_list:
-            trap_id = trap_data.get("trap_id", "")
-            if not trap_id:
-                continue
-            try:
-                trap = VerifiedOpeningTrap(
-                    trap_id=trap_id,
-                    name=trap_data.get("name", ""),
-                    opening_key=opening_key,
-                    opening_name=opening.get("name", ""),
-                    variation_name=trap_data.get("variation", "") or "",
-                    setup_moves=trap_data.get("setup_moves", []),
-                    full_line=trap_data.get("full_line", []),
-                    trap_move=trap_data.get("trap_move", ""),
-                    explanation=trap_data.get("explanation", ""),
-                    refutation=trap_data.get("refutation", ""),
-                    victim_color=trap_data.get("victim_color", ""),
-                    trap_for=trap_data.get("trap_for", ""),
-                    difficulty=trap_data.get("difficulty", "beginner"),
-                    category=trap_data.get("category", "trap"),
-                )
-                registry[trap_id] = trap
-            except Exception as e:
-                logger.warning(f"[TRAPS] Failed to load trap {trap_id}: {e}")
-
-    logger.info(f"[TRAPS] Loaded {len(registry)} traps from JSON")
-    return registry
+# NOTE (2026-06-17): a second loader `_load_traps_from_json()` used to read traps
+# from data/coaching/opening_theory_tree.json, but that file has never held any
+# `traps` entries — it always loaded 0 and only existed to mislead (it caused a
+# duplicate-source audit to wrongly flag traps as duplicated). Removed. The single
+# source of trap content is data/traps.json (see _load_traps_from_library_json).
 
 
 def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
@@ -158,10 +121,9 @@ def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
     return registry
 
 
-ALL_REGISTRY = _load_traps_from_json()
-# The theory-tree source above is currently empty; the real admin-editable trap
-# content lives in data/traps.json. Merge it so PWC trap detection actually fires.
-ALL_REGISTRY.update(_load_traps_from_library_json())
+# Single source: the admin-editable trap content in data/traps.json, mapped into
+# the VerifiedOpeningTrap shape. Add a new trap by editing data/traps.json only.
+ALL_REGISTRY = _load_traps_from_library_json()
 VERIFIED_TRAP_REGISTRY = {k: v for k, v in ALL_REGISTRY.items() if v.category == "trap"}
 OPENING_WARNINGS = {k: v for k, v in ALL_REGISTRY.items() if v.category == "warning"}
 

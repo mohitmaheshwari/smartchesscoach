@@ -13,7 +13,7 @@
 | # | Concept | Sources | ADD-COST | Verified verdict |
 |---|---|---|---|---|
 | 1 | **Openings** | `opening_curriculum.json` (24) **+** `opening_theory_tree.json` (28) **+** `opening_book.py` `_OPENINGS` (67, inline) | **3–4 + recognizers** | ✅ **REAL** — three populated lists, different recognizers. Scoped → `opening_source_consolidation_scope.md`. |
-| 2 | **Endgames** | `data/endgames.json` (6 flat lessons) **+** `data/coaching/endgame_theory_tree.json` (7 categories) | 2 | ❓ **UNCONFIRMED** — different *structures* (flat named lessons vs category tree). Verify FEN/content overlap before calling it a duplicate; may be legitimately different teaching organizations. |
+| 2 | **Endgames** | `data/endgames.json` (6 flat lessons, each w/ `setup_fen`) **+** `data/coaching/endgame_theory_tree.json` (7 categories, ~18 lessons) | 2 | ✅ **CONFIRMED partial duplicate** (verified 2026-06-17) — 4 of 6 concepts taught in BOTH with separate, drift-prone content: opposition↔opposition, rule_of_square↔square_rule, lucena_position↔lucena, philidor_position↔philidor. Flat file uniquely has 2 basic mates; tree uniquely has ~14 concepts. **Two reader sets:** flat → endgame_teaching/PWC coach_play/postgame/caption_principles; tree → endgame_theory_service/teaching_engine catalog/training_advanced/concept_mastery. Worth a scope (canonical = the richer **theory tree**; fold the 2 mates in; repoint flat-file readers; deprecate `endgames.json`). Lower priority than openings. |
 | 3 | **ECO / opening-name normalization** | `data/eco_openings.json` (reference) **+** hardcoded names in `opening_normalizer.py` | 2 | ❓ **PARTIAL/UNVERIFIED** — normalizer *should* source canonical names FROM eco_openings.json rather than hardcode. Verify before scoping. |
 | 4 | **Caption principles** | `data/captions/principle_bank.json` **+** `services/caption_principles.py` | 2–3 | ❓ **UNVERIFIED** — do both answer "what principle?" Check overlap before scoping. |
 | — | ~~**Traps**~~ | `data/traps.json` (54) | **1** | ❌ **FALSE POSITIVE** — `traps.json` is the SINGLE source. Both `trap_library.py` and `verified_opening_traps.py` read it (the latter via `_load_traps_from_library_json`, wired 2026-06-09). The `opening_theory_tree.json` trap branch loads **0** (vestigial dead code). Adding a trap = edit `traps.json` only. *Optional tidy:* delete the dead `_load_traps_from_json()` theory-tree branch that misled this audit. |
@@ -31,7 +31,7 @@
 ## Recommended order of attack (post-verification)
 
 1. **Openings** — the one CONFIRMED clean duplicate. Scope drafted (`opening_source_consolidation_scope.md`). Canonical = FEN-keyed `opening_theory_tree.json`. **Ready for sign-off.**
-2. **Endgames** — first VERIFY content overlap (do the 6 flat lessons duplicate positions in the 7-category tree?). Only scope if overlap is real.
+2. **Endgames** — ✅ overlap VERIFIED real (4/6 concepts in both). Scope when ready: canonical = `endgame_theory_tree.json`; fold the 2 unique basic mates in; repoint flat-file readers (PWC/postgame/captions); deprecate `endgames.json`.
 3. **ECO normalization** — VERIFY, then likely a small fix: `opening_normalizer.py` reads canonical names from `eco_openings.json` instead of hardcoding.
 4. **Caption principles** — VERIFY whether `principle_bank.json` and `caption_principles.py` encode the same thing before scoping.
 
