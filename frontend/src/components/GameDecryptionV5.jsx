@@ -183,7 +183,20 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [coachLinePlaybackIdx, setCoachLinePlaybackIdx] = useState(-1);
   const [coachLineStepIndex, setCoachLineStepIndex] = useState(-1);
 
+  // TESTER: Claude-gold captions for side-by-side evaluation. Keyed by
+  // "{move_number}:{move_san}". Empty for games that haven't been gold-baked,
+  // so the gold panel only renders where gold exists.
+  const [goldMap, setGoldMap] = useState({});
+
   useEffect(() => { fetchDecryptionData(); }, [gameId]);
+
+  useEffect(() => {
+    if (!gameId) return;
+    fetch(`${API}/coach/decryption/gold/${gameId}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setGoldMap((d && d.gold) || {}))
+      .catch(() => setGoldMap({}));
+  }, [gameId]);
 
   // Mohit 2026-06-01: `?move=N` URL on /game/:gameId should jump the
   // walkthrough board to the user's move N.
@@ -1090,6 +1103,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           <MoveCoachingCardV5
             move={currentMove}
             gameId={gameId}
+            goldCaption={currentMove ? goldMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
             acknowledgedConcepts={acknowledgedConcepts}
             onAcknowledge={acknowledgeConceptHandler}
             onShowFutureMoves={showFutureMoves}
@@ -1361,6 +1375,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, coachSummar
 const MoveCoachingCardV5 = ({
   move,
   gameId,
+  goldCaption,
   acknowledgedConcepts,
   onAcknowledge,
   onShowFutureMoves,
@@ -1489,6 +1504,11 @@ const MoveCoachingCardV5 = ({
         {/* ─── NARRATIVE ────────────────────────────────────── */}
         {move.narrative && (
           <div className="leading-relaxed group" data-testid="move-narrative">
+            {goldCaption && (
+              <div className="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold mb-1">
+                ChessGuru
+              </div>
+            )}
             <ClickableCaption
               text={move.narrative}
               fen={move.fen_before}
@@ -1496,6 +1516,20 @@ const MoveCoachingCardV5 = ({
               className="text-sm text-gray-700"
             />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
+          </div>
+        )}
+
+        {/* ─── CLAUDE GOLD (tester) ──────────────────────────── */}
+        {/* Side-by-side gold benchmark for on-the-fly evaluation. Only
+            renders on gold-baked moves (goldCaption empty otherwise). */}
+        {goldCaption && (
+          <div className="mt-2 pt-3 border-t border-amber-300/50" data-testid="move-gold-caption">
+            <div className="text-[11px] uppercase tracking-wide text-amber-600 font-semibold mb-1">
+              Claude gold (tester)
+            </div>
+            <p className="text-sm text-amber-900/90 leading-relaxed whitespace-pre-line">
+              {goldCaption}
+            </p>
           </div>
         )}
 
