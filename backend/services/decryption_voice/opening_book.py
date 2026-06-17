@@ -77,6 +77,11 @@ _OPENINGS = [
         "caption": "Sicilian Defense. Black plays asymmetrically — fights for the centre with a c-pawn instead of e-pawn.",
     },
     {
+        "moves": ["e4", "c5", "Bc4"],
+        "name": "sicilian_bowdler",
+        "caption": "Bowdler Attack against the Sicilian. Your bishop on c4 eyes f7, the weakest square in Black's camp — an aggressive, offbeat try.",
+    },
+    {
         "moves": ["e4", "c5", "Nf3", "d6"],
         "name": "sicilian_najdorf_or_classical",
         "caption": "Sicilian, classical setup. Black prepares a flexible kingside with ...Nf6 and ...e6 or ...g6.",

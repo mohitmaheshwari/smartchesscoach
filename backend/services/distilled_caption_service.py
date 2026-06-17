@@ -305,12 +305,34 @@ def _good_caption(inp):
     return (prefix + gt, re.sub(r"\s{2,}", " ", cap).strip())
 
 
+def _opening_caption(inp):
+    """Name the opening (highest teaching value in the opening phase) using the
+    deterministic opening_book recognizer. Fires only when the just-played move
+    COMPLETES a recognized named line — returns its curated teaching caption."""
+    try:
+        from services.decryption_voice.opening_book import recognize_opening_from_history
+        hist = list(getattr(inp, "move_history_san", []) or []) + [inp.played_san]
+        ob = recognize_opening_from_history(hist)
+        if ob and ob.get("caption"):
+            return (ob["caption"], "distilled:opening:" + (ob.get("name") or "book"))
+    except Exception:
+        pass
+    return None
+
+
 def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:
     """Entry point. Returns (caption, rule_name) or None (abstain). NO LLM, NO DB."""
     if not GOOD_T and not MISTAKE_T:
         return None
     try:
         cp = inp.cp_loss or 0
+        # Opening identity first: a book move that completes a named opening is
+        # taught by NAME (Sicilian/Italian/...) — more valuable than a generic
+        # move-type caption. Only for non-mistakes; a blunder's coaching wins.
+        if cp < 100:
+            oc = _opening_caption(inp)
+            if oc:
+                return oc
         if cp >= 100:
             lab = _classify_mistake(inp)
             if not lab:
