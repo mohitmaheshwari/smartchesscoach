@@ -57,28 +57,28 @@
   },
   "defer_count": 204,
   "good_move_templates": {
-    "develop": "{move} develops your {piece} toward the center and into the game — in the opening, get your knights and bishops off the back row early so you can castle and fight for the center.",
-    "pawn": "{move} fights for space and frees your other pieces to come out — in the opening, make moves that give your pieces room to join the game.",
+    "develop": "Nice move. You bring your {piece} out with {move}, and now it can help your other pieces. Getting your pieces out early like this is a good habit. Lesson: bring your pieces out fast so they can help you, and keep your king safe.",
+    "pawn": "You moved your {piece} with {move}. This helps guard your other pieces and opens a path so more of your friends can come out and join the game. Lesson: in the start, put a pawn in the middle and let your pieces come out to play.",
     "capture": "{move} wins free material — when an enemy piece sits undefended and it is safe to take, take it.",
-    "other": "{move} improves your {piece} onto a safer, more useful square — good habit: place each piece where it stays safe while doing the most work.",
-    "castle": "{move} castles your king to safety and brings a rook toward the center — castle early to get your king safe before the position opens up.",
-    "centralize": "{move} brings your {piece} to an active central square where it controls more of the board — put your pieces on central squares where they do the most work.",
-    "queen_safety": "{move} retreats your {piece} off the open line onto a calm, safe square connected to your other pieces — when a piece feels exposed, move it to safety before pushing forward.",
-    "space": "{move} grabs space on that side of the board and gives your pieces more room — when a pawn push gains space safely, it is usually worth playing.",
-    "luft": "{move} gives your king a little breathing room and denies your opponent a useful square — when nothing is urgent, quietly improving your king's safety is a good move.",
-    "rook_activity": "{move} swings your {piece} onto a real target instead of leaving it idle — put your rooks where they stay mobile and threaten something.",
-    "rook_open_file": "{move} seizes an open file where your {piece} controls the most squares — place your rooks on open files (columns with no pawns), where they reach the farthest."
+    "other": "Good move. You moved your {piece} to a calm, safe spot with {move}. From here it can do more later. Lesson: when the game is quiet, put each piece on a safe square where it can help you.",
+    "castle": "You played {move} to put your {piece} in a safe spot. Good job, that is a smart move. Now bring your other pieces into the game and keep watching over your king. Lesson: make your king safe early so you can play with a calm mind.",
+    "centralize": "Nice move. Your {piece} comes out to a good, safe spot where it can do more. Sometimes a different move like another piece coming out or a pawn push is a tiny bit better, but {move} is totally fine, so do not worry. Lesson: bring your pieces out early to good squares so they can help you.",
+    "queen_safety": "You played {move} to bring your {piece} back to a safe spot. That keeps it safe, but it does not do much. Lesson: keep your {piece} safe, but try to make every move do a real job.",
+    "space": "You pushed your {piece} with {move} and grabbed a little space on the side. That can be okay, but first try to get your other pieces out and your king safe, then push side pawns later. Lesson: bring your pieces out and make your king safe before you push side pawns.",
+    "luft": "Your move {move} pushes your {piece} to make a little air for your king. This can be a fine and safe move, but first make sure your king is safe and you are not wasting a turn. Lesson, a small pawn push by your king can give it room, but keep your king safe before you push pawns next to it.",
+    "rook_activity": "You moved your {piece} to {move}. From here your {piece} is active and eyes a target, which is good. Lesson: keep your {piece} busy and pointing at something useful.",
+    "rook_open_file": "Nice move. Your {piece} goes to {move}. Now it stands on an open file with no pawns in the way, so it can see far and do real work. Lesson: put your {piece}s on open lines where they can reach far and stay busy."
   },
   "opp_move_templates": {
-    "develop": "{move} brings the opponent's {piece} into the game — keep pace: develop your own pieces and get your king castled.",
-    "pawn": "{move} grabs space for the opponent and frees their pieces — answer by fighting for the center and getting your own pieces active.",
-    "other": "{move} improves the opponent's {piece} — stay alert to their plan and keep your own pieces active and defended.",
-    "castle": "{move} tucks the opponent's king to safety — they can play freely now, so make sure your own king is safe too.",
-    "centralize": "{move} plants the opponent's {piece} on an active central square — note what it now attacks and keep those squares defended.",
-    "queen_safety": "{move} tucks the opponent's {piece} back to safety — no free attack on it now, so carry on with your own plan.",
-    "space": "{move} grabs space for the opponent on that side — meet it by striking in the center or claiming space of your own.",
-    "luft": "{move} gives the opponent's king an escape square — no back-rank tricks there now, so look elsewhere for your plan.",
-    "rook_activity": "{move} activates the opponent's {piece} on a target — watch what it threatens and keep that area defended.",
-    "rook_open_file": "{move} swings the opponent's {piece} onto an open file — contest the file with your own rook before they dominate it."
+    "develop": "Your opponent brought their {piece} out into the game with {move}. This is a normal, safe move that gets their pieces ready, so look at what it now points to and keep your own king safe. Lesson: bring your pieces out early so they can help you.",
+    "pawn": "Your opponent moved a {piece} with {move}. See what it touches or blocks, then bring your own pieces out and keep your king safe. Lesson: when your opponent pushes a pawn, stay calm and get your pieces ready to play.",
+    "other": "Your opponent moved their {piece} with {move}. This is a quiet, calm move and does not really hit anything of yours, so do not worry. Now it is your turn, so pick a safe, useful move and keep your own king safe too. Lesson: when your opponent makes a quiet move, stay calm and find a smart plan of your own.",
+    "castle": "Your opponent played {move} to put their king in a safe spot. Their {piece} is now tucked away in the corner, so it is harder for you to attack it. Make a plan of your own and keep playing calmly. The lesson is simple: make your own king safe early too.",
+    "centralize": "Your opponent moved their {piece} with {move} to a strong spot in the middle. Look right away to see if you can just take it for free or push it away with a smaller piece. Lesson: when a piece comes near, first check if you can take it or chase it off.",
+    "queen_safety": "Your opponent moved the {piece} with {move}. Now it is your turn, so look for the safest and best move you can make. Lesson, when your opponent moves a piece, ask what it now does and keep your own pieces safe.",
+    "space": "Your opponent just played {move}, pushing a pawn to grab more room on the board. This gives their {piece} more space, so be ready and do not let them push you back. Keep playing your own plan and bring your pieces to good, safe squares. Lesson: when the other side gains space, stay calm and make your own pieces strong.",
+    "luft": "Your opponent played {move}. This makes a little safe spot for the king and stops back row tricks, but it is a slow move that does not help much. You can keep on with your own plan, and watch if that {piece} pokes one of your pieces and asks it to move. Lesson: a small, quiet pawn move is slow, so use your turn to bring a piece out instead.",
+    "rook_activity": "Your opponent moved their {piece} with {move}. Now it is active and eyes a target on your side. Look at what it points to, and keep that piece and your king safe. Lesson: when your opponent's rook gets active, see what it aims at and guard it.",
+    "rook_open_file": "Your opponent played {move} and put the {piece} on an open line. Now it can look far down that line at your pieces, so check what it is aiming at. Keep your pieces safe and watch your king. Lesson: when a {piece} moves to an open line, look at what it attacks before you move."
   }
 }
