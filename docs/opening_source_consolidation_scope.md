@@ -1,6 +1,23 @@
 # Opening Source Consolidation — Scope
 
-**Status:** Draft for sign-off. No code until Mohit approves.
+## ★ FINAL VERDICT (2026-06-17, after full data inspection)
+
+**A big openings merge is NOT warranted.** Verified field-by-field, the "3-source duplication" is largely a mirage — every source is purpose-built and they share essentially only the family **name**:
+- `opening_book` (66) = move→caption recognizer (unique caption text).
+- `opening_theory_tree` (27) = theory lines / critical positions.
+- `opening_curriculum` (24) = repertoire setup_order / golden_rules / lessons.
+- tree↔curriculum real overlap = `name` only (plans are different text for different purposes).
+- curriculum traps vs traps.json = 11 shared *names* but different schema/purpose (avoid-warning vs execute-line) — not a redundant copy.
+
+**The only genuine cross-source duplicate is family IDENTITY** (name + aliases + eco), independently declared across ~6 places (tree keys, curriculum keys, opening_book names, traps.json keys, eco_openings, normalizer `_PRIORITY_MATCHES`) — which is why `opening_normalizer` exists to paper over "Grunfeld/Gruenfeld/Grünfeld" drift. The defensible fix is a small **family-identity registry** (id→name/aliases/eco/color) that surfaces reference for identity, while each keeps its own purpose-specific content. Low-to-medium value (kills name-drift; lets a future "add-an-opening" scaffold key off it). The rich KBs are NOT merged.
+
+**The user's real pain** ("multiple files to add a new opening") is NOT a single-source violation — it's that 3 surfaces need genuinely different content. The fix for *that* is a **scaffold/generator** (one command stubs entries in all relevant files), not a merge.
+
+**Recommendation:** close the big-merge plan. Optionally build the small family-identity registry and/or an add-opening scaffold. Everything below is superseded by this verdict (kept for the audit trail).
+
+---
+
+**Status:** SUPERSEDED by the Final Verdict above. No code until Mohit approves.
 **Date:** 2026-06-17
 **Why now:** Adding one new opening currently requires editing up to **3 separate sources** across 2 JSON files and 1 hardcoded Python list. The original "one edit" directive ([[project_opening_tracking_one_edit]]) was only ever implemented for the tracking subsystem; the caption and PWC subsystems each kept their own opening list. This scope makes "add an opening = one edit" true across **all** surfaces.
 
@@ -35,6 +52,19 @@ Ran `scripts/analyze_opening_sources.py` (normalizes every entry to a family via
 - **`tree` (27) + `curriculum` (24)** = coarse **family**-level knowledge. **9 families appear in both** — this is the genuine duplicate (same family name + plans/golden_rules stored twice).
 
 **Implication:** merging all three into one FEN-keyed file (original §2 plan) is the WRONG shape — it flattens a legitimate two-layer design. Revised target below.
+
+## 1c. Phase-1b DEEPER FINDING (2026-06-17) — "Layer A merge" is NOT warranted
+
+Inspected shared families field-by-field (e.g. `italian_game` in both tree + curriculum):
+- **tree fields:** name, eco_prefix, main_line, white_plan, black_plan, critical_positions, variations, move_ideas (THEORY).
+- **curriculum fields:** name, color, summary, difficulty, setup_order, golden_rules, traps, tree, middlegame_plans, endgame_tips (REPERTOIRE/LESSONS).
+- **Real overlap = the `name` only.** Plans are different *text* for different purposes. Merging tree+curriculum would FUSE two purpose-built KBs, not de-duplicate. **Do not merge them.**
+
+**The genuine duplicate is TRAPS, not family theory:** `opening_curriculum.json` embeds **13 traps, 11 of which already exist in the canonical `data/traps.json`** (Fried Liver, Legal's Mate, Elephant Trap, Englund Gambit, Caro-Kann Smothered Mate, Magnus Smith, …). Same trap, two files.
+
+**Corrected Layer-A target:** make `opening_curriculum_engine` read traps from the canonical `traps.json` (via `trap_library`) and **remove the embedded `traps` arrays from `opening_curriculum.json`**. The only other (minor) shared fact is the family `name` — optional tiny family-identity registry, low priority.
+
+### (the two-layer target below is superseded by 1c — kept for history)
 
 ## 2. Target state — REVISED (two layers, each single-source)
 
