@@ -230,6 +230,11 @@ _SEED_MISTAKE = {
 }
 
 
+def _material(board, color):
+    """Total material (pawns..queen; king excluded) for one side, in centipawns."""
+    return sum(VAL[pt] * len(board.pieces(pt, color)) for pt in VAL)
+
+
 def _subtype(board, mv):
     pc = board.piece_at(mv.from_square)
     if not pc:
@@ -243,14 +248,20 @@ def _subtype(board, mv):
             return "centralize"
     elif pt == chess.ROOK:
         f = chess.square_file(mv.to_square)
-        own = any((p := board.piece_at(chess.square(f, r))) and p.piece_type == chess.PAWN and p.color == mover for r in range(8))
-        return "rook_activity" if own else "rook_open_file"
+        # "open file" requires NO pawns of EITHER colour on the file. A file with an
+        # enemy pawn is HALF-open, not open -> use activity framing, never "no pawns".
+        any_pawn = any((p := board.piece_at(chess.square(f, r))) and p.piece_type == chess.PAWN for r in range(8))
+        return "rook_activity" if any_pawn else "rook_open_file"
     elif pt in (chess.KNIGHT, chess.BISHOP) and mv.to_square in CENTRAL:
         return "centralize"
     elif pt == chess.PAWN:
         ff = chess.square_file(mv.from_square); tf = chess.square_file(mv.to_square)
         adv = abs(chess.square_rank(mv.to_square) - chess.square_rank(mv.from_square))
-        if ff == tf and ff in (0, 7) and adv == 1:
+        # luft = a shelter pawn one step ahead of the king -> only if the king is on
+        # that side. An a/h-pawn push far from the king is just space, not king safety.
+        ksq = board.king(mover)
+        near_king = ksq is not None and abs(chess.square_file(ksq) - tf) <= 1
+        if ff == tf and ff in (0, 7) and adv == 1 and near_king:
             return "luft"
         if ff == tf and ff in (0, 1, 6, 7) and adv >= 1:
             return "space"
@@ -273,18 +284,26 @@ def _good_caption(inp):
     if san in ("O-O", "O-O-O"):
         gt = "castle"
     elif b.is_capture(mv):
-        # gate "free": only if the captured piece is undefended after the capture
         after = b.copy(); after.push(mv); target = b.piece_at(mv.to_square)
-        free = bool(target and len(after.attackers(not b.turn, mv.to_square)) == 0)
+        recapturable = bool(target and len(after.attackers(not b.turn, mv.to_square)) > 0)
+        # mover already behind => this capture is restoring lost material (a trade/
+        # recapture), NOT winning free material.
+        mover_behind = (_material(b, b.turn) - _material(b, not b.turn)) <= -100
+        free = bool(target) and not recapturable and not mover_behind
+        tgt = P.get(target.piece_type, "piece") if target else "piece"
         if is_user:
             if free:
-                return ("good_capture_free", f"{san} snaps up the free {P[target.piece_type]}, winning material — when an enemy piece sits undefended and it is safe to take, take it.")
-            return ("good_recapture", f"{san} recaptures to keep material even — when your opponent takes, take back so you don't fall behind.")
-        # opponent capturing
+                return ("good_capture_free", f"{san} wins the free {tgt} — when an enemy piece sits undefended and it is safe to take, take it.")
+            return ("good_trade", f"{san} takes the {tgt}. A trade is fine when it keeps your material even — just count what comes off each side.")
+        # opponent capturing the student's piece
         if free:
-            return ("opp_capture_free", f"{san} grabs your undefended {P[target.piece_type]} — before each move, check which of your pieces are unguarded so you don't hand over material.")
-        return ("opp_recapture", f"{san} recaptures to keep the material even — the trade is fair, so carry on with your own plan.")
+            return ("opp_capture_free", f"{san} grabs your undefended {tgt} — before each move, check which of your pieces are unguarded so you don't give material away.")
+        return ("opp_trade", f"{san} takes your {tgt}. If you can, take back to keep the material even.")
     else:
+        # don't PRAISE a sub-par move (31-99cp inaccuracy) as "active" / "a safer
+        # square" — stay silent rather than reward a move that lost ground.
+        if abs(getattr(inp, "cp_loss", 0) or 0) > 30:
+            return None, None
         st = _subtype(b, mv)
         if st and TSET.get(st):
             gt = st
@@ -309,6 +328,10 @@ def _opening_caption(inp):
     """Name the opening (highest teaching value in the opening phase) using the
     deterministic opening_book recognizer. Fires only when the just-played move
     COMPLETES a recognized named line — returns its curated teaching caption."""
+    # only in the opening phase — else a recurring SAN (e.g. ...c5 on move 56) gets
+    # wrongly named as the opening.
+    if int(getattr(inp, "full_move_number", 0) or 0) > 12:
+        return None
     try:
         from services.decryption_voice.opening_book import recognize_opening_from_history
         hist = list(getattr(inp, "move_history_san", []) or []) + [inp.played_san]
@@ -320,27 +343,50 @@ def _opening_caption(inp):
     return None
 
 
+def _passes_verify(inp, cap):
+    """Self-verify the caption's claims on the board (free piece / recapture / piece
+    on square / mate). Returns False if any claim is board-false -> caller abstains.
+    This is the safety net: never ship a board-false claim, even if a template slips."""
+    try:
+        b = chess.Board(inp.fen_before); b.push_san(inp.played_san); fen_after = b.fen()
+    except Exception:
+        fen_after = None
+    facts = {"move_san": inp.played_san, "fen_before": inp.fen_before, "fen_after": fen_after,
+             "is_user_move": bool(getattr(inp, "mover_is_user", True)), "cp_loss": abs(inp.cp_loss or 0),
+             "best_move_san": inp.best_move_san, "pv_after_best": inp.pv_after_best or [],
+             "pv_after_played": inp.pv_after_played or []}
+    try:
+        from services.narrator_claim_verifier import verify_caption
+        return not verify_caption(cap, facts)
+    except Exception:
+        return True  # verifier unavailable -> don't block
+
+
 def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:
     """Entry point. Returns (caption, rule_name) or None (abstain). NO LLM, NO DB."""
     if not GOOD_T and not MISTAKE_T:
         return None
     try:
         cp = inp.cp_loss or 0
+        result = None
         # Opening identity first: a book move that completes a named opening is
         # taught by NAME (Sicilian/Italian/...) — more valuable than a generic
         # move-type caption. Only for non-mistakes; a blunder's coaching wins.
         if cp < 100:
-            oc = _opening_caption(inp)
-            if oc:
-                return oc
-        if cp >= 100:
-            lab = _classify_mistake(inp)
-            if not lab:
-                return None
-            cap = _mistake_caption(inp, lab)
-            return (cap, "distilled:" + lab) if cap else None
-        else:
-            rn, cap = _good_caption(inp)
-            return (cap, "distilled:" + rn) if cap else None
+            result = _opening_caption(inp)
+        if result is None:
+            if cp >= 100:
+                lab = _classify_mistake(inp)
+                cap = _mistake_caption(inp, lab) if lab else None
+                result = (cap, "distilled:" + lab) if cap else None
+            else:
+                rn, cap = _good_caption(inp)
+                result = (cap, "distilled:" + rn) if cap else None
+        if not result or not result[0]:
+            return None
+        # Safety net: abstain if the finished caption makes any board-false claim.
+        if not _passes_verify(inp, result[0]):
+            return None
+        return result
     except Exception:
         return None

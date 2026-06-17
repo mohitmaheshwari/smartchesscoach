@@ -55,6 +55,12 @@ def main():
                 m["rule_name"] = r[1]
         else:
             abstain += 1
+            # if our prior distilled caption now abstains (stricter engine), CLEAR it
+            # so the buggy old text doesn't linger — the move shows gold-only.
+            if apply and is_ours and existing:
+                m["narrative"] = ""
+                m["caption"] = ""
+                m["rule_name"] = ""
         hist.append(san)
 
     print(f"total={len(dd)} kept_existing={kept} distilled_filled={filled} abstained={abstain} apply={apply}")
