@@ -54,52 +54,29 @@ def audit_batch(batch_num, feedbacks):
         "Content-Type": "application/json"
     }
 
-    # Detector audit prompt
-    prompt = f"""Analyze these {len(feedbacks)} feedback items to find detector pipeline issues.
+    # Optimized detector audit prompt (shortened to reduce LLM processing time)
+    prompt = f"""Analyze {len(feedbacks)} feedback items for detector bottlenecks.
 
-For EACH feedback item, determine:
-1. What facts SHOULD be set by the caption_facts detectors for this position?
-2. What facts ARE actually being set (from diagnostics)?
-3. WHERE is the pipeline breaking?
-   - Is the detector not firing? (check logic)
-   - Is a gate blocking the caption? (check suppression rules)
-   - Is the template wrong? (check variant rendering)
-   - Is the caption being suppressed? (check why_clause absence)
-4. ROOT CAUSE: Which component is broken?
-5. FIX: What's the minimal fix? (new detector, fix gate, rewrite template, suppress rule change)
-6. CONFIDENCE: High/Medium/Low
+For EACH item:
+1. Root cause: detector not firing | gate blocking | template sparse | suppressed
+2. Minimal fix type: new_detector | fix_gate | rewrite_template | suppress_rule
+3. Confidence: high|medium|low
 
-Focus on PATTERN #1 items (coach says move is bad but no explanation of WHY).
+Focus: PATTERN #1 (coach says bad move, no explanation why).
 
-Format output as JSON array with one object per feedback_id.
-
+Return compact JSON array:
 """
 
     for fb in feedbacks:
         d = fb.get("diagnostics", {})
-        prompt += f"""
-## Feedback {fb.get('feedback_id')}
-- User complaint: {fb.get('user_note', '(empty)')}
-- Coaching text: {fb.get('coaching_text', '(empty)')}
-- Move: {fb.get('move_san')} (severity: {d.get('severity')}, cp_loss: {d.get('cp_loss')}cp)
-- Component: {d.get('component')} | Concept: {d.get('concept_id')}
-- FEN: {fb.get('fen', '(no FEN)')}
-"""
+        user_complaint = fb.get('user_note', '(empty)')[:80]
+        coaching = fb.get('coaching_text', '(empty)')[:80]
+        prompt += f"\n[{fb.get('feedback_id')}] {fb.get('move_san')}@{d.get('severity')} | {user_complaint} | {coaching}"
 
     prompt += """
 
-Return JSON:
 [
-  {
-    "feedback_id": "fb_xxx",
-    "expected_facts": ["fact1", "fact2"],
-    "missing_facts": ["fact_not_set"],
-    "bottleneck": "detector_not_firing | gate_blocking | template_empty | suppressed",
-    "root_cause": "brief explanation",
-    "fix_type": "new_detector | fix_gate | rewrite_template | suppress_rule",
-    "fix_description": "what to change",
-    "confidence": "high|medium|low"
-  }
+  {"feedback_id": "fb_xxx", "root_cause": "...", "fix_type": "...", "confidence": "high|medium|low"}
 ]
 """
 
@@ -120,8 +97,8 @@ Return JSON:
             task_id = result.get("task_id")
             print(f"[Batch {batch_num}] Task queued: {task_id}")
 
-            # Poll with longer timeout (up to 120 seconds)
-            for attempt in range(60):
+            # Poll with longer timeout (up to 180 seconds)
+            for attempt in range(90):
                 time.sleep(2)
                 task_response = requests.get(
                     f"{EXPOSER_URL}/tasks/{task_id}",
@@ -140,7 +117,7 @@ Return JSON:
                             "count": len(feedbacks)
                         }
 
-            print(f"[Batch {batch_num}] Timeout after 120s polling")
+            print(f"[Batch {batch_num}] Timeout after 180s polling")
             return {
                 "batch": batch_num,
                 "status": "timeout",
@@ -169,7 +146,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pattern", default="Pattern #1", help="Pattern to audit (e.g., 'Pattern #1')")
     parser.add_argument("--limit", type=int, default=20, help="Max feedbacks to audit")
-    parser.add_argument("--batch-size", type=int, default=5, help="Feedbacks per batch")
+    parser.add_argument("--batch-size", type=int, default=3, help="Feedbacks per batch")
     args = parser.parse_args()
 
     print("="*80)
