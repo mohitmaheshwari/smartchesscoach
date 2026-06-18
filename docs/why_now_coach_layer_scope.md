@@ -1,0 +1,103 @@
+# Why-Now Coach Layer (Verified Concept Coach) — Scope
+
+**Status:** Draft for sign-off. No code until Mohit approves the build order.
+**Date:** 2026-06-18
+**Goal:** close the 23-vs-53 caption gap — answer *"why THIS move in THIS position,"* not "what Nf3 is" — while staying deterministic, board-verifiable, cheap (no runtime LLM), and explainable.
+
+## First principle (non-negotiable)
+
+> **Retrieval does not remove hallucination — it moves hallucination into the detectors.**
+
+A concept library is a set of *claims*. Every claim lies if not board/engine-verified. We proved this all session: "attacks e5" lied when Black's pawn was on c5; "open file" lied on a half-open file; "free" lied on a defended piece. Therefore **every detector ships with its own verifier, authored FIRST.** The retrieval/assembly plumbing is the easy 10%; the verified detectors are the hard, valuable 90%.
+
+**Corollary:** 20 detectors × high accuracy × high frequency beats 10,000 pretty snippets × weak verification. We start at ~20, prove lift, then scale — never 10k up front (that's a regression machine).
+
+## Pipeline (endorsed)
+
+```
+Position
+  ↓
+Engine / PV truth            (Stockfish eval + top 3-5 ply continuation = ground truth)
+  ↓
+Verified concept detectors   (each: board verifier (+PV verifier) + negative tests + confidence)
+  ↓
+Urgency ranking              ("why NOW" — the most urgent true reason wins)
+  ↓
+Safe snippet assembly        (compose 2-3 approved snippets for the top-ranked concepts)
+  ↓
+Optional personalization     (the moat — gated on cognitive_gap accuracy being audited first)
+```
+
+Explicitly **NOT** `concept library → retrieve a nice explanation` (too dangerous — unverified).
+
+## What a detector MUST have (the contract)
+
+Each detector is a small module that, given (fen_before, played_move, pv_after_played, pv_after_best, eval), returns `fired: bool, confidence: float, slots: {...}` and is paired with:
+1. **board verifier** — re-derives the claim from the board independently (defense in depth; don't trust the detector's own computation).
+2. **engine/PV verifier** — when the claim depends on a line (tactic, plan, punishment), confirm it in the PV.
+3. **negative tests** — positions where it must NOT fire (e.g. "attacks e5" must not fire with no enemy pawn on e5; "open file" must not fire on a half-open file).
+4. **approved snippet** — the easy-English fragment (distilled from gold, the proven method), one per detector.
+5. **confidence score** — used by ranking + a floor below which the detector abstains.
+
+A detector with a failing/absent verifier does not ship. (This is the `verify-detectors-first` discipline + the existing user-games detector loop.)
+
+## First batch — ~15 detectors, ORDERED BY MINED FREQUENCY (data-first)
+
+Source: `scripts/mine_gold_concepts.py` over the 866-caption corpus (% = share of captions touching the concept; the Opus extraction pass agreed). **The data reordered the intuition list — build top-down:**
+
+| # | Detector | mined freq | verifiable | note vs original intuition |
+|---|---|---|---|---|
+| 1 | king-safety / can-castle / should-castle | **21%** | yes | top concept — build first |
+| 2 | center control / center tension | **18%** | yes | |
+| 3 | immediate tactic / check in PV | **18%** | yes | "check" is huge; pair with tactic-in-PV |
+| 4 | attack-square actually attacked | **16%** | yes | the moved piece truly hits the named target |
+| 5 | hanging piece + defended-piece-NOT-free | **12%** | yes | kills the "free on defended" lie |
+| 6 | recapture / trade-keeps-material-even | **9%** | yes | |
+| 7 | **move attacked piece to safety** | **8%** | yes | **PROMOTED — mining surfaced this; wasn't in the 15** |
+| 8 | tempo / queen chased / queen out early | **7%** | yes/partial | |
+| 9 | **add-a-defender / count attackers vs defenders** | **6%** | yes | **PROMOTED — the core material-safety check** |
+| 10 | development / behind in development | **6%** | yes | |
+| 11 | piece improves to active square | 5% | partial | |
+| 12 | gain space | 4.5% | partial | |
+
+**DEMOTED (your list ranked these, but the data says they're rare → defer to batch 2):**
+open-vs-half-open file **(1.2%)**, same-piece-moved-twice **(0.5%)**, pin (0.4%), pawn-break (0.4%), fork (0.1%), passed-pawn (0.1%), mate (0%). They matter *when they occur* and stay board-verifiable — just low-frequency, so lower ROI for the first batch.
+
+Each lands with verifier + negative tests + snippet + confidence.
+
+## Urgency ranking ("why now")
+
+When several detectors fire, rank by urgency and surface the top 1-3:
+`immediate tactic > hanging/defended-material > king exposed > center tension / pawn break > development/tempo > positional improvement`.
+The caption leads with the most urgent TRUE reason — that is the "why now."
+
+## Example assembled caption (the artifact)
+
+Move `Nf3`, detectors fire: {development, attacks-e5 (verified: Black pawn on e5, Nf3 attacks it), can-castle-next (PV shows O-O)}.
+> "Nf3 brings your knight out and hits the pawn on e5. It also gets you ready to castle next. Getting pieces out early and castling keeps your king safe."
+
+Every clause traces to a fired+verified detector. No clause without a detector.
+
+## Personalization (the moat — last, and gated)
+
+ChessGuru knows the student's weaknesses (`cognitive_gap`) — gold can't. Personalize the *emphasis* ("you've missed development lately, so getting pieces out matters here"). **BUT** cognitive_gap detection is currently ~2% and unaudited — personalizing on bad gap data is worse than none. **Prerequisite: audit cognitive_gap accuracy before this layer ships.**
+
+## Build order & acceptance
+
+1. **Mine gold** → ranked concept frequency + board-verifiability flag (data-first; decides the batch).
+2. **Build the ~15 detectors** (verifier-first), lead with why-now + PV-intention.
+3. **Compose + rank** → assemble verified snippets.
+4. **Measure on the comparison harness** (blind A/B vs easy-English Opus gold + board verifier).
+   **Acceptance: lift the demo game from 23 → ~35-40+ system wins with 0 board-verified lies.** Do NOT scale past ~20 detectors until the harness proves the lift.
+5. Personalization — after the cognitive_gap audit.
+
+## Out of scope (rejected / deferred)
+- **Neural "tiny specialist models"** — rejected: breaks determinism/verifiability/cheapness. Realize "specialists" as deterministic detector modules, not ML.
+- **Good-move counterfactuals** — deferred: unverifiable speculation. Counterfactuals only for MISTAKES (the engine punishment line is the verifiable counterfactual).
+- **10k-50k concept library** — deferred until ~20 verified detectors prove lift.
+
+## Names
+**Verified Concept Coach** (internal/engineering) · **Why-Now Coach Layer** (product) — the value is *why this move matters now*, not what the move is.
+
+## Ties to existing work
+[[project_user_games_gold_detector_loop]] (detectors assert engine-confirmed facts), [[project_move_classification_taxonomy]] (the 15-cat classifier), [[project_focus_loop_gate0_cognitive_gap]] (gap data — audit first), `narrator_claim_verifier` (extend per claim type), `distill-caption-template` (snippet distillation), `verify-detectors-first`.
