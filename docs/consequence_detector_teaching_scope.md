@@ -9,6 +9,16 @@
 - The ONE thing that produced a **gold-equal** caption was building a **consequence detector**: the pawn-chase detector made `Bg5` match gold (and beat it on the better-move). Each consequence-type we cover = another batch of moves that go gold-equal.
 - So the corpus's highest-value use is **mining the consequences Opus explains → building a verified detector per common type.** That climbs the free system systematically; re-distilling templates does not.
 
+## Generation method (decided 2026-06-18): WHOLE-GAME, not per-position
+Send each COMPLETE game to Opus in one call (`whole_game_gold.py`) — Opus sees the full
+arc and produces **cross-move narrative** captions (tracks a hanging piece / a pin /
+a plan across moves). Measured on 3 games: **$0.57/game (100 games ≈ $57), 92% verified-kept**,
+and dramatically better context than per-position batching (which was $1.39/game). Fewer
+calls = less Claude-Code per-call overhead = cheaper AND better.
+**Caveat:** the cross-move narrative is gold/benchmark/cache value — per-move deterministic
+detectors can't replicate "your bishop can still win that rook from 3 moves ago." Detector-
+mining still extracts the per-move consequences; the narrative is the LLM-only residual.
+
 ## Plan
 1. **Generate Opus gold for ~500 games** (offline). Easy-English prompt + the narrator verifier + correct-loop (only verified golds kept). Two outputs:
    - the **teaching corpus** (input to mining), and
