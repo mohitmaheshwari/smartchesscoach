@@ -108,6 +108,56 @@ def plan_clause(eng, fen_after, is_user, user_color):
     return ""
 
 
+def chase_consequence(eng, fen_after, moved_sq, mover_color):
+    """The Bg5 lesson: if the user moved a PIECE and the opponent's best reply is a
+    PAWN that attacks it (forcing a retreat = lost tempo), return the refutation SAN.
+    Verified on the board (the pawn really attacks the piece). None otherwise."""
+    try:
+        b = chess.Board(fen_after)
+    except Exception:
+        return None
+    if b.is_game_over():
+        return None
+    pc = b.piece_at(moved_sq)
+    if not pc or pc.color != mover_color or pc.piece_type == chess.PAWN:
+        return None
+    try:
+        pv = eng.analyse(b, chess.engine.Limit(depth=16)).get("pv") or []
+    except Exception:
+        return None
+    if not pv:
+        return None
+    ref = pv[0]; ref_pc = b.piece_at(ref.from_square)
+    if not ref_pc or ref_pc.piece_type != chess.PAWN:
+        return None
+    bb = b.copy()
+    try:
+        ref_san = bb.san(ref)
+    except Exception:
+        return None
+    bb.push(ref)
+    atks = bb.attackers(not mover_color, moved_sq)
+    if pc.piece_type == chess.KING:   # a king isn't "chased" the same way
+        return None
+    if any(bb.piece_at(s) and bb.piece_at(s).piece_type == chess.PAWN for s in atks):
+        return ref_san
+    return None
+
+
+def better_clause(b, played_phrase, best_san):
+    """Name the engine's better move + why — but DON'T repeat the played move's own
+    phrase (kills the 'self-contradictory/repetitive' judge flag)."""
+    if not best_san:
+        return ""
+    try:
+        bp = move_phrase(b, b.parse_san(best_san))[1]
+    except Exception:
+        return f"A move like {best_san} was a touch sharper here."
+    if bp.strip().lower() == (played_phrase or "").strip().lower():
+        return f"A move like {best_san} was a touch sharper here."
+    return f"A move like {best_san} was a little better — it {bp}."
+
+
 def principle(cls, phase, is_user):
     if not is_user:
         return "Answer your opponent's moves, but keep finishing your own development."
@@ -149,24 +199,20 @@ def compose(m, eng, hist):
             if not head:
                 return None
             return _join([head, plan])  # mistake caption already carries best+why+principle
-        # good / best / inacc -> compose slots 2+3+4
+        # good / best / inacc -> compose slots 2+3+4 (+ consequence for inacc)
         piece, phrase = move_phrase(b, mv)
-        # better move via Stockfish multipv
         best_san, rank = _best_and_rank(eng, b, mv)
         if cls == "best" or rank == 1:
-            head = f"{san} is the best move here — it {phrase}."
-        elif cls == "good":
-            head = f"{san} is a good move — it {phrase}."
-        else:
-            head = f"{san} is okay — it {phrase}."
-        better = ""
-        if rank and rank > 1 and best_san and cls != "best":
-            try:
-                bphrase = move_phrase(b, b.parse_san(best_san))[1]
-                better = f"A move like {best_san} was a little better, since it {bphrase}."
-            except Exception:
-                better = f"A move like {best_san} was a little sharper here."
-        return _join([head, better, plan, prin])
+            return _join([f"{san} is the best move here — it {phrase}.", plan, prin])
+        if cls == "good":
+            return _join([f"{san} is a good move — it {phrase}.", better_clause(b, phrase, best_san), plan, prin])
+        # INACCURACY -> explain the CONSEQUENCE (the engine's refutation), not just geometry
+        ref = chase_consequence(eng, m.get("fen_after"), mv.to_square, b.turn)
+        if ref:
+            head = f"{san} {phrase}, but your opponent can play {ref} to chase your {piece} — it has to move and you lose time."
+            return _join([head, better_clause(b, phrase, best_san),
+                          "Try not to put a piece where a pawn can chase it away."])
+        return _join([f"{san} is okay — it {phrase}.", better_clause(b, phrase, best_san), plan, prin])
     else:
         # opponent move
         if cls == "mistake":
