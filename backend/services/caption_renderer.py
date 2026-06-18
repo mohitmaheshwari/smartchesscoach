@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional
 
 from services.caption_rules import RULES, CaptionOutput, Rule
 from services.caption_config import MAX_CAPTION_WORDS
+from services.severity_mismatch_guard import is_severity_mismatch
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,18 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
                 # through to the next rule in priority order.
                 if output is None or not output.caption:
                     continue
+
+                # Guard: suppress captions that praise a blunder (severity mismatch).
+                # If caption has positive framing on a real blunder, suppress it and
+                # fall through to a more honest template.
+                if is_severity_mismatch(output.caption, facts.get("cp_loss"),
+                                       is_user=facts.get("is_user_move", True)):
+                    logger.debug(
+                        f"[caption_renderer] severity_mismatch suppressed caption "
+                        f"(cp_loss={facts.get('cp_loss')}): {output.caption}"
+                    )
+                    continue
+
                 output.caption = _enforce_word_cap(output.caption)
                 return output
         except Exception as exc:

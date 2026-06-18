@@ -362,6 +362,51 @@ def _passes_verify(inp, cap):
         return True  # verifier unavailable -> don't block
 
 
+def _facts_caption(inp):
+    """Why-Now Coach Layer (proof slice): consume the CANONICAL verified facts from
+    caption_facts (single-source — do NOT recompute) to produce a POSITION-SPECIFIC
+    capture/material caption that names the real defender(s), instead of a generic
+    move-type template. Returns (caption, rule) or None to fall through."""
+    try:
+        from services.caption_facts import extract_facts
+        f = extract_facts(
+            fen_before=inp.fen_before, played_san=inp.played_san, best_move_san=inp.best_move_san,
+            eval_before_cp=inp.eval_before_cp, eval_after_cp=inp.eval_after_cp, cp_loss=abs(inp.cp_loss or 0),
+            pv_after_played=inp.pv_after_played or [], pv_after_best=inp.pv_after_best or [],
+            move_history_san=list(getattr(inp, "move_history_san", []) or []),
+            full_move_number=int(getattr(inp, "full_move_number", 0) or 0),
+            mover_is_user=bool(getattr(inp, "mover_is_user", True)))
+    except Exception:
+        return None
+    is_user = bool(getattr(inp, "mover_is_user", True))
+    cap = f.get("captured_piece_type")
+    if not cap:
+        return None
+    san = inp.played_san
+    defs = f.get("effective_defenders_on_target") or []
+    # net-material guard: a capture while BEHIND is restoring lost material (a
+    # recapture/trade), not "free" — even if nothing guards the square this ply.
+    try:
+        _b = chess.Board(inp.fen_before)
+        behind = (_material(_b, _b.turn) - _material(_b, not _b.turn)) <= -100
+    except Exception:
+        behind = False
+    if behind:
+        return ((f"{san} takes the {cap} back to level the material — an even trade. Count both sides before you swap.", "facts:recapture")
+                if is_user else
+                (f"{san} takes your {cap} to level the material — an even trade.", "facts:opp_recapture"))
+    if is_user:
+        if not defs:
+            return (f"{san} wins the {cap} for free — nothing of theirs guards it. When an enemy piece sits with no defender, take it.", "facts:capture_free")
+        dn = " and ".join(f"their {p}" for _, p in defs[:2])
+        return (f"{san} takes the {cap}, but {dn} can take back — so it is an even trade. Count attackers and defenders before you swap.", "facts:trade")
+    # opponent captured the student's piece
+    if not defs:
+        return (f"{san} grabs your {cap} and nothing takes back. Before each move, check that your pieces are guarded.", "facts:opp_capture_free")
+    dn = " and ".join(f"your {p}" for _, p in defs[:2])
+    return (f"{san} takes your {cap}, but {dn} can take back — an even trade. Recapture to keep material level.", "facts:opp_trade")
+
+
 def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:
     """Entry point. Returns (caption, rule_name) or None (abstain). NO LLM, NO DB."""
     if not GOOD_T and not MISTAKE_T:
@@ -374,6 +419,10 @@ def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:
         # move-type caption. Only for non-mistakes; a blunder's coaching wins.
         if cp < 100:
             result = _opening_caption(inp)
+        # Why-Now proof slice: prefer position-specific facts (names the real
+        # defender) over a generic capture template, for non-mistake captures.
+        if result is None and cp < 100:
+            result = _facts_caption(inp)
         if result is None:
             if cp >= 100:
                 lab = _classify_mistake(inp)
