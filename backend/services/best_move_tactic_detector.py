@@ -102,6 +102,19 @@ def detect_missed_tactic(
     opp_captures_value = 0  # net opp gain within PV (recaptures inside the window)
     mate_payload: Optional[Dict[str, Any]] = None
 
+    # Cache of squares attacked by best_move for immediate-capture gate.
+    # Used to prevent false "wins the piece" claims when the piece is only
+    # captured deep in the PV (not directly attacked by best_move).
+    # Per issue fb_8416b80d2067: caption claimed "wins knight on f6" but
+    # best_move didn't attack f6, just some line later captured it.
+    best_move_attacks = None
+    try:
+        best_move_board = chess.Board(fen_before)
+        best_move_board.push(best_move_obj)
+        best_move_attacks = set(best_move_board.attacks(best_move_obj.to_square))
+    except Exception:
+        pass
+
     # pv[0] is played by OPP, pv[1] by user, alternating.
     for ply_index, san in enumerate(pv_after_best):
         is_user_move = (ply_index % 2 == 1)
@@ -133,26 +146,39 @@ def detect_missed_tactic(
         if is_capture and captured_piece_type:
             if is_user_move:
                 if captured_piece_type >= 2:
-                    # Was this exact piece (same type + opposite color)
+                    # Gate 1: Was this exact piece (same type + opposite color)
                     # already standing on captured_square at fen_before?
-                    # If yes, the square is a useful landmark for the
-                    # reader. If no, the PV chased it there — naming the
-                    # square misleads.
+                    # If yes, the square is a useful landmark for the reader.
                     orig_piece = original_board.piece_at(move.to_square)
                     square_immediate = bool(
                         orig_piece is not None
                         and orig_piece.piece_type == captured_piece_type
                         and orig_piece.color != original_board.turn  # enemy of mover
                     )
-                    user_piece_captures.append({
-                        "kind": "piece_capture",
-                        "piece_type": _PIECE_NAME.get(captured_piece_type, "piece"),
-                        "piece_value": _PIECE_VALUE.get(captured_piece_type, 0),
-                        "square": captured_square,
-                        "square_immediate": square_immediate,
-                        "capturing_move": san,
-                        "ply": ply_index + 1,
-                    })
+
+                    # Gate 2: Does the best_move itself attack this square?
+                    # Per issue fb_8416b80d2067: caption claimed "wins the knight"
+                    # but best_move didn't directly attack it. Only claim "wins"
+                    # if best_move can immediately capture or it's the first move
+                    # in a forced sequence (ply_index == 1 means opp reply, then
+                    # user's immediate response).
+                    best_move_attacks_target = (
+                        best_move_attacks is not None
+                        and move.to_square in best_move_attacks
+                    ) or (ply_index <= 1)  # First user response can follow opp reply
+
+                    # Only record this as a "wins piece" claim if we have high
+                    # confidence it's an immediate or forced capture.
+                    if square_immediate or best_move_attacks_target:
+                        user_piece_captures.append({
+                            "kind": "piece_capture",
+                            "piece_type": _PIECE_NAME.get(captured_piece_type, "piece"),
+                            "piece_value": _PIECE_VALUE.get(captured_piece_type, 0),
+                            "square": captured_square,
+                            "square_immediate": square_immediate,
+                            "capturing_move": san,
+                            "ply": ply_index + 1,
+                        })
                 else:
                     user_pawn_captures += 1
             else:
