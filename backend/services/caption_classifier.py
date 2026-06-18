@@ -435,6 +435,87 @@ class CaptionClassifier:
             "json_path": "R12_blunder.json → why_clauses_user (add new variant)",
         }
 
+    def classify_freetext(self, caption: str) -> Dict[str, Any]:
+        """Tier a FREE-TEXT caption (e.g. Claude gold) into the SAME locked
+        HIGH/MID/LOW/NONE vocabulary as `classify()`.
+
+        `classify()` regex-matches the SYSTEM's own template variants, so it
+        returns NONE for any caption that isn't system-generated. Gold and
+        other free prose need a content-based path. This is that path — it
+        does NOT introduce a new label set; it reuses the Mohit-locked tier
+        semantics (see `_classify_tier`):
+          HIGH — names a specific tactic/strategy/opening/trap, or a named
+                 move-correction ("Better was Nf3 …").
+          MID  — concrete chess content: a SAN move, a named square, or a
+                 directive/observation verb (take/push/trade/attacks/threatens).
+          LOW  — generic praise/acknowledgement with no concrete content
+                 ("good", "fine", "solid", "keep developing").
+          NONE — empty.
+
+        Returns {tier, signal} where signal names the matched cue. Teaching =
+        {HIGH, MID}; routine = {LOW, NONE} — but the cut is the caller's to make.
+        """
+        text = (caption or "").strip()
+        if not text:
+            return {"tier": "NONE", "signal": "empty"}
+        low = text.lower()
+
+        # HIGH — named concept
+        if _HIGH_NAMED_RE.search(text):
+            return {"tier": "HIGH", "signal": "named_concept"}
+        if _OPENING_NAME_RE.search(text):
+            return {"tier": "HIGH", "signal": "opening_name"}
+        # named move-correction: "better was/stronger was/should have ... <SAN>"
+        if _CORRECTION_RE.search(low) and _SAN_RE.search(text):
+            return {"tier": "HIGH", "signal": "named_correction"}
+
+        # MID — concrete (a SAN move, a named square, or a concrete verb)
+        if _SAN_RE.search(text):
+            return {"tier": "MID", "signal": "san_move"}
+        if _SQUARE_RE.search(text):
+            return {"tier": "MID", "signal": "named_square"}
+        if _CONCRETE_VERB_RE.search(low):
+            return {"tier": "MID", "signal": "concrete_verb"}
+
+        # LOW — generic praise/ack with no concrete hook
+        return {"tier": "LOW", "signal": "generic"}
+
+
+# ── Free-text tier cues (reuse the locked tier semantics, content-based) ──
+# SAN move token: Nf3, Qxd5, O-O(-O), exd5, Rg6+, a4, Kxe2, e8=Q …
+_SAN_RE = re.compile(
+    r"(?<![A-Za-z])(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[+#]?(?![A-Za-z])"
+)
+# Bare square reference: "the e5 pawn", "on f7" — must be a real square, not "e4" inside a SAN
+_SQUARE_RE = re.compile(r"(?<![A-Za-z0-9])[a-h][1-8](?![A-Za-z0-9])")
+_HIGH_NAMED_RE = re.compile(
+    # named tactics
+    r"\b(fork|forks|forked|pin|pins|pinned|skewer|skewers|skewered|"
+    r"discovered|double attack|decoy|deflect\w*|overload\w*|"
+    r"mate|checkmate|stalemate|sacrifice|sacrific\w*|sac\b|"
+    r"trapped|traps the|the trap|"
+    # win a named piece
+    r"wins? (?:the|a|an|your|his|her|black'?s|white'?s)\s+\w*\s*"
+    r"(?:queen|rook|bishop|knight|piece))\b",
+    re.IGNORECASE,
+)
+# opening/trap NAMES (proper-noun + opening-family suffix), not the bare verbs
+_OPENING_NAME_RE = re.compile(
+    r"\b[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+)?\s+"
+    r"(Defense|Defence|Gambit|Opening|Attack|Game|System|Variation|Sicilian|Italian)\b"
+)
+_CORRECTION_RE = re.compile(
+    r"\b(better was|better is|stronger was|stronger is|should have|"
+    r"instead of|the engine (?:likes|prefers|liked|preferred)|"
+    r"a touch more|even sharper)\b"
+)
+_CONCRETE_VERB_RE = re.compile(
+    r"\b(take|takes|grab|grabs|capture|captures|trade|trades|push\w*|"
+    r"bring\w*|attack\w*|threaten\w*|hit|hits|guard\w*|defend\w*|"
+    r"win\w* back|recapture\w*|castle\w*|pin\w*|chase\w*|"
+    r"snap\w* off|drop\w*|undefended|hanging)\b"
+)
+
 
 def _file_from_rule_name(rule_name: str) -> Optional[str]:
     """Map a move record's rule_name → the JSON file that produced
