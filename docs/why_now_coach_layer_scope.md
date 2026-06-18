@@ -12,6 +12,37 @@ A concept library is a set of *claims*. Every claim lies if not board/engine-ver
 
 **Corollary:** 20 detectors × high accuracy × high frequency beats 10,000 pretty snippets × weak verification. We start at ~20, prove lift, then scale — never 10k up front (that's a regression machine).
 
+## ★★ LOCKED ARCHITECTURE (2026-06-18) — the selector is the keystone
+
+Settled after a long design pass. The score gap to gold (23→53) is **four distinct deficits masquerading as one number** — do NOT expect one subsystem to absorb it, and **measure each increment on the blind harness** (the components are NOT guaranteed additive; selection + calibration interact, and fixing selection can unmask calibration errors verbosity was hiding):
+
+| Component | Est. lift | Priority |
+|---|---|---|
+| **Lesson selector** (kills verbosity; say ONE thing) | 23 → ~35–42 | **1** |
+| **Cross-move state** ("still missing the same pawn") | +3–6 | 2 |
+| **Detector calibration framework** | +4–8 | 3 |
+| **PV-intention layer** | (folded in) | 4 |
+| **Positional depth** | remaining | 5 |
+
+**1. The lesson selector is the biggest single lever** — our slot-composer scored 24% *because it had no selector and emitted 8 facts*. Gold wins by saying ONE thing. Two scores, not one:
+- `urgency_score` — engine-grounded, verifiable (hang/tactic/material/king-safety).
+- `teaching_value_score` — pedagogical (gold often picks the most *teachable* thing, not the most urgent — e.g. "develop + castle" while ignoring a 0.2 pawn).
+- Weighted by **LEVEL = rating** (reliable + available NOW; beginner→teaching dominates, advanced→urgency). Per-user *weakness* weighting is **Phase 4** (gated on the cognitive_gap audit — that data is ~2% today; see [[project_focus_loop_gate0_cognitive_gap]]).
+
+**2. The one substrate — the aligned-corpus-table.** Built from the whole-game gold:
+`position → {active detector firings} → gold caption → gold's chosen lesson`. It powers three things at once:
+- **Selector training** — learn the **CONDITIONAL** choice (*given concepts {free-pawn, develop, castle} present, which did gold pick?*), NOT the marginal frequency ("development 43%" = what's common, not what's chosen under competition). The #127-vs-#128 dataset.
+- **Detector calibration** — firing distributions; "where does gold *start* saying passive" (calibrate thresholds from the distribution, never guessed — the threshold-before-distribution sin).
+- **False-positive mining** — *detector fired but gold stayed silent* = prime false-positive (the structural fix for the open-file/safe-square/attacks-e5 bug pattern; gold = silent oracle).
+- **Positional residual = a shrinking work-queue**: gold captions with **zero** relevant firings = the "decompose next" backlog + a live metric (% gold unexplained). "Irreducibly positional" is *not-yet-decomposed*, not a wall — decompose until marginal ROI < the next-priority work.
+
+**Known dependency risk:** mapping gold caption → one lesson label is a hidden classifier — validate it (held-out check), or the selector learns from noisy labels.
+
+**3. Measurement-infra BEFORE more detectors.** Every detector auto-reports fires_per_1000 / distribution / false-pos+neg samples / judge-disagreement. Calibrate features (mobility-delta "passive", attacker-delta "trade calms attack", structure-diff "pawn shape") from 100k-position distributions + where gold agrees — not guessed thresholds.
+
+**Roadmap:** P1 = verified detectors + PV-intention + rating-weighted selector (can already beat today's 23). P2 = distribution-calibrated ranking. P3 = cognitive_gap audit. P4 = personalized (weakness-weighted) selection.
+**~50–100 verified detectors + ~20 lesson types + 1 selector + game-state layer** — NOT 10,000 detectors.
+
 ## ⚠️ CRITICAL: most of this ALREADY EXISTS — reuse, don't rebuild (single-source)
 
 A code survey (2026-06-18) found the proposed architecture is **substantially already built**, just not wired to the no-LLM path we've been improving. Building a new detector set would VIOLATE [[feedback_single_source_of_truth]] — the lesson of this very session.
