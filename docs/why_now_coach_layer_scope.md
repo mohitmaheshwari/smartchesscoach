@@ -12,6 +12,27 @@ A concept library is a set of *claims*. Every claim lies if not board/engine-ver
 
 **Corollary:** 20 detectors × high accuracy × high frequency beats 10,000 pretty snippets × weak verification. We start at ~20, prove lift, then scale — never 10k up front (that's a regression machine).
 
+## ⚠️ CRITICAL: most of this ALREADY EXISTS — reuse, don't rebuild (single-source)
+
+A code survey (2026-06-18) found the proposed architecture is **substantially already built**, just not wired to the no-LLM path we've been improving. Building a new detector set would VIOLATE [[feedback_single_source_of_truth]] — the lesson of this very session.
+
+| Layer | Already exists as | Status |
+|---|---|---|
+| Verified concept **detectors** | **`caption_facts.py`** — "the canonical chess-semantics layer; facts are the gold." Emits board-verified `attacker_count`/`defender_count`/`effective_attackers_on_target`, `hanging`/`undefended`, `fork`/`pin`/`discovered_attack`, `castle`/`king_safety`/`enemy_king_square`, `passed_pawn`, `recapture`, `development`, `tempo`, full `best_move` tactic layer. Has a tactic-shape **detector registry**. | **REUSE** |
+| Urgency **ranking** | **`caption_priority_resolver.py`** — "collapses 9 branches into ONE decision; facts are gold, LLM only verbalizes." | **REUSE** |
+| Compose / serve | **`caption_pipeline.py`** — facts → resolve → render (the central layer). | **REUSE** |
+| First principle | Already locked as `renderer_never_computes_chess_meaning` ("facts are gold; renderer/LLM only verbalizes") == "retrieval moves hallucination into the detectors." | already law |
+
+**The actual gap:** the **distilled (no-LLM) renderer** (`distilled_caption_service.py`, what we've been baking) has **0** references to `caption_facts` — it's a parallel move-TYPE-template path. That is precisely why it's generic and loses 23-vs-53: it ignores the rich, already-verified, position-specific facts that `caption_facts` computes.
+
+**Revised build (single-source-compliant, much smaller):**
+1. Make the distilled snippet renderer **consume `caption_facts`** (reuse the canonical verified facts) instead of move-type templates.
+2. **Rank via `caption_priority_resolver`** (reuse).
+3. Distil easy-English **snippets keyed to caption_facts' fact keys** (the proven distillation method).
+4. **EXTEND `caption_facts` only for genuinely thin concepts** (the mining showed `center`/`open_file` are weakly covered) — add them INTO the canonical layer + its verifier, never a parallel module.
+
+The "build 15 detectors" framing below is SUPERSEDED by this: ~most detectors already exist in `caption_facts`; the work is wiring + snippets + a couple of gap concepts. This is smaller, higher-confidence, and single-source-correct.
+
 ## Pipeline (endorsed)
 
 ```
