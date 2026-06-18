@@ -4988,10 +4988,26 @@ def extract_facts(
                         played_to_square = chess.SQUARE_NAMES[played_move.to_square]
                 sim = board_after.copy()
                 sim.push(opp_mv)
+
+                # Determine user's color (needed for both attacks and fork detection)
+                _user_color = played_move and board_before.piece_at(played_move.from_square)
+                _user_color = _user_color.color if _user_color else None
+
                 # After opp's reply, does its piece attack the square our
-                # played piece is sitting on?
+                # played piece is sitting on? Gate on defender count: only
+                # flag as attacked if more opp attackers than our defenders.
+                # Per issue fb_0f74b8a30d24: "After Qxd4, your knight on f4
+                # is under attack" but knight was defended by bishop — never
+                # mention "under attack" if piece is actually defended.
                 if played_move.to_square in sim.attacks(opp_mv.to_square):
-                    opp_reply_attacks_played_piece = True
+                    if _user_color is not None:
+                        opp_attackers = len(sim.attackers(not _user_color, played_move.to_square))
+                        own_defenders = len(sim.attackers(_user_color, played_move.to_square))
+                        # Only flag as "under attack" if undefended or more attacked than defended
+                        if opp_attackers > own_defenders:
+                            opp_reply_attacks_played_piece = True
+                    else:
+                        opp_reply_attacks_played_piece = True
 
                 # Fork detection: identify which user pieces opp's
                 # moved piece attacks from its NEW square. The played
@@ -5000,8 +5016,6 @@ def extract_facts(
                 # other pieces only count if value >= minor (knight/
                 # bishop+). Pawns excluded.
                 attacked_by_opp = sim.attacks(opp_mv.to_square)
-                _user_color = played_move and board_before.piece_at(played_move.from_square)
-                _user_color = _user_color.color if _user_color else None
                 _PIECE_VALUE_MIN_FOR_FORK = 3  # knight value
                 _targets: list = []
                 if _user_color is not None:

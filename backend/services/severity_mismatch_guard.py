@@ -37,11 +37,16 @@ _SEVERITY = re.compile(
 def is_severity_mismatch(caption: Optional[str], cp_loss: Optional[int],
                          is_user: bool = True) -> bool:
     """True when a user move's caption positively/neutrally frames a real
-    blunder without acknowledging it was bad. Conservative: requires positive
-    framing AND no severity word AND cp_loss >= 200."""
+    loss without acknowledging it was bad. Conservative: requires positive
+    framing AND no severity word AND cp_loss >= 100.
+
+    Threshold 100cp covers both serious mistakes (typically 100-200cp for
+    intermediate players) and blunders (200cp+). Prevents positive board-state
+    reasoning (e.g., 'your queen is active') from appearing on any move that
+    actually lost material."""
     if not is_user or not caption:
         return False
-    if (cp_loss or 0) < 200:
+    if (cp_loss or 0) < 100:
         return False
     if _SEVERITY.search(caption):
         return False
