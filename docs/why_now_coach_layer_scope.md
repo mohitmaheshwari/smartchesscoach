@@ -103,6 +103,15 @@ Every clause traces to a fired+verified detector. No clause without a detector.
 
 ChessGuru knows the student's weaknesses (`cognitive_gap`) — gold can't. Personalize the *emphasis* ("you've missed development lately, so getting pieces out matters here"). **BUT** cognitive_gap detection is currently ~2% and unaudited — personalizing on bad gap data is worse than none. **Prerequisite: audit cognitive_gap accuracy before this layer ships.**
 
+## PROOF-SLICE RESULT (2026-06-18) — caption_facts wiring does NOT close the gap
+
+Wired the distilled renderer to consume `caption_facts` for the capture/material concept (names the real defender from `effective_defenders_on_target`, with the net-material guard). Re-ran the blind harness:
+
+- **No lift: 22-53 (was 23-53), 0 board-lies.** The wiring is correct + safe (won 11:dxc4, 17:exd6, 21:Rxe4) — but the aggregate didn't move.
+- **Why:** the 23-53 gap is NOT on captures (where caption_facts is rich, ~10 moves) — it's on **quiet/opening moves** where gold wins by (a) **naming the engine's slightly-better move** (Nf3, Be3) and (b) being clearer/more specific. `caption_facts` is *thin* on quiet moves (returns just `best_move_san` + a count), so consuming it doesn't help where the gap lives.
+- **Located the ceiling precisely:** quiet-move "why-now" = name-the-better-move tastefully + explain the plan. That is LLM-shaped, not facts-shaped. The cheap deterministic levers left are narrow (e.g. a careful "better-move" mention, risky to do without sounding preachy on equal moves).
+- **Decision:** do NOT scale the caption_facts wiring expecting the gap to close. It improves tactical captions (keep it), but closing the quiet-move gap likely needs a cheap LLM (the hybrid from the earlier rethink) — re-open that trade-off rather than building more deterministic detectors for quiet moves.
+
 ## Build order & acceptance
 
 1. **Mine gold** → ranked concept frequency + board-verifiability flag (data-first; decides the batch).
