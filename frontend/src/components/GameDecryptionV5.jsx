@@ -187,6 +187,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // "{move_number}:{move_san}". Empty for games that haven't been gold-baked,
   // so the gold panel only renders where gold exists.
   const [goldMap, setGoldMap] = useState({});
+  const [prefMap, setPrefMap] = useState({});   // {"{n}:{san}": "system"|"gold"|"neither"} — tester preference
 
   useEffect(() => { fetchDecryptionData(); }, [gameId]);
 
@@ -194,8 +195,20 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     if (!gameId) return;
     fetch(`${API}/coach/decryption/gold/${gameId}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setGoldMap((d && d.gold) || {}))
-      .catch(() => setGoldMap({}));
+      .then((d) => { setGoldMap((d && d.gold) || {}); setPrefMap((d && d.prefs) || {}); })
+      .catch(() => { setGoldMap({}); setPrefMap({}); });
+  }, [gameId]);
+
+  // record which caption the reviewer prefers on a move (tester compare vote)
+  const savePreference = useCallback((move, preference) => {
+    if (!move) return;
+    const key = `${move.move_number}:${move.move_san}`;
+    setPrefMap((m) => ({ ...m, [key]: preference }));   // optimistic
+    fetch(`${API}/coach/decryption/gold/prefer`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game_id: gameId, move_number: move.move_number, move_san: move.move_san, preference }),
+    }).catch(() => {});
   }, [gameId]);
 
   // Mohit 2026-06-01: `?move=N` URL on /game/:gameId should jump the
@@ -1104,6 +1117,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             move={currentMove}
             gameId={gameId}
             goldCaption={currentMove ? goldMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
+            captionPref={currentMove ? prefMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
+            onPrefer={(pref) => savePreference(currentMove, pref)}
             acknowledgedConcepts={acknowledgedConcepts}
             onAcknowledge={acknowledgeConceptHandler}
             onShowFutureMoves={showFutureMoves}
@@ -1376,6 +1391,8 @@ const MoveCoachingCardV5 = ({
   move,
   gameId,
   goldCaption,
+  captionPref,
+  onPrefer,
   acknowledgedConcepts,
   onAcknowledge,
   onShowFutureMoves,
@@ -1530,6 +1547,27 @@ const MoveCoachingCardV5 = ({
             <p className="text-sm text-amber-900/90 leading-relaxed whitespace-pre-line">
               {goldCaption}
             </p>
+          </div>
+        )}
+
+        {/* ─── WHICH DO YOU PREFER? (tester compare vote) ─────── */}
+        {/* Static class strings only — Tailwind purges dynamically-built names. */}
+        {goldCaption && onPrefer && (
+          <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap" data-testid="caption-prefer">
+            <span className="text-[11px] text-muted-foreground">Which is better for a 1000 player?</span>
+            {[
+              { key: "system", label: "ChessGuru", on: "bg-emerald-500 text-white border-transparent", off: "bg-transparent text-emerald-600 border-emerald-400/50 hover:bg-emerald-500/10" },
+              { key: "gold", label: "Claude gold", on: "bg-amber-500 text-white border-transparent", off: "bg-transparent text-amber-600 border-amber-400/50 hover:bg-amber-500/10" },
+              { key: "neither", label: "Neither", on: "bg-zinc-500 text-white border-transparent", off: "bg-transparent text-zinc-500 border-zinc-400/50 hover:bg-zinc-500/10" },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => onPrefer(opt.key)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${captionPref === opt.key ? opt.on : opt.off}`}
+              >
+                {captionPref === opt.key ? "✓ " : ""}{opt.label}
+              </button>
+            ))}
           </div>
         )}
 

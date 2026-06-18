@@ -1053,7 +1053,42 @@ async def get_game_gold_captions(
     except Exception as e:
         return {"gold": {}, "count": 0, "error": str(e)[:80]}
     gold = {f"{r.get('move_number')}:{r.get('move_san')}": r.get("caption") for r in rows if r.get("caption")}
-    return {"gold": gold, "count": len(gold)}
+    # prior tester preferences (which caption the reviewer liked) so the panel can
+    # show the current pick.
+    prefs = {}
+    try:
+        prows = await db.caption_preference.find(
+            {"game_id": game_id}, {"_id": 0, "move_number": 1, "move_san": 1, "preference": 1}
+        ).to_list(length=400)
+        prefs = {f"{r.get('move_number')}:{r.get('move_san')}": r.get("preference") for r in prows}
+    except Exception:
+        prefs = {}
+    return {"gold": gold, "prefs": prefs, "count": len(gold)}
+
+
+class CaptionPreferenceRequest(BaseModel):
+    game_id: str
+    move_number: int
+    move_san: str
+    preference: str          # "system" | "gold" | "neither"
+    note: Optional[str] = None
+
+
+@router.post("/decryption/gold/prefer")
+async def set_caption_preference(req: CaptionPreferenceRequest, user: User = Depends(get_current_user)):
+    """TESTER tool: record which caption the reviewer prefers on a move (system vs gold),
+    for side-by-side evaluation. Upserts into caption_preference; read back by the GET
+    above + by the dev when discussing feedback."""
+    global db
+    if req.preference not in ("system", "gold", "neither"):
+        return {"ok": False, "error": "preference must be system|gold|neither"}
+    await db.caption_preference.update_one(
+        {"game_id": req.game_id, "move_number": req.move_number, "move_san": req.move_san},
+        {"$set": {"preference": req.preference, "note": (req.note or "").strip() or None,
+                  "user_id": getattr(user, "user_id", None)}},
+        upsert=True,
+    )
+    return {"ok": True}
 
 
 @router.get("/decryption/per-move/{game_id}")
