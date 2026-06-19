@@ -3918,13 +3918,14 @@ async def generate_game_decryption_v5(
                 if is_user:
                     _bp = (caption_facts or {}).get("best_move_principle")
                     _best = (caption_facts or {}).get("best_move_san")
-                    _pp = {"center": "central break", "develop": "developing move",
-                           "castle": "chance to castle", "rook_open_file": "open file"}
+                    # short verb phrases that fit both pawn pushes and piece moves
+                    _pp = {"center": "taking the center", "develop": "developing a piece",
+                           "castle": "getting castled", "rook_open_file": "taking the open file"}
                     if _missed_opp and move_san == _missed_opp.get("best_san"):
                         # finally played the move they'd been passing up
-                        _ph = _pp.get(_missed_opp.get("principle"), "move")
+                        _ph = _pp.get(_missed_opp.get("principle"), "the strong move")
                         caption_payload["caption"] = (
-                            f"You finally play {move_san} — the {_ph} you had been "
+                            f"You finally play {move_san} — {_ph}, the plan you had been "
                             f"passing up. Good.")
                         caption_payload["rule_name"] = (
                             (caption_payload.get("rule_name") or "") + "→XMOVE_FINALLY")
@@ -3934,8 +3935,8 @@ async def generate_game_decryption_v5(
                         if _missed_opp and _missed_opp.get("best_san") == _best:
                             _missed_opp["count"] += 1
                             caption_payload["caption"] = (
-                                f"Again you pass up {_best} — the {_pp[_bp]} is still the "
-                                f"move here. Look for it before you move.")
+                                f"Again you pass up {_best} ({_pp[_bp]}) — it's still the "
+                                f"strongest move here. Look for it before you move.")
                             caption_payload["rule_name"] = (
                                 (caption_payload.get("rule_name") or "") + "→XMOVE_AGAIN")
                         else:
