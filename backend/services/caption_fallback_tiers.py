@@ -75,16 +75,23 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     # ── Tier 2 — explain what the move does (priority order) ───────────────
     if facts.get("is_capture"):
         cap = _PIECE.get(facts.get("captured_piece_type"), "piece")
-        sq = facts.get("target_square") or ""
-        on = f" on {sq}" if sq else ""
-        mdelta = int(facts.get("material_delta_played_cp") or 0)
-        if facts.get("is_forced_recapture") or abs(mdelta) <= 60:
-            tail = " — an even trade that keeps the balance."
-        elif (mdelta > 60) == bool(facts.get("mover_is_user")) or mdelta > 60:
-            tail = " — winning material." if mdelta > 150 else " — picking up a pawn."
+        verb = "take" if facts.get("mover_is_user") else "takes"
+        # No "on {square}": SAN already names it (feedback_dont_restate_destination_square),
+        # and "{captured} on {sq}" reads as a present-tense location claim the verifier
+        # rightly rejects (post-move that square holds the CAPTURING piece).
+        base = f"{sub} {verb} the {cap}"
+        # Material verdict ONLY from a SEE-verified fact. material_delta alone ignores the
+        # recapture, so never assert "winning"/"even" from it.
+        if facts.get("free_capture_uncontested"):
+            what = "pawn" if facts.get("captured_piece_type") == "pawn" else "piece"
+            tail = f" — a free {what}."
+        elif facts.get("is_exchange_losing"):
+            tail = " — though it gives material back on the trade."
+        elif facts.get("is_forced_recapture"):
+            tail = ", recapturing to keep things even."
         else:
             tail = "."
-        return (f"{sub} take{'' if sub=='You' else 's'} the {cap}{on}{tail}", "R_TIER2_capture")
+        return (base + tail, "R_TIER2_capture")
 
     if facts.get("is_castling"):
         return (f"{sub} castle{'' if sub=='You' else 's'} — the king tucks away safely "
