@@ -3871,6 +3871,36 @@ async def generate_game_decryption_v5(
                 logger.info(f"[verified_loop] m{full_move_number} {move_san} "
                             f"skipped: {_nar_err}")
 
+            # Verify-then-ship: NEVER ship a caption that fails the per-FEN claim
+            # verifier. Caught 12 pre-existing R12 'captures-the-undefended-X' /
+            # 'leaves-your-piece-undefended' claims where the square is actually
+            # defended. A caption that makes a false claim is replaced by the
+            # verified deterministic floor (true 'X was the stronger move', no
+            # fabricated tactic). Memory feedback_verify_rendered_output_always.
+            try:
+                _final_cap = (caption_payload.get("caption") or "").strip()
+                if _final_cap:
+                    from services.narrator_claim_verifier import verify_caption as _vc
+                    from services.caption_fallback_tiers import tier23_caption as _t23
+                    _vfacts = {
+                        "move_san": move_san,
+                        "fen_before": (caption_facts or {}).get("fen_before"),
+                        "fen_after": (caption_facts or {}).get("fen_after"),
+                        "is_user_move": is_user,
+                        "cp_loss": abs(int((caption_facts or {}).get("cp_loss") or 0)),
+                        "best_move_san": (caption_facts or {}).get("best_move_san"),
+                        "pv_after_played": (caption_facts or {}).get("pv_after_played") or [],
+                        "pv_after_best": (caption_facts or {}).get("pv_after_best") or [],
+                    }
+                    if _vc(_final_cap, _vfacts):
+                        _safe, _ = _t23(caption_facts or {}, flagged_mistake=True)
+                        if _safe and not _vc(_safe, _vfacts):
+                            caption_payload["caption"] = _safe
+                            caption_payload["rule_name"] = (
+                                (caption_payload.get("rule_name") or "") + "→VERIFY_SOFTENED")
+            except Exception:
+                pass
+
             # v100 FINAL: _caption_tier set inside central call above
             # from _decision.teaching_meta.caption_tier.
             move_output = {
