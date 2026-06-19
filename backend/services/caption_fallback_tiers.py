@@ -23,6 +23,13 @@ _PIECE = {"pawn": "pawn", "knight": "knight", "bishop": "bishop",
 _GOOD_CP = 50    # below this a quiet move is genuinely fine; above, don't call it "solid"
 _MISTAKE_CP = 120  # below this, don't name a "better move" — it's a style pref, not a mistake
 _CENTER = {"d4", "e4", "d5", "e5"}  # the four central squares (control-the-center principle)
+_INACCURACY_CP = 70  # with a principle-why, an inaccuracy is teachable (not engine-worship)
+_PRINCIPLE_PHRASE = {
+    "center": "takes the center",
+    "develop": "develops a piece",
+    "castle": "castles to safety",
+    "rook_open_file": "puts a rook on the open file",
+}
 
 
 def _subject(facts: Dict[str, Any]) -> str:
@@ -61,12 +68,21 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     # Scandinavian, cp 36) is a style choice, NOT a mistake — naming "e5 was stronger"
     # is engine-worship (memory feedback_caption_tone_undramatic). Below the mistake
     # bar, fall through to a plain explanation of what the move does. No fabricated why.
-    if flagged_mistake and cp >= _MISTAKE_CP:
+    if flagged_mistake:
         played = facts.get("played_san")
         best = facts.get("best_move_san")
+        bp = facts.get("best_move_principle")
         if played and best and best != played:
-            return (f"You played {played}; {best} was the stronger move here.",
-                    "R_TIER_mistake_floor")
+            # Missed opportunity with a PRINCIPLE why ("Nf3 was calmer, developing a
+            # piece"). The principle makes it teaching, so it fires from the inaccuracy
+            # range — not engine-worship. P2b data: center/develop/castle best moves.
+            if bp in _PRINCIPLE_PHRASE and cp >= _INACCURACY_CP:
+                return (f"You played {played}; {best} was stronger — it "
+                        f"{_PRINCIPLE_PHRASE[bp]}.", "R_TIER_missed_principle")
+            # No principle to name — only call out a better move on a real mistake.
+            if cp >= _MISTAKE_CP:
+                return (f"You played {played}; {best} was the stronger move here.",
+                        "R_TIER_mistake_floor")
 
     sub = _subject(facts)
     poss = _poss(facts)
@@ -124,6 +140,10 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                     f"controlling the center is a core idea.", "R_TIER2_center")
         return (f"{sub} push{'' if sub=='You' else 'es'} {fclause}, claiming a little space.",
                 "R_TIER2_pawn")
+
+    if facts.get("played_move_principle") == "rook_open_file":
+        return (f"{sub} put{'' if sub=='You' else 's'} the {piece} on the open file — "
+                f"rooks belong on open files.", "R_TIER2_rook_file")
 
     if facts.get("threats_created"):
         if _central:

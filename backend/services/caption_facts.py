@@ -4717,6 +4717,48 @@ def _principles_violated(
 
 
 # ────────────────────────────────────────────────────────────────────
+# Move-principle classifier (P2b — plan-behind-a-good-move + missed-opportunity)
+# ────────────────────────────────────────────────────────────────────
+
+_CENTER_SQUARES = {chess.D4, chess.E4, chess.D5, chess.E5}
+
+
+def _classify_move_principle(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
+    """The transferable PRINCIPLE a move embodies, board-verified. Used to name the
+    idea behind a good move ("develops, fighting for the center") and the idea behind
+    the engine's better move on a missed opportunity ("Nf3 was calmer, developing").
+    Returns center / develop / castle / rook_open_file, or None when no clean
+    principle applies (the caption then stays generic — right-or-silent)."""
+    if move is None:
+        return None
+    try:
+        if board.is_castling(move):
+            return "castle"
+        pc = board.piece_at(move.from_square)
+        if pc is None:
+            return None
+        if move.to_square in _CENTER_SQUARES and pc.piece_type in (
+            chess.PAWN, chess.KNIGHT, chess.BISHOP,
+        ):
+            return "center"
+        if pc.piece_type in (chess.KNIGHT, chess.BISHOP):
+            r = chess.square_rank(move.from_square)
+            if (pc.color == chess.WHITE and r == 0) or (pc.color == chess.BLACK and r == 7):
+                return "develop"
+        if pc.piece_type == chess.ROOK:
+            f = chess.square_file(move.to_square)
+            own_pawn = any(
+                board.piece_at(chess.square(f, rr)) == chess.Piece(chess.PAWN, pc.color)
+                for rr in range(8)
+            )
+            if not own_pawn:
+                return "rook_open_file"
+    except Exception:
+        return None
+    return None
+
+
+# ────────────────────────────────────────────────────────────────────
 # Public API
 # ────────────────────────────────────────────────────────────────────
 
@@ -5258,6 +5300,16 @@ def extract_facts(
     # ── Move-history facts ─────────────────────────────────────────────
     move_index = len(move_history_san)  # 0-based ply index of the played move
 
+    # ── Move-principle facts (P2b) ─────────────────────────────────────
+    played_move_principle = _classify_move_principle(board_before, played_move)
+    _best_mv = None
+    if best_move_san:
+        try:
+            _best_mv = board_before.parse_san(best_move_san)
+        except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+            _best_mv = None
+    best_move_principle = _classify_move_principle(board_before, _best_mv)
+
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
         # ENGINE TRUTH (pass-through)
@@ -5267,6 +5319,8 @@ def extract_facts(
         "best_move_san": best_move_san,
         "played_san": played_san,
         "played_is_best": played_is_best,
+        "played_move_principle": played_move_principle,
+        "best_move_principle": best_move_principle,
         "pv_after_played": list(pv_after_played),
         "pv_after_best": list(pv_after_best),
 
