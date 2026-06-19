@@ -35,9 +35,12 @@ async def main():
         fresh = await generate_game_decryption_v5(
             pgn=game.get("pgn"), user_color=(game.get("user_color") or "white").lower(),
             move_evaluations=mevals, user_id=game.get("user_id") or "unknown", db=db)
+        check_all = "--all" in sys.argv
         for m in fresh:
             rn = m.get("rule_name") or ""
-            if "R_TIER" not in rn:
+            if not (m.get("caption") or "").strip():
+                continue
+            if not check_all and "R_TIER" not in rn:
                 continue
             n_tier += 1
             rule_counts[rn.split("→")[-1]] += 1

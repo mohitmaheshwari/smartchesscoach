@@ -2352,6 +2352,7 @@ def inject_opening_context_facts(
     opening_name: Optional[str],
     user_color: str,
     prev_move_san: Optional[str],
+    move_history_san: Optional[List[str]] = None,
 ) -> None:
     """A4: opening intro (v74) + opening theory lookup (v88).
 
@@ -2396,6 +2397,29 @@ def inject_opening_context_facts(
                 caption_facts["opening_intro_idea"] = _in_idea
     except Exception:
         pass
+
+    # v100 — canonical recognizer fallback (single source: opening_book). The
+    # eco-based get_opening_introduction misses openings the move-history recognizer
+    # knows (Scandinavian, Sicilian, ...) when the game lacked an ECO/name header.
+    # Only when this move IS the latest book move (match_length == full length), so
+    # we name the opening on the move that defines it, not on a later deviation.
+    # Memory project_opening_recognizer_canonical.
+    if not caption_facts.get("opening_intro_name") and move_history_san is not None:
+        try:
+            from services.decryption_voice.opening_book import (
+                recognize_opening_from_history,
+            )
+            _full = list(move_history_san) + [move_san]
+            _rec = recognize_opening_from_history(_full)
+            if _rec and _rec.get("caption") and _rec.get("match_length") == len(_full):
+                _cap = _rec["caption"].strip()
+                _nm, _, _idea = _cap.partition(". ")
+                if _nm:
+                    caption_facts["opening_intro_name"] = _nm
+                if _idea:
+                    caption_facts["opening_intro_idea"] = _idea.strip()
+        except Exception:
+            pass
 
     # v88 — opening_theory_tree lookup against post-move FEN.
     try:
@@ -3682,6 +3706,7 @@ def build_move_teaching_decision(
         opening_name=inputs.opening_name,
         user_color=inputs.user_color,
         prev_move_san=inputs.prev_move_san,
+        move_history_san=inputs.move_history_san,
     )
 
     # ─── 4c. Good-move "why" (R15) — safe deterministic reason for a
