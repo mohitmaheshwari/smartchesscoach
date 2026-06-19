@@ -60,6 +60,25 @@ def _eval_suffix(facts: Dict[str, Any]) -> str:
     return ""
 
 
+def _better_suffix(facts: Dict[str, Any]) -> str:
+    """For a decent-but-suboptimal USER move, surface the engine's better move with its
+    PRINCIPLE as the why ("Though e4 was a bit stronger, taking the center.") — the
+    'decent, but Y was better' structure gold uses. Gated on a principle (teaching, not
+    engine-worship: Bc5 cp35 names e4; the d5-Scandinavian is protected by opening-naming
+    firing first) + a meaningful cp band (below this = style; at/above _MISTAKE_CP the
+    flagged missed-opportunity path handles it). Verify-safe: best move is engine truth,
+    principle is board-verified."""
+    if not facts.get("mover_is_user"):
+        return ""
+    best = facts.get("best_move_san")
+    played = facts.get("played_san")
+    bp = facts.get("best_move_principle")
+    cp = int(facts.get("cp_loss") or 0)
+    if best and played and best != played and bp in _PRINCIPLE_PHRASE and 25 <= cp < _MISTAKE_CP:
+        return f" Though {best} was a bit stronger, {_PRINCIPLE_PHRASE[bp]}."
+    return ""
+
+
 def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tuple[str, str]:
     cp = int(facts.get("cp_loss") or 0)
 
@@ -124,41 +143,42 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     # construction — target_square is in _CENTER.
     _tsq = facts.get("target_square") or ""
     _central = _tsq in _CENTER
+    _suf = _better_suffix(facts)  # "decent, but {best} was stronger ({principle})"
 
     if _develops(facts):
         if _central:
             return (f"{sub} develop{'' if sub=='You' else 's'} the {piece} to a strong central "
-                    f"square, fighting for the center.", "R_TIER2_develop_center")
+                    f"square, fighting for the center." + _suf, "R_TIER2_develop_center")
         return (f"{sub} develop{'' if sub=='You' else 's'} the {piece}, bringing a new "
-                f"piece into the game.", "R_TIER2_develop")
+                f"piece into the game." + _suf, "R_TIER2_develop")
 
     if facts.get("is_pawn_move"):
         file_ = _tsq[0] if _tsq else ""
         fclause = f"the {file_}-pawn" if file_ else "a pawn"
         if _central:
             return (f"{sub} push{'' if sub=='You' else 'es'} {fclause} into the center — "
-                    f"controlling the center is a core idea.", "R_TIER2_center")
-        return (f"{sub} push{'' if sub=='You' else 'es'} {fclause}, claiming a little space.",
-                "R_TIER2_pawn")
+                    f"controlling the center is a core idea." + _suf, "R_TIER2_center")
+        return (f"{sub} push{'' if sub=='You' else 'es'} {fclause}, claiming a little space."
+                + _suf, "R_TIER2_pawn")
 
     if facts.get("played_move_principle") == "rook_open_file":
         return (f"{sub} put{'' if sub=='You' else 's'} the {piece} on the open file — "
-                f"rooks belong on open files.", "R_TIER2_rook_file")
+                f"rooks belong on open files." + _suf, "R_TIER2_rook_file")
 
     if facts.get("threats_created"):
         if _central:
             return (f"{sub} post{'' if sub=='You' else 's'} the {piece} on a strong central "
-                    f"square.", "R_TIER2_activate_center")
-        return (f"{sub} bring{'' if sub=='You' else 's'} the {piece} to a more active spot.",
-                "R_TIER2_activate")
+                    f"square." + _suf, "R_TIER2_activate_center")
+        return (f"{sub} bring{'' if sub=='You' else 's'} the {piece} to a more active spot."
+                + _suf, "R_TIER2_activate")
 
     # ── Tier 3 — never-silence floor (gated so we don't praise a real slip) ─
     if pt == "king" and cp < _GOOD_CP:
         return (f"{sub} tidy{'' if sub=='You' else 's'} up the king, keeping it safe."
-                + _eval_suffix(facts), "R_TIER3_king_safety")
+                + _suf + _eval_suffix(facts), "R_TIER3_king_safety")
 
     if cp < _GOOD_CP:
-        return (f"A calm move that keeps {poss} position solid." + _eval_suffix(facts),
+        return (f"A calm move that keeps {poss} position solid." + _suf + _eval_suffix(facts),
                 "R_TIER3_calm")
 
     # cp is high but no detector fired — be honest, don't claim "solid".
