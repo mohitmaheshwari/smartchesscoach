@@ -1,113 +1,94 @@
-# Caption Silence Elimination — Scope (DRAFT, awaiting sign-off)
+# Caption Coverage (Never-Silence) — Scope
 
-*Created 2026-06-18, rewritten 2026-06-19 against a fresh re-render (was
-`opponent_move_guidance_scope.md` — broadened from opponent-only once the real
-numbers came in). Scope-Driven Development: no detector code until Mohit signs off.*
+*Created 2026-06-18, reframed 2026-06-19 after Mohit reviewed the 5-game comparison
+table. Was "silence elimination"; now centered on **coverage as a first-class metric**.
+Scope-Driven Development: this is the signed direction. Parent:
+[why_now_coach_layer_scope.md](why_now_coach_layer_scope.md).*
 
-Parent design: [why_now_coach_layer_scope.md](why_now_coach_layer_scope.md).
-Substrate: 100-game whole-game gold corpus (`_gold_records_wg.jsonl`, 6216 verified
-captions) + the **fresh re-render** comparison (`scripts/fresh_render_compare.py`).
+## North star (Mohit, 2026-06-19)
+**Every move teaches something. A mediocre caption beats silence for a learning product.**
+Coverage is a business metric, co-equal with quality — they are related but NOT the same
+problem. The most visible weakness in the comparison wasn't detector quality; it was the
+learner repeatedly hitting `(silent — nothing shown)`.
 
-## The gap — LOCKED on a fresh re-render (not stale stored data)
+Locked metrics (fresh re-render, `fresh_render_compare.py`):
+- coverage (system teaches) **~69% → target 98%**
+- quality may dip **~7 → ~6.5** during the coverage push, then recovered by the selector (P2).
+- per-tier **verified-truth = 100%** — never-silence must NOT mean shipping a false claim.
 
-Measured by re-rendering the **current** V5 pipeline in-memory on all 100 corpus
-games (no DB writes) and tiering each served caption vs gold with the locked
-`caption_classifier` (teaching = HIGH/MID):
+## The three tiers (binary detector→caption / else→silence is the bug)
+Today it's `detector fires → caption`, else silence. Replace with three tiers, **all
+deterministic, all board-verified, NO runtime LLM** (the `narrator_fallback.py` Claude path
+stays only as a narrow batch-time enrichment for flagged user-mistakes — it is NOT the
+coverage mechanism: it's per-move LLM cost and user-mistakes-only):
 
-| | value |
-|---|---|
-| moves | 6216 |
-| system TEACHES (fresh served caption) | **69%** |
-| gold teaches | 90% |
-| **TRUE MISS (system silent/filler, gold teaches)** | **1612 = 25%** |
-| of which empty `R_FALLBACK_no_primary` (pure silence) | **788 = 12%** |
-| miss split | **1060 opp (66%) / 552 user (34%)** |
+- **Tier 1 — Strong teaching.** A real, transferable lesson. *"Qxc4 wins a free pawn. Always
+  check for undefended pieces before a quiet move."* Detectors + selector.
+- **Tier 2 — Move explanation.** No lesson; explain what the move DOES, from facts we already
+  compute. *"Nc6 develops your knight and brings another piece into the game."*
+- **Tier 3 — Fallback (never silence).** When nothing interesting, still say something TRUE by
+  construction. *"Be7 moves the bishop to safety and keeps your position solid." / "The position
+  stays about level after this move."* A small set of **verified micro-templates** chosen by
+  what's checkable (bishop-to-safety only if e7 isn't attacked after; "about level" only if
+  |eval| small). If somehow none verify, the most generic always-true ("a quiet developing
+  move") — but it is gated on truth, never freeform filler.
 
-Three measurements were taken; only this one is trusted. `primary_reason` alone
-(674, "100% opp") was the wrong layer — it's one input, not the served caption.
-Stored captions read 63% teach / 32% miss but were **stale** (older pipeline);
-fresh reads 69%, confirming the staleness and the decision to re-render.
+**Reconciliation of last hour's "stay silent" rule:** OVERRIDDEN. Coverage is the goal, so we
+never go silent — but the truth bar still binds every tier. Never-silence is achieved by
+*verified* Tier-2/3 micro-templates, not by relaxing truth. (Supersedes the strict reading of
+`feedback_principle_bank_is_filler`: filler that LIES is still banned; a true, board-anchored
+Tier-3 line is coverage, not filler.)
 
-### The principle (Mohit, 2026-06-19)
-There are almost **no truly "quiet" moves**. c5 = Sicilian (name it), c4 = English
-(name it), Ne2 = development (if the back rank is clear, *you can castle* — say so),
-h4 = it chases your queen / storms your king (derive the real point). **Every silence
-gets real, board-derived content, or stays silent only when there is genuinely
-nothing. No "calm / keep developing" filler** (memory `feedback_principle_bank_is_filler`).
+**Render with visual hierarchy** so coverage doesn't cause banner-blindness: Tier-1 prominent,
+Tier-3 muted/secondary. Coverage everywhere; emphasis only where there's a real lesson.
 
-## Where the silence lives (rule paths, to confirm with rule_name dump in build step 0)
+## The selector matters more than detector #51 (Qxd5 canonical case)
+`1.e4 d5 2.exd5 Qxd5` — system said *"Qxd5 — takes the pawn"* (move narration, learner
+learns 0). Gold taught *"early queens get pushed around."* **The system already HAD both facts**
+(takes-pawn AND queen-developed-early); the selector picked `CAPTURE` over
+`EARLY_QUEEN_DEVELOPMENT`. Not a detector gap — a **selection** gap.
 
-The miss-by-type maps onto specific silent rule paths in the existing engine:
+**Selector objective (THE ranking rule):** *If the student remembers exactly ONE thing from
+this move a week later, what should it be?* → the transferable concept, not the visible fact.
+This is the teaching-score of the locked two-score selector (urgency × teaching, rating-weighted).
+Note: even gold over-indexes on engine moves ("Nf6 was cleaner") — we go further than gold:
+prefer the **principle** ("queen out early lets him gain time chasing it"), no engine dependency.
 
-| Miss type (n) | Likely silent path | Derived content to add |
-|---|---|---|
-| opp_other 257, good_other 189 | `R_FALLBACK_no_primary` (788 empty) | opening name · what-move-attacks · castling cue · the plan |
-| opp_develop 129, good_develop 55 | `R11_development` (**"silent, no JSON variant"**) | the plan behind the developing move + castling-available cue |
-| opp_trade 180 | A3 opp-narration gap | the recapture / reply (`user_best_reply_san`) |
-| opp_pawn 89, opp_space 83 | opp-narration / fallback | what the push attacks; pawn-storm awareness; the reply |
-| good_space 61, good_centralize 56, good_rook_* 88 | `R15_good_move` quiet | what the good move accomplishes (the plan) |
+## Caption tone & structure rules (from the comparison review)
+1. **Undramatic.** Kill "you were already losing / the problem started earlier / this only slows
+   the loss." Gold says *"Bf6 is okay, but f5 was more active."* The learner can still learn.
+2. **Structure: what happened → why → better-move (optional).** Explain the move PLAYED first;
+   don't open with "Play e5 / Play h4." *"You played Bc5, aiming at the kingside. Pushing e4 was
+   even stronger because it gained space."*
+3. **cp-gate the better-move.** Marginal pref (small cp: Qd7>Qd8, Nc6>Nf6) → **principle/explanation
+   only, name no engine move, invent no fake lesson** (*"Qd8 keeps the queen safe; the engine
+   preferred Qc7 for activity"* — short, honest). Real mistake (big cp) → name the better move + why.
+4. **Eval-state aware** (surfaced in the 25-sample): frame by who's winning. Winning → "convert /
+   stay safe"; lost → honest + brief morale. Derivable from eval; without it captions sound
+   tone-deaf in decided positions.
 
-## Proposed build — EXTEND the existing engine, no new surface
+## Cross-move memory — the real moat (P3, where we beat Claude)
+Claude scores each move in isolation; we see the whole game. Build trackers:
+- `missed_free_pawn_tracker`, `missed_tactic_tracker`, `missed_development_tracker`.
+- *"You missed the free pawn again." → "You finally took it."* That is **teaching**, not
+  evaluation, and Claude structurally cannot do it per-move. Extend `CrossMoveState`
+  (caption_pipeline) — no new engine.
 
-Single-source-of-truth (memories `feedback_single_source_of_truth`,
-`feedback_one_source_of_truth`, `project_pwc_runs_second_coaching_engine`): all of
-this routes through the existing `caption_facts` → `extract_primary_reason` → rule
-paths → `build_move_teaching_decision`. **No second engine, no parallel detector
-file.** Each item below is a derived-fact clause feeding an *existing* silent path.
+## Assets to EXTEND (single-source-of-truth)
+- silence point: `caption_renderer.py:45` (`caption=""`, R_FALLBACK_no_primary) — Tier-3 plugs in here.
+- `narrator_fallback.py` — keep as batch-time LLM enrichment for flagged user-mistakes ONLY.
+- tiers: `caption_classifier` (HIGH/MID/LOW + `classify_freetext`). severity: `severity.py`.
+  openings: `opening_book.recognize_opening_from_history`. facts: `caption_facts`.
+  state: `CrossMoveState`. No second engine, no parallel detector file.
 
-### Derived-content building blocks (each board-derived + independently verifiable)
-1. **Opening name (both sides)** — route through the canonical
-   `opening_book.recognize_opening_from_history` (memory `project_opening_recognizer_canonical`).
-   It's not firing on all opening moves (c5/c4). Extend firing/coverage; do NOT add a 5th recognizer.
-   *Verify:* recognizer returns a name for the move-history prefix.
-2. **Castling-available cue** — student can legally castle *now* (rights intact, squares
-   between king/rook empty, not in/through check). *Verify:* `board.has_castling_rights` + legal `O-O`.
-3. **What-the-move-attacks (opp moves)** — the opponent's move (or its threatened next push,
-   e.g. h4→h5) attacks a student piece → "move it / defend it." *Verify:* target square in
-   `board_after.attacks(...)` or engine PV shows the capture; never claim a threat the line doesn't show.
-4. **Pawn-storm awareness** — ≥2 opponent pawns advancing toward the student king file-zone →
-   one awareness clause. *Verify:* pawn ranks + proximity to king; gate hard against false alarms.
-5. **The reply / opportunity (opp moves)** — extend the EXISTING `user_best_reply_san` /
-   `opponent_opportunity` beyond forcing/material to positional replies: recapture, grab-loose-pawn,
-   centralize, trade-into-winning-ending, blockade-passer. *Verify:* named reply = engine PV[0]
-   on the post-opp position; "free pawn" SEE-verified; "winning ending" eval-verified.
-6. **Plan-behind-a-good-move (user moves)** — on a good move that fires no primary_reason
-   (R11/R15 quiet), state what it accomplishes (develops + eyes X / centralizes / gains space /
-   opens the file for the rook). Much is already in `caption_facts` (best_purpose, develops,
-   open-file) — the fix is *rendering* it on good moves, not new detection. *Verify:* the moved
-   piece actually does what's claimed (strict attribution, as in the distill skill).
+## Priority order (Mohit)
+- **P1 — Eliminate silence.** Tier-2 + Tier-3 deterministic coverage. coverage 69→~98%.
+- **P2 — Selector.** "remember one thing" ranking; fixes Qxd5-class (had the fact, said the boring one).
+- **P3 — Cross-move memory.** missed_* trackers.
 
-### Fill the two designed silences
-- **`R11_development`** — give it a real clause (block 6 + castling cue) instead of staying mute.
-- **`R_FALLBACK_no_primary`** — when it fires, run blocks 1–6 in priority order; emit the first
-  that verifies. Emit nothing only if all abstain (should be rare). Replaces the 788 empty captions.
-
-### Truth bar (`right-or-silent`) — unchanged from the locked distillation arch
-Every claim re-derived independently at render; any clause that fails to verify abstains;
-whole caption abstains rather than guess; no runtime LLM (offline-distilled templates,
-deterministic render + verify). Run `pwc_coaching_lint.py` after any coaching-surface change
-(memory `feedback_dont_make_mohit_qa`) — catches empty/snake_case/grammar/jargon/pawn-called-piece
-(the live pipeline already ships "it dose not give the tempo"-class bugs; lint must gate them).
-
-## Acceptance (measured on `fresh_render_compare.py`, the locked harness)
-- **System-teaches 69% → target ≥ 85%**; **empty `R_FALLBACK_no_primary` 788 → ~0**.
-- Per derived-content block: **verified-truth = 100%** on a held-out slice (the shippable gate).
-- No regression: existing fired captions don't lose tier; `pwc_coaching_lint` clean.
-- `log()` whatever stays silent after the pass (no silent caps — memory `feedback_three_detection_principles`).
-
-## Build order (cleanest/most-verifiable first)
-0. **Confirm the silent-path mapping** — dump `rule_name` for the 1612 misses (one fresh-render
-   pass with rule_name capture) so we build for the paths that actually fire, not the table's guess.
-1. Opening-name coverage (block 1) — pure reuse, highest certainty.
-2. Castling-available (2) + plan-behind-good-move (6) — board-checkable, no engine dependency.
-3. What-move-attacks (3) + the reply (5) — engine-PV-verified.
-4. Pawn-storm (4) — gate hardest (false-alarm risk).
-5. Re-render, re-measure, iterate to ≥85%.
-
-## Open questions for Mohit (sign-off)
-1. **Target** — is ≥85% system-teaches the right bar, or push for ~90% (gold parity)? Some moves
-   may legitimately abstain (irreducibly positional) — I expect a small honest residual, not 0%.
-2. **Build-order** — agree with starting on opening-name + castling + good-move-plan (no-engine,
-   fastest, highest certainty) before the engine-verified opp-reply blocks?
-3. **calm residual** — confirmed NO generic filler; a move with nothing board-derivable stays
-   silent. Agreed?
+## Acceptance (on `fresh_render_compare.py`)
+- coverage ≥ 98%; empty `R_FALLBACK` ~0.
+- per-tier verified-truth = 100% (held-out slice); `pwc_coaching_lint` clean.
+- selector: on a labeled slice, % of moves where the chosen lesson = gold's chosen lesson goes up
+  (the Qxd5-class flips from CAPTURE → EARLY_QUEEN).
+- `log()` any residual silence (should be ~0).

@@ -29,6 +29,8 @@ async def main():
 
     n = miss = sys_teach = gold_teach = matched = fallback_sil = 0
     miss_by = collections.Counter(); miss_opp = collections.Counter(); miss_user = collections.Counter()
+    miss_rule = collections.Counter()
+    detail = []  # per-miss rows for analysis
     done = 0
     for gid in game_ids:
         game = await db.games.find_one({"game_id": gid}, {"_id": 0})
@@ -65,6 +67,14 @@ async def main():
                 side = "opp" if not g["is_user_move"] else "user"
                 miss_by[side] += 1
                 (miss_opp if side == "opp" else miss_user)[g["type"]] += 1
+                rn = (m.get("rule_name") or "").split("→")[-1].strip() or "?"
+                miss_rule[rn] += 1
+                detail.append({
+                    "game": gid, "move_number": m.get("move_number"), "move_san": m.get("move_san"),
+                    "is_user_move": g["is_user_move"], "cp_loss": g.get("cp_loss"), "gold_type": g["type"],
+                    "rule_name": rn, "sys_caption": cap, "sys_tier": tier,
+                    "gold_caption": g["caption"], "gold_tier": C.classify_freetext(g["caption"])["tier"],
+                })
         done += 1
         if done % 20 == 0:
             print(f"  {done}/{len(game_ids)} games, {n} moves matched", flush=True)
@@ -78,6 +88,12 @@ async def main():
     for k, v in miss_opp.most_common(10): print(f"  {v:4} {k}")
     print("user miss by type:")
     for k, v in miss_user.most_common(10): print(f"  {v:4} {k}")
+    print("miss by rule_name (the silent paths):")
+    for k, v in miss_rule.most_common(12): print(f"  {v:4} {k}")
+    with open("/app/backend/scripts/_silence_detail.jsonl", "w", encoding="utf-8") as f:
+        for d in detail:
+            f.write(json.dumps(d, ensure_ascii=False) + "\n")
+    print(f"WROTE _silence_detail.jsonl ({len(detail)} miss rows)")
 
 
 if __name__ == "__main__":
