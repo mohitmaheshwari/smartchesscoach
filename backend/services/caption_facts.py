@@ -1449,7 +1449,9 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 }
 
     # Priority 3: check + extra attack (concrete tactical pressure)
-    if facts.get("is_check") and facts.get("threats_created"):
+    # Gated on _tactic_ok: don't celebrate a check on a blunder move
+    # (e.g., Qxc2+ cp_loss=9923 that gives check). Fix #5.
+    if _tactic_ok and facts.get("is_check") and facts.get("threats_created"):
         return {
             "category": "check_extra",
             "ref_field": "threats_created",
@@ -1459,7 +1461,9 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Priority 4: plain check — is_check without an extra attack still
     # represents a forcing teaching moment ("king has to respond").
     # Lower than check_extra so a check + fork goes to category=tactic_played.
-    if facts.get("is_check"):
+    # Gated on _tactic_ok: don't celebrate a plain check on a blunder.
+    # Fix #5 cont'd.
+    if _tactic_ok and facts.get("is_check"):
         return {
             "category": "check_plain",
             "ref_field": "is_check",
@@ -1478,7 +1482,9 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         }
 
     # Priority 6: material — gated by eval-swing accounting
-    if _material_explains_eval(facts):
+    # Also gated on _tactic_ok: don't celebrate a capture on a blunder.
+    # Fix #5 cont'd.
+    if _tactic_ok and _material_explains_eval(facts):
         return {
             "category": "material",
             "ref_field": "material_delta_played_cp",

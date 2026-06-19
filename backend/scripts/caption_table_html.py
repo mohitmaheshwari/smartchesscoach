@@ -81,3 +81,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    import os as _os
+    _os._exit(0)  # motor keeps threads alive; hard-exit so the && copy fires
