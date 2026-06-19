@@ -22,6 +22,21 @@ from typing import Any, Dict, Optional
 from services.caption_rules import RULES, CaptionOutput, Rule
 from services.caption_config import MAX_CAPTION_WORDS
 from services.severity_mismatch_guard import is_severity_mismatch
+from services.caption_fallback_tiers import tier23_caption
+
+
+def _tier23(facts: Dict[str, Any], silence_rule: str) -> CaptionOutput:
+    """Never-silence floor: when no R-rule produced a caption, render a short
+    TRUE-by-construction Tier-2/3 line instead of empty. See
+    services/caption_fallback_tiers.py + memory feedback_coverage_is_first_class."""
+    try:
+        cap, rule = tier23_caption(facts)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[caption_renderer] tier23 fallback crashed: {exc}")
+        cap, rule = "", silence_rule
+    if not cap:
+        return CaptionOutput(caption="", rule_name=silence_rule)
+    return CaptionOutput(caption=_enforce_word_cap(cap), rule_name=rule)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +57,7 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
     """
     primary = facts.get("primary_reason")
     if not primary or not primary.get("category"):
-        return CaptionOutput(caption="", rule_name="R_FALLBACK_no_primary")
+        return _tier23(facts, "R_FALLBACK_no_primary")
 
     category = primary["category"]
 
@@ -50,7 +65,7 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
     # match wins.
     candidates = [r for r in RULES if r.category == category]
     if not candidates:
-        return CaptionOutput(caption="", rule_name="R_FALLBACK_no_rule_for_category")
+        return _tier23(facts, "R_FALLBACK_no_rule_for_category")
 
     for rule in candidates:
         try:
@@ -83,7 +98,7 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
             )
             continue
 
-    return CaptionOutput(caption="", rule_name="R_FALLBACK_no_trigger_fired")
+    return _tier23(facts, "R_FALLBACK_no_trigger_fired")
 
 
 def _enforce_word_cap(caption: str) -> str:
