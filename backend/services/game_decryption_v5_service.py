@@ -3002,6 +3002,14 @@ async def generate_game_decryption_v5(
         pattern_miss_events: List[Dict] = []
         prev_user_eval_after = None  # Track eval after user's last move
 
+        # ── P3 cross-move missed-opportunity tracker (the moat) ───────
+        # Game-wide: the standing opportunity the user keeps passing up
+        # (a principle-bearing engine best move declined on consecutive
+        # user moves). When it recurs -> "again / still"; when finally
+        # played -> "you finally took it". Claude can't do this per-move.
+        # {"best_san": str, "principle": str, "count": int} | None
+        _missed_opp = None
+
         # ── Teaching-layer suppression state ──────────────────────────
         # Catalog declares per-principle suppression semantics:
         #   once_per_move        — default; no game-state filter
@@ -3898,6 +3906,42 @@ async def generate_game_decryption_v5(
                             caption_payload["caption"] = _safe
                             caption_payload["rule_name"] = (
                                 (caption_payload.get("rule_name") or "") + "→VERIFY_SOFTENED")
+            except Exception:
+                pass
+
+            # P3 cross-move missed-opportunity (the moat): track a
+            # principle-bearing engine best move the user keeps declining and
+            # call out the RECURRENCE / the moment they finally play it. All
+            # claims are engine/board truth (best move + board principle), so
+            # this is verify-safe. Memory feedback_coverage_is_first_class.
+            try:
+                if is_user:
+                    _bp = (caption_facts or {}).get("best_move_principle")
+                    _best = (caption_facts or {}).get("best_move_san")
+                    _pp = {"center": "central break", "develop": "developing move",
+                           "castle": "chance to castle", "rook_open_file": "open file"}
+                    if _missed_opp and move_san == _missed_opp.get("best_san"):
+                        # finally played the move they'd been passing up
+                        _ph = _pp.get(_missed_opp.get("principle"), "move")
+                        caption_payload["caption"] = (
+                            f"You finally play {move_san} — the {_ph} you had been "
+                            f"passing up. Good.")
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "") + "→XMOVE_FINALLY")
+                        _missed_opp = None
+                    elif (_bp in _pp and _best and _best != move_san
+                          and int(cp_loss or 0) >= 70):
+                        if _missed_opp and _missed_opp.get("best_san") == _best:
+                            _missed_opp["count"] += 1
+                            caption_payload["caption"] = (
+                                f"Again you pass up {_best} — the {_pp[_bp]} is still the "
+                                f"move here. Look for it before you move.")
+                            caption_payload["rule_name"] = (
+                                (caption_payload.get("rule_name") or "") + "→XMOVE_AGAIN")
+                        else:
+                            _missed_opp = {"best_san": _best, "principle": _bp, "count": 1}
+                    else:
+                        _missed_opp = None
             except Exception:
                 pass
 
