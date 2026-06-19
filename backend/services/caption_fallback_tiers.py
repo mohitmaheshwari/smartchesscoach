@@ -22,6 +22,7 @@ _PIECE = {"pawn": "pawn", "knight": "knight", "bishop": "bishop",
           "rook": "rook", "queen": "queen", "king": "king"}
 _GOOD_CP = 50    # below this a quiet move is genuinely fine; above, don't call it "solid"
 _MISTAKE_CP = 120  # below this, don't name a "better move" — it's a style pref, not a mistake
+_CENTER = {"d4", "e4", "d5", "e5"}  # the four central squares (control-the-center principle)
 
 
 def _subject(facts: Dict[str, Any]) -> str:
@@ -101,18 +102,33 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         return (f"{sub} give{'' if sub=='You' else 's'} a check, forcing a reply.",
                 "R_TIER2_check")
 
+    # P2b: a pawn or piece landing on a central square = the control-the-center
+    # principle (transferable, board-verified: the piece sits on d4/e4/d5/e5).
+    # 'center' is the #1 transferable-principle miss (449). The claim is true by
+    # construction — target_square is in _CENTER.
+    _tsq = facts.get("target_square") or ""
+    _central = _tsq in _CENTER
+
     if _develops(facts):
+        if _central:
+            return (f"{sub} develop{'' if sub=='You' else 's'} the {piece} to a strong central "
+                    f"square, fighting for the center.", "R_TIER2_develop_center")
         return (f"{sub} develop{'' if sub=='You' else 's'} the {piece}, bringing a new "
                 f"piece into the game.", "R_TIER2_develop")
 
     if facts.get("is_pawn_move"):
-        sq = facts.get("target_square") or ""
-        file_ = sq[0] if sq else ""
+        file_ = _tsq[0] if _tsq else ""
         fclause = f"the {file_}-pawn" if file_ else "a pawn"
+        if _central:
+            return (f"{sub} push{'' if sub=='You' else 'es'} {fclause} into the center — "
+                    f"controlling the center is a core idea.", "R_TIER2_center")
         return (f"{sub} push{'' if sub=='You' else 'es'} {fclause}, claiming a little space.",
                 "R_TIER2_pawn")
 
     if facts.get("threats_created"):
+        if _central:
+            return (f"{sub} post{'' if sub=='You' else 's'} the {piece} on a strong central "
+                    f"square.", "R_TIER2_activate_center")
         return (f"{sub} bring{'' if sub=='You' else 's'} the {piece} to a more active spot.",
                 "R_TIER2_activate")
 
