@@ -430,9 +430,16 @@ class CaptionClassifier:
                     "json_path": e["json_path"],
                 }
 
+        # No system template matched. Rather than NONE (which would hide the
+        # tier of free-text captions like the R_TIER never-silence fallbacks),
+        # fall back to the content-based tier. Single source: one classifier,
+        # template-match first, content second. Empty caption already returned
+        # NONE above, so this only fires on real non-template prose.
+        ft = self.classify_freetext(caption)
         return {
-            "tier": "NONE", "file": None, "variant_key": "bare_severity",
-            "json_path": "R12_blunder.json → why_clauses_user (add new variant)",
+            "tier": ft["tier"], "file": None,
+            "variant_key": f"freetext:{ft['signal']}",
+            "json_path": None,
         }
 
     def classify_freetext(self, caption: str) -> Dict[str, Any]:

@@ -3844,9 +3844,20 @@ async def generate_game_decryption_v5(
                                     }, default=str) + "\n")
                             except Exception:
                                 pass
-                            caption_payload["caption"] = ""
+                            # Narrator gone -> don't ship silence. Honest
+                            # deterministic mistake-floor (names the stronger move,
+                            # no fabricated why). Still logged above for a real why
+                            # later. Memory feedback_coverage_is_first_class.
+                            try:
+                                from services.caption_fallback_tiers import tier23_caption
+                                _fl_cap, _fl_rule = tier23_caption(
+                                    caption_facts or {}, flagged_mistake=True)
+                            except Exception:
+                                _fl_cap, _fl_rule = "", ""
+                            caption_payload["caption"] = _fl_cap
                             caption_payload["rule_name"] = (
-                                (caption_payload.get("rule_name") or "") + "→HELD"
+                                (caption_payload.get("rule_name") or "")
+                                + ("→HELD_FLOOR" if _fl_cap else "→HELD")
                             )
             except Exception as _nar_err:
                 logger.info(f"[verified_loop] m{full_move_number} {move_san} "

@@ -51,7 +51,18 @@ def _eval_suffix(facts: Dict[str, Any]) -> str:
     return ""
 
 
-def tier23_caption(facts: Dict[str, Any]) -> Tuple[str, str]:
+def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tuple[str, str]:
+    # Flagged mistake whose WHY we couldn't derive (e.g. narrator HELD): be honest,
+    # never dress it up as a good move. Name the stronger move (engine best, true by
+    # construction since cp_loss>0) WITHOUT fabricating a why; undramatic (memory
+    # feedback_caption_tone_undramatic). The move stays logged for a real why later.
+    if flagged_mistake:
+        played = facts.get("played_san")
+        best = facts.get("best_move_san")
+        if played and best and best != played:
+            return (f"You played {played}; {best} was a bit stronger here.",
+                    "R_TIER_mistake_floor")
+
     sub = _subject(facts)
     poss = _poss(facts)
     pt = facts.get("moving_piece_type")
