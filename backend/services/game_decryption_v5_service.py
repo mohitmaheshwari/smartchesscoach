@@ -3879,6 +3879,21 @@ async def generate_game_decryption_v5(
                 logger.info(f"[verified_loop] m{full_move_number} {move_san} "
                             f"skipped: {_nar_err}")
 
+            # Law: every recommended reply needs its WHY. Many opp-positional templates
+            # (knight_on_rim, un_developing, pawn_heavy, ...) end with a bare
+            # "Play {reply}." Append the derived why in ONE place rather than editing
+            # each template. feedback_explain_why_recommended_move_good.
+            try:
+                _rwhy = (caption_facts or {}).get("opp_user_reply_why")
+                _rply = (caption_facts or {}).get("user_best_reply_san")
+                if _rwhy and _rply:
+                    _capt = caption_payload.get("caption") or ""
+                    _bare = f"Play {_rply}."
+                    if _capt.endswith(_bare):
+                        caption_payload["caption"] = _capt[:-1] + f" — it {_rwhy}."
+            except Exception:
+                pass
+
             # Verify-then-ship: NEVER ship a caption that fails the per-FEN claim
             # verifier. Caught 12 pre-existing R12 'captures-the-undefended-X' /
             # 'leaves-your-piece-undefended' claims where the square is actually
