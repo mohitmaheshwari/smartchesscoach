@@ -895,31 +895,19 @@ class PlayerIdentityService:
             return False
     
     def _is_missed_fork(self, board: chess.Board, best_move: str) -> bool:
-        """Check if best move was a fork"""
+        """Real, WINNABLE fork via the verified geometry detector (single source:
+        caption_facts.multi_target_attack_evidence, SEE/winnability-checked). The old
+        value>=14 heuristic was 96% false positives on a 3108-move audit — every CHECK
+        counted as a fork (king=100 + any second target). Consolidated 2026-06-20;
+        caption_facts does NOT import player_identity, so no import cycle."""
         try:
-            m = board.parse_san(best_move)
-            board_after = board.copy()
-            board_after.push(m)
-            
-            to_sq = m.to_square
-            piece = board_after.piece_at(to_sq)
-            if not piece:
-                return False
-            
-            # Count high-value pieces attacked
-            attacked_value = 0
-            for sq in board_after.attacks(to_sq):
-                target = board_after.piece_at(sq)
-                if target and target.color != piece.color:
-                    if target.piece_type == chess.KING:
-                        attacked_value += 100
-                    elif target.piece_type == chess.QUEEN:
-                        attacked_value += 9
-                    elif target.piece_type == chess.ROOK:
-                        attacked_value += 5
-            
-            return attacked_value >= 14  # King + something or Queen + Rook
-        except:
+            from services.caption_facts import extract_facts
+            facts = extract_facts(
+                fen_before=board.fen(), played_san=best_move,
+                cp_loss=0, mover_is_user=True,
+            )
+            return bool(facts.get("multi_target_attack_evidence"))
+        except Exception:
             return False
     
     def _is_missed_pin(self, board: chess.Board, best_move: str) -> bool:
