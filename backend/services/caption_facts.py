@@ -4614,7 +4614,13 @@ def _p_mid_bad_bishop(
     own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
     bad_bishop_sq = None
     pawn_count = 0
+    # A bad bishop must be DEVELOPED but trapped — not still on its home square.
+    # Audit (2026-06-20): 69/100 firings were the undeveloped home-square bishop
+    # (e.g. f8 with 7 same-colour pawns) — that's "develop it", not "bad bishop".
+    _home_bishop_sq = {chess.C1, chess.F1} if own_color == chess.WHITE else {chess.C8, chess.F8}
     for bsq in board_before.pieces(chess.BISHOP, own_color):
+        if bsq in _home_bishop_sq:
+            continue
         bishop_sq_color = (chess.square_file(bsq) + chess.square_rank(bsq)) % 2
         same_color_pawns = 0
         for psq in board_before.pieces(chess.PAWN, own_color):
