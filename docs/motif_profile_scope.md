@@ -35,6 +35,24 @@ Three signals fall out:
 - Move-quality gate pattern: `strength_profile_service.py:143-174` (counts only brilliant/best/excellent).
 - `extract_facts` is a pure fn over the `move_evaluations` already stored.
 
+## REFINED after verify-first (2026-06-20): EXTEND `BlunderTaxonomy`, don't build new
+We already have a per-user motif **weakness** profile — `BlunderTaxonomy` (player_identity.py,
+surfaced in routes/player.py): `missed_fork/pin/skewer/discovery`, by-piece, by-phase, trends.
+But it (a) is **one-sided** (blunders only — no "you find forks"), (b) is **missing the
+ALLOWED side** (`got_forked` — only `missed_*` exists; getting forked falls under generic
+hanging), and (c) uses its **own crude heuristic** `_is_missed_fork` (value≥14 over K/Q/R only,
+**no winnability/SEE check**) — NOT the verified `caption_facts` geometry. The heuristic
+post-dates nothing: player_identity (2026-03-28) predates the verified detectors (caption_facts
+2026-05-11), so it rolled its own because nothing better existed — pure temporal sprawl, no
+circular-import blocker. So:
+
+- **No rename.** `BlunderTaxonomy` correctly holds the *weakness* side (missed/got/tunnel are all
+  blunders). Avoids a Mongo field migration of `player_identities.blunder_taxonomy`.
+- **Consolidate detection** onto the verified `caption_facts` geometry (kill `_is_missed_fork`).
+- **Extend `BlunderTaxonomy`**: add `got_forked` (allowed) + tunnel-vision enum types.
+- **Add a sibling `motif_strengths`** (peer of blunder_taxonomy/style_profile) for the STRENGTH
+  side ("you execute forks well") — NOT crammed into a "blunder" name.
+
 ## What's new (the actual build)
 1. **The motif aggregator** — per game, run `extract_facts` over stored `move_evaluations`,
    apply both gates, tally per (motif, direction, signal), write a `motif_profile`. Hooks in
