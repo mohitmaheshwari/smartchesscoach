@@ -139,6 +139,63 @@ def _check_mate(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     return []
 
 
+_OUTPOST_RX = re.compile(r"\boutpost\b|no pawn can chase", re.I)
+
+
+def _move_is_outpost(board: "chess.Board", mv: "chess.Move") -> bool:
+    """Independent re-derivation of the outpost claim (do NOT import the detector —
+    defense in depth): a knight on an advanced square no enemy pawn can advance to hit."""
+    pc = board.piece_at(mv.from_square)
+    if pc is None or pc.piece_type != chess.KNIGHT:
+        return False
+    to = mv.to_square
+    f, r = chess.square_file(to), chess.square_rank(to)
+    color = pc.color
+    if color == chess.WHITE and not (3 <= r <= 5):
+        return False
+    if color == chess.BLACK and not (2 <= r <= 4):
+        return False
+    enemy = not color
+    for df in (-1, 1):
+        af = f + df
+        if 0 <= af <= 7:
+            for rr in range(8):
+                p = board.piece_at(chess.square(af, rr))
+                if p and p.piece_type == chess.PAWN and p.color == enemy:
+                    if color == chess.WHITE and rr > r:
+                        return False
+                    if color == chess.BLACK and rr < r:
+                        return False
+    return True
+
+
+def _check_outpost(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    if not _OUTPOST_RX.search(caption):
+        return []
+    cands = []
+    try:
+        b = chess.Board(facts["fen_before"])
+        for san in (facts.get("move_san"), facts.get("best_move_san")):
+            if san:
+                try:
+                    cands.append((b, b.parse_san(san)))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    fa = facts.get("fen_after")
+    if fa and facts.get("user_best_reply_san"):
+        try:
+            ba = chess.Board(fa)
+            cands.append((ba, ba.parse_san(facts["user_best_reply_san"])))
+        except Exception:
+            pass
+    if cands and not any(_move_is_outpost(bd, mv) for bd, mv in cands):
+        return [{"check": "outpost",
+                 "detail": "claims an outpost but no candidate move posts a knight no pawn can chase"}]
+    return []
+
+
 def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     """Return a list of board-verified violations ([] == clean)."""
     if not caption or not (caption or "").strip():
@@ -150,4 +207,5 @@ def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     return (_check_piece_on_square(caption, post)
             + _check_free(caption, facts)
             + _check_no_recapture(caption, facts)
-            + _check_mate(caption, facts))
+            + _check_mate(caption, facts)
+            + _check_outpost(caption, facts))

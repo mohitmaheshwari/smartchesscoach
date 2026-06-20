@@ -149,6 +149,10 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     _tsq = facts.get("target_square") or ""
     _central = _tsq in _CENTER
 
+    if facts.get("played_move_principle") == "outpost":
+        return (f"{sub} post{'' if sub=='You' else 's'} the knight on a strong outpost — "
+                f"no pawn can chase it." + _suf, "R_TIER2_outpost")
+
     if _develops(facts):
         if _central:
             return (f"{sub} develop{'' if sub=='You' else 's'} the {piece} to a strong central "
