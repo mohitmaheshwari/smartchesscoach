@@ -91,14 +91,6 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         played = facts.get("played_san")
         best = facts.get("best_move_san")
         why = facts.get("best_move_why")
-        # Queen-chase: verifiable-true (a lower piece attacks the queen, it must move).
-        # Loop-converged 2026-06-20. Lives here = low priority (fallback only), so the
-        # stronger lessons (material/check/recapture) win the headline elsewhere.
-        if facts.get("queen_chased_by_reply"):
-            chaser = facts.get("queen_chaser_piece") or "a piece"
-            return (f"Your queen gets chased — their {chaser} hits it and it must move, "
-                    f"losing time. Keep the queen safe from cheap attacks.",
-                    "R_TIER_queen_chased")
         if played and best and best != played:
             # Missed opportunity WITH a why ("Nf3 was stronger — it develops a piece",
             # "exd4 was stronger — it trades off his bishop"). The why makes it teaching,
