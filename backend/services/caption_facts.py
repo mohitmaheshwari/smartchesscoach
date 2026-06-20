@@ -4764,6 +4764,47 @@ def _classify_move_principle(board: chess.Board, move: Optional[chess.Move]) -> 
     return None
 
 
+_REC_PRINCIPLE_PHRASE = {
+    "center": "takes the center",
+    "develop": "develops a piece",
+    "castle": "castles to safety",
+    "rook_open_file": "takes the open file",
+}
+
+
+def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
+    """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
+    'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
+    pawn'. The law: every recommended move needs its why (memory
+    feedback_explain_why_recommended_move_good). Board-verified; material claims SEE-gated.
+    Returns None when no clean why is derivable (caller falls back to naming the move)."""
+    if move is None:
+        return None
+    try:
+        pr = _classify_move_principle(board, move)
+        if pr in _REC_PRINCIPLE_PHRASE:
+            return _REC_PRINCIPLE_PHRASE[pr]
+        if board.is_capture(move):
+            if board.is_en_passant(move):
+                cap_pt = chess.PAWN
+            else:
+                cpiece = board.piece_at(move.to_square)
+                cap_pt = cpiece.piece_type if cpiece else None
+            if cap_pt is None:
+                return None
+            name = PIECE_TYPE_NAMES.get(cap_pt, "piece")
+            see = static_exchange_eval(board, move.to_square, board.turn)
+            if see is not None and see >= 200:
+                return "wins material"
+            if see is not None and see >= 80:
+                return "wins a pawn" if cap_pt == chess.PAWN else "wins material"
+            # equal-ish exchange — the value is removing the piece, not material
+            return f"trades off his {name}"
+    except Exception:
+        return None
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────
 # Public API
 # ────────────────────────────────────────────────────────────────────
@@ -5315,6 +5356,9 @@ def extract_facts(
         except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
             _best_mv = None
     best_move_principle = _classify_move_principle(board_before, _best_mv)
+    # WHY the engine's best move is good (principle OR trade/win) — for the law that
+    # every recommended move needs its why (feedback_explain_why_recommended_move_good).
+    best_move_why = _recommended_move_why(board_before, _best_mv)
 
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
@@ -5327,6 +5371,7 @@ def extract_facts(
         "played_is_best": played_is_best,
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
+        "best_move_why": best_move_why,
         "pv_after_played": list(pv_after_played),
         "pv_after_best": list(pv_after_best),
 

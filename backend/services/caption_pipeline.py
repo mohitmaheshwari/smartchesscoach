@@ -1199,6 +1199,17 @@ def inject_opp_side_narration_facts(
             caption_facts["user_best_reply_san"] = _user_reply
             if _user_reply.endswith("+") or _user_reply.endswith("#"):
                 caption_facts["user_best_reply_san_is_forcing"] = True
+            # WHY the recommended reply is good — every recommended move needs its why
+            # (feedback_explain_why_recommended_move_good). "Play Bxe2" -> "Play Bxe2 —
+            # it trades off his bishop." Board-verified; SEE-gated for material.
+            try:
+                from services.caption_facts import _recommended_move_why as _rmw
+                _reply_mv = _post_opp_board.parse_san(_user_reply)
+                _rwhy = _rmw(_post_opp_board, _reply_mv)
+                if _rwhy:
+                    caption_facts["opp_user_reply_why"] = _rwhy
+            except Exception:
+                pass
             if "x" in _user_reply:
                 try:
                     _ur_move = _post_opp_board.parse_san(_user_reply)

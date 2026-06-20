@@ -72,10 +72,10 @@ def _better_suffix(facts: Dict[str, Any]) -> str:
         return ""
     best = facts.get("best_move_san")
     played = facts.get("played_san")
-    bp = facts.get("best_move_principle")
+    why = facts.get("best_move_why")
     cp = int(facts.get("cp_loss") or 0)
-    if best and played and best != played and bp in _PRINCIPLE_PHRASE and 25 <= cp < _MISTAKE_CP:
-        return f" Though {best} was a bit stronger, {_PRINCIPLE_PHRASE[bp]}."
+    if best and played and best != played and why and 25 <= cp < _MISTAKE_CP:
+        return f" Though {best} was a bit stronger, {why}."
     return ""
 
 
@@ -90,15 +90,15 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     if flagged_mistake:
         played = facts.get("played_san")
         best = facts.get("best_move_san")
-        bp = facts.get("best_move_principle")
+        why = facts.get("best_move_why")
         if played and best and best != played:
-            # Missed opportunity with a PRINCIPLE why ("Nf3 was calmer, developing a
-            # piece"). The principle makes it teaching, so it fires from the inaccuracy
-            # range — not engine-worship. P2b data: center/develop/castle best moves.
-            if bp in _PRINCIPLE_PHRASE and cp >= _INACCURACY_CP:
-                return (f"You played {played}; {best} was stronger — it "
-                        f"{_PRINCIPLE_PHRASE[bp]}.", "R_TIER_missed_principle")
-            # No principle to name — only call out a better move on a real mistake.
+            # Missed opportunity WITH a why ("Nf3 was stronger — it develops a piece",
+            # "exd4 was stronger — it trades off his bishop"). The why makes it teaching,
+            # so it fires from the inaccuracy range, not engine-worship.
+            if why and cp >= _INACCURACY_CP:
+                return (f"You played {played}; {best} was stronger — it {why}.",
+                        "R_TIER_missed_principle")
+            # No why to name — only call out a better move on a real mistake.
             if cp >= _MISTAKE_CP:
                 return (f"You played {played}; {best} was the stronger move here.",
                         "R_TIER_mistake_floor")
