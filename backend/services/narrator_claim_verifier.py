@@ -204,6 +204,38 @@ def _check_outpost(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     return []
 
 
+_QUEEN_CHASE_RX = re.compile(r"queen gets chased|queen.*(chase|hits it and it must move)", re.I)
+
+
+def _check_queen_chased(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Independent re-derivation: the played move is a QUEEN move, and the opponent's
+    reply is a NON-capturing pawn/knight/bishop that attacks the queen's square (so it
+    must move). Catches a 'queen chased' claim on a non-queen move or a non-attacking reply."""
+    if not _QUEEN_CHASE_RX.search(caption):
+        return []
+    try:
+        b = chess.Board(facts["fen_before"])
+        mv = b.parse_san(facts["move_san"])
+        pc = b.piece_at(mv.from_square)
+        if pc is None or pc.piece_type != chess.QUEEN:
+            return [{"check": "queen_chased", "detail": "says queen chased but the move isn't a queen move"}]
+        pv = facts.get("pv_after_played") or []
+        if not pv:
+            return []  # no reply to check against → don't flag
+        ba = chess.Board(facts["fen_after"])
+        rmv = ba.parse_san(pv[0])
+        rpc = ba.piece_at(rmv.from_square)
+        is_cap = ba.is_capture(rmv)
+        ba.push(rmv)
+        if not (rpc and rpc.piece_type in (chess.PAWN, chess.KNIGHT, chess.BISHOP)
+                and not is_cap and mv.to_square in ba.attacks(rmv.to_square)):
+            return [{"check": "queen_chased",
+                     "detail": "says queen chased but the reply doesn't attack the queen with a lower piece"}]
+    except Exception:
+        return []
+    return []
+
+
 def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     """Return a list of board-verified violations ([] == clean)."""
     if not caption or not (caption or "").strip():
@@ -216,4 +248,5 @@ def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
             + _check_free(caption, facts)
             + _check_no_recapture(caption, facts)
             + _check_mate(caption, facts)
-            + _check_outpost(caption, facts))
+            + _check_outpost(caption, facts)
+            + _check_queen_chased(caption, facts))

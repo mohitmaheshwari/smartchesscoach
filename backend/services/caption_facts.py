@@ -5382,6 +5382,28 @@ def extract_facts(
     # every recommended move needs its why (feedback_explain_why_recommended_move_good).
     best_move_why = _recommended_move_why(board_before, _best_mv)
 
+    # Queen-chase (verifiable-true): a NON-check, NON-capture queen move that's a real
+    # mistake, met by a NON-capturing lower piece attacking the queen → the queen must
+    # move, losing time. Gated to pure sorties (recaptures/grabs are recapture-choice or
+    # material, handled elsewhere). Loop-converged 2026-06-20: 61% are chase-as-headline;
+    # the rest are true-but-secondary, so this is wired LOW priority (fallback only).
+    queen_chased_by_reply = False
+    queen_chaser_piece = None
+    try:
+        if (moving_piece_type == chess.QUEEN and not is_check and not is_capture
+                and cp_loss >= 40 and pv_after_played):
+            _rb = board_after.copy()
+            _rmv = _rb.parse_san(pv_after_played[0])
+            _rpc = _rb.piece_at(_rmv.from_square)
+            if (_rpc and _rpc.piece_type in (chess.PAWN, chess.KNIGHT, chess.BISHOP)
+                    and not _rb.is_capture(_rmv)):
+                _rb.push(_rmv)
+                if played_move.to_square in _rb.attacks(_rmv.to_square):
+                    queen_chased_by_reply = True
+                    queen_chaser_piece = PIECE_TYPE_NAMES.get(_rpc.piece_type)
+    except Exception:
+        pass
+
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
         # ENGINE TRUTH (pass-through)
@@ -5394,6 +5416,8 @@ def extract_facts(
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
         "best_move_why": best_move_why,
+        "queen_chased_by_reply": queen_chased_by_reply,
+        "queen_chaser_piece": queen_chaser_piece,
         "pv_after_played": list(pv_after_played),
         "pv_after_best": list(pv_after_best),
 
