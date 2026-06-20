@@ -73,6 +73,21 @@ circular-import blocker. So:
 fork), corpus-probe ≥2 clean examples, independent audit, loop. Pin verifier is the hard one
 (x-rays, pawn-front false pins) — audit hardest.
 
+## The product is a COACHING LOOP, not a report card (Mohit, 2026-06-20)
+The profile is the *diagnosis* that drives teaching + practice — three parts per motif:
+1. **Diagnose** — "Patterns you identify easily" (strengths) vs "Patterns giving you trouble"
+   (weaknesses), two-sided, verified detectors.
+2. **Lesson to remember** — one line per weak motif. REUSE the existing caption why-clauses
+   (pin/skewer/back-rank teaching) — single source, not a new lesson bank.
+3. **Drill that motif** — practice positions OF THAT MOTIF: **the user's own first, then
+   community** (the existing PatternTraining flow already blends own→community; it just needs
+   the puzzles **tagged by motif**, which today they aren't — only by `cognitive_gap`).
+
+Reuse-heavy: `puzzle_extraction_service` (own-game puzzles), `community_puzzles`, the
+own→community PatternTraining blend, weakness aggregation. **The one new connective piece is
+MOTIF-TAGGING the extracted puzzles** (the verified motif detector supplies the tag) so the
+pool can be filtered to "skewer". Diagnosis ties to practice via that tag.
+
 ## Output + where it surfaces
 - `motif_profile` (per user): `{fork: {executed_sound, executed_tunnel, allowed}, pin:{...},
   skewer:{...}, discovered:{...}}` with counts + recency (reuse the decay model if it helps).
