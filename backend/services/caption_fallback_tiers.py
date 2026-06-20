@@ -107,6 +107,7 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     poss = _poss(facts)
     pt = facts.get("moving_piece_type")
     piece = _PIECE.get(pt, "piece")
+    _suf = _better_suffix(facts)  # "decent, but {best} was stronger ({principle})"
 
     # ── Tier 2 — explain what the move does (priority order) ───────────────
     if facts.get("is_capture"):
@@ -120,13 +121,17 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         # recapture, so never assert "winning"/"even" from it.
         if facts.get("free_capture_uncontested"):
             what = "pawn" if facts.get("captured_piece_type") == "pawn" else "piece"
-            tail = f" — a free {what}."
+            # If a clearly better WAY to take it existed (e.g. recapture with the pawn,
+            # not the queen), surface that instead of overselling "free".
+            tail = ("." + _suf) if _suf else f" — a free {what}."
         elif facts.get("is_exchange_losing"):
             tail = " — though it gives material back on the trade."
         elif facts.get("is_forced_recapture"):
             tail = ", recapturing to keep things even."
         else:
-            tail = "."
+            # neutral capture — surface a clearly better alternative (e.g. recapture
+            # with the pawn exd4 instead of the queen) when one carries a principle.
+            tail = "." + _suf
         return (base + tail, "R_TIER2_capture")
 
     if facts.get("is_castling"):
@@ -143,7 +148,6 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     # construction — target_square is in _CENTER.
     _tsq = facts.get("target_square") or ""
     _central = _tsq in _CENTER
-    _suf = _better_suffix(facts)  # "decent, but {best} was stronger ({principle})"
 
     if _develops(facts):
         if _central:
