@@ -4730,34 +4730,15 @@ _CENTER_SQUARES = {chess.D4, chess.E4, chess.D5, chess.E5}
 
 
 def _is_outpost(board: chess.Board, move: chess.Move) -> bool:
-    """A knight landing on an advanced square that NO enemy pawn can ever attack
-    (no enemy pawn remains on either adjacent file that could advance to hit it) —
-    the classic outpost. Board-verified, no eval needed."""
-    pc = board.piece_at(move.from_square)
-    if pc is None or pc.piece_type != chess.KNIGHT:
+    """Outpost via the CANONICAL detector (single source: shape_detectors.
+    simulate_knight_outpost) — central files c-f, defended by an own piece, not
+    currently pawn-attacked. My earlier standalone version was a DUPLICATE and WRONG
+    (allowed rim files, so it called Na4/Nh4 'outposts'). Reuse, don't re-derive."""
+    try:
+        from services.shape_detectors import simulate_knight_outpost
+        return bool(simulate_knight_outpost(board.fen(), board.san(move)))
+    except Exception:
         return False
-    to = move.to_square
-    f, r = chess.square_file(to), chess.square_rank(to)
-    color = pc.color
-    # must be advanced into/near enemy territory (white rank 4-6, black rank 3-5)
-    if color == chess.WHITE and not (3 <= r <= 5):
-        return False
-    if color == chess.BLACK and not (2 <= r <= 4):
-        return False
-    enemy = not color
-    for df in (-1, 1):
-        af = f + df
-        if af < 0 or af > 7:
-            continue
-        for rr in range(8):
-            p = board.piece_at(chess.square(af, rr))
-            if p and p.piece_type == chess.PAWN and p.color == enemy:
-                # an enemy pawn that can still advance to attack 'to' kills the outpost
-                if color == chess.WHITE and rr > r:
-                    return False
-                if color == chess.BLACK and rr < r:
-                    return False
-    return True
 
 
 def _classify_move_principle(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
@@ -4803,7 +4784,7 @@ _REC_PRINCIPLE_PHRASE = {
     "develop": "develops a piece",
     "castle": "castles to safety",
     "rook_open_file": "takes the open file",
-    "outpost": "posts a knight where no pawn can chase it",
+    "outpost": "posts a knight on a strong central outpost",
 }
 
 

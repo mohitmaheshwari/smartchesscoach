@@ -142,30 +142,38 @@ def _check_mate(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
 _OUTPOST_RX = re.compile(r"\boutpost\b|no pawn can chase", re.I)
 
 
+_CENTRAL_OUTPOST_SQ = {chess.square(f, r) for f in range(2, 6) for r in range(2, 6)}  # c3..f6
+
+
 def _move_is_outpost(board: "chess.Board", mv: "chess.Move") -> bool:
-    """Independent re-derivation of the outpost claim (do NOT import the detector —
-    defense in depth): a knight on an advanced square no enemy pawn can advance to hit."""
+    """Independent re-derivation of the outpost claim, matching the CANONICAL definition
+    (a rim knight is NOT an outpost — that was the bug): knight to a CENTRAL square
+    (files c-f), DEFENDED by an own piece, and NOT currently attacked by an enemy pawn."""
     pc = board.piece_at(mv.from_square)
     if pc is None or pc.piece_type != chess.KNIGHT:
         return False
-    to = mv.to_square
-    f, r = chess.square_file(to), chess.square_rank(to)
-    color = pc.color
-    if color == chess.WHITE and not (3 <= r <= 5):
+    if mv.to_square not in _CENTRAL_OUTPOST_SQ:
         return False
-    if color == chess.BLACK and not (2 <= r <= 4):
+    us = pc.color
+    them = not us
+    b = board.copy()
+    try:
+        b.push(mv)
+    except Exception:
         return False
-    enemy = not color
-    for df in (-1, 1):
-        af = f + df
-        if 0 <= af <= 7:
-            for rr in range(8):
-                p = board.piece_at(chess.square(af, rr))
-                if p and p.piece_type == chess.PAWN and p.color == enemy:
-                    if color == chess.WHITE and rr > r:
-                        return False
-                    if color == chess.BLACK and rr < r:
-                        return False
+    # must be defended by an own piece (other than the knight itself)
+    if not any(d != mv.to_square for d in b.attackers(us, mv.to_square)):
+        return False
+    # must not be currently attacked by an enemy pawn
+    kf, kr = chess.square_file(mv.to_square), chess.square_rank(mv.to_square)
+    par = kr + (1 if them == chess.BLACK else -1)
+    if 0 <= par <= 7:
+        for df in (-1, 1):
+            af = kf + df
+            if 0 <= af <= 7:
+                p = b.piece_at(chess.square(af, par))
+                if p and p.color == them and p.piece_type == chess.PAWN:
+                    return False
     return True
 
 
