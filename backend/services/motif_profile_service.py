@@ -128,6 +128,25 @@ def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]]) -> Dict[str,
     return {"strengths": strengths, "weaknesses": weaknesses}
 
 
+def position_allows_motif(ev: Dict) -> Optional[str]:
+    """For a user blunder eval, which motif did the move WALK INTO (via the opponent's
+    verified reply)? Returns 'fork' (pin/skewer later) or None. Used to motif-tag extracted
+    puzzles so weakness drills filter by motif — SAME verified detector as the profile's
+    got-side, so the tag and the diagnosis never disagree."""
+    from services.caption_facts import extract_facts
+    fa = ev.get("fen_after")
+    pv = ev.get("pv_after_played") or []
+    if not (fa and pv and abs(int(ev.get("cp_loss") or 0)) >= BLUNDER_CP):
+        return None
+    try:
+        gf = extract_facts(fen_before=fa, played_san=pv[0], cp_loss=0, mover_is_user=False)
+        if gf.get("multi_target_attack_evidence"):
+            return "fork"
+    except Exception:
+        pass
+    return None
+
+
 def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List[Dict[str, str]]:
     """The user's OWN positions for a motif (drill = find the move that avoids it).
     Community positions (motif-tagged) are appended by the route, own-first."""

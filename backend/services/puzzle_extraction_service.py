@@ -228,6 +228,16 @@ async def extract_puzzles_from_game(
             "featured": False,
         }
 
+        # Motif tag (fork; pin/skewer later) — the tactical motif the blunder walked into,
+        # via the verified detector. Lets weakness drills filter by motif (own→community).
+        try:
+            from services.motif_profile_service import position_allows_motif
+            _motif = position_allows_motif(ev)
+            if _motif:
+                puzzle["motif"] = _motif
+        except Exception:
+            pass
+
         result = await db.community_puzzles.insert_one(puzzle)
         puzzle_copy = {k: v for k, v in puzzle.items() if k != "_id"}
         puzzle_copy["puzzle_id"] = str(result.inserted_id)
