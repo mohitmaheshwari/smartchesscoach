@@ -20,7 +20,26 @@ from typing import Dict, List, Any, Optional
 SOUND_CP = 40      # <= this: the motif move was good → strength
 BLUNDER_CP = 100   # >= this: a real blunder → tunnel-vision (made) / got-forked (allowed)
 
-MOTIFS = ["fork"]  # pin / skewer / discovered to be added after their audit
+MOTIFS = ["fork", "pin", "skewer"]  # discovered to be added after its audit
+SKEWER_GAP_CP = 150  # front must be a real piece more valuable than rear (not B-over-N)
+
+
+def _classify_aligned(aligned) -> set:
+    """Pin / skewer from the verified aligned_pieces geometry. Audited 2026-06-21:
+    pin 100%, skewer 87% (after the value-gap gate that drops near-equal 'skewers').
+    pin = cheaper front stuck in front of a more valuable rear (absolute if rear=king,
+    or relative when the front can't slide off the line). skewer = clearly more valuable
+    front forced to move, exposing the rear. front=king is a check, not pin/skewer."""
+    out = set()
+    for a in aligned or []:
+        if a.get("front_is_king"):
+            continue
+        rel = a.get("front_value_vs_rear")
+        if rel == "lower" and (a.get("rear_is_king") or not a.get("front_can_move_along_line")):
+            out.add("pin")
+        elif rel == "higher" and (int(a.get("front_piece_value_cp", 0)) - int(a.get("rear_piece_value_cp", 0))) >= SKEWER_GAP_CP:
+            out.add("skewer")
+    return out
 
 
 def _empty_motif() -> Dict[str, Any]:
@@ -60,26 +79,33 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
         cp = abs(int(ev.get("cp_loss") or 0))
         pv = ev.get("pv_after_played") or []
 
-        # MADE a fork (verified, winnability-checked) on the user's own move.
+        # MADE side (user's own move): fork (winnability-checked) + pin/skewer (aligned geom).
         try:
             mf = extract_facts(fen_before=fen, played_san=played, best_move_san=best,
                                cp_loss=cp, pv_after_played=pv, mover_is_user=True)
+            made = set()
             if mf.get("multi_target_attack_evidence"):
-                out["fork"]["made_sound" if cp <= SOUND_CP else "made_tunnel"] += 1
+                made.add("fork")
+            made |= _classify_aligned(mf.get("aligned_pieces_evidence"))
+            for mt in made:
+                out[mt]["made_sound" if cp <= SOUND_CP else "made_tunnel"] += 1
         except Exception:
             pass
 
-        # GOT forked: the user's move was a blunder whose engine reply is a verified
-        # winnable fork (same detector, applied to the opponent's reply). The drill
-        # position is fen_before — "find the move that doesn't walk into the fork".
+        # GOT side: the user's move was a blunder whose engine reply creates the motif
+        # against the user (same verified detectors, applied to the opponent's reply).
+        # Drill position is fen_before — "find the move that avoids it".
         if fen_after and pv and cp >= BLUNDER_CP:
             try:
                 gf = extract_facts(fen_before=fen_after, played_san=pv[0],
                                    cp_loss=0, mover_is_user=False)
+                got = set()
                 if gf.get("multi_target_attack_evidence"):
-                    out["fork"]["got"] += 1
-                    # drill = "find the move that avoids the fork"; solution = engine best.
-                    out["fork"]["got_positions"].append({"fen": fen, "solution": best})
+                    got.add("fork")
+                got |= _classify_aligned(gf.get("aligned_pieces_evidence"))
+                for mt in got:
+                    out[mt]["got"] += 1
+                    out[mt]["got_positions"].append({"fen": fen, "solution": best})
             except Exception:
                 pass
     return out
@@ -105,8 +131,16 @@ MOTIF_LESSON = {
         "strength": "You spot forks well — keep hunting for one move that hits two pieces at once.",
         "weakness": "Before each move, scan: can one enemy piece (knights especially) hit two of yours at once? That's the fork you keep walking into.",
     },
+    "pin": {
+        "strength": "You use pins well — keep looking to freeze an enemy piece against a bigger one behind it.",
+        "weakness": "Watch your lines: don't let a piece get stuck in front of your king or queen on the same rank, file, or diagonal — that's the pin catching you.",
+    },
+    "skewer": {
+        "strength": "You find skewers well — keep lining up their big piece with a smaller one behind it.",
+        "weakness": "Don't line up a valuable piece in front of a smaller one — when it's attacked and must move, the piece behind falls. That's the skewer.",
+    },
 }
-MOTIF_LABEL = {"fork": "Forks"}
+MOTIF_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
 
 
 def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]]) -> Dict[str, Any]:
@@ -142,6 +176,11 @@ def position_allows_motif(ev: Dict) -> Optional[str]:
         gf = extract_facts(fen_before=fa, played_san=pv[0], cp_loss=0, mover_is_user=False)
         if gf.get("multi_target_attack_evidence"):
             return "fork"
+        aligned = _classify_aligned(gf.get("aligned_pieces_evidence"))
+        if "pin" in aligned:
+            return "pin"
+        if "skewer" in aligned:
+            return "skewer"
     except Exception:
         pass
     return None
