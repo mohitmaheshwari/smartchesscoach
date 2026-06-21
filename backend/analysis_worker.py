@@ -519,7 +519,17 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         
         # Keep top 10
         top_weaknesses = current_weaknesses[:10]
-        
+
+        # Two-sided motif profile (fork; pin/skewer to follow) — incremental merge of
+        # THIS game's tallies, both sides via the verified detector. Raw totals stored;
+        # verdict applied at read time. docs/motif_profile_scope.md
+        motif_profile = profile.get("motif_profile")
+        try:
+            from services.motif_profile_service import compute_game_motifs, merge_motifs
+            motif_profile = merge_motifs(motif_profile, compute_game_motifs(move_evaluations))
+        except Exception as _motif_err:
+            logger.warning(f"motif profile update failed for {user_id}: {_motif_err}")
+
         # Update profile
         db.player_profiles.update_one(
             {"user_id": user_id},
@@ -529,6 +539,7 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
                 "total_mistakes": total_mistakes,
                 "total_best_moves": total_best_moves,
                 "top_weaknesses": top_weaknesses,
+                "motif_profile": motif_profile,
                 "last_updated": current_time.isoformat()
             }}
         )

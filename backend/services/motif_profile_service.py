@@ -27,9 +27,25 @@ def _empty_motif() -> Dict[str, Any]:
     return {"made_sound": 0, "made_tunnel": 0, "got": 0, "got_positions": []}
 
 
-def compute_game_motifs(move_evaluations: List[Dict], user_color: str) -> Dict[str, Dict]:
+def merge_motifs(stored: Optional[Dict[str, Dict]], game: Dict[str, Dict],
+                 keep_positions: int = 30) -> Dict[str, Dict]:
+    """Incrementally add one game's motif tallies into the stored running totals (so the
+    analysis worker doesn't re-read every game). Stores RAW totals; the verdict is applied
+    at read time so thresholds can change without re-aggregating."""
+    out = stored or {m: _empty_motif() for m in MOTIFS}
+    for mt in MOTIFS:
+        s = out.setdefault(mt, _empty_motif())
+        g = game.get(mt, _empty_motif())
+        for k in ("made_sound", "made_tunnel", "got"):
+            s[k] = int(s.get(k, 0)) + int(g.get(k, 0))
+        s["got_positions"] = (list(s.get("got_positions", [])) + list(g.get("got_positions", [])))[-keep_positions:]
+    return out
+
+
+def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] = None) -> Dict[str, Dict]:
     """Tally a single game's motif signals from the USER's moves, using the verified
-    geometry detector on both sides. Pure function over stored move_evaluations."""
+    geometry detector on both sides. Pure fn over stored move_evaluations (user moves
+    identified by is_opponent_move, so user_color is unused — kept for call-site compat)."""
     from services.caption_facts import extract_facts
     out = {m: _empty_motif() for m in MOTIFS}
     for ev in move_evaluations or []:
