@@ -844,8 +844,8 @@ async def get_motif_profile(user: User = Depends(get_current_user)):
     (own games first, then community). docs/motif_profile_scope.md"""
     from services.motif_profile_service import render_motif_card
     prof = await db.player_profiles.find_one(
-        {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
-    return render_motif_card(prof.get("motif_profile"))
+        {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1, "games_analyzed_count": 1}) or {}
+    return render_motif_card(prof.get("motif_profile"), prof.get("games_analyzed_count") or 0)
 
 
 @router.get("/motif-drill/{motif}")

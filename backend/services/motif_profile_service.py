@@ -111,15 +111,29 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
     return out
 
 
-def _verdict(m: Dict[str, Any]) -> Dict[str, Any]:
-    """Turn raw tallies into a strength/weakness verdict (thresholds lock-via-data)."""
+# Lock-via-data (2026-06-22): per-motif p70 of the got/made-per-game distribution over 53
+# users (>=5 games). Relative thresholds — "you walk into X MORE than most players" — so the
+# card flags each user's standout ~30%, not everyone-on-everything. Pins/skewers are
+# inherently more common than forks, hence per-motif cutoffs.
+WEAKNESS_RATE = {"fork": 0.18, "pin": 0.30, "skewer": 0.26}   # got per game
+STRENGTH_RATE = {"fork": 0.26, "pin": 0.77, "skewer": 0.69}   # made_sound per game
+
+
+def _verdict(m: Dict[str, Any], games: int, motif: str) -> Dict[str, Any]:
+    """Strength/weakness verdict, RATE-based vs the population per motif (lock-via-data)."""
     made = m["made_sound"] + m["made_tunnel"]
     sound_rate = (m["made_sound"] / made) if made else None
+    g = max(1, games)
+    got_rate = m["got"] / g
+    made_rate = m["made_sound"] / g
     return {
         **{k: m[k] for k in ("made_sound", "made_tunnel", "got")},
         "sound_rate": round(sound_rate, 2) if sound_rate is not None else None,
-        "is_strength": m["made_sound"] >= 3 and (sound_rate is None or sound_rate >= 0.7),
-        "is_weakness": m["got"] >= 3,
+        # strength: you make this motif soundly MORE than most + clean execution
+        "is_strength": (m["made_sound"] >= 3 and made_rate >= STRENGTH_RATE.get(motif, 0.3)
+                        and (sound_rate is None or sound_rate >= 0.7)),
+        # weakness: you walk into it MORE than most players (top ~30%), real & recurring
+        "is_weakness": m["got"] >= 3 and got_rate >= WEAKNESS_RATE.get(motif, 0.2),
         "drill_positions": m["got_positions"][:20],
     }
 
@@ -143,13 +157,14 @@ MOTIF_LESSON = {
 MOTIF_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
 
 
-def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]]) -> Dict[str, Any]:
+def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]], games: int = 0) -> Dict[str, Any]:
     """Verdict-applied card data: strengths (you find it) + weaknesses (you walk into it,
-    with a lesson + a motif-tagged drill link). The diagnose→lesson→drill loop."""
+    with a lesson + a motif-tagged drill link). The diagnose→lesson→drill loop. `games` =
+    the user's analyzed-game count, for the rate-based (lock-via-data) verdict."""
     motifs = motif_profile_raw or {}
     strengths, weaknesses = [], []
     for mt in MOTIFS:
-        v = _verdict(motifs.get(mt, _empty_motif()))
+        v = _verdict(motifs.get(mt, _empty_motif()), games, mt)
         if v["is_strength"]:
             strengths.append({"motif": mt, "label": MOTIF_LABEL.get(mt, mt),
                               "made_sound": v["made_sound"], "lesson": MOTIF_LESSON[mt]["strength"]})
@@ -213,4 +228,4 @@ def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
             for k in ("made_sound", "made_tunnel", "got"):
                 totals[mt][k] += per[mt][k]
             totals[mt]["got_positions"].extend(per[mt]["got_positions"])
-    return {"games_analyzed": n_games, "motifs": {mt: _verdict(totals[mt]) for mt in MOTIFS}}
+    return {"games_analyzed": n_games, "motifs": {mt: _verdict(totals[mt], n_games, mt) for mt in MOTIFS}}
