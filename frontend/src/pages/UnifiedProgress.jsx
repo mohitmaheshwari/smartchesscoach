@@ -206,20 +206,23 @@ const UnifiedProgress = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
+  const [motif, setMotif] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, narrativeRes, proofRes] = await Promise.all([
+        const [progressRes, narrativeRes, proofRes, motifRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
           fetch(`${API}/progress/improvement-proof`, {
             credentials: "include",
           }),
+          fetch(`${API}/motif-profile`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
         if (proofRes.ok) setProof(await proofRes.json());
+        if (motifRes.ok) setMotif(await motifRes.json());
       } catch (e) {
         console.error(e);
       } finally {
@@ -533,6 +536,56 @@ const UnifiedProgress = ({ user }) => {
             {derived.subhead}
           </p>
         </motion.div>
+
+        {/* ─── Tactics profile: patterns you find vs patterns that catch you ─── */}
+        {motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
+          <motion.section variants={fadeInUp} className="mb-14">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+              Your tactics · patterns you find vs patterns that catch you
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-border p-5">
+                <div className="text-[11px] uppercase tracking-wide text-emerald-500 dark:text-emerald-400 font-semibold mb-3">
+                  You identify easily
+                </div>
+                {(motif.strengths || []).length ? (
+                  (motif.strengths || []).map((s) => (
+                    <div key={s.motif} className="mb-3 last:mb-0">
+                      <div className="text-[14px] font-medium text-foreground">{s.label} ✓</div>
+                      <div className="text-[12.5px] text-muted-foreground leading-relaxed">{s.lesson}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[12.5px] text-muted-foreground">Keep playing — your strengths will surface here.</div>
+                )}
+              </div>
+              <div className="rounded-xl border border-border p-5">
+                <div className="text-[11px] uppercase tracking-wide text-rose-500 dark:text-rose-400 font-semibold mb-3">
+                  Patterns giving you trouble
+                </div>
+                {(motif.weaknesses || []).length ? (
+                  (motif.weaknesses || []).map((w) => (
+                    <div key={w.motif} className="mb-4 last:mb-0">
+                      <div className="text-[14px] font-medium text-foreground">{w.label} — caught {w.got}×</div>
+                      <div className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">💡 {w.lesson}</div>
+                      {w.drill_count > 0 && (
+                        <button
+                          onClick={() => navigate(`/training/pattern/${w.drill_pattern}`)}
+                          className="h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] inline-flex items-center gap-2 transition-colors"
+                        >
+                          Drill {w.drill_count} from your games
+                          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[12.5px] text-muted-foreground">No recurring tactical weakness yet — nice.</div>
+                )}
+              </div>
+            </div>
+          </motion.section>
+        )}
 
         {/* ─── Sparkline — only when we have real data ─── */}
         {derived.spark && derived.spark.length >= 3 && (
