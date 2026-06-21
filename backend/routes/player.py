@@ -847,6 +847,22 @@ async def get_motif_profile(user: User = Depends(get_current_user)):
         {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
     return render_motif_card(prof.get("motif_profile"))
 
+
+@router.get("/motif-drill/{motif}")
+async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
+    """Drill positions for a motif weakness — the user's OWN games first, then community
+    (motif-tagged community puzzles). Each: find the move that avoids the motif."""
+    from services.motif_profile_service import get_drills
+    prof = await db.player_profiles.find_one(
+        {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
+    drills = get_drills(prof.get("motif_profile"), motif)
+    # then community (motif-tagged) — appended own-first; tag backfill is the next step
+    async for p in db.community_puzzles.find(
+            {"motif": motif}, {"_id": 0, "fen": 1, "best_move_san": 1}).limit(20):
+        drills.append({"fen": p.get("fen"), "solution": p.get("best_move_san"), "source": "community"})
+    return {"motif": motif, "count": len(drills), "drills": drills}
+
+
 @router.post("/profile/recalculate")
 async def recalculate_profile_stats(user: User = Depends(get_current_user)):
     """

@@ -78,7 +78,8 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                                    cp_loss=0, mover_is_user=False)
                 if gf.get("multi_target_attack_evidence"):
                     out["fork"]["got"] += 1
-                    out["fork"]["got_positions"].append(fen)
+                    # drill = "find the move that avoids the fork"; solution = engine best.
+                    out["fork"]["got_positions"].append({"fen": fen, "solution": best})
             except Exception:
                 pass
     return out
@@ -125,6 +126,17 @@ def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]]) -> Dict[str,
                                "drill_count": len(v["drill_positions"]),
                                "drill_pattern": mt})  # → /training/pattern/{mt}, own-then-community
     return {"strengths": strengths, "weaknesses": weaknesses}
+
+
+def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List[Dict[str, str]]:
+    """The user's OWN positions for a motif (drill = find the move that avoids it).
+    Community positions (motif-tagged) are appended by the route, own-first."""
+    m = (motif_profile_raw or {}).get(motif) or {}
+    out = []
+    for p in m.get("got_positions", []):
+        if isinstance(p, dict) and p.get("fen"):
+            out.append({"fen": p["fen"], "solution": p.get("solution"), "source": "own"})
+    return out
 
 
 def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
