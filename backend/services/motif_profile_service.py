@@ -97,6 +97,36 @@ def _verdict(m: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# General per-motif reminder for the profile card (distinct from per-position captions —
+# this is the "remember this about forks" line on the diagnosis card). Audience 600-1500.
+MOTIF_LESSON = {
+    "fork": {
+        "strength": "You spot forks well — keep hunting for one move that hits two pieces at once.",
+        "weakness": "Before each move, scan: can one enemy piece (knights especially) hit two of yours at once? That's the fork you keep walking into.",
+    },
+}
+MOTIF_LABEL = {"fork": "Forks"}
+
+
+def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]]) -> Dict[str, Any]:
+    """Verdict-applied card data: strengths (you find it) + weaknesses (you walk into it,
+    with a lesson + a motif-tagged drill link). The diagnose→lesson→drill loop."""
+    motifs = motif_profile_raw or {}
+    strengths, weaknesses = [], []
+    for mt in MOTIFS:
+        v = _verdict(motifs.get(mt, _empty_motif()))
+        if v["is_strength"]:
+            strengths.append({"motif": mt, "label": MOTIF_LABEL.get(mt, mt),
+                              "made_sound": v["made_sound"], "lesson": MOTIF_LESSON[mt]["strength"]})
+        if v["is_weakness"]:
+            weaknesses.append({"motif": mt, "label": MOTIF_LABEL.get(mt, mt),
+                               "got": v["got"], "tunnel": v["made_tunnel"],
+                               "lesson": MOTIF_LESSON[mt]["weakness"],
+                               "drill_count": len(v["drill_positions"]),
+                               "drill_pattern": mt})  # → /training/pattern/{mt}, own-then-community
+    return {"strengths": strengths, "weaknesses": weaknesses}
+
+
 def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
     """Sum motif signals across the user's analyzed games → a two-sided profile."""
     totals = {m: _empty_motif() for m in MOTIFS}

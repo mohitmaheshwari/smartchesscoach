@@ -836,6 +836,17 @@ async def get_player_profile(user: User = Depends(get_current_user)):
     profile = await get_or_create_profile(db, user.user_id, user.name)
     return profile
 
+
+@router.get("/motif-profile")
+async def get_motif_profile(user: User = Depends(get_current_user)):
+    """Two-sided tactical-motif profile card: patterns you find (strengths) vs patterns
+    that catch you (weaknesses) — each weakness with a lesson + a motif-tagged drill link
+    (own games first, then community). docs/motif_profile_scope.md"""
+    from services.motif_profile_service import render_motif_card
+    prof = await db.player_profiles.find_one(
+        {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
+    return render_motif_card(prof.get("motif_profile"))
+
 @router.post("/profile/recalculate")
 async def recalculate_profile_stats(user: User = Depends(get_current_user)):
     """
