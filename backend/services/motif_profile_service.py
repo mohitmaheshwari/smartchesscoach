@@ -245,16 +245,42 @@ def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
 # Population breakpoints locked-via-data 2026-06-22 (45 users, 120-game samples,
 # >=8 opportunities/motif): p25 / median / p75 of found/available. Refit as the
 # user base grows.
-RECOGNITION_PCTILE = {
-    "fork":   {"p25": 0.35, "median": 0.41, "p75": 0.52},
-    "pin":    {"p25": 0.32, "median": 0.40, "p75": 0.45},
-    "skewer": {"p25": 0.33, "median": 0.39, "p75": 0.44},
-}
 RECOGNITION_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
-# trust of the ABSOLUTE %: fork verified-winnable; pin/skewer = rank-vs-peers only
-RECOGNITION_TRUST = {"fork": "absolute", "pin": "rank", "skewer": "rank"}
-MIN_OPPS_TO_SHOW = 8      # lifetime opportunities needed before a row is shown at all
-MIN_OPPS_15D = 6          # 15-day opportunities needed to headline the 15-day rate
+# trust of the standing: fork verified-winnable; pin/skewer detector is noisier (rougher tier)
+RECOGNITION_TRUST = {"fork": "solid", "pin": "rough", "skewer": "rough"}
+MIN_OPPS_TO_SHOW = 8       # lifetime opportunities before a motif row appears at all
+MIN_OPPS_TREND = 6         # opportunities needed in BOTH windows to show a trend arrow
+TREND_DELTA = 0.04         # rate change (pts) to call it up/down vs steady
+
+# ── Mastery ladder (the self-improvement card) ──────────────────────────────
+# A level on the user's OWN path to mastering each motif. The population CALIBRATES
+# the tier lines (so "Sharp" is meaningful, not arbitrary) but the card never shows a
+# rank vs other people — it shows your level + which way you're moving (you vs your
+# past self). docs/motif_recognition_card_scope.md
+TIER_NAMES = ["Learning", "Developing", "Solid", "Sharp", "Mastered"]
+# Locked-via-data 2026-06-22 from all 55 backfilled profiles (lifetime found/available,
+# >=8 opps): the 4 internal tier boundaries [p25, median, p75, p90] per motif.
+MASTERY_EDGES = {
+    "fork":   [0.36, 0.44, 0.53, 0.57],
+    "pin":    [0.35, 0.41, 0.45, 0.49],
+    "skewer": [0.33, 0.41, 0.47, 0.51],
+}
+
+
+def _tier_for(rate: float, motif: str):
+    """(tier_index, tier_name, ladder_fill_pct 0..100) for a lifetime rate."""
+    p25, med, p75, p90 = MASTERY_EDGES.get(motif, [0.33, 0.41, 0.47, 0.51])
+    ceil = p90 + 0.15                                  # headroom above 'Mastered'
+    edges = [0.0, p25, med, p75, p90, ceil]            # 6 edges -> 5 equal segments
+    idx = 4
+    for i in range(5):
+        if rate < edges[i + 1]:
+            idx = i
+            break
+    lo, hi = edges[idx], edges[idx + 1]
+    within = (rate - lo) / (hi - lo) if hi > lo else 1.0
+    fill = max(0.0, min(100.0, 20 * idx + 20 * max(0.0, min(1.0, within))))
+    return idx, TIER_NAMES[idx], round(fill)
 
 
 def _move_motifs(fen, move, pv, mover_user) -> set:
@@ -311,33 +337,28 @@ def merge_recognition(stored: Optional[Dict], game_id: str, date_played: Optiona
     return out
 
 
-def _recognition_verdict(rate: float, motif: str) -> str:
-    b = RECOGNITION_PCTILE.get(motif, {"p25": 0.33, "p75": 0.50})
-    if rate >= b["p75"]:
-        return "strength"
-    if rate < b["p25"]:
-        return "work_on"
-    return "average"
-
-
-def _percentile_of(rate: float, motif: str) -> int:
-    """Monotone interpolation of `rate` against the locked p25/median/p75 anchors → 0..100."""
-    b = RECOGNITION_PCTILE[motif]
-    pts = [(0.0, 0), (b["p25"], 25), (b["median"], 50), (b["p75"], 75), (1.0, 100)]
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        if rate <= x1:
-            return int(round(y0 + (y1 - y0) * (rate - x0) / (x1 - x0))) if x1 > x0 else y1
-    return 100
+def _trend(now_av, now_fo, prior_av, prior_fo):
+    """Your-own trajectory: this window vs the one before it. Self-improvement, not peers."""
+    if now_av < MIN_OPPS_TREND or prior_av < MIN_OPPS_TREND:
+        return {"dir": "new"}  # not enough history in one window to call a direction
+    to = now_fo / now_av
+    fr = prior_fo / prior_av
+    diff = to - fr
+    direction = "up" if diff >= TREND_DELTA else "down" if diff <= -TREND_DELTA else "steady"
+    return {"dir": direction, "from_pct": round(100 * fr), "to_pct": round(100 * to)}
 
 
 def render_recognition_card(motif_recognition: Optional[Dict], now=None,
                             window_days: int = 15) -> Dict[str, Any]:
-    """15-day headline rate + all-time verdict/percentile, per motif. Pure arithmetic over
-    the stored per-game tallies — no engine, no LLM at read time."""
+    """Mastery-ladder card: per motif, the user's LEVEL on their own path to mastering it
+    (population-calibrated tiers, never shown as a rank) + which way they're MOVING (this
+    window vs the one before). Pure arithmetic over the stored per-game tallies — no engine,
+    no LLM at read time. docs/motif_recognition_card_scope.md"""
     from datetime import datetime, timedelta, timezone
     data = (motif_recognition or {}).get("by_game") or {}
     now = now or datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=window_days)
+    recent_cut = now - timedelta(days=window_days)
+    prior_cut = now - timedelta(days=2 * window_days)
 
     def _parse(d):
         if not isinstance(d, str):
@@ -348,38 +369,42 @@ def render_recognition_card(motif_recognition: Optional[Dict], now=None,
         except Exception:
             return None
 
-    r_av = {m: 0 for m in MOTIFS}; r_fo = {m: 0 for m in MOTIFS}
-    a_av = {m: 0 for m in MOTIFS}; a_fo = {m: 0 for m in MOTIFS}
+    life_av = {m: 0 for m in MOTIFS}; life_fo = {m: 0 for m in MOTIFS}
+    now_av = {m: 0 for m in MOTIFS}; now_fo = {m: 0 for m in MOTIFS}
+    pri_av = {m: 0 for m in MOTIFS}; pri_fo = {m: 0 for m in MOTIFS}
     recent_games = total_games = 0
     for rec in data.values():
         total_games += 1
         d = _parse(rec.get("date"))
-        is_recent = d is not None and d >= cutoff
+        is_recent = d is not None and d >= recent_cut
+        is_prior = d is not None and prior_cut <= d < recent_cut
         if is_recent:
             recent_games += 1
         for m in MOTIFS:
             av = int((rec.get("av") or {}).get(m, 0)); fo = int((rec.get("fo") or {}).get(m, 0))
-            a_av[m] += av; a_fo[m] += fo
+            life_av[m] += av; life_fo[m] += fo
             if is_recent:
-                r_av[m] += av; r_fo[m] += fo
+                now_av[m] += av; now_fo[m] += fo
+            elif is_prior:
+                pri_av[m] += av; pri_fo[m] += fo
 
     rows = []
     for m in MOTIFS:
-        if a_av[m] < MIN_OPPS_TO_SHOW:
-            continue  # not enough lifetime data to say anything honest
-        use_15d = r_av[m] >= MIN_OPPS_15D
-        head_av = r_av[m] if use_15d else a_av[m]
-        head_fo = r_fo[m] if use_15d else a_fo[m]
-        head_rate = head_fo / head_av if head_av else 0.0
-        verdict_rate = a_fo[m] / a_av[m]  # stable verdict off all-time, not the thin window
+        if life_av[m] < MIN_OPPS_TO_SHOW:
+            continue  # not enough lifetime data to place a level honestly
+        rate = life_fo[m] / life_av[m]                       # standing = stable lifetime rate
+        idx, tier, fill = _tier_for(rate, m)
+        trend = _trend(now_av[m], now_fo[m], pri_av[m], pri_fo[m])
+        # offer a drill when there's a clear next step: not yet Sharp, or trending down
+        drill = idx <= 1 or trend.get("dir") == "down"
         rows.append({
             "motif": m, "label": RECOGNITION_LABEL[m],
-            "rate_pct": round(100 * head_rate),
-            "found": head_fo, "available": head_av,
-            "window": "15d" if use_15d else "all",
-            "verdict": _recognition_verdict(verdict_rate, m),
-            "percentile": _percentile_of(verdict_rate, m),
+            "tiers": TIER_NAMES,
+            "tier": tier, "tier_index": idx, "fill_pct": fill,
+            "next_tier": TIER_NAMES[idx + 1] if idx < len(TIER_NAMES) - 1 else None,
+            "trend": trend,
+            "drill": drill,
             "trust": RECOGNITION_TRUST[m],
-            "lifetime_pct": round(100 * verdict_rate),
         })
-    return {"recent_games": recent_games, "total_games": total_games, "window_days": window_days, "rows": rows}
+    return {"recent_games": recent_games, "total_games": total_games,
+            "window_days": window_days, "rows": rows}

@@ -540,54 +540,66 @@ const UnifiedProgress = ({ user }) => {
           </p>
         </motion.div>
 
-        {/* ─── Tactics recognition: when a motif WAS your best move, did you play it? ─── */}
+        {/* ─── Tactics mastery ladder: your level + which way you're moving (you vs your past) ─── */}
         {reco && (reco.rows || []).length > 0 && (
           <motion.section variants={fadeInUp} className="mb-14">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-2">
-              Your tactics · last {reco.window_days} days
+              Your tactics · where you are, where you're heading
             </div>
             <div className="text-[12px] text-muted-foreground mb-5">
-              When a tactic was your best move, how often did you find it? ({reco.recent_games} recent games)
+              Your level on the path to mastering each tactic — and whether you're climbing.
             </div>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {(reco.rows || []).map((r) => {
-                const pct = Math.max(0, Math.min(100, r.rate_pct));
-                const topX = Math.max(1, 100 - r.percentile);
-                const isStrength = r.verdict === "strength";
-                const isWork = r.verdict === "work_on";
-                const barColor = isStrength ? "bg-emerald-500" : isWork ? "bg-amber-500" : "bg-sky-500";
-                const verdictText = isStrength
-                  ? `Top ${topX}% of players — a real strength.`
-                  : isWork
-                  ? `Below most players (${r.percentile}th pctile) — worth drilling.`
-                  : `Around average (${r.percentile}th pctile).`;
+                const t = r.trend || {};
+                const trend = {
+                  up:     { dot: "bg-emerald-500", label: "Improving lately", icon: "↗", cls: "text-emerald-600 dark:text-emerald-400" },
+                  down:   { dot: "bg-amber-500",   label: "Slipped a little",  icon: "↘", cls: "text-amber-600 dark:text-amber-400" },
+                  steady: { dot: "bg-sky-500",     label: "Holding steady",    icon: "→", cls: "text-sky-600 dark:text-sky-400" },
+                  new:    { dot: "bg-muted-foreground/40", label: "Just getting going", icon: "·", cls: "text-muted-foreground" },
+                }[t.dir] || {};
                 return (
                   <div key={r.motif} className="rounded-xl border border-border p-5">
-                    <div className="flex items-baseline justify-between mb-2">
+                    <div className="flex items-baseline justify-between mb-3">
                       <div className="text-[15px] font-semibold text-foreground">{r.label}</div>
-                      <div className="text-[15px] font-semibold text-foreground tabular-nums">
-                        {r.rate_pct}%
-                        <span className="text-[11px] text-muted-foreground font-normal ml-1.5">
-                          {r.found}/{r.available} {r.window === "15d" ? "this fortnight" : "all-time"}
-                        </span>
+                      <div className={`text-[12px] font-medium inline-flex items-center gap-1 ${trend.cls}`}>
+                        <span className="text-[14px] leading-none">{trend.icon}</span> {trend.label}
                       </div>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden mb-2">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                    {/* tier ladder */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      {(r.tiers || []).map((name, i) => (
+                        <div
+                          key={name}
+                          className={`text-[10px] tracking-wide ${
+                            i === r.tier_index
+                              ? "text-foreground font-semibold"
+                              : "text-muted-foreground/50"
+                          }`}
+                        >
+                          {name}
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="relative h-2.5 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full rounded-full ${trend.dot}`} style={{ width: `${r.fill_pct}%` }} />
+                      {/* tier dividers at 20/40/60/80 */}
+                      {[20, 40, 60, 80].map((x) => (
+                        <div key={x} className="absolute top-0 h-full w-px bg-background/70" style={{ left: `${x}%` }} />
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mt-2.5">
                       <div className="text-[12.5px] text-muted-foreground">
-                        {verdictText}
-                        {r.trust === "rank" && (
-                          <span className="text-[11px] opacity-70"> · vs peers</span>
-                        )}
+                        You're at <span className="text-foreground font-medium">{r.tier}</span>
+                        {r.next_tier ? <> · next rung: {r.next_tier}</> : <> — top of the ladder.</>}
+                        {r.trust === "rough" && <span className="text-[11px] opacity-60"> · rough read</span>}
                       </div>
-                      {isWork && (
+                      {r.drill && (
                         <button
                           onClick={() => navigate(`/training/pattern/${r.motif}`)}
                           className="h-8 px-3 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[12px] inline-flex items-center gap-1.5 transition-colors shrink-0"
                         >
-                          Drill it
+                          Drill {r.label.toLowerCase()}
                           <ArrowRight className="h-3 w-3" strokeWidth={2} />
                         </button>
                       )}

@@ -13,20 +13,38 @@ it? That single change:
 - surfaces **strengths** the count hid (Mohit ranks 96th/89th/62nd percentile on fork/pin/skewer).
 
 ## What it is (the card — this is the product)
+**Pivoted 2026-06-22 from a percentage/percentile card to a MASTERY LADDER** — Mohit:
+"ranking is good, but we're not competing with people, we're improving ourselves." A raw %
+reads like a test grade and is meaningless without the population number beside it; a peer
+percentile frames it as a competition. The ladder frames it as the user's OWN path.
 ```
-YOUR TACTICS  ·  last 15 days (114 games)
-────────────────────────────────────────────
-Forks      ●●●●●●●●●○   you spotted 66% of your fork chances
-           Top 4% of players — a real strength.
-Pins       ●●●●●●●●●○   47%  ·  better than 89% of players — a strength.
-Skewers    ●●●●●●○○○○   42%  ·  around average (62nd pctile) — closest to work on.
+YOUR TACTICS · where you are, where you're heading
+
+Forks      Learning ─ Developing ─ Solid ─[ SHARP ]─ Mastered
+           ████████████████████████████░░░░         ↗ Improving lately
+           You're at Sharp · next rung: Mastered
+
+Pins       Learning ─ Developing ─[ SOLID ]─ Sharp ─ Mastered
+           ████████████████░░░░░░░░░░░░░░░░          → Holding steady
+           You're at Solid · next rung: Sharp
+
+Skewers    Learning ─[ DEVELOPING ]─ Solid ─ Sharp ─ Mastered
+           ███████████░░░░░░░░░░░░░░░░░░░░░          ↘ Slipped a little
+           You're at Developing · next rung: Solid   [ Drill skewers → ]
 ```
-- One row per motif (fork, pin, skewer).
-- **Headline rate = last 15 days** (windowed by the now-backfilled `date_played`).
-- **Verdict + percentile = all-time sample** (stable label that doesn't wobble on a thin 15-day n).
-- Verdict bands (lock-via-data, from the 45-user baseline this session):
-  - **strength** = ≥ population p75 · **average** = p25–p75 · **work-on** = < p25
-  - fork median 41% / p75 52%; pin median 40% / p75 45%; skewer median 39% / p75 44%.
+- One row per motif (fork, pin, skewer). **No percentage, no peer rank shown.**
+- **Standing = a tier on the ladder** from the stable lifetime rate (not the thin 15-day window).
+- **Trend = your own trajectory** — this 15-day window vs the prior 15-day window (you vs your
+  past self). Arrow only (↗ Improving / → Holding steady / ↘ Slipped / · Just getting going);
+  needs ≥6 opportunities in BOTH windows or it shows "just getting going".
+- **Drill CTA** when there's a clear next step (tier ≤ Developing, or trending down).
+- Tiers (5) calibrated lock-via-data from all 55 backfilled profiles (lifetime rate, ≥8 opps),
+  the 4 internal boundaries = [p25, median, p75, p90] per motif:
+  - fork [36, 44, 53, 57] · pin [35, 41, 45, 49] · skewer [33, 41, 47, 51]
+  - Learning <p25 · Developing p25–med · Solid med–p75 · Sharp p75–p90 · Mastered ≥p90.
+- **Honest note:** the population only CALIBRATES the tier lines (so "Sharp" is meaningful) — it
+  is never shown as a rank. There is no absolute "objectively sharp" anchor; sharpness is relative
+  to the field, we just don't surface that framing.
 
 ## The metric (verified, single-source)
 - **Available** (denominator): the engine's `best_move` creates the motif — detected by the SAME
