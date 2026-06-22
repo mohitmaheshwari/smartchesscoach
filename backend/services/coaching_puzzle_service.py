@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 # Includes BOTH legacy weakness names and the canonical CLAUDE.md
 # cognitive_gap taxonomy so the picker can serve either.
 WEAKNESS_TO_PUZZLE_THEMES = {
+    # ── Motif names (from the tactics mastery card's "Drill {motif}" CTA) ──
+    # These map 1:1 to Lichess theme names, so the Lichess source serves real,
+    # curated motif puzzles. Own-game + community motif puzzles are built/verified
+    # separately in the motif branch of get_prescribed_training (engine-confirmed
+    # per puzzle). docs/motif_recognition_card_scope.md
+    "fork":   ["fork"],
+    "pin":    ["pin"],
+    "skewer": ["skewer"],
+
     # ── Canonical cognitive_gap names (what the Mirror produces) ──
     "piece_safety":       ["hangingPiece", "trappedPiece", "capturingDefender"],
     "king_safety":        ["kingsideAttack", "queensideAttack", "attackingF2F7",
@@ -187,12 +196,25 @@ class CoachingPuzzleService:
         # of which path surfaces it.
         solved_ids = await self._get_solved_ids(user_id)
 
+        # Tactical-motif drills (fork/pin/skewer) route to the VERIFIED motif
+        # source — own-game positions re-derived + engine-confirmed per puzzle,
+        # then motif-tagged community puzzles. The generic cognitive_gap matcher
+        # below can't recognize motif names (it keys off cognitive_gap, which is
+        # never "fork"/"pin"/"skewer"), which is why these drills used to come
+        # back empty. docs/motif_recognition_card_scope.md
+        is_motif = weakness_pattern in ("fork", "pin", "skewer")
+
         # Source 1: user's own mistakes — cap at 40% of the session so other
         # sources still show up even when a user has many own-puzzles.
         own_limit = max(2, (num_puzzles * 2) // 5)
-        user_puzzles = await self._get_puzzles_from_user_games(
-            user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
-        )
+        if is_motif:
+            user_puzzles = await self._get_motif_puzzles_from_user_games(
+                user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
+            )
+        else:
+            user_puzzles = await self._get_puzzles_from_user_games(
+                user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
+            )
         puzzles.extend(user_puzzles)
 
         # Source 2: community positions from other users' games — reserve
@@ -202,13 +224,18 @@ class CoachingPuzzleService:
         # pool is thin for this gap, unused slots cascade to Lichess
         # below — no wasted budget.
         community_limit = max(1, num_puzzles // 5)
-        community_puzzles = await self._get_community_puzzles(
-            user_id=user_id,
-            weakness_pattern=weakness_pattern,
-            rating_range=rating_range,
-            limit=community_limit,
-            solved_ids=solved_ids,
-        )
+        if is_motif:
+            community_puzzles = await self._get_motif_community_puzzles(
+                user_id, weakness_pattern, limit=community_limit, solved_ids=solved_ids
+            )
+        else:
+            community_puzzles = await self._get_community_puzzles(
+                user_id=user_id,
+                weakness_pattern=weakness_pattern,
+                rating_range=rating_range,
+                limit=community_limit,
+                solved_ids=solved_ids,
+            )
         puzzles.extend(community_puzzles)
 
         # Source 3: Lichess puzzle DB — theme-matched, rating-banded,
@@ -439,6 +466,116 @@ class CoachingPuzzleService:
         
         return puzzles
     
+    async def _get_motif_puzzles_from_user_games(
+        self,
+        user_id: str,
+        motif: str,
+        limit: int = 4,
+        solved_ids: Optional[set] = None,
+    ) -> List[Dict]:
+        """Own-game drills for a tactical MOTIF (fork/pin/skewer), with a PER-PUZZLE
+        engine verifier: a position counts only if the user blundered (cp_loss >= 100)
+        AND the opponent's best reply genuinely creates that motif against them — checked
+        live with the same verified detectors used everywhere (multi_target / aligned
+        geometry). Solution = the move that AVOIDS it. This is the source the broken
+        prescribed pipeline should have used. docs/motif_recognition_card_scope.md"""
+        import chess
+        from services.motif_profile_service import _move_motifs
+        puzzles = []
+        solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
+        games = await self.db.game_analyses.find({
+            "user_id": user_id,
+            "stockfish_analysis.move_evaluations": {"$elemMatch": {"cp_loss": {"$gte": 100}}},
+        }).sort("analyzed_at", -1).limit(60).to_list(length=60)
+
+        for game in games:
+            sf = game.get("stockfish_analysis", {})
+            for mv in sf.get("move_evaluations", []):
+                if mv.get("is_opponent_move"):
+                    continue
+                cp_loss = abs(mv.get("cp_loss", 0) or 0)
+                if cp_loss < 100:
+                    continue
+                fen_before = mv.get("fen_before")
+                fen_after = mv.get("fen_after")
+                pv = mv.get("pv_after_played") or []
+                if not (fen_before and fen_after and pv):
+                    continue
+                # PER-PUZZLE VERIFY: opponent's reply must actually create this motif.
+                if motif not in _move_motifs(fen_after, pv[0], [], False):
+                    continue
+                move_number = mv.get("move_number")
+                puzzle_id = f"{game.get('game_id')}_m{move_number}" if move_number else None
+                if puzzle_id and puzzle_id in solved_ids:
+                    continue
+                best_move_san = mv.get("best_move", "")
+                best_move_uci = ""
+                try:
+                    b = chess.Board(fen_before)
+                    if best_move_san:
+                        best_move_uci = b.parse_san(best_move_san).uci()
+                except Exception:
+                    pass
+                puzzles.append({
+                    "puzzle_id": puzzle_id,
+                    "source": "your_game",
+                    "from_user_game": True,
+                    "game_id": game.get("game_id"),
+                    "fen": fen_before,
+                    "solution": [best_move_uci] if best_move_uci else [best_move_san],
+                    "solution_san": best_move_san,
+                    "your_move": mv.get("move"),
+                    "your_move_uci": mv.get("move_uci", ""),
+                    "cp_loss": cp_loss,
+                    "move_number": move_number,
+                    "rating": None,
+                    "themes": [motif],
+                    "motif": motif,
+                    "context": (
+                        f"From your own game — move {move_number}: you walked into a {motif}. "
+                        f"Find the move that avoids it."
+                        if move_number else
+                        f"From your own game: you walked into a {motif}. Find the move that avoids it."
+                    ),
+                })
+                if len(puzzles) >= limit:
+                    return puzzles
+        return puzzles
+
+    async def _get_motif_community_puzzles(
+        self, user_id: str, motif: str, limit: int, solved_ids: set,
+    ) -> List[Dict]:
+        """Community puzzles already motif-tagged at extraction (position_allows_motif,
+        the same verified detector). Other users' games — the social-proof source."""
+        import chess
+        out = []
+        cursor = self.db.community_puzzles.find(
+            {"motif": motif, "shared_by": {"$ne": user_id}},
+            {"_id": 0, "fen": 1, "best_move_san": 1, "game_id": 1, "move_number": 1},
+        ).limit(limit * 2)
+        async for p in cursor:
+            pid = (f"{p.get('game_id')}_m{p.get('move_number')}"
+                   if p.get("game_id") and p.get("move_number") else None)
+            if pid and pid in (solved_ids or set()):
+                continue
+            fen = p.get("fen"); san = p.get("best_move_san")
+            if not (fen and san):
+                continue
+            uci = ""
+            try:
+                uci = chess.Board(fen).parse_san(san).uci()
+            except Exception:
+                pass
+            out.append({
+                "puzzle_id": pid, "source": "community", "from_user_game": False,
+                "fen": fen, "solution": [uci] if uci else [san], "solution_san": san,
+                "rating": None, "themes": [motif], "motif": motif,
+                "context": f"Another player walked into a {motif} here. Find the move that avoids it.",
+            })
+            if len(out) >= limit:
+                break
+        return out
+
     async def _get_community_puzzles(
         self,
         user_id: str,
