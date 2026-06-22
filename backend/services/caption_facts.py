@@ -3631,24 +3631,24 @@ def _passed_pawn_behind_squares(pawn_sq: int, pawn_color: chess.Color) -> List[i
 #   E. Eval data missing — fall back to geometric only.
 #   F. Our own rook is already behind the passer — engine's best
 #      is something else; principle doesn't fire (correctly).
-def _p_end_threw_won_pawn_endgame(
+def _rook_reachable_count(board: chess.Board, rook_sq: int, color: chess.Color) -> int:
+    """How many squares the rook on rook_sq could legally reach if it were
+    `color`'s turn (turn-independent mobility — see the kiandraa10 trap)."""
+    b = board.copy()
+    b.turn = color
+    return sum(1 for m in b.legal_moves if m.from_square == rook_sq)
+
+
+def _p_end_pawn_traps_own_rook(
     facts: Dict[str, Any],
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
-    """You were WINNING in an endgame and threw it by pushing a pawn into a
-    square where the opponent's best reply simply captures it. The inverse of
-    the other endgame predicates (which skip winning positions) — throwing a won
-    endgame is exactly when to coach. 2026-06-22 (kiandraa10 52.g7??)."""
-    if facts.get("phase") != "endgame":
-        return None
-    if (facts.get("cp_loss") or 0) < 200:        # real blunder only
-        return None
-    eb = facts.get("eval_before_cp")
-    if eb is None:
-        return None
-    side_white = facts.get("moving_piece_color") == "white"
-    stm_before = eb if side_white else -eb
-    if stm_before < 300:                         # weren't winning → not "threw a win"
+    """A pawn push that TRAPS your own rook — the rook's mobility collapses because
+    the just-pushed pawn now blocks its rank or file. The CAUSE (rook went dead),
+    not the downstream effect ("pawn got captured"). Board-derived, any phase.
+    Diagnosed by Mohit on the kiandraa10 endgame: 52.g7 entombed Rh7 (8 squares → 1),
+    so the win evaporated. 2026-06-22."""
+    if (facts.get("cp_loss") or 0) < 150:        # only when it actually cost something
         return None
     best_san = _normalize_san(facts.get("best_move_san") or "")
     played_san = _normalize_san(facts.get("played_san") or "")
@@ -3658,62 +3658,95 @@ def _p_end_threw_won_pawn_endgame(
         played_move = board_before.parse_san(played_san)
     except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
         return None
-    ea = facts.get("eval_after_cp")
-    if ea is None:
-        return None
-    stm_after = ea if side_white else -ea
-    if stm_after > 100:                          # didn't actually collapse → not thrown
-        return None
     pc = board_before.piece_at(played_move.from_square)
     if not pc or pc.piece_type != chess.PAWN or board_before.is_capture(played_move):
-        return None  # must be a pawn PUSH (not a pawn capture)
-    # The engine's better move should be a PIECE move (escort/keep the win),
-    # not another pawn push — that's the teaching contrast.
-    try:
-        best_move = board_before.parse_san(best_san)
-    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
-        return None
-    best_pc = board_before.piece_at(best_move.from_square)
-    if best_pc and best_pc.piece_type == chess.PAWN:
-        return None
-    pushed_to = played_move.to_square
-    pv = facts.get("pv_after_played") or []
-    if not pv:
-        return None
-    # Confirm the pushed pawn is actually LOST in the engine line (track it
-    # through the PV — it may advance/promote before the opponent captures it,
-    # as in 52.g7 Kf6 Kh5 Rxg7). Only fire when the push really threw the pawn.
+        return None  # must be a pawn PUSH
     us = board_before.turn
-    b2 = board_before.copy()
-    b2.push(played_move)
+    pushed_to = played_move.to_square
+    push_rank, push_file = chess.square_rank(pushed_to), chess.square_file(pushed_to)
+    post = board_before.copy()
+    post.push(played_move)
+
+    # Find a friendly rook the pushed pawn entombs: it sits on the rook's rank or
+    # file, and the rook's mobility collapses from active (>=5) to trapped (<=2).
+    trap = None
+    for rook_sq in board_before.pieces(chess.ROOK, us):
+        on_line = (chess.square_rank(rook_sq) == push_rank
+                   or chess.square_file(rook_sq) == push_file)
+        if not on_line:
+            continue
+        before_n = _rook_reachable_count(board_before, rook_sq, us)
+        after_n = _rook_reachable_count(post, rook_sq, us)
+        if before_n >= 5 and after_n <= 2 and (before_n - after_n) >= 4:
+            trap = (rook_sq, before_n, after_n)
+            break
+    if trap is None:
+        return None
+    rook_sq, before_n, after_n = trap
+
+    # Opponent's punishing plan: name their best reply, and (when the engine line
+    # shows it) that it goes on to win the now-undefendable pushed pawn. Verified
+    # by tracking the pushed pawn through the PV.
+    pv = facts.get("pv_after_played") or []
+    opp_reply = _normalize_san(pv[0]) if pv else ""
+    opp_is_king = False
+    if opp_reply:
+        try:
+            _om = post.parse_san(opp_reply)
+            _op = post.piece_at(_om.from_square)
+            opp_is_king = bool(_op and _op.piece_type == chess.KING)
+        except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+            opp_reply = ""
     track_sq = pushed_to
-    capturer = None
-    for san in pv[:10]:
+    pawn_lost = False
+    b2 = post.copy()
+    for san in pv[:12]:
         try:
             mv = b2.parse_san(_normalize_san(san))
         except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
             break
         if b2.turn != us and b2.is_capture(mv) and mv.to_square == track_sq:
-            capturer = b2.piece_at(mv.from_square)
+            pawn_lost = True
             break
         if b2.turn == us and mv.from_square == track_sq:
-            track_sq = mv.to_square  # our pawn advanced/promoted — follow it
+            track_sq = mv.to_square
         b2.push(mv)
-    if capturer is None:
-        return None
+
+    rook_name = chess.square_name(rook_sq)
+    pushed_name = chess.square_name(pushed_to)
+    only_sq = None
+    if after_n == 1:
+        b3 = post.copy(); b3.turn = us
+        only_sq = next((chess.square_name(m.to_square) for m in b3.legal_moves
+                        if m.from_square == rook_sq), None)
+
+    # The R12 shell already states "{played} is a blunder. {best} was better." —
+    # so the why_text must NOT restate the move or the recommendation (no dupes).
+    why = f"It traps your own rook on {rook_name}"
+    why += f" — the rook can only reach {only_sq} now." if only_sq else f" — its mobility drops from {before_n} squares to {after_n}."
+    if opp_reply and pawn_lost:
+        mover = "their king steps up" if opp_is_king else "they reply"
+        why += f" With the rook stuck, {mover} ({opp_reply}) to win the {pushed_name} pawn it can no longer hold."
+    why += " Keep your rook active."
+
     return {
-        "principle_id": "END_THREW_WON_PAWN_PUSH",
-        "engine_endorsement": "best",  # engine's best move IS shown → use cue_best
+        "principle_id": "PAWN_PUSH_TRAPS_OWN_ROOK",
+        "engine_endorsement": "best",
         "evidence": {
-            "pushed_pawn_square": chess.square_name(pushed_to),
-            "captured_by": chess.piece_name(capturer.piece_type) if capturer else "piece",
-            "opp_reply_san": facts.get("pv_after_played", [""])[0],
+            "trapped_rook_square": rook_name,
+            "rook_squares_before": before_n,
+            "rook_squares_after": after_n,
+            "pushed_pawn_square": pushed_name,
+            "opp_reply_san": pv[0] if pv else "",
+            "pawn_lost_in_line": pawn_lost,
             "played_san": facts.get("played_san") or "",
             "best_san": facts.get("best_move_san") or "",
+            "why_text": why,
         },
         "state_key": _freeze_state_key({
-            "principle_id": "END_THREW_WON_PAWN_PUSH",
-            "pushed_to": chess.square_name(pushed_to),
+            "principle_id": "PAWN_PUSH_TRAPS_OWN_ROOK",
+            "rook_sq": rook_name,
+            "pushed_to": pushed_name,
         }),
     }
 
@@ -4795,7 +4828,7 @@ def _principles_violated(
         _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
         _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
         _p_end_rook_behind_passer, # added 2026-05-18 (Phase 4) — Tarrasch's rule, single-passer-only
-        _p_end_threw_won_pawn_endgame,  # added 2026-06-22 — threw a WON endgame by pushing the pawn into a capture
+        _p_end_pawn_traps_own_rook,  # added 2026-06-22 — pawn push that entombs your own rook (mobility collapse)
         _p_op_bishop_trade_doubles_pawn,  # added 2026-05-18 (Phase 6) — cross-opening structural concession
         _p_op_f2_f7_strike,               # added 2026-05-18 (Phase 6) — weak-king-square strike
         _p_op_trapped_knight,             # added 2026-05-18 (Phase 6) — knight with zero safe squares

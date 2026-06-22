@@ -4020,6 +4020,12 @@ def build_move_teaching_decision(
                 pass
             else:
                 principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
+                # A predicate may build a POSITION-SPECIFIC, board-verified why
+                # (e.g. PAWN_PUSH_TRAPS_OWN_ROOK names the trapped rook + the
+                # opponent's plan) — prefer it over the static principle cue.
+                _why_text = (_top.get("evidence") or {}).get("why_text")
+                if _why_text:
+                    principle_cue = _why_text
                 principle_id_used = _top_pid
     if principle_cue:
         caption_facts["principle_cue"] = principle_cue

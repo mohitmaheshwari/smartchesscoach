@@ -811,25 +811,27 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # This is the inverse-gated case: you were winning and pushed the passed
         # pawn into a square where the opponent simply captures it, collapsing
         # the win into a draw.
-        "id": "END_THREW_WON_PAWN_PUSH",
-        "name": "Don't push the passer into a capture",
-        "phase_in_scope": ["endgame"],
-        # Lower number = higher precedence (selector picks sorted_pv[0]). Throwing
-        # a WON endgame is high-value coaching → must beat the generic
-        # TAC_CHANGED_AFTER_MOVE (18) and MID_ROOK_OPEN_FILE.
+        "id": "PAWN_PUSH_TRAPS_OWN_ROOK",
+        "name": "Don't trap your own rook with a pawn push",
+        "phase_in_scope": ["opening", "middlegame", "endgame"],
+        # Lower number = higher precedence (selector picks sorted_pv[0]). Trapping
+        # your own rook is a high-value, transferable lesson → must beat the generic
+        # TAC_CHANGED_AFTER_MOVE (18). The position-specific why_text (built in the
+        # predicate evidence — names the trapped rook + the opponent's plan) is
+        # preferred over these static cues when present.
         "priority": 12,
         "match_kind": "played_move",
-        "aligned_moves": "the rook/king move that keeps the pawn safely escorted instead of pushing it where it can be taken",
-        "gate_policy": "endorsement_required + cp_loss_strict + winning_before_only",
-        "suppress": "once_per_move",
-        "cue_best":   "You were winning — but pushing the pawn let it be captured. In a winning pawn endgame, escort the pawn with your king and rook; don't push it where it can simply be taken.",
-        "cue_top_n":  "You were winning — but pushing the pawn let it be captured. In a winning pawn endgame, escort the pawn with your king and rook; don't push it where it can simply be taken.",
-        "cue_absent": "When you're winning a pawn endgame, the pawn needs an escort — push it only when your king and rook keep it from being captured.",
+        "aligned_moves": "the move that keeps your rook active instead of blocking its own rank/file with a pawn",
+        "gate_policy": "endorsement_required + cp_loss_strict",
+        "suppress": "once_per_state_key",
+        "cue_best":   "That pawn push trapped your own rook — it blocks the rook's own rank or file. A dead rook can't defend or attack; keep your rook active instead.",
+        "cue_top_n":  "That pawn push trapped your own rook — it blocks the rook's own rank or file. A dead rook can't defend or attack; keep your rook active instead.",
+        "cue_absent": "Before a pawn push, check it doesn't box in your own rook — a rook needs an open rank or file to be worth anything.",
         "visual_signature": {
-            "highlight": ["pushed_pawn_square"],
+            "highlight": ["trapped_rook_square", "pushed_pawn_square"],
             "arrows": [],
         },
-        "drill_outline": "5 winning R+P endgames where the natural pawn push throws the win to a capture; correct answer keeps the rook/king active to escort the pawn.",
+        "drill_outline": "5 positions where the natural pawn push entombs the player's own rook; correct answer keeps the rook active.",
     },
 
     # ══════════════════════════════════════════════════════════════════
