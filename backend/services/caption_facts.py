@@ -5061,6 +5061,9 @@ def extract_facts(
     opp_missed_capture_square: Optional[str] = None
     opp_failure_missed_mate = False
     opp_missed_mate_san: Optional[str] = None
+    opp_failure_missed_tactic = False
+    opp_missed_tactic_san: Optional[str] = None
+    opp_missed_tactic_desc: Optional[str] = None
     if (mover_is_user is False and best_move_san
             and not played_is_best):
         try:
@@ -5084,6 +5087,38 @@ def extract_facts(
             if pv_after_best and any("#" in m for m in pv_after_best[:6]):
                 opp_failure_missed_mate = True
                 opp_missed_mate_san = best_move_san
+            # missed tactic: the best move is a quiet (non-capture) FORK against
+            # the user — they had a strong double-attack and played something else.
+            # Explains the danger the user DODGED (Na4 case: missed Nd5 forking the
+            # e7 bishop + f6 knight). Parth QA 2026-06-22. Engine already endorsed
+            # best_move as far superior, so naming its fork is safe.
+            if (not opp_failure_missed_capture
+                    and not board_before.is_capture(_bm)):
+                _sim = board_before.copy(); _sim.push(_bm)
+                _user_color = not board_before.turn  # opp is to move → user is the other
+                _tgts = []
+                for _ts in _sim.attacks(_bm.to_square):
+                    _tp = _sim.piece_at(_ts)
+                    if (_tp and _tp.color == _user_color and _tp.piece_type in (
+                            chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)):
+                        _tgts.append((_ts, _tp.piece_type))
+                # Winnability gate so "forking" is truthful, not a double-attack on
+                # two defended equals: at least one target must be undefended OR worth
+                # more than the forking piece (capturing it wins material).
+                _forker_val = PIECE_VALUE_CP.get(_sim.piece_at(_bm.to_square).piece_type, 0)
+                _winnable = any(
+                    PIECE_VALUE_CP.get(_p, 0) > _forker_val
+                    or not _sim.attackers(_user_color, _s)
+                    for _s, _p in _tgts)
+                if len(_tgts) >= 2 and _winnable:
+                    _tgts.sort(key=lambda x: -PIECE_VALUE_CP.get(x[1], 0))
+                    (_s1, _p1), (_s2, _p2) = _tgts[0], _tgts[1]
+                    opp_failure_missed_tactic = True
+                    opp_missed_tactic_san = best_move_san
+                    opp_missed_tactic_desc = (
+                        "forking your %s on %s and %s on %s" % (
+                            chess.piece_name(_p1), chess.square_name(_s1),
+                            chess.piece_name(_p2), chess.square_name(_s2)))
         except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError, AssertionError):
             # best_move_san didn't parse on board_before (PGN/eval drift).
             # Leave facts unset rather than raising.
@@ -5619,6 +5654,10 @@ def extract_facts(
         "opp_missed_capture_square": opp_missed_capture_square,
         "opp_failure_missed_mate": opp_failure_missed_mate,
         "opp_missed_mate_san": opp_missed_mate_san,
+        # opp missed a quiet FORK (the danger the user dodged) — Parth QA 2026-06-22
+        "opp_failure_missed_tactic": opp_failure_missed_tactic,
+        "opp_missed_tactic_san": opp_missed_tactic_san,
+        "opp_missed_tactic_desc": opp_missed_tactic_desc,
         # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
         # Drives failure_allows_fork in R12_blunder.json. See in-place
         # comment at the extraction site.

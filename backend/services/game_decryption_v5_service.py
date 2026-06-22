@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 125  # v125 (2026-06-22): rim-knight why gated to back-rank development (Na4 mid-game regroup no longer mislabeled "rim" — Parth QA).
+V5_COACHING_VERSION = 127  # v127 (2026-06-22): opp missed-tactic winnability gate (truthful "forking").
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

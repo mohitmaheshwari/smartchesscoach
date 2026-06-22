@@ -175,6 +175,7 @@
     {"when": {"attack_with_tempo_piece": "present"}, "variant": "why_user_missed_attack_with_tempo"},
     {"when": {"shape_pattern_id": "king_pawn_lifted", "shape_pattern_target_square": "present"}, "variant": "why_user_missed_king_pawn_pressure"},
     {"when": {"position_was_already_losing": true, "losing_since_move": "present", "lost_defender_lead_clause": "absent", "failure_clause": "absent"}, "variant": "why_user_position_already_losing_since_known"},
+    {"when": {"queen_chased_by_reply": true, "failure_clause": "absent"}, "variant": "why_user_queen_chased"},
     {"when": {"position_was_already_losing": true, "lost_defender_lead_clause": "absent", "failure_clause": "absent"}, "variant": "why_user_position_already_losing"},
     {"when": {"curriculum_deviation_clause": "present"}, "variant": "why_user_curriculum_deviation"},
     {"when": {"blocked_pawn_would_support": "present"}, "variant": "why_user_blocks_pawn_supports"},
@@ -195,7 +196,8 @@
   "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
   "failure_mode_clauses_opp": [
     {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
-    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"}
+    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
+    {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"}
   ],
   "teaching_principles": {
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
@@ -207,7 +209,8 @@
     "failure_played_piece_attacked":      "Before every move, ask what your opponent's strongest reply does to your pieces",
     "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
     "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
-    "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate"
+    "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate",
+    "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -319,6 +322,7 @@
     "why_user_missed_pawn_kicks_piece": "it attacks the {pawn_kicks_piece_type} on {pawn_kicks_piece_square}, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.",
     "why_user_missed_king_pawn_pressure": "it keeps the pressure on {shape_pattern_target_square}.",
     "why_user_position_already_losing_since_known": "You were already in trouble since move {losing_since_move}. {best_move_san} only slows it — the problem started earlier.",
+    "why_user_queen_chased": "Your queen gets chased — their {queen_chaser_piece} hits it and it must move, losing time. Keep the queen safe from cheap attacks.",
     "why_user_position_already_losing": "You were already in trouble before this move. {best_move_san} only slows the loss.",
     "why_user_curriculum_deviation": "{curriculum_deviation_clause}",
     "why_user_blocks_pawn_supports": "{played_san} blocks your {blocked_pawn_file}-pawn — {best_move_san} would have supported your {blocked_pawn_would_support} pawn.",
