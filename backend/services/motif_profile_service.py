@@ -229,3 +229,157 @@ def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
                 totals[mt][k] += per[mt][k]
             totals[mt]["got_positions"].extend(per[mt]["got_positions"])
     return {"games_analyzed": n_games, "motifs": {mt: _verdict(totals[mt], n_games, mt) for mt in MOTIFS}}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OFFENSE RECOGNITION RATE — the recognition-rate card (docs/motif_recognition_card_scope.md)
+#
+# The metric that distinguishes a fundamental weakness from a blind spot: when a
+# motif WAS the engine's best move (an opportunity), did the player play it?
+#   recognition = found / available, per motif.
+# A count or per-game rate has no denominator of opportunity; this does. Same
+# verified detectors as everywhere (single-source) — fork is winnability-checked
+# (trustworthy absolute %), pin/skewer "available" includes some incidental aligned
+# geometry so the card frames them as RANK vs peers, not a precise absolute.
+#
+# Population breakpoints locked-via-data 2026-06-22 (45 users, 120-game samples,
+# >=8 opportunities/motif): p25 / median / p75 of found/available. Refit as the
+# user base grows.
+RECOGNITION_PCTILE = {
+    "fork":   {"p25": 0.35, "median": 0.41, "p75": 0.52},
+    "pin":    {"p25": 0.32, "median": 0.40, "p75": 0.45},
+    "skewer": {"p25": 0.33, "median": 0.39, "p75": 0.44},
+}
+RECOGNITION_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
+# trust of the ABSOLUTE %: fork verified-winnable; pin/skewer = rank-vs-peers only
+RECOGNITION_TRUST = {"fork": "absolute", "pin": "rank", "skewer": "rank"}
+MIN_OPPS_TO_SHOW = 8      # lifetime opportunities needed before a row is shown at all
+MIN_OPPS_15D = 6          # 15-day opportunities needed to headline the 15-day rate
+
+
+def _move_motifs(fen, move, pv, mover_user) -> set:
+    """Which verified motifs `move` creates in this position (single-source detectors)."""
+    from services.caption_facts import extract_facts
+    out = set()
+    if not (fen and move):
+        return out
+    try:
+        f = extract_facts(fen_before=fen, played_san=move, best_move_san=move,
+                          cp_loss=0, pv_after_played=pv or [], mover_is_user=mover_user)
+        if f.get("multi_target_attack_evidence"):
+            out.add("fork")
+        out |= _classify_aligned(f.get("aligned_pieces_evidence"))
+    except Exception:
+        pass
+    return out
+
+
+def compute_game_recognition(move_evaluations: List[Dict]) -> Dict[str, Dict[str, int]]:
+    """Per-game OFFENSE recognition tallies. For each USER move where the engine's
+    best move CREATES a motif (available), did the player play a SOUND instance of
+    that same motif (found)? Returns {'av': {fork,pin,skewer}, 'fo': {...}}."""
+    av = {m: 0 for m in MOTIFS}
+    fo = {m: 0 for m in MOTIFS}
+    for ev in move_evaluations or []:
+        if ev.get("is_opponent_move"):
+            continue
+        fen = ev.get("fen_before"); best = ev.get("best_move"); played = ev.get("move")
+        if not (fen and best):
+            continue
+        cp = abs(int(ev.get("cp_loss") or 0))
+        best_motifs = _move_motifs(fen, best, ev.get("pv_after_best") or [], True)
+        if not best_motifs:
+            continue
+        played_motifs = (_move_motifs(fen, played, ev.get("pv_after_played") or [], True)
+                         if cp <= SOUND_CP else set())
+        for m in best_motifs:
+            av[m] += 1
+            if m in played_motifs:
+                fo[m] += 1
+    return {"av": av, "fo": fo}
+
+
+def merge_recognition(stored: Optional[Dict], game_id: str, date_played: Optional[str],
+                      per_game: Dict[str, Dict[str, int]]) -> Dict:
+    """Idempotent per-game store keyed by game_id — re-analysis OVERWRITES that game's
+    entry, never double-counts. Per-game records carry the date so the read endpoint can
+    window to the last N days without re-aggregating."""
+    out = stored or {"by_game": {}}
+    out.setdefault("by_game", {})[str(game_id)] = {
+        "date": date_played, "av": per_game["av"], "fo": per_game["fo"],
+    }
+    return out
+
+
+def _recognition_verdict(rate: float, motif: str) -> str:
+    b = RECOGNITION_PCTILE.get(motif, {"p25": 0.33, "p75": 0.50})
+    if rate >= b["p75"]:
+        return "strength"
+    if rate < b["p25"]:
+        return "work_on"
+    return "average"
+
+
+def _percentile_of(rate: float, motif: str) -> int:
+    """Monotone interpolation of `rate` against the locked p25/median/p75 anchors → 0..100."""
+    b = RECOGNITION_PCTILE[motif]
+    pts = [(0.0, 0), (b["p25"], 25), (b["median"], 50), (b["p75"], 75), (1.0, 100)]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if rate <= x1:
+            return int(round(y0 + (y1 - y0) * (rate - x0) / (x1 - x0))) if x1 > x0 else y1
+    return 100
+
+
+def render_recognition_card(motif_recognition: Optional[Dict], now=None,
+                            window_days: int = 15) -> Dict[str, Any]:
+    """15-day headline rate + all-time verdict/percentile, per motif. Pure arithmetic over
+    the stored per-game tallies — no engine, no LLM at read time."""
+    from datetime import datetime, timedelta, timezone
+    data = (motif_recognition or {}).get("by_game") or {}
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=window_days)
+
+    def _parse(d):
+        if not isinstance(d, str):
+            return None
+        try:
+            dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    r_av = {m: 0 for m in MOTIFS}; r_fo = {m: 0 for m in MOTIFS}
+    a_av = {m: 0 for m in MOTIFS}; a_fo = {m: 0 for m in MOTIFS}
+    recent_games = total_games = 0
+    for rec in data.values():
+        total_games += 1
+        d = _parse(rec.get("date"))
+        is_recent = d is not None and d >= cutoff
+        if is_recent:
+            recent_games += 1
+        for m in MOTIFS:
+            av = int((rec.get("av") or {}).get(m, 0)); fo = int((rec.get("fo") or {}).get(m, 0))
+            a_av[m] += av; a_fo[m] += fo
+            if is_recent:
+                r_av[m] += av; r_fo[m] += fo
+
+    rows = []
+    for m in MOTIFS:
+        if a_av[m] < MIN_OPPS_TO_SHOW:
+            continue  # not enough lifetime data to say anything honest
+        use_15d = r_av[m] >= MIN_OPPS_15D
+        head_av = r_av[m] if use_15d else a_av[m]
+        head_fo = r_fo[m] if use_15d else a_fo[m]
+        head_rate = head_fo / head_av if head_av else 0.0
+        verdict_rate = a_fo[m] / a_av[m]  # stable verdict off all-time, not the thin window
+        rows.append({
+            "motif": m, "label": RECOGNITION_LABEL[m],
+            "rate_pct": round(100 * head_rate),
+            "found": head_fo, "available": head_av,
+            "window": "15d" if use_15d else "all",
+            "verdict": _recognition_verdict(verdict_rate, m),
+            "percentile": _percentile_of(verdict_rate, m),
+            "trust": RECOGNITION_TRUST[m],
+            "lifetime_pct": round(100 * verdict_rate),
+        })
+    return {"recent_games": recent_games, "total_games": total_games, "window_days": window_days, "rows": rows}

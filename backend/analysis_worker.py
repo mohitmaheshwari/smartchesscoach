@@ -524,9 +524,19 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         # THIS game's tallies, both sides via the verified detector. Raw totals stored;
         # verdict applied at read time. docs/motif_profile_scope.md
         motif_profile = profile.get("motif_profile")
+        motif_recognition = profile.get("motif_recognition")
         try:
-            from services.motif_profile_service import compute_game_motifs, merge_motifs
+            from services.motif_profile_service import (
+                compute_game_motifs, merge_motifs,
+                compute_game_recognition, merge_recognition,
+            )
             motif_profile = merge_motifs(motif_profile, compute_game_motifs(move_evaluations))
+            # Per-opportunity recognition (offense), stored per-game with the game date so
+            # the read endpoint can window to last-N-days. docs/motif_recognition_card_scope.md
+            game_doc = db.games.find_one({"game_id": game_id}, {"_id": 0, "date_played": 1}) or {}
+            motif_recognition = merge_recognition(
+                motif_recognition, game_id, game_doc.get("date_played"),
+                compute_game_recognition(move_evaluations))
         except Exception as _motif_err:
             logger.warning(f"motif profile update failed for {user_id}: {_motif_err}")
 
@@ -540,6 +550,7 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
                 "total_best_moves": total_best_moves,
                 "top_weaknesses": top_weaknesses,
                 "motif_profile": motif_profile,
+                "motif_recognition": motif_recognition,
                 "last_updated": current_time.isoformat()
             }}
         )

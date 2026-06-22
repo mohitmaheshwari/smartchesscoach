@@ -62,6 +62,10 @@ services:
       # keep monitoring divergence in prod after the flip.
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
       - PWC_USE_CENTRAL_CAPTION_PIPELINE=true
+      # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
+      # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
+      # Kill-switch: set to false to hide the card without a redeploy.
+      - MOTIF_RECOGNITION_CARD=true
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
       - FRONTEND_URL=https://chessguru.ai

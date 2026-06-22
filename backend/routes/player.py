@@ -848,6 +848,20 @@ async def get_motif_profile(user: User = Depends(get_current_user)):
     return render_motif_card(prof.get("motif_profile"), prof.get("games_analyzed_count") or 0)
 
 
+@router.get("/motif-recognition")
+async def get_motif_recognition(user: User = Depends(get_current_user)):
+    """Per-opportunity OFFENSE recognition card: when a fork/pin/skewer WAS the engine's
+    best move, how often did you play it? Headline rate = last 15 days; verdict + percentile
+    = stable all-time sample vs the population. docs/motif_recognition_card_scope.md"""
+    import os as _os
+    if _os.environ.get("MOTIF_RECOGNITION_CARD", "true").lower() == "false":
+        return {"recent_games": 0, "total_games": 0, "window_days": 15, "rows": []}
+    from services.motif_profile_service import render_recognition_card
+    prof = await db.player_profiles.find_one(
+        {"user_id": user.user_id}, {"_id": 0, "motif_recognition": 1}) or {}
+    return render_recognition_card(prof.get("motif_recognition"))
+
+
 @router.get("/motif-drill/{motif}")
 async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
     """Drill positions for a motif weakness — the user's OWN games first, then community

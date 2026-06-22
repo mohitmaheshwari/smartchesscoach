@@ -207,22 +207,25 @@ const UnifiedProgress = ({ user }) => {
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
   const [motif, setMotif] = useState(null);
+  const [reco, setReco] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, narrativeRes, proofRes, motifRes] = await Promise.all([
+        const [progressRes, narrativeRes, proofRes, motifRes, recoRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
           fetch(`${API}/progress/improvement-proof`, {
             credentials: "include",
           }),
           fetch(`${API}/motif-profile`, { credentials: "include" }),
+          fetch(`${API}/motif-recognition`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
         if (proofRes.ok) setProof(await proofRes.json());
         if (motifRes.ok) setMotif(await motifRes.json());
+        if (recoRes.ok) setReco(await recoRes.json());
       } catch (e) {
         console.error(e);
       } finally {
@@ -537,8 +540,67 @@ const UnifiedProgress = ({ user }) => {
           </p>
         </motion.div>
 
+        {/* ─── Tactics recognition: when a motif WAS your best move, did you play it? ─── */}
+        {reco && (reco.rows || []).length > 0 && (
+          <motion.section variants={fadeInUp} className="mb-14">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-2">
+              Your tactics · last {reco.window_days} days
+            </div>
+            <div className="text-[12px] text-muted-foreground mb-5">
+              When a tactic was your best move, how often did you find it? ({reco.recent_games} recent games)
+            </div>
+            <div className="space-y-4">
+              {(reco.rows || []).map((r) => {
+                const pct = Math.max(0, Math.min(100, r.rate_pct));
+                const topX = Math.max(1, 100 - r.percentile);
+                const isStrength = r.verdict === "strength";
+                const isWork = r.verdict === "work_on";
+                const barColor = isStrength ? "bg-emerald-500" : isWork ? "bg-amber-500" : "bg-sky-500";
+                const verdictText = isStrength
+                  ? `Top ${topX}% of players — a real strength.`
+                  : isWork
+                  ? `Below most players (${r.percentile}th pctile) — worth drilling.`
+                  : `Around average (${r.percentile}th pctile).`;
+                return (
+                  <div key={r.motif} className="rounded-xl border border-border p-5">
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="text-[15px] font-semibold text-foreground">{r.label}</div>
+                      <div className="text-[15px] font-semibold text-foreground tabular-nums">
+                        {r.rate_pct}%
+                        <span className="text-[11px] text-muted-foreground font-normal ml-1.5">
+                          {r.found}/{r.available} {r.window === "15d" ? "this fortnight" : "all-time"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden mb-2">
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[12.5px] text-muted-foreground">
+                        {verdictText}
+                        {r.trust === "rank" && (
+                          <span className="text-[11px] opacity-70"> · vs peers</span>
+                        )}
+                      </div>
+                      {isWork && (
+                        <button
+                          onClick={() => navigate(`/training/pattern/${r.motif}`)}
+                          className="h-8 px-3 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[12px] inline-flex items-center gap-1.5 transition-colors shrink-0"
+                        >
+                          Drill it
+                          <ArrowRight className="h-3 w-3" strokeWidth={2} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.section>
+        )}
+
         {/* ─── Tactics profile: patterns you find vs patterns that catch you ─── */}
-        {motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
+        {false && motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
           <motion.section variants={fadeInUp} className="mb-14">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
               Your tactics · patterns you find vs patterns that catch you
