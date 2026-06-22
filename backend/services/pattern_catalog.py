@@ -472,10 +472,18 @@ def detect_opp_positional_mistake(
                 facts["opp_played_wing_pawn_san"] = opp_played_san
                 facts["opp_played_wing_pawn_file"] = "abcdefgh"[to_file]
 
-    # ── Heuristic 2: knight to the rim (a-file/h-file) in opening ──
+    # ── Heuristic 2: knight to the rim (a-file/h-file) — a DEVELOPMENT fault ──
+    # "Knight on the rim is dim" is a development principle: it only explains a
+    # knight DEVELOPED to the edge from its back rank. It is NOT the reason a
+    # mid-game knight regroup is a mistake — there the cause is tactical (a 223cp
+    # swing means a missed tactic, not a positional rim nicety). Gate to back-rank
+    # development so e.g. 13.Na4 (c3->a4, missing the strong central Nd5) is no
+    # longer mislabeled "rim". Parth QA 2026-06-22 (game_85bd0169 Na4).
     if piece.piece_type == _chess.KNIGHT and to_file in (0, 7):
-        facts["opp_played_knight_on_rim_san"] = opp_played_san
-        facts["opp_played_knight_on_rim_square"] = _chess.square_name(to_sq)
+        _back_rank = 0 if piece.color == _chess.WHITE else 7
+        if _chess.square_rank(mv.from_square) == _back_rank:
+            facts["opp_played_knight_on_rim_san"] = opp_played_san
+            facts["opp_played_knight_on_rim_square"] = _chess.square_name(to_sq)
 
     # ── Heuristic 3: queen out before minors developed ─────────────
     # Opp moved the queen off its home rank when fewer than 2 minors
