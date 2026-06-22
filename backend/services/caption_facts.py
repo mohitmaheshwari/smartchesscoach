@@ -3631,6 +3631,93 @@ def _passed_pawn_behind_squares(pawn_sq: int, pawn_color: chess.Color) -> List[i
 #   E. Eval data missing — fall back to geometric only.
 #   F. Our own rook is already behind the passer — engine's best
 #      is something else; principle doesn't fire (correctly).
+def _p_end_threw_won_pawn_endgame(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """You were WINNING in an endgame and threw it by pushing a pawn into a
+    square where the opponent's best reply simply captures it. The inverse of
+    the other endgame predicates (which skip winning positions) — throwing a won
+    endgame is exactly when to coach. 2026-06-22 (kiandraa10 52.g7??)."""
+    if facts.get("phase") != "endgame":
+        return None
+    if (facts.get("cp_loss") or 0) < 200:        # real blunder only
+        return None
+    eb = facts.get("eval_before_cp")
+    if eb is None:
+        return None
+    side_white = facts.get("moving_piece_color") == "white"
+    stm_before = eb if side_white else -eb
+    if stm_before < 300:                         # weren't winning → not "threw a win"
+        return None
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not best_san or not played_san or best_san == played_san:
+        return None
+    try:
+        played_move = board_before.parse_san(played_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+    ea = facts.get("eval_after_cp")
+    if ea is None:
+        return None
+    stm_after = ea if side_white else -ea
+    if stm_after > 100:                          # didn't actually collapse → not thrown
+        return None
+    pc = board_before.piece_at(played_move.from_square)
+    if not pc or pc.piece_type != chess.PAWN or board_before.is_capture(played_move):
+        return None  # must be a pawn PUSH (not a pawn capture)
+    # The engine's better move should be a PIECE move (escort/keep the win),
+    # not another pawn push — that's the teaching contrast.
+    try:
+        best_move = board_before.parse_san(best_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+    best_pc = board_before.piece_at(best_move.from_square)
+    if best_pc and best_pc.piece_type == chess.PAWN:
+        return None
+    pushed_to = played_move.to_square
+    pv = facts.get("pv_after_played") or []
+    if not pv:
+        return None
+    # Confirm the pushed pawn is actually LOST in the engine line (track it
+    # through the PV — it may advance/promote before the opponent captures it,
+    # as in 52.g7 Kf6 Kh5 Rxg7). Only fire when the push really threw the pawn.
+    us = board_before.turn
+    b2 = board_before.copy()
+    b2.push(played_move)
+    track_sq = pushed_to
+    capturer = None
+    for san in pv[:10]:
+        try:
+            mv = b2.parse_san(_normalize_san(san))
+        except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+            break
+        if b2.turn != us and b2.is_capture(mv) and mv.to_square == track_sq:
+            capturer = b2.piece_at(mv.from_square)
+            break
+        if b2.turn == us and mv.from_square == track_sq:
+            track_sq = mv.to_square  # our pawn advanced/promoted — follow it
+        b2.push(mv)
+    if capturer is None:
+        return None
+    return {
+        "principle_id": "END_THREW_WON_PAWN_PUSH",
+        "engine_endorsement": "best",  # engine's best move IS shown → use cue_best
+        "evidence": {
+            "pushed_pawn_square": chess.square_name(pushed_to),
+            "captured_by": chess.piece_name(capturer.piece_type) if capturer else "piece",
+            "opp_reply_san": facts.get("pv_after_played", [""])[0],
+            "played_san": facts.get("played_san") or "",
+            "best_san": facts.get("best_move_san") or "",
+        },
+        "state_key": _freeze_state_key({
+            "principle_id": "END_THREW_WON_PAWN_PUSH",
+            "pushed_to": chess.square_name(pushed_to),
+        }),
+    }
+
+
 def _p_end_rook_behind_passer(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -4708,6 +4795,7 @@ def _principles_violated(
         _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
         _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
         _p_end_rook_behind_passer, # added 2026-05-18 (Phase 4) — Tarrasch's rule, single-passer-only
+        _p_end_threw_won_pawn_endgame,  # added 2026-06-22 — threw a WON endgame by pushing the pawn into a capture
         _p_op_bishop_trade_doubles_pawn,  # added 2026-05-18 (Phase 6) — cross-opening structural concession
         _p_op_f2_f7_strike,               # added 2026-05-18 (Phase 6) — weak-king-square strike
         _p_op_trapped_knight,             # added 2026-05-18 (Phase 6) — knight with zero safe squares

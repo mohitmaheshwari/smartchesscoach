@@ -804,6 +804,34 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "drill_outline": "5 R+P endgames where rook-behind-pawn is the only winning idea; correct answer is the rook lift to the square behind the passed pawn.",
     },
 
+    {
+        # Added 2026-06-22 (kiandraa10 R+P endgame, 52.g7). The OTHER endgame
+        # predicates deliberately DROP already-winning positions ("don't nag
+        # when winning") — but throwing a WON endgame is exactly when to coach.
+        # This is the inverse-gated case: you were winning and pushed the passed
+        # pawn into a square where the opponent simply captures it, collapsing
+        # the win into a draw.
+        "id": "END_THREW_WON_PAWN_PUSH",
+        "name": "Don't push the passer into a capture",
+        "phase_in_scope": ["endgame"],
+        # Lower number = higher precedence (selector picks sorted_pv[0]). Throwing
+        # a WON endgame is high-value coaching → must beat the generic
+        # TAC_CHANGED_AFTER_MOVE (18) and MID_ROOK_OPEN_FILE.
+        "priority": 12,
+        "match_kind": "played_move",
+        "aligned_moves": "the rook/king move that keeps the pawn safely escorted instead of pushing it where it can be taken",
+        "gate_policy": "endorsement_required + cp_loss_strict + winning_before_only",
+        "suppress": "once_per_move",
+        "cue_best":   "You were winning — but pushing the pawn let it be captured. In a winning pawn endgame, escort the pawn with your king and rook; don't push it where it can simply be taken.",
+        "cue_top_n":  "You were winning — but pushing the pawn let it be captured. In a winning pawn endgame, escort the pawn with your king and rook; don't push it where it can simply be taken.",
+        "cue_absent": "When you're winning a pawn endgame, the pawn needs an escort — push it only when your king and rook keep it from being captured.",
+        "visual_signature": {
+            "highlight": ["pushed_pawn_square"],
+            "arrows": [],
+        },
+        "drill_outline": "5 winning R+P endgames where the natural pawn push throws the win to a capture; correct answer keeps the rook/king active to escort the pawn.",
+    },
+
     # ══════════════════════════════════════════════════════════════════
     # CROSS-OPENING THEMES (3) — added 2026-05-18 (Mohit signoff).
     # Geometric patterns that appear across many openings (English /

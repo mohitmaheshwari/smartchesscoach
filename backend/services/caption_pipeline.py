@@ -1887,6 +1887,14 @@ def inject_socratic_user_facts(
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
 
+    # If upstream labeled the fundamental "hanging_pieces" but no piece is
+    # actually hanging on the post-move board (e.g. an endgame conversion
+    # blunder mislabeled, like 52.g7 in the kiandraa10 R+P endgame), downgrade
+    # it so R18 variant selection falls to the generic branch instead of a
+    # hanging-piece variant that would reference the now-None piece/square.
+    if fundamental == "hanging_pieces" and hanging_piece_name is None:
+        caption_facts["socratic_fundamental_violated"] = None
+
     caption_facts["socratic_problem_facts"] = problem_facts
     caption_facts["socratic_hanging_piece"] = hanging_piece_name
     caption_facts["socratic_hanging_square"] = hanging_square_name
@@ -2274,6 +2282,16 @@ def _format_r18_field(template_str: str, facts: Dict[str, Any]) -> str:
         class _SafeDict(dict):
             def __missing__(self, key):
                 return ""
+            def __getitem__(self, key):
+                # A present-but-None fact must render as "" — never the literal
+                # string "None" (the kiandraa10 endgame leak: an R18 hanging
+                # variant referenced {socratic_hanging_piece}/{square} that were
+                # None → "Your None on None is now undefended"). 2026-06-22.
+                try:
+                    v = dict.__getitem__(self, key)
+                except KeyError:
+                    return ""
+                return "" if v is None else v
         out = template_str.format_map(_SafeDict(facts))
         # Clean up dangling joiners when a placeholder rendered empty.
         # e.g. "Step one is mate. Address it first. " → strip.
@@ -4108,12 +4126,22 @@ def build_move_teaching_decision(
     # Runs BEFORE tier classification so the enriched caption gets the
     # right tier assignment.
     try:
-        caption_payload["caption"] = _maybe_append_floor_principle(
-            caption_payload.get("caption") or "",
-            inputs.full_move_number,
-            inputs.mover_is_user,
-            inputs.fen_before,
-        )
+        _pcue = caption_facts.get("principle_cue") or ""
+        _cap_now = caption_payload.get("caption") or ""
+        if _pcue and inputs.mover_is_user and _SHELL_RE.match(_cap_now.strip()):
+            # A fired failure-mode predicate (e.g. END_THREW_WON_PAWN_PUSH) carries
+            # a real, position-relevant principle — prefer it over the generic
+            # principle_bank floor on a bare-shell caption. [[principle-bank-is-filler]]
+            if not _cap_now.endswith("."):
+                _cap_now += "."
+            caption_payload["caption"] = f"{_cap_now} {_pcue}"
+        else:
+            caption_payload["caption"] = _maybe_append_floor_principle(
+                _cap_now,
+                inputs.full_move_number,
+                inputs.mover_is_user,
+                inputs.fen_before,
+            )
     except Exception as _pb_exc:
         logger.warning(f"[principle_bank] inject failed m{inputs.full_move_number}: {_pb_exc!r}")
 
