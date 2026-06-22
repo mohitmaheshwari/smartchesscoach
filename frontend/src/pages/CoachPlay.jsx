@@ -32,6 +32,7 @@ import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import CommentaryPanel from "@/components/coach/CommentaryPanel";
 import PredictMovePanel from "@/components/coach/PredictMovePanel";
 import RateMovePanel from "@/components/coach/RateMovePanel";
+import "@/styles/pwc-theme.css";
 
 // KILL-SWITCHES (2026-06-11): the "withhold the reveal after /move applied it" approach LEAKS — the
 // coach move shows on the board + in the COACH PLAYED sidebar while the panel still asks you to predict
@@ -479,6 +480,9 @@ const CoachPlay = ({ user }) => {
   const [isCoachThinking, setIsCoachThinking] = useState(false);
   const [activeTrapAlert, setActiveTrapAlert] = useState(null);
   const [cleanUIMode, setCleanUIMode] = useState(true);
+  // Mobile coach bottom-sheet: collapsed peek (board owns the screen) vs expanded.
+  // Ignored at >=1024px where the coach is a static side column.
+  const [coachSheetOpen, setCoachSheetOpen] = useState(false);
   
   // Pedagogical state (not in hooks)
   const [consequenceFeedback, setConsequenceFeedback] = useState(null);
@@ -2957,13 +2961,12 @@ const CoachPlay = ({ user }) => {
           </button>
         </div>
       )}
-      {/* ─── Top strip (redesign/04_CoachPlay.html) ─────────────────────────
-          Thin typographic header above the board. The eyebrow label + time
-          control signals context without chrome. The board and sidebar
-          components below are intentionally left alone — the design's full
-          interior redesign (eval-bar-left, board-center, coach-right grid)
-          would require rebuilding ~5000 lines of working teaching logic.
-          This strip delivers the most visible design value at zero risk. */}
+      {/* ─── PWC responsive redesign (docs/pwc_responsive_redesign_scope.md) ──
+          `.pwc-root` re-skins this subtree to the new design tokens (warm/amber)
+          by overriding the shadcn CSS vars — scoped to PWC only. The shell below
+          is responsive: two-column on desktop, board + coach bottom-sheet on
+          mobile/tablet. Teaching logic in the child components is unchanged. */}
+      <div className="pwc-root flex flex-col flex-1 min-h-0">
       <motion.div
         variants={navFade}
         initial="initial"
@@ -2997,10 +3000,11 @@ const CoachPlay = ({ user }) => {
         variants={fadeInUp}
         initial="initial"
         animate="animate"
-        className="h-[calc(100vh-80px-44px)] flex"
+        className="pwc-shell"
         data-testid="coach-play-game"
       >
         {/* Left: Board + controls */}
+        <div className="pwc-board-col">
         <CoachPlayBoard
           ref={boardRef}
           session={session}
@@ -3054,9 +3058,25 @@ const CoachPlay = ({ user }) => {
           })()}
         />
 
-        {/* Middle panel removed — coach explanation now in sidebar */}
+        </div>
 
-        {/* Right: Coach panel */}
+        {/* Mobile: dim scrim behind the expanded coach sheet */}
+        {coachSheetOpen && (
+          <div
+            className="pwc-sheet-scrim lg:hidden"
+            onClick={() => setCoachSheetOpen(false)}
+          />
+        )}
+
+        {/* Right: Coach panel — bottom sheet on mobile, side column on desktop */}
+        <div className={`pwc-coach-col${coachSheetOpen ? " pwc-sheet-open" : ""}`}>
+          <button
+            type="button"
+            className="pwc-sheet-handle lg:hidden"
+            onClick={() => setCoachSheetOpen((o) => !o)}
+            aria-label={coachSheetOpen ? "Collapse coach panel" : "Expand coach panel"}
+          />
+          <div className="pwc-coach-body">
         <CoachPlaySidebar
           session={session}
           currentFen={currentFen}
@@ -3145,7 +3165,10 @@ const CoachPlay = ({ user }) => {
             });
           }}
         />
+          </div>
+        </div>
       </motion.div>
+      </div>
 
       {/* Level 3 Enforcement: Checkbox Modal */}
       {guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (

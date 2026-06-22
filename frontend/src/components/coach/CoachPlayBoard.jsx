@@ -81,8 +81,11 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
   boardRef
 ) {
   return (
-    <div className="flex-1 flex flex-col items-center p-2 md:p-4 overflow-auto">
-      <div className="w-full max-w-[min(550px,calc(100vh-180px),calc(100vw-450px))]">
+    <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-4 overflow-auto">
+      {/* Board column width drives the (CSS-responsive) board size. Caps by the
+          available space: on mobile by viewport height minus chrome+coach peek;
+          on desktop by the column width (no more 100vw-450px collapse). */}
+      <div className="w-full mx-auto max-w-[min(96vw,calc(100dvh-340px))] lg:max-w-[min(550px,calc(100vh-160px),100%)]">
         {/* Coach info bar */}
         <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-muted/50 text-sm">
           <div className="flex items-center gap-2">

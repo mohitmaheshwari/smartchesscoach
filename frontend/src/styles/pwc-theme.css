@@ -1,0 +1,207 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   PWC redesign — scoped design tokens + responsive shell helpers.
+
+   Re-skins Play with Coach to the new ChessGuru design language
+   (C:\Users\MIISCO\Downloads\ChessGuru — Play.jsx / MobilePlay.jsx / styles.css:
+   warm off-black surfaces, deep-amber accent #d97706, hairline borders).
+
+   It re-skins by OVERRIDING the app's existing shadcn HSL variables inside a
+   `.pwc-root` scope — so every existing `bg-background` / `text-foreground` /
+   `border-border` class inside PWC adopts the new palette with ZERO className
+   rewrites. Nothing outside `.pwc-root` is affected (PWC-only per the scope doc).
+
+   Light = base `.pwc-root`; dark = `.dark .pwc-root` (higher specificity wins
+   under the app's `.dark` toggle).
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Light (warm off-white) ── */
+.pwc-root {
+  --background: 40 24% 96%;
+  --foreground: 240 2% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 2% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 2% 9%;
+  --primary: 32 95% 44%;          /* deep amber #d97706 */
+  --primary-foreground: 33 100% 6%;
+  --secondary: 40 21% 93%;
+  --secondary-foreground: 240 2% 9%;
+  --muted: 40 21% 93%;
+  --muted-foreground: 225 5% 37%;
+  --accent: 40 19% 89%;           /* shadcn "accent" = subtle hover bg, not brand */
+  --accent-foreground: 240 2% 9%;
+  --border: 40 8% 86%;
+  --input: 40 8% 86%;
+  --ring: 32 95% 44%;
+
+  /* design-named tokens (for the few inline-styled bits we author) */
+  --pwc-accent: #d97706;
+  --pwc-accent-soft: rgba(217, 119, 6, 0.12);
+  --pwc-accent-ring: rgba(217, 119, 6, 0.35);
+  --pwc-ok: #5f9e4a;
+  --pwc-warn: #c9881f;
+  --pwc-bad: #c8503f;
+  --pwc-sq-light: #ecd8ad;
+  --pwc-sq-dark: #a07a54;
+
+  /* Mobile bottom-sheet sizing. Peek is a small persistent coach bar so the
+     BOARD owns the screen (in the real app you move on the board, not via
+     candidate cards); tap the handle to expand and read/act. */
+  --pwc-sheet-peek: 120px;
+  --pwc-sheet-full: 86dvh;
+
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ── Dark (warm off-black) ── */
+.dark .pwc-root {
+  --background: 240 6% 6%;        /* #0e0e10 */
+  --foreground: 240 5% 93%;       /* #ececee */
+  --card: 240 7% 8%;              /* #131316 */
+  --card-foreground: 240 5% 93%;
+  --popover: 240 7% 8%;
+  --popover-foreground: 240 5% 93%;
+  --primary: 32 95% 44%;          /* deep amber #d97706 */
+  --primary-foreground: 33 100% 6%;
+  --secondary: 216 11% 11%;       /* #181a1e */
+  --secondary-foreground: 240 5% 93%;
+  --muted: 216 11% 11%;
+  --muted-foreground: 231 5% 62%; /* #9a9ba2 */
+  --accent: 218 13% 14%;          /* #1f2228 — subtle hover bg */
+  --accent-foreground: 240 5% 93%;
+  --border: 220 9% 17%;
+  --input: 220 9% 17%;
+  --ring: 32 95% 44%;
+
+  --pwc-accent: #d97706;
+  --pwc-accent-soft: rgba(217, 119, 6, 0.14);
+  --pwc-accent-ring: rgba(217, 119, 6, 0.35);
+  --pwc-ok: #7fb86b;
+  --pwc-warn: #e8a838;
+  --pwc-bad: #d96857;
+  --pwc-sq-light: #e8d3a8;
+  --pwc-sq-dark: #8b6a4a;
+}
+
+/* ─── Responsive shell ───────────────────────────────────────────────────
+   < 1024px: board on top, coach panel in a fixed bottom sheet (peek ↔ expand).
+   ≥ 1024px: two-column — board flex-1 + static coach side column.
+   The board column and coach column widths are driven from here so the child
+   components stay width-flexible (CoachPlaySidebar root is now w-full). */
+
+.pwc-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* board column — fills width on mobile, grows on desktop */
+.pwc-board-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* coach column / bottom sheet */
+.pwc-coach-col {
+  /* mobile: fixed bottom sheet */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  height: var(--pwc-sheet-peek, 44vh);
+  background: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border));
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.38);
+  transition: height 340ms cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pwc-coach-col.pwc-sheet-open {
+  height: var(--pwc-sheet-full, 85vh);
+}
+
+/* drag handle (mobile only) */
+.pwc-sheet-handle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 9px 0 5px;
+  width: 100%;
+  cursor: grab;
+}
+.pwc-sheet-handle::before {
+  content: "";
+  width: 38px;
+  height: 4px;
+  border-radius: 3px;
+  background: hsl(var(--border));
+}
+
+/* the actual sidebar fills the sheet body and scrolls */
+.pwc-coach-col > .pwc-coach-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* keep board content clear of the collapsed sheet on mobile */
+.pwc-board-col {
+  padding-bottom: calc(var(--pwc-sheet-peek, 44vh) + 8px);
+}
+
+/* ≥ 1024px — two-column, sheet styling off */
+@media (min-width: 1024px) {
+  .pwc-shell {
+    flex-direction: row;
+    height: calc(100vh - 80px - 44px);
+  }
+  .pwc-board-col {
+    padding-bottom: 0;
+    overflow: auto;
+  }
+  .pwc-coach-col {
+    position: static;
+    z-index: auto;
+    height: auto;
+    width: 380px;
+    flex: 0 0 380px;
+    border-top: none;
+    border-left: 1px solid hsl(var(--border));
+    border-radius: 0;
+    box-shadow: none;
+    transition: none;
+  }
+  .pwc-coach-col.pwc-sheet-open {
+    height: auto;
+  }
+  .pwc-sheet-handle {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pwc-coach-col {
+    width: 420px;
+    flex-basis: 420px;
+  }
+}
+
+/* dim scrim behind the expanded sheet on mobile */
+.pwc-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(1px);
+}
+@media (min-width: 1024px) {
+  .pwc-sheet-scrim { display: none; }
+}

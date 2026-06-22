@@ -925,7 +925,7 @@ const CoachPlaySidebar = ({
 
   return (
     <div
-      className="w-[380px] border-l border-border flex flex-col h-full"
+      className="w-full h-full flex flex-col min-h-0"
       data-testid="coach-chat-panel"
     >
       {/* ═══ Clean UI Mode ═══ */}
