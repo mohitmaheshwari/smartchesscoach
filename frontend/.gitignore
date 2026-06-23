@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Bundled client-side Stockfish engine (copied from node_modules at build time)
+public/stockfish/
