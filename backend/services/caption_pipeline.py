@@ -1713,7 +1713,23 @@ def inject_good_move_reason_facts(
         back_rank = 0 if mover_color == chess.WHITE else 7
         if (chess.square_rank(move.from_square) == back_rank
                 and chess.square_rank(move.to_square) != back_rank):
-            caption_facts["good_move_reason"] = "develop"
+            # Completes development? Board-accurate: NO own minor (knight/bishop)
+            # left on its starting square after this move. Only then say "last
+            # minor out" — gold lost a point (Parth 6.Nc6) by claiming "all
+            # pieces developed" with the f8 bishop still home. 2026-06-23.
+            try:
+                _post = board_before.copy(); _post.push(move)
+                _start = ({chess.B1, chess.G1, chess.C1, chess.F1}
+                          if mover_color == chess.WHITE
+                          else {chess.B8, chess.G8, chess.C8, chess.F8})
+                _home_minor = any(
+                    (p := _post.piece_at(sq)) and p.color == mover_color
+                    and p.piece_type in (chess.KNIGHT, chess.BISHOP)
+                    for sq in _start)
+                caption_facts["good_move_reason"] = (
+                    "develop" if _home_minor else "develop_complete")
+            except Exception:
+                caption_facts["good_move_reason"] = "develop"
             return
 
 
