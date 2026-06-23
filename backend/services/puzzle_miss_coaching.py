@@ -50,6 +50,12 @@ _GAP_TAKEAWAY = {
 }
 
 _GENERIC_TAKEAWAY = "Before every move, ask: what is my opponent threatening right now?"
+# Offensive puzzles (you were meant to WIN material / land a tactic) get an
+# attacking lesson, not the defensive "watch their threats" line. 2026-06-23.
+_GENERIC_TAKEAWAY_OFFENSE = (
+    "Before a quiet move, scan for loose enemy pieces and forcing moves — "
+    "a capture or double attack may be waiting."
+)
 
 
 # Lichess theme groups. When the puzzle's role is clear, we frame the
@@ -57,7 +63,8 @@ _GENERIC_TAKEAWAY = "Before every move, ask: what is my opponent threatening rig
 # didn't address the threat." A fork puzzle's lesson is "find the fork,"
 # not "defend it."
 _OFFENSIVE_THEMES = {
-    "fork", "pin", "skewer", "discoveredAttack", "discoveredCheck",
+    "fork", "doubleAttack", "hangingPiece", "advantage", "crushing",
+    "pin", "skewer", "discoveredAttack", "discoveredCheck",
     "doubleCheck", "deflection", "removeTheDefender", "attraction",
     "interference", "xRayAttack", "trappedPiece",
     "mate", "mateIn1", "mateIn2", "mateIn3", "mateIn4", "mateIn5",
@@ -321,7 +328,81 @@ def _critique_played_move(
             )
 
     # ── Unclear / no threat ──
-    return f"{best_san} was stronger here. Try playing it on the board to feel why."
+    # No dodge ("try it to feel why"): point to the better move plainly. The
+    # WHY-THE-BEST-MOVE-WORKS box carries the verified reason. 2026-06-23.
+    return f"{best_san} was the stronger move here."
+
+
+# ──────────────────────────────────────────────────────────────
+# Best-move idea — VERIFIED via the central caption layer
+# ──────────────────────────────────────────────────────────────
+
+def _verified_best_move_idea(
+    board: chess.Board, best_move: chess.Move, best_san: str
+) -> Optional[str]:
+    """Why the SOLUTION move works — board-verified, single-source.
+
+    Teachable-caption framework (docs/teachable_caption_framework_scope.md): the
+    puzzle surface used to call pv_tactical_analyzer, which FABRICATED narratives
+    (e.g. "Qxb2 forces the defender to move" on a free-bishop win). This routes the
+    explanation through the central why function (`_recommended_move_why`) — every
+    claim is true by construction. Returns None to ABSTAIN (caller renders a safe
+    terse line) rather than invent. No LLM, no fabrication.
+    """
+    try:
+        from services.caption_facts import (
+            _recommended_move_why, static_exchange_eval,
+            PIECE_TYPE_NAMES, PIECE_VALUE_CP,
+        )
+    except Exception:
+        return None
+    try:
+        mover = board.turn
+        enemy = not mover
+        after = board.copy()
+        after.push(best_move)
+        # Double-attack enrichment: the move lands the piece where it ALSO
+        # attacks a second enemy piece that's undefended or worth more — the
+        # "double attack" lesson. Board-verified.
+        my_val = PIECE_VALUE_CP.get(board.piece_at(best_move.from_square).piece_type, 0)
+        second = None
+        for sq in after.attacks(best_move.to_square):
+            p = after.piece_at(sq)
+            if not p or p.color != enemy or p.piece_type == chess.KING:
+                continue
+            if sq == best_move.to_square:
+                continue
+            val = PIECE_VALUE_CP.get(p.piece_type, 0)
+            if (not after.attackers(enemy, sq)) or val > my_val:
+                if second is None or val > second[1]:
+                    second = (PIECE_TYPE_NAMES.get(p.piece_type, "piece"), val,
+                              chess.square_name(sq))
+
+        if board.is_capture(best_move):
+            if board.is_en_passant(best_move):
+                cap_name = "pawn"
+            else:
+                cp = board.piece_at(best_move.to_square)
+                cap_name = PIECE_TYPE_NAMES.get(cp.piece_type, "piece") if cp else "piece"
+            see = static_exchange_eval(board, best_move.to_square, mover) or 0
+            verb = "wins" if see >= 100 else "takes"
+            if second is not None:
+                return (f"{best_san} {verb} the {cap_name}, and the {second[0]} on "
+                        f"{second[2]} falls next — a double attack, two targets at once.")
+            return f"{best_san} {verb} the {cap_name}."
+
+        # Non-capture: a quiet move that creates a second-target threat.
+        if second is not None:
+            return (f"{best_san} hits the {second[0]} on {second[2]} — and the threat "
+                    f"can't be met without giving something up.")
+
+        # Otherwise lean on the single-source why (threat/escape/defend/castle/principle).
+        why = _recommended_move_why(board, best_move)
+        if why:
+            return f"{best_san} — it {why}."
+    except Exception:
+        return None
+    return None  # abstain — caller renders a safe terse line
 
 
 # ──────────────────────────────────────────────────────────────
@@ -367,40 +448,37 @@ def build_miss_coaching(
         role=role, theme_name=theme_name, best_san=best_move_san,
     )
 
-    # Best-move idea — use the existing tactical analyzer, then
-    # ALWAYS prefix the move SAN so output reads as a complete idea
-    # (avoids fragments like "wins a piece" with no move named).
-    best_move_idea = ""
+    # Best-move idea — VERIFIED via the central why layer (no fabrication).
+    # Replaces pv_tactical_analyzer, which hallucinated tactical narratives
+    # (docs/teachable_caption_framework_scope.md). Every claim is board-true.
+    _best_mv = None
     if best_move_uci:
         try:
-            from services.pv_tactical_analyzer import explain_best_move_tactically
-            best_move_idea = explain_best_move_tactically(
-                fen_before, best_move_uci, best_move_san, pv_after_best,
-            ) or ""
-        except Exception as e:
-            logger.debug(f"pv_tactical_analyzer failed: {e}")
+            _best_mv = chess.Move.from_uci(best_move_uci)
+        except Exception:
+            _best_mv = None
+    if _best_mv is None:
+        try:
+            _best_mv = board.parse_san(best_move_san)
+        except Exception:
+            _best_mv = None
 
-    # If the analyzer's text doesn't already mention the SAN, prefix it.
-    if best_move_idea and best_move_san not in best_move_idea:
-        best_move_idea = f"{best_move_san} — {best_move_idea}"
-
+    best_move_idea = ""
+    if _best_mv is not None and _best_mv in board.legal_moves:
+        best_move_idea = _verified_best_move_idea(board, _best_mv, best_move_san) or ""
     if not best_move_idea:
-        # Fallback when no tactical signal — name the move + theme.
-        if theme_name:
-            best_move_idea = (
-                f"{best_move_san} sets up the {theme_name}. "
-                f"Play through it on the board to see how."
-            )
-        else:
-            best_move_idea = (
-                f"{best_move_san} is stronger here. The advantage is subtle — "
-                f"play it on the board to feel why."
-            )
+        # Honest abstain — name the move, never fabricate, never "feel why".
+        best_move_idea = f"{best_move_san} is the strongest move here."
 
-    takeaway = (
-        _GAP_TAKEAWAY.get(cognitive_gap, _GENERIC_TAKEAWAY)
-        if cognitive_gap else _GENERIC_TAKEAWAY
-    )
+    # Takeaway — match the puzzle's direction. An OFFENSIVE puzzle (the solution
+    # wins material / lands a tactic) must not get the defensive "watch their
+    # threats" line. Prefer a fitting gap takeaway; else split by role.
+    if cognitive_gap and cognitive_gap in _GAP_TAKEAWAY:
+        takeaway = _GAP_TAKEAWAY[cognitive_gap]
+    elif role == "attacker" or (_best_mv is not None and board.is_capture(_best_mv)):
+        takeaway = _GENERIC_TAKEAWAY_OFFENSE
+    else:
+        takeaway = _GENERIC_TAKEAWAY
 
     return {
         "position_summary": position_summary,
