@@ -3269,7 +3269,17 @@ def apply_promotion_ladder_dispatch(
             "cp_loss": cp_loss or 0,
             "best_move": best_move,
             "best_move_differs": bool(best_move and best_move != move_san),
-            "caption_empty": not bool(caption_payload.get("caption")),
+            # A generic Tier-2/3 never-silence FLOOR (R_TIER*) is a placeholder,
+            # not a "real" caption — let the specific promotion fills (shape /
+            # principle) override it. Otherwise the baked-in tier floor shadows
+            # endgame-aware principles, e.g. a king move getting the WRONG "tidy
+            # up the king, keeping it safe" instead of END_KING_ACTIVE's "Activate
+            # the king." basic_mistake is cp-gated (>=50) so it can't fire on a
+            # good move. 2026-06-23.
+            "caption_empty": (
+                not bool(caption_payload.get("caption"))
+                or str(caption_payload.get("rule_name") or "").startswith("R_TIER")
+            ),
 
             # Detector records (predicates use dotted access:
             # trap_record.step_label, opening_record.name, etc.)
@@ -3926,8 +3936,15 @@ def build_move_teaching_decision(
             or caption_facts.get("opp_reply_san_is_check")
         )
 
-        # Gate: suppress caption if below threshold AND no concrete tactic
-        if (_cp_loss < _cp_threshold and not _has_concrete_tactic):
+        # Gate: suppress caption if below threshold AND no concrete tactic.
+        # BUT never gate a genuine GOOD move (cp_loss < 30, R15 territory) —
+        # the gate exists to suppress a false "is a mistake" critique on a
+        # sub-threshold INACCURACY, not to silence engine-endorsed good moves.
+        # Silencing good moves was the endgame-coverage hole (2026-06-23):
+        # 59/354 endgame good moves rendered nothing. Good moves still earn a
+        # good-move / tier-floor / principle caption (never-silence). The band's
+        # inaccuracy-suppression (cp 30 → threshold) is preserved.
+        if (30 <= _cp_loss < _cp_threshold and not _has_concrete_tactic):
             _should_gate_low_cp_caption = True
 
     # ─── 9. Render caption (caption_renderer) ────────────────────
@@ -4064,7 +4081,22 @@ def build_move_teaching_decision(
             _played_cp_loss_cue = int(
                 inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
             ) or 0
-            if _endorsement == "absent" and _played_cp_loss_cue < 30:
+            # On a GOOD move (cp<30) only fire a principle that AFFIRMS the played
+            # move (the move is in the principle's aligned set). A CORRECTIVE
+            # principle — player did something other than the principle's move —
+            # contradicts a move the engine endorsed: e.g. OP_NOT_CASTLED firing
+            # "Castle now. O-O is the top engine pick." on Nd2 (cp0, itself best).
+            # Affirming principles (END_KING_ACTIVE on the king step, a played pin)
+            # still fire. 2026-06-23.
+            _aligned_off = [str(a) for a in (_top.get("aligned_moves_offered") or [])]
+            _played_norm = (inputs.played_san or "").replace("+", "").replace("#", "")
+            _played_affirms = any(
+                _played_norm == a.replace("+", "").replace("#", "") for a in _aligned_off
+            )
+            if _played_cp_loss_cue < 30 and not _played_affirms:
+                # corrective principle on an engine-endorsed move — suppress.
+                pass
+            elif _endorsement == "absent" and _played_cp_loss_cue < 30:
                 pass
             else:
                 principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""

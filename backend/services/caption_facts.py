@@ -4438,8 +4438,17 @@ def _p_end_king_active(
     facts: Dict[str, Any],
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
-    """Fires in endgame when own king is still on its back rank."""
+    """Fires in endgame when own king is still on its back rank.
+
+    Gated to ACTUAL king moves (2026-06-23): the cue is rendered as
+    "{played_san}. Activate the king …", so firing on a non-king move
+    produced misleading captions like "h6. Activate the king." — as if
+    the pawn push activated the king. The once-per-game king-activation
+    lesson lands correctly when it accompanies the king step itself.
+    """
     if facts.get("phase") != "endgame":
+        return None
+    if facts.get("moving_piece_type") != "king":
         return None
     own_color_str = facts.get("moving_piece_color")
     own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
@@ -4450,6 +4459,20 @@ def _p_end_king_active(
     back_rank = 0 if own_color == chess.WHITE else 7
     if king_rank != back_rank:
         return None
+    # The played king move must actually go TOWARD the centre, so the cue
+    # ("Activate the king — the centre is where it fights") matches the move.
+    # Without this, Kh1->h2 (off the back rank but toward the rim) earned the
+    # centre cue. Chebyshev distance to the central 4x4 (file/rank 3.5). 2026-06-23.
+    try:
+        _pm = board_before.parse_san(facts.get("played_san") or "")
+        _from_d = max(abs(chess.square_file(king_sq) - 3.5),
+                      abs(chess.square_rank(king_sq) - 3.5))
+        _to_d = max(abs(chess.square_file(_pm.to_square) - 3.5),
+                    abs(chess.square_rank(_pm.to_square) - 3.5))
+        if _to_d >= _from_d:
+            return None
+    except Exception:
+        pass
     # Aligned moves: king moves that LEAVE the back rank (must step off).
     aligned: List[str] = []
     for move in board_before.legal_moves:

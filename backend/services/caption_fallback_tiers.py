@@ -150,8 +150,10 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     _central = _tsq in _CENTER
 
     if facts.get("played_move_principle") == "outpost":
+        # "outpost" is on the banned-jargon list (600-1500 audience) — describe
+        # the idea in plain terms instead. 2026-06-23.
         return (f"{sub} post{'' if sub=='You' else 's'} the knight on a strong central "
-                f"outpost." + _suf, "R_TIER2_outpost")
+                f"square the opponent can't easily challenge." + _suf, "R_TIER2_outpost")
 
     if _develops(facts):
         _vb = "develop" if sub == "You" else "develops"

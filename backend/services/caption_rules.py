@@ -760,6 +760,13 @@ def _r15_render(f):
         "good_move_reason": f.get("good_move_reason"),
         "good_move_captured_piece": f.get("good_move_captured_piece"),
         "good_move_captured_square": f.get("good_move_captured_square"),
+        # pawn_break category — square of the enemy pawn the break strikes.
+        # Missing here caused "R15_good_move/pawn_break render failed:
+        # 'good_move_break_square'" (2026-06-23). Pass it through.
+        "good_move_break_square": f.get("good_move_break_square"),
+        # develop_eyes category — the enemy piece + square the developed minor aims at.
+        "good_move_eyes_piece": f.get("good_move_eyes_piece"),
+        "good_move_eyes_square": f.get("good_move_eyes_square"),
         # fb_bdff53b7e4d9 — bishop-pair-trade-offer category.
         "good_move_trade_target_color": f.get("good_move_trade_target_color"),
         # fb_b250249f7724 / fb_fa464cae3b84 — controls-key-squares category.
