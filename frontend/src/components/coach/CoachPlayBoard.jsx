@@ -176,14 +176,24 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
             {/* Lesson Complete Overlay */}
             {lessonComplete && (
-              <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4">
-                <div className="bg-card rounded-lg p-4 max-w-xs text-center space-y-3">
-                  <div className="text-2xl">🎉</div>
-                  <p className="font-medium">{lessonComplete.message}</p>
-                  <div className="flex gap-2 justify-center">
+              <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4">
+                  <div className="mx-auto w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-2xl">🎉</div>
+                  <div className="space-y-2">
+                    <p className="text-[10.5px] uppercase tracking-[0.18em] text-primary font-semibold">
+                      Trap complete
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground/90 text-left">
+                      {String(lessonComplete.message || "")
+                        .replace(/^\s*trap complete[!.:\-\s]*/i, "")
+                        .trim() || "Nicely played — that's the whole idea of this trap."}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 justify-center pt-1">
                     <Button
                       size="sm"
                       variant="outline"
+                      className="flex-1"
                       onClick={() =>
                         handleExitLesson("continue_game", lessonComplete)
                       }
@@ -192,6 +202,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                     </Button>
                     <Button
                       size="sm"
+                      className="flex-1"
                       onClick={() =>
                         handleExitLesson("new_game", lessonComplete)
                       }
