@@ -5283,6 +5283,14 @@ def extract_facts(
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
     opp_reply_captures_square: Optional[str] = None
+    # WHY-BAD enrichment (2026-06-23): the played move DROPS material — the
+    # opponent's best reply wins a piece/pawn (SEE-verified), and it is NOT an
+    # equal recapture of the user's own just-captured piece. Lets a quiet move
+    # that hangs material (e.g. Bc5 -> Nxc5) get a concrete why-bad instead of a
+    # bare "is a mistake" + generic principle. Filled in the capture branch below.
+    played_drops_material: bool = False
+    played_drops_piece: Optional[str] = None
+    played_drops_to_san: Optional[str] = None
     # Mohit 2026-06-06 (fb_22528b6266b1, Parth): when the played move is
     # a capture AND opp_reply captures on the same square, both SANs
     # render identically ("Bxe5 hangs to Bxe5 winning your bishop") —
@@ -5336,6 +5344,15 @@ def extract_facts(
                     ):
                         opp_reply_recaptures_on_played_square = True
                         played_to_square = chess.SQUARE_NAMES[played_move.to_square]
+                    # WHY-BAD: the reply WINS material (SEE>=100). Gated to a
+                    # NON-capture played move — a clean "you moved and left this
+                    # hanging" story. (A played CAPTURE that also drops material is
+                    # a murkier net-trade; skip it to avoid confusing framing.)
+                    _drop_see = static_exchange_eval(board_after, opp_mv.to_square, board_after.turn)
+                    if (_drop_see or 0) >= 100 and not board_before.is_capture(played_move):
+                        played_drops_material = True
+                        played_drops_piece = opp_reply_captures_piece_type
+                        played_drops_to_san = raw
                 sim = board_after.copy()
                 sim.push(opp_mv)
 
@@ -5763,6 +5780,10 @@ def extract_facts(
         # render identically; switch to a recapture-specific template.
         "opp_reply_recaptures_on_played_square": opp_reply_recaptures_on_played_square,
         "played_to_square": played_to_square,
+        # WHY-BAD enrichment (2026-06-23) — played move drops material to the reply.
+        "played_drops_material": played_drops_material,
+        "played_drops_piece": played_drops_piece,
+        "played_drops_to_san": played_drops_to_san,
         # OPPONENT FAILURE-MODE (2026-06-06) — opp had a better move and
         # didn't play it. Drives failure_mode_clauses_opp in R12.
         "opp_failure_missed_capture": opp_failure_missed_capture,

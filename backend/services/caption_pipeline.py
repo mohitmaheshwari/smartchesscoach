@@ -4231,6 +4231,36 @@ def build_move_teaching_decision(
     except Exception as _pb_exc:
         logger.warning(f"[principle_bank] inject failed m{inputs.full_move_number}: {_pb_exc!r}")
 
+    # ─── 11b2. WHY-BAD enrichment (one place) ────────────────────
+    # A quiet move that DROPS material (e.g. Bc5 -> Nxc5) is often routed away
+    # from R12's failure clauses (it's classified by its quiet/developing nature),
+    # so it lands a bare "{played} is a mistake. {best} was better. {principle}"
+    # with no reason the played move was bad. When the move is SEE-verified to drop
+    # material and the caption carries no why-bad yet, splice the concrete reason
+    # into the severity sentence. feedback_mistake_must_explain_why. 2026-06-23.
+    try:
+        if (inputs.mover_is_user and caption_facts.get("played_drops_material")
+                and caption_facts.get("played_drops_piece")
+                and caption_facts.get("played_drops_to_san")):
+            _cap_wb2 = caption_payload.get("caption") or ""
+            _has_whybad = _re_pb.search(
+                r"(loses to |lets \S+ (win|capture)|allows \S+ (fork|pin|skew)|"
+                r"walks into |drops the |\bhangs\b|win your \w+ on|forking your|"
+                r"losing material|loses material in the trade|undefended)",
+                _cap_wb2, _re_pb.I)
+            _sev_m = _re_pb.search(
+                _re_pb.escape(inputs.played_san or "")
+                + r" is an? (?:mistake|major blunder|serious mistake|inaccuracy)",
+                _cap_wb2)
+            if not _has_whybad and _sev_m:
+                _drop = (f"{_sev_m.group(0)} — it drops the "
+                         f"{caption_facts['played_drops_piece']} after "
+                         f"{caption_facts['played_drops_to_san']}")
+                caption_payload["caption"] = (
+                    _cap_wb2[:_sev_m.start()] + _drop + _cap_wb2[_sev_m.end():])
+    except Exception as _wbad_exc:
+        logger.warning(f"[why_bad] enrich failed m{inputs.full_move_number}: {_wbad_exc!r}")
+
     # ─── 11c. WHY-BETTER append (one place) ──────────────────────
     # Law: every recommended move needs its WHY (feedback_explain_why_recommended_
     # move_good). The R12 cascade names "{best} was better" but only some variants
