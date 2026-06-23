@@ -22,6 +22,7 @@
   "select_variant": [
     {"when": {"good_move_reason": "capture"}, "variant": "capture"},
     {"when": {"good_move_reason": "central_break"}, "variant": "central_break"},
+    {"when": {"good_move_reason": "pawn_break"}, "variant": "pawn_break"},
     {"when": {"good_move_reason": "bishop_pair_trade"}, "variant": "bishop_pair_trade"},
     {"when": {"good_move_reason": "controls_key_squares"}, "variant": "controls_key_squares"},
     {"when": {"good_move_reason": "supports_central_pawn"}, "variant": "supports_central_pawn"},
@@ -36,6 +37,7 @@
   "variants": {
     "capture": "{played_san} — takes the {good_move_captured_piece}.",
     "central_break": "{played_san} — fights for the center. Control the center and your pieces get the best squares.",
+    "pawn_break": "{played_san} — a pawn break, striking at the pawn on {good_move_break_square} to open lines.",
     "bishop_pair_trade": "{played_san} — offers to trade {good_move_trade_target_color}-square bishops. Opponent has the bishop pair; trading one removes that advantage.",
     "controls_key_squares": "{played_san} — controls {good_move_controlled_squares}, keeping enemy pieces off those squares.",
     "supports_central_pawn": "{played_san} — supports your central pawn on {good_move_supported_pawn_square}.",

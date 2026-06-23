@@ -1509,29 +1509,35 @@ def inject_good_move_reason_facts(
     if moved is None:
         return
 
-    # 2) Central pawn break — a pawn pushed to a central file (c-f) on the
-    #    4th+ rank that attacks an enemy pawn. Contests the center.
+    # 2) Pawn break — an advanced pawn push that attacks an enemy pawn. ONLY the
+    #    d/e files are a true "fight for the center"; c/f and flank pushes (like
+    #    f5 hitting g4) are PAWN BREAKS that open lines — calling those "fights
+    #    for the center" was the mislabel Parth flagged (30.f5). Split by file and
+    #    name the pawn being struck. 2026-06-23.
     if moved.piece_type == chess.PAWN:
         to_file = chess.square_file(move.to_square)   # 0=a .. 7=h
         to_rank = chess.square_rank(move.to_square)   # 0=rank1 .. 7=rank8
-        central_file = to_file in (2, 3, 4, 5)        # c, d, e, f
         advanced = (
             (mover_color == chess.WHITE and to_rank >= 3)  # rank 4+
             or (mover_color == chess.BLACK and to_rank <= 4)  # rank 5-
         )
-        if central_file and advanced:
+        if advanced:
             try:
                 after = board_before.copy()
                 after.push(move)
-                hits_enemy_pawn = any(
-                    (p := after.piece_at(sq)) is not None
-                    and p.color != mover_color and p.piece_type == chess.PAWN
-                    for sq in after.attacks(move.to_square)
-                )
+                _hit_sq = next(
+                    (sq for sq in after.attacks(move.to_square)
+                     if (p := after.piece_at(sq)) is not None
+                     and p.color != mover_color and p.piece_type == chess.PAWN),
+                    None)
             except Exception:
-                hits_enemy_pawn = False
-            if hits_enemy_pawn:
-                caption_facts["good_move_reason"] = "central_break"
+                _hit_sq = None
+            if _hit_sq is not None:
+                if to_file in (3, 4):  # d, e — true center
+                    caption_facts["good_move_reason"] = "central_break"
+                else:                  # c/f + flank — a pawn break, not center
+                    caption_facts["good_move_break_square"] = chess.square_name(_hit_sq)
+                    caption_facts["good_move_reason"] = "pawn_break"
                 return
 
     # 3) Bishop-pair trade offer (Parth fb_bdff53b7e4d9). A bishop moves
