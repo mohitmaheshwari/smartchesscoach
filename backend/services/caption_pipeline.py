@@ -4285,6 +4285,38 @@ def build_move_teaching_decision(
     except Exception as _wb_exc:
         logger.warning(f"[why_better] append failed m{inputs.full_move_number}: {_wb_exc!r}")
 
+    # ─── 11d. VERIFY-THEN-SHIP (the door's final gate) ───────────
+    # Teachable-caption framework Step 2 (docs/teachable_caption_framework_scope.md):
+    # the per-FEN claim verifier runs INSIDE the central layer so EVERY caller
+    # (V5, PWC, puzzle, any future surface) is auto-protected — a caption that
+    # fails verification is replaced by the verified deterministic floor, never
+    # shipped. Previously this lived only in the V5 service, so other callers
+    # bypassed it. V5's own post-call check becomes a redundant no-op (idempotent).
+    # feedback_verify_rendered_output_always. 2026-06-23.
+    try:
+        _vcap = (caption_payload.get("caption") or "").strip()
+        if _vcap:
+            from services.narrator_claim_verifier import verify_caption as _vc
+            from services.caption_fallback_tiers import tier23_caption as _t23
+            _vfacts = {
+                "move_san": inputs.played_san,
+                "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
+                "fen_after": caption_facts.get("fen_after"),
+                "is_user_move": bool(inputs.mover_is_user),
+                "cp_loss": abs(int(inputs.cp_loss or 0)),
+                "best_move_san": inputs.best_move_san,
+                "pv_after_played": list(inputs.pv_after_played or []),
+                "pv_after_best": list(inputs.pv_after_best or []),
+            }
+            if _vc(_vcap, _vfacts):  # truthy = violations found
+                _safe, _ = _t23(caption_facts, flagged_mistake=True)
+                if _safe and not _vc(_safe, _vfacts):
+                    caption_payload["caption"] = _safe
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + "→VERIFY_SOFTENED")
+    except Exception as _vexc:
+        logger.warning(f"[verify_then_ship] m{inputs.full_move_number}: {_vexc!r}")
+
     # ─── 12. A8 caption tier classification ──────────────────────
     tier = classify_caption_tier(
         caption_text=caption_payload.get("caption") or "",
