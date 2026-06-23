@@ -126,4 +126,18 @@ if [[ $violations -gt 0 ]]; then
     exit 1
 fi
 
+# ── Teachable-caption guard (framework Step 3, WARN-ONLY) ────────────
+# Flags chess-teaching prose assembled OUTSIDE the central caption layer
+# (build_move_teaching_decision / the caption_* modules), the signal of a
+# bespoke caption engine that bypasses the per-FEN verifier. Warn-only during
+# the migration grace period (docs/teachable_caption_framework_scope.md): it
+# PRINTS but does NOT block. Flip to --strict once the surfaces are migrated.
+mapfile -t STAGED_PY < <(
+    git diff --cached --name-only --diff-filter=ACMR | grep -E '\.py$' || true
+)
+if [[ ${#STAGED_PY[@]} -gt 0 ]]; then
+    PY="python"; command -v python >/dev/null 2>&1 || PY="python3"
+    "$PY" backend/scripts/check_caption_sources.py "${STAGED_PY[@]}" || true
+fi
+
 exit 0
