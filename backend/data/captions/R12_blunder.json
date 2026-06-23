@@ -313,7 +313,7 @@
     "why_user_missed_capture_removes_attacker_trade": "it captures the {removed_attacker_captured_piece} that was attacking your {removed_attacker_target_piece} on {removed_attacker_target_square}. After the recapture, you've removed the attacker AND damaged their pawn structure.",
     "why_user_un_developing": "Don't retreat a developed piece without a reason — keep your pieces active.",
     "why_user_defensive_pawn_push": "In the opening, don't waste tempo on a passive pawn move — develop a piece toward the center instead.",
-    "why_user_missed_knight_outpost": "it puts your knight on a strong outpost: defended by your {knight_outpost_defender_piece} on {knight_outpost_defender_square}, safe from any enemy pawn.",
+    "why_user_missed_knight_outpost": "it puts your knight on a strong square the opponent can't challenge: defended by your {knight_outpost_defender_piece} on {knight_outpost_defender_square}, safe from any enemy pawn.",
     "why_user_missed_stop_opp_pawn": "it blocks the opponent's pawn before it advances further. When your opponent threatens a pawn push, blocking it is often more important than developing.",
     "why_user_missed_active_defense": "it defends your {active_defense_defended_piece} on {active_defense_defended_square} AND attacks the undefended {active_defense_attacked_piece} on {active_defense_attacked_square}. Active defense — defending while creating your own threat — beats passive defense.",
     "why_user_missed_same_piece_better_square": "it also hits the {same_piece_better_extra_piece} on {same_piece_better_extra_square}. The same piece on a square that attacks more targets is the stronger move.",

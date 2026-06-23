@@ -4231,6 +4231,30 @@ def build_move_teaching_decision(
     except Exception as _pb_exc:
         logger.warning(f"[principle_bank] inject failed m{inputs.full_move_number}: {_pb_exc!r}")
 
+    # ─── 11c. WHY-BETTER append (one place) ──────────────────────
+    # Law: every recommended move needs its WHY (feedback_explain_why_recommended_
+    # move_good). The R12 cascade names "{best} was better" but only some variants
+    # attach the reason; the rest end bare or with a generic board-state note. Append
+    # the board-verified best_move_why HERE in ONE place — fixing every variant at
+    # once and auto-carrying future why extensions. Only fires when a real why is
+    # available (right-or-silent) and the clause has no why yet. 2026-06-23.
+    try:
+        _bw = (caption_facts.get("best_move_why") or "").strip()
+        _bm = (inputs.best_move_san or "").strip()
+        if _bw and _bm and inputs.mover_is_user:
+            _cap_wb = caption_payload.get("caption") or ""
+            # the better-move clause: "{best} was better" + optional " — <suffix>" to the period
+            _wb_pat = _re_pb.escape(_bm) + r" was better(?:\s*[—-]\s*[^.]*)?\."
+            _wb_m = _re_pb.search(_wb_pat, _cap_wb)
+            if _wb_m and " was better — it " not in _wb_m.group(0):
+                caption_payload["caption"] = (
+                    _cap_wb[:_wb_m.start()]
+                    + f"{_bm} was better — it {_bw}."
+                    + _cap_wb[_wb_m.end():]
+                )
+    except Exception as _wb_exc:
+        logger.warning(f"[why_better] append failed m{inputs.full_move_number}: {_wb_exc!r}")
+
     # ─── 12. A8 caption tier classification ──────────────────────
     tier = classify_caption_tier(
         caption_text=caption_payload.get("caption") or "",

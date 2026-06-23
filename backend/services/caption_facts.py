@@ -4932,9 +4932,10 @@ def _classify_move_principle(board: chess.Board, move: Optional[chess.Move]) -> 
 _REC_PRINCIPLE_PHRASE = {
     "center": "takes the center",
     "develop": "develops a piece",
-    "castle": "castles to safety",
+    "castle": "gets your king to safety",
     "rook_open_file": "takes the open file",
-    "outpost": "posts a knight on a strong central outpost",
+    # "outpost" is banned jargon (600-1500 audience) — describe it plainly.
+    "outpost": "posts a knight on a strong square the opponent can't challenge",
 }
 
 
@@ -4948,8 +4949,8 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
         return None
     try:
         pr = _classify_move_principle(board, move)
-        if pr in _REC_PRINCIPLE_PHRASE:
-            return _REC_PRINCIPLE_PHRASE[pr]
+        mover = board.turn
+        # 1) CAPTURE — concrete material (SEE-gated, never overclaims).
         if board.is_capture(move):
             if board.is_en_passant(move):
                 cap_pt = chess.PAWN
@@ -4959,13 +4960,72 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             if cap_pt is None:
                 return None
             name = PIECE_TYPE_NAMES.get(cap_pt, "piece")
-            see = static_exchange_eval(board, move.to_square, board.turn)
+            see = static_exchange_eval(board, move.to_square, mover)
             if see is not None and see >= 200:
                 return "wins material"
             if see is not None and see >= 80:
                 return "wins a pawn" if cap_pt == chess.PAWN else "wins material"
             # equal-ish exchange — the value is removing the piece, not material
             return f"trades off his {name}"
+
+        # CASTLE — its whole purpose is king safety; name that, not an incidental
+        # "defends f7" the rook happens to add. Checked before threat/escape/defends.
+        if pr == "castle":
+            return _REC_PRINCIPLE_PHRASE["castle"]
+
+        # Non-capture: derive the why from what the move DOES on the board.
+        # Every branch is board-verified (true by construction) — right-or-silent.
+        moved = board.piece_at(move.from_square)
+        if moved is None:
+            return _REC_PRINCIPLE_PHRASE.get(pr)
+        enemy = not mover
+        my_val = PIECE_VALUE_CP.get(moved.piece_type, 0)
+        after = board.copy()
+        after.push(move)
+
+        # 2) THREAT — the moved piece now attacks an enemy piece that is UNDEFENDED
+        #    or worth MORE than the moving piece (a real threat, not a defended equal).
+        #    Pick the most valuable such target. (Mirrors developed_eyes gating.)
+        best_threat = None  # (square, value, piece_type)
+        for sq in after.attacks(move.to_square):
+            p = after.piece_at(sq)
+            if not p or p.color != enemy or p.piece_type == chess.KING:
+                continue
+            val = PIECE_VALUE_CP.get(p.piece_type, 0)
+            defended = bool(after.attackers(enemy, sq))
+            if (not defended) or (val > my_val):
+                if best_threat is None or val > best_threat[1]:
+                    best_threat = (sq, val, p.piece_type)
+        if best_threat is not None:
+            return (f"attacks the {PIECE_TYPE_NAMES.get(best_threat[2], 'piece')} "
+                    f"on {chess.square_name(best_threat[0])}")
+
+        # 3) ESCAPE — the moved piece was hanging (enemy wins it on its old square)
+        #    and is safe after the move: the move saves material.
+        if moved.piece_type != chess.KING:
+            see_before = static_exchange_eval(board, move.from_square, enemy)
+            see_after = static_exchange_eval(after, move.to_square, enemy)
+            if (see_before or 0) >= 100 and (see_after or 0) <= 0:
+                return (f"moves your {PIECE_TYPE_NAMES.get(moved.piece_type, 'piece')} "
+                        f"out of danger")
+
+        # 4) DEFENDS — a DIFFERENT friendly piece was hanging before and is safe after
+        #    because this move adds a defender (the move rescues it without moving it).
+        for sq in chess.SQUARES:
+            if sq == move.from_square:
+                continue
+            fp = board.piece_at(sq)
+            if not fp or fp.color != mover or fp.piece_type == chess.KING:
+                continue
+            if (static_exchange_eval(board, sq, enemy) or 0) >= 100 and \
+               (static_exchange_eval(after, sq, enemy) or 0) <= 0 and \
+               move.to_square in after.attackers(mover, sq):
+                return (f"defends your {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
+                        f"on {chess.square_name(sq)}")
+
+        # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
+        if pr in _REC_PRINCIPLE_PHRASE:
+            return _REC_PRINCIPLE_PHRASE[pr]
     except Exception:
         return None
     return None
