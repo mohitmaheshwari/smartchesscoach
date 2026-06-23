@@ -106,11 +106,19 @@ adversarial (ratings, anti-cheat).
 - Not changing the caption LOGIC — this is purely an eval-source swap; the door, verifier, and
   teaching components are unchanged (that's the whole point).
 
-## Open questions for sign-off
+## Sign-off decisions (Mohit, 2026-06-23)
 
-1. Which WASM build (`stockfish.wasm` single-threaded vs the multi-threaded SIMD build)? Threaded
-   is faster but needs cross-origin isolation headers (COOP/COEP) — a frontend infra change.
-2. Fixed depth 12 vs 14 — lock via a quick accuracy probe (does depth-12 best-move match depth-18
-   on a sample of real 600–1300 positions? if ≥ ~95%, depth-12 is the floor).
-3. Fallback when the client can't run WASM (old browser): server-eval via the existing cache, or
-   suppress the caption? (Recommend server-eval fallback — never regress to silence.)
+1. **WASM build: single-threaded + SIMD.** No site-wide cross-origin headers (COOP/COEP), works on
+   every device incl. mobile webviews, fast enough for shallow depth. Multi-threaded
+   (SharedArrayBuffer) buys speed at *deep* search we don't need, at the cost of headers that can
+   break third-party embeds — an additive future upgrade, not now.
+2. **Depth: TIME-BOUNDED ~800ms with a depth-12 floor** (NOT a fixed depth). Locked via data
+   (`depth_probe.py`, 150 real positions, truth=depth18): raw best-move agreement depth12=75% /
+   depth15=83%, BUT the HARMFUL rate (depth-D names a move >100cp worse) is only depth12=**7%** /
+   depth15=**5%** — and those harmful cases are almost all QUIET POSITIONAL best-moves where the
+   pipeline already ABSTAINS. Tactical/material positions resolve correctly at shallow depth, so
+   effective harm on shipped confident captions is < ~5%. Time-bounded (~800ms) is instant on every
+   device: fast desktops reach 15–18, weak phones floor at ~12. A fixed depth-15 would be 1–3s on a
+   weak phone and kill the instant feel.
+3. **No-WASM fallback: server-eval via the existing `PositionAnalysisService` cache.** Never regress
+   to silence; old browsers hit the server path we already have.
