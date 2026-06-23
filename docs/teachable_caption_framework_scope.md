@@ -83,9 +83,13 @@ solution move, PV, cp_loss). The work is a thin adapter per surface that maps it
       always-on per-move narrative through the central layer instead of `move_critique` →
       `coaching_policy` → `coaching_voice`. (Larger; gate behind a flag, diff before/after with
       `snapshot_surface1.py`, present changed captions for sign-off.)
-- [ ] **Verifier-inside-the-door** refactor (Move 2) + extend checker coverage for any
-      puzzle/PWC-only claim types.
-- [ ] **CI guard** (Move 3) + opt-out comment convention + activate in `.githooks`.
+- [x] **Verifier-inside-the-door** (Move 2) — DONE 2026-06-23 (`8227fbd8`). verify-then-ship
+      now runs inside `build_move_teaching_decision`; every caller auto-protected. V5's own
+      post-call check is now a redundant no-op (leave for now; remove in a later cleanup).
+      Verified: endgame silence 0/354, 4-part verifier 0 false, 5/358 softened (the gate working).
+- [x] **CI guard** (Move 3) — DONE 2026-06-23 (`79d60396`). `check_caption_sources.py` + warn-only
+      `.githooks/pre-commit` step + `# allow-noncentral-caption` opt-out. First audit: 200 bespoke-
+      prose lines across 63 files (the migration backlog this guard now tracks).
 
 ## Acceptance / how we'll know it worked
 
