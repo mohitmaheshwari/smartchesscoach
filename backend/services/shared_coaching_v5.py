@@ -733,6 +733,18 @@ def _central_narrative_for_move(
         user_color_norm = (user_color or "white").lower()
         user_is_white = user_color_norm == "white"
         mover_is_white = user_is_white == bool(mover_is_user)
+        # For an OPPONENT move the central layer reads the opp_* eval fields
+        # (mirrors how V5 review builds opponent captions). Map the supplied
+        # eval/cp_loss into them so opponent moves route through the same door
+        # and get review-quality opponent teaching instead of the shallow legacy
+        # narrative. (teachable_caption_framework / pwc_client_eval scope.)
+        _opp_kwargs: Dict[str, Any] = {}
+        if not mover_is_user:
+            _opp_kwargs = dict(
+                opp_eval_before=eval_before_cp,
+                opp_eval_after=eval_after_cp,
+                opp_cp_loss=int(cp_loss or 0),
+            )
         inputs = MoveInputs(
             fen_before=board_before.fen(),
             played_san=move_san,
@@ -748,6 +760,7 @@ def _central_narrative_for_move(
             cp_loss=int(cp_loss or 0),
             pv_after_played=list(pv_after_played or []),
             pv_after_best=list(pv_after_best or []),
+            **_opp_kwargs,
         )
         state = CrossMoveState(
             fired_principles=set(session_fired_principles or set()),
@@ -871,11 +884,31 @@ async def generate_move_coaching(
     
     # ─── OPPONENT MOVE (context) ───
     if not is_user_move:
+        # Central-first: route the opponent move through the SAME door as review
+        # (verified, review-quality opponent teaching) when eval facts are
+        # available; fall back to the legacy shallow narrative otherwise. The
+        # structural fields (your_plan, future_moves) still come from the legacy
+        # helper. pwc_client_eval / teachable_caption_framework scope, 2026-06-23.
+        _opp_central = ""
+        if best_move_san or eval_before_cp is not None or eval_after_cp is not None:
+            try:
+                _opp_central, _ = _central_narrative_for_move(
+                    board_before=board_before, move_san=move_san, mover_is_user=False,
+                    user_color=user_color, full_move_number=board_before.fullmove_number,
+                    move_history_san=move_history_san, best_move_san=best_move_san,
+                    eval_before_cp=eval_before_cp, eval_after_cp=eval_after_cp,
+                    cp_loss=cp_loss, pv_after_played=pv_after_played, pv_after_best=pv_after_best,
+                    move_evaluations=move_evaluations,
+                    session_fired_principles=session_fired_principles,
+                    session_fired_state_keys=session_fired_state_keys,
+                )
+            except Exception:
+                _opp_central = ""
         narrative, your_plan = generate_opponent_move_coaching(
             board_before, move, pv_after_played, user_color
         )
         return V5Coaching(
-            narrative=narrative,
+            narrative=(_opp_central or narrative),
             severity="context",
             is_user_move=False,
             your_plan_now=your_plan,
