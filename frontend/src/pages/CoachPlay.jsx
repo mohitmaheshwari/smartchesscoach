@@ -25,6 +25,7 @@ import CoachPlaySidebar from "@/components/coach/CoachPlaySidebar";
 import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
+import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
@@ -283,6 +284,13 @@ const CoachPlay = ({ user }) => {
   // higher in this function listed v5Coaching as a dep, which threw
   // 'Cannot access yn before initialization' under Vite/Rollup minification.
   const [v5Coaching, setV5Coaching] = useState(null);
+
+  // Client-side Stockfish (WASM) — computes the eval facts locally so PWC captions
+  // route through the same central door as review with no server Stockfish call.
+  // Falls back to the server-supplied eval when not ready/unavailable.
+  // docs/pwc_client_eval_scope.md. Gated so it's a no-op until the WASM asset ships.
+  const CLIENT_EVAL_ENABLED = process.env.REACT_APP_CLIENT_EVAL === "true";
+  const { ready: sfReady, evalMove: sfEvalMove } = useStockfishEval();
 
   // Compute and show guidance arrow from local data
   useEffect(() => {
@@ -1647,21 +1655,41 @@ const CoachPlay = ({ user }) => {
     
     setLoadingFeedback(true);
     setIsCoachThinking(true);
-    
+
     try {
+      // Client-side eval first (no server Stockfish). On success it supplies the
+      // full fact shape — eval_before/after, cp_loss, best_move, both PVs — which
+      // routes the caption through the central door. On any miss we fall back to
+      // the server-passed values. docs/pwc_client_eval_scope.md.
+      const body = {
+        session_id: session.session_id,
+        move_san: moveSan,
+        fen_before: fenBefore,
+        is_user_move: isUserMove,
+        best_move: bestMove,
+        pv_after_played: pvAfterPlayed,
+        cp_loss: cpLoss,
+      };
+      if (CLIENT_EVAL_ENABLED && sfReady) {
+        try {
+          const facts = await sfEvalMove(fenBefore, moveSan);
+          if (facts) {
+            body.eval_before = facts.eval_before;
+            body.eval_after = facts.eval_after;
+            body.cp_loss = facts.cp_loss;
+            if (facts.best_move) body.best_move = facts.best_move;
+            if (facts.pv_after_played?.length) body.pv_after_played = facts.pv_after_played;
+            if (facts.pv_after_best?.length) body.pv_after_best = facts.pv_after_best;
+          }
+        } catch (e) {
+          console.warn("[CoachPlay] client eval failed, using server fallback:", e);
+        }
+      }
       const response = await fetch(`${API}/coach/play/v5/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          session_id: session.session_id,
-          move_san: moveSan,
-          fen_before: fenBefore,
-          is_user_move: isUserMove,
-          best_move: bestMove,
-          pv_after_played: pvAfterPlayed,
-          cp_loss: cpLoss
-        })
+        body: JSON.stringify(body)
       });
       
       if (response.ok) {
