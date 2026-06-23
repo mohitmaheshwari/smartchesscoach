@@ -1780,15 +1780,24 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             ).sort("imported_at", -1).to_list(GAP_LOOKBACK_GAMES)
             gid_imported = {g["game_id"]: g.get("imported_at") for g in recent_games}
 
+            # Perf (2026-06-22): this used to do one find_one PER game (50
+            # sequential round-trips → ~27s on /progress, the page's bottleneck).
+            # Batch into a SINGLE $in query, then iterate recent_games in their
+            # original newest-first order (preserves the most-recent-occurrence
+            # stamp below) by looking each analysis up from the batch.
+            _gids = [g["game_id"] for g in recent_games]
+            _analyses = await db.game_analyses.find(
+                {"game_id": {"$in": _gids}},
+                {"_id": 0, "game_id": 1,
+                 "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+                 "stockfish_analysis.move_evaluations.cp_loss": 1}
+            ).to_list(len(_gids))
+            _ana_by_gid = {a.get("game_id"): a for a in _analyses}
+
             gap_data: Dict[str, Dict] = {}
             for g in recent_games:
                 gid = g["game_id"]
-                ga = await db.game_analyses.find_one(
-                    {"game_id": gid},
-                    {"_id": 0,
-                     "stockfish_analysis.move_evaluations.cognitive_gap": 1,
-                     "stockfish_analysis.move_evaluations.cp_loss": 1}
-                )
+                ga = _ana_by_gid.get(gid)
                 if not ga: continue
                 for ev in (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []:
                     gap = ev.get("cognitive_gap")
