@@ -50,6 +50,8 @@ const CoachPlay = ({ user }) => {
   // Read opening and focus from URL query params
   const openingFromUrl = searchParams.get("opening");
   const focusFromUrl = searchParams.get("focus");
+  // Deep-link from the Lab "Practice the <trap>" CTA — auto-launch that trap lesson.
+  const trapFromUrl = searchParams.get("trap");
 
   // Session state
   const [session, setSession] = useState(null);
@@ -158,6 +160,9 @@ const CoachPlay = ({ user }) => {
   const pollTimerRef = useRef(null);
   const pollFnRef = useRef(null);
   const eventSourceRef = useRef(null);
+  // ?trap= deep-link guards (each step fires once)
+  const trapGameStartRef = useRef(false);
+  const trapLessonStartRef = useRef(false);
   
   // Practice mode state (from Lab alternate timeline)
   const [practiceMode, setPracticeMode] = useState(false);
@@ -721,6 +726,46 @@ const CoachPlay = ({ user }) => {
     checkActiveSession();
   }, []);
 
+  // ── Deep-link: arrive with ?trap=<key> from the Lab "Practice the <trap>"
+  //    CTA → auto-start a session, then launch that trap's lesson. Fail-open:
+  //    any error just leaves a normal game. Guards make each step fire once.
+  useEffect(() => {
+    if (trapFromUrl && !gameStarted && !loading && !trapGameStartRef.current) {
+      trapGameStartRef.current = true;
+      startGame();
+    }
+  }, [trapFromUrl, gameStarted, loading]);
+
+  useEffect(() => {
+    if (!trapFromUrl || !gameStarted || !session?.session_id) return;
+    if (trapLessonStartRef.current) return;
+    trapLessonStartRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/coach/play/teaching/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            session_id: session.session_id,
+            lesson_type: "trap",
+            trap_key: trapFromUrl,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !data.error) {
+            handleStartLesson(data);
+          } else {
+            toast.info("Couldn't load that trap lesson — playing a normal game instead.");
+          }
+        }
+      } catch (e) {
+        // fail-open: stay in the normal game
+      }
+    })();
+  }, [trapFromUrl, gameStarted, session?.session_id]);
+
   // Check for practice mode from Lab alternate timeline
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -805,7 +850,7 @@ const CoachPlay = ({ user }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl) {
+        if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl && !trapFromUrl) {
           // Resume existing session (but NOT if user came with a specific opening to practice)
           const activeSession = data.active_sessions[0];
           await resumeSession(activeSession.session_id);
@@ -2821,6 +2866,17 @@ const CoachPlay = ({ user }) => {
   // ========================================
 
   // Pre-game setup screen
+  // Trap deep-link: skip the setup form — auto-launch is in flight.
+  if (!gameStarted && trapFromUrl) {
+    return (
+      <Layout user={user}>
+        <div className="flex items-center justify-center h-[60vh] text-muted-foreground text-sm">
+          Setting up your trap practice…
+        </div>
+      </Layout>
+    );
+  }
+
   if (!gameStarted) {
     return (
       <CoachPlaySetup

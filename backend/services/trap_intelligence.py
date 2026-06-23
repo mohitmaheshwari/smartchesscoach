@@ -105,6 +105,26 @@ def _flatten_library() -> List[Dict]:
     return out
 
 
+def _practice_key_for(trap_name: str) -> str | None:
+    """Map a trap NAME (from traps.json / trap_library) to the practice key that
+    the PWC trap-lesson path understands (trick_library_service.TRAPS_DATABASE),
+    but ONLY when that trap actually has an executable lesson. Returns None when
+    there's no real lesson — the CTA then falls back instead of deep-linking to a
+    trap that can't be played. (These are three separate trap sources today; this
+    is the name-bridge until they're unified — see single-source-of-truth.)"""
+    try:
+        from trick_library_service import TRAPS_DATABASE
+    except Exception:
+        return None
+    nm = (trap_name or "").strip().lower()
+    for key, t in TRAPS_DATABASE.items():
+        if (t.get("name") or "").strip().lower() == nm:
+            if (t.get("practice_fen") or {}).get("execution"):
+                return key
+            return None
+    return None
+
+
 def _build_headline(
     trap_name: str,
     encounters: int,
@@ -243,6 +263,9 @@ async def get_user_trap_intelligence(db, user_id: str) -> Dict:
             "user_color": dominant_color,
             "role_hint": role_hint,
             "training_weakness": data["training_weakness"],
+            # Practice key for the CTA deep-link — None when this trap has no
+            # playable lesson (CTA then falls back to themed training).
+            "practice_key": _practice_key_for(trap_name),
             "headline": _build_headline(
                 trap_name, data["sprung"], data["sprung"], dominant_color, role_hint
             ),

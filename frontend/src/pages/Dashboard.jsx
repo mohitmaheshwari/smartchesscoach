@@ -772,13 +772,17 @@ const Dashboard = ({ user }) => {
                 <button
                   onClick={() =>
                     navigate(
-                      `/training/prescribed?weakness=${trapIntel.top_insight.training_weakness}`
+                      trapIntel.top_insight.practice_key
+                        ? `/play-with-coach?trap=${trapIntel.top_insight.practice_key}`
+                        : `/training/prescribed?weakness=${trapIntel.top_insight.training_weakness}`
                     )
                   }
                   className="h-10 px-5 rounded-lg bg-amber-500/90 hover:bg-amber-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {trapIntel.top_insight.cta}
+                  {trapIntel.top_insight.practice_key
+                    ? `Practice the ${trapIntel.top_insight.trap_name}`
+                    : trapIntel.top_insight.cta}
                 </button>
               </div>
             </motion.section>
