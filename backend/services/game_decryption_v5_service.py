@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 129  # v129 (2026-06-23): routine develop why sub-cases 2+3 — develop_eyes (aims at enemy piece) + develop_castle_ready.
+V5_COACHING_VERSION = 130  # v130 (2026-06-23): opponent (and tier-2) develop captions name what the piece eyes (long-diagonal/piece target). Parth QA.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

@@ -5560,10 +5560,44 @@ def extract_facts(
     except Exception:
         pass
 
+    # Developing minor newly aiming at an enemy non-pawn piece — powers the
+    # tier-2 develop "eyeing your {piece}" upgrade (esp. opponent developing
+    # moves; Parth liked gold's "lining the bishop up at your center"). Board-
+    # verified: the developed piece literally attacks that square. 2026-06-23.
+    developed_eyes_piece = None
+    developed_eyes_square = None
+    try:
+        _mp = board_before.piece_at(played_move.from_square)
+        if _mp and _mp.piece_type in (chess.KNIGHT, chess.BISHOP):
+            _br = 0 if _mp.color == chess.WHITE else 7
+            if (chess.square_rank(played_move.from_square) == _br
+                    and chess.square_rank(played_move.to_square) != _br):
+                _enemy = not _mp.color
+                _center_sqs = {chess.D4, chess.E4, chess.D5, chess.E5}
+                _cands = []
+                for _s in board_after.attacks(played_move.to_square):
+                    _q = board_after.piece_at(_s)
+                    if not (_q and _q.color == _enemy):
+                        continue
+                    # any minor/major piece, OR a pawn on a central square (the
+                    # "lining up on the long diagonal, watch that e5 pawn" case).
+                    if _q.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN) \
+                            or (_q.piece_type == chess.PAWN and _s in _center_sqs):
+                        _cands.append((_s, _q.piece_type))
+                if _cands:
+                    _pv2 = {chess.QUEEN: 9, chess.ROOK: 5, chess.BISHOP: 3, chess.KNIGHT: 3}
+                    _cands.sort(key=lambda x: -_pv2.get(x[1], 0))
+                    developed_eyes_piece = PIECE_TYPE_NAMES.get(_cands[0][1], "piece")
+                    developed_eyes_square = chess.square_name(_cands[0][0])
+    except Exception:
+        pass
+
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
         # ENGINE TRUTH (pass-through)
         "cp_loss": cp_loss,
+        "developed_eyes_piece": developed_eyes_piece,
+        "developed_eyes_square": developed_eyes_square,
         "eval_before_cp": eval_before_cp,
         "eval_after_cp": eval_after_cp,
         "best_move_san": best_move_san,

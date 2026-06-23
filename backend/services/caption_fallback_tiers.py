@@ -154,11 +154,20 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                 f"outpost." + _suf, "R_TIER2_outpost")
 
     if _develops(facts):
+        _vb = "develop" if sub == "You" else "develops"
+        # Eyes an enemy piece? Name it (board-verified). The eyed piece belongs to the
+        # side NOT moving, so its possessive is the opposite of the mover's.
+        _eyes_p = facts.get("developed_eyes_piece")
+        _eyes_s = facts.get("developed_eyes_square")
+        if _eyes_p and _eyes_s:
+            _their = "their" if facts.get("mover_is_user") else "your"
+            return (f"{sub} {_vb} the {piece}, eyeing {_their} {_eyes_p} on {_eyes_s}." + _suf,
+                    "R_TIER2_develop_eyes")
         if _central:
-            return (f"{sub} develop{'' if sub=='You' else 's'} the {piece} to a strong central "
-                    f"square, fighting for the center." + _suf, "R_TIER2_develop_center")
-        return (f"{sub} develop{'' if sub=='You' else 's'} the {piece}, bringing a new "
-                f"piece into the game." + _suf, "R_TIER2_develop")
+            return (f"{sub} {_vb} the {piece} to a strong central square, fighting for the "
+                    f"center." + _suf, "R_TIER2_develop_center")
+        return (f"{sub} {_vb} the {piece}, bringing a new piece into the game." + _suf,
+                "R_TIER2_develop")
 
     if facts.get("is_pawn_move"):
         file_ = _tsq[0] if _tsq else ""
