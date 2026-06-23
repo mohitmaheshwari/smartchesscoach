@@ -164,10 +164,11 @@ async def get_user_trap_intelligence(db, user_id: str) -> Dict:
 
     # user_id → trap_name → {encounters, sprung, full, colors, opening_key, training_weakness}
     bucket = defaultdict(lambda: {
-        "encounters": 0,
-        "sprung": 0,
+        "encounters": 0,        # games that reached the trap's SETUP position
+        "sprung": 0,            # games where the trap MOVE actually appeared
         "full": 0,
-        "colors": Counter(),
+        "colors": Counter(),        # color, by setup-reached game
+        "sprung_colors": Counter(), # color, by actually-sprung game
         "opening_key": "",
         "training_weakness": "",
         "result_type": "",
@@ -196,20 +197,32 @@ async def get_user_trap_intelligence(db, user_id: str) -> Dict:
                 matched = _match_consecutive_after(sans, len(setup), trap_line)
                 if matched >= 1:
                     entry["sprung"] += 1
+                    entry["sprung_colors"][user_color] += 1
                 if matched == len(trap_line):
                     entry["full"] += 1
 
     if not bucket:
         return empty
 
-    # Build the insight list, sorted by encounters descending
+    # Build the insight list, sorted by how often the trap actually sprung.
     insights: List[Dict] = []
     for trap_name, data in bucket.items():
-        if data["colors"]:
-            dominant_color, _ = data["colors"].most_common(1)[0]
+        # GATE: only surface a trap the user ACTUALLY sprung (the trap move
+        # appeared on the board). Reaching the setup is NOT "seeing the trap" —
+        # many trap setups are common mainline openings (the Halloween Gambit
+        # "setup" is just the Four Knights), so setup-only matches wildly
+        # over-report (e.g. "seen the Halloween Gambit 14 times" when it was
+        # never once played). The headline now counts sprung, not setup-reached.
+        if data["sprung"] < 1:
+            continue
+
+        # Color/role from the games where it actually sprung, not setup-reached.
+        sc = data["sprung_colors"]
+        if sc:
+            dominant_color, _ = sc.most_common(1)[0]
         else:
             dominant_color = "white"
-        colors_seen = set(data["colors"].keys())
+        colors_seen = set(sc.keys())
         if len(colors_seen) >= 2:
             role_hint = "both"
         elif data["result_type"] == "checkmate":
@@ -223,21 +236,25 @@ async def get_user_trap_intelligence(db, user_id: str) -> Dict:
         insight = {
             "trap_name": trap_name,
             "opening_key": data["opening_key"],
-            "encounters": data["encounters"],
+            "encounters": data["sprung"],        # headline count = times sprung
+            "setup_reached": data["encounters"], # kept for the "X of Y" sub-copy
             "sprung": data["sprung"],
             "full": data["full"],
             "user_color": dominant_color,
             "role_hint": role_hint,
             "training_weakness": data["training_weakness"],
             "headline": _build_headline(
-                trap_name, data["encounters"], data["sprung"], dominant_color, role_hint
+                trap_name, data["sprung"], data["sprung"], dominant_color, role_hint
             ),
             "cta": _cta_for_role(role_hint),
         }
         insights.append(insight)
 
-    insights.sort(key=lambda i: (-i["encounters"], -i["sprung"]))
-    total = sum(i["encounters"] for i in insights)
+    if not insights:
+        return empty
+
+    insights.sort(key=lambda i: (-i["sprung"], -i["setup_reached"]))
+    total = sum(i["sprung"] for i in insights)
     return {
         "has_data": True,
         "top_insight": insights[0] if insights else None,

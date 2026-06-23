@@ -755,24 +755,14 @@ const Dashboard = ({ user }) => {
                   {trapIntel.top_insight.headline}
                 </p>
                 <p className="text-[13px] text-muted-foreground mb-5">
-                  {trapIntel.top_insight.sprung > 0 ? (
-                    <>
-                      The trap line actually played out in{" "}
-                      <span className="text-foreground/80 font-medium">
-                        {trapIntel.top_insight.sprung} of {trapIntel.top_insight.encounters}
-                      </span>
-                      .
-                    </>
-                  ) : (
-                    <>
-                      The trap line didn't play out in any of them — but the setup came up{" "}
-                      <span className="text-foreground/80 font-medium">
-                        {trapIntel.top_insight.encounters}{" "}
-                        {trapIntel.top_insight.encounters === 1 ? "time" : "times"}
-                      </span>
-                      .
-                    </>
-                  )}
+                  <>
+                    The trap line actually played out in{" "}
+                    <span className="text-foreground/80 font-medium">
+                      {trapIntel.top_insight.sprung} of{" "}
+                      {trapIntel.top_insight.setup_reached ?? trapIntel.top_insight.sprung}
+                    </span>{" "}
+                    games where you reached the setup.
+                  </>
                 </p>
                 {trapIntel.all_insights.length > 1 && (
                   <p className="text-[11.5px] text-muted-foreground/80 mb-5">
