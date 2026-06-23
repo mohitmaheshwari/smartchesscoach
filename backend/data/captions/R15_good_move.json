@@ -27,6 +27,8 @@
     {"when": {"good_move_reason": "supports_central_pawn"}, "variant": "supports_central_pawn"},
     {"when": {"good_move_reason": "connects_rooks"}, "variant": "connects_rooks"},
     {"when": {"good_move_reason": "develop_complete"}, "variant": "develop_complete"},
+    {"when": {"good_move_reason": "develop_eyes"}, "variant": "develop_eyes"},
+    {"when": {"good_move_reason": "develop_castle_ready"}, "variant": "develop_castle_ready"},
     {"when": {"good_move_reason": "develop"}, "variant": "develop"},
     {"when": {"cp_loss": 0}, "variant": "default"},
     {"variant": "silent_near_best"}
@@ -40,6 +42,8 @@
     "connects_rooks": "{played_san} — clears the back rank, connecting your rooks.",
     "develop": "{played_san} — develops a piece. Get every piece into the game before you attack.",
     "develop_complete": "{played_san} — that's your last minor piece developed. With everything in the game, you're ready to start active play.",
+    "develop_eyes": "{played_san} — develops, eyeing the {good_move_eyes_piece} on {good_move_eyes_square}.",
+    "develop_castle_ready": "{played_san} — develops a piece and clears the way to castle. Get your king safe next.",
     "default": "{played_san} — strongest move here.",
     "silent_near_best": ""
   }

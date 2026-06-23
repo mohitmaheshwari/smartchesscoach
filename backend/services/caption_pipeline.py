@@ -1713,10 +1713,13 @@ def inject_good_move_reason_facts(
         back_rank = 0 if mover_color == chess.WHITE else 7
         if (chess.square_rank(move.from_square) == back_rank
                 and chess.square_rank(move.to_square) != back_rank):
-            # Completes development? Board-accurate: NO own minor (knight/bishop)
-            # left on its starting square after this move. Only then say "last
-            # minor out" — gold lost a point (Parth 6.Nc6) by claiming "all
-            # pieces developed" with the f8 bishop still home. 2026-06-23.
+            # Routine develop captions get a board-verified specific (Parth's
+            # terse "Slightly Better" bucket), in priority order:
+            #   develop_complete  — no own minor left home (development finished)
+            #   develop_eyes      — the piece newly aims at an enemy minor/major
+            #   develop_castle_ready — the move makes castling legal (was not)
+            #   develop           — generic fallback
+            # All board-accurate, never a generic plan-guess. 2026-06-23.
             try:
                 _post = board_before.copy(); _post.push(move)
                 _start = ({chess.B1, chess.G1, chess.C1, chess.F1}
@@ -1726,8 +1729,31 @@ def inject_good_move_reason_facts(
                     (p := _post.piece_at(sq)) and p.color == mover_color
                     and p.piece_type in (chess.KNIGHT, chess.BISHOP)
                     for sq in _start)
+                if not _home_minor:
+                    # gold overclaimed this on 6.Nc6 (f8 bishop still home) and lost
+                    # a Parth point — we only say it when it's literally true.
+                    caption_facts["good_move_reason"] = "develop_complete"
+                    return
+                # Newly aims at an enemy NON-pawn piece (a real target)?
+                _enemy = not mover_color
+                _targets = []
+                for _s in _post.attacks(move.to_square):
+                    _p = _post.piece_at(_s)
+                    if _p and _p.color == _enemy and _p.piece_type != chess.PAWN:
+                        _targets.append((_s, _p.piece_type))
+                if _targets:
+                    _pval = {chess.QUEEN: 9, chess.ROOK: 5, chess.BISHOP: 3, chess.KNIGHT: 3}
+                    _targets.sort(key=lambda x: -_pval.get(x[1], 0))
+                    caption_facts["good_move_eyes_piece"] = chess.piece_name(_targets[0][1])
+                    caption_facts["good_move_eyes_square"] = chess.square_name(_targets[0][0])
+                    caption_facts["good_move_reason"] = "develop_eyes"
+                    return
+                # Did this move make castling legal when it wasn't before?
+                _pre = any(board_before.is_castling(m) for m in board_before.legal_moves)
+                _aft_board = _post.copy(); _aft_board.turn = mover_color
+                _aft = any(_aft_board.is_castling(m) for m in _aft_board.legal_moves)
                 caption_facts["good_move_reason"] = (
-                    "develop" if _home_minor else "develop_complete")
+                    "develop_castle_ready" if (_aft and not _pre) else "develop")
             except Exception:
                 caption_facts["good_move_reason"] = "develop"
             return
