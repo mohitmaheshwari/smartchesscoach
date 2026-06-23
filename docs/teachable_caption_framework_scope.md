@@ -73,10 +73,12 @@ Both stray surfaces already HAVE the inputs the central layer needs (FEN, played
 solution move, PV, cp_loss). The work is a thin adapter per surface that maps its data →
 `MoveInputs`, then routes through the one door.
 
-- [ ] **Puzzle / prescribed** (`puzzle_miss_coaching.py`): build `MoveInputs` from the puzzle
-      (fen_before, played_san, best_move_san = solution, pv_after_best, cp_loss), call the central
-      layer, render its caption. Retire the bespoke "WHY YOUR MOVE FALLS SHORT / WHY THE BEST MOVE
-      WORKS / try it to feel why" templates. *(Highest priority — it's the one shown to fabricate.)*
+- [x] **Puzzle / prescribed** (`puzzle_miss_coaching.py`) — DONE 2026-06-23 (`a3561711`). The
+      caller has no cp_loss/PV, so routed the best-move idea through the central single-source why
+      (`_recommended_move_why`) + a board-verified double-attack enrichment instead of the full
+      door; killed the `pv_tactical_analyzer` fabrication, the "feel why" dodge, and the defensive-
+      takeaway mismatch. Verified: 400 puzzles, 148 checkable claims, 0 false. (Full-door routing
+      with cp_loss/PV is the eventual state once the route plumbs those.)
 - [ ] **PWC base narrative**: complete the migration started in `pwc_second_engine` — route the
       always-on per-move narrative through the central layer instead of `move_critique` →
       `coaching_policy` → `coaching_voice`. (Larger; gate behind a flag, diff before/after with
@@ -107,9 +109,10 @@ solution move, PV, cp_loss). The work is a thin adapter per surface that maps it
   verifier. Teaching quality is still measured by the 4-component verifier (`verify_mistake_4parts.py`)
   and human review (Parth), not asserted by the guard.
 
-## Open questions for sign-off
+## Sign-off (Mohit, 2026-06-23)
 
-1. Order: puzzle-miss first (small, visibly broken) then PWC (large) — agreed?
-2. CI guard strictness: hard-fail the build, or warn-only for a grace period while surfaces migrate?
-3. PWC migration is the known big rewrite (`pwc_second_engine`) — fold it into this framework now,
-   or land puzzle + the door + the guard first and schedule PWC separately?
+**APPROVED.** Decisions:
+1. **Order:** puzzle-miss first (small, visibly broken) → the door + verifier-inside → CI guard.
+2. **Guard:** **warn-only** during the migration grace period (flip to hard-fail once surfaces land).
+3. **PWC:** scheduled **separately** — do NOT fold the big `pwc_second_engine` rewrite into this pass.
+   Land puzzle + door + guard first.
