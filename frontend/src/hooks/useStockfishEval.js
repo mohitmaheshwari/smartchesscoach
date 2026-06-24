@@ -55,6 +55,7 @@ export function useStockfishEval() {
       if (line === "readyok") {
         readyRef.current = true;
         setReady(true);
+        console.log("[useStockfishEval] engine ready (client-side WASM eval active)");
         return;
       }
       const p = pendingRef.current;
@@ -183,7 +184,7 @@ export function useStockfishEval() {
       }
     } catch (_) {}
 
-    return {
+    const facts = {
       eval_before: Math.round(evalBeforeWhiteCp) / 100, // pawns, white-POV
       eval_after: Math.round(evalAfterWhiteCp) / 100,
       cp_loss: cpLoss,
@@ -191,6 +192,8 @@ export function useStockfishEval() {
       pv_after_best: uciPvToSan(fenBefore, before.pv),
       pv_after_played: uciPvToSan(fenAfter, after.pv),
     };
+    console.log(`[useStockfishEval] ${moveSan} -> best ${bestSan}, cp_loss ${cpLoss}, depth ${before.depth}/${after.depth} (client eval)`);
+    return facts;
   }, [analyze]);
 
   return { ready, evalMove };

@@ -2728,7 +2728,12 @@ async def get_interactive_coaching(
     
     session_id = request.get("session_id")
     phase = request.get("phase")  # "user_move", "coach_move", or None (both)
-    
+    # Client-supplied eval (browser WASM) for the LAST USER MOVE — lets us skip the
+    # server-side quick_stockfish_eval recompute (the ~2s caption latency). Shape:
+    # {best_move(san), eval_before, eval_after (pawns, white-POV), pv_after_played,
+    # pv_after_best}. Absent → server eval (stored / quick) as before. 2026-06-24.
+    client_eval = request.get("client_eval") or {}
+
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
     
@@ -2776,13 +2781,15 @@ async def get_interactive_coaching(
             board = chess.Board(fen_before)
             move = board.parse_san(move_san)
             
-            # Try stored analysis data first
-            best_move = last_user_move.get("best_move")
-            eval_before = last_user_move.get("eval_before", 0)
-            eval_after = last_user_move.get("eval_after", 0)
-            pv_after_played = last_user_move.get("pv_after_played", [])
-            pv_after_best = last_user_move.get("pv_after_best", [])
-            
+            # Client-supplied eval first (browser WASM) — instant, skips the server
+            # recompute. Then stored analysis data, then the evaluations list, then
+            # a server quick eval. Each layer is a fallback for the one before.
+            best_move = client_eval.get("best_move") or last_user_move.get("best_move")
+            eval_before = client_eval.get("eval_before", last_user_move.get("eval_before", 0))
+            eval_after = client_eval.get("eval_after", last_user_move.get("eval_after", 0))
+            pv_after_played = client_eval.get("pv_after_played") or last_user_move.get("pv_after_played", [])
+            pv_after_best = client_eval.get("pv_after_best") or last_user_move.get("pv_after_best", [])
+
             # Fallback: check evaluations list
             if not best_move and evaluations:
                 for ev in reversed(evaluations):

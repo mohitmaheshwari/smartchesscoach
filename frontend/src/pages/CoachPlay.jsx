@@ -164,6 +164,9 @@ const CoachPlay = ({ user }) => {
   // ?trap= deep-link guards (each step fires once)
   const trapGameStartRef = useRef(false);
   const trapLessonStartRef = useRef(false);
+  // Stash the latest user-move client eval (browser WASM) so the caption call can
+  // use it and skip the server recompute. Holds {fenBefore, san, promise}.
+  const clientEvalRef = useRef(null);
   
   // Practice mode state (from Lab alternate timeline)
   const [practiceMode, setPracticeMode] = useState(false);
@@ -1492,11 +1495,32 @@ const CoachPlay = ({ user }) => {
     setLoadingFeedback(true);
 
     try {
+      // Client-side eval for the just-played user move (browser WASM): await the
+      // stashed promise (already running since the move was made) and pass it so the
+      // server skips its ~2s quick_stockfish_eval recompute. Absent → server eval.
+      let _clientEval = null;
+      const _ce = clientEvalRef.current;
+      if (_ce && _ce.promise) {
+        try {
+          const facts = await _ce.promise;
+          if (facts) {
+            _clientEval = {
+              best_move: facts.best_move,
+              eval_before: facts.eval_before,
+              eval_after: facts.eval_after,
+              pv_after_played: facts.pv_after_played,
+              pv_after_best: facts.pv_after_best,
+            };
+          }
+        } catch (e) { /* fall back to server eval */ }
+      }
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ session_id: sessionId })
+        body: JSON.stringify(
+          _clientEval ? { session_id: sessionId, client_eval: _clientEval } : { session_id: sessionId }
+        )
       });
 
       console.log("[V2-FLOW] interactive-feedback response status:", response.status);
@@ -2537,6 +2561,22 @@ const CoachPlay = ({ user }) => {
     }
 
     if (!moveObj) return false;
+
+    // Kick off client-side eval (browser WASM, non-blocking) for this user move so
+    // the caption call can use it and skip the ~2s server recompute. The eval (~800ms)
+    // runs while the coach thinks; fetchInteractiveCoaching awaits the stashed promise.
+    // sfEvalMove self-guards on engine readiness (returns null if not ready), so no
+    // stale-state check needed here.
+    if (CLIENT_EVAL_ENABLED) {
+      try {
+        clientEvalRef.current = {
+          fenBefore: currentFen, san: moveObj.san,
+          promise: sfEvalMove(currentFen, moveObj.san),
+        };
+      } catch { clientEvalRef.current = null; }
+    } else {
+      clientEvalRef.current = null;
+    }
 
     // OPENING DEVIATION CHECK — if teaching is active and user plays wrong move
     let deviationHandled = false;
