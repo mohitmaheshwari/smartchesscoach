@@ -17,6 +17,7 @@ Key Principles:
 This ensures: Improve one place → Both pages get smarter!
 """
 
+import asyncio
 import chess
 import chess.engine
 import logging
@@ -145,15 +146,81 @@ def get_piece_value(piece: chess.Piece) -> int:
 
 # ─── STOCKFISH CANDIDATE MOVES ─────────────────────────────────────
 
+def _quick_eval_warm_sync(fen_before: str, move_san: str, user_color: str, depth: int) -> dict:
+    """Same eval as quick_stockfish_eval but on the WARM shared engine (no ~500ms
+    popen spawn). Runs sync under the engine-pool lock — call via run_in_executor.
+    The PWC latency was dominated by cold engine spawns in the caption path; this
+    reuses the already-warm engine /evaluate-pending uses. 2026-06-24."""
+    from services.engine_pool import warm_engine_scope
+    board = chess.Board(fen_before)
+    move = board.parse_san(move_san)
+    with warm_engine_scope() as engine:
+        info_before = engine.analyse(board, chess.engine.Limit(depth=depth))
+        score_before = info_before.get("score")
+        eval_before = 0.0
+        if score_before:
+            if score_before.white().is_mate():
+                eval_before = 100.0 if score_before.white().mate() > 0 else -100.0
+            else:
+                eval_before = score_before.white().score(mate_score=10000) / 100.0
+        best_move_obj = info_before.get("pv", [None])[0]
+        best_move_san = board.san(best_move_obj) if best_move_obj else move_san
+        pv_after_best = []
+        if info_before.get("pv"):
+            tb = board.copy()
+            for pv_move in info_before["pv"][:5]:
+                try:
+                    pv_after_best.append(tb.san(pv_move)); tb.push(pv_move)
+                except Exception:
+                    break
+        board.push(move)
+        info_after = engine.analyse(board, chess.engine.Limit(depth=depth))
+        score_after = info_after.get("score")
+        eval_after = 0.0
+        if score_after:
+            if score_after.white().is_mate():
+                eval_after = 100.0 if score_after.white().mate() > 0 else -100.0
+            else:
+                eval_after = score_after.white().score(mate_score=10000) / 100.0
+        pv_after_played = []
+        if info_after.get("pv"):
+            tb = board.copy()
+            for pv_move in info_after["pv"][:5]:
+                try:
+                    pv_after_played.append(tb.san(pv_move)); tb.push(pv_move)
+                except Exception:
+                    break
+    if user_color == "white":
+        cp_loss = max(0, int((eval_before - eval_after) * 100))
+    else:
+        cp_loss = max(0, int((eval_after - eval_before) * 100))
+    return {"best_move": best_move_san, "eval_before": eval_before, "eval_after": eval_after,
+            "cp_loss": cp_loss, "pv_after_played": pv_after_played, "pv_after_best": pv_after_best}
+
+
 async def quick_stockfish_eval(fen_before: str, move_san: str, user_color: str, depth: int = 12) -> dict:
     """
     Quick Stockfish evaluation for a move. Returns best_move, eval_before, eval_after, cp_loss.
     Used by Play with Coach to get instant move quality without waiting for analysis worker.
+
+    Tries the WARM shared engine first (no popen spawn — the main PWC latency); on ANY
+    failure falls back to the original cold-spawn path below, so behaviour never regresses.
     """
+    try:
+        loop = asyncio.get_event_loop()
+        # Hard timeout so a misbehaving warm engine can never hang the caption — on
+        # timeout OR any error we fall through to the original cold-spawn path.
+        return await asyncio.wait_for(
+            loop.run_in_executor(
+                None, _quick_eval_warm_sync, fen_before, move_san, user_color, depth),
+            timeout=2.5)
+    except Exception as _warm_exc:
+        logger.info(f"quick_stockfish_eval: warm path failed ({_warm_exc!r}); cold fallback")
+
     try:
         board = chess.Board(fen_before)
         move = board.parse_san(move_san)
-        
+
         transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
         try:
             # Eval BEFORE the move
