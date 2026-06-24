@@ -21,7 +21,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Chess } from "chess.js";
 
-const WORKER_URL = `${process.env.PUBLIC_URL || ""}/stockfish/stockfish.js`;
+// stockfish.js@10: the WASM worker entry is `stockfish.wasm.js` (it loads
+// stockfish.wasm); `stockfish.js` is only the asm.js fallback. Feature-detect per
+// the package README — pointing at stockfish.js was why the worker loaded but never
+// spoke UCI. 2026-06-24.
+const _WASM_OK = typeof WebAssembly === "object" &&
+  typeof WebAssembly.validate === "function" &&
+  WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+const _SF_BASE = `${process.env.PUBLIC_URL || ""}/stockfish`;
+const WORKER_URL = `${_SF_BASE}/${_WASM_OK ? "stockfish.wasm.js" : "stockfish.js"}`;
 const MOVETIME_MS = 800;   // time-bounded; depth floats with device speed
 const MIN_DEPTH = 12;      // correctness floor (depth_probe.py: harmful <7% at d12)
 const PV_LEN = 4;
