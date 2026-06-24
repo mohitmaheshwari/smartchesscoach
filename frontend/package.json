@@ -66,11 +66,9 @@
     "zod": "^3.24.4"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test",
-    "prestart": "node scripts/copy-stockfish.js",
-    "prebuild": "node scripts/copy-stockfish.js"
+    "start": "node scripts/copy-stockfish.js && craco start",
+    "build": "node scripts/copy-stockfish.js && craco build",
+    "test": "craco test"
   },
   "browserslist": {
     "production": [
