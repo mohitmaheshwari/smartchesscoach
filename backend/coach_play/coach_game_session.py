@@ -507,6 +507,15 @@ async def make_player_move(
     }
 
 
+# Eval-bar cache keyed by FEN. /state is POLLED many times per move (waiting for the
+# coach's reply), and each poll was re-running a Stockfish eval for the SAME position
+# (~600ms each — the dominant remaining PWC latency per the HAR). The eval for a FEN
+# doesn't change between polls, so cache it: only the first poll of a new position pays
+# the Stockfish cost; the rest are instant. 2026-06-24.
+_EVAL_BAR_CACHE: Dict[str, tuple] = {}
+_EVAL_BAR_CACHE_MAX = 1000
+
+
 async def get_session_state(
     db: AsyncIOMotorDatabase,
     session_id: str
@@ -526,9 +535,19 @@ async def get_session_state(
     is_player_turn = (is_white_turn and session.user_color == "white") or \
                      (not is_white_turn and session.user_color == "black")
     
-    # Get position evaluation for the eval bar
-    opponent = CoachOpponent(user_rating=session.user_rating)
-    eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
+    # Get position evaluation for the eval bar — cached by FEN so repeat /state
+    # polls of the same position don't each re-run Stockfish (the HAR's 637ms/state).
+    _fen_key = session.current_fen
+    _cached_eval = _EVAL_BAR_CACHE.get(_fen_key)
+    if _cached_eval is not None:
+        eval_score, mate_in = _cached_eval
+    else:
+        opponent = CoachOpponent(user_rating=session.user_rating)
+        eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
+        if len(_EVAL_BAR_CACHE) >= _EVAL_BAR_CACHE_MAX:
+            for _k in list(_EVAL_BAR_CACHE.keys())[:100]:
+                _EVAL_BAR_CACHE.pop(_k, None)
+        _EVAL_BAR_CACHE[_fen_key] = (eval_score, mate_in)
     
     # Check for opening teaching guidance
     opening_guidance = None
