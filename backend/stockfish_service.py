@@ -171,7 +171,37 @@ class StockfishEngine:
             return cp_value, mate_in
         else:
             return score.score(), None
-    
+
+    def analyse_full(self, board: chess.Board, depth: int = DEFAULT_DEPTH, pv_length: int = 6):
+        """ONE analyse → (white-POV centipawns, best_move|None, pv as SAN list).
+
+        Replaces calling evaluate_position + get_best_move + get_principal_variation
+        on the SAME position (3 full analyses where 1 suffices). The PWC /evaluate
+        latency was re-analysing each position 3x; this collapses it to one. 2026-06-24.
+        """
+        if not self.engine:
+            raise RuntimeError("Engine not started")
+        info = self.engine.analyse(board, chess.engine.Limit(depth=depth))
+        score = info["score"].white()
+        if score.is_mate():
+            mate_in = score.mate()
+            cp = 10000 - abs(mate_in) * 10
+            if mate_in < 0:
+                cp = -cp
+        else:
+            cp = score.score() or 0
+        pv = info.get("pv") or []
+        best_move = pv[0] if pv else None
+        pv_san = []
+        tb = board.copy()
+        for m in pv[:pv_length]:
+            try:
+                pv_san.append(tb.san(m))
+                tb.push(m)
+            except Exception:
+                break
+        return cp, best_move, pv_san
+
     def get_best_move(self, board: chess.Board, depth: int = DEFAULT_DEPTH) -> Tuple[chess.Move, int, Optional[int]]:
         """
         Get the best move for a position.

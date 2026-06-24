@@ -1641,25 +1641,23 @@ async def evaluate_coach_play_move(
 
         try:
             board_before = chess.Board(current_fen)
-            eval_before_cp, _ = engine.evaluate_position(board_before, depth=12)
+            # ONE analysis of board_before → eval + best move + PV (was 3 separate
+            # analyses of the same position: evaluate_position + get_best_move +
+            # get_principal_variation). depth 12 (was 12/14) — plenty for 600-1300 and
+            # cuts the PWC /evaluate latency. 2026-06-24.
+            eval_before_cp, best_move_obj, best_line_san = engine.analyse_full(
+                board_before, depth=12, pv_length=6)
             eval_before = eval_before_cp / 100.0
-
-            # Best move + principal variation from BEFORE position
-            best_move_obj, _, _ = engine.get_best_move(board_before, depth=14)
             if best_move_obj:
                 best_move_san = board_before.san(best_move_obj)
-            best_line_san = engine.get_principal_variation(board_before, depth=14, pv_length=6)
 
-            # Evaluate AFTER user's move
+            # Evaluate AFTER user's move — ONE analysis → eval + punishment line.
             chess_move = board_before.parse_san(move)
             board_after = board_before.copy()
             board_after.push(chess_move)
-
-            eval_after_cp, _ = engine.evaluate_position(board_after, depth=12)
+            eval_after_cp, _, punishment_line = engine.analyse_full(
+                board_after, depth=12, pv_length=4)
             eval_after = eval_after_cp / 100.0
-
-            # Punishment line: opponent's best response after user's bad move
-            punishment_line = engine.get_principal_variation(board_after, depth=12, pv_length=4)
 
         finally:
             engine.stop()
