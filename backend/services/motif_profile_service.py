@@ -15,6 +15,7 @@ opp_reply_creates_fork was 45%, rejected).
 Phase 1: FORK only (audited). pin/skewer/discovered follow once each is audited clean.
 """
 from typing import Dict, List, Any, Optional
+import chess
 
 # Move-quality gates (cp_loss). Lock thresholds via /lock-via-data after a corpus histogram.
 SOUND_CP = 40      # <= this: the motif move was good → strength
@@ -94,7 +95,9 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
 
         # GOT side: the user's move was a blunder whose engine reply creates the motif
         # against the user (same verified detectors, applied to the opponent's reply).
-        # Drill position is fen_before — "find the move that avoids it".
+        # Drill teaches: "in this position, avoid the blunder that lets opponent create the motif"
+        # Store: position before user's move (fen) + best move (what user should play instead)
+        # + opponent's creating move (so UI can show "see how they create it")
         if fen_after and pv and cp >= BLUNDER_CP:
             try:
                 gf = extract_facts(fen_before=fen_after, played_san=pv[0],
@@ -105,7 +108,13 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                 got |= _classify_aligned(gf.get("aligned_pieces_evidence"))
                 for mt in got:
                     out[mt]["got"] += 1
-                    out[mt]["got_positions"].append({"fen": fen, "solution": best})
+                    # Store the position before the blunder with the best move as solution
+                    # + the opponent's creating move for context
+                    out[mt]["got_positions"].append({
+                        "fen": fen,  # position before blunder
+                        "solution": best,  # what user should have played
+                        "opp_creates_motif": pv[0]  # opponent's motif-creating reply (for teaching)
+                    })
             except Exception:
                 pass
     return out

@@ -2,7 +2,7 @@
 
 **What this is:** a two-sided, engine-gated profile of *which tactical motifs the player is good at executing and bad at avoiding* — fork / pin / skewer / discovered attack, in both directions (you EXECUTE it = strength, you ALLOW it = weakness). The mirror/sibling of the existing domain-level `strength_profile_service`, but at motif granularity.
 
-Status: **NOT scoped yet** (needs `docs/motif_profile_scope.md` + sign-off before any code — SDD). This file holds the verified research + deferred items so we don't re-derive them.
+Status: **BUILT 2026-06-21→23** (this backlog was written before discovering the work already landed). Core is shipped — `backend/services/motif_profile_service.py` (two-sided fork/pin/skewer: made_sound/made_tunnel/got), wired at analysis time (`analysis_worker.py:533` → `player_profiles.motif_profile`/`.motif_recognition`), endpoints `/motif-profile` `/motif-recognition` `/motif-drill/{motif}` (`routes/player.py:840+`), engine-verified (fork 100% / pin 100% / skewer 87%), thresholds locked-via-data. See [[project_motif_profile_backlog]] memory. Only the items under "Deferred" below remain.
 
 ---
 
@@ -45,9 +45,14 @@ Persist motif tags into `move_evaluations` during analysis (heavier write, but c
 
 ---
 
-## Deferred items (the queryable list)
-- [ ] **Live-play-with-Coach motif profiling** — run the two-sided motif strength/weakness detection during live coach games + feed `motif_profile` from coach sessions. (Added 2026-06-13. Detection wiring exists at `coach_play.py:3370`; the profile-write from live is what's deferred.)
-- [ ] Pin / skewer / discovered **weakness predicates** (`failure_allows_pin/skewer/discovered`) — pending ≥2-example corpus probe.
-- [ ] **Tunnel-vision signal** (motif made + cp_loss high) surfaced as its own coaching insight.
+## Deferred items (the queryable list) — what's LEFT after the 2026-06-21→23 build
+- [ ] **Enable the frontend** — the motif card is built in `frontend/src/pages/UnifiedProgress.jsx` but DISABLED behind `false &&`. Product decision to flip on.
+- [ ] **Discovered-attack motif** — only fork/pin/skewer wired; `discovered` noted "to add after its audit" in motif_profile_service.py. Needs the audit + wiring.
+- [ ] **Live-play-with-Coach motif profiling** — analysis-time path done; running the detection live + feeding `motif_profile` from coach sessions is still deferred. (Detection wiring exists at `coach_play.py:3370`.)
+
+## DONE (was deferred, now shipped)
+- [x] Two-sided fork/pin/skewer aggregator, engine-verified — `motif_profile_service.py`.
+- [x] **Tunnel-vision signal** (motif made + cp_loss high) — shipped as `made_tunnel`.
+- [x] Pin/skewer detection both sides — shipped (pin 100%, skewer 87% audited).
 
 _Append new deferred items here. When Mohit asks "do we have anything in backlog?" — check this file._
