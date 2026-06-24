@@ -612,7 +612,7 @@ const UnifiedProgress = ({ user }) => {
         )}
 
         {/* ─── Tactics profile: patterns you find vs patterns that catch you ─── */}
-        {false && motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
+        {motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
           <motion.section variants={fadeInUp} className="mb-14">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
               Your tactics · patterns you find vs patterns that catch you
@@ -642,12 +642,12 @@ const UnifiedProgress = ({ user }) => {
                     <div key={w.motif} className="mb-4 last:mb-0">
                       <div className="text-[14px] font-medium text-foreground">{w.label} — caught {w.got}×</div>
                       <div className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">💡 {w.lesson}</div>
-                      {w.drill_count > 0 && (
+                      {(w.drill_positions?.length || 0) > 0 && (
                         <button
-                          onClick={() => navigate(`/training/pattern/${w.drill_pattern}`)}
-                          className="h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] inline-flex items-center gap-2 transition-colors"
+                          onClick={() => navigate(`/training/motif/${w.motif}`)}
+                          className="h-9 px-4 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-medium text-[13px] inline-flex items-center gap-2 transition-colors"
                         >
-                          Drill {w.drill_count} from your games
+                          Drill {w.drill_positions?.length || 0} from your games
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
                       )}

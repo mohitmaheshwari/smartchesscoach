@@ -22,6 +22,7 @@ import WeaknessTracker from "@/pages/WeaknessTracker";
 import TrainingNew from "@/pages/TrainingNew";  // Used by /coach and /focus routes (renamed from aliased `Training` for clarity)
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Canonical training page (all /training/* routes)
 import SkillDrill from "@/pages/SkillDrill";  // Drill positions for an Engine 2 skill (detector-graded)
+import MotifDrill from "@/pages/MotifDrill";  // Drill positions for motif weaknesses (pin/fork/skewer)
 import AdminAuthoringReview from "@/pages/AdminAuthoringReview";  // Per-item review of Parth's authoring submissions
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
@@ -309,6 +310,11 @@ function AppRouter() {
       <Route path="/training/skill/:skillId" element={
         <ProtectedRoute>
           {({ user }) => <SkillDrill user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/motif/:motif" element={
+        <ProtectedRoute>
+          {({ user }) => <MotifDrill user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/quiz/:openingKey" element={
