@@ -1590,6 +1590,38 @@ async def coach_chat_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _coach_evaluate_sync(current_fen: str, move: str):
+    """Sync Stockfish eval for /evaluate. Run in a thread executor so it does NOT
+    block the async event loop — a blocking eval was stalling the /state and
+    /messages polls (HAR showed 3s poll waits = pure queuing behind the eval), which
+    is what made the coach move feel slow. 2026-06-24.
+
+    Returns (eval_before, eval_after, best_move_san, best_line_san, punishment_line).
+    """
+    eval_before = eval_after = None
+    best_move_san = None
+    best_line_san = []
+    punishment_line = []
+    engine = StockfishEngine()
+    engine.start()
+    try:
+        board_before = chess.Board(current_fen)
+        eval_before_cp, best_move_obj, best_line_san = engine.analyse_full(
+            board_before, depth=12, pv_length=6)
+        eval_before = eval_before_cp / 100.0
+        if best_move_obj:
+            best_move_san = board_before.san(best_move_obj)
+        chess_move = board_before.parse_san(move)
+        board_after = board_before.copy()
+        board_after.push(chess_move)
+        eval_after_cp, _, punishment_line = engine.analyse_full(
+            board_after, depth=12, pv_length=4)
+        eval_after = eval_after_cp / 100.0
+    finally:
+        engine.stop()
+    return eval_before, eval_after, best_move_san, best_line_san, punishment_line
+
+
 @router.post("/evaluate")
 async def evaluate_coach_play_move(
     request: Dict = Body(...),
@@ -1636,31 +1668,13 @@ async def evaluate_coach_play_move(
     punishment_line = []
 
     try:
-        engine = StockfishEngine()
-        engine.start()
-
-        try:
-            board_before = chess.Board(current_fen)
-            # ONE analysis of board_before → eval + best move + PV (was 3 separate
-            # analyses of the same position: evaluate_position + get_best_move +
-            # get_principal_variation). depth 12 (was 12/14) — plenty for 600-1300 and
-            # cuts the PWC /evaluate latency. 2026-06-24.
-            eval_before_cp, best_move_obj, best_line_san = engine.analyse_full(
-                board_before, depth=12, pv_length=6)
-            eval_before = eval_before_cp / 100.0
-            if best_move_obj:
-                best_move_san = board_before.san(best_move_obj)
-
-            # Evaluate AFTER user's move — ONE analysis → eval + punishment line.
-            chess_move = board_before.parse_san(move)
-            board_after = board_before.copy()
-            board_after.push(chess_move)
-            eval_after_cp, _, punishment_line = engine.analyse_full(
-                board_after, depth=12, pv_length=4)
-            eval_after = eval_after_cp / 100.0
-
-        finally:
-            engine.stop()
+        # Run the Stockfish work in a thread so it does NOT block the async event
+        # loop — otherwise concurrent /state and /messages polls stall behind it
+        # (the real "coach move slow"). 2 analyses (analyse_full), depth 12. 2026-06-24.
+        import asyncio as _asyncio
+        loop = _asyncio.get_event_loop()
+        eval_before, eval_after, best_move_san, best_line_san, punishment_line = \
+            await loop.run_in_executor(None, _coach_evaluate_sync, current_fen, move)
 
     except Exception as e:
         logger.warning(f"Stockfish evaluation failed: {e}")
@@ -4658,7 +4672,11 @@ async def evaluate_pending_move(
             cached_eval = last_eval.get("eval_after") or last_eval.get("score")
 
         # ─── FAST STOCKFISH EVAL ─────
-        eval_result = fast_eval(fen_before, uci, cached_eval)
+        # Run in a thread so the (synchronous) Stockfish call doesn't block the async
+        # event loop and stall the /state + /messages polls. 2026-06-24.
+        import asyncio as _asyncio
+        eval_result = await _asyncio.get_event_loop().run_in_executor(
+            None, fast_eval, fen_before, uci, cached_eval)
 
         # If fast_eval failed (all zeros), log it
         if eval_result.get("depth", 0) == 0 and eval_result.get("elapsed_ms", 0) > 500:
