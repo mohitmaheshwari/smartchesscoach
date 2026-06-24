@@ -43,8 +43,17 @@ export function useStockfishEval() {
     }
     workerRef.current = worker;
 
+    // Surface worker-level failures (wasm load error, script error) — without this
+    // a broken engine fails silently. 2026-06-24 debug.
+    worker.onerror = (e) => {
+      console.error("[useStockfishEval] worker error:", e?.message || e?.filename || e);
+    };
+    worker.onmessageerror = (e) => console.error("[useStockfishEval] message error:", e);
+
+    let _dbgLines = 0; // log the handshake (first ~25 lines) so we can see the protocol
     worker.onmessage = (ev) => {
       const line = typeof ev.data === "string" ? ev.data : ev.data?.data || "";
+      if (_dbgLines < 25) { console.log("[useStockfishEval] <<", JSON.stringify(ev.data)?.slice(0, 120)); _dbgLines++; }
       if (!line) return;
       if (line === "uciok") {
         worker.postMessage("setoption name Use NNUE value true");
