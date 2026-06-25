@@ -4278,6 +4278,36 @@ def build_move_teaching_decision(
     except Exception as _wbad_exc:
         logger.warning(f"[why_bad] enrich failed m{inputs.full_move_number}: {_wbad_exc!r}")
 
+    # ─── 11b3. WHY-BAD enrichment: king left in the centre (one place) ───
+    # "Missed-best" mistakes where the engine's best move was to CASTLE and the
+    # player didn't: the concrete downside is the king stranded in the centre.
+    # Fires ONLY when verifiably true — the king is still on its home square (e1/
+    # e8) past the opening — never as generic "you missed castling" filler.
+    # Verified by narrator_claim_verifier._check_king_center. 2026-06-25.
+    try:
+        _best_cc = (inputs.best_move_san or "").replace("0", "O")
+        if (inputs.mover_is_user and _best_cc in ("O-O", "O-O-O")
+                and (inputs.full_move_number or 0) >= 7):
+            _cap_cc = caption_payload.get("caption") or ""
+            _has_wb_cc = _re_pb.search(
+                r"(loses to |lets \S+ (win|capture)|allows |walks into |drops the |"
+                r"\bhangs\b|win your \w+ on|losing material|in the cent(er|re)|"
+                r"away from defending)", _cap_cc, _re_pb.I)
+            _sev_cc = _re_pb.search(
+                _re_pb.escape(inputs.played_san or "")
+                + r" is an? (?:mistake|major blunder|serious mistake|inaccuracy)", _cap_cc)
+            if not _has_wb_cc and _sev_cc:
+                _bcc = chess.Board(inputs.fen_before)
+                _bcc.push_san(inputs.played_san)
+                _mc = chess.WHITE if inputs.mover_is_white else chess.BLACK
+                _home = chess.E1 if _mc == chess.WHITE else chess.E8
+                if _bcc.king(_mc) == _home:
+                    _cc_drop = f"{_sev_cc.group(0)} — it leaves your king in the center"
+                    caption_payload["caption"] = (
+                        _cap_cc[:_sev_cc.start()] + _cc_drop + _cap_cc[_sev_cc.end():])
+    except Exception as _cc_exc:
+        logger.warning(f"[why_bad_kingcenter] enrich failed m{inputs.full_move_number}: {_cc_exc!r}")
+
     # ─── 11c. WHY-BETTER append (one place) ──────────────────────
     # Law: every recommended move needs its WHY (feedback_explain_why_recommended_
     # move_good). The R12 cascade names "{best} was better" but only some variants

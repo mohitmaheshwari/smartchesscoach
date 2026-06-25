@@ -28,7 +28,7 @@ def _fen4(f): return " ".join(f.split()[:4])
 
 
 def _whatm(c): return bool(re.search(r"\b(is (a|an) (mistake|inaccuracy|serious mistake|major blunder)|loses to|lets |allows |walks into|drops |hangs|it drops the)\b", c, re.I))
-def _whybad(c): return bool(re.search(r"(loses to \S+|lets \S+ (win|capture)|allows \S+ (fork|forking|pin|skew)|walks into \S+|drops the \w+|\bhangs\b|win your \w+ on|forking your|losing material|loses material|it drops the)", c, re.I))
+def _whybad(c): return bool(re.search(r"(loses to \S+|lets \S+ (win|capture)|lets \S+ in\b|allows \S+ (fork|forking|pin|skew)|walks into \S+|drops the \w+|\bhangs\b|win your \w+ on|forking your|losing material|loses material|it drops the|leaves your king|in the cent(er|re)|away from defending)", c, re.I))
 def _whybetter(c):
     m = re.search(r"was (?:the )?(?:better|stronger)\b\s*[—-]\s*(.*?)(?:\.|$)", c)
     if not m: return False

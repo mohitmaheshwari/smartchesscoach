@@ -103,6 +103,13 @@ def _r01_render(f):
         ),
         "pawn_swing": max(1, min(9, round(cpl / 100))) if cpl > 0 else 0,
     }
+    # Punishment move for the lost-position "allows" variant: the opponent's
+    # refuting reply (pv_after_played[0]). Lets the floor NAME the threat
+    # ("Qd2 lets Qxf2+ in") instead of the generic "position turns against
+    # you". Verified by narrator_claim_verifier._check_allows. 2026-06-25.
+    _pvp = f.get("pv_after_played") or []
+    if f.get("mover_is_user") and _pvp and isinstance(_pvp[0], str) and _pvp[0]:
+        facts["threat_move"] = _pvp[0]
     cap = render_rule("R01_mate", facts) or ""
     return CaptionOutput(
         caption=cap,

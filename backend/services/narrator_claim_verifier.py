@@ -236,6 +236,47 @@ def _check_queen_chased(caption: str, facts: Dict[str, Any]) -> List[Dict[str, s
     return []
 
 
+# "allows/lets <SAN>" — the named opponent reply must be LEGAL on the board the
+# user now faces (after the played move). Guards the lost-position-floor variant
+# that names the punishment move, and any existing "lets Bxe5 win" caption.
+_ALLOWS_RX = re.compile(
+    r"\b(?:allows|lets)\s+"
+    r"(O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)\b"
+)
+
+
+def _check_allows(caption: str, post: chess.Board) -> List[Dict[str, str]]:
+    out = []
+    for m in _ALLOWS_RX.finditer(caption):
+        san = m.group(1)
+        try:
+            post.parse_san(san)  # raises if illegal / ambiguous in this position
+        except Exception:
+            out.append({"check": "allows_illegal",
+                        "detail": f"says 'allows {san}' but {san} is not a legal reply here"})
+    return out
+
+
+_KING_CENTER_RX = re.compile(r"king in the cent(?:er|re)", re.I)
+
+
+def _check_king_center(caption: str, post: chess.Board) -> List[Dict[str, str]]:
+    """'leaves your king in the center' — the MOVER's king must actually be
+    central (files c-f) on its home rank in the position the user now faces."""
+    if not _KING_CENTER_RX.search(caption):
+        return []
+    mover = not post.turn  # post is after the played move → opponent to move
+    ksq = post.king(mover)
+    if ksq is None:
+        return []
+    home_rank = 0 if mover == chess.WHITE else 7
+    central = (2 <= chess.square_file(ksq) <= 5) and (chess.square_rank(ksq) == home_rank)
+    if not central:
+        return [{"check": "king_not_central",
+                 "detail": f"says 'king in the center' but the king is on {chess.square_name(ksq)}"}]
+    return []
+
+
 def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     """Return a list of board-verified violations ([] == clean)."""
     if not caption or not (caption or "").strip():
@@ -249,4 +290,6 @@ def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
             + _check_no_recapture(caption, facts)
             + _check_mate(caption, facts)
             + _check_outpost(caption, facts)
-            + _check_queen_chased(caption, facts))
+            + _check_queen_chased(caption, facts)
+            + _check_allows(caption, post)
+            + _check_king_center(caption, post))

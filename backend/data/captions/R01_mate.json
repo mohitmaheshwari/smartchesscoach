@@ -33,6 +33,7 @@
 
     {"when": {"mover_is_user": true, "ply": 1}, "variant": "user_allows_p1"},
     {"when": {"mover_is_user": true, "ply": "present"}, "variant": "user_allows_pN"},
+    {"when": {"mover_is_user": true, "pawn_swing": {"gt": 0}, "threat_move": "present"}, "variant": "user_allows_pawns_pv"},
     {"when": {"mover_is_user": true, "pawn_swing": {"gt": 0}}, "variant": "user_allows_pawns"},
     {"when": {"mover_is_user": true}, "variant": "user_allows_bare"}
   ],
@@ -53,6 +54,7 @@
     "user_already_lost": "{played_san} — the position was already lost before this move.",
     "user_allows_p1": "{played_san} allows mate next move.",
     "user_allows_pN": "{played_san} allows mate in {ply}.",
+    "user_allows_pawns_pv": "{played_san} lets {threat_move} in — the opponent now has a winning attack.",
     "user_allows_pawns": "{played_san} — the position now turns against you. Opponent has a winning attack here.",
     "user_allows_bare": "{played_san} — the position is turning against you."
   }
