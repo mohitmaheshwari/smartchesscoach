@@ -62,6 +62,13 @@ services:
       # keep monitoring divergence in prod after the flip.
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
       - PWC_USE_CENTRAL_CAPTION_PIPELINE=true
+      # EVERY-MOVE-TEACHES (2026-06-25, docs/pwc_every_move_teaches_scope.md):
+      # un-gate the user-move caption so EVERY move shows the central library's
+      # verified teaching line instead of a bare good/bad badge (the policy gate
+      # was discarding a caption already written — same text as review, proven
+      # byte-identical). Code default is OFF; this flips it ON for prod.
+      # Kill-switch: set to false to revert without a code change.
+      - PWC_EVERY_MOVE_TEACHES=true
       # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.

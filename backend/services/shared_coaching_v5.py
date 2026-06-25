@@ -18,6 +18,7 @@ This ensures: Improve one place → Both pages get smarter!
 """
 
 import asyncio
+import os
 import chess
 import chess.engine
 import logging
@@ -1016,6 +1017,26 @@ async def generate_move_coaching(
                 _decision = _decide_policy(_critique, _student)
                 _critique_decision = (_critique, _decision)
                 if not _decision.should_speak:
+                    # EVERY-MOVE-TEACHES (PWC_EVERY_MOVE_TEACHES, default off).
+                    # The policy gate wants silence, but the central library
+                    # already wrote a true, verifier-checked caption for this
+                    # move (_central_caption, computed above and IDENTICAL to the
+                    # review surface for the same inputs — proven 2026-06-25).
+                    # Coverage is first-class: render it instead of blanking to a
+                    # bare good/bad badge. We only stay silent when the library
+                    # itself had nothing to say (_central_caption == "").
+                    # docs/pwc_every_move_teaches_scope.md.
+                    if (
+                        os.environ.get("PWC_EVERY_MOVE_TEACHES", "false").lower() == "true"
+                        and _central_caption
+                    ):
+                        return V5Coaching(
+                            narrative=_central_caption,
+                            severity=severity,  # cp_loss tier → the small dot
+                            is_user_move=True,
+                            best_move=best_move_san,
+                            suppress=False,
+                        )
                     return V5Coaching(
                         narrative="",
                         severity="silent",

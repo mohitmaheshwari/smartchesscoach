@@ -147,8 +147,8 @@ const V5CoachingCard = ({
   return (
     <div
       className={`rounded-xl border-2 ${
-        isGoodMove ? 'bg-emerald-50 border-emerald-300' :
         isMistake ? 'bg-red-50 border-red-300' :
+        isGoodMove ? 'bg-card border-emerald-300/40' :
         'bg-card border-border'
       }`}
       data-testid="v5-coaching-card"
@@ -165,12 +165,25 @@ const V5CoachingCard = ({
             <span className="font-mono font-bold text-lg text-gray-900">
               {moveSan}
             </span>
-            <Badge 
-              variant="outline" 
-              className={`text-${config.color}-400 border-${config.color}-500/30`}
-            >
-              {config.label}
-            </Badge>
+            {/* EVERY-MOVE-TEACHES: demote good/routine moves to a quiet dot so
+                the teaching line leads, not the verdict. Mistakes keep the full
+                label — a student must clearly see a mistake was made. */}
+            {isMistake ? (
+              <Badge
+                variant="outline"
+                className={`text-${config.color}-400 border-${config.color}-500/30`}
+              >
+                {config.label}
+              </Badge>
+            ) : (
+              <span
+                className={`text-${config.color}-400 text-[10px] leading-none`}
+                title={config.label}
+                aria-label={config.label}
+              >
+                ●
+              </span>
+            )}
           </div>
           {coaching.best_move && coaching.best_move !== moveSan && !coaching.hide_best_move && (
             <span className="text-xs text-muted-foreground">
