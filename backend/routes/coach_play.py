@@ -8310,11 +8310,22 @@ async def _process_move_and_respond(
                                 pass
                             return out
 
-                        _mp = await _aio.to_thread(_mpv, fen_after_user, 5)
+                        # CHEAP PRE-GATE (no Stockfish): should_fire() can only return True when the
+                        # per-game prediction cap is unspent AND there are enough legal moves. Both are
+                        # free to check, so do it BEFORE paying the ~0.9s cold multipv spawn. Most moves
+                        # past the opening have already hit the cap (2-3/game) — this is the single
+                        # biggest per-move coach-latency win: those moves now spawn zero Stockfish here.
+                        # 2026-06-25.
+                        from services.predict_coach_move import PER_GAME_CAP as _PGC, band_of as _band, MIN_LEGAL as _MINLEG
+                        _preds_so_far = session_doc.get("predictions_this_game", 0)
+                        _n_legal = chess.Board(fen_after_user).legal_moves.count()
+                        _mp = []
+                        if _preds_so_far < _PGC[_band(_rating)] and _n_legal >= _MINLEG:
+                            _mp = await _aio.to_thread(_mpv, fen_after_user, 5)
                         _rank = next((i + 1 for i, (s, _) in enumerate(_mp) if s == coach_move), None)
                         _gap = (_mp[0][1] - _mp[1][1]) if len(_mp) >= 2 else None  # best - 2nd (mover POV)
-                        if _mp and should_fire(_rank, _gap, chess.Board(fen_after_user).legal_moves.count(),
-                                               session_doc.get("predictions_this_game", 0), _rating):
+                        if _mp and should_fire(_rank, _gap, _n_legal,
+                                               _preds_so_far, _rating):
                             _opts = build_options(_mp, coach_move, _rating)
                             if _opts and coach_move in _opts:
                                 await db.coach_sessions.update_one(
