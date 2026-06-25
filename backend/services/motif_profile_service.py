@@ -108,12 +108,13 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                 got |= _classify_aligned(gf.get("aligned_pieces_evidence"))
                 for mt in got:
                     out[mt]["got"] += 1
-                    # Store the position before the blunder with the best move as solution
-                    # + the opponent's creating move for context
+                    # Store position AFTER user's blunder but BEFORE opponent replies
+                    # This way opp_creates_motif move is playable in this FEN
                     out[mt]["got_positions"].append({
-                        "fen": fen,  # position before blunder
-                        "solution": best,  # what user should have played
-                        "opp_creates_motif": pv[0]  # opponent's motif-creating reply (for teaching)
+                        "fen": fen_after,  # position after user's blunder, ready for opponent's move
+                        "solution": best,  # what user should have played instead
+                        "user_blunder_move": played,  # the blunder move that led here
+                        "opp_creates_motif": pv[0]  # opponent's reply that creates the motif (NOW LEGAL)
                     })
             except Exception:
                 pass
