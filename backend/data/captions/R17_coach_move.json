@@ -69,7 +69,7 @@
       "hint_for_user": "Count what this piece is attacking. Which target is more valuable, and can you find a tempo move that saves both?"
     },
     "coach_gives_check": {
-      "explanation": "{played_san}+ — check.",
+      "explanation": "{played_san} — check.",
       "plan": "Forced moves first: address the check before considering anything else.",
       "teaching_point": "Checks are the most forcing move in chess. Always answer a check before your own plans.",
       "hint_for_user": "What are your three ways out of check: block, capture the checker, or move the king?"

@@ -3395,8 +3395,17 @@ async def get_interactive_coaching(
                     elif v2_intent == "fork_opportunity":
                         intent_materialized = len(_facts.forks_by_us) > 0
                     elif v2_intent == "hanging_piece_punishment":
+                        # A REAL punishment won material for free — the move
+                        # captured an UNDEFENDED piece, or threatens one. A
+                        # capture of a DEFENDED piece is just a trade (e.g.
+                        # Qxd8+ Kxd8) and must NOT be labelled "Piece Safety".
+                        # Bare is_capture over-fired on every trade. 2026-06-25.
+                        _won_free = False
+                        if _facts.is_capture:
+                            _student_color = chess.WHITE if user_color == "white" else chess.BLACK
+                            _won_free = not board.attackers(_student_color, move.to_square)
                         intent_materialized = (
-                            _facts.is_capture
+                            _won_free
                             or len(_facts.hanging_theirs) > 0
                             or _facts.forcing_moves_us.get("attacks_on_undefended", 0) > 0
                         )

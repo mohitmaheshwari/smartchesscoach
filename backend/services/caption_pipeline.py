@@ -1423,6 +1423,23 @@ def inject_coach_move_facts(
             hanging, underdefended = find_hanging_pieces(
                 board_after, victim_color=coach_color
             )
+            # Only surface a hanging/underdefended coach piece the student can
+            # ACTUALLY take right now — there must be a LEGAL student move that
+            # captures on that square. Drops pieces that are geometrically
+            # attacked but uncapturable this move; the canonical case is the
+            # student being in CHECK (only check-evasions are legal), where a
+            # coach bishop on a3 reads as "undefended" yet Bxa3 is illegal. The
+            # checker itself stays — e.g. Qxd8+ leaves the queen on d8 undefended
+            # and Kxd8 is a legal evasion, so "capture the checker" is correct.
+            # Verified on the Qxd8+ coach-card screenshot, 2026-06-25.
+            _legal_capture_sqs = {
+                m.to_square for m in board_after.legal_moves
+                if board_after.is_capture(m)
+            }
+            hanging = [h for h in hanging if h.square in _legal_capture_sqs]
+            underdefended = [
+                h for h in underdefended if h.square in _legal_capture_sqs
+            ]
             if hanging:
                 student_opportunities["coach_hanging_pieces"] = [
                     {"piece": chess.piece_name(h.piece_type),
