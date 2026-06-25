@@ -8403,6 +8403,21 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
 
+                    # Seed the eval-bar cache with the eval we JUST computed so the /state
+                    # poll that detects this coach move returns instantly instead of running
+                    # the SAME get_evaluation again (that redundant Stockfish was contending
+                    # with get_move on the thread pool → 2.7s /state in the HAR). 2026-06-25.
+                    try:
+                        from coach_play.coach_game_session import (
+                            _EVAL_BAR_CACHE as _EBC, _EVAL_BAR_CACHE_MAX as _EBC_MAX,
+                        )
+                        if len(_EBC) >= _EBC_MAX:
+                            for _k in list(_EBC.keys())[:100]:
+                                _EBC.pop(_k, None)
+                        _EBC[fen_after_coach] = (eval_score, mate_in)
+                    except Exception:
+                        pass
+
                     # === PUNISHMENT-PUZZLE ARMING ===
                     # If the coach just played an exploitable move, arm
                     # a guided puzzle: store observation/challenge/reveal
