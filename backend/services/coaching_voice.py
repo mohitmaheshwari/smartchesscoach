@@ -151,8 +151,12 @@ def _pick(critique: MoveCritique, voice: Voice) -> Optional[Dict]:
 
     return {
         "narrative": fill(tpl.get("narrative")) or "",
-        "question": fill(tpl.get("question")),
-        "hint": fill(tpl.get("hint")),
+        # Coach Conductor LAW 1: state, never ask. The critique voice no longer
+        # emits a Socratic question/hint — the narrative carries the teaching as a
+        # statement. docs/pwc_coach_conductor_scope.md. (Table questions kept for
+        # reference but suppressed at the single render point.)
+        "question": None,
+        "hint": None,
     }
 
 
