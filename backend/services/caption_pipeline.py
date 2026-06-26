@@ -2236,41 +2236,14 @@ def populate_coach_extras(caption_facts: Dict[str, Any]) -> Optional["CoachExtra
         else:
             threats.append(f"Attacks your {piece} on {square}")
 
-    # opponent_opportunity — surface what the student can exploit.
-    # Mirrors smart_coaching's structure so the frontend's existing
-    # rendering of `opponent_opportunity` continues to work after the
-    # source-of-truth flip in PR-4.
-    opportunity_facts = caption_facts.get("student_can_exploit") or {}
+    # opponent_opportunity — DISABLED 2026-06-26 (Coach Conductor LAW 1: state,
+    # never ask / never spoil). This fed the frontend "Can you see it?" callout —
+    # which is either a quiz ("can you see it?") or a spoiler ("you can win the
+    # knight on d4"). Both pre-empt the player's own move. The coach lets the
+    # player play, then catches a MISS after the move. Kept None so the field
+    # stays in the shape; the detection still runs for the post-move thread.
+    # docs/pwc_coach_conductor_scope.md.
     opponent_opportunity: Optional[Dict[str, Any]] = None
-    if isinstance(opportunity_facts, dict) and opportunity_facts:
-        # Compose a one-line message for the UI; keep the raw structured
-        # data alongside so future renderers can use richer formatting.
-        parts: List[str] = []
-        hanging = opportunity_facts.get("coach_hanging_pieces") or []
-        underdef = opportunity_facts.get("coach_underdefended_pieces") or []
-        forks = opportunity_facts.get("student_fork_chance_count") or 0
-        if hanging:
-            names = ", ".join(
-                f"{h['piece']} on {h['square']}" for h in hanging
-                if isinstance(h, dict) and h.get("piece") and h.get("square")
-            )
-            if names:
-                parts.append(f"Coach has undefended: {names}")
-        if underdef:
-            names = ", ".join(
-                f"{h['piece']} on {h['square']}" for h in underdef
-                if isinstance(h, dict) and h.get("piece") and h.get("square")
-            )
-            if names:
-                parts.append(f"Under pressure: {names}")
-        if forks:
-            parts.append(f"You may have a fork available ({forks} chance{'s' if forks != 1 else ''})")
-        if parts:
-            opponent_opportunity = {
-                "type": "smart",
-                "message": "; ".join(parts),
-                "details": opportunity_facts,
-            }
 
     return CoachExtras(
         move_san=caption_facts.get("played_san") or "",
