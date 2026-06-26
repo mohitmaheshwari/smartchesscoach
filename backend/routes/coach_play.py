@@ -2878,6 +2878,33 @@ async def get_interactive_coaching(
             except Exception:
                 pass
 
+            # ─── Coach Conductor (PWC_COACH_CONDUCTOR, default off) ──────────
+            # Load the player's motif digest (lazily, cached on the session) and the
+            # restraint set, so the central door can surface a personalized motif
+            # THREAD as the caption when an engine-confirmed weak pattern recurs.
+            # docs/pwc_coach_conductor_scope.md.
+            import os as _os
+            _conductor_digest = None
+            _conductor_pulled = set(session_doc.get("conductor_threads_pulled") or [])
+            if _os.environ.get("PWC_COACH_CONDUCTOR", "false").lower() == "true":
+                try:
+                    _conductor_digest = session_doc.get("player_motif_threads")
+                    if _conductor_digest is None:
+                        from services.coach_conductor import player_motif_threads as _pmt
+                        _mp = await db.player_profiles.find_one(
+                            {"user_id": session_doc.get("user_id")},
+                            {"_id": 0, "motif_profile": 1, "motif_recognition": 1, "games_analyzed_count": 1},
+                        ) or {}
+                        _conductor_digest = _pmt(_mp.get("motif_profile"), _mp.get("motif_recognition"),
+                                                 _mp.get("games_analyzed_count") or 0)
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"player_motif_threads": _conductor_digest}},
+                        )
+                except Exception as _cd_exc:
+                    logger.warning(f"[conductor] digest load failed: {_cd_exc}")
+                    _conductor_digest = None
+
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
                 board_before=board,
@@ -2903,7 +2930,20 @@ async def get_interactive_coaching(
                 eval_before_cp=int(round((eval_before or 0) * 100)),
                 eval_after_cp=int(round((eval_after or 0) * 100)),
                 move_evaluations=session_doc.get("move_evaluations") or None,
+                player_motif_threads=_conductor_digest,
+                session_conductor_threads_pulled=_conductor_pulled,
             )
+
+            # Persist conductor restraint — keys pulled this game (mutated in place
+            # by the door when a thread fires), so a thread fires at most once/game.
+            if _conductor_pulled:
+                try:
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": {"conductor_threads_pulled": list(_conductor_pulled)}},
+                    )
+                except Exception:
+                    pass
 
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
