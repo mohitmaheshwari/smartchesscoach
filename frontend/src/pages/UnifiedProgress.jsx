@@ -599,10 +599,7 @@ const UnifiedProgress = ({ user }) => {
                           <div className="mt-1.5 text-[12px]">
                             <span className="text-emerald-600 dark:text-emerald-400">Attack: {r.attack?.tier}</span>
                             <span className="opacity-40"> · </span>
-                            <span className="text-amber-600 dark:text-amber-400">
-                              Defense: {r.defense?.tier ?? "—"}
-                              {r.defense?.rate != null ? ` (${r.defense.rate}% seen coming)` : ""}
-                            </span>
+                            <span className="text-amber-600 dark:text-amber-400">Defense: {r.defense?.tier ?? "—"}</span>
                             <div className="text-foreground/70 mt-0.5">{r.two_sided_note}</div>
                           </div>
                         )}
@@ -653,14 +650,14 @@ const UnifiedProgress = ({ user }) => {
                 {(motif.weaknesses || []).length ? (
                   (motif.weaknesses || []).map((w) => (
                     <div key={w.motif} className="mb-4 last:mb-0">
-                      <div className="text-[14px] font-medium text-foreground">{w.label} — caught {w.got}×</div>
+                      <div className="text-[14px] font-medium text-foreground">{w.label} — keeps catching you</div>
                       <div className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">💡 {w.lesson}</div>
                       {(w.drill_positions?.length || 0) > 0 && (
                         <button
                           onClick={() => navigate(`/training/motif/${w.motif}`)}
                           className="h-9 px-4 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-medium text-[13px] inline-flex items-center gap-2 transition-colors"
                         >
-                          Drill {w.drill_positions?.length || 0} from your games
+                          Drill it from your games
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
                       )}
