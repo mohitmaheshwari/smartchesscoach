@@ -2137,9 +2137,9 @@ async def check_escape_squares(
     if not fen:
         return {"has_quiz": False}
 
-    quiz = is_escape_squares_teaching_moment(fen, user_color)
-    if quiz:
-        return {"has_quiz": True, "quiz": quiz}
+    # DISABLED 2026-06-26 (Coach Conductor LAW 1: state, never ask). The escape-
+    # squares quiz ("how many escape squares does the king have?") is a quiz; the
+    # coach states what's on the board instead. docs/pwc_coach_conductor_scope.md.
     return {"has_quiz": False}
 
 
@@ -7639,7 +7639,11 @@ async def _process_move_and_respond(
                 {"user_id": session_doc.get("user_id")}
             ) or {}
             _hp_rating = _hp_user_doc.get("rating")
-            if (_hp_rating is None or _hp_rating < 1400) and move_number and move_number % 5 == 0:
+            # DISABLED 2026-06-26 (Coach Conductor LAW 1: state, never ask). These
+            # blind-timer process reminders ("what is your opponent threatening?")
+            # are generic quizzes/nags; the per-move conductor replaces them with
+            # position-specific statements. docs/pwc_coach_conductor_scope.md.
+            if False and (_hp_rating is None or _hp_rating < 1400) and move_number and move_number % 5 == 0:
                 # CAP: at most ONE habit prompt per game (founder feedback 2026-06-09 —
                 # firing every 5 moves was relentless generic spam, ~8 repeated prompts a game;
                 # a coach should not nag on a blind timer). Fires once, then stays quiet for the

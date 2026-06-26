@@ -44,6 +44,10 @@ def should_fire(coach_move_rank: Optional[int], gap_cp: Optional[int], num_legal
     """The firing SEAM — fire ONLY on a CALCULABLE moment: the coach plays the clearly-best move, so
     there is a definite answer to FIND. Openings + quiet positions (near-equal moves) never fire.
     V1 = clear-best + per-game cap; the conductor (later) replaces THIS BODY, not the seam or its callers."""
+    # DISABLED 2026-06-26 (Coach Conductor LAW 1: state, never ask). "Guess my move"
+    # is a quiz; the conductor surfaces position-specific statements instead. Kept
+    # the seam + body for a future opt-in. docs/pwc_coach_conductor_scope.md.
+    return False
     if coach_move_rank != 1:                           # coach must be playing the engine's best move
         return False
     if gap_cp is None or gap_cp < CLEAR_BEST_GAP_CP:    # not clearly best -> nothing to predict

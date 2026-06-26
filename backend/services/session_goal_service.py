@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Keys match player_identity_engine.LEAK_INTERPRETATIONS.
 _LEAK_GOALS = {
     "hanging_piece_blindness": "Today's one rule: before every move, a quick check — is anything of mine left undefended?",
-    "threat_blindness":        "Today, before each move, ask one question: what is my opponent trying to do right now?",
+    "threat_blindness":        "Today we're working on reading your opponent's threats — what they're trying to do — before you move.",
     "calculation_depth":       "Today, let's slow down and look one move further before you commit.",
     "tactical_oversight":      "Today, look for forcing moves first — checks, captures, and threats — before quiet moves.",
     "time_pressure":           "Today, let's keep a steady pace, so you're not rushing the important moves at the end.",
@@ -57,7 +57,7 @@ _PHASE_TAIL = {
 # install" table in the scope doc. Band keys match deterministic_coach_service.RATING_BANDS.
 _BAND_GOALS = {
     "beginner_low":  "Today's one rule: before every move, check — can my opponent take any of my pieces?",
-    "beginner_high": "Today, before each move, ask: what is my opponent threatening right now?",
+    "beginner_high": "Today we're working on spotting your opponent's threats before you move.",
     "intermediate":  "Today, let's look one move deeper — what's my opponent's best reply — before you commit.",
     "advanced":      "Today, let's focus on converting your advantages cleanly, without letting the win slip.",
 }
