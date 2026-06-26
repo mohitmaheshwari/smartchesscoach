@@ -593,6 +593,19 @@ const UnifiedProgress = ({ user }) => {
                         You're at <span className="text-foreground font-medium">{r.tier}</span>
                         {r.next_tier ? <> · next rung: {r.next_tier}</> : <> — top of the ladder.</>}
                         {r.trust === "rough" && <span className="text-[11px] opacity-60"> · rough read</span>}
+                        {/* Two-sided truth: overall = weaker of attack/defense, so a motif
+                            that keeps catching you can't read "Mastered". */}
+                        {r.two_sided_note && (
+                          <div className="mt-1.5 text-[12px]">
+                            <span className="text-emerald-600 dark:text-emerald-400">Attack: {r.attack?.tier}</span>
+                            <span className="opacity-40"> · </span>
+                            <span className="text-amber-600 dark:text-amber-400">
+                              Defense: {r.defense?.tier ?? "—"}
+                              {r.defense?.rate != null ? ` (${r.defense.rate}% seen coming)` : ""}
+                            </span>
+                            <div className="text-foreground/70 mt-0.5">{r.two_sided_note}</div>
+                          </div>
+                        )}
                       </div>
                       {r.drill && (
                         <button

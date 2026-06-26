@@ -858,8 +858,10 @@ async def get_motif_recognition(user: User = Depends(get_current_user)):
         return {"recent_games": 0, "total_games": 0, "window_days": 15, "rows": []}
     from services.motif_profile_service import render_recognition_card
     prof = await db.player_profiles.find_one(
-        {"user_id": user.user_id}, {"_id": 0, "motif_recognition": 1}) or {}
-    return render_recognition_card(prof.get("motif_recognition"))
+        {"user_id": user.user_id},
+        {"_id": 0, "motif_recognition": 1, "motif_anticipation": 1}) or {}
+    return render_recognition_card(prof.get("motif_recognition"),
+                                   motif_anticipation=prof.get("motif_anticipation"))
 
 
 @router.get("/motif-drill/{motif}")

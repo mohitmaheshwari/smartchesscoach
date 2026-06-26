@@ -423,12 +423,46 @@ def _trend(now_av, now_fo, prior_av, prior_fo):
     return {"dir": direction, "from_pct": round(100 * fr), "to_pct": round(100 * to)}
 
 
+# Defense (anticipation) tier — ABSOLUTE breakpoints over "how often you see the motif
+# COMING", not population-relative. MASTERY NEEDS BOTH SIDES: a motif you walk into is not
+# mastered, however well you ATTACK with it. So the card's overall standing is governed by
+# the WEAKER of attack (recognition) and defense (anticipation).
+_DEFENSE_EDGES = [0.0, 25.0, 40.0, 55.0, 70.0, 85.0]  # 5 segments over anticipation %
+
+
+def _defense_tier(rate: Optional[float]):
+    if rate is None:
+        return None, 0
+    idx = 4
+    for i in range(5):
+        if rate < _DEFENSE_EDGES[i + 1]:
+            idx = i
+            break
+    lo, hi = _DEFENSE_EDGES[idx], _DEFENSE_EDGES[idx + 1]
+    within = (rate - lo) / (hi - lo) if hi > lo else 1.0
+    return idx, round(20 * idx + 20 * max(0.0, min(1.0, within)))
+
+
+def _two_sided_note(off_idx: int, def_idx: Optional[int]) -> str:
+    so = off_idx is not None and off_idx >= 2   # Solid+
+    sd = def_idx is not None and def_idx >= 2
+    if so and not sd:
+        return "Sharp on attack — but they keep catching you. Defense is the gap."
+    if sd and not so:
+        return "Solid defense — now sharpen your eye for playing them on attack."
+    if not so and not sd:
+        return "Work on both sides — finding them, and seeing them coming."
+    return "Strong both sides."
+
+
 def render_recognition_card(motif_recognition: Optional[Dict], now=None,
-                            window_days: int = 15) -> Dict[str, Any]:
-    """Mastery-ladder card: per motif, the user's LEVEL on their own path to mastering it
-    (population-calibrated tiers, never shown as a rank) + which way they're MOVING (this
-    window vs the one before). Pure arithmetic over the stored per-game tallies — no engine,
-    no LLM at read time. docs/motif_recognition_card_scope.md"""
+                            window_days: int = 15,
+                            motif_anticipation: Optional[Dict] = None) -> Dict[str, Any]:
+    """Two-sided mastery card: per motif, the user's LEVEL on the path to mastering it —
+    governed by the WEAKER of ATTACK (recognition: do you find them?) and DEFENSE
+    (anticipation: do you see them coming?). A motif that keeps catching the user can NOT
+    show "Mastered" no matter how well they attack with it. Pure arithmetic over the stored
+    per-game tallies. docs/motif_recognition_card_scope.md + pwc_coach_conductor_scope.md."""
     from datetime import datetime, timedelta, timezone
     data = (motif_recognition or {}).get("by_game") or {}
     now = now or datetime.now(timezone.utc)
@@ -463,15 +497,24 @@ def render_recognition_card(motif_recognition: Optional[Dict], now=None,
             elif is_prior:
                 pri_av[m] += av; pri_fo[m] += fo
 
+    ant = anticipation_rates(motif_anticipation)
     rows = []
     for m in MOTIFS:
         if life_av[m] < MIN_OPPS_TO_SHOW:
             continue  # not enough lifetime data to place a level honestly
-        rate = life_fo[m] / life_av[m]                       # standing = stable lifetime rate
-        idx, tier, fill = _tier_for(rate, m)
+        rate = life_fo[m] / life_av[m]                       # ATTACK standing (find-rate)
+        off_idx, off_tier, off_fill = _tier_for(rate, m)
+        # DEFENSE standing (anticipation) — absolute. None when too few threats faced.
+        def_rate = (ant.get(m) or {}).get("rate")
+        def_idx, def_fill = _defense_tier(def_rate) if def_rate is not None else (None, None)
+        # OVERALL = the weaker side. Mastery needs both. When defense is unknown, fall back
+        # to attack (don't invent a low score from missing data).
+        if def_idx is not None and def_idx < off_idx:
+            idx, tier, fill = def_idx, TIER_NAMES[def_idx], def_fill
+        else:
+            idx, tier, fill = off_idx, off_tier, off_fill
         trend = _trend(now_av[m], now_fo[m], pri_av[m], pri_fo[m])
-        # offer a drill when there's a clear next step: not yet Sharp, or trending down
-        drill = idx <= 1 or trend.get("dir") == "down"
+        drill = idx <= 1 or trend.get("dir") == "down" or (def_idx is not None and def_idx <= 1)
         rows.append({
             "motif": m, "label": RECOGNITION_LABEL[m],
             "tiers": TIER_NAMES,
@@ -480,6 +523,12 @@ def render_recognition_card(motif_recognition: Optional[Dict], now=None,
             "trend": trend,
             "drill": drill,
             "trust": RECOGNITION_TRUST[m],
+            # Two-sided breakdown — so the card can show WHY the standing is what it is.
+            "attack": {"tier": off_tier, "tier_index": off_idx, "rate": round(100 * rate)},
+            "defense": {"tier": TIER_NAMES[def_idx] if def_idx is not None else None,
+                        "tier_index": def_idx, "rate": def_rate,
+                        "caught": (ant.get(m) or {}).get("allowed")},
+            "two_sided_note": _two_sided_note(off_idx, def_idx),
         })
     return {"recent_games": recent_games, "total_games": total_games,
             "window_days": window_days, "rows": rows}
