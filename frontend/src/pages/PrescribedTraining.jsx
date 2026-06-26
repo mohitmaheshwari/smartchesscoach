@@ -99,27 +99,60 @@ export default function PrescribedTraining() {
     const fetchTraining = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          `${API}/training/prescribed/${weakness}?num_puzzles=10`,
-          { credentials: "include" }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setTrainingData(data);
-          
-          // Set up first puzzle
-          if (data.puzzles && data.puzzles.length > 0) {
-            const firstPuzzle = data.puzzles[0];
-            if (firstPuzzle.fen) {
-              const newGame = new Chess(firstPuzzle.fen);
-              setGame(newGame);
-              // Set orientation based on whose turn it is
-              const turn = firstPuzzle.fen.split(" ")[1];
-              setBoardOrientation(turn === "w" ? "white" : "black");
-            }
+        // Motifs use the new motif-drill endpoint; others use prescribed
+        const MOTIFS = ["pin", "fork", "skewer"];
+        let endpoint;
+        let data;
+
+        if (MOTIFS.includes(weakness)) {
+          // Use motif-drill endpoint for pin/fork/skewer
+          const response = await fetch(
+            `${API}/motif-drill/${weakness}`,
+            { credentials: "include" }
+          );
+          if (response.ok) {
+            const motifData = await response.json();
+            // Transform motif drills to match PrescribedTraining format
+            const puzzles = (motifData.drills || []).map(drill => ({
+              ...drill,
+              solution_san: drill.solution, // Motif drills use 'solution' as the SAN
+              source: drill.source || "your_game"
+            }));
+            data = {
+              puzzles,
+              weakness: weakness,
+              motif: weakness
+            };
+          } else {
+            setError("Failed to load motif training");
+            return;
           }
         } else {
-          setError("Failed to load training");
+          // Use prescribed endpoint for cognitive gaps
+          const response = await fetch(
+            `${API}/training/prescribed/${weakness}?num_puzzles=10`,
+            { credentials: "include" }
+          );
+          if (response.ok) {
+            data = await response.json();
+          } else {
+            setError("Failed to load training");
+            return;
+          }
+        }
+
+        setTrainingData(data);
+
+        // Set up first puzzle
+        if (data.puzzles && data.puzzles.length > 0) {
+          const firstPuzzle = data.puzzles[0];
+          if (firstPuzzle.fen) {
+            const newGame = new Chess(firstPuzzle.fen);
+            setGame(newGame);
+            // Set orientation based on whose turn it is
+            const turn = firstPuzzle.fen.split(" ")[1];
+            setBoardOrientation(turn === "w" ? "white" : "black");
+          }
         }
       } catch (err) {
         console.error("Error fetching training:", err);
@@ -128,7 +161,7 @@ export default function PrescribedTraining() {
         setLoading(false);
       }
     };
-    
+
     fetchTraining();
   }, [weakness]);
   
