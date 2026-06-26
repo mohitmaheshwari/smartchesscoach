@@ -106,6 +106,7 @@ class V5Coaching:
     checklist_snapshot: Optional[Dict] = None      # All 7 fundamentals pass/fail
     hide_best_move: bool = False                   # Frontend hides best_move when True
     suppress: bool = False                         # Coach deliberately silent (policy layer said so)
+    conductor_thread: Optional[dict] = None        # Coach Conductor: the player-model thread that fired (if any)
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON response."""
@@ -767,6 +768,8 @@ def _central_narrative_for_move(
     move_evaluations: Optional[List[Dict[str, Any]]] = None,
     session_fired_principles: Optional[set] = None,
     session_fired_state_keys: Optional[set] = None,
+    player_motif_threads: Optional[Dict[str, Any]] = None,
+    session_conductor_threads_pulled: Optional[set] = None,
 ) -> "tuple[str, Optional[str]]":
     """Return (caption, severity_practical) from the central caption
     pipeline for this move — the SAME text + severity the review surface
@@ -828,11 +831,14 @@ def _central_narrative_for_move(
             cp_loss=int(cp_loss or 0),
             pv_after_played=list(pv_after_played or []),
             pv_after_best=list(pv_after_best or []),
+            player_motif_threads=player_motif_threads,
             **_opp_kwargs,
         )
         state = CrossMoveState(
             fired_principles=set(session_fired_principles or set()),
             fired_state_keys=set(session_fired_state_keys or set()),
+            conductor_threads_pulled=(session_conductor_threads_pulled
+                                      if session_conductor_threads_pulled is not None else set()),
         )
         kwargs: Dict[str, Any] = {}
         if severity_override in ("good", "inaccuracy", "mistake", "blunder"):
@@ -842,10 +848,12 @@ def _central_narrative_for_move(
         decision = build_move_teaching_decision(inputs, state, **kwargs)
         caption = (decision.text.caption or "").strip()
         sev_practical = getattr(decision.teaching_meta, "severity_practical", None)
-        return caption, sev_practical
+        # 3rd element: the Coach Conductor thread (or None). When set, `caption`
+        # IS the thread statement and the caller surfaces it as the chosen voice.
+        return caption, sev_practical, getattr(decision, "conductor_thread", None)
     except Exception as exc:
         logger.info(f"[central_narrative] failed for {move_san!r}: {exc}")
-        return "", None
+        return "", None, None
 
 
 async def generate_move_coaching(
@@ -873,6 +881,8 @@ async def generate_move_coaching(
     move_evaluations: Optional[List[Dict[str, Any]]] = None,
     session_fired_principles: Optional[set] = None,
     session_fired_state_keys: Optional[set] = None,
+    player_motif_threads: Optional[Dict[str, Any]] = None,
+    session_conductor_threads_pulled: Optional[set] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
@@ -917,8 +927,9 @@ async def generate_move_coaching(
     # tuned). Mohit "full replacement" 2026-05-27.
     _central_caption = ""
     _central_sev = None
+    _central_thread = None
     if is_user_move:
-        _central_caption, _central_sev = _central_narrative_for_move(
+        _central_caption, _central_sev, _central_thread = _central_narrative_for_move(
             board_before=board_before,
             move_san=move_san,
             mover_is_user=True,
@@ -935,6 +946,8 @@ async def generate_move_coaching(
             move_evaluations=move_evaluations,
             session_fired_principles=session_fired_principles,
             session_fired_state_keys=session_fired_state_keys,
+            player_motif_threads=player_motif_threads,
+            session_conductor_threads_pulled=session_conductor_threads_pulled,
         )
         # NOTE: we deliberately do NOT overwrite `severity` with the central
         # layer's tier. Empirically (2026-05-27) no single central severity
@@ -945,6 +958,21 @@ async def generate_move_coaching(
         # text. The badge stays the familiar cp_loss tier; the caption carries
         # the central layer's nuanced wording. _central_sev kept for diagnostics.
     
+    # ─── COACH CONDUCTOR: a fired thread WINS (one voice chooses). ───
+    # When the player-model surfaced a recurring-pattern thread for this move,
+    # speak it — bypassing the policy gate and the critique/legacy branches. It's
+    # already a STATEMENT, engine-true, and restraint-gated inside the door.
+    # docs/pwc_coach_conductor_scope.md.
+    if is_user_move and _central_thread and _central_caption:
+        return V5Coaching(
+            narrative=_central_caption,
+            severity=severity,  # cp_loss tier → the dot
+            is_user_move=True,
+            best_move=best_move_san,
+            suppress=False,
+            conductor_thread=_central_thread,
+        )
+
     # Get piece info
     piece = board_before.piece_at(move.from_square)
     piece_name = get_fun_piece_name(piece) if piece else "piece"
@@ -960,7 +988,7 @@ async def generate_move_coaching(
         _opp_central = ""
         if best_move_san or eval_before_cp is not None or eval_after_cp is not None:
             try:
-                _opp_central, _ = _central_narrative_for_move(
+                _opp_central, _, _ = _central_narrative_for_move(
                     board_before=board_before, move_san=move_san, mover_is_user=False,
                     user_color=user_color, full_move_number=board_before.fullmove_number,
                     move_history_san=move_history_san, best_move_san=best_move_san,

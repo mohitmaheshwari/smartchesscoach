@@ -226,6 +226,14 @@ class MoveInputs:
     #   }
     socratic_context: Optional[Dict[str, Any]] = None
 
+    # ─── Coach Conductor: the player-model digest (docs/pwc_coach_conductor_scope.md).
+    # The output of coach_conductor.player_motif_threads() — which motifs are THIS
+    # player's recurring story (defense walk-into / offense slipping). When present
+    # and the move is an engine-confirmed instance of one of them, the door surfaces
+    # a personalized STATEMENT thread as the caption (the conductor's chosen "one most
+    # useful thing"). None for review without a player model and for coach moves.
+    player_motif_threads: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -251,6 +259,10 @@ class CrossMoveState:
     # Previous user eval_after — needed for opp cp_loss computation
     # on the NEXT opp move. Game-wide for batch; session-wide for PWC.
     prev_user_eval_after: Optional[int] = None
+    # Coach Conductor restraint: motif-thread keys already pulled this game
+    # ("offense:skewer", "defense:fork"). A thread fires at most once per game.
+    # Mutated in place by the door when a thread fires; the caller persists it.
+    conductor_threads_pulled: Set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -269,6 +281,9 @@ class StateMutations:
     active_trap_step_cursor_after: int = 0
     active_trap_setup_completed_by_user_after: bool = False
     prev_user_eval_after: Optional[int] = None
+    # Coach Conductor: motif-thread key(s) pulled this move ("offense:skewer").
+    # Caller unions into the session's conductor_threads_pulled for restraint.
+    conductor_threads_pulled_added: Set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -439,6 +454,11 @@ class MoveTeachingDecision:
     # don't suppress (cp_loss<80, threat-handling, opening theory).
     # See SocraticExtras docstring for field semantics.
     socratic_extras: Optional[SocraticExtras] = None
+    # Coach Conductor: the player-model thread that fired this move, if any.
+    # When set, `text.caption` IS this thread's statement (the conductor chose
+    # to surface the player's recurring pattern over the generic caption).
+    # Shape: {"kind","motif","side","text"}. None when no thread fired.
+    conductor_thread: Optional[Dict[str, Any]] = None
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -4358,6 +4378,37 @@ def build_move_teaching_decision(
         except Exception:
             pass
 
+    # ─── 12.5 COACH CONDUCTOR — the player-model thread ──────────
+    # docs/pwc_coach_conductor_scope.md. When the player's motif digest is present
+    # and THIS user move is an engine-confirmed instance of one of their recurring
+    # patterns (walked-into fork / missed-or-found pin·skewer), surface the
+    # personalized STATEMENT thread as the caption — the conductor's chosen "one
+    # most useful thing". All gating (relevance, restraint, win eval-gain, engine-
+    # truth) lives in coach_conductor; here we let it override + stamp the marker.
+    _conductor_thread = None
+    if inputs.mover_is_user and inputs.player_motif_threads:
+        try:
+            from services.coach_conductor import compute_motif_thread
+            _conductor_thread = compute_motif_thread(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                pv_after_played=inputs.pv_after_played,
+                pv_after_best=inputs.pv_after_best,
+                cp_loss=int(inputs.cp_loss or 0),
+                is_user_move=True,
+                threads=inputs.player_motif_threads,
+                threads_pulled=state.conductor_threads_pulled,
+                eval_before_cp=inputs.eval_before_cp,
+                eval_after_cp=inputs.eval_after_cp,
+                mover_is_white=inputs.mover_is_white,
+            )
+            if _conductor_thread and _conductor_thread.get("text"):
+                caption_payload["caption"] = _conductor_thread["text"]
+                caption_payload["rule_name"] = "R_CONDUCTOR_thread"
+        except Exception as _ct_exc:
+            logger.warning(f"[conductor] thread compute failed m{inputs.full_move_number}: {_ct_exc!r}")
+
     # ─── Build the decision ──────────────────────────────────────
     text = TextSurface(
         caption=caption_payload.get("caption") or "",
@@ -4410,6 +4461,10 @@ def build_move_teaching_decision(
         active_trap_step_cursor_after=new_step_cursor,
         active_trap_setup_completed_by_user_after=new_setup_completed,
         prev_user_eval_after=(inputs.eval_after_cp if inputs.mover_is_user else state.prev_user_eval_after),
+        conductor_threads_pulled_added=(
+            {f"{_conductor_thread['side']}:{_conductor_thread['motif']}"}
+            if _conductor_thread else set()
+        ),
     )
 
     # ─── 13. R17 coach-move narration (PWC only — populated when
@@ -4438,4 +4493,5 @@ def build_move_teaching_decision(
         skip_reason="",
         coach_extras=coach_extras,
         socratic_extras=socratic_extras,
+        conductor_thread=_conductor_thread,
     )
