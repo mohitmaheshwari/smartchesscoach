@@ -4403,6 +4403,16 @@ def build_move_teaching_decision(
                 eval_after_cp=inputs.eval_after_cp,
                 mover_is_white=inputs.mover_is_white,
             )
+            # Endgame technique recognition — a position-based STATEMENT, only when
+            # no motif thread already won. Technique-verified by the concept detectors.
+            if _conductor_thread is None:
+                from services.coach_conductor import compute_endgame_thread
+                _conductor_thread = compute_endgame_thread(
+                    fen_before=inputs.fen_before,
+                    played_san=inputs.played_san,
+                    user_is_white=inputs.mover_is_white,
+                    threads_pulled=state.conductor_threads_pulled,
+                )
             if _conductor_thread and _conductor_thread.get("text"):
                 caption_payload["caption"] = _conductor_thread["text"]
                 caption_payload["rule_name"] = "R_CONDUCTOR_thread"

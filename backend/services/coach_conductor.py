@@ -88,6 +88,64 @@ def player_motif_threads(
     return {"defense": defense, "offense": offense}
 
 
+# Known-endgame technique recognition — STATEMENTS (no quiz), fired when the
+# existing concept detectors confirm a textbook endgame. "missed" = teach the
+# technique; "applied" = name + credit it. docs/pwc_coach_conductor_scope.md.
+_ENDGAME_SAY = {
+    "endgame_lucena": {
+        "applied": "That's the Lucena — your rook builds the bridge so your king escapes the checks and the pawn promotes. Textbook.",
+        "missed": "This is a winning Lucena position. The technique is the bridge: put your rook on the rank just in front of your king so it blocks the checks while your king steps out and the pawn queens.",
+    },
+    "endgame_philidor": {
+        "applied": "That's the Philidor — rook on the third rank holds the draw until their pawn commits.",
+        "missed": "This is a Philidor draw. Keep your rook on the third rank to stop their king coming forward; once their pawn reaches the third, swing your rook behind it and check from there.",
+    },
+    "endgame_opposition": {
+        "applied": "Good — you took the opposition, kings facing with one square between, forcing their king to give ground.",
+        "missed": "Take the opposition here — your king directly facing theirs with one square between. It forces their king back and clears the path for your pawn.",
+    },
+    "endgame_rule_of_square": {
+        "applied": "Good — your king is inside the square of the pawn, so you catch it.",
+        "missed": "Use the rule of the square: picture a box from the pawn to its promotion square; if your king can step inside that box, it catches the pawn.",
+    },
+}
+
+
+def compute_endgame_thread(
+    *,
+    fen_before: str,
+    played_san: str,
+    user_is_white: bool,
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """Return a known-endgame technique STATEMENT for this user move, or None.
+    Technique-verified by the existing concept detectors; restraint per technique."""
+    if not fen_before or not played_san:
+        return None
+    try:
+        from services.concept_detectors.registry import get_detector
+        board = chess.Board(fen_before)
+        move = board.parse_san(played_san)
+    except Exception:
+        return None
+    user_color = chess.WHITE if user_is_white else chess.BLACK
+    for skill, say in _ENDGAME_SAY.items():
+        key = f"endgame:{skill}"
+        if key in threads_pulled:
+            continue
+        fn = get_detector(skill)
+        if fn is None:
+            continue
+        try:
+            r = fn(board, move, user_color)
+        except Exception:
+            r = None
+        if r in ("applied", "missed"):
+            threads_pulled.add(key)
+            return {"kind": f"endgame_{r}", "motif": skill, "side": "endgame", "text": say[r]}
+    return None
+
+
 def _slip_tag(info: Dict[str, Any]) -> str:
     """A short, honest thread tag for an offense motif — references the slip, never a count."""
     if info.get("trend") == "down":
