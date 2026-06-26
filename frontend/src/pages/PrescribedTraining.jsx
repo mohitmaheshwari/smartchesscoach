@@ -586,6 +586,7 @@ export default function PrescribedTraining() {
                     ? encouragement ||
                       "You saw the pattern. That's exactly the instinct we're building."
                     : currentPuzzle?.coaching?.what_you_missed ||
+                      trainingData?.coaching_intro?.what_to_look_for ||
                       "Before moving, always check what your opponent just threatened."
                 }
                 san={
