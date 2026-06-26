@@ -2893,10 +2893,13 @@ async def get_interactive_coaching(
                         from services.coach_conductor import player_motif_threads as _pmt
                         _mp = await db.player_profiles.find_one(
                             {"user_id": session_doc.get("user_id")},
-                            {"_id": 0, "motif_profile": 1, "motif_recognition": 1, "games_analyzed_count": 1},
+                            {"_id": 0, "motif_profile": 1, "motif_recognition": 1,
+                             "motif_anticipation": 1, "games_analyzed_count": 1},
                         ) or {}
-                        _conductor_digest = _pmt(_mp.get("motif_profile"), _mp.get("motif_recognition"),
-                                                 _mp.get("games_analyzed_count") or 0)
+                        _conductor_digest = _pmt(
+                            _mp.get("motif_profile"), _mp.get("motif_recognition"),
+                            _mp.get("games_analyzed_count") or 0,
+                            motif_anticipation_raw=_mp.get("motif_anticipation"))
                         await db.coach_sessions.update_one(
                             {"session_id": session_id},
                             {"$set": {"player_motif_threads": _conductor_digest}},

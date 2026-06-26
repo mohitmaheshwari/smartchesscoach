@@ -525,10 +525,12 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         # verdict applied at read time. docs/motif_profile_scope.md
         motif_profile = profile.get("motif_profile")
         motif_recognition = profile.get("motif_recognition")
+        motif_anticipation = profile.get("motif_anticipation")
         try:
             from services.motif_profile_service import (
                 compute_game_motifs, merge_motifs,
                 compute_game_recognition, merge_recognition,
+                compute_game_anticipation, merge_anticipation,
             )
             motif_profile = merge_motifs(motif_profile, compute_game_motifs(move_evaluations))
             # Per-opportunity recognition (offense), stored per-game with the game date so
@@ -537,6 +539,10 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
             motif_recognition = merge_recognition(
                 motif_recognition, game_id, game_doc.get("date_played"),
                 compute_game_recognition(move_evaluations))
+            # DEFENSE anticipation (the mirror, Skill 3 — do you see motifs coming?).
+            motif_anticipation = merge_anticipation(
+                motif_anticipation, game_id, game_doc.get("date_played"),
+                compute_game_anticipation(move_evaluations))
         except Exception as _motif_err:
             logger.warning(f"motif profile update failed for {user_id}: {_motif_err}")
 
@@ -551,6 +557,7 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
                 "top_weaknesses": top_weaknesses,
                 "motif_profile": motif_profile,
                 "motif_recognition": motif_recognition,
+                "motif_anticipation": motif_anticipation,
                 "last_updated": current_time.isoformat()
             }}
         )

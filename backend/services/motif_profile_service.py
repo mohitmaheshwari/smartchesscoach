@@ -335,6 +335,47 @@ def compute_game_recognition(move_evaluations: List[Dict]) -> Dict[str, Dict[str
     return {"av": av, "fo": fo}
 
 
+def compute_game_anticipation(move_evaluations: List[Dict]) -> Dict[str, Dict[str, int]]:
+    """Per-game DEFENSE ANTICIPATION tallies — the mirror of recognition, the "do you
+    see motifs coming?" skill (Mohit's Skill 3). For each USER move, look at the motif
+    the opponent's best reply now creates AGAINST the user (a threat that materialized);
+    then check whether the engine's BEST user move would have AVOIDED it. If best avoids
+    it, the threat was the user's to prevent and they didn't — a failed anticipation.
+
+    Returns {'faced': {fork,pin,skewer}, 'allowed': {...}} where:
+      faced[m]   = times a motif-m threat against the user materialized after their move,
+      allowed[m] = of those, the ones that were AVOIDABLE (best move would not have allowed
+                   it) — i.e. the user failed to see it coming.
+    Anticipation rate = 1 - allowed/faced (higher = better). Engine-true: every motif
+    comes from the verified detector applied to the engine's PV."""
+    faced = {m: 0 for m in MOTIFS}
+    allowed = {m: 0 for m in MOTIFS}
+    for ev in move_evaluations or []:
+        if ev.get("is_opponent_move"):
+            continue
+        fen_before = ev.get("fen_before"); fen_after = ev.get("fen_after")
+        pvp = ev.get("pv_after_played") or []; pvb = ev.get("pv_after_best") or []
+        best = ev.get("best_move")
+        if not (fen_after and pvp):
+            continue
+        got_played = _move_motifs(fen_after, pvp[0], pvp[1:], False)
+        if not got_played:
+            continue
+        # Would the engine's best user move have avoided the same motif threat?
+        got_best = set()
+        if best and pvb and fen_before:
+            try:
+                _b = chess.Board(fen_before); _b.push_san(best)
+                got_best = _move_motifs(_b.fen(), pvb[0], pvb[1:], False)
+            except Exception:
+                got_best = set()
+        for m in got_played:
+            faced[m] += 1
+            if m not in got_best:   # avoidable -> the user walked into it (failed to anticipate)
+                allowed[m] += 1
+    return {"faced": faced, "allowed": allowed}
+
+
 def merge_recognition(stored: Optional[Dict], game_id: str, date_played: Optional[str],
                       per_game: Dict[str, Dict[str, int]]) -> Dict:
     """Idempotent per-game store keyed by game_id — re-analysis OVERWRITES that game's
@@ -344,6 +385,30 @@ def merge_recognition(stored: Optional[Dict], game_id: str, date_played: Optiona
     out.setdefault("by_game", {})[str(game_id)] = {
         "date": date_played, "av": per_game["av"], "fo": per_game["fo"],
     }
+    return out
+
+
+def merge_anticipation(stored: Optional[Dict], game_id: str, date_played: Optional[str],
+                       per_game: Dict[str, Dict[str, int]]) -> Dict:
+    """Idempotent per-game DEFENSE-anticipation store (mirror of merge_recognition)."""
+    out = stored or {"by_game": {}}
+    out.setdefault("by_game", {})[str(game_id)] = {
+        "date": date_played, "faced": per_game["faced"], "allowed": per_game["allowed"],
+    }
+    return out
+
+
+def anticipation_rates(motif_anticipation: Optional[Dict]) -> Dict[str, Dict[str, Any]]:
+    """Aggregate stored anticipation into per-motif {faced, allowed, rate} where
+    rate = anticipation % = 1 - allowed/faced (higher = you see them coming; low = you
+    walk into them). None rate when too few faced to be meaningful."""
+    out: Dict[str, Dict[str, Any]] = {}
+    bg = (motif_anticipation or {}).get("by_game") or {}
+    for m in MOTIFS:
+        f = sum((g.get("faced") or {}).get(m, 0) for g in bg.values())
+        a = sum((g.get("allowed") or {}).get(m, 0) for g in bg.values())
+        out[m] = {"faced": f, "allowed": a,
+                  "rate": round(100 * (1 - a / f)) if f >= 5 else None}
     return out
 
 

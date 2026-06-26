@@ -24,8 +24,12 @@ import chess
 
 from services.motif_profile_service import (
     _move_motifs, SOUND_CP, BLUNDER_CP, MOTIFS,
-    render_motif_card, render_recognition_card,
+    render_motif_card, render_recognition_card, anticipation_rates,
 )
+
+# Below this anticipation %, the player walks into the motif more than they see it
+# coming — a real defensive weakness worth threading.
+_LOW_ANTICIPATION = 40
 
 # A missed offense motif only counts when missing it cost a real tactic's worth
 # of eval (not a marginal transposition). A win only counts when the motif move
@@ -38,6 +42,7 @@ def player_motif_threads(
     motif_profile_raw: Optional[Dict[str, Any]],
     motif_recognition_raw: Optional[Dict[str, Any]],
     games_analyzed: int = 0,
+    motif_anticipation_raw: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Digest the stored profile into the motifs that are THIS player's story.
 
@@ -82,6 +87,19 @@ def player_motif_threads(
             # Slipping (trend down) OR stuck low (Learning/Developing = tier 0/1).
             if tdir == "down" or tier_idx <= 1:
                 offense[m] = {"rate": to_pct, "trend": tdir, "tier": row.get("tier")}
+    except Exception:
+        pass
+
+    # Defense (anticipation) — motifs you don't see COMING (Skill 3). Low anticipation
+    # = you walk into them more than you stop them, so add them to the defense set even
+    # when the coarse got-weakness didn't flag them. Mohit: skewer 8% joins fork here.
+    try:
+        for m, info in anticipation_rates(motif_anticipation_raw).items():
+            r = info.get("rate")
+            if r is not None and r < _LOW_ANTICIPATION:
+                d = defense.setdefault(m, {})
+                d["anticipation"] = r
+                d.setdefault("got", info.get("allowed", 0))
     except Exception:
         pass
 
