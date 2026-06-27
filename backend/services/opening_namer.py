@@ -35,9 +35,14 @@ def _openings() -> List[Tuple[str, Tuple[str, ...], str]]:
     for v in theory_tree.values():
         if isinstance(v, dict) and v.get("main_line") and v.get("name"):
             plan = v.get("white_plan") or v.get("black_plan") or ""
-            # Parse main_line string into moves
-            main_line_moves = v.get("main_line", "").split()
-            out.append((v["name"], tuple(main_line_moves), plan))
+            # main_line may be a list or string - normalize to list
+            main_line = v.get("main_line", [])
+            if isinstance(main_line, str):
+                main_line_moves = main_line.split()
+            else:
+                main_line_moves = main_line if isinstance(main_line, list) else []
+            if main_line_moves:
+                out.append((v["name"], tuple(main_line_moves), plan))
     return out
 
 

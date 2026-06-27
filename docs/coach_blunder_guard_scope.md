@@ -83,3 +83,44 @@ Behind `PWC_COACH_BLUNDER_GUARD` (default **off**). A/B the feel, measure the ac
 - Eval-based catastrophe detection (walking into mate / a crushing non-material attack with no immediate capture) — rarer at these levels; possible v2 with a shallow verification search.
 - Changing the underlying strength model (Skill Level vs UCI_Elo) — orthogonal; the guard sits on top of whichever is active.
 - "Own the mistake" coach voice ("I left something — can you find it?") — a nice teaching layer for the *allowed* mistakes; separate follow-up once the floor is in.
+
+---
+
+## IMPLEMENTED (2026-06-27) — data-driven pivot + results
+
+**Signed off ("go"). Built behind `PWC_COACH_BLUNDER_GUARD=true`.**
+
+The build measurement forced one change to the mechanism. A **pure one-move SEE** floor
+caught only **2 of 6** real material hangs at Skill 0 — it MISSES *multi-move*
+catastrophes (a combination that wins the queen reads SEE=0). So the floor is a **hybrid**:
+
+- **One-move SEE floor = 300cp** — never hang a piece+ to a single capture (static, free).
+- **Multi-move eval floor = 500cp** — never lose a rook+ / walk into mate via a *forced
+  sequence* (needs a full-strength engine eval). Set above a minor piece so the student
+  is still ALLOWED to win up to ~a piece via a tactic they calculate (philosophy B).
+- **Resample = weakest CLEARLY-safe candidate** (within 120cp of best). "Weakest sound"
+  alone sat on the catastrophe edge and depth-noise tipped 2 replacements into new
+  catastrophes; the margin fixed it.
+
+Cost: this means **one full-strength depth-14 analyse per coach move** (the latency I'd
+hoped to avoid — the data changed it). The guard's analysis is full-strength (accurate),
+separate from the weakened play.
+
+**Acceptance — MET** (50 real positions, guard graded at depth 16 > guard's depth 14):
+
+| | Skill 0 | Skill 5 |
+|---|---|---|
+| catastrophe (≥500cp): base → guarded | 3 → **0** | 1 → **0** |
+| one-move hang (≥300): base → guarded | 2 → **0** | 4 → **0** |
+| avg cp_loss (beatability), guarded | 87 (weak, in-band) | 73 |
+| teaching mistakes (150–500cp) surviving | 13/50 | 10/50 |
+
+Guard fires on ~5/50 (10%) of moves. **Honest-caption layer** also shipped: the central
+pipeline stamps `coach_move_is_sound` (SEE), and R17 routes an unsound coach move to a
+new `coach_overreach` variant ("…but the piece it just moved can be taken — look for the
+capture") instead of praising it as a "Good — Double Attack". Verified on the live `Qxf6`
+FEN; a genuine sound fork (control `Nc7+`) still narrates as a fork.
+
+Files: `coach_play/coach_blunder_guard.py` (SEE + hybrid guard), `coach_play/coach_opponent.py`
+(`_apply_blunder_guard`), `services/caption_pipeline.py` (`coach_move_is_sound`),
+`data/captions/R17_coach_move.json` (`coach_overreach`).
