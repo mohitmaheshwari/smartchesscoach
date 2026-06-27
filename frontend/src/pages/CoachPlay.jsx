@@ -1485,7 +1485,7 @@ const CoachPlay = ({ user }) => {
   };
   
   // Combined fetch for resume/trigger (gets both at once)
-  const fetchInteractiveCoaching = async (sessionId) => {
+  const fetchInteractiveCoaching = async (sessionId, phase = null) => {
     if (!sessionId) {
       console.log("[V2-FLOW] fetchInteractiveCoaching called with no sessionId — skipping");
       return;
@@ -1518,9 +1518,11 @@ const CoachPlay = ({ user }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(
-          _clientEval ? { session_id: sessionId, client_eval: _clientEval } : { session_id: sessionId }
-        )
+        body: JSON.stringify({
+          session_id: sessionId,
+          ...(phase ? { phase } : {}),                 // "user_move" => only the user card
+          ...(_clientEval ? { client_eval: _clientEval } : {}),
+        })
       });
 
       console.log("[V2-FLOW] interactive-feedback response status:", response.status);
@@ -1560,11 +1562,14 @@ const CoachPlay = ({ user }) => {
         console.log("[V2-COACHING] behavioral:", data.behavioral_coaching ? "YES" : "NO");
         console.log("[V2-COACHING] pre_move_trap:", data.pre_move_trap ? "YES" : "NO");
 
-        setInteractiveCoaching({
+        setInteractiveCoaching(prev => ({
+          ...(prev || {}),
           userMoveCoaching: data.user_move_coaching || null,
-          coachMoveCoaching: data.coach_move_coaching || null,
           trapResult: data.trap_result || null,
-        });
+          // On a user-move-only fetch the coach hasn't replied yet — keep the existing
+          // coach card instead of clobbering it to null.
+          ...(phase !== "user_move" ? { coachMoveCoaching: data.coach_move_coaching || null } : {}),
+        }));
 
         if (data.user_move_coaching) {
           console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
@@ -2020,6 +2025,12 @@ const CoachPlay = ({ user }) => {
       
       // Show coach thinking state
       if (data.awaiting_coach) {
+        // Explain the USER's move RIGHT NOW — don't make them wait for the coach to
+        // reply. phase="user_move" returns only the user card (its eval is already
+        // computed by evaluate-pending); the coach card still arrives after the coach
+        // moves via the existing post-coach fetch. (Mohit 2026-06-27.)
+        fetchInteractiveCoaching(session?.session_id, "user_move");
+
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
