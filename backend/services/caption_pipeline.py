@@ -2864,6 +2864,72 @@ def select_shape_pattern_record(
     return shape_pattern_record
 
 
+_SLIDER_LETTER = {chess.BISHOP: "B", chess.ROOK: "R", chess.QUEEN: "Q"}
+
+
+def _diagonal_endpoints_name(slider_sq: int, king_sq: int) -> str:
+    """Name the full diagonal through two squares by its edge squares, e.g. 'a7–g1'."""
+    fa, ra = chess.square_file(slider_sq), chess.square_rank(slider_sq)
+    fb, rb = chess.square_file(king_sq), chess.square_rank(king_sq)
+    sf = 1 if fb > fa else -1
+    sr = 1 if rb > ra else -1
+
+    def edge(df: int, dr: int) -> int:
+        f, r = fa, ra
+        while 0 <= f + df <= 7 and 0 <= r + dr <= 7:
+            f += df
+            r += dr
+        return chess.square(f, r)
+
+    return f"{chess.square_name(edge(-sf, -sr))}–{chess.square_name(edge(sf, sr))}"
+
+
+def detect_king_prophylaxis_why(fen_before: str, best_move_san: str) -> Optional[Dict[str, str]]:
+    """Verified 'why the king move is best' for the step-off-a-check-line pattern.
+
+    Fires only when the best move is a (non-castling) KING move AND there is an
+    enemy bishop/queen on the king's CURRENT diagonal with exactly ONE friendly
+    blocker between them — so ...Bx(blocker) would land with CHECK — AND the king
+    move leaves that diagonal. Pure geometry, no engine: the claim is true by
+    construction (the blocker is the only piece between, so after the capture the
+    slider hits the king's old square). Returns {diag, capture} or None.
+    docs/pwc_coach_conductor_scope.md — closes the king-safety best-move why gap.
+    """
+    try:
+        b = chess.Board(fen_before)
+        mv = b.parse_san(best_move_san)
+    except Exception:
+        return None
+    pc = b.piece_at(mv.from_square)
+    if pc is None or pc.piece_type != chess.KING or b.is_castling(mv):
+        return None
+    mover = pc.color
+    kfrom, kto = mv.from_square, mv.to_square
+    for sq, p in b.piece_map().items():
+        if p.color == mover or p.piece_type not in (chess.BISHOP, chess.QUEEN):
+            continue
+        df = chess.square_file(kfrom) - chess.square_file(sq)
+        dr = chess.square_rank(kfrom) - chess.square_rank(sq)
+        if df == 0 or abs(df) != abs(dr):
+            continue  # slider not diagonally aligned with the king's square
+        blockers = [s for s in chess.SquareSet(chess.between(sq, kfrom)) if b.piece_at(s)]
+        if len(blockers) != 1:
+            continue
+        bsq = blockers[0]
+        if b.piece_at(bsq).color != mover:
+            continue  # the lone blocker must be OURS — capturing it sacs to give check
+        # The king must actually leave that diagonal (else still exposed behind the blocker).
+        df2 = chess.square_file(kto) - chess.square_file(sq)
+        dr2 = chess.square_rank(kto) - chess.square_rank(sq)
+        if df2 != 0 and abs(df2) == abs(dr2) and bsq in chess.SquareSet(chess.between(sq, kto)):
+            continue
+        return {
+            "diag": _diagonal_endpoints_name(sq, kfrom),
+            "capture": f"{_SLIDER_LETTER[p.piece_type]}x{chess.square_name(bsq)}",
+        }
+    return None
+
+
 def inject_board_state_describer_clause(
     caption_facts: Dict[str, Any],
     *,
@@ -3936,6 +4002,26 @@ def build_move_teaching_decision(
         bs_recent_window=_bs_window,
         bs_window_size=1,
     )
+
+    # ─── 8.5 KING-SAFETY best-move why (closes the prophylaxis gap) ──
+    # When the better move is a king step-off-a-check-line (e.g. Kh1 to dodge
+    # ...Bxf2+), the generic board_state_clause grabs an irrelevant "your rook is
+    # passive" filler. Replace it with the real, board-verified reason so the
+    # better move's WHY is explained. [[feedback_explain_why_recommended_move_good]]
+    # Mohit 2026-06-27 (Nd5/Kh1 screenshot). Only on a genuine better-move (the
+    # played move was a mistake, best differs).
+    if (inputs.mover_is_user and inputs.best_move_san
+            and inputs.best_move_san != inputs.played_san):
+        try:
+            _kp = detect_king_prophylaxis_why(inputs.fen_before, inputs.best_move_san)
+            if _kp:
+                caption_facts["board_state_clause"] = (
+                    f"The king belongs off the {_kp['diag']} diagonal — "
+                    f"otherwise ...{_kp['capture']} comes with check."
+                )
+                caption_facts["king_prophylaxis_why"] = True
+        except Exception as _kp_exc:
+            logger.warning(f"[king_prophylaxis] m{inputs.full_move_number}: {_kp_exc!r}")
 
     # ─── 9. ASSESSMENT-CONFLICT GATE (2026-06-13 feedback pattern #2) ─
     # fb_f901258f7831 / fb_c7b7be53b387 / fb_05710bfc7125 feedback: coach
