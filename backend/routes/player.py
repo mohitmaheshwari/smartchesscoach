@@ -2582,3 +2582,59 @@ async def get_milestones(user: User = Depends(get_current_user)):
         "achieved": check_milestones(analyses, user_stats),
         "total_games": len(analyses)
     }
+
+
+@router.get("/opening/resolve/{opening_name}")
+async def resolve_opening_variation(opening_name: str):
+    """
+    Resolve a specific game opening to its base curriculum opening.
+
+    Maps specific variations like "Caro Kann Defense Exchange Variation 3...cxd5 4.Nf3"
+    to base "Caro Kann Defense" for teaching fundamentals.
+
+    Returns:
+    {
+        "base_opening": "Caro Kann Defense",
+        "game_opening": "Caro Kann Defense Exchange Variation 3...cxd5 4.Nf3",
+        "is_exact_match": false,
+        "variation_count": 188,
+        "game_count": 605
+    }
+    """
+    from services.opening_variation_resolver import get_resolver
+
+    resolver = get_resolver()
+    result = resolver.resolve(opening_name)
+
+    if result is None:
+        return {
+            "base_opening": None,
+            "game_opening": opening_name,
+            "is_mapped": False,
+            "message": "Opening not found in curriculum"
+        }
+
+    return {
+        **result,
+        "is_mapped": True
+    }
+
+
+@router.get("/opening/variations/{base_opening}")
+async def get_opening_variations(base_opening: str):
+    """
+    Get all variations of a base curriculum opening from analyzed games.
+
+    Example: base_opening="Caro Kann Defense"
+    Returns all Caro Kann variations played in the game database.
+    """
+    from services.opening_variation_resolver import get_resolver
+
+    resolver = get_resolver()
+    variations = resolver.get_variations(base_opening)
+
+    return {
+        "base_opening": base_opening,
+        "total_variations": len(variations),
+        "variations": variations
+    }
