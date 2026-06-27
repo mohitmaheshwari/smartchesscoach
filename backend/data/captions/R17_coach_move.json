@@ -209,9 +209,9 @@
       "hint_for_user": ""
     },
     "coach_threat_general": {
-      "explanation": "{played_san} — what changed on the board for you?",
+      "explanation": "{played_san} — the coach improves its position.",
       "plan": "",
-      "teaching_point": "Most blunders happen because a player didn't notice what the opponent's last move actually did.",
+      "teaching_point": "After the opponent moves, the position has changed — a quick re-scan keeps you from missing what their move did.",
       "hint_for_user": ""
     },
     "coach_castles_kingside": {

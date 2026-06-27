@@ -205,7 +205,7 @@
     },
     "blunder_calculate": {
       "narrative": "You didn't calculate the opponent's response. {socratic_problem_facts_joined}",
-      "plan": "Before each move, ask: what's their best reply? {socratic_recovery_facts_joined}",
+      "plan": "Before each move, look at their best reply first. {socratic_recovery_facts_joined}",
       "question": "",
       "hint": ""
     },
@@ -217,7 +217,7 @@
     },
     "blunder_missed_threat": {
       "narrative": "You didn't respond to the opponent's last move. {socratic_problem_facts_joined}",
-      "plan": "Always pause after the opponent moves: what did they just do? {socratic_recovery_facts_joined}",
+      "plan": "Always pause after the opponent moves and read what they just did. {socratic_recovery_facts_joined}",
       "question": "",
       "hint": ""
     },
@@ -235,7 +235,7 @@
     },
     "mistake_missed_threat": {
       "narrative": "You didn't address the opponent's last move. {socratic_problem_facts_joined}",
-      "plan": "Pause after each opponent move — what new threat appeared? {socratic_recovery_facts_joined}",
+      "plan": "Pause after each opponent move and scan for any new threat. {socratic_recovery_facts_joined}",
       "question": "",
       "hint": ""
     },
