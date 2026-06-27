@@ -69,6 +69,13 @@ services:
       # byte-identical). Code default is OFF; this flips it ON for prod.
       # Kill-switch: set to false to revert without a code change.
       - PWC_EVERY_MOVE_TEACHES=true
+      # COACH CONDUCTOR (2026-06-27, docs/pwc_coach_conductor_scope.md): the player-
+      # model memory. Loads each player's motif digest and, when an engine-confirmed
+      # weak-pattern recurs (walk into a fork, miss a skewer), the coach names the
+      # thread as a STATEMENT ("the skewer again — slipping on you") with restraint
+      # (<=1/thread/game). Kill-switch: set to false. Validated on 1933 real moves +
+      # live path 5/5; door-latency worry was test contention, not real.
+      - PWC_COACH_CONDUCTOR=true
       # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.
