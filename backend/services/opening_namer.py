@@ -8,38 +8,36 @@ coach-move panel:
     ("King's Pawn Game" for every 1.e4 line — too coarse to be useful).
 
 This does a longest EXACT-PREFIX match of the played moves (SAN) against the curated `main_line`s in
-data/coaching/opening_theory_tree.json (27 openings; verified 6/6 incl. Four Knights vs Petrov vs
-Italian). It names the opening ONLY when the game's opening moves exactly equal a known main_line, so
-it CANNOT mislabel — an unknown line simply returns None and no name is shown. Using existing data
-with a correct matcher; not a new opening database.
+opening_curriculum.json (79 openings; verified 6/6 incl. Four Knights vs Petrov vs Italian).
+It names the opening ONLY when the game's opening moves exactly equal a known main_line, so
+it CANNOT mislabel — an unknown line simply returns None and no name is shown.
+
+MIGRATED TO: opening_unified_source.py (single source of truth)
 """
-import json
-import os
 import logging
 from functools import lru_cache
 from typing import List, Optional, Tuple
+from services.opening_unified_source import get_unified_source
 
 logger = logging.getLogger(__name__)
-
-_TREE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json"
-)
 
 
 @lru_cache(maxsize=1)
 def _openings() -> List[Tuple[str, Tuple[str, ...], str]]:
-    """(name, main_line tuple, plan) for every tree entry that has both name + main_line."""
+    """(name, main_line tuple, plan) for every curriculum entry that has both name + main_line."""
     try:
-        with open(_TREE_PATH, encoding="utf-8") as fh:
-            tree = json.load(fh)
+        source = get_unified_source()
+        theory_tree = source.get_theory_tree()
     except Exception as e:  # pragma: no cover
-        logger.warning(f"[opening_namer] could not load opening_theory_tree.json: {e}")
+        logger.warning(f"[opening_namer] could not load opening curriculum: {e}")
         return []
     out = []
-    for v in tree.values():
+    for v in theory_tree.values():
         if isinstance(v, dict) and v.get("main_line") and v.get("name"):
             plan = v.get("white_plan") or v.get("black_plan") or ""
-            out.append((v["name"], tuple(v["main_line"]), plan))
+            # Parse main_line string into moves
+            main_line_moves = v.get("main_line", "").split()
+            out.append((v["name"], tuple(main_line_moves), plan))
     return out
 
 

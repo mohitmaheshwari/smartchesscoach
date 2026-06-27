@@ -177,7 +177,14 @@ def get_theory_data(key: str) -> dict:
         elif key == "positional_rules":
             _THEORY_CACHE[key] = _load_json_safe(os.path.join(THEORY_DIR, "positional_rules.json"))
         elif key == "opening_plans":
-            _THEORY_CACHE[key] = _load_json_safe(os.path.join(COACHING_DIR, "opening_plans.json"))
+            # Load from unified source (opening_curriculum.json)
+            try:
+                from services.opening_unified_source import get_unified_source
+                source = get_unified_source()
+                _THEORY_CACHE[key] = source.get_opening_plans()
+            except Exception as e:
+                logger.warning(f"Could not load opening plans from unified source: {e}")
+                _THEORY_CACHE[key] = {}
     return _THEORY_CACHE.get(key, {})
 
 

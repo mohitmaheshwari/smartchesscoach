@@ -33,6 +33,12 @@
   "select_variant": [
     {
       "when": {
+        "coach_move_is_sound": false
+      },
+      "variant": "coach_overreach"
+    },
+    {
+      "when": {
         "is_capture": true,
         "coach_target_was_undefended": true
       },
@@ -176,6 +182,12 @@
       "explanation": "{played_san} — your {captured_piece_type} on {target_square} was undefended.",
       "plan": "",
       "teaching_point": "Count attackers vs defenders on every piece before you move.",
+      "hint_for_user": ""
+    },
+    "coach_overreach": {
+      "explanation": "{played_san} — but the piece it just moved can be taken. Look for the capture.",
+      "plan": "",
+      "teaching_point": "When a piece lands with a threat, first check it's safe itself — a fork only works if the forking piece can't simply be captured.",
       "hint_for_user": ""
     },
     "coach_capture_trade": {

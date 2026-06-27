@@ -58,11 +58,11 @@ _OPENING_PHASE_DEFAULT_PLIES = 8  # average of computed depths
 @lru_cache(maxsize=1)
 def _load_theory_tree() -> Dict:
     try:
-        with open(_THEORY_TREE_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        return {k: v for k, v in data.items() if not k.startswith("_")}
+        from services.opening_unified_source import get_unified_source
+        source = get_unified_source()
+        return source.get_theory_tree()
     except Exception as e:
-        logger.warning(f"could not load opening_theory_tree: {e}")
+        logger.warning(f"could not load opening theory tree: {e}")
         return {}
 
 
@@ -106,12 +106,11 @@ DEFAULT_RATING = 1500
 @lru_cache(maxsize=1)
 def _load_demands() -> Dict[str, Dict]:
     try:
-        with open(_DEMANDS_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        # Drop the _meta entry — it's documentation, not a real opening.
-        return {k: v for k, v in data.items() if not k.startswith("_")}
+        from services.opening_unified_source import get_unified_source
+        source = get_unified_source()
+        return source.get_opening_demands()
     except Exception as e:
-        logger.warning(f"could not load opening_demands: {e}")
+        logger.warning(f"could not load opening demands: {e}")
         return {}
 
 

@@ -164,6 +164,8 @@ class CoachOpponent:
         if board.is_game_over():
             return None
 
+        proposed = None
+
         # ─── WARM ENGINE PATH (fast — no process spawn) ───
         try:
             from services.engine_pool import warm_engine_scope
@@ -172,9 +174,7 @@ class CoachOpponent:
                     board,
                     chess.engine.Limit(time=self.time_limit, depth=self.depth),
                 )
-                if result.move:
-                    return board.san(result.move)
-                return None
+                proposed = result.move if result else None
         except chess.engine.EngineTerminatedError:
             # warm_engine_scope already restarted it; fall through to spawn path
             pass
@@ -182,31 +182,62 @@ class CoachOpponent:
             logger.debug(f"warm engine path failed for coach move, falling back: {e}")
 
         # ─── COLD FALLBACK (only if warm engine is broken) ───
-        try:
-            with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-                # Mohit 2026-06-03 — prefer UCI_Elo when the flag is on
-                # and rating is in range; else fall back to Skill Level.
-                if self.uci_elo is not None:
-                    try:
-                        engine.configure({
-                            "UCI_LimitStrength": True,
-                            "UCI_Elo": int(self.uci_elo),
-                        })
-                    except Exception as cfg_err:
-                        logger.debug(f"UCI_Elo configure failed in cold path, using Skill Level: {cfg_err}")
+        if proposed is None:
+            try:
+                with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
+                    # Mohit 2026-06-03 — prefer UCI_Elo when the flag is on
+                    # and rating is in range; else fall back to Skill Level.
+                    if self.uci_elo is not None:
+                        try:
+                            engine.configure({
+                                "UCI_LimitStrength": True,
+                                "UCI_Elo": int(self.uci_elo),
+                            })
+                        except Exception as cfg_err:
+                            logger.debug(f"UCI_Elo configure failed in cold path, using Skill Level: {cfg_err}")
+                            engine.configure({"Skill Level": self.skill_level})
+                    else:
                         engine.configure({"Skill Level": self.skill_level})
-                else:
-                    engine.configure({"Skill Level": self.skill_level})
-                result = engine.play(
-                    board,
-                    chess.engine.Limit(time=self.time_limit, depth=self.depth)
+                    result = engine.play(
+                        board,
+                        chess.engine.Limit(time=self.time_limit, depth=self.depth)
+                    )
+                    proposed = result.move if result else None
+            except Exception as e:
+                print(f"Stockfish error: {e}")
+                return self._get_fallback_move(fen)
+
+        if proposed is None:
+            return None
+
+        # ─── BLUNDER GUARD (the soundness floor) ───
+        # docs/coach_blunder_guard_scope.md. The weakened engine occasionally hangs
+        # a piece/queen (inhuman, trust-breaking). The guard replaces a catastrophe
+        # with a sound move while leaving the coach's calibrated, beatable mistakes
+        # intact. Behind PWC_COACH_BLUNDER_GUARD (default off).
+        proposed = self._apply_blunder_guard(board, proposed)
+        return board.san(proposed)
+
+    def _apply_blunder_guard(self, board: chess.Board, proposed: chess.Move) -> chess.Move:
+        """If enabled, veto a catastrophic coach move (free piece hang / forced
+        rook+ loss / walk into mate) and substitute a sound one. Uses a FULL-STRENGTH
+        analysis (not the weakened engine) so the eval is accurate."""
+        if os.environ.get("PWC_COACH_BLUNDER_GUARD", "false").lower() != "true":
+            return proposed
+        try:
+            from coach_play.coach_blunder_guard import select_sound_coach_move
+            from services.engine_pool import warm_engine_scope
+            # No skill_level/uci_elo → full strength, so the guard's eval is the truth.
+            with warm_engine_scope() as strong:
+                final, guarded = select_sound_coach_move(strong, board, proposed)
+            if guarded:
+                logger.info(
+                    f"[blunder_guard] vetoed {board.san(proposed)} -> {board.san(final)}"
                 )
-                if result.move:
-                    return board.san(result.move)
-                return None
+            return final
         except Exception as e:
-            print(f"Stockfish error: {e}")
-            return self._get_fallback_move(fen)
+            logger.warning(f"[blunder_guard] failed, keeping proposed move: {e}")
+            return proposed
     
     def _get_eval_sync(self, fen: str) -> Tuple[float, Optional[int]]:
         """Get position evaluation synchronously"""

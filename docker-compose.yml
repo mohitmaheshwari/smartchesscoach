@@ -76,6 +76,15 @@ services:
       # (<=1/thread/game). Kill-switch: set to false. Validated on 1933 real moves +
       # live path 5/5; door-latency worry was test contention, not real.
       - PWC_COACH_CONDUCTOR=true
+      # COACH BLUNDER GUARD (2026-06-27, docs/coach_blunder_guard_scope.md): a
+      # soundness floor on the coach's OWN moves. Stockfish weakening makes the coach
+      # play worse INHUMANLY — it occasionally hangs a queen, which breaks trust. The
+      # guard vetoes a catastrophe (free piece hang / forced rook+ loss / walk into
+      # mate) and substitutes a sound move, while leaving the coach's calibrated,
+      # beatable mistakes intact. Measured: catastrophe-rate -> 0 at every level,
+      # beatability preserved (fires on ~10% of moves). Adds one full-strength depth-14
+      # analyse per coach move (~watch coach-move latency). Kill-switch: set false.
+      - PWC_COACH_BLUNDER_GUARD=true
       # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.

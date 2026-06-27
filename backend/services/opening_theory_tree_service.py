@@ -4,6 +4,8 @@ Opening Theory Tree Service
 
 Provides intelligent opening detection and theory matching using the tree structure.
 Handles variations, sub-variations, and critical position detection.
+
+MIGRATED TO: opening_unified_source.py (single source of truth: opening_curriculum.json)
 """
 
 import json
@@ -11,29 +13,25 @@ import os
 import logging
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from services.opening_unified_source import get_unified_source
 
 logger = logging.getLogger(__name__)
-
-THEORY_TREE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json"
-)
 
 _THEORY_TREE_CACHE = None
 
 
 def load_theory_tree() -> dict:
-    """Load the opening theory tree from JSON."""
+    """Load the opening theory tree from unified source."""
     global _THEORY_TREE_CACHE
-    
+
     if _THEORY_TREE_CACHE is not None:
         return _THEORY_TREE_CACHE
-    
+
     try:
-        with open(THEORY_TREE_PATH, "r") as f:
-            data = json.load(f)
-            data.pop("_meta", None)
-            _THEORY_TREE_CACHE = data
-            return data
+        # Load from unified source (opening_curriculum.json)
+        source = get_unified_source()
+        _THEORY_TREE_CACHE = source.get_theory_tree()
+        return _THEORY_TREE_CACHE
     except Exception as e:
         logger.warning(f"Could not load opening theory tree: {e}")
         return {}

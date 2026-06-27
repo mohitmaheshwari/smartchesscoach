@@ -1393,6 +1393,20 @@ def inject_coach_move_facts(
             caption_facts["coach_retreat_from"] = chess.square_name(move.from_square)
             caption_facts["coach_retreat_piece"] = chess.piece_name(_mp.piece_type)
 
+    # SOUNDNESS — does the coach's move hang material (net SEE) to the student? A
+    # "fork" / threat whose own piece can just be captured is NOT a threat — it's a
+    # blunder, and we must never narrate it as a good double-attack ("Qxf6 — attacking
+    # two of your pieces" while Bxf6 just wins the queen). Mohit 2026-06-27. The fork/
+    # threat variants gate on this; an unsound coach move gets the honest overreach line.
+    caption_facts["coach_move_is_sound"] = True
+    try:
+        from coach_play.coach_blunder_guard import material_hung_after
+        _worst_hang, _ = material_hung_after(board_before, move)
+        if _worst_hang >= 300:
+            caption_facts["coach_move_is_sound"] = False
+    except Exception:
+        pass
+
     # Was the captured square undefended BEFORE the move? Free piece
     # vs trade is a core teaching distinction smart_coaching surfaces
     # via SEE; we expose it as a boolean for template predicates.
