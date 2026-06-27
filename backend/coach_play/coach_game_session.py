@@ -210,6 +210,25 @@ async def start_coach_session(
     Returns:
         New CoachGameSession
     """
+    # ── SINGLE-ACTIVE-SESSION INVARIANT (2026-06-27) ──────────────────────────
+    # Abandon any of THIS user's still-"active" sessions before creating the new
+    # one. Nothing closed them before, so they piled up (bhutramohit had 12). The
+    # frontend resumes /active -> active_sessions[0], so stale actives meant
+    # "starting a new game takes me back to a previous game", and moves could land
+    # on a desynced board (a checkmate not recognized). One active session at a
+    # time makes resume unambiguous.
+    try:
+        await db.coach_sessions.update_many(
+            {"user_id": user_id, "status": "active"},
+            {"$set": {
+                "status": "abandoned",
+                "termination_reason": "superseded_by_new_session",
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+    except Exception as _e:
+        logger.warning(f"[start_coach_session] could not abandon prior active sessions: {_e}")
+
     # Parse time control
     base_time, increment = 900.0, 10.0  # Default 15+10
     if time_control:
