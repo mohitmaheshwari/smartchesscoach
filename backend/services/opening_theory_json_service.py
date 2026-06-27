@@ -2,39 +2,37 @@
 Opening Theory JSON Service
 ============================
 Single source of truth for all opening theory data.
-Loads from /data/coaching/opening_theory_tree.json.
+Loads from opening_curriculum.json via unified source.
 
 Provides:
 - Full lesson move sequences (10-15+ moves deep)
 - Critical position data with explanations
 - Variation listings per opening
 - Rich teaching context for each move
+
+MIGRATED: now uses opening_unified_source.py
 """
 
-import json
-import os
 import logging
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 _THEORY_DATA: Optional[Dict] = None
-_JSON_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json")
 
 
 def _load_theory():
-    """Load the JSON theory file once."""
+    """Load theory data from unified source once."""
     global _THEORY_DATA
     if _THEORY_DATA is not None:
         return
     try:
-        with open(_JSON_PATH, "r") as f:
-            _THEORY_DATA = json.load(f)
-        # Remove metadata key
-        _THEORY_DATA.pop("_meta", None)
+        from services.opening_unified_source import get_unified_source
+        source = get_unified_source()
+        _THEORY_DATA = source.get_all_openings()
         logger.info(f"Loaded opening theory: {list(_THEORY_DATA.keys())}")
     except Exception as e:
-        logger.error(f"Failed to load opening theory JSON: {e}")
+        logger.error(f"Failed to load opening theory: {e}")
         _THEORY_DATA = {}
 
 

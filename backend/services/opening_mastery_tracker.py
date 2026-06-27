@@ -44,18 +44,17 @@ FREEPLAY_TO_MASTERED_EXPERIENCE_ACC = 0.55    # path B average floor
 # ─── MOVE IDEAS — loaded from JSON theory tree ───────────────────
 #
 # All teaching data (ideas, arrows, variations, intros) lives in
-# opening_theory_tree.json — the single source of truth.
+# opening_curriculum.json — the single source of truth (via unified source).
 # This code just reads and indexes it.
 
 def _load_teaching_data():
-    """Load move ideas from the theory tree JSON. Called once at import."""
-    import os, json
-    tree_path = os.path.join(os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json")
+    """Load move ideas from the curriculum. Called once at import."""
     try:
-        with open(tree_path, encoding="utf-8") as f:
-            tree = json.load(f)
+        from services.opening_unified_source import get_unified_source
+        source = get_unified_source()
+        tree = source.get_theory_tree()
     except Exception:
-        logger.warning("[MASTERY] Could not load opening_theory_tree.json")
+        logger.warning("[MASTERY] Could not load opening curriculum")
         return {}, {}
 
     flat_ideas = {}   # opening_key -> [{"move", "idea", "arrow"}, ...]

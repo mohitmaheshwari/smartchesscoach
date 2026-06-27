@@ -47,8 +47,18 @@ _COACHING_CACHE = {}
 def get_coaching_data(key: str) -> dict:
     global _COACHING_CACHE
     if key not in _COACHING_CACHE:
-        filepath = os.path.join(COACHING_DATA_DIR, f"{key}.json")
-        _COACHING_CACHE[key] = load_json_safe(filepath)
+        # Route opening_plans to unified source
+        if key == "opening_plans":
+            try:
+                from services.opening_unified_source import get_unified_source
+                source = get_unified_source()
+                _COACHING_CACHE[key] = source.get_opening_plans()
+            except Exception as e:
+                logger.warning(f"Could not load opening_plans from unified source: {e}")
+                _COACHING_CACHE[key] = {}
+        else:
+            filepath = os.path.join(COACHING_DATA_DIR, f"{key}.json")
+            _COACHING_CACHE[key] = load_json_safe(filepath)
     return _COACHING_CACHE[key]
 
 

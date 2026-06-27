@@ -44,9 +44,8 @@ import chess
 logger = logging.getLogger(__name__)
 
 
-_THEORY_TREE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json"
-)
+# MIGRATED: now loads from opening_curriculum.json via unified source
+# _THEORY_TREE_PATH kept for reference only
 
 
 def _normalize_san(san: str) -> str:
@@ -122,12 +121,12 @@ def _build_lookup() -> Dict[str, Dict[str, Any]]:
     enrichment in that case.
     """
     try:
-        with open(_THEORY_TREE_PATH, encoding="utf-8") as f:
-            tree = json.load(f)
+        from services.opening_unified_source import get_unified_source
+        source = get_unified_source()
+        tree = source.get_theory_tree()
     except Exception as exc:
         logger.warning(
-            f"[opening_theory] failed to load theory tree at "
-            f"{_THEORY_TREE_PATH}: {exc}"
+            f"[opening_theory] failed to load theory tree from unified source: {exc}"
         )
         return {}
 
