@@ -1364,6 +1364,27 @@ def inject_coach_move_facts(
     else:
         caption_facts["coach_castling_side"] = None
 
+    # RETREAT detection — a developed piece fleeing a square the student attacks is a
+    # RETREAT, not "development". Without this, a bishop chased home (Bg4 -> Bc8 after
+    # h3) reads as "developing to an active diagonal" — the OPPOSITE of the truth, and
+    # it dresses a forced passive retreat up as a good move. fb 2026-06-27.
+    caption_facts["coach_move_is_retreat"] = False
+    _mp = board_before.piece_at(move.from_square)
+    if (_mp is not None and not is_castling
+            and _mp.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
+            and not board_before.is_capture(move)):
+        _val = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
+        _pv = _val.get(_mp.piece_type, 0)
+        _atk = board_before.attackers(student_color, move.from_square)
+        _def = board_before.attackers(coach_color, move.from_square)
+        _min_atk = min((_val.get(board_before.piece_at(s).piece_type, 0) for s in _atk), default=99)
+        # Forced retreat: the piece sat on a square the student attacks with something
+        # it can't safely ignore (a cheaper-or-equal attacker, or it's undefended).
+        if _atk and (_min_atk <= _pv or not _def):
+            caption_facts["coach_move_is_retreat"] = True
+            caption_facts["coach_retreat_from"] = chess.square_name(move.from_square)
+            caption_facts["coach_retreat_piece"] = chess.piece_name(_mp.piece_type)
+
     # Was the captured square undefended BEFORE the move? Free piece
     # vs trade is a core teaching distinction smart_coaching surfaces
     # via SEE; we expose it as a boolean for template predicates.

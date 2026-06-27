@@ -91,6 +91,12 @@
     },
     {
       "when": {
+        "coach_move_is_retreat": true
+      },
+      "variant": "coach_retreat"
+    },
+    {
+      "when": {
         "coach_intent": "threat_awareness"
       },
       "variant": "coach_threat_general"
@@ -212,6 +218,12 @@
       "explanation": "{played_san} — the coach improves its position.",
       "plan": "",
       "teaching_point": "After the opponent moves, the position has changed — a quick re-scan keeps you from missing what their move did.",
+      "hint_for_user": ""
+    },
+    "coach_retreat": {
+      "explanation": "{played_san} — the coach pulls its {coach_retreat_piece} back off {coach_retreat_from}; you were attacking it there.",
+      "plan": "",
+      "teaching_point": "When you attack a developed piece, it usually has to retreat to a worse square — that's a free gain in space and time for you.",
       "hint_for_user": ""
     },
     "coach_castles_kingside": {
