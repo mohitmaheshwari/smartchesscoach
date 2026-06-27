@@ -51,13 +51,25 @@ Schema persisted to db.user_opening_profiles:
 from __future__ import annotations
 
 import logging
+import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-USER_OPENING_PROFILE_VERSION = 3  # v3: added recurring-deviation aggregation (Phase-3 Component 2 — needs opening_deviation data on game_analyses)
+USER_OPENING_PROFILE_VERSION = 4  # v4: added recurring_mistakes (cp_loss-filtered deviations — engine-confirmed opening mistakes, for the Coach Conductor). v3: recurring-deviation aggregation.
+
+# A recurring DEVIATION becomes a recurring MISTAKE only when it's engine-bad.
+# The 2026-06-27 distribution (Mohit, 135 deviations) was decisive: median
+# deviation cp_loss is 18 — pure noise. "d3 instead of c3" in the Italian recurs
+# 41× and is SOUND theory (median 19cp). A deviation from a hand-authored mainline
+# is NOT a mistake. So we keep only patterns the engine consistently punishes:
+# played >= MIN_COUNT times AND median cp_loss >= MIN_MEDIAN_CP. For Mohit this
+# correctly surfaces exactly exf5 (Italian, 169cp) + d5 (Pirc, 84cp) and silences
+# d3/O-O. docs/pwc_coach_conductor_scope.md, [[feedback_threshold_before_distribution_is_sin]].
+RECURRING_MISTAKE_MIN_COUNT = 2
+RECURRING_MISTAKE_MIN_MEDIAN_CP = 60
 
 
 # Base opening families — match by prefix. Real-prod test 2026-05-19
@@ -339,6 +351,64 @@ async def compute_opening_profile(db, user_id: str) -> Dict[str, Any]:
         })
     recurring_deviations.sort(key=lambda r: (-r["total_deviations"], r["opening_family"]))
 
+    # ── Recurring MISTAKES — the engine-confirmed subset (Coach Conductor) ──
+    # The deviation list above conflates "left the curriculum mainline" with
+    # "played a mistake" — most deviations are sound (d3 in the Italian). Join
+    # each deviation to its engine cp_loss (the move_evaluations entry whose SAN
+    # matches the deviating move — they're user-only, so the early opening SAN is
+    # unique → first match is the deviation) and keep only patterns the engine
+    # punishes repeatedly. Cheap: one $filter-per-game, server-side. See the
+    # RECURRING_MISTAKE_* constants for the data-locked thresholds.
+    recurring_mistakes: List[Dict[str, Any]] = []
+    try:
+        mistake_buckets: Dict[tuple, Dict[str, Any]] = defaultdict(
+            lambda: {"cpls": [], "best": Counter(), "games": []}
+        )
+        pipeline = [
+            {"$match": {"user_id": user_id, "opening_deviation.deviation": {"$ne": None}}},
+            {"$project": {
+                "game_id": 1,
+                "dev": "$opening_deviation.deviation",
+                "hit": {"$first": {"$filter": {
+                    "input": {"$ifNull": ["$stockfish_analysis.move_evaluations", []]},
+                    "as": "m",
+                    "cond": {"$eq": ["$$m.move", "$opening_deviation.deviation.played_san"]},
+                }}},
+            }},
+            {"$project": {"game_id": 1, "dev": 1,
+                          "cpl": "$hit.cp_loss", "best": "$hit.best_move", "mv": "$hit.move"}},
+        ]
+        async for row in db.game_analyses.aggregate(pipeline):
+            dev = row.get("dev") or {}
+            played = dev.get("played_san")
+            cpl = row.get("cpl")
+            # Guard: only count when the filtered entry actually IS the played move
+            # (defends against a missing/ambiguous SAN match).
+            if not played or cpl is None or row.get("mv") != played:
+                continue
+            family = _normalize_opening_family(dev.get("last_opening_name"))
+            b = mistake_buckets[(family, played)]
+            b["cpls"].append(abs(int(cpl)))
+            if row.get("best"):
+                b["best"][row["best"]] += 1
+            if row.get("game_id") and len(b["games"]) < 5:
+                b["games"].append(row["game_id"])
+        for (family, played), b in mistake_buckets.items():
+            cpls = b["cpls"]
+            if (len(cpls) >= RECURRING_MISTAKE_MIN_COUNT
+                    and statistics.median(cpls) >= RECURRING_MISTAKE_MIN_MEDIAN_CP):
+                recurring_mistakes.append({
+                    "opening_family": family,
+                    "played_san": played,
+                    "count": len(cpls),
+                    "median_cp_loss": round(statistics.median(cpls)),
+                    "best_san": (b["best"].most_common(1)[0][0] if b["best"] else None),
+                    "recent_game_ids": b["games"],
+                })
+        recurring_mistakes.sort(key=lambda r: (-r["median_cp_loss"], -r["count"]))
+    except Exception as e:
+        logger.warning(f"[opening_profile] recurring_mistakes aggregate failed (non-fatal): {e}")
+
     return {
         "user_id": user_id,
         "version": USER_OPENING_PROFILE_VERSION,
@@ -348,6 +418,7 @@ async def compute_opening_profile(db, user_id: str) -> Dict[str, Any]:
         "black": _build_color_summary(by_color_opening["black"], "black"),
         "trap_exposure": _build_trap_exposure(per_trap_buckets),
         "recurring_deviations": recurring_deviations,
+        "recurring_mistakes": recurring_mistakes,
     }
 
 
@@ -361,6 +432,7 @@ def _empty_profile() -> Dict[str, Any]:
         "black": {"total_games": 0, "openings": []},
         "trap_exposure": {"by_trap": []},
         "recurring_deviations": [],
+        "recurring_mistakes": [],
     }
 
 

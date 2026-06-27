@@ -111,3 +111,44 @@ Key facts from research:
   iff player-weak + engine-confirmed; ≤1 per motif/game; win acknowledged; rate spoken is real.
 - The harness prints a transcript (the felt experience) + a scorecard. "100% confident" = scorecard
   all-green across the set AND the transcripts read like a coach.
+
+---
+
+## ADDENDUM — Openings layer (2026-06-27, shipped)
+
+The conductor now catches **recurring, engine-confirmed OPENING mistakes** as a
+third thread type (after motif + endgame). The hard lesson is baked into the design:
+
+**A deviation from the curriculum mainline is NOT a mistake.** The 2026-06-27
+distribution over Mohit's 135 stored deviations was decisive — median cp_loss is
+**18** (noise). His single biggest "recurring deviation", `d3 instead of c3` in the
+Italian (×41), is *sound theory* (median 19cp). Flagging it would be flatly wrong.
+[[feedback_threshold_before_distribution_is_sin]] / [[feedback_query_engine_before_authoring]].
+
+So the firing is gated three ways, engine-true-or-silent:
+
+1. **Digest (recurrence, cp-filtered):** `user_opening_profile.recurring_mistakes`
+   joins each deviation to its engine cp_loss (the move_evaluations entry whose SAN
+   matches — they're user-only so the early opening SAN is unique) and keeps only
+   patterns played ≥2× with **median cp_loss ≥ 60**. For Mohit this is exactly
+   `exf5` (Italian, 169cp) + `d5` (Pirc, 84cp); `d3`/`O-O` are correctly excluded.
+   Version bumped 3→4 so profiles auto-recompute (no backfill).
+2. **Live recognizer:** the canonical `match_opening_for_mover` must place the user
+   in that opening with a book move still pending (a genuine in-book first-deviation).
+3. **Eval-state severity (NOT raw cp_loss):** fires only when the move's
+   `practical_tier ∈ {mistake, serious, blunder}`. This killed a contradiction —
+   a 113cp `d5` that *stays winning* reads "d5 is fine — you're still winning"; the
+   thread must never call that a recurring mistake. The thread now aligns with the
+   caption's own framing. [[feedback_caption_tone_undramatic]].
+
+The thread **prepends** a memory lead-in (`"You've been here before in the {family}."`)
+so the underlying caption's engine why + better move survive intact (no double SAN,
+honors [[feedback_mistake_must_explain_why]]).
+
+**Validation (prod data, user_8b599930d7ef):** positive `exf5` fires (both games,
+"serious"); negatives `d3` (sound) + still-winning `d5` stay silent; control (digest
+off) → base caption, no prefix; **sweep of 2489 user moves across 120 games → 2 fires,
+both genuine, 0 false fires**; end-to-end via `generate_move_coaching` confirmed.
+Code: `user_opening_profile.recurring_mistakes`, `coach_conductor.player_opening_threads`
++ `compute_opening_thread`, `caption_pipeline` conductor block (prepend), threaded
+through `shared_coaching_v5` + `coach_play` session-load. Behind `PWC_COACH_CONDUCTOR`.

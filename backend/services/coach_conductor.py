@@ -171,6 +171,90 @@ def _slip_tag(info: Dict[str, Any]) -> str:
     return "the one you've been missing lately"
 
 
+# ── OPENINGS: recurring, engine-confirmed opening mistakes ─────────────────
+# A deviation from the curriculum mainline is NOT a mistake (d3 in the Italian
+# recurs 41× and is sound). So the digest already filtered to patterns the engine
+# punishes (user_opening_profile.recurring_mistakes). Here we ALSO gate the live
+# instance on EVAL-STATE severity, not raw cp_loss: a move that loses 113cp but
+# stays winning reads "d5 is fine — you're still winning", and calling that a
+# recurring mistake would contradict its own caption. We fire only when the move's
+# practical tier is a real mistake. The thread PREPENDS the recurrence framing,
+# leaving the underlying caption's engine why + better move intact.
+_OPENING_FIRE_TIERS = ("mistake", "serious", "blunder")
+
+
+def player_opening_threads(opening_profile: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Digest user_opening_profile into {family: {played_san: {best_san, count, median_cp_loss}}}.
+    Only the engine-confirmed recurring mistakes (already cp_loss-filtered upstream)."""
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in (opening_profile or {}).get("recurring_mistakes") or []:
+        fam = r.get("opening_family")
+        played = r.get("played_san")
+        if not fam or not played:
+            continue
+        out.setdefault(fam, {})[played] = {
+            "best_san": r.get("best_san"),
+            "count": r.get("count"),
+            "median_cp_loss": r.get("median_cp_loss"),
+        }
+    return out
+
+
+def compute_opening_thread(
+    *,
+    move_history_san: Optional[List[str]],
+    played_san: str,
+    best_move_san: Optional[str],
+    practical_tier: Optional[str],
+    user_is_white: bool,
+    threads: Dict[str, Dict[str, Any]],
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """Return an opening-recurrence STATEMENT for this user move, or None.
+
+    Fires only when ALL hold (engine-true or silent):
+      - the move is a real mistake in EVAL-STATE terms this instance
+        (practical_tier in _OPENING_FIRE_TIERS — never on a still-winning move),
+      - the canonical recognizer says the user is in a known opening with a book
+        move pending (so this is a genuine first-deviation, in-book until now),
+      - that opening family + this exact move are in the player's recurring-
+        mistake digest (so we can honestly say "again"),
+      - restraint: the family's thread hasn't fired yet this game.
+    `prepend=True` → the caller prepends this framing to the move's caption,
+    keeping the engine-grounded why + better move."""
+    if not threads or not played_san or not move_history_san:
+        return None
+    if practical_tier not in _OPENING_FIRE_TIERS:
+        return None
+    try:
+        from services.opening_lookup import match_opening_for_mover
+        from services.user_opening_profile import _normalize_opening_family
+    except Exception:
+        return None
+    user_color = "white" if user_is_white else "black"
+    try:
+        prior = match_opening_for_mover(list(move_history_san), user_color)
+    except Exception:
+        prior = None
+    # next_expected None → book already ended (not an in-book first-deviation).
+    if not prior or not prior.get("next_expected"):
+        return None
+    family = _normalize_opening_family(prior.get("name"))
+    fam_threads = threads.get(family)
+    if not fam_threads or played_san not in fam_threads:
+        return None
+    key = f"opening:{family}"
+    if key in threads_pulled:
+        return None
+    threads_pulled.add(key)
+    return {
+        "kind": "opening_recur", "motif": family, "side": "opening", "prepend": True,
+        # A natural memory lead-in that flows into the move's engine why (which
+        # names the move + the better move), so the SAN isn't said twice.
+        "text": f"You've been here before in the {family}.",
+    }
+
+
 def compute_motif_thread(
     *,
     fen_before: str,

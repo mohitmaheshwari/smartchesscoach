@@ -2885,6 +2885,7 @@ async def get_interactive_coaching(
             # docs/pwc_coach_conductor_scope.md.
             import os as _os
             _conductor_digest = None
+            _opening_digest = None
             _conductor_pulled = set(session_doc.get("conductor_threads_pulled") or [])
             if _os.environ.get("PWC_COACH_CONDUCTOR", "false").lower() == "true":
                 try:
@@ -2907,6 +2908,23 @@ async def get_interactive_coaching(
                 except Exception as _cd_exc:
                     logger.warning(f"[conductor] digest load failed: {_cd_exc}")
                     _conductor_digest = None
+                # Opening-recurrence digest — the player's engine-confirmed recurring
+                # opening mistakes (cached on the session; the underlying profile is
+                # hourly-cached + auto-recomputes at version 4). docs/pwc_coach_conductor_scope.md.
+                try:
+                    _opening_digest = session_doc.get("player_opening_threads")
+                    if _opening_digest is None:
+                        from services.coach_conductor import player_opening_threads as _pot
+                        from services.user_opening_profile import get_opening_profile
+                        _oprof = await get_opening_profile(db, session_doc.get("user_id"))
+                        _opening_digest = _pot(_oprof)
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"player_opening_threads": _opening_digest}},
+                        )
+                except Exception as _od_exc:
+                    logger.warning(f"[conductor] opening digest load failed: {_od_exc}")
+                    _opening_digest = None
 
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
@@ -2934,6 +2952,7 @@ async def get_interactive_coaching(
                 eval_after_cp=int(round((eval_after or 0) * 100)),
                 move_evaluations=session_doc.get("move_evaluations") or None,
                 player_motif_threads=_conductor_digest,
+                player_opening_threads=_opening_digest,
                 session_conductor_threads_pulled=_conductor_pulled,
             )
 

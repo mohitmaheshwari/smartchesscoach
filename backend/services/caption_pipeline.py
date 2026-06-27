@@ -234,6 +234,14 @@ class MoveInputs:
     # useful thing"). None for review without a player model and for coach moves.
     player_motif_threads: Optional[Dict[str, Any]] = None
 
+    # ─── Coach Conductor: the player's recurring OPENING mistakes
+    # (coach_conductor.player_opening_threads() — {family: {played_san: ...}}).
+    # Engine-confirmed recurring deviations only (sound deviations are filtered
+    # out upstream). When the move is the player's recurring first-deviation in a
+    # recognized opening AND costs real eval, the door PREPENDS an "again"
+    # recurrence framing to the caption. None for review / coach moves.
+    player_opening_threads: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -4407,23 +4415,24 @@ def build_move_teaching_decision(
     # most useful thing". All gating (relevance, restraint, win eval-gain, engine-
     # truth) lives in coach_conductor; here we let it override + stamp the marker.
     _conductor_thread = None
-    if inputs.mover_is_user and inputs.player_motif_threads:
+    if inputs.mover_is_user and (inputs.player_motif_threads or inputs.player_opening_threads):
         try:
-            from services.coach_conductor import compute_motif_thread
-            _conductor_thread = compute_motif_thread(
-                fen_before=inputs.fen_before,
-                played_san=inputs.played_san,
-                best_move_san=inputs.best_move_san,
-                pv_after_played=inputs.pv_after_played,
-                pv_after_best=inputs.pv_after_best,
-                cp_loss=int(inputs.cp_loss or 0),
-                is_user_move=True,
-                threads=inputs.player_motif_threads,
-                threads_pulled=state.conductor_threads_pulled,
-                eval_before_cp=inputs.eval_before_cp,
-                eval_after_cp=inputs.eval_after_cp,
-                mover_is_white=inputs.mover_is_white,
-            )
+            if inputs.player_motif_threads:
+                from services.coach_conductor import compute_motif_thread
+                _conductor_thread = compute_motif_thread(
+                    fen_before=inputs.fen_before,
+                    played_san=inputs.played_san,
+                    best_move_san=inputs.best_move_san,
+                    pv_after_played=inputs.pv_after_played,
+                    pv_after_best=inputs.pv_after_best,
+                    cp_loss=int(inputs.cp_loss or 0),
+                    is_user_move=True,
+                    threads=inputs.player_motif_threads,
+                    threads_pulled=state.conductor_threads_pulled,
+                    eval_before_cp=inputs.eval_before_cp,
+                    eval_after_cp=inputs.eval_after_cp,
+                    mover_is_white=inputs.mover_is_white,
+                )
             # Endgame technique recognition — a position-based STATEMENT, only when
             # no motif thread already won. Technique-verified by the concept detectors.
             if _conductor_thread is None:
@@ -4434,8 +4443,37 @@ def build_move_teaching_decision(
                     user_is_white=inputs.mover_is_white,
                     threads_pulled=state.conductor_threads_pulled,
                 )
+            # Opening recurrence — the player's recurring, engine-confirmed opening
+            # mistake. PREPENDS its "again" framing to the move's caption so the
+            # engine-grounded why + better move survive. Only when no motif/endgame
+            # thread already won.
+            if _conductor_thread is None and inputs.player_opening_threads:
+                from services.coach_conductor import compute_opening_thread
+                _conductor_thread = compute_opening_thread(
+                    move_history_san=inputs.move_history_san,
+                    played_san=inputs.played_san,
+                    best_move_san=inputs.best_move_san,
+                    practical_tier=caption_facts.get("severity_practical"),
+                    user_is_white=inputs.mover_is_white,
+                    threads=inputs.player_opening_threads,
+                    threads_pulled=state.conductor_threads_pulled,
+                )
             if _conductor_thread and _conductor_thread.get("text"):
-                caption_payload["caption"] = _conductor_thread["text"]
+                if _conductor_thread.get("prepend"):
+                    # Keep the underlying engine why + better move; lead with the
+                    # recurrence. If the move had no caption (shouldn't for a real
+                    # mistake), at least name the engine's better move so the
+                    # "why" law isn't violated.
+                    _existing = (caption_payload.get("caption") or "").strip()
+                    if _existing:
+                        caption_payload["caption"] = _conductor_thread["text"] + " " + _existing
+                    else:
+                        _b = inputs.best_move_san
+                        caption_payload["caption"] = _conductor_thread["text"] + (
+                            f" {inputs.played_san} — {_b} was the stronger move." if _b
+                            else f" {inputs.played_san} slips here.")
+                else:
+                    caption_payload["caption"] = _conductor_thread["text"]
                 caption_payload["rule_name"] = "R_CONDUCTOR_thread"
         except Exception as _ct_exc:
             logger.warning(f"[conductor] thread compute failed m{inputs.full_move_number}: {_ct_exc!r}")
