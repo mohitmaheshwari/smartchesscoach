@@ -27,6 +27,7 @@ from routes.auth import User, get_current_user
 from services.diagnostic_service import (
     select_diagnostic_puzzles,
     score_diagnostic,
+    apply_diagnosis_to_training,
     diagnostic_supersedes_after,
 )
 
@@ -265,7 +266,11 @@ async def record_attempt(
             {"user_id": user.user_id, "status": "in_progress"},
             {"_id": 0},
         )
-        diagnosis = score_diagnostic(session.get("attempts", []))
+        # Score AND feed the result into the same weakness pipeline game
+        # analysis uses, so the cold-start user's training/home personalize.
+        diagnosis = await apply_diagnosis_to_training(
+            db, user.user_id, session.get("attempts", [])
+        )
         await db.diagnostic_sessions.update_one(
             {"user_id": user.user_id, "status": "in_progress"},
             {"$set": {
@@ -298,6 +303,30 @@ async def record_attempt(
         "total": len(puzzle_ids),
         "puzzle": _strip_puzzle_solution(next_puzzle) if next_puzzle else None,
     }
+
+
+@router.post("/exit")
+async def exit_diagnostic(user: User = Depends(get_current_user)):
+    """User left the diagnostic early. Score whatever they solved and STILL
+    build their profile from it (partial run nudges the profile, per scope)."""
+    session = await db.diagnostic_sessions.find_one(
+        {"user_id": user.user_id, "status": "in_progress"}, {"_id": 0},
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="No diagnostic in progress.")
+    diagnosis = await apply_diagnosis_to_training(
+        db, user.user_id, session.get("attempts", [])
+    )
+    await db.diagnostic_sessions.update_one(
+        {"user_id": user.user_id, "status": "in_progress"},
+        {"$set": {
+            "status": "complete",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "diagnosis": diagnosis,
+            "exited_early": True,
+        }},
+    )
+    return {"status": "complete", "diagnosis": diagnosis, "exited_early": True}
 
 
 @router.get("/result")

@@ -17,8 +17,11 @@ Public API:
 
 from __future__ import annotations
 
+import logging
 import random
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 # Issue types worth probing. Roughly ordered from "everyone has this gap"
 # to "more advanced." The selector tries to cover all 7; if an issue type
@@ -316,6 +319,90 @@ def score_diagnostic(attempts: List[Dict[str, Any]]) -> Dict[str, Any]:
         "total_correct": correct_total,
         "total_attempted": len(attempts),
     }
+
+
+# ── Wiring #1: diagnostic result → the SAME weakness pipeline game analysis uses ──
+# A cold-start user has no analyzed games, so the diagnostic is their only weakness
+# signal. We map its issue_type (already cognitive_gap-shaped) onto the weakness
+# taxonomy that player_profiles.top_weaknesses (drives /home) and
+# coach_memory.learning.current_focus (routes /training/prescribed/current) use,
+# then write through the existing chokepoint (update_user_weaknesses). So a
+# cold user's training/home personalize off the diagnostic exactly like a game-user.
+
+# diagnostic issue_type -> (category, subcategory) for player_profiles.top_weaknesses
+_ISSUE_TO_WEAKNESS: Dict[str, tuple] = {
+    "piece_safety":       ("tactical", "one_move_blunders"),
+    "tactical_oversight": ("tactical", "one_move_blunders"),
+    "missed_tactic":      ("tactical", "fork_misses"),
+    "calculation_depth":  ("tactical", "one_move_blunders"),
+    "king_safety":        ("king_safety", "exposing_own_king"),
+    "piece_activity":     ("strategic", "poor_piece_activity"),
+    "opening_knowledge":  ("opening_principles", "neglecting_development"),
+}
+
+# diagnostic issue_type -> coach_memory focus key (routes prescribed training).
+# Types with no clean focus key are omitted; top_weaknesses still drives /home.
+_ISSUE_TO_FOCUS: Dict[str, str] = {
+    "piece_safety":       "hanging_piece",
+    "missed_tactic":      "missed_fork",
+    "tactical_oversight": "tactical_error",
+    "calculation_depth":  "tactical_error",
+    "king_safety":        "king_safety",
+}
+
+
+def _worst_issue_type(diagnosis: Dict[str, Any]) -> Optional[str]:
+    """The issue_type the user did WORST on (lowest correct rate; >=2 attempts
+    preferred). Falls back to any 'Needs work' category, else None."""
+    per_cat = diagnosis.get("per_category") or {}
+    ranked = []
+    for it, c in per_cat.items():
+        total = c.get("total", 0)
+        if total < 2:
+            continue
+        rate = c.get("correct", 0) / total
+        ranked.append((rate, -total, it))
+    if ranked:
+        ranked.sort()
+        return ranked[0][2]
+    for it, c in per_cat.items():
+        if c.get("label") == "Needs work":
+            return it
+    return None
+
+
+async def apply_diagnosis_to_training(db, user_id: str, attempts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Score the (possibly partial) attempts and feed the worst category into the
+    same weakness pipeline game analysis uses. Safe to call repeatedly (a longer
+    run just refines the focus). Returns the diagnosis dict.
+    """
+    from player_profile_service import update_weakness_tracking, get_or_create_profile
+
+    diagnosis = score_diagnostic(attempts)
+    worst = _worst_issue_type(diagnosis)
+    if not worst:
+        return diagnosis  # not enough signal yet — nothing to write
+
+    # Cold users have no player_profiles doc, and update_weakness_tracking no-ops
+    # without one — so ensure a full default profile exists first.
+    u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1})
+    await get_or_create_profile(db, user_id, (u or {}).get("name") or "Player")
+
+    cat, subcat = _ISSUE_TO_WEAKNESS.get(worst, ("tactical", "one_move_blunders"))
+    try:
+        await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
+    except Exception as e:  # never let a wiring hiccup break the diagnostic
+        logger.warning(f"diagnostic->weakness write failed for {user_id}: {e}")
+
+    focus = _ISSUE_TO_FOCUS.get(worst)
+    if focus:
+        await db.coach_memory.update_one(
+            {"user_id": user_id},
+            {"$set": {"learning.current_focus": focus, "learning.focus_source": "diagnostic"}},
+            upsert=True,
+        )
+
+    return diagnosis
 
 
 def diagnostic_supersedes_after(num_analyzed_games: int) -> bool:
