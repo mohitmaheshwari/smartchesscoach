@@ -57,6 +57,9 @@ class User(BaseModel):
     # ALL users (not just their own). Used for content-quality auditors
     # like Parth Gilda, who flag bugs against any user's coaching output.
     is_reviewer: bool = False
+    # Self-declared "why are you here" (compete/improve/learn/fun). Exposed so
+    # the Home backfill prompt knows whether the user has answered yet.
+    player_motivation: Optional[str] = None
 
     class Config:
         extra = "ignore"
@@ -73,6 +76,7 @@ class User(BaseModel):
             "lichess_username": self.lichess_username,
             "role": self.role or "user",
             "is_reviewer": self.is_reviewer,
+            "player_motivation": self.player_motivation,
         }
 
 class MobileAuthRequest(BaseModel):

@@ -1,6 +1,6 @@
 # Player Motivation — Scope
 
-*Status: DRAFT — awaiting Mohit signoff. No code until signed off.*
+*Status: SIGNED OFF + BUILT 2026-06-29. Mohit signed off (and granted standing signoff for similar small, scoped features). Open-question calls (delegated to me): labels in easy English (compete/improve/learn/fun); existing-users = honest self-declared Home re-prompt (not an inferred proxy); read-out = `scripts/player_motivation_distribution.py`; field = `player_motivation`; question skippable. Ships to users on next prod deploy.*
 
 A single self-declared "why are you here?" question at onboarding, to segment the user base. This is the **cheap strategic probe** (understand who actually shows up), NOT a per-persona coaching engine.
 

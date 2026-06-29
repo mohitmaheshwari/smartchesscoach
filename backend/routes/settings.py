@@ -50,6 +50,7 @@ class ProfileSettingsRequest(BaseModel):
     detected_rating: Optional[int] = None  # Auto-detected from linked account
     detected_platform: Optional[str] = None  # chess.com or lichess
     focus_intent: Optional[str] = None  # tactics, openings, endgames, stability
+    player_motivation: Optional[str] = None  # compete, improve, learn, fun (self-declared "why are you here")
 
 
 class LinkAccountRequest(BaseModel):
@@ -227,7 +228,9 @@ async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depe
             update_data["skill_level"] = "developing"
     if req.focus_intent is not None:
         update_data["focus_intent"] = req.focus_intent
-    
+    if req.player_motivation is not None:
+        update_data["player_motivation"] = req.player_motivation
+
     update_data["onboarding_completed"] = True
     update_data["onboarding_completed_at"] = datetime.now(timezone.utc).isoformat()
     

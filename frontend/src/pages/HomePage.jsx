@@ -22,6 +22,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn, GLOW, MOTI
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
+import MotivationPrompt from "@/components/MotivationPrompt";
 import {
   ChevronRight,
   Swords,
@@ -285,6 +286,9 @@ const HomePage = ({ user }) => {
               {formatWhen()}
             </p>
           </motion.div>
+
+          {/* One-time motivation backfill for existing users (self-gates). */}
+          <MotivationPrompt />
 
           {/* ━━ HERO PRESCRIPTION (via TodayHero) ━━
               scaleIn (0.95 → 1) — the hero card lands with weight instead

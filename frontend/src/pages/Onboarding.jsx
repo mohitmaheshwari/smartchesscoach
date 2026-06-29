@@ -43,6 +43,7 @@ const Onboarding = () => {
   // Step 2
   const [fideRating, setFideRating] = useState("");
   const [focusIntent, setFocusIntent] = useState("");
+  const [playerMotivation, setPlayerMotivation] = useState("");
 
   // Analysis
   const [analyzing, setAnalyzing] = useState(false);
@@ -127,7 +128,7 @@ const Onboarding = () => {
       }
       await fetch(`${API}/settings/profile`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null }),
+        body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null, player_motivation: playerMotivation || null }),
       });
 
       setAnalyzing(true);
@@ -423,6 +424,35 @@ const Onboarding = () => {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Player Motivation — self-declared "why are you here" (segments the user base) */}
+          <div>
+            <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: GOLD_TEXT }}>
+              What brings you to ChessGuru?
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { value: "compete", label: "Compete and climb the ratings" },
+                { value: "improve", label: "Get steadily better" },
+                { value: "learn", label: "Learn and enjoy the game" },
+                { value: "fun", label: "Just play for fun" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  className="flex items-center gap-2.5 p-3 rounded-sm border text-left transition-all text-sm font-light"
+                  style={{
+                    borderColor: playerMotivation === opt.value ? WINE : BORDER,
+                    background: playerMotivation === opt.value ? "rgba(114,47,55,0.04)" : "white",
+                  }}
+                  onClick={() => setPlayerMotivation(opt.value)}
+                  data-testid={`motivation-${opt.value}`}
+                >
+                  <span className="text-foreground">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 mt-1 font-light">Optional — helps your coach meet you where you are.</p>
           </div>
 
           {/* Actions */}
