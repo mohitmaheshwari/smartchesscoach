@@ -107,7 +107,12 @@ def _generate_coaching_takeaway(obs: Dict[str, Any]) -> str:
         return f"Mistake ({obs['cp_loss']}cp loss)."
     if obs.get("decision_register") == "wrong_register":
         return "Played in the wrong register — forcing vs quiet mismatch."
-    return ""  # routine move, nothing notable
+    if obs.get("execution_quality") == "inaccuracy":
+        # Small fallback so inaccuracies don't go uncoached. We don't have a
+        # specific cognitive_gap (that fires mostly for blunder/mistake), but
+        # we can still note it for the per-move record.
+        return f"Inaccuracy ({obs['cp_loss']}cp loss) — close to best but not quite."
+    return ""  # routine good/best move, nothing notable
 
 
 # ---------------- The main derivation function ---------------------------

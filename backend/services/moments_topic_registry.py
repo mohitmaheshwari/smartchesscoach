@@ -36,7 +36,63 @@ from typing import Callable, Awaitable, Dict, Any, List
 
 
 async def _filter_piece_safety_in_winning_position(db, user_id: str, limit: int = 3) -> List[Dict[str, Any]]:
-    """Moments where the user was winning (>= +0.5 eval) then hung a piece (>= 200 cp loss)."""
+    """Moments where the user was winning (>= +0.5 eval) then hung a piece (>= 200 cp loss).
+
+    Phase 5: now queries move_observations directly. Indexed lookup,
+    no per-game scan needed. Returns same shape as the legacy scanner.
+    Falls back to the legacy scanner if move_observations is empty
+    (e.g. for a brand-new user whose games haven't been backfilled yet).
+    """
+    # Try the new layer first — fast, indexed, single query
+    try:
+        # cap cp_loss at 1000 to exclude Stockfish mate-detection outliers
+        # (we've seen values like 9342 when the position became forced-mate)
+        cur = db.move_observations.find(
+            {
+                "user_id": user_id,
+                "execution_quality": {"$in": ["blunder", "mistake"]},
+                "eval_before": {"$gte": 50},     # winning when they moved
+                "cp_loss": {"$gte": 200, "$lt": 1000},
+            },
+            {"_id": 0}
+        ).sort("derived_at", -1).limit(limit)
+        out = []
+        async for o in cur:
+            # Look up best_move from the source analysis. Don't use $slice —
+            # move_evaluations is indexed by ply (incl. opponent moves) so
+            # slicing by move_number * 2 is wrong. Just fetch + find.
+            a = await db.game_analyses.find_one(
+                {"game_id": o["game_id"]},
+                {"stockfish_analysis.move_evaluations": 1}
+            )
+            best_move = None
+            for mv in (((a or {}).get("stockfish_analysis") or {}).get("move_evaluations") or []):
+                if mv.get("move_number") == o["move_number"] and not mv.get("is_opponent_move"):
+                    best_move = mv.get("best_move")
+                    break
+            eval_before_pawns = round((o.get("eval_before") or 0) / 100, 2)
+            # Use narrative phrasing as primary "why" — user-facing landing
+            # page benefits from a sentence over the terse takeaway label.
+            narrative = (f"You had a winning position (+{eval_before_pawns}). "
+                         f"Best was {best_move}. You played {o.get('move_san')} which dropped {o.get('cp_loss')}cp.")
+            out.append({
+                "game_id": o["game_id"],
+                "move_number": o["move_number"],
+                "fen_before": o.get("fen_before"),
+                "user_played": o.get("move_san"),
+                "best_move": best_move,
+                "cp_loss": o.get("cp_loss"),
+                "eval_before_pawns": eval_before_pawns,
+                "date_played": o.get("derived_at"),
+                "why": narrative,
+            })
+        if out:
+            return out
+    except Exception:
+        # New layer not populated yet for this user — fall through to legacy scanner
+        pass
+
+    # Legacy scanner fallback (used until move_observations is populated for this user)
     from datetime import datetime, timezone, timedelta
     since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
     out = []
@@ -54,7 +110,6 @@ async def _filter_piece_safety_in_winning_position(db, user_id: str, limit: int 
             cp_loss = mv.get("cp_loss", 0) or 0
             eval_before = mv.get("eval_before", 0) or 0
             cg = mv.get("cognitive_gap")
-            # eval_before is in centipawns; +50 = +0.5 pawn advantage
             if eval_before >= 50 and cp_loss >= 200 and cg in ("piece_safety", None):
                 out.append({
                     "game_id": a["game_id"],
@@ -74,7 +129,78 @@ async def _filter_piece_safety_in_winning_position(db, user_id: str, limit: int 
 
 
 async def _filter_long_game_conversion_losses(db, user_id: str, limit: int = 3) -> List[Dict[str, Any]]:
-    """Moments from games reaching move 40+ that the user lost despite having ≥+0.3 eval before move 30."""
+    """Moments past move 25 where the user had ≥+0.3 eval and dropped ≥150cp,
+    in long games (≥ move 40) that the user lost.
+
+    Phase 5: uses move_observations directly for the move-level filter
+    (indexed, fast), then validates game length + result with a single
+    games.find_one per candidate. Falls back to legacy scanner if the
+    new collection has no observations for this user yet.
+    """
+    out = []
+    # Try the new layer first
+    try:
+        # Step 1: find candidate moves (late-game blunder while ahead) via index
+        cur = db.move_observations.find(
+            {
+                "user_id": user_id,
+                "move_number": {"$gte": 25},
+                "execution_quality": {"$in": ["blunder", "mistake"]},
+                "eval_before": {"$gte": 30},
+                "cp_loss": {"$gte": 150},
+            },
+            {"_id": 0}
+        ).sort("derived_at", -1).limit(limit * 5)  # over-fetch so we have margin after game-level filter
+        async for o in cur:
+            if len(out) >= limit:
+                break
+            game = await db.games.find_one(
+                {"game_id": o["game_id"]},
+                {"result": 1, "user_color": 1, "pgn": 1}
+            )
+            if not game:
+                continue
+            result = (game.get("result") or "").strip()
+            col = game.get("user_color", "")
+            pgn = game.get("pgn", "")
+            # Was the game long?
+            if not any(f" {n}." in pgn for n in (40, 45, 50)):
+                continue
+            user_lost = (result == "1-0" and col == "black") or (result == "0-1" and col == "white")
+            if not user_lost:
+                continue
+            # Look up best_move from the source analysis
+            best_move = None
+            a = await db.game_analyses.find_one(
+                {"game_id": o["game_id"]},
+                {"stockfish_analysis.move_evaluations": 1}
+            )
+            for mv in (((a or {}).get("stockfish_analysis") or {}).get("move_evaluations") or []):
+                if mv.get("move_number") == o["move_number"] and not mv.get("is_opponent_move"):
+                    best_move = mv.get("best_move")
+                    break
+            eval_before_pawns = round((o.get("eval_before") or 0) / 100, 2)
+            narrative = (f"At move {o['move_number']} you were +{eval_before_pawns}. "
+                         f"Best was {best_move}. You played {o.get('move_san')} — gave back {o.get('cp_loss')}cp. "
+                         f"The game continued and you lost.")
+            out.append({
+                "game_id": o["game_id"],
+                "move_number": o["move_number"],
+                "fen_before": o.get("fen_before"),
+                "user_played": o.get("move_san"),
+                "best_move": best_move,
+                "cp_loss": o.get("cp_loss"),
+                "eval_before_pawns": eval_before_pawns,
+                "date_played": o.get("derived_at"),
+                "why": narrative,
+            })
+        if out:
+            return out
+    except Exception:
+        # New layer not populated for this user — fall through
+        pass
+
+    # Legacy scanner fallback
     out = []
     cur = db.game_analyses.find(
         {"user_id": user_id},
@@ -83,7 +209,6 @@ async def _filter_long_game_conversion_losses(db, user_id: str, limit: int = 3) 
     async for a in cur:
         if len(out) >= limit:
             break
-        # Need to fetch the game to know the result
         game = await db.games.find_one(
             {"game_id": a["game_id"]},
             {"result": 1, "user_color": 1, "pgn": 1}
@@ -92,15 +217,12 @@ async def _filter_long_game_conversion_losses(db, user_id: str, limit: int = 3) 
             continue
         result = (game.get("result") or "").strip()
         col = game.get("user_color", "")
-        # Was the game long?
         pgn = game.get("pgn", "")
         if not any(f" {n}." in pgn for n in (40, 45, 50)):
             continue
-        # Did the user lose?
         user_lost = (result == "1-0" and col == "black") or (result == "0-1" and col == "white")
         if not user_lost:
             continue
-        # Find the move where the advantage cratered (their eval_before was good, cp_loss large, after move 25)
         moves = (a.get("stockfish_analysis") or {}).get("move_evaluations") or []
         for mv in moves:
             if mv.get("is_opponent_move"):
@@ -124,7 +246,7 @@ async def _filter_long_game_conversion_losses(db, user_id: str, limit: int = 3) 
                            f"Best move was {mv.get('best_move')}. You played {mv.get('move')} — gave back {cp_loss}cp. "
                            f"The game then continued and you lost.",
                 })
-                break  # one moment per game is enough
+                break
     return out
 
 
