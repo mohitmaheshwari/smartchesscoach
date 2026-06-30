@@ -262,7 +262,7 @@ Lives in `services/pattern_decay_service.py`. Used by `GET /api/lab-coach-pick` 
 |-----------|------|---------|
 | `users` | 2 | User accounts (user_id, email, rating, chess_com_username) |
 | `games` | 69 | Imported games (game_id, pgn, platform, user_color, is_analyzed) |
-| `game_analyses` | 38 | Stockfish analysis (move_evaluations with cp_loss, best_move, cognitive_gap) |
+| `game_analyses` | 38 | Stockfish analysis — moves at `stockfish_analysis.move_evaluations` (NOT top-level). Each move has `cp_loss`, `best_move`, `cognitive_gap` (one of: piece_safety/missed_tactic/tactical_oversight/calculation_depth/king_safety/piece_activity/pawn_structure/opening_knowledge/endgame_technique), `is_opponent_move` (no `is_user_move` field — filter with `not m.get("is_opponent_move")`). |
 | `coach_sessions` | 78 | Play with Coach sessions (session_id, fen_history, move_history, result) |
 | `coach_messages` | 118 | Coaching messages per session |
 | `coach_memory` | 2 | Persistent coach memory (weaknesses, strengths, patterns per user) |
@@ -492,6 +492,22 @@ Used for:
 5. **The `_id` field** from MongoDB is not JSON serializable. Every response returning MongoDB data must exclude `_id` in projections or convert to string.
 
 ---
+
+## Email → Page Contract (★ MANDATORY rule)
+
+Every re-engagement email's CTA must link to a page that delivers exactly
+what the email promised. The mechanism:
+
+- `backend/services/moments_topic_registry.py` defines `TOPICS`
+- `/api/coach/personal-moments/{topic}` returns the data
+- `/coach/moments/:topic` (frontend) renders it
+- `backend/scripts/send_*_reengagement.py` MUST set `CTA_TOPIC = "<key>"`
+  and the script refuses to run if the topic isn't in the registry
+
+When adding a new coaching email, follow the 4-step in
+[docs/email_page_contract.md](docs/email_page_contract.md). Do NOT link
+emails to `/lab`, `/home`, or other generic pages when the email
+promises specific content.
 
 ## Prioritized Backlog
 

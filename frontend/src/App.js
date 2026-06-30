@@ -16,6 +16,7 @@ import HomePage from "@/pages/HomePage";  // NEW focused homepage
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
+import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic — email landing pages
 import ReviewQueue from "@/pages/ReviewQueue";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
@@ -36,6 +37,7 @@ import JourneyIntelligence from "@/pages/JourneyIntelligence";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import DiagnosticPuzzles from "@/pages/DiagnosticPuzzles";
+import ActivationHub from "@/pages/ActivationHub";
 import MissionRunner from "@/pages/MissionRunner";
 import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
@@ -120,7 +122,9 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
           if (!cancelled && onboardingResponse.ok) {
             const onboardingData = await onboardingResponse.json();
             if (onboardingData.needs_onboarding) {
-              setRedirectTarget('/onboarding');
+              // Value-first: land un-activated users on the activation hub,
+              // not the account wall (docs/activation_hub_scope.md).
+              setRedirectTarget('/welcome');
             }
           }
         } else if (demoBypass) {
@@ -160,8 +164,8 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
     return <Navigate to="/" replace />;
   }
   
-  if (redirectTarget === '/onboarding' && !skipOnboardingCheck && !demoBypass) {
-    return <Navigate to="/onboarding" replace state={{ from: `${location.pathname}${location.search}` }} />;
+  if (redirectTarget === '/welcome' && !skipOnboardingCheck && !demoBypass) {
+    return <Navigate to="/welcome" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   return children({ user });
@@ -202,6 +206,11 @@ function AppRouter() {
       <Route path="/learn/openings" element={<OpeningsIndex />} />
       <Route path="/learn/openings/:slug" element={<OpeningGuide />} />
 
+      <Route path="/welcome" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <ActivationHub />}
+        </ProtectedRoute>
+      } />
       <Route path="/onboarding" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <Onboarding user={user} />}
@@ -245,6 +254,11 @@ function AppRouter() {
       <Route path="/lab" element={
         <ProtectedRoute>
           {({ user }) => <Dashboard user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/coach/moments/:topic" element={
+        <ProtectedRoute>
+          {({ user }) => <PersonalMoments user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/games" element={

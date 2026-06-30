@@ -4369,3 +4369,37 @@ async def get_pattern_progress(user: User = Depends(get_current_user)):
     """
     from services.pattern_progress_aggregator import get_user_pattern_progress
     return await get_user_pattern_progress(db, user.user_id)
+
+
+# ==================== PERSONALIZED MOMENTS (email landing pages) ====================
+# Every coaching email's CTA links here. The topic registry guarantees that
+# email promise = page delivery. See services/moments_topic_registry.py +
+# docs/email_page_contract.md.
+
+@router.get("/personal-moments/{topic}")
+async def get_personal_moments(topic: str, user: User = Depends(get_current_user)):
+    """Return 3 specific moments from THIS user's recent games matching a
+    coaching topic. Feeds the /coach/moments/:topic frontend page that
+    every re-engagement email links to.
+
+    The topic must exist in services/moments_topic_registry.TOPICS — that
+    list is also what email-generator scripts pull from, so promise/delivery
+    can never drift. New topic = add to registry, frontend renders it
+    automatically.
+    """
+    from services.moments_topic_registry import get_topic
+    try:
+        t = get_topic(topic)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown topic: {topic}")
+
+    moments = await t["filter"](db, user.user_id, limit=3)
+    return {
+        "topic_key": t["key"],
+        "label": t["label"],
+        "subtitle": t["subtitle"],
+        "explainer": t["explainer"],
+        "moments": moments,
+        "user_id": user.user_id,
+    }
+
