@@ -1,8 +1,14 @@
 # Move Observations Layer — Scope
 
-**Status:** Drafted 2026-06-29, awaiting Mohit's signoff before backfill runs.
+**Status:** Scope LOCKED 2026-06-29. Mohit signed off on data model + derivation contract + open questions (a/b/c). Phase 4 (worker integration) shipped same day; Phases 2/3 await SSH-tunnel return to query prod data.
 **Author:** session with Claude.
 **Related:** [docs/email_page_contract.md](email_page_contract.md), [CLAUDE.md "Email → Page Contract" section](../CLAUDE.md).
+
+## Locked decisions (from signoff)
+
+1. **`top_weaknesses` deprecation** — NOT direct. Parallel-write pattern: worker writes BOTH `top_weaknesses` AND `move_observations`. Each consumer migrates on its own pace. Deprecate `top_weaknesses` only when zero readers reference it.
+2. **Opponent moves** — baked into the next user move's `opponent_previous` field (v1 design). A separate `opponent_move_observations` collection will be added IF/WHEN a coaching feature needs opponent-only analysis (none on roadmap today).
+3. **Schema version bump policy** — re-derive ALL games on every schema_version bump. Treats the deriver as a build step, not a migration. ~15 min full-corpus run.
 
 ---
 

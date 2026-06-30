@@ -1517,15 +1517,46 @@ def process_job(db, job):
 
         # Update player profile with new stats
         update_player_profile_sync(
-            db, 
-            user_id, 
+            db,
+            user_id,
             game_id,
             blunders,
             mistakes,
             best_moves,
             move_evaluations
         )
-        
+
+        # =========================================================================
+        # PHASE 3.3a: DERIVE MOVE OBSERVATIONS (parallel-write to top_weaknesses)
+        # Per docs/move_observations_scope.md — every user move gets a structured
+        # behavioral record. Worker writes BOTH top_weaknesses (legacy) AND
+        # move_observations (new layer) until all consumers migrate. Failure
+        # here is non-fatal: log + continue. We never want a deriver bug to
+        # break game analysis.
+        # =========================================================================
+        try:
+            from services.move_observation_deriver import derive_observations_for_game
+            # Build the minimal stockfish_analysis dict the deriver expects
+            sf_for_deriver = {"move_evaluations": move_evaluations}
+            obs_list = derive_observations_for_game(
+                stockfish_analysis=sf_for_deriver,
+                game_id=game_id,
+                user_id=user_id,
+                user_color=user_color,
+                decryption_v5_data=None,  # v5 may not exist yet at this phase; backfill fills it later
+            )
+            if obs_list:
+                # Idempotent upsert by (game_id, move_number) so re-runs don't dup
+                for obs in obs_list:
+                    db.move_observations.update_one(
+                        {"game_id": obs["game_id"], "move_number": obs["move_number"]},
+                        {"$set": obs},
+                        upsert=True,
+                    )
+                logger.info(f"[OBSERVATIONS] Wrote {len(obs_list)} move_observations for {game_id}")
+        except Exception as obs_err:
+            logger.warning(f"[OBSERVATIONS] Failed to derive (non-fatal): {obs_err}")
+
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE
         # Tracks what user is GOOD at (tactics, calculation, positional, etc.)
