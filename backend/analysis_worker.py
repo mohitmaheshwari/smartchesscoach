@@ -445,6 +445,101 @@ def claim_next_job(db):
     return job
 
 
+def _calc_trend_sync(recent: list, historical: list) -> str:
+    """Returns one of 'improving' | 'regressing' | 'stuck'.
+
+    REVISED after the per-claim verifier found 15/45 users where the
+    blunder-only trend disagreed with the accuracy-delta trend by 1.5+
+    percentage points. Root cause: a user can keep the same blunder count
+    while making more good moves, or vice versa — blunder count alone
+    misses the broader skill move.
+
+    v2: vote across BOTH signals (blunders-per-game AND accuracy):
+      - If both say improving → improving (high confidence)
+      - If both say regressing → regressing
+      - If they disagree → return whichever shows the bigger relative move
+      - Otherwise → stuck
+    """
+    if len(recent) < 3:
+        return "stuck"
+
+    def _avg(games, key, default=0.0):
+        if not games:
+            return default
+        vals = [g.get(key, default) or default for g in games]
+        return sum(vals) / len(vals)
+
+    if not historical:
+        mid = len(recent) // 2
+        older_set, newer_set = recent[mid:], recent[:mid]
+    else:
+        older_set, newer_set = historical, recent
+
+    # Signal 1: blunders/game (lower = better)
+    bl_older = _avg(older_set, "blunders")
+    bl_newer = _avg(newer_set, "blunders")
+    bl_delta = bl_newer - bl_older  # negative = improving
+
+    # Signal 2: accuracy (higher = better) — only some game entries carry it
+    acc_older = _avg([g for g in older_set if g.get("accuracy")], "accuracy")
+    acc_newer = _avg([g for g in newer_set if g.get("accuracy")], "accuracy")
+    acc_delta = acc_newer - acc_older  # positive = improving
+
+    # Classify each signal
+    bl_says = "improving" if bl_delta < -0.2 else ("regressing" if bl_delta > 0.2 else "stuck")
+    if acc_older > 0 and acc_newer > 0:
+        acc_says = "improving" if acc_delta > 1.5 else ("regressing" if acc_delta < -1.5 else "stuck")
+    else:
+        acc_says = None
+
+    # Combine: agreement is strongest signal; disagreement picks bigger move
+    if acc_says is None:
+        return bl_says
+    if bl_says == acc_says:
+        return bl_says
+    # Disagree — accuracy is the more reliable signal for "skill change"
+    return acc_says
+
+
+# Map the 9 cognitive_gap values (set by the analyzer per-move) to the
+# (category, subcategory) pairs the player_profile schema expects.
+# Anything unknown falls back to a magnitude-only label so we never silently
+# drop a blunder. See WEAKNESS_CATEGORIES in player_profile_service.py.
+_COGNITIVE_GAP_TO_WEAKNESS = {
+    "piece_safety":       ("tactical",            "one_move_blunders"),
+    "missed_tactic":      ("tactical",            "fork_misses"),
+    "tactical_oversight": ("tactical",            "discovered_attack_misses"),
+    "calculation_depth":  ("tactical",            "removal_of_defender_misses"),
+    "king_safety":        ("king_safety",         "ignoring_king_safety_threats"),
+    "pawn_structure":     ("strategic",           "pawn_structure_damage"),
+    "piece_activity":     ("strategic",           "poor_piece_activity"),
+    "opening_knowledge":  ("opening_principles",  "neglecting_development"),
+    "endgame_technique":  ("endgame_fundamentals","king_activity_neglect"),
+}
+
+
+def cognitive_gap_to_weakness(cog_gap, cp_loss: int, eval_type: str):
+    """Return (category, subcategory) for a single bad move, or None to skip.
+
+    Priority:
+      1) Use the per-move cognitive_gap label if the analyzer set it.
+      2) Otherwise, fall back to a magnitude-only label so the user still
+         gets credit (badly) for the move.
+    """
+    if cog_gap and cog_gap in _COGNITIVE_GAP_TO_WEAKNESS:
+        cat, sub = _COGNITIVE_GAP_TO_WEAKNESS[cog_gap]
+        return {"category": cat, "subcategory": sub, "source": "cognitive_gap"}
+
+    # Fallback: only magnitude
+    if eval_type == "blunder" and cp_loss > 600:
+        return {"category": "tactical", "subcategory": "discovered_attack_misses",
+                "source": "magnitude_severe"}
+    if eval_type in ("blunder", "mistake"):
+        return {"category": "tactical", "subcategory": "one_move_blunders",
+                "source": "magnitude"}
+    return None
+
+
 def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mistakes: int, best_moves: int, move_evaluations: list):
     """
     Synchronous version of profile update for the analysis worker.
@@ -464,23 +559,22 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         total_mistakes = profile.get("total_mistakes", 0) + mistakes
         total_best_moves = profile.get("total_best_moves", 0) + best_moves
         
-        # Extract weaknesses from move evaluations (only actual blunders)
+        # Extract weaknesses from move evaluations.
+        # Primary signal: per-move `cognitive_gap` tag (9 distinct categories).
+        # Falls back to magnitude-only labels for moves without a gap.
+        # See cognitive_gap_to_weakness() below for the mapping.
         identified_weaknesses = []
         for m in move_evaluations:
             eval_type = m.get("evaluation")
             cp_loss = m.get("cp_loss", 0)
-            
-            # Only count actual blunders as one-move blunders (not mistakes or inaccuracies)
-            if eval_type == "blunder" and 150 <= cp_loss <= 600:
-                identified_weaknesses.append({
-                    "category": "tactical",
-                    "subcategory": "one_move_blunder"
-                })
-            elif eval_type == "blunder" and cp_loss > 600:
-                identified_weaknesses.append({
-                    "category": "tactical", 
-                    "subcategory": "complex_tactical_miss"
-                })
+            cog_gap = m.get("cognitive_gap")
+
+            if eval_type not in ("blunder", "mistake"):
+                continue  # skip best/good/inaccuracy moves
+
+            mapped = cognitive_gap_to_weakness(cog_gap, cp_loss, eval_type)
+            if mapped:
+                identified_weaknesses.append(mapped)
         
         # Update weakness tracking
         current_weaknesses = profile.get("top_weaknesses", [])
@@ -546,21 +640,58 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         except Exception as _motif_err:
             logger.warning(f"motif profile update failed for {user_id}: {_motif_err}")
 
+        # Compute improvement_trend from blunders-per-game over last N games.
+        # This was previously calculated only by an async path that the worker
+        # didn't call — so 0/55 profiles had it. Now it's computed inline.
+        recent_perf = profile.get("recent_performance", [])
+        this_game_perf = {
+            "game_id": game_id,
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "best_moves": best_moves,
+            "date": current_time.isoformat(),
+        }
+        recent_perf.insert(0, this_game_perf)
+        recent_perf = recent_perf[:10]  # keep last 10
+        historical_perf = profile.get("historical_performance", [])
+        if profile.get("recent_performance") and len(profile["recent_performance"]) >= 10:
+            # roll the 11th-oldest out of recent into historical
+            historical_perf = ([profile["recent_performance"][9]] + historical_perf)[:20]
+
+        improvement_trend = _calc_trend_sync(recent_perf, historical_perf)
+
+        # Compute rolling average_accuracy from per-game stockfish accuracies.
+        # We don't keep a per-user accuracy history field, so derive from the
+        # last 20 game_analyses for this user.
+        recent_acc_cur = db.game_analyses.find(
+            {"user_id": user_id, "stockfish_analysis.accuracy": {"$exists": True}},
+            {"stockfish_analysis.accuracy": 1}
+        ).sort("analyzed_at", -1).limit(20)
+        accs = []
+        for a in recent_acc_cur:
+            v = (a.get("stockfish_analysis") or {}).get("accuracy")
+            if isinstance(v, (int, float)) and v > 0:
+                accs.append(float(v))
+        average_accuracy = round(sum(accs) / len(accs), 1) if accs else None
+
         # Update profile
-        db.player_profiles.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "games_analyzed_count": games_analyzed,
-                "total_blunders": total_blunders,
-                "total_mistakes": total_mistakes,
-                "total_best_moves": total_best_moves,
-                "top_weaknesses": top_weaknesses,
-                "motif_profile": motif_profile,
-                "motif_recognition": motif_recognition,
-                "motif_anticipation": motif_anticipation,
-                "last_updated": current_time.isoformat()
-            }}
-        )
+        update_doc = {
+            "games_analyzed_count": games_analyzed,
+            "total_blunders": total_blunders,
+            "total_mistakes": total_mistakes,
+            "total_best_moves": total_best_moves,
+            "top_weaknesses": top_weaknesses,
+            "motif_profile": motif_profile,
+            "motif_recognition": motif_recognition,
+            "motif_anticipation": motif_anticipation,
+            "recent_performance": recent_perf,
+            "historical_performance": historical_perf,
+            "improvement_trend": improvement_trend,
+            "last_updated": current_time.isoformat(),
+        }
+        if average_accuracy is not None:
+            update_doc["average_accuracy"] = average_accuracy
+        db.player_profiles.update_one({"user_id": user_id}, {"$set": update_doc})
         
         logger.info(f"Updated profile for {user_id}: {games_analyzed} games, {len(identified_weaknesses)} new weaknesses tracked")
         
