@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 2  # bumped: opponent_previous now reads from opponent_move_evaluations (separate array)
+SCHEMA_VERSION = 3  # bumped: opponent threats now derived via python-chess from FEN when stored `threat` field is null
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -56,17 +56,44 @@ def _classify_register(mv: Dict[str, Any]) -> Optional[str]:
 def _build_opponent_previous(prev_mv: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Snapshot of opponent's previous move for context.
 
-    v2: opponent moves come from stockfish_analysis.opponent_move_evaluations,
-    which lacks the cct_* fields (analyzer only computes CCT for user moves).
-    So we derive `created_threat` from the `threat` field (set to target
-    square when opponent's move creates a threat).
+    v3: created_threat now derived via python-chess when the analyzer's
+    stored `threat` field is null (which is ~always). Uses fen_before +
+    move_uci to compute what target squares the opponent's move newly
+    attacks. See services.opponent_threat_detector.
     """
     if not prev_mv:
         return None
+
+    # First check the stored field
+    stored_threat = prev_mv.get("threat")
+
+    # Derive threats from the board if stored field is missing
+    derived_threats: list = []
+    if stored_threat is None:
+        try:
+            from services.opponent_threat_detector import detect_threats
+            derived_threats = detect_threats(
+                prev_mv.get("fen_before"),
+                prev_mv.get("move_uci"),
+            )
+        except Exception:
+            derived_threats = []
+
+    created_threat = stored_threat is not None or bool(derived_threats)
+    threat_squares = [t["square"] for t in derived_threats] if derived_threats else (
+        [stored_threat] if stored_threat else []
+    )
+
+    # Also note if the derived threat included a "free piece" (undefended target)
+    has_free_piece_threat = any(t.get("is_free") for t in derived_threats)
+    has_fork = any(t.get("is_fork_component") for t in derived_threats)
+
     return {
         "move_san": prev_mv.get("move"),
-        "created_threat": prev_mv.get("threat") is not None,  # non-null threat = created a threat
-        "threat_square": prev_mv.get("threat"),
+        "created_threat": created_threat,
+        "threat_squares": threat_squares,
+        "has_free_piece_threat": has_free_piece_threat,
+        "has_fork": has_fork,
         "was_capture": "x" in (prev_mv.get("move") or ""),  # SAN heuristic
         "was_check": (prev_mv.get("move") or "").endswith("+") or (prev_mv.get("move") or "").endswith("#"),
         "blundered": prev_mv.get("evaluation") == "blunder",

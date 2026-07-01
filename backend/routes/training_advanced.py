@@ -1545,12 +1545,40 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         puzzle_recoveries = await get_puzzle_recoveries(db, user.user_id)
         pattern_scores = compute_pattern_scores(enriched, puzzle_recoveries=puzzle_recoveries)
 
+        # Priority 0: Active Primary Weakness Picker focus.
+        # If user has a locked focus, prefer an unreviewed game featuring that
+        # pattern before falling through to the general decay-model pick.
+        # See services/primary_weakness_picker.py.
+        try:
+            active_focus = await db.user_active_focus.find_one(
+                {"user_id": user.user_id, "status": "active"},
+                {"topic_key": 1, "picker_evidence_count": 1}
+            )
+            if active_focus:
+                focus_topic = active_focus.get("topic_key")
+                for g in unreviewed:
+                    gaps = g.get("cognitive_gaps", []) or []
+                    if focus_topic in gaps:
+                        pick = g
+                        # Coach-voice reason anchored on the locked focus
+                        topic_label = focus_topic.replace("_", " ")
+                        pick_reason = (
+                            f"This game features your focus pattern ({topic_label}). "
+                            f"14-day lock in effect — reviewing games with this pattern "
+                            f"is how the picker measures improvement."
+                        )
+                        pick_pattern = focus_topic
+                        break
+        except Exception as focus_err:
+            logger.warning(f"Lab focus-prefer skipped: {focus_err}")
+
         # Priority 1: Pattern-based pick using decay model
-        picked, reason, pattern_key, score_data = pick_best_game(unreviewed, pattern_scores)
-        if picked:
-            pick = picked
-            pick_reason = reason
-            pick_pattern = pattern_key
+        if not pick:
+            picked, reason, pattern_key, score_data = pick_best_game(unreviewed, pattern_scores)
+            if picked:
+                pick = picked
+                pick_reason = reason
+                pick_pattern = pattern_key
 
         # Priority 2: Thrown game (was winning, lost)
         if not pick:
