@@ -23,6 +23,7 @@ import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
 import MotivationPrompt from "@/components/MotivationPrompt";
+import FocusCard from "@/components/FocusCard";
 import {
   ChevronRight,
   Swords,
@@ -296,6 +297,13 @@ const HomePage = ({ user }) => {
           <motion.section variants={scaleIn} className="mb-16 md:mb-20">
             <TodayHero />
           </motion.section>
+
+          {/* ━━ PRIMARY FOCUS ━━
+              The one locked coaching pattern from user_active_focus (see
+              backend/services/primary_weakness_picker.py). Renders nothing
+              if no focus is assigned yet. Only ONE thing surfaced — this
+              IS the subtractive-at-single-user-scale bet. */}
+          <FocusCard />
 
           {/* ━━ PATTERN OF THE DAY ━━
               TIER 3 visual-danger-language: the named shape that fires
