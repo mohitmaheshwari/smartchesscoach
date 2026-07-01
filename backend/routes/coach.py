@@ -4376,6 +4376,76 @@ async def get_pattern_progress(user: User = Depends(get_current_user)):
 # email promise = page delivery. See services/moments_topic_registry.py +
 # docs/email_page_contract.md.
 
+@router.get("/active-focus")
+async def get_active_focus(user: User = Depends(get_current_user)):
+    """Return the user's currently-locked coaching focus (if any).
+
+    Consumed by:
+      - HomePage — renders the big "Your focus: X — N days left" card
+      - Email generator — anchors subject/body to the focus topic
+      - Lab page — filters Coach's Pick to prefer games with this pattern
+
+    Shape:
+      {
+        "has_focus": bool,
+        "topic_key": str,        # e.g. "piece_safety"
+        "topic_label": str,      # human-readable
+        "days_remaining": int,   # until lock expires
+        "baseline_metric": {...},
+        "current_metric": {...} | null,
+        "moments_page_topic": str,  # → /coach/moments/<this>
+        "runners_up": [...]      # top-3 alternate patterns for blended coaching
+      }
+    """
+    from services.primary_weakness_picker import COLLECTION
+    from datetime import datetime, timezone
+    focus = await db[COLLECTION].find_one(
+        {"user_id": user.user_id, "status": "active"},
+        {"_id": 0}
+    )
+    if not focus:
+        return {"has_focus": False}
+
+    # days_remaining
+    days_remaining = None
+    lu = focus.get("locked_until")
+    if lu:
+        try:
+            lu_dt = datetime.fromisoformat(lu.replace("Z", "+00:00"))
+            days_remaining = max(0, (lu_dt - datetime.now(timezone.utc)).days)
+        except Exception:
+            pass
+
+    # Coach-friendly label for the topic
+    LABELS = {
+        "piece_safety": "Piece safety",
+        "ignoring_king_safety_threats": "King safety",
+        "fork_misses": "Spotting forks",
+        "discovered_attack_misses": "Discovered attacks",
+        "removal_of_defender_misses": "Removing defenders",
+        "neglecting_development": "Piece development",
+        "poor_piece_activity": "Piece activity",
+        "pawn_structure_damage": "Pawn structure",
+        "king_activity_neglect": "Endgame king play",
+        "threat_awareness": "Reading opponent threats",
+        "punish_blunders": "Punishing opponent mistakes",
+    }
+    return {
+        "has_focus": True,
+        "topic_key": focus.get("topic_key"),
+        "topic_label": LABELS.get(focus.get("topic_key"), focus.get("topic_key")),
+        "days_remaining": days_remaining,
+        "started_at": focus.get("started_at"),
+        "locked_until": focus.get("locked_until"),
+        "baseline_metric": focus.get("baseline_metric"),
+        "current_metric": focus.get("current_metric"),
+        "moments_page_topic": focus.get("moments_page_topic") or "piece_safety",
+        "runners_up": focus.get("runners_up") or [],
+        "picker_score": focus.get("picker_score"),
+        "picker_evidence_count": focus.get("picker_evidence_count"),
+    }
+
+
 @router.get("/personal-moments/{topic}")
 async def get_personal_moments(topic: str, user: User = Depends(get_current_user)):
     """Return 3 specific moments from THIS user's recent games matching a

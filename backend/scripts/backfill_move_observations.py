@@ -56,13 +56,26 @@ async def ensure_indexes(db):
     await coll.create_index([("user_id", 1), ("was_critical_moment", 1)])
 
 
-async def backfill_one_game(db, game_doc, analysis_doc, apply: bool) -> int:
+async def backfill_one_game(db, game_doc, analysis_doc, apply: bool, skip_if_current: bool = True) -> int:
     """Derive + (optionally) upsert observations for one game.
-    Returns the count derived (regardless of apply).
+    Returns the count derived (regardless of apply). 0 = skipped.
+
+    skip_if_current: if any observation for this game is already at
+    SCHEMA_VERSION, skip. Lets a crashed backfill resume without
+    re-processing everything.
     """
     game_id = game_doc.get("game_id")
     user_id = game_doc.get("user_id")
     user_color = game_doc.get("user_color", "white")
+
+    if skip_if_current:
+        existing = await db[COLLECTION].find_one(
+            {"game_id": game_id, "schema_version": SCHEMA_VERSION},
+            {"_id": 1},
+        )
+        if existing:
+            return 0
+
     sf = analysis_doc.get("stockfish_analysis") or {}
     if not sf.get("move_evaluations"):
         return 0
@@ -81,9 +94,6 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool) -> int:
         return 0
 
     if apply:
-        # Bulk upsert by (game_id, move_number) — idempotent + single round trip
-        # per game instead of per observation. SSH-tunnel-friendly: ~28x speedup
-        # vs the original update_one-per-doc loop.
         ops = [
             UpdateOne(
                 {"game_id": obs["game_id"], "move_number": obs["move_number"]},
@@ -129,29 +139,47 @@ async def main_async(apply: bool, user_id: Optional[str], limit: int):
     per_user_obs = {}
     errors = []
 
-    async for analysis in cursor:
-        game_id = analysis.get("game_id")
-        game = await db.games.find_one(
-            {"game_id": game_id},
-            {"game_id": 1, "user_id": 1, "user_color": 1}
-        )
-        if not game:
-            errors.append(("no-game-doc", game_id))
-            continue
-
+    # Resilient iteration — retry on transient MongoDB connection drops
+    skipped_already_v = 0
+    processed = 0
+    while True:
         try:
-            n = await backfill_one_game(db, game, analysis, apply)
+            async for analysis in cursor:
+                game_id = analysis.get("game_id")
+                game = await db.games.find_one(
+                    {"game_id": game_id},
+                    {"game_id": 1, "user_id": 1, "user_color": 1}
+                )
+                if not game:
+                    errors.append(("no-game-doc", game_id))
+                    continue
+
+                try:
+                    n = await backfill_one_game(db, game, analysis, apply)
+                except Exception as e:
+                    errors.append((str(e)[:80], game_id))
+                    continue
+
+                if n == 0:
+                    skipped_already_v += 1
+                else:
+                    total_obs += n
+                total_games += 1
+                processed += 1
+                uid = game.get("user_id", "?")
+                per_user_obs[uid] = per_user_obs.get(uid, 0) + n
+
+                if total_games % 100 == 0:
+                    print(f"  ... {total_games} games processed ({skipped_already_v} already at v{SCHEMA_VERSION}), {total_obs:,} new obs")
+            break  # cursor exhausted cleanly
         except Exception as e:
-            errors.append((str(e)[:80], game_id))
-            continue
-
-        total_games += 1
-        total_obs += n
-        uid = game.get("user_id", "?")
-        per_user_obs[uid] = per_user_obs.get(uid, 0) + n
-
-        if total_games % 100 == 0:
-            print(f"  ... {total_games} games processed, {total_obs:,} observations so far")
+            print(f"  ! cursor error: {str(e)[:120]}. Reopening cursor...")
+            # Reopen cursor, skipping the games we've already processed via skip_if_current
+            cursor = db.game_analyses.find(
+                q, {"game_id": 1, "user_id": 1, "stockfish_analysis": 1, "decryption_v5_data": 1}
+            ).sort("analyzed_at", -1)
+            if limit:
+                cursor = cursor.limit(limit)
 
     print()
     print(f"=== Done ===")

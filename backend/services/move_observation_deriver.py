@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # bumped: opponent_previous now reads from opponent_move_evaluations (separate array)
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -40,7 +40,6 @@ def _is_good_enough(mv: Dict[str, Any]) -> bool:
 
 def _classify_register(mv: Dict[str, Any]) -> Optional[str]:
     """forcing_when_best_was_forcing | quiet_when_best_was_quiet | wrong_register | None"""
-    played_forcing = bool(mv.get("cct_played_forcing_when_best_was_forcing"))
     user_played_forcing = bool(mv.get("cct_forcing"))
     best_was_forcing = bool(mv.get("cct_best_was_forcing"))
     had_forcing_options = bool(mv.get("cct_had_forcing_options"))
@@ -55,16 +54,21 @@ def _classify_register(mv: Dict[str, Any]) -> Optional[str]:
 
 
 def _build_opponent_previous(prev_mv: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Snapshot of opponent's previous move for context."""
+    """Snapshot of opponent's previous move for context.
+
+    v2: opponent moves come from stockfish_analysis.opponent_move_evaluations,
+    which lacks the cct_* fields (analyzer only computes CCT for user moves).
+    So we derive `created_threat` from the `threat` field (set to target
+    square when opponent's move creates a threat).
+    """
     if not prev_mv:
         return None
-    if not prev_mv.get("is_opponent_move"):
-        return None  # weird — caller should only pass an opponent move here
     return {
         "move_san": prev_mv.get("move"),
-        "created_threat": bool(prev_mv.get("cct_creates_threat")),
-        "was_capture": bool(prev_mv.get("cct_is_capture")),
-        "was_check": bool(prev_mv.get("cct_is_check")),
+        "created_threat": prev_mv.get("threat") is not None,  # non-null threat = created a threat
+        "threat_square": prev_mv.get("threat"),
+        "was_capture": "x" in (prev_mv.get("move") or ""),  # SAN heuristic
+        "was_check": (prev_mv.get("move") or "").endswith("+") or (prev_mv.get("move") or "").endswith("#"),
         "blundered": prev_mv.get("evaluation") == "blunder",
         "cp_loss": prev_mv.get("cp_loss") or 0,
     }
@@ -127,22 +131,39 @@ def derive_observations_for_game(
 ) -> List[Dict[str, Any]]:
     """Returns a list of observation dicts (one per user move) for a single game.
 
-    Reads ONLY fields already present in stockfish_analysis.move_evaluations
-    and (optionally) decryption_v5_data. Never inspects FEN directly in v1.
-
-    Caller is responsible for upserting these into MongoDB. We do not write
-    here on purpose — keeps derivation pure & testable.
+    v2: reads BOTH stockfish_analysis.move_evaluations (user moves) AND
+    stockfish_analysis.opponent_move_evaluations (opponent moves). Pairs
+    them by move_number to derive opponent_previous context. When
+    user_color=white, the "previous opponent move" for user's move N is
+    opponent's move N-1. When user_color=black, opponent's move N came
+    BEFORE user's move N.
     """
     derived_at = derived_at or datetime.now(timezone.utc)
     moves = stockfish_analysis.get("move_evaluations") or []
+    opp_moves = stockfish_analysis.get("opponent_move_evaluations") or []
+    # Index opponent moves by move_number for O(1) lookup
+    opp_by_mn: Dict[int, Dict[str, Any]] = {}
+    for om in opp_moves:
+        mn = om.get("move_number")
+        if isinstance(mn, int):
+            opp_by_mn[mn] = om
     v5_by_mn = _index_v5_by_move_number(decryption_v5_data)
 
     obs_list: List[Dict[str, Any]] = []
-    for i, mv in enumerate(moves):
+    for mv in moves:
         if mv.get("is_opponent_move"):
-            continue  # opponent moves are context, not standalone observations
+            continue  # defensive — move_evaluations should already be user-only
 
-        prev = moves[i - 1] if i > 0 else None
+        # Look up opponent's PREVIOUS move (the one they just played before the user)
+        mn = mv.get("move_number") or 0
+        if user_color == "white":
+            # White plays move N first, then black plays move N. Opponent's previous = move N-1.
+            opp_previous_mn = mn - 1
+        else:
+            # Black is user. White plays move N first, THEN black plays move N.
+            # Opponent's previous = same move_number.
+            opp_previous_mn = mn
+        prev = opp_by_mn.get(opp_previous_mn) if opp_previous_mn > 0 else None
         opponent_previous = _build_opponent_previous(prev)
 
         # v5 enrichment if available (concept_applied, shape_pattern_id, etc.)
