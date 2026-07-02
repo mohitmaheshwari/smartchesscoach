@@ -168,37 +168,148 @@ _SEVERITY_WEIGHT = {
 # to what THAT PERSON'S DATA shows — not a hardcoded per-tier script.
 
 _PS_SUBTYPE_PHRASING = {
+    # piece_safety subtypes (from move_observation_deriver piece_safety classifier)
     "simple_hang":       "board-verified piece drops (attackers > defenders on the destination)",
     "threat_ignored":    "missed opponent threats you had time to see",
     "tactical_seq_loss": "miscalculations inside your own forcing sequences",
     "quiet_blunder":     "non-forcing high-cost mistakes that weren't literal hangs",
     "small_slip":        "small slips (<200cp — background noise)",
+    # king_safety subtypes
+    "king_walked_into_attack": "king moves onto squares your opponent attacks more than you defend",
+    "ignored_king_attack":     "moves where your opponent had pieces near your king and you didn't defend",
+    "king_in_center":          "positions where your king sat on its starting square past move 12 in an open game",
+    "weakened_shelter":        "pawn pushes near your king that opened lines for opposing attackers",
+    # missed_tactic subtypes
+    "missed_fork":             "positions where the best move forked two of your opponent's pieces",
+    "missed_pin":              "positions where the best move pinned an opponent piece",
+    "missed_skewer":           "positions where the best move skewered opponent pieces",
+    "missed_discovered_attack":"positions where the best move uncovered a discovered attack",
+    "missed_generic_tactic":   "positions with a strong tactical shot you didn't play",
+    # tactical_oversight subtypes
+    "ignored_forcing_threat":  "moments the opponent had just made a forcing move you didn't address",
+    "overlooked_immediate_reply":"moves where your opponent's next reply was obviously strong and you missed it",
+    "generic_oversight":       "tactical oversights (a good move exists but you didn't see it)",
+    # calculation_depth subtypes
+    "shallow_horizon_2ply":    "positions where your opponent had a forcing 2-move win you didn't foresee",
+    "broken_forcing_sequence": "your own forcing sequences that fell apart before completion",
+    "generic_calc_gap":        "positions where deeper calculation would have found a better move",
+    # piece_activity subtypes
+    "queen_out_early":         "early queen moves before your minor pieces were developed",
+    "piece_parked_on_start":   "pieces that stayed on their starting square well past the opening",
+    # opening_knowledge subtypes
+    "tempo_wasted_by_repeat":  "opening tempi lost by moving the same piece twice",
+    "early_flank_pawn_move":   "flank pawn pushes in the first eight moves",
+    # endgame_technique subtypes
+    "passive_king_in_endgame": "endgames where your king stayed passive while your opponent's king centralized",
+    "passed_pawn_ignored":     "positions where your opponent had a passed pawn advancing and you didn't stop it",
+    "generic_endgame_slip":    "endgame moments where precision was needed and missed",
+    # pawn_structure subtypes
+    "isolated_pawn_created":   "pawn moves that created isolated pawns in your structure",
+    "doubled_pawn_created":    "moves that gave you doubled pawns",
+    "backward_pawn_created":   "moves that left a pawn backward — unsupported and blocked by an opposing pawn",
+    "generic_structure_slip":  "pawn moves that weakened your structure",
+    # soft fallback
+    "unverified_hint":         "moves flagged as this pattern but not board-provable to a specific subtype",
 }
 
-# Human-readable plural noun for each subtype (avoids "losss" from naive +s)
 _PS_SUBTYPE_PLURAL = {
-    "simple_hang":       "simple hangs",
-    "threat_ignored":    "ignored threats",
-    "tactical_seq_loss": "tactical-sequence losses",
-    "quiet_blunder":     "quiet-position blunders",
-    "small_slip":        "small slips",
+    "simple_hang":            "simple hangs",
+    "threat_ignored":         "ignored threats",
+    "tactical_seq_loss":      "tactical-sequence losses",
+    "quiet_blunder":          "quiet-position blunders",
+    "small_slip":             "small slips",
+    "king_walked_into_attack":"king walks into attack",
+    "ignored_king_attack":    "ignored king attacks",
+    "king_in_center":         "king-in-center moments",
+    "weakened_shelter":       "shelter weakenings",
+    "missed_fork":            "missed forks",
+    "missed_pin":             "missed pins",
+    "missed_skewer":          "missed skewers",
+    "missed_discovered_attack":"missed discovered attacks",
+    "missed_generic_tactic":  "missed tactics",
+    "ignored_forcing_threat": "ignored forcing threats",
+    "overlooked_immediate_reply":"overlooked immediate replies",
+    "generic_oversight":      "tactical oversights",
+    "shallow_horizon_2ply":   "shallow horizon (2-ply) losses",
+    "broken_forcing_sequence":"broken forcing sequences",
+    "generic_calc_gap":       "calculation gaps",
+    "queen_out_early":        "early queen moves",
+    "piece_parked_on_start":  "parked pieces",
+    "tempo_wasted_by_repeat": "wasted opening tempi",
+    "early_flank_pawn_move":  "early flank-pawn moves",
+    "passive_king_in_endgame":"passive-king endgames",
+    "passed_pawn_ignored":    "ignored passed pawns",
+    "generic_endgame_slip":   "endgame slips",
+    "isolated_pawn_created":  "isolated-pawn creations",
+    "doubled_pawn_created":   "doubled-pawn creations",
+    "backward_pawn_created":  "backward-pawn creations",
+    "generic_structure_slip": "structural slips",
+    "unverified_hint":        "unverified hints",
+}
+
+
+_CLOSING_BY_SUBTYPE = {
+    # piece_safety
+    "simple_hang":            "Before every move, ask: can this piece be taken?",
+    "tactical_seq_loss":      "You start a forcing sequence without seeing the last move. Walk every capture to the end.",
+    "threat_ignored":         "When the opponent moves, first ask: what does this threaten?",
+    "quiet_blunder":          "Not all mistakes are hanging pieces — sometimes it's a strategic misjudgment. Notice when the position looks 'quiet' and slow down.",
+    # king_safety
+    "king_walked_into_attack":"Before you move the king, count attackers and defenders on the destination.",
+    "ignored_king_attack":    "When there are opponent pieces near your king, defense comes before attack.",
+    "king_in_center":         "Get the king to safety early — castle by move 12 unless the position screams otherwise.",
+    "weakened_shelter":       "Pushing pawns near your castled king opens lines for their pieces. Ask what attackers get a new file or diagonal.",
+    # missed_tactic
+    "missed_fork":            "On every move, scan for pieces that can attack two of theirs at once. Knights + queens especially.",
+    "missed_pin":             "Look for pinnable geometry: opponent's king / queen behind another piece on a straight line.",
+    "missed_skewer":          "Look for a high-value opponent piece with a lower-value piece behind it on a line.",
+    "missed_discovered_attack":"When one of your pieces stands between your slider and an opponent piece, ask what happens if that blocker moves.",
+    "missed_generic_tactic":  "The engine saw a strong move you didn't. Sharpen tactical vision with daily short puzzles.",
+    # tactical_oversight
+    "ignored_forcing_threat": "When the opponent makes a capture or check, address it FIRST before continuing your plan.",
+    "overlooked_immediate_reply":"After you pick a move, always take 5 seconds to see the opponent's most forcing reply.",
+    "generic_oversight":      "Slow down on critical moments — most of these are visible with 10 extra seconds of thought.",
+    # calculation_depth
+    "shallow_horizon_2ply":   "Push your calculation two moves further on any forcing line. Look for opponent's forced tactics after your move.",
+    "broken_forcing_sequence":"Once you start a forcing line, walk it to the end move BEFORE you start it — including all captures and recaptures.",
+    "generic_calc_gap":       "Slow down and calculate one more move deep than feels natural. That's where the plateau lives.",
+    # piece_activity
+    "queen_out_early":        "Develop knights and bishops before the queen. Early queen moves get chased and lose tempo.",
+    "piece_parked_on_start":  "Every piece needs a job. If a piece hasn't moved by move 10, that's your next priority.",
+    # opening_knowledge
+    "tempo_wasted_by_repeat": "In the opening, don't move the same piece twice unless it captures. Every tempo counts.",
+    "early_flank_pawn_move":  "Pushing flank pawns in the opening weakens your king. Only do it when there's a concrete tactical reason.",
+    # endgame_technique
+    "passive_king_in_endgame":"In endgames without queens, the king is a fighting piece. Bring it toward the center.",
+    "passed_pawn_ignored":    "A passed pawn is worth material — stop the advance BEFORE it queens.",
+    "generic_endgame_slip":   "Endgame technique is precision. Study one endgame idea a week (king activity, opposition, rook endings).",
+    # pawn_structure
+    "isolated_pawn_created":  "Before every pawn move, ask whether it isolates one of your pawns.",
+    "doubled_pawn_created":   "Doubled pawns are usually a structural cost — take them only if you get real activity in return.",
+    "backward_pawn_created":  "Backward pawns become long-term weaknesses. Look for pawn structures that leave your pawns supporting each other.",
+    "generic_structure_slip": "Small structural moves compound over long games. Before every pawn move, ask: what does this cost my structure?",
+    # soft fallback
+    "unverified_hint":        "This pattern shows up in your data but the exact type isn't board-provable yet. The coaching cards will drill in on the specifics.",
 }
 
 
 def _tier_closing(band: str, dominant_subtype: str, rating: Optional[int]) -> str:
-    """The one-line closing coaching instruction, band-aware but data-driven."""
+    """The one-line closing coaching instruction, band-aware but data-driven.
+
+    For beginners/intermediates, we hand-tune closings per subtype. For
+    advanced/expert players (>=1600), we prefix with a rating annotation
+    on the subtypes where framing matters (piece_safety-family)."""
     r_str = f"At {rating}, " if rating else ""
-    if dominant_subtype == "simple_hang":
-        if band in ("beginner", "intermediate"):
-            return "Before every move, ask: can this piece be taken?"
-        # advanced / expert
+
+    # Advanced/expert reframing on piece_safety subtypes
+    if band in ("advanced", "expert") and dominant_subtype == "simple_hang":
         return (f"{r_str}dropping pieces in quiet positions is a scanning gap, "
                 "not a calculation gap. Slow down on quiet moves.")
-    if dominant_subtype == "tactical_seq_loss":
-        return "You start a forcing sequence without seeing the last move. Walk every capture to the end."
-    if dominant_subtype == "threat_ignored":
-        return "When the opponent moves, first ask: what does this threaten?"
-    return "Focus on the pattern above; coaching cards will drill in."
+
+    return _CLOSING_BY_SUBTYPE.get(
+        dominant_subtype,
+        "Focus on the pattern above; the coaching cards will drill in on specifics.",
+    )
 
 
 def build_narrative_from_evidence(

@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 6  # bumped: dropped trust in analyzer's cct_is_capture / cct_forcing flags; SAN is source of truth for both
+SCHEMA_VERSION = 7  # bumped: subtypes + severities for all 8 remaining cognitive_gap tags (king_safety, missed_tactic, tactical_oversight, calculation_depth, piece_activity, opening_knowledge, endgame_technique, pawn_structure)
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -408,7 +408,9 @@ def derive_observations_for_game(
                 if sp == "free_piece":
                     missed_free_piece = True
 
-        # Piece-safety subtype + severity (only for piece_safety events for now)
+        # Subtype + severity classification.
+        # piece_safety uses the historical in-file classifier (board-verified).
+        # All other 8 tags dispatch to services.cognitive_gap_subtypes.
         subtype: Optional[str] = None
         severity: Optional[str] = None
         if missed_pattern == "piece_safety":
@@ -418,6 +420,14 @@ def derive_observations_for_game(
                 missed_pattern = "king_safety"
             else:
                 severity = _classify_piece_safety_severity(subtype, mv, opp_next)
+
+        if missed_pattern and subtype is None:
+            # Dispatch to the multi-tag classifier for the 8 remaining tags
+            try:
+                from services.cognitive_gap_subtypes import classify as _classify_gap
+                subtype, severity = _classify_gap(missed_pattern, mv, opponent_previous, opp_next)
+            except Exception:
+                subtype, severity = (None, None)
 
         responded_to_threat = (
             opponent_previous is not None
