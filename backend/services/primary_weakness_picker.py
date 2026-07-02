@@ -168,6 +168,11 @@ _SEVERITY_WEIGHT = {
 # to what THAT PERSON'S DATA shows — not a hardcoded per-tier script.
 
 _PS_SUBTYPE_PHRASING = {
+    # time_management subtypes (v9)
+    "impulsive_critical":     "critical moments played in under 3 seconds that turned into mistakes",
+    "time_pressure_blunder":  "blunders you made under 30 seconds on the clock",
+    "slow_paralysis":         "routine moves you spent more than 90 seconds on and then blundered later",
+    "chronic_timeout":        "games you lost on the clock instead of on the board",
     # piece_safety subtypes (from move_observation_deriver piece_safety classifier)
     "simple_hang":       "board-verified piece drops (attackers > defenders on the destination)",
     "threat_ignored":    "missed opponent threats you had time to see",
@@ -213,6 +218,10 @@ _PS_SUBTYPE_PHRASING = {
 }
 
 _PS_SUBTYPE_PLURAL = {
+    "impulsive_critical":     "impulsive critical-moment moves",
+    "time_pressure_blunder":  "time-pressure blunders",
+    "slow_paralysis":         "slow-paralysis blunders",
+    "chronic_timeout":        "games lost on time",
     "simple_hang":            "simple hangs",
     "threat_ignored":         "ignored threats",
     "tactical_seq_loss":      "tactical-sequence losses",
@@ -249,6 +258,11 @@ _PS_SUBTYPE_PLURAL = {
 
 
 _CLOSING_BY_SUBTYPE = {
+    # time_management
+    "impulsive_critical":     "On any critical moment, force yourself to spend at least 10 seconds before you move. The best move is worth the clock.",
+    "time_pressure_blunder":  "When your clock drops under a minute, simplify — trade pieces, play safe, don't hunt for the perfect move.",
+    "slow_paralysis":         "If you've spent 90+ seconds on a move that isn't critical, pick a reasonable one and move — the analysis paralysis is costing you later.",
+    "chronic_timeout":        "You're losing more games on the clock than to your opponent's moves. That's a habit fix — play faster on quiet moves, save clock for real decisions.",
     # piece_safety
     "simple_hang":            "Before every move, ask: can this piece be taken?",
     "tactical_seq_loss":      "You start a forcing sequence without seeing the last move. Walk every capture to the end.",
@@ -331,7 +345,11 @@ def build_narrative_from_evidence(
       - Closing = tier-aware line targeting the dominant meaningful subtype
       - Label = "{topic} ({X}% critical)" for the focus card badge
     """
-    subtypes = (signals.get("pattern_subtype_severity") or {}).get(topic) or {}
+    # v9: time_management has a synthetic histogram stored on signals
+    if topic == "time_management" and signals.get("_time_synth_hist"):
+        subtypes = signals["_time_synth_hist"]
+    else:
+        subtypes = (signals.get("pattern_subtype_severity") or {}).get(topic) or {}
     flat: Dict[str, Dict[str, Any]] = {}
     total = 0
     for st, sev_counts in subtypes.items():
@@ -597,6 +615,54 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             "per_100_moves": round(count / total_user_moves * 100, 2),
             "impact_weight": impact_table.get(pattern, 0.3),
             "rating_prior": round(prior, 3),
+        })
+
+    # v9: time_management as a synthetic topic — scored from time_flag counts
+    # + game-level timeout_loss_rate. Not a missed_pattern the analyzer tags,
+    # but a first-class coaching dimension the picker considers.
+    time_flag_counts = signals.get("time_flag_counts") or {}
+    time_flag_sev = signals.get("time_flag_severity") or {}
+    n_time_flags = sum(time_flag_counts.values())
+
+    # Compute timeout_loss_rate at pick time (game-level signal)
+    n_analyzed = await db.games.count_documents({"user_id": user_id, "is_analyzed": True})
+    n_time_loss = 0
+    async for gg in db.games.find(
+        {"user_id": user_id, "termination": "timeout"},
+        {"result": 1, "user_color": 1},
+    ):
+        col = gg.get("user_color")
+        res = gg.get("result")
+        if (res == "1-0" and col == "black") or (res == "0-1" and col == "white"):
+            n_time_loss += 1
+    timeout_loss_rate = n_time_loss / max(n_analyzed, 1)
+
+    # Score: severity-weighted flags PLUS a chronic-timeout bonus
+    if n_time_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10:
+        # Build a synthetic subtype_severity dict for the narrative
+        synth_hist: Dict[str, Dict[str, int]] = {}
+        for flag, count in time_flag_counts.items():
+            synth_hist[flag] = dict(time_flag_sev.get(flag, {})) or {"moderate": count}
+        # Also add a game-level "chronic_timeout" subtype if applicable
+        if timeout_loss_rate >= 0.10:
+            n_timeout_loss = int(timeout_loss_rate * n_analyzed)
+            synth_hist["chronic_timeout"] = {"critical": n_timeout_loss}
+
+        weighted = _severity_weighted_count(synth_hist)
+        # Rate lookups for later narrative building — stash on signals
+        signals["_time_synth_hist"] = synth_hist
+        signals["_timeout_loss_rate"] = timeout_loss_rate
+        signals["_n_time_loss_games"] = n_time_loss
+        signals["_n_analyzed_games_time"] = n_analyzed
+        prior = 1.0  # time_management always gets neutral prior (no band table yet)
+        candidates.append({
+            "topic": "time_management",
+            "score": round(weighted * prior, 3),
+            "evidence_count": n_time_flags + (int(timeout_loss_rate * n_analyzed) if timeout_loss_rate >= 0.10 else 0),
+            "severity_weighted_count": round(weighted, 2),
+            "per_100_moves": None,
+            "impact_weight": 1.0,
+            "rating_prior": prior,
         })
 
     # Positive-signal gaps (things user DOESN'T do enough of).

@@ -82,6 +82,9 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool, skip_if_cur
 
     v5 = analysis_doc.get("decryption_v5_data") or None
 
+    # v9: PGN carries %clk annotations; deriver parses them for time signals
+    pgn = game_doc.get("pgn")
+
     obs_list = derive_observations_for_game(
         stockfish_analysis=sf,
         game_id=game_id,
@@ -89,6 +92,7 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool, skip_if_cur
         user_color=user_color,
         decryption_v5_data=v5,
         derived_at=datetime.now(timezone.utc),
+        pgn=pgn,
     )
     if not obs_list:
         return 0
@@ -148,7 +152,7 @@ async def main_async(apply: bool, user_id: Optional[str], limit: int):
                 game_id = analysis.get("game_id")
                 game = await db.games.find_one(
                     {"game_id": game_id},
-                    {"game_id": 1, "user_id": 1, "user_color": 1}
+                    {"game_id": 1, "user_id": 1, "user_color": 1, "pgn": 1}
                 )
                 if not game:
                     errors.append(("no-game-doc", game_id))

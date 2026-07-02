@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 8  # bumped: tightened king_safety classifier — skip already-lost positions (eval_before<-300), reroute endgame king moves to endgame_technique
+SCHEMA_VERSION = 9  # bumped: time_management dimension — per-observation time_spent + time_left + time_flag parsed from PGN %clk annotations
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -332,6 +332,70 @@ def _generate_coaching_takeaway(obs: Dict[str, Any]) -> str:
 
 # ---------------- The main derivation function ---------------------------
 
+def _classify_time_flag(
+    mv: Dict[str, Any],
+    time_spent: Optional[float],
+    time_left: Optional[float],
+    user_color: str = "white",
+) -> Optional[str]:
+    """Per-move time flag. Returns None if the move doesn't hit any
+    time-management pattern.
+
+      - impulsive_critical  — critical moment played in <3s and mistake/blunder
+      - time_pressure_blunder — <30s left and it was a blunder
+      - slow_paralysis      — >90s spent on a non-critical move that blundered
+
+    Coaching-relevance gate: skip moves where the user was ALREADY LOSING
+    heavily (an impulsive move when you're down a queen isn't coachable).
+
+    eval_before is stored from WHITE's perspective, so we sign-flip for
+    black users. "Already losing heavily" = user_eval_before < -400.
+    """
+    quality = mv.get("evaluation")
+    if quality not in ("mistake", "blunder"):
+        return None
+
+    # Coaching-relevance gate: skip when the blunder didn't change the
+    # game's outcome. Two shapes to skip:
+    #   (a) was already losing decisively AND still losing → not coachable
+    #   (b) was already winning decisively AND still winning → not coachable
+    # Both apply to the USER's perspective (sign-flip for black).
+    eval_before = mv.get("eval_before")
+    eval_after = mv.get("eval_after")
+    if eval_before is not None and eval_after is not None:
+        sign = 1 if user_color == "white" else -1
+        user_eval_before = eval_before * sign
+        user_eval_after = eval_after * sign
+        # winning → still winning
+        if user_eval_before > 300 and user_eval_after > 300:
+            return None
+        # losing → still losing
+        if user_eval_before < -300 and user_eval_after < -300:
+            return None
+    was_critical = bool(mv.get("is_critical"))
+    if time_spent is not None and was_critical and time_spent < 3:
+        return "impulsive_critical"
+    if time_left is not None and time_left < 30 and quality == "blunder":
+        return "time_pressure_blunder"
+    if time_spent is not None and time_spent > 90 and not was_critical:
+        return "slow_paralysis"
+    return None
+
+
+def _time_flag_severity(flag: Optional[str], mv: Dict[str, Any]) -> Optional[str]:
+    if flag is None:
+        return None
+    base = {"impulsive_critical": "critical",
+            "time_pressure_blunder": "critical",
+            "slow_paralysis": "moderate"}.get(flag, "minor")
+    idx = ["minor", "moderate", "critical"].index(base)
+    cp = mv.get("cp_loss") or 0
+    eb = mv.get("eval_before") or 0
+    if cp >= 400 and eb >= -300:
+        idx = min(idx + 1, 2)
+    return ["minor", "moderate", "critical"][idx]
+
+
 def derive_observations_for_game(
     stockfish_analysis: Dict[str, Any],
     game_id: str,
@@ -339,6 +403,7 @@ def derive_observations_for_game(
     user_color: str = "white",
     decryption_v5_data: Optional[List[Dict[str, Any]]] = None,
     derived_at: Optional[datetime] = None,
+    pgn: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Returns a list of observation dicts (one per user move) for a single game.
 
@@ -352,6 +417,20 @@ def derive_observations_for_game(
     derived_at = derived_at or datetime.now(timezone.utc)
     moves = stockfish_analysis.get("move_evaluations") or []
     opp_moves = stockfish_analysis.get("opponent_move_evaluations") or []
+
+    # v9: parse PGN clocks once per game
+    clocks: List[Optional[float]] = []
+    increment: int = 0
+    if pgn:
+        try:
+            from services.pgn_clock_parser import (
+                parse_clocks_from_pgn, parse_increment_from_pgn,
+            )
+            clocks = parse_clocks_from_pgn(pgn)
+            increment = parse_increment_from_pgn(pgn)
+        except Exception:
+            clocks = []
+            increment = 0
     # Index opponent moves by move_number for O(1) lookup
     opp_by_mn: Dict[int, Dict[str, Any]] = {}
     for om in opp_moves:
@@ -513,6 +592,25 @@ def derive_observations_for_game(
             "decision_register": _classify_register(mv),
         }
 
+        # v9: time management signals from PGN clocks
+        time_spent = None
+        time_left = None
+        time_flag = None
+        time_flag_severity = None
+        if clocks:
+            from services.pgn_clock_parser import (
+                halfmove_index, time_spent_at_halfmove, time_left_at_halfmove,
+            )
+            hidx = halfmove_index(mv.get("move_number") or 0, user_color)
+            time_spent = time_spent_at_halfmove(clocks, hidx, increment)
+            time_left = time_left_at_halfmove(clocks, hidx)
+            time_flag = _classify_time_flag(mv, time_spent, time_left, user_color=user_color)
+            time_flag_severity = _time_flag_severity(time_flag, mv)
+        obs["time_spent_seconds"] = time_spent
+        obs["time_left_seconds"] = time_left
+        obs["time_flag"] = time_flag
+        obs["time_flag_severity"] = time_flag_severity
+
         obs["coaching_takeaway"] = _generate_coaching_takeaway(obs)
         obs_list.append(obs)
 
@@ -542,12 +640,16 @@ def aggregate_user_signals(observations: List[Dict[str, Any]]) -> Dict[str, Any]
         "punished_opponent_blunder": 0,
         "missed_opponent_blunder": 0,
         "missed_pattern_counts": {},
-        # Per-pattern subtype × severity histograms (new in v4).
-        # Shape: {pattern: {subtype: {severity: count}}}
         "pattern_subtype_severity": {},
         "concept_used_counts": {},
         "tactical_pattern_executed_counts": {},
         "decision_register_counts": {},
+        # v9: time-management signals rolled up per user
+        "time_flag_counts": {},                # {flag_name: count}
+        "time_flag_severity": {},              # {flag_name: {severity: count}}
+        "time_spent_on_critical_moments": [],  # list of seconds; picker computes avg
+        "n_critical_with_time_data": 0,
+        "n_moves_with_time_data": 0,
     }
     for o in observations:
         out["phases"][o.get("phase", "middlegame")] = out["phases"].get(o.get("phase", "middlegame"), 0) + 1
@@ -579,6 +681,20 @@ def aggregate_user_signals(observations: List[Dict[str, Any]]) -> Dict[str, Any]
             dr = o["decision_register"]
             out["decision_register_counts"][dr] = out["decision_register_counts"].get(dr, 0) + 1
 
+        # v9: time management
+        if o.get("time_spent_seconds") is not None:
+            out["n_moves_with_time_data"] += 1
+            if o.get("was_critical_moment"):
+                out["time_spent_on_critical_moments"].append(o["time_spent_seconds"])
+                out["n_critical_with_time_data"] += 1
+        tf = o.get("time_flag")
+        if tf:
+            out["time_flag_counts"][tf] = out["time_flag_counts"].get(tf, 0) + 1
+            tsev = o.get("time_flag_severity")
+            if tsev:
+                bucket = out["time_flag_severity"].setdefault(tf, {})
+                bucket[tsev] = bucket.get(tsev, 0) + 1
+
     # Useful derived rates
     threats_total = out["responded_to_threat"] + out["ignored_opponent_threat"]
     if threats_total > 0:
@@ -588,5 +704,14 @@ def aggregate_user_signals(observations: List[Dict[str, Any]]) -> Dict[str, Any]
         out["blunder_punish_rate"] = round(out["punished_opponent_blunder"] / blunder_punish_total, 3)
     if out["critical_moments"] > 0:
         out["critical_find_rate"] = round(out["found_best_in_critical"] / out["critical_moments"], 3)
+
+    # v9: derived time metrics
+    if out["time_spent_on_critical_moments"]:
+        tc = out["time_spent_on_critical_moments"]
+        out["avg_time_on_critical_moment"] = round(sum(tc) / len(tc), 1)
+        n_fast = sum(1 for t in tc if t < 10)
+        out["pct_critical_played_fast"] = round(n_fast / len(tc), 3)
+    # Drop the raw list from the returned aggregate (was a working buffer)
+    del out["time_spent_on_critical_moments"]
 
     return out
