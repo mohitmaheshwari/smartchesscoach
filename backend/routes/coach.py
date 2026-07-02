@@ -4399,12 +4399,19 @@ async def get_active_focus(user: User = Depends(get_current_user)):
     """
     from services.primary_weakness_picker import COLLECTION
     from datetime import datetime, timezone
+    # Weakness focus: any doc without an explicit type OR type="weakness"
     focus = await db[COLLECTION].find_one(
-        {"user_id": user.user_id, "status": "active"},
+        {"user_id": user.user_id, "status": "active",
+         "$or": [{"type": {"$exists": False}}, {"type": "weakness"}]},
         {"_id": 0}
     )
-    if not focus:
-        return {"has_focus": False}
+    # Strength focus: separate doc with type="strength"
+    strength = await db[COLLECTION].find_one(
+        {"user_id": user.user_id, "status": "active", "type": "strength"},
+        {"_id": 0}
+    )
+    if not focus and not strength:
+        return {"has_focus": False, "has_strength": False}
 
     # days_remaining
     days_remaining = None
@@ -4430,20 +4437,42 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         "threat_awareness": "Reading opponent threats",
         "punish_blunders": "Punishing opponent mistakes",
     }
-    return {
-        "has_focus": True,
-        "topic_key": focus.get("topic_key"),
-        "topic_label": LABELS.get(focus.get("topic_key"), focus.get("topic_key")),
-        "days_remaining": days_remaining,
-        "started_at": focus.get("started_at"),
-        "locked_until": focus.get("locked_until"),
-        "baseline_metric": focus.get("baseline_metric"),
-        "current_metric": focus.get("current_metric"),
-        "moments_page_topic": focus.get("moments_page_topic") or "piece_safety",
-        "runners_up": focus.get("runners_up") or [],
-        "picker_score": focus.get("picker_score"),
-        "picker_evidence_count": focus.get("picker_evidence_count"),
+    resp = {
+        "has_focus": bool(focus),
+        "has_strength": bool(strength),
     }
+    if focus:
+        resp.update({
+            "topic_key": focus.get("topic_key"),
+            "topic_label": focus.get("coaching_label") or LABELS.get(focus.get("topic_key"), focus.get("topic_key")),
+            "coaching_narrative": focus.get("coaching_narrative"),
+            "subtype_histogram": focus.get("subtype_histogram"),
+            "days_remaining": days_remaining,
+            "started_at": focus.get("started_at"),
+            "locked_until": focus.get("locked_until"),
+            "baseline_metric": focus.get("baseline_metric"),
+            "current_metric": focus.get("current_metric"),
+            "moments_page_topic": focus.get("moments_page_topic") or "piece_safety",
+            "runners_up": focus.get("runners_up") or [],
+            "picker_score": focus.get("picker_score"),
+            "picker_evidence_count": focus.get("picker_evidence_count"),
+            "rating_band": focus.get("rating_band"),
+            "rating_confidence": focus.get("rating_confidence"),
+        })
+    if strength:
+        resp["strength"] = {
+            "label": strength.get("label"),
+            "narrative": strength.get("narrative"),
+            "kind": strength.get("kind"),
+            "metric_key": strength.get("metric_key"),
+            "user_value": strength.get("user_value"),
+            "cohort_mean": strength.get("cohort_mean"),
+            "z_score": strength.get("z_score"),
+            "multiple_of_cohort": strength.get("multiple_of_cohort"),
+            "baseline_band": strength.get("baseline_band"),
+            "baseline_fallback": strength.get("baseline_fallback"),
+        }
+    return resp
 
 
 @router.get("/personal-moments/{topic}")

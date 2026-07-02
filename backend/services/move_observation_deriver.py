@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 3  # bumped: opponent threats now derived via python-chess from FEN when stored `threat` field is null
+SCHEMA_VERSION = 6  # bumped: dropped trust in analyzer's cct_is_capture / cct_forcing flags; SAN is source of truth for both
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -110,6 +110,190 @@ def _index_v5_by_move_number(v5_data: Optional[List[Dict[str, Any]]]) -> Dict[in
     return out
 
 
+# ---------------- Piece-safety subtype + severity classifier -------------
+# See docs/piece_safety_subtype_scope.md for the full contract.
+
+_PIECE_VALUES = {"p": 100, "n": 300, "b": 300, "r": 500, "q": 900, "k": 0}
+_SEVERITY_LEVELS = ["minor", "moderate", "critical"]
+_PS_BASE_SEVERITY = {
+    "threat_ignored":    "moderate",
+    "tactical_seq_loss": "moderate",
+    "simple_hang":       "critical",
+    "quiet_blunder":     "moderate",   # non-forcing high-cp loss, not a literal hang
+    "small_slip":        "minor",
+}
+
+
+def _san_indicates_capture(san: str) -> bool:
+    """SAN 'x' → capture. Robust fallback for the analyzer's unreliable
+    cct_is_capture flag (which returns False for real captures like
+    Rxc3, Qxc8 in some analyses)."""
+    return isinstance(san, str) and "x" in san
+
+
+def _is_king_move(fen_before: str, move_uci: str) -> bool:
+    """Was the piece moved a king? King moves that lose material are
+    king-safety issues, not piece-safety."""
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return False
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        piece = board.piece_at(chess.Move.from_uci(move_uci).from_square)
+        return piece is not None and piece.piece_type == chess.KING
+    except Exception:
+        return False
+
+
+def _piece_is_hanging_after_move(fen_before: str, move_uci: str) -> Optional[bool]:
+    """After the user makes the move, is the destination piece hanging
+    (attackers strictly greater than defenders on that square)?
+
+    Returns None if we can't tell (bad FEN, etc.). This is a proper board
+    check, NOT a heuristic based on cp_loss + forcing flags.
+
+    Simple attacker/defender count for v1 — good enough to distinguish
+    real hangs from unrelated blunders. Doesn't do full SEE (which would
+    require sorting by piece value)."""
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return None
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        board.push(mv)
+        dest = mv.to_square
+        opp_color = board.turn        # after push, it's opponent's turn
+        user_color = not opp_color
+        n_attackers = len(list(board.attackers(opp_color, dest)))
+        n_defenders = len(list(board.attackers(user_color, dest)))
+        return n_attackers > n_defenders
+    except Exception:
+        return None
+
+
+def _opp_captured_users_piece(
+    user_mv: Dict[str, Any], opp_next: Optional[Dict[str, Any]]
+) -> bool:
+    """Did opponent's next move capture on the square user just moved to?"""
+    if not opp_next:
+        return False
+    user_uci = user_mv.get("move_uci") or ""
+    opp_uci = opp_next.get("move_uci") or ""
+    if len(user_uci) < 4 or len(opp_uci) < 4:
+        return False
+    if user_uci[2:4] != opp_uci[2:4]:
+        return False
+    return _san_indicates_capture(opp_next.get("move") or "") or bool(opp_next.get("cct_is_capture"))
+
+
+def _material_value_captured(opp_next: Optional[Dict[str, Any]]) -> int:
+    """Piece value the opponent's next move captured (0 if no capture / unknown).
+    Uses python-chess against the FEN stored on opp_next."""
+    if not opp_next:
+        return 0
+    try:
+        import chess
+        fen = opp_next.get("fen_before")
+        uci = opp_next.get("move_uci")
+        if not fen or not uci or len(uci) < 4:
+            return 0
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(uci)
+        if not board.is_capture(move):
+            return 0
+        # En-passant target isn't on to_square
+        if board.is_en_passant(move):
+            return _PIECE_VALUES["p"]
+        target = board.piece_at(move.to_square)
+        if not target:
+            return 0
+        return _PIECE_VALUES.get(target.symbol().lower(), 0)
+    except Exception:
+        return 0
+
+
+def _classify_piece_safety_subtype(
+    mv: Dict[str, Any],
+    opponent_previous: Optional[Dict[str, Any]],
+    opp_next: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    """Classify a piece_safety event into a verified subtype.
+
+    Returns None if the event should be DROPPED from piece_safety (e.g.,
+    it was a king move — that's king_safety, not piece_safety).
+
+    v2 (2026-07-02) — board-verified after Mohit found 86% mislabel rate:
+      - was_capture uses SAN 'x' as source of truth (analyzer flag lies)
+      - king moves get DROPPED (return None)
+      - simple_hang REQUIRES python-chess to confirm the destination
+        square has more attackers than defenders
+
+    Order: king filter → threat_ignored → tactical_seq_loss → simple_hang
+           → small_slip
+    """
+    cp_loss = mv.get("cp_loss") or 0
+    san = mv.get("move") or ""
+    fen = mv.get("fen_before")
+    uci = mv.get("move_uci")
+
+    # ── Drop king moves entirely — that's king_safety, not piece_safety
+    if _is_king_move(fen, uci):
+        return None
+
+    # ── Real was_capture + was_forcing (SAN is source of truth; the
+    # analyzer's cct_is_capture / cct_forcing flags are unreliable —
+    # both were caught mislabeling ~13% of Parth's moves on 2026-07-02).
+    was_capture = _san_indicates_capture(san)
+    was_forcing = was_capture or san.endswith("+") or san.endswith("#")
+
+    if opponent_previous and opponent_previous.get("created_threat") and cp_loss >= 200:
+        return "threat_ignored"
+    if (was_forcing or was_capture) and cp_loss >= 150:
+        return "tactical_seq_loss"
+    # simple_hang REQUIRES board verification — the piece must actually be
+    # attacked more than defended after the move.
+    if (not was_forcing) and (not was_capture) and cp_loss >= 200:
+        hanging = _piece_is_hanging_after_move(fen, uci)
+        if hanging is True:
+            return "simple_hang"
+        # High cp, quiet move, but NOT board-verified as hanging — this is
+        # a positional/strategic blunder, not a literal hang.
+        return "quiet_blunder"
+    return "small_slip"
+
+
+def _classify_piece_safety_severity(
+    subtype: str,
+    mv: Dict[str, Any],
+    opp_next: Optional[Dict[str, Any]],
+) -> str:
+    """Base severity from subtype; promote one level if ANY:
+       A. execution_quality == "blunder"
+       B. opp captures user's piece and material ≥ 300cp
+       C. cp_loss ≥ 400 AND eval_before ≥ -300 (very bad, not already hopeless)
+    """
+    sev = _PS_BASE_SEVERITY.get(subtype, "minor")
+    idx = _SEVERITY_LEVELS.index(sev)
+
+    cp_loss = mv.get("cp_loss") or 0
+    eval_before = mv.get("eval_before")
+    if eval_before is None:
+        eval_before = 0
+
+    promote = False
+    if mv.get("evaluation") == "blunder":
+        promote = True
+    elif _opp_captured_users_piece(mv, opp_next) and _material_value_captured(opp_next) >= 300:
+        promote = True
+    elif cp_loss >= 400 and eval_before >= -300:
+        promote = True
+
+    if promote:
+        idx = min(idx + 1, len(_SEVERITY_LEVELS) - 1)
+    return _SEVERITY_LEVELS[idx]
+
+
 def _generate_coaching_takeaway(obs: Dict[str, Any]) -> str:
     """One-line human-readable takeaway from the structured observation.
 
@@ -193,6 +377,14 @@ def derive_observations_for_game(
         prev = opp_by_mn.get(opp_previous_mn) if opp_previous_mn > 0 else None
         opponent_previous = _build_opponent_previous(prev)
 
+        # Opponent's NEXT move (the one AFTER the user's move) — needed for
+        # piece_safety subtype detection (did they capture our just-moved piece?)
+        if user_color == "white":
+            opp_next_mn = mn  # white plays N, then black plays N → opp N is next
+        else:
+            opp_next_mn = mn + 1  # black plays N, then white plays N+1 → opp N+1 is next
+        opp_next = opp_by_mn.get(opp_next_mn)
+
         # v5 enrichment if available (concept_applied, shape_pattern_id, etc.)
         v5_entry = v5_by_mn.get(mv.get("move_number"))
         concept_used = None
@@ -215,6 +407,17 @@ def derive_observations_for_game(
                 sp = v5_entry.get("shape_pattern_id")
                 if sp == "free_piece":
                     missed_free_piece = True
+
+        # Piece-safety subtype + severity (only for piece_safety events for now)
+        subtype: Optional[str] = None
+        severity: Optional[str] = None
+        if missed_pattern == "piece_safety":
+            subtype = _classify_piece_safety_subtype(mv, opponent_previous, opp_next)
+            if subtype is None:
+                # King move — this isn't a piece_safety event. Reclassify.
+                missed_pattern = "king_safety"
+            else:
+                severity = _classify_piece_safety_severity(subtype, mv, opp_next)
 
         responded_to_threat = (
             opponent_previous is not None
@@ -279,6 +482,8 @@ def derive_observations_for_game(
 
             # Gap observations
             "missed_pattern": missed_pattern,
+            "subtype": subtype,           # e.g., simple_hang / threat_ignored / tactical_seq_loss / small_slip
+            "severity": severity,         # minor / moderate / critical (base + contextual promotion)
             "missed_free_piece": missed_free_piece,
             "ignored_opponent_threat": ignored_opponent_threat,
             "missed_opponent_blunder": missed_opponent_blunder,
@@ -316,6 +521,9 @@ def aggregate_user_signals(observations: List[Dict[str, Any]]) -> Dict[str, Any]
         "punished_opponent_blunder": 0,
         "missed_opponent_blunder": 0,
         "missed_pattern_counts": {},
+        # Per-pattern subtype × severity histograms (new in v4).
+        # Shape: {pattern: {subtype: {severity: count}}}
+        "pattern_subtype_severity": {},
         "concept_used_counts": {},
         "tactical_pattern_executed_counts": {},
         "decision_register_counts": {},
@@ -335,6 +543,11 @@ def aggregate_user_signals(observations: List[Dict[str, Any]]) -> Dict[str, Any]
         if o.get("missed_pattern"):
             mp = o["missed_pattern"]
             out["missed_pattern_counts"][mp] = out["missed_pattern_counts"].get(mp, 0) + 1
+            st = o.get("subtype")
+            sv = o.get("severity")
+            if st and sv:
+                bucket = out["pattern_subtype_severity"].setdefault(mp, {}).setdefault(st, {})
+                bucket[sv] = bucket.get(sv, 0) + 1
         if o.get("concept_used"):
             cu = o["concept_used"]
             out["concept_used_counts"][cu] = out["concept_used_counts"].get(cu, 0) + 1

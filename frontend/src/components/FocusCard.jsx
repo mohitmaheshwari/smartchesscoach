@@ -16,9 +16,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { ArrowRight, Target } from "lucide-react";
+import { ArrowRight, Target, TrendingUp } from "lucide-react";
 
 const WINE = "#722F37";
+const EMERALD = "#047857";
 
 const FocusCard = () => {
   const navigate = useNavigate();
@@ -35,13 +36,15 @@ const FocusCard = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Silent if no focus (new user, not enough games, or picker found nothing)
-  if (loading || !focus || !focus.has_focus) return null;
+  // Silent if BOTH focus AND strength are absent
+  if (loading || !focus || (!focus.has_focus && !focus.has_strength)) return null;
 
   const daysLeft = focus.days_remaining ?? 14;
   const baseline = focus.baseline_metric?.value;
   const currentMetric = focus.current_metric?.value;
   const evidence = focus.picker_evidence_count;
+  const narrative = focus.coaching_narrative;
+  const strength = focus.strength;
 
   return (
     <motion.section
@@ -50,6 +53,38 @@ const FocusCard = () => {
       transition={{ duration: 0.4 }}
       className="mb-14 md:mb-16"
     >
+      {/* Signature strength — shown ABOVE the focus (positive frame first) */}
+      {strength && (
+        <div
+          className="mb-5 rounded-xl border border-emerald-100 dark:border-emerald-900/40 p-5"
+          style={{ background: `linear-gradient(135deg, ${EMERALD}0d 0%, ${EMERALD}03 100%)` }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="p-2 rounded-lg flex-shrink-0"
+              style={{ background: `${EMERALD}20`, color: EMERALD }}
+            >
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] font-semibold mb-1" style={{ color: EMERALD }}>
+                You're strong at
+              </div>
+              <div className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground mb-1">
+                {strength.label}
+              </div>
+              {strength.narrative && (
+                <div className="text-[12.5px] text-muted-foreground leading-relaxed">
+                  {strength.narrative}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {focus.has_focus && (
+      <>
       <div className="text-[10.5px] uppercase tracking-[0.22em] font-semibold mb-5" style={{ color: WINE }}>
         Your focus · {daysLeft} day{daysLeft === 1 ? "" : "s"} left
       </div>
@@ -74,6 +109,11 @@ const FocusCard = () => {
                 Locked as your focus for the next {daysLeft} day{daysLeft === 1 ? "" : "s"}.
                 One habit. One thing. Everything else fades.
               </p>
+              {narrative && (
+                <p className="text-[13px] text-foreground/80 leading-relaxed mt-3 italic border-l-2 pl-3" style={{ borderColor: `${WINE}55` }}>
+                  {narrative}
+                </p>
+              )}
             </div>
           </div>
 
@@ -154,6 +194,8 @@ const FocusCard = () => {
           )}
         </div>
       </div>
+      </>
+      )}
     </motion.section>
   );
 };
