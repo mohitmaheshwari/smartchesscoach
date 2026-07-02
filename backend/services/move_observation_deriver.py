@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 7  # bumped: subtypes + severities for all 8 remaining cognitive_gap tags (king_safety, missed_tactic, tactical_oversight, calculation_depth, piece_activity, opening_knowledge, endgame_technique, pawn_structure)
+SCHEMA_VERSION = 8  # bumped: tightened king_safety classifier — skip already-lost positions (eval_before<-300), reroute endgame king moves to endgame_technique
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -422,7 +422,18 @@ def derive_observations_for_game(
                 severity = _classify_piece_safety_severity(subtype, mv, opp_next)
 
         if missed_pattern and subtype is None:
-            # Dispatch to the multi-tag classifier for the 8 remaining tags
+            # v8: king_safety events that are ENDGAME KING MOVES get rerouted
+            # to endgame_technique. A king walking around in a rook endgame
+            # is endgame technique, not middlegame king safety.
+            if missed_pattern == "king_safety":
+                try:
+                    from services.cognitive_gap_subtypes import should_reroute_king_safety_to_endgame
+                    if should_reroute_king_safety_to_endgame(mv):
+                        missed_pattern = "endgame_technique"
+                except Exception:
+                    pass
+
+            # Dispatch to the multi-tag classifier
             try:
                 from services.cognitive_gap_subtypes import classify as _classify_gap
                 subtype, severity = _classify_gap(missed_pattern, mv, opponent_previous, opp_next)

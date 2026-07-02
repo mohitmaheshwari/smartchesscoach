@@ -567,17 +567,26 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         delta = conf_mult * (band_weight - 1.0) * 0.5
         return max(0.5, min(1.5, 1.0 + delta))
 
-    # Build candidate list
+    # Build candidate list. When subtype data is available, use the
+    # subtype-classified count as the truth (not the raw missed_pattern_counts
+    # from the analyzer). This excludes events that failed the coaching-
+    # relevance gates (e.g., king_safety events in already-lost positions
+    # or endgame king walks that got rerouted).
     pattern_subtypes = signals.get("pattern_subtype_severity") or {}
     candidates: List[Dict[str, Any]] = []
-    for pattern, count in (signals.get("missed_pattern_counts") or {}).items():
+    for pattern, raw_count in (signals.get("missed_pattern_counts") or {}).items():
+        if pattern in pattern_subtypes:
+            # Subtype-classified count is the coaching-relevant count
+            subtype_bucket = pattern_subtypes[pattern]
+            classified_count = sum(sum(sev_counts.values()) for sev_counts in subtype_bucket.values())
+            count = classified_count
+            weighted = _severity_weighted_count(subtype_bucket)
+        else:
+            count = raw_count
+            weighted = raw_count * 1.0
+
         if count < MIN_EVIDENCE:
             continue
-        # Severity-weighted count if we have subtype data; else fall back to raw count
-        if pattern in pattern_subtypes:
-            weighted = _severity_weighted_count(pattern_subtypes[pattern])
-        else:
-            weighted = count * 1.0
         prior = rating_prior(pattern)
         score = weighted * prior
         candidates.append({

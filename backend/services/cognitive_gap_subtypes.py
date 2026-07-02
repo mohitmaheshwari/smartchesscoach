@@ -64,6 +64,42 @@ def _board_after(fen: str, uci: str) -> Optional[chess.Board]:
 
 
 # ─── KING_SAFETY ──────────────────────────────────────────────────────
+# 2026-07-02 v2: tightened after Mohit found the classifier over-fires on
+# already-lost positions and endgame king walks. Now:
+#   - Skip events where eval_before < -300 (already hopeless — noise, not signal)
+#   - Endgame king moves are NOT king_safety events (see should_reroute_king_safety_to_endgame)
+
+
+def _is_endgame_board(board: chess.Board) -> bool:
+    """Heuristic: no queens on board AND ≤4 non-king/pawn pieces per side."""
+    piece_map = board.piece_map()
+    if any(p.piece_type == chess.QUEEN for p in piece_map.values()):
+        return False
+    n_w = sum(1 for p in piece_map.values() if p.color == chess.WHITE and p.piece_type not in (chess.PAWN, chess.KING))
+    n_b = sum(1 for p in piece_map.values() if p.color == chess.BLACK and p.piece_type not in (chess.PAWN, chess.KING))
+    return n_w <= 3 and n_b <= 3
+
+
+def should_reroute_king_safety_to_endgame(mv) -> bool:
+    """Return True if this event was tagged king_safety but is actually an
+    endgame king move (should be classified under endgame_technique instead).
+
+    Called by the deriver before classify_king_safety(), to reclassify
+    the missed_pattern itself."""
+    fen = mv.get("fen_before")
+    uci = mv.get("move_uci")
+    if not fen or not uci:
+        return False
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(uci)
+        piece_moved = board.piece_at(move.from_square)
+        if piece_moved is None or piece_moved.piece_type != chess.KING:
+            return False
+        return _is_endgame_board(board)
+    except Exception:
+        return False
+
 
 def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
     fen = mv.get("fen_before")
@@ -76,25 +112,37 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
     except Exception:
         return (None, None)
 
+    # ── Gate: skip already-hopeless positions (eval_before < -300).
+    # A "king safety mistake" when you were already down a queen is not
+    # a coaching moment. This is noise, not signal.
+    eval_before = mv.get("eval_before")
+    if eval_before is not None and eval_before < -300:
+        return (None, None)
+
     move = chess.Move.from_uci(uci)
     piece_moved = board.piece_at(move.from_square)
     move_number = mv.get("move_number") or 0
     is_white = board.turn == chess.WHITE
+    in_endgame = _is_endgame_board(board)
 
-    # ── king_walked_into_attack — user king moved to a square with attackers > defenders
-    if piece_moved and piece_moved.piece_type == chess.KING:
+    # ── king_walked_into_attack — user king moved to a square with attackers > defenders.
+    # ONLY in middlegame — in endgame this is endgame technique (should have been
+    # rerouted before this call, but belt-and-suspenders here).
+    if piece_moved and piece_moved.piece_type == chess.KING and not in_endgame:
         board.push(move)
         opp_col = board.turn
         n_att = len(list(board.attackers(opp_col, move.to_square)))
         n_def = len(list(board.attackers(not opp_col, move.to_square)))
         if n_att > n_def:
             return ("king_walked_into_attack", _promote_severity("critical", mv))
+        # Reset board for further classifiers below
+        board.pop()
 
-    # ── ignored_king_attack — opp piece is attacking within 2 squares of user king
-    king_sq = board.king(board.turn)  # user's king (whose move it is)
-    if king_sq is not None:
+    # ── ignored_king_attack — opp piece attacking within 2 squares of user king,
+    # user didn't defend. ONLY in middlegame.
+    king_sq = board.king(board.turn)
+    if not in_endgame and king_sq is not None:
         opp_col = not board.turn
-        # Any square within king ring
         under_attack = False
         for sq in chess.SQUARES:
             if chess.square_distance(sq, king_sq) <= 2:
@@ -105,22 +153,19 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
             return ("ignored_king_attack", _promote_severity("critical", mv))
 
     # ── king_in_center — king still on starting square past move 12
-    if move_number > 12 and king_sq is not None:
+    if move_number > 12 and king_sq is not None and not in_endgame:
         home_king = chess.E1 if is_white else chess.E8
         if king_sq == home_king:
-            # Only flag if position has meaningful central activity
             central_pieces = sum(1 for sq in [chess.D4, chess.E4, chess.D5, chess.E5]
                                  if board.piece_at(sq))
             if central_pieces >= 2:
                 return ("king_in_center", _promote_severity("moderate", mv))
 
-    # ── weakened_shelter — f/g/h pawn (or a/b/c for kingside-castled black) moved
-    # without meaningful reason
-    if piece_moved and piece_moved.piece_type == chess.PAWN and king_sq is not None:
+    # ── weakened_shelter — flank pawn moved near king, with opp attackers on that flank
+    if piece_moved and piece_moved.piece_type == chess.PAWN and king_sq is not None and not in_endgame:
         from_file = chess.square_file(move.from_square)
         king_file = chess.square_file(king_sq)
         if abs(from_file - king_file) <= 2 and from_file in (5, 6, 7, 0, 1, 2):
-            # And opp has attackers on the flank
             opp_col = not board.turn
             flank_squares = [sq for sq in chess.SQUARES
                              if abs(chess.square_file(sq) - king_file) <= 2]
