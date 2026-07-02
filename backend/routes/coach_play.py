@@ -891,6 +891,53 @@ async def get_coach_play_state(
     except Exception:
         pass
 
+    # 2026-07-03 (P1): Live mission scoreboard — computed from move_history each
+    # request. Cheap (in-memory), no schema migration, no race conditions.
+    try:
+        from services.mission_scoreboard import (
+            update_scoreboard, build_postgame_summary,
+        )
+        base_sb = session_doc.get("mission_scoreboard")
+        if base_sb and base_sb.get("focus_topic"):
+            # Rebuild from history (idempotent — clears events on each call)
+            live_sb = {
+                "focus_topic": base_sb["focus_topic"],
+                "focus_subtype": base_sb.get("focus_subtype"),
+                "focus_label": base_sb.get("focus_label"),
+                "matched_moments": 0,
+                "handled_correctly": 0,
+                "handled_incorrectly": 0,
+                "events": [],
+            }
+            user_color = session_doc.get("user_color", "white")
+            for i, m in enumerate(session_doc.get("move_history", [])):
+                if not isinstance(m, dict) or m.get("by") != "player":
+                    continue
+                eb = m.get("eval_before")
+                ea = m.get("eval_after")
+                if eb is None or ea is None:
+                    continue
+                if user_color == "white":
+                    cp_loss = max(0, (eb - ea) * 100)
+                else:
+                    cp_loss = max(0, (ea - eb) * 100)
+                update_scoreboard(
+                    live_sb,
+                    move_number=i // 2 + 1,
+                    move_san=m.get("move", ""),
+                    move_uci=m.get("uci", ""),
+                    fen_before=m.get("fen_before", ""),
+                    user_color=user_color,
+                    cp_loss=cp_loss,
+                    is_critical=bool(m.get("is_critical")),
+                    time_spent_seconds=m.get("time_spent"),
+                )
+            if isinstance(state.get("session"), dict):
+                state["session"]["mission_scoreboard"] = live_sb
+                state["session"]["mission_postgame_summary"] = build_postgame_summary(live_sb)
+    except Exception as _e:
+        logger.warning(f"live mission_scoreboard failed: {_e}")
+
     return state
 
 

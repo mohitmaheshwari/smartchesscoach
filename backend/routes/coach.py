@@ -4442,6 +4442,50 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         "has_strength": bool(strength),
     }
     if focus:
+        # 2026-07-03 (P2): 14-day activity grid + streak. Answers "which
+        # days did the user actually play a game since the focus started?"
+        # A dot goes green when there's an analyzed game on that day.
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        try:
+            started_iso = focus.get("started_at") or ""
+            started_dt = _dt.fromisoformat(started_iso.replace("Z", "+00:00"))
+            today = _dt.now(_tz.utc)
+            day_grid = []
+            days_played_in_a_row = 0
+            for i in range(14):
+                day = (started_dt + _td(days=i)).date()
+                if day > today.date():
+                    day_grid.append({"day": i + 1, "date": day.isoformat(), "state": "future"})
+                    continue
+                day_start_iso = f"{day.isoformat()}T00:00:00+00:00"
+                day_end_iso = f"{day.isoformat()}T23:59:59+00:00"
+                n_games_today = await db.games.count_documents({
+                    "user_id": user.user_id,
+                    "is_analyzed": True,
+                    "date_played": {"$gte": day_start_iso, "$lte": day_end_iso},
+                })
+                state = "played" if n_games_today > 0 else ("today" if day == today.date() else "missed")
+                day_grid.append({
+                    "day": i + 1,
+                    "date": day.isoformat(),
+                    "state": state,
+                    "n_games": n_games_today,
+                })
+            # Streak: consecutive played days from the START ending at today or the last played day
+            streak = 0
+            for entry in day_grid:
+                if entry["state"] == "played":
+                    streak += 1
+                elif entry["state"] in ("missed", "today"):
+                    streak = 0 if entry["state"] == "missed" else streak
+                    if entry["state"] == "missed":
+                        break
+        except Exception:
+            day_grid = []
+            streak = 0
+        resp["day_grid"] = day_grid
+        resp["current_streak_days"] = streak
+
         resp.update({
             "topic_key": focus.get("topic_key"),
             "topic_label": focus.get("coaching_label") or LABELS.get(focus.get("topic_key"), focus.get("topic_key")),

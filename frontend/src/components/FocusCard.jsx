@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { ArrowRight, Target, TrendingUp } from "lucide-react";
+import { ArrowRight, Target, TrendingUp, Flame } from "lucide-react";
 
 const WINE = "#722F37";
 const EMERALD = "#047857";
@@ -45,6 +45,8 @@ const FocusCard = () => {
   const evidence = focus.picker_evidence_count;
   const narrative = focus.coaching_narrative;
   const strength = focus.strength;
+  const dayGrid = focus.day_grid || [];
+  const currentStreak = focus.current_streak_days ?? 0;
 
   return (
     <motion.section
@@ -172,6 +174,39 @@ const FocusCard = () => {
             See 3 specific moments from your games
             <ArrowRight className="w-4 h-4" />
           </motion.button>
+
+          {/* 14-day activity grid + streak */}
+          {dayGrid.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-amber-100/50 dark:border-amber-900/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Day {dayGrid.filter(d => d.state !== "future").length} of 14
+                </div>
+                {currentStreak >= 2 && (
+                  <div className="flex items-center gap-1 text-[11px] font-medium" style={{ color: EMERALD }}>
+                    <Flame className="w-3 h-3" /> {currentStreak}-day streak
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-[3px]">
+                {dayGrid.map((d) => {
+                  const bg = d.state === "played" ? EMERALD
+                    : d.state === "today" ? "#f59e0b"
+                    : d.state === "missed" ? "#e5e7eb"
+                    : "transparent";
+                  const border = d.state === "future" ? "1px dashed #d1d5db" : "none";
+                  return (
+                    <div
+                      key={d.day}
+                      className="flex-1 h-2 rounded-sm"
+                      style={{ background: bg, border }}
+                      title={`Day ${d.day} (${d.date}) — ${d.state}${d.n_games ? ` · ${d.n_games} games` : ""}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Runners-up (softly surfaced) */}
           {focus.runners_up && focus.runners_up.length > 0 && (

@@ -84,12 +84,46 @@ def _band_default_goal(user_rating: Optional[int]) -> Dict:
 async def derive_session_goal(db, user_id: str, user_rating: Optional[int] = None) -> Dict:
     """
     Return one session goal:
-      {text, focus_area, source: "identity"|"band_default", confidence, band?}
+      {text, focus_area, source: "active_focus"|"identity"|"band_default", ...}
 
-    Personal (from the identity engine's leak/phase) when the player has a
-    confident identity; otherwise a rating-band default. Never raises — any error
-    degrades to the band default.
+    Priority order (2026-07-03 — spine wiring):
+      1. active_focus  — user has a locked weakness focus from
+                          primary_weakness_picker via focus_bridge. Authoritative.
+      2. identity      — player_identity_engine leak+phase mapping.
+      3. band_default  — rating-band fallback.
     """
+    # ── (1) active_focus is the authoritative source ─────────────────
+    try:
+        from services.focus_bridge import get_active_focus_bundle
+        from services.primary_weakness_picker import _CLOSING_BY_SUBTYPE
+        focus = await get_active_focus_bundle(db, user_id)
+        if focus and focus.get("topic_key"):
+            topic = focus["topic_key"]
+            dom = focus.get("dominant_subtype")
+            days_in = focus.get("days_into_focus") or 0
+            days_left = focus.get("days_remaining") or 14
+            # Closing line for the dominant subtype (if we have one)
+            closing = _CLOSING_BY_SUBTYPE.get(dom) if dom else None
+            topic_label = focus.get("topic_label") or topic.replace("_", " ").title()
+            if closing:
+                text = f"Today: {topic_label}. {closing}"
+            else:
+                text = f"Today: {topic_label} — day {days_in + 1} of 14."
+            return {
+                "text": text,
+                "focus_area": topic,
+                "dominant_subtype": dom,
+                "days_into_focus": days_in,
+                "days_remaining": days_left,
+                "coaching_narrative": focus.get("coaching_narrative"),
+                "source": "active_focus",
+                "confidence": "locked",
+                "focus_topic_key": topic,
+            }
+    except Exception as e:
+        logger.warning("derive_session_goal: focus_bridge failed (%s) — fallback", str(e)[:80])
+
+    # ── (2) identity — legacy path retained ──────────────────────────
     try:
         from player_identity_engine import compute_player_identity
         identity = await compute_player_identity(db, user_id)

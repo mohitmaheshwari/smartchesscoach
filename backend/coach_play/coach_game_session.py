@@ -96,6 +96,14 @@ class CoachGameSession:
     # {text, focus_area, source, confidence, band?}. See session_goal_service.
     session_goal: Optional[Dict] = None
 
+    # 2026-07-03 (spine wiring — P1 MissionScoreboard):
+    mission_scoreboard: Optional[Dict] = None
+
+    # 2026-07-03 (spine wiring — P3 warm greeting):
+    # Coach's opening line stitching current focus + last session.
+    # {text, day_num, topic_key, dominant_subtype, referenced_last_session}
+    session_greeting: Optional[Dict] = None
+
     # Async coaching state
     coach_move_pending: bool = False  # Whether coach is still thinking
     last_coach_move: Optional[Dict] = None  # Last move made by coach
@@ -253,23 +261,39 @@ async def start_coach_session(
     # Use custom starting position or default
     initial_fen = starting_fen if starting_fen else "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-    # Pull the user's established patterns — same source the home-page
-    # Mirror uses ("you've been hanging pieces"). Feeds the V2 teaching
-    # selector's intent ranking so the coach plays toward patterns the
-    # user actually loses to. Best-effort: if the lookup fails the
-    # session still starts with empty weaknesses.
+    # Pull the user's established patterns. 2026-07-03: focus_bridge
+    # (primary_weakness_picker's active focus) is the AUTHORITATIVE source.
+    # game_mirror kept as fallback for users without a picked focus yet.
     student_weaknesses: List[str] = []
+    focus_bundle = None
     try:
-        from services.game_mirror import get_established_patterns
-        patterns, _ = await get_established_patterns(db, user_id)
-        student_weaknesses = patterns or []
-        if student_weaknesses:
+        from services.focus_bridge import get_active_focus_bundle
+        focus_bundle = await get_active_focus_bundle(db, user_id)
+        if focus_bundle and focus_bundle.get("topic_key"):
+            student_weaknesses = [focus_bundle["topic_key"]]
+            dom = focus_bundle.get("dominant_subtype")
+            if dom:
+                student_weaknesses.append(dom)
             logger.info(
-                f"Pedagogical session for {user_id}: "
-                f"student_weaknesses={student_weaknesses}"
+                f"Pedagogical session for {user_id}: focus_bridge → "
+                f"topic={focus_bundle['topic_key']} subtype={dom}"
             )
     except Exception as e:
-        logger.warning(f"established_patterns lookup failed for {user_id}: {e}")
+        logger.warning(f"focus_bridge lookup failed for {user_id}: {e}")
+
+    # Legacy fallback — only if focus_bridge has nothing
+    if not student_weaknesses:
+        try:
+            from services.game_mirror import get_established_patterns
+            patterns, _ = await get_established_patterns(db, user_id)
+            student_weaknesses = patterns or []
+            if student_weaknesses:
+                logger.info(
+                    f"Pedagogical session for {user_id} (fallback): "
+                    f"student_weaknesses={student_weaknesses}"
+                )
+        except Exception as e:
+            logger.warning(f"established_patterns lookup failed for {user_id}: {e}")
 
     # Coaching-presence v1 (spine arc — Session Goal): derive ONE goal for today
     # from the existing player identity engine (personal) or a rating-band default.
@@ -284,6 +308,27 @@ async def start_coach_session(
         )
     except Exception as e:
         logger.warning(f"session_goal derivation failed for {user_id}: {e}")
+
+    # 2026-07-03 (P3): warm greeting from session_greeting_service (uses focus + last-session)
+    session_greeting: Optional[Dict] = None
+    try:
+        from services.session_greeting_service import build_session_greeting
+        session_greeting = await build_session_greeting(db, user_id)
+    except Exception as e:
+        logger.warning(f"session_greeting failed for {user_id}: {e}")
+
+    # 2026-07-03 (P1): initialize mission_scoreboard from focus_bridge bundle
+    initial_scoreboard: Optional[Dict] = None
+    if focus_bundle and focus_bundle.get("topic_key"):
+        initial_scoreboard = {
+            "focus_topic": focus_bundle["topic_key"],
+            "focus_subtype": focus_bundle.get("dominant_subtype"),
+            "focus_label": focus_bundle.get("topic_label"),
+            "matched_moments": 0,
+            "handled_correctly": 0,
+            "handled_incorrectly": 0,
+            "events": [],
+        }
 
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
@@ -301,6 +346,8 @@ async def start_coach_session(
         pedagogical_mode_active=True,  # Enable pedagogical opponent by default
         student_weaknesses=student_weaknesses,
         session_goal=session_goal,
+        mission_scoreboard=initial_scoreboard,
+        session_greeting=session_greeting,
     )
     
     # Add practice mode metadata
