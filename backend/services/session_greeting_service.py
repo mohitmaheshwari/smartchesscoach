@@ -42,6 +42,18 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
     # Look up the user's LAST coach session for continuity
     last_session_summary = await _last_session_summary(db, user_id)
 
+    # Compute recall stats — this is what makes the coach feel present.
+    # "You've had 88 X across 178 games — 12 in the last 7 days,
+    #  5 since your focus started 4 days ago."
+    recall_sentence = None
+    recall_stats = None
+    try:
+        from services.focus_recall_stats import compute_focus_recall_stats, build_recall_sentence
+        recall_stats = await compute_focus_recall_stats(db, user_id, focus)
+        recall_sentence = build_recall_sentence(recall_stats)
+    except Exception:
+        pass
+
     parts = []
     # Line 1: which day of the focus
     if days_in == 0:
@@ -50,11 +62,15 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
         day_num = days_in + 1
         parts.append(f"Welcome back — day {day_num} of your focus on {topic_label.lower()}.")
 
-    # Line 2: reference the last session if we have one
+    # Line 2: recall sentence — the "coach remembers" line
+    if recall_sentence:
+        parts.append(recall_sentence)
+
+    # Line 3: reference the last session if we have one
     if last_session_summary:
         parts.append(last_session_summary)
 
-    # Line 3: focus reminder if there's a specific subtype closing available
+    # Line 4: focus reminder if there's a specific subtype closing available
     if dominant:
         parts.append(_subtype_prompt(dominant))
 
@@ -64,6 +80,8 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
         "topic_key": focus["topic_key"],
         "dominant_subtype": dominant,
         "referenced_last_session": bool(last_session_summary),
+        "recall_stats": recall_stats,
+        "recall_sentence": recall_sentence,
     }
 
 
