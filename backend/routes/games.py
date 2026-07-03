@@ -69,6 +69,42 @@ async def get_games(user: User = Depends(get_current_user)):
     return games
 
 
+@router.get("/{game_id}/focus-badges")
+async def get_focus_badges_for_game(
+    game_id: str, user: User = Depends(get_current_user),
+):
+    """2026-07-03: Return per-move focus-area badges for the game-review page.
+
+    Response shape:
+      {
+        "game_id": str,
+        "badges": {
+          "<move_number>": [
+            {"emoji": "🎯", "label": "Piece safety", "subtype_short": "hung piece",
+             "topic_key": "piece_safety", "subtype_key": "simple_hang",
+             "cp_loss": 240, "severity": "critical", "kind": "topic"},
+            ...
+          ],
+          ...
+        }
+      }
+    Missing move_numbers = no badges (silent by design — see
+    services.focus_area_badges).
+    """
+    global db
+    # Verify the game belongs to the user (or is a reviewer scope)
+    g = await db.games.find_one({"game_id": game_id, **user_scope_filter(user)},
+                                {"user_id": 1})
+    if not g:
+        return {"game_id": game_id, "badges": {}}
+    from services.focus_area_badges import get_badges_for_game
+    badges = await get_badges_for_game(db, game_id, g["user_id"])
+    return {
+        "game_id": game_id,
+        "badges": {str(k): v for k, v in badges.items()},
+    }
+
+
 @router.get("/analyzed")
 async def get_analyzed_games(user: User = Depends(get_current_user)):
     """Get list of all analyzed games with summary stats."""

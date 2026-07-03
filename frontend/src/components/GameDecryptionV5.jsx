@@ -301,6 +301,18 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         return;
       }
 
+      // 2026-07-03 (Focus-area badges): fetch the per-move badge map
+      // in parallel with the caption fetch. Non-blocking — silent if
+      // it fails, review still renders without badges.
+      let focusBadges = {};
+      try {
+        const bRes = await fetch(`${API}/games/${gameId}/focus-badges`, { credentials: "include" });
+        if (bRes.ok) {
+          const bJson = await bRes.json();
+          focusBadges = bJson.badges || {};
+        }
+      } catch (_) { /* silent */ }
+
       // Path B: fetch per-move deterministic captions from the new
       // pipeline. We merge them into decryption_data, replacing the V5
       // `narrative` field so the rest of the UI (which reads
@@ -388,6 +400,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       } catch (e) {
         console.warn("Per-move caption fetch failed; falling back to V5 narrative:", e);
       }
+
+      // 2026-07-03: attach focus_area badges to every move object. Cheap
+      // second pass over perMoveData rather than threading through every
+      // return branch in the caption merge above.
+      if (perMoveData && Object.keys(focusBadges).length > 0) {
+        perMoveData = perMoveData.map((m) => {
+          const b = focusBadges[String(m.move_number)];
+          return b ? { ...m, _focus_badges: b } : m;
+        });
+      }
+
       setDecryptionData(perMoveData);
 
       // Authoring mode: pull raw per-move facts when ?show_facts=1 is set.
@@ -1524,6 +1547,33 @@ const MoveCoachingCardV5 = ({
             {goldCaption && (
               <div className="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold mb-1">
                 ChessGuru
+              </div>
+            )}
+            {/* 2026-07-03: Focus-area badges — per-move tag showing which
+                coaching pattern this move fell under. Multiple badges
+                possible (e.g., time + king_safety on the same move). */}
+            {move._focus_badges && move._focus_badges.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {move._focus_badges.map((b, i) => {
+                  const bg = b.severity === "critical"
+                    ? "bg-rose-100 text-rose-700 border-rose-200"
+                    : b.severity === "moderate"
+                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                    : "bg-zinc-100 text-zinc-700 border-zinc-200";
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${bg}`}
+                      title={`${b.label} — ${b.subtype_short}${b.cp_loss ? ` (${b.cp_loss}cp lost)` : ""}`}
+                    >
+                      <span>{b.emoji}</span>
+                      <span>{b.label}</span>
+                      {b.subtype_short && (
+                        <span className="opacity-70">· {b.subtype_short}</span>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             )}
             <ClickableCaption
