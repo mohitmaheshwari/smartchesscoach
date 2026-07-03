@@ -2889,7 +2889,55 @@ async def get_interactive_coaching(
                 cp_loss = max(0, int((eval_before - eval_after) * 100))
             else:
                 cp_loss = max(0, int((eval_after - eval_before) * 100))
-            
+
+            # ── IMPULSE-ON-MISTAKE COACH MESSAGE (2026-07-03, Mohit's rule) ──
+            # Simple rule: if the user made a MISTAKE (cp_loss >= 100) and
+            # played it FAST (<3s), the coach says so. The mistake itself is
+            # the evidence that thinking would have helped — no complex
+            # complexity-detection needed.
+            try:
+                _tspent = last_user_move.get("time_spent") if last_user_move else None
+                if (_tspent is not None and _tspent < 3.0 and cp_loss >= 100):
+                    # Fetch how many impulsive events today for a real recall line
+                    try:
+                        from services.mission_scoreboard import compute_today_focus_count
+                        _today = await compute_today_focus_count(
+                            db, session_doc.get("user_id"),
+                            "time_management", "impulsive_critical",
+                        )
+                    except Exception:
+                        _today = 0
+                    _tspent_disp = round(_tspent, 1)
+                    if cp_loss >= 300:
+                        _grade = "blunder"
+                    elif cp_loss >= 150:
+                        _grade = "big mistake"
+                    else:
+                        _grade = "mistake"
+                    if _today >= 5:
+                        _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
+                                f"into a {_grade} ({cp_loss}cp lost). That's your "
+                                f"{_today + 1}{'st' if (_today + 1) % 10 == 1 and (_today+1) % 100 != 11 else 'th'} "
+                                f"impulsive move today. Slow down on the next one.")
+                    else:
+                        _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
+                                f"into a {_grade} ({cp_loss}cp lost). "
+                                f"Take a few more seconds before you move next time.")
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "impulse_warning",
+                        "move_san": move_san,
+                        "message": _msg,
+                        "time_spent": _tspent,
+                        "cp_loss": cp_loss,
+                        "today_impulsive_count": _today,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                    })
+                    logger.info(f"[impulse] fired for {session_id} move={move_san} time={_tspent_disp}s cp={cp_loss}")
+            except Exception as _imp_e:
+                logger.warning(f"impulse-warning check failed: {_imp_e}")
+
             # Determine game phase
             fullmove = board.fullmove_number
             phase_str = "opening" if fullmove <= 10 else ("middlegame" if fullmove <= 30 else "endgame")

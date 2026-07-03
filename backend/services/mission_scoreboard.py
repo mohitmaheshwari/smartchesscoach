@@ -131,12 +131,14 @@ def update_scoreboard(
 
     scoreboard["matched_moments"] = scoreboard.get("matched_moments", 0) + 1
 
-    # Time management is special — "handled correctly" means user spent enough
-    # thinking time. For all other topics, it's the standard cp_loss threshold.
+    # Time management: simpler rule per 2026-07-03 spec from Mohit —
+    # a MISTAKE (cp_loss >= 100) played FAST (<3s) is the impulse signal.
+    # No need for critical-moment complexity gating; the mistake itself
+    # is the evidence that thinking would have helped.
     if focus_topic == "time_management":
         handled = (time_spent_seconds is not None and time_spent_seconds >= 5)
         missed = (time_spent_seconds is not None and time_spent_seconds < 3
-                  and cp_loss >= 150)
+                  and cp_loss >= 100)
     else:
         handled = cp_loss <= HANDLED_CP_THRESHOLD
         missed = cp_loss >= MISS_CP_THRESHOLD

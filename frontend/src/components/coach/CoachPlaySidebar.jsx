@@ -510,6 +510,8 @@ const LegacyChatMessages = ({
             ? "bg-emerald-50 border border-emerald-300/50 dark:bg-emerald-950/30 dark:border-emerald-500/40"
             : msg.type === "opening_critical_moment"
             ? "bg-orange-50 border border-orange-400/60 dark:bg-orange-950/30 dark:border-orange-500/40"
+            : msg.type === "impulse_warning"
+            ? "bg-amber-50 border border-amber-500/40 dark:bg-amber-950/30 dark:border-amber-500/40"
             : msg.type === "coach"
             ? msg.trigger === "warning"
               ? "bg-red-500/10 border border-red-500/20"
@@ -532,6 +534,8 @@ const LegacyChatMessages = ({
             <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">📖</span>
           ) : msg.type === "opening_critical_moment" ? (
             <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠</span>
+          ) : msg.type === "impulse_warning" ? (
+            <span className="text-amber-700 text-base mt-0.5 flex-shrink-0">⏱</span>
           ) : msg.type === "coach" ? (
             <Brain
               className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
