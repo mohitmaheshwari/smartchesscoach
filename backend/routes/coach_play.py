@@ -2890,6 +2890,57 @@ async def get_interactive_coaching(
             else:
                 cp_loss = max(0, int((eval_after - eval_before) * 100))
 
+            # ── TOPIC-AWARE FOCUS COACH MESSAGE (2026-07-03) ──
+            # If the mistake maps to the user's active focus topic (not
+            # time_management, which impulse_warning owns), fire a
+            # topic-specific coach message that names the pattern.
+            _focus_coach_fired = False
+            try:
+                _sb_for_focus = session_doc.get("mission_scoreboard") or {}
+                _focus_topic = _sb_for_focus.get("focus_topic")
+                _focus_subtype = _sb_for_focus.get("focus_subtype")
+                if _focus_topic and _focus_topic != "time_management" and cp_loss >= 100:
+                    from services.focus_move_coaching import (
+                        build_focus_coach_message, should_fire_focus_coach,
+                    )
+                    _tspent_fc = last_user_move.get("time_spent") if last_user_move else None
+                    _move_uci_fc = last_user_move.get("uci") if last_user_move else ""
+                    _is_critical_fc = bool(last_user_move.get("is_critical")) if last_user_move else False
+                    _should = await should_fire_focus_coach(
+                        _focus_topic, fen_before, _move_uci_fc, user_color,
+                        _is_critical_fc, _tspent_fc, cp_loss,
+                    )
+                    if _should:
+                        # Recall count for this topic today
+                        try:
+                            from services.mission_scoreboard import compute_today_focus_count
+                            _today_topic = await compute_today_focus_count(
+                                db, session_doc.get("user_id"),
+                                _focus_topic, _focus_subtype,
+                            )
+                        except Exception:
+                            _today_topic = 0
+                        _fc_msg = build_focus_coach_message(
+                            _focus_topic, _focus_subtype, move_san, cp_loss, _today_topic,
+                        )
+                        if _fc_msg:
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "focus_coach",
+                                "move_san": move_san,
+                                "message": _fc_msg,
+                                "focus_topic": _focus_topic,
+                                "focus_subtype": _focus_subtype,
+                                "cp_loss": cp_loss,
+                                "today_topic_count": _today_topic,
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False,
+                            })
+                            _focus_coach_fired = True
+                            logger.info(f"[focus_coach] fired for {session_id} topic={_focus_topic} subtype={_focus_subtype} cp={cp_loss}")
+            except Exception as _fc_e:
+                logger.warning(f"focus_coach check failed: {_fc_e}")
+
             # ── IMPULSE-ON-MISTAKE COACH MESSAGE (2026-07-03, Mohit's rule) ──
             # Simple rule: if the user made a MISTAKE (cp_loss >= 100) and
             # played it FAST (<3s), the coach says so. The mistake itself is
@@ -2897,7 +2948,9 @@ async def get_interactive_coaching(
             # complexity-detection needed.
             try:
                 _tspent = last_user_move.get("time_spent") if last_user_move else None
-                if (_tspent is not None and _tspent < 3.0 and cp_loss >= 100):
+                # Skip if focus_coach already emitted — no double-post per move
+                if (not _focus_coach_fired
+                    and _tspent is not None and _tspent < 3.0 and cp_loss >= 100):
                     # Fetch how many impulsive events today for a real recall line
                     try:
                         from services.mission_scoreboard import compute_today_focus_count
