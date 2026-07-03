@@ -3319,6 +3319,7 @@ const CoachPlay = ({ user }) => {
       {showPostGameStreakResult && postGameStreakResult && (
         <PostGameStreakResult
           result={postGameStreakResult}
+          missionSummary={session?.mission_postgame_summary}
           onContinue={() => setShowPostGameStreakResult(false)}
           onGoToTraining={() => navigate("/plateau-breaker/training")}
         />

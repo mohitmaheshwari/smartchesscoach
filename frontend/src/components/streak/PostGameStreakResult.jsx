@@ -22,8 +22,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const PostGameStreakResult = ({ 
+const PostGameStreakResult = ({
   result,  // { result, headline, message, streak, best, tone, previous_streak, critical_hint, improvement, improvement_message }
+  missionSummary,  // 2026-07-03: {focus_topic, focus_label, matched, handled_correctly, handled_incorrectly, handled_pct, headline, events}
   onContinue,
   onGoToTraining
 }) => {
@@ -163,6 +164,46 @@ const PostGameStreakResult = ({
             <p className="text-xs text-amber-400/80 mb-4">
               This is real progress. Keep building.
             </p>
+          )}
+
+          {/* Mission Scoreboard summary — 2026-07-03 */}
+          {missionSummary && missionSummary.matched > 0 && (
+            <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg p-4 mb-4 text-left">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-semibold">
+                  Today's mission — {missionSummary.focus_label || missionSummary.focus_topic}
+                </p>
+                <p className="text-sm font-mono text-zinc-100">
+                  {missionSummary.handled_correctly}/{missionSummary.matched}
+                  {missionSummary.handled_pct !== null && (
+                    <span className="text-zinc-500 text-xs ml-1.5">({missionSummary.handled_pct}%)</span>
+                  )}
+                </p>
+              </div>
+              {missionSummary.headline && (
+                <p className="text-[13px] text-zinc-200 leading-relaxed">
+                  {missionSummary.headline}
+                </p>
+              )}
+              {missionSummary.events && missionSummary.events.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {missionSummary.events.slice(0, 8).map((e, idx) => {
+                    const bg = e.outcome === "handled" ? "bg-green-500/20 text-green-200" :
+                               e.outcome === "missed" ? "bg-red-500/20 text-red-200" :
+                               "bg-zinc-700/40 text-zinc-300";
+                    return (
+                      <span
+                        key={idx}
+                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${bg}`}
+                        title={`move ${e.move_number}: cp_loss=${e.cp_loss}`}
+                      >
+                        mv{e.move_number} {e.move}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* CTAs */}

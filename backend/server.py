@@ -89,6 +89,49 @@ async def background_sync_loop():
         await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
 
 
+async def focus_outcome_loop():
+    """2026-07-03: Runs daily to check every active focus whose locked_until
+    has arrived. Fires check_focus_outcome → close_focus which writes
+    resolution=improved/regressed/stuck to the focus doc. HomePage banners
+    key off this."""
+    from services.primary_weakness_picker import check_focus_outcome, close_focus, COLLECTION
+    from datetime import datetime, timezone
+
+    await asyncio.sleep(300)  # wait 5 min after startup before first pass
+    while True:
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            n_processed = 0
+            n_improved = 0
+            n_regressed = 0
+            n_stuck = 0
+            async for f in db[COLLECTION].find({
+                "type": "weakness", "status": "active",
+                "locked_until": {"$lte": now_iso},
+            }):
+                try:
+                    outcome = await check_focus_outcome(db, f)
+                    await close_focus(db, f, outcome)
+                    if outcome.get("resolution") == "improved":
+                        n_improved += 1
+                    elif outcome.get("resolution") == "regressed":
+                        n_regressed += 1
+                    elif outcome.get("resolution") == "stuck":
+                        n_stuck += 1
+                    n_processed += 1
+                except Exception as e:
+                    logger.warning(f"focus_outcome_loop: error on {f.get('user_id')}: {e}")
+            if n_processed:
+                logger.info(
+                    f"focus_outcome_loop: processed {n_processed} focuses "
+                    f"(improved={n_improved} regressed={n_regressed} stuck={n_stuck})"
+                )
+        except Exception as e:
+            logger.error(f"focus_outcome_loop error: {e}")
+        # Run once every 6 hours
+        await asyncio.sleep(6 * 3600)
+
+
 async def quick_sync_loop():
     """Real-time game monitoring — checks for new games every 5 minutes."""
     global _sync_status, _sync_lock
@@ -189,6 +232,11 @@ async def lifespan(app: FastAPI):
 
     _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
     logger.info("Analysis queue fallback processor started")
+
+    # 2026-07-03: Focus-outcome check runs every 6h to fire improved/regressed
+    # resolutions so HomePage banners have live source of truth.
+    _focus_outcome_task = asyncio.create_task(focus_outcome_loop())
+    logger.info("Focus-outcome scheduler started (6 hour interval)")
 
     yield
 

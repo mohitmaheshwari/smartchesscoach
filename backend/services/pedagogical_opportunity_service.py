@@ -239,6 +239,10 @@ class PedagogicalOpportunityService:
                 "endgame_technique": [("endgame", 60)],
                 "pawn_structure":    [("pawn_structure", 60)],
                 "calculation_depth": [("tactics", 40), ("fork", 20)],
+                # 2026-07-03: added on independent-critic audit
+                "piece_activity":    [("tactics", 20)],   # activity leads to tactical wins
+                "opening_knowledge": [("tactics", 15)],   # book deviations often lose tactically
+                "time_management":   [("tactics", 30)],   # complex tactics burn clock
             }
             _SUBTYPE_BOOST = {
                 "missed_fork":               [("fork", 60)],

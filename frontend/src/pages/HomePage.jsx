@@ -24,6 +24,8 @@ import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
 import MotivationPrompt from "@/components/MotivationPrompt";
 import FocusCard from "@/components/FocusCard";
+import FocusResolutionBanner from "@/components/FocusResolutionBanner";
+import { MistakeFreeStreak } from "@/components/streak";
 import {
   ChevronRight,
   Swords,
@@ -297,6 +299,24 @@ const HomePage = ({ user }) => {
           <motion.section variants={scaleIn} className="mb-16 md:mb-20">
             <TodayHero />
           </motion.section>
+
+          {/* ━━ FOCUS RESOLUTION BANNER ━━
+              2026-07-03: Trend celebration/escalation card above the focus.
+              Renders green when improving, rose when regressing, amber when
+              stuck past day 5. Silent otherwise. Reads focus_trend from the
+              same /coach/active-focus endpoint FocusCard uses. */}
+          <FocusResolutionBanner />
+
+          {/* ━━ MISTAKE-FREE STREAK ━━
+              2026-07-03: The daily-loop streak surface. Shows current +
+              best streak of games without the user's dominant mistake type.
+              Was scoped for HomePage in coaching_spine_scope.md but was
+              missing on first pass. */}
+          {user?.user_id && (
+            <motion.div variants={fadeInUp} className="mb-6">
+              <MistakeFreeStreak userId={user.user_id} />
+            </motion.div>
+          )}
 
           {/* ━━ PRIMARY FOCUS ━━
               The one locked coaching pattern from user_active_focus (see

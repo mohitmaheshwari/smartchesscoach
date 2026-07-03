@@ -987,6 +987,48 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
+            {/* ═══ Coach Greeting — warm reference to focus + last session ═══
+                2026-07-03: The "day 6 of your focus — 88 events across 178
+                games" line the user is supposed to feel. Only shown once at
+                the very start of the game (first 3 half-moves). */}
+            {session?.session_greeting?.text &&
+             (session?.move_history?.length ?? 0) < 3 &&
+             !gameOver && (
+              <div
+                className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 px-3.5 py-3"
+                data-testid="session-greeting-card"
+              >
+                <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400 font-semibold mb-1.5">
+                  Coach
+                </p>
+                <p className="text-[13px] leading-relaxed text-foreground italic">
+                  {session.session_greeting.text}
+                </p>
+              </div>
+            )}
+
+            {/* ═══ Mission Scoreboard — live focus-moment tracker ═══
+                2026-07-03: Live counter that shows how many focus-relevant
+                moments came up this game and how many the user handled
+                cleanly. Only renders when scoreboard has fired at least once. */}
+            {session?.mission_scoreboard?.matched_moments > 0 && !gameOver && (
+              <div className="rounded-lg border border-border bg-muted/20 px-3.5 py-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                    Mission — {session.mission_scoreboard.focus_label || session.mission_scoreboard.focus_topic}
+                  </p>
+                  <p className="text-[11px] font-mono text-foreground">
+                    {session.mission_scoreboard.handled_correctly}/{session.mission_scoreboard.matched_moments}
+                  </p>
+                </div>
+                {session.mission_recall_callout && (
+                  <p className="text-[12.5px] text-amber-800 dark:text-amber-200 mt-1 leading-relaxed">
+                    {session.mission_recall_callout}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* ═══ V2 COACHING ONLY — one voice ═══ */}
 
             {/* Pre-Move Fundamentals Reminder — disabled, v2 handles this */}

@@ -464,16 +464,33 @@ async def update_memory_after_game(
             logger.debug(f"[CONCEPT_DETECTORS] failed (non-fatal): {e}")
 
     # === CURRICULUM BRAIN: Store the coach's prescription ===
-    if coach_prescription:
+    # 2026-07-03: focus_bridge is now the authoritative source of the user's
+    # current focus (see services/focus_bridge.py). This legacy path is
+    # DEMOTED — it takes whatever focus_bridge says, so downstream readers
+    # of memory.learning.current_focus stay coherent with FocusCard and
+    # session_goal. The coach_prescription argument becomes advisory only.
+    try:
+        from services.focus_bridge import get_active_focus_bundle
+        _bundle = await get_active_focus_bundle(db, user_id)
+        _bridge_focus = _bundle.get("topic_key") if _bundle else None
+    except Exception:
+        _bridge_focus = None
+
+    _new_focus = _bridge_focus or coach_prescription
+    if _new_focus:
         old_focus = memory.learning.current_focus
-        memory.learning.current_focus = coach_prescription
-        # If focus changed, track the old one as "suggested_next" for later
-        if old_focus and old_focus != coach_prescription:
+        memory.learning.current_focus = _new_focus
+        if old_focus and old_focus != _new_focus:
             if old_focus not in memory.learning.suggested_next:
                 memory.learning.suggested_next.append(old_focus)
-            # Keep only last 5 suggestions
             memory.learning.suggested_next = memory.learning.suggested_next[-5:]
-        logger.info(f"[CURRICULUM] User {user_id}: focus set to '{coach_prescription}' (was '{old_focus}')")
+        if _bridge_focus:
+            logger.info(
+                f"[CURRICULUM] User {user_id}: focus delegated to focus_bridge "
+                f"→ '{_bridge_focus}' (was '{old_focus}')"
+            )
+        else:
+            logger.info(f"[CURRICULUM] User {user_id}: focus set to '{_new_focus}' (was '{old_focus}')")
 
     memory.updated_at = now
 
