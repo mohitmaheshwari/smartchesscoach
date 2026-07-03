@@ -139,9 +139,24 @@ class PedagogicalOpportunityService:
     # Cooldown: minimum moves between pedagogical moves
     MIN_MOVES_BETWEEN_PEDAGOGICAL = 4
     
-    def __init__(self, db: AsyncIOMotorDatabase, user_id: str):
+    def __init__(self, db: AsyncIOMotorDatabase, user_id: str,
+                 focus_topic: Optional[str] = None,
+                 focus_subtype: Optional[str] = None):
+        """
+        Args:
+            db, user_id: standard
+            focus_topic: active weakness from focus_bridge. If set, the
+                weakness profile gets a boost for this topic so
+                opportunities of the matching type fire more often.
+                Values like 'king_safety', 'piece_safety', 'missed_tactic'.
+            focus_subtype: dominant subtype (e.g., 'ignored_king_attack',
+                'missed_fork'). Used for more specific opportunity type
+                preference.
+        """
         self.db = db
         self.user_id = user_id
+        self.focus_topic = focus_topic
+        self.focus_subtype = focus_subtype
         self._engine = None
     
     def _get_rating_tier(self, rating: int) -> str:
@@ -212,16 +227,48 @@ class PedagogicalOpportunityService:
                 avg_endgame = sum(endgame_scores) / len(endgame_scores)
                 profile.endgame_technique = max(0, 100 - avg_endgame)
             
-            # Determine primary weaknesses
+            # 2026-07-03: FOCUS BOOST — if the user has a locked focus
+            # topic, we boost the corresponding weakness score so
+            # opportunities of that type fire more often. This is the
+            # opponent bending to the coaching mission.
+            _FOCUS_BOOST = {
+                "missed_tactic":     [("fork", 40), ("pin", 30), ("tactics", 40)],
+                "tactical_oversight": [("tactics", 50)],
+                "piece_safety":      [("tactics", 20)],   # tactical safety
+                "king_safety":       [("tactics", 25)],   # king attacks are tactical
+                "endgame_technique": [("endgame", 60)],
+                "pawn_structure":    [("pawn_structure", 60)],
+                "calculation_depth": [("tactics", 40), ("fork", 20)],
+            }
+            _SUBTYPE_BOOST = {
+                "missed_fork":               [("fork", 60)],
+                "missed_pin":                [("pin", 60)],
+                "missed_skewer":             [("pin", 30), ("tactics", 30)],
+                "missed_discovered_attack":  [("tactics", 40)],
+                "passive_king_in_endgame":   [("endgame", 60)],
+                "backward_pawn_created":     [("pawn_structure", 60)],
+                "isolated_pawn_created":     [("pawn_structure", 40)],
+            }
+            focus_boosts = {}
+            if self.focus_topic and self.focus_topic in _FOCUS_BOOST:
+                for name, amount in _FOCUS_BOOST[self.focus_topic]:
+                    focus_boosts[name] = focus_boosts.get(name, 0) + amount
+            if self.focus_subtype and self.focus_subtype in _SUBTYPE_BOOST:
+                for name, amount in _SUBTYPE_BOOST[self.focus_subtype]:
+                    focus_boosts[name] = focus_boosts.get(name, 0) + amount
+
+            # Determine primary weaknesses (with focus boost applied)
             weaknesses = [
-                ("fork", profile.missed_forks),
-                ("pin", profile.missed_pins),
-                ("tactics", 50 + len(tactical_misses) * 5),
-                ("endgame", profile.endgame_technique),
-                ("pawn_structure", profile.pawn_structure_understanding),
+                ("fork", profile.missed_forks + focus_boosts.get("fork", 0)),
+                ("pin", profile.missed_pins + focus_boosts.get("pin", 0)),
+                ("tactics", 50 + len(tactical_misses) * 5 + focus_boosts.get("tactics", 0)),
+                ("endgame", profile.endgame_technique + focus_boosts.get("endgame", 0)),
+                ("pawn_structure", profile.pawn_structure_understanding + focus_boosts.get("pawn_structure", 0)),
             ]
             weaknesses.sort(key=lambda x: x[1], reverse=True)
             profile.primary_weaknesses = [w[0] for w in weaknesses[:3]]
+            if focus_boosts:
+                logger.info(f"[pedagogical] focus boost applied: {focus_boosts} → primary={profile.primary_weaknesses}")
             
         except Exception as e:
             logger.warning(f"Error getting weakness profile: {e}")

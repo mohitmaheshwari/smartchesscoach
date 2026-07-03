@@ -452,7 +452,15 @@ async def make_player_move(
         try:
             from services.pedagogical_opportunity_service import PedagogicalOpportunityService, OpportunityType
             
-            ped_service = PedagogicalOpportunityService(db, session.user_id)
+            # 2026-07-03: Wire the user's active focus into the opponent so
+            # opportunities of the matching type fire more often. Focus stored
+            # on the session by start_coach_session().
+            _sb = session.mission_scoreboard or {}
+            ped_service = PedagogicalOpportunityService(
+                db, session.user_id,
+                focus_topic=_sb.get("focus_topic"),
+                focus_subtype=_sb.get("focus_subtype"),
+            )
             
             # Get the board state from before this move
             board_before = chess.Board(fen_before)
@@ -818,7 +826,15 @@ async def _make_coach_move(
         # Phase labels can be: opening, early_middlegame, middlegame, late_middlegame, early_endgame, endgame, deep_endgame
         non_opening_phases = ("early_middlegame", "middlegame", "late_middlegame", "early_endgame", "endgame", "deep_endgame")
         if game_phase in non_opening_phases and session.pedagogical_mode_active:
-            ped_service = PedagogicalOpportunityService(db, session.user_id)
+            # 2026-07-03: Wire the user's active focus into the opponent so
+            # opportunities of the matching type fire more often. Focus stored
+            # on the session by start_coach_session().
+            _sb = session.mission_scoreboard or {}
+            ped_service = PedagogicalOpportunityService(
+                db, session.user_id,
+                focus_topic=_sb.get("focus_topic"),
+                focus_subtype=_sb.get("focus_subtype"),
+            )
             decision = await ped_service.should_create_opportunity(
                 board=board,
                 game_phase=game_phase,

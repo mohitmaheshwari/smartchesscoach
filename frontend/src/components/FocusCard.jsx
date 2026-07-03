@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { ArrowRight, Target, TrendingUp, Flame } from "lucide-react";
+import { ArrowRight, Target, TrendingUp, Flame, TrendingDown, Minus } from "lucide-react";
 
 const WINE = "#722F37";
 const EMERALD = "#047857";
@@ -47,6 +47,7 @@ const FocusCard = () => {
   const strength = focus.strength;
   const dayGrid = focus.day_grid || [];
   const currentStreak = focus.current_streak_days ?? 0;
+  const focusTrend = focus.focus_trend;
 
   return (
     <motion.section
@@ -174,6 +175,45 @@ const FocusCard = () => {
             See 3 specific moments from your games
             <ArrowRight className="w-4 h-4" />
           </motion.button>
+
+          {/* Focus trend since this focus started */}
+          {focusTrend && focusTrend.trend && (
+            <div
+              className="mt-5 pt-4 border-t border-amber-100/50 dark:border-amber-900/30"
+            >
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                Since this focus started
+              </div>
+              <div className="flex items-center gap-3">
+                {focusTrend.trend === "improving" && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium"
+                       style={{ background: `${EMERALD}18`, color: EMERALD }}>
+                    <TrendingDown className="w-3 h-3" />
+                    {Math.abs(focusTrend.delta_pct_vs_baseline)}% fewer per game
+                  </div>
+                )}
+                {focusTrend.trend === "regressing" && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium"
+                       style={{ background: `${WINE}18`, color: WINE }}>
+                    <TrendingUp className="w-3 h-3" />
+                    {focusTrend.delta_pct_vs_baseline}% more per game
+                  </div>
+                )}
+                {focusTrend.trend === "steady" && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium bg-muted/50 text-muted-foreground">
+                    <Minus className="w-3 h-3" />
+                    Holding steady
+                  </div>
+                )}
+                <div className="text-[11.5px] text-muted-foreground">
+                  {focusTrend.since_focus_events} events across {focusTrend.since_focus_games} games
+                  {focusTrend.since_focus_games > 0 && (
+                    <span className="text-foreground/70"> · baseline {focusTrend.baseline_events_per_game}/g → now {focusTrend.since_focus_events_per_game}/g</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 14-day activity grid + streak */}
           {dayGrid.length > 0 && (

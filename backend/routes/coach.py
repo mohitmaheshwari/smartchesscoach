@@ -4486,6 +4486,47 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         resp["day_grid"] = day_grid
         resp["current_streak_days"] = streak
 
+        # 2026-07-03: Trend delta since focus started vs baseline.
+        # Answers "am I actually improving on my focus this week?"
+        try:
+            from services.focus_bridge import get_active_focus_bundle
+            from services.focus_recall_stats import compute_focus_recall_stats
+            bundle = await get_active_focus_bundle(db, user.user_id)
+            if bundle:
+                stats = await compute_focus_recall_stats(db, user.user_id, bundle)
+                baseline_rate = None
+                since_rate = None
+                lifetime_events = stats.get("lifetime_events") or 0
+                lifetime_games = stats.get("lifetime_games") or 0
+                since_events = stats.get("since_focus_events") or 0
+                since_games = stats.get("since_focus_games") or 0
+                if lifetime_games > 0:
+                    baseline_rate = round(lifetime_events / lifetime_games, 3)
+                if since_games > 0:
+                    since_rate = round(since_events / since_games, 3)
+                delta_pct = None
+                trend = None
+                if baseline_rate is not None and since_rate is not None and baseline_rate > 0:
+                    delta = (since_rate - baseline_rate) / baseline_rate
+                    delta_pct = round(delta * 100, 1)
+                    if delta_pct <= -20:
+                        trend = "improving"
+                    elif delta_pct >= 20:
+                        trend = "regressing"
+                    else:
+                        trend = "steady"
+                resp["focus_trend"] = {
+                    "baseline_events_per_game": baseline_rate,
+                    "since_focus_events_per_game": since_rate,
+                    "delta_pct_vs_baseline": delta_pct,
+                    "trend": trend,
+                    "since_focus_events": since_events,
+                    "since_focus_games": since_games,
+                    "days_since_focus_start": stats.get("days_since_focus_start"),
+                }
+        except Exception:
+            pass
+
         resp.update({
             "topic_key": focus.get("topic_key"),
             "topic_label": focus.get("coaching_label") or LABELS.get(focus.get("topic_key"), focus.get("topic_key")),

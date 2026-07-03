@@ -160,6 +160,95 @@ def update_scoreboard(
     return scoreboard
 
 
+async def compute_today_focus_count(db, user_id: str, focus_topic: str, dominant_subtype: Optional[str]) -> int:
+    """Count how many focus-relevant events the user has already had TODAY
+    across all their analyzed games. Used to inject 'this is your Nth
+    critical moment today' into live coach feedback."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    day_start_iso = f"{now.date().isoformat()}T00:00:00+00:00"
+    day_game_ids = await db.games.distinct("game_id", {
+        "user_id": user_id, "is_analyzed": True,
+        "date_played": {"$gte": day_start_iso},
+    })
+    if not day_game_ids:
+        return 0
+    # Handle time_management (uses time_flag) vs standard topics (missed_pattern + subtype)
+    if focus_topic == "time_management" and dominant_subtype:
+        q = {"user_id": user_id, "game_id": {"$in": day_game_ids},
+             "time_flag": dominant_subtype}
+    elif dominant_subtype:
+        q = {"user_id": user_id, "game_id": {"$in": day_game_ids},
+             "missed_pattern": focus_topic, "subtype": dominant_subtype}
+    else:
+        q = {"user_id": user_id, "game_id": {"$in": day_game_ids},
+             "missed_pattern": focus_topic}
+    return await db.move_observations.count_documents(q)
+
+
+def build_recall_callout(
+    scoreboard: Optional[Dict[str, Any]],
+    today_count_before_move: int,
+) -> Optional[str]:
+    """Live in-game recall — the coach's move-by-move 'you're doing this
+    RIGHT NOW' voice. Fires when the user just registered a new
+    focus-relevant miss.
+
+    Called AFTER update_scoreboard for a missed event.
+    """
+    if not scoreboard:
+        return None
+    # Only fire on 'missed' outcomes (last event added)
+    events = scoreboard.get("events", [])
+    if not events or events[-1].get("outcome") != "missed":
+        return None
+    session_missed = scoreboard.get("handled_incorrectly", 0)
+    session_matched = scoreboard.get("matched_moments", 0)
+    today_total = today_count_before_move + 1   # include this new one
+    topic = scoreboard.get("focus_topic", "focus")
+    subtype = scoreboard.get("focus_subtype", "")
+    subject = _subject_for(subtype)
+    if session_matched >= 2:
+        return (f"That's the {_ord(session_missed)} miss this game — "
+                f"and your {_ord(today_total)} {subject} today. "
+                f"Slow down on the next critical moment.")
+    return (f"That's your {_ord(today_total)} {subject} today. Watch the pattern.")
+
+
+def _ord(n: int) -> str:
+    if n <= 0:
+        return "0th"
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _subject_for(subtype: str) -> str:
+    return {
+        "impulsive_critical":     "impulsive-critical moment",
+        "time_pressure_blunder":  "time-pressure blunder",
+        "slow_paralysis":         "slow-paralysis moment",
+        "simple_hang":            "simple hang",
+        "threat_ignored":         "ignored threat",
+        "tactical_seq_loss":      "tactical-sequence loss",
+        "quiet_blunder":          "quiet-position blunder",
+        "ignored_king_attack":    "ignored king attack",
+        "weakened_shelter":       "shelter weakening",
+        "king_in_center":         "king-in-center moment",
+        "missed_fork":            "missed fork",
+        "missed_pin":             "missed pin",
+        "missed_skewer":          "missed skewer",
+        "missed_discovered_attack":"missed discovered attack",
+        "ignored_forcing_threat": "ignored forcing threat",
+        "queen_out_early":        "early-queen moment",
+        "piece_parked_on_start":  "parked-piece moment",
+        "isolated_pawn_created":  "isolated-pawn moment",
+        "backward_pawn_created":  "backward-pawn moment",
+        "passive_king_in_endgame":"passive-king endgame moment",
+    }.get(subtype, "focus moment")
+
+
 def build_postgame_summary(scoreboard: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Compute the display-ready summary shown on the post-game screen."""
     if not scoreboard or not scoreboard.get("focus_topic"):

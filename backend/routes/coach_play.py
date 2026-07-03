@@ -896,6 +896,7 @@ async def get_coach_play_state(
     try:
         from services.mission_scoreboard import (
             update_scoreboard, build_postgame_summary,
+            compute_today_focus_count, build_recall_callout,
         )
         base_sb = session_doc.get("mission_scoreboard")
         if base_sb and base_sb.get("focus_topic"):
@@ -935,6 +936,22 @@ async def get_coach_play_state(
             if isinstance(state.get("session"), dict):
                 state["session"]["mission_scoreboard"] = live_sb
                 state["session"]["mission_postgame_summary"] = build_postgame_summary(live_sb)
+
+                # Live in-game recall: how many focus moments TODAY (across
+                # ALL games) BEFORE this session's misses. Injected next to
+                # the scoreboard so the frontend can render "3rd miss today."
+                try:
+                    today_before_session = await compute_today_focus_count(
+                        db, session_doc.get("user_id"),
+                        live_sb["focus_topic"], live_sb.get("focus_subtype"),
+                    )
+                    session_misses = live_sb.get("handled_incorrectly", 0)
+                    state["session"]["mission_today_total"] = today_before_session + session_misses
+                    callout = build_recall_callout(live_sb, today_before_session + session_misses - 1)
+                    if callout:
+                        state["session"]["mission_recall_callout"] = callout
+                except Exception:
+                    pass
     except Exception as _e:
         logger.warning(f"live mission_scoreboard failed: {_e}")
 
