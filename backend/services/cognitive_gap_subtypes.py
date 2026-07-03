@@ -138,18 +138,23 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
         # Reset board for further classifiers below
         board.pop()
 
-    # ── ignored_king_attack — opp piece attacking within 2 squares of user king,
-    # user didn't defend. ONLY in middlegame.
+    # ── ignored_king_attack — opp has SIGNIFICANT presence near user king
+    # (3+ squares in the king ring are attacked by opp), user didn't
+    # defend, and it's the middlegame. Middlegames naturally have some
+    # opp pieces attacking near-king squares — requiring 3+ concentration
+    # of attackers distinguishes REAL king-safety pressure from ambient
+    # middlegame activity.
     king_sq = board.king(board.turn)
     if not in_endgame and king_sq is not None:
         opp_col = not board.turn
-        under_attack = False
+        n_attacked_squares_near_king = 0
         for sq in chess.SQUARES:
             if chess.square_distance(sq, king_sq) <= 2:
                 if board.attackers(opp_col, sq):
-                    under_attack = True
-                    break
-        if under_attack and not _san_forcing(san) and (mv.get("cp_loss") or 0) >= 150:
+                    n_attacked_squares_near_king += 1
+        if (n_attacked_squares_near_king >= 3
+                and not _san_forcing(san)
+                and (mv.get("cp_loss") or 0) >= 150):
             return ("ignored_king_attack", _promote_severity("critical", mv))
 
     # ── king_in_center — king still on starting square past move 12
@@ -570,6 +575,55 @@ def _pawn_files_by_color(board: chess.Board, color: chess.Color) -> Dict[int, in
     return out
 
 
+def _find_backward_pawns(board: chess.Board, color) -> set:
+    """Set of squares carrying a backward pawn for `color` on this board.
+
+    Definition (strict, per 2026-07-03 tightening):
+      A pawn is backward iff ALL of:
+        1. No friendly pawn on adjacent files at any rank ahead of it.
+        2. The square directly in front of it is controlled by an enemy pawn
+           on an adjacent file (i.e., its advance is punished).
+
+    This excludes newly-pushed pawns that just happen to lead on their file.
+    """
+    backward = set()
+    ahead_dir = 1 if color == chess.WHITE else -1
+    for sq, p in board.piece_map().items():
+        if p.color != color or p.piece_type != chess.PAWN:
+            continue
+        f = chess.square_file(sq)
+        r = chess.square_rank(sq)
+        # (1) no friendly pawn on adjacent files ahead
+        friend_ahead = False
+        for adj_f in (f - 1, f + 1):
+            if 0 <= adj_f <= 7:
+                for check_r in range(8):
+                    if (check_r - r) * ahead_dir > 0:
+                        cp = board.piece_at(chess.square(adj_f, check_r))
+                        if cp and cp.color == color and cp.piece_type == chess.PAWN:
+                            friend_ahead = True
+                            break
+                if friend_ahead:
+                    break
+        if friend_ahead:
+            continue
+        # (2) advance square is controlled by enemy pawn on an adjacent file
+        block_r = r + ahead_dir
+        if not (0 <= block_r <= 7):
+            continue
+        controlled = False
+        for adj_f in (f - 1, f + 1):
+            if 0 <= adj_f <= 7:
+                controller = board.piece_at(chess.square(adj_f, block_r))
+                if (controller and controller.color != color
+                        and controller.piece_type == chess.PAWN):
+                    controlled = True
+                    break
+        if controlled:
+            backward.add(sq)
+    return backward
+
+
 def classify_pawn_structure(mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
     fen = mv.get("fen_before")
     uci = mv.get("move_uci")
@@ -617,33 +671,20 @@ def classify_pawn_structure(mv, opponent_previous, opp_next) -> Tuple[Optional[s
             if (mv.get("cp_loss") or 0) >= 60:
                 return ("doubled_pawn_created", _promote_severity("moderate", mv))
 
-    # ── backward_pawn_created — a pawn ends up with no pawns on adjacent files ahead of it
-    for sq, p in board_after.piece_map().items():
-        if p.color != user_color or p.piece_type != chess.PAWN:
-            continue
-        f = chess.square_file(sq)
-        r = chess.square_rank(sq)
-        # Check adjacent-file pawns AHEAD of this rank
-        ahead_direction = 1 if user_color == chess.WHITE else -1
-        friendly_ahead_on_adj = False
-        for adj_f in (f - 1, f + 1):
-            if 0 <= adj_f <= 7:
-                for adj_r in range(8):
-                    if (adj_r - r) * ahead_direction > 0:
-                        adj_p = board_after.piece_at(chess.square(adj_f, adj_r))
-                        if adj_p and adj_p.color == user_color and adj_p.piece_type == chess.PAWN:
-                            friendly_ahead_on_adj = True
-                            break
-        if not friendly_ahead_on_adj:
-            # And this pawn is behind (not passed edge)
-            enemy_pawn_next_ahead = False
-            check_r = r + ahead_direction
-            if 0 <= check_r <= 7:
-                p2 = board_after.piece_at(chess.square(f, check_r))
-                if p2 and p2.color != user_color and p2.piece_type == chess.PAWN:
-                    enemy_pawn_next_ahead = True
-            if enemy_pawn_next_ahead and (mv.get("cp_loss") or 0) >= 60:
-                return ("backward_pawn_created", _promote_severity("moderate", mv))
+    # ── backward_pawn_created — a NEW backward pawn appears that wasn't
+    # backward before this move. Structural degradation of *other* pawns.
+    #
+    # Excludes the pushed-pawn itself: pushing a pawn INTO a backward
+    # position is a strategic choice (space gain vs advance-controlled
+    # cost), not a "you accidentally created a backward pawn" moment.
+    before_bp = _find_backward_pawns(board_before, user_color)
+    after_bp = _find_backward_pawns(board_after, user_color)
+    new_bp = after_bp - before_bp
+    # Exclude the just-moved pawn's destination from "new"
+    if piece and piece.piece_type == chess.PAWN:
+        new_bp.discard(move.to_square)
+    if new_bp and (mv.get("cp_loss") or 0) >= 60:
+        return ("backward_pawn_created", _promote_severity("moderate", mv))
 
     if (mv.get("cp_loss") or 0) >= 100:
         return ("generic_structure_slip", _promote_severity("minor", mv))

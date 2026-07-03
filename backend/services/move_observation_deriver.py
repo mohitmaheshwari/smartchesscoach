@@ -18,7 +18,7 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 9  # bumped: time_management dimension — per-observation time_spent + time_left + time_flag parsed from PGN %clk annotations
+SCHEMA_VERSION = 15  # bumped: ignored_king_attack requires 3+ opp-attacked squares near king (was any 1) — filters ambient middlegame activity
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -247,7 +247,12 @@ def _classify_piece_safety_subtype(
     was_capture = _san_indicates_capture(san)
     was_forcing = was_capture or san.endswith("+") or san.endswith("#")
 
-    if opponent_previous and opponent_previous.get("created_threat") and cp_loss >= 200:
+    # threat_ignored fires ONLY when user did NOT respond forcefully.
+    # A capture IS a response (right or wrong) — those route to
+    # tactical_seq_loss below. Only quiet moves that leave the threat
+    # unaddressed count as "ignoring."
+    if (opponent_previous and opponent_previous.get("created_threat")
+            and cp_loss >= 200 and not was_capture and not was_forcing):
         return "threat_ignored"
     if (was_forcing or was_capture) and cp_loss >= 150:
         return "tactical_seq_loss"
@@ -258,8 +263,14 @@ def _classify_piece_safety_subtype(
         if hanging is True:
             return "simple_hang"
         # High cp, quiet move, but NOT board-verified as hanging — this is
-        # a positional/strategic blunder, not a literal hang.
-        return "quiet_blunder"
+        # a positional/strategic blunder, not a literal hang. Require a
+        # LARGE cp_loss (>= 400) to be sure — otherwise the analyzer's
+        # cognitive_gap tag is likely mis-attributed and coaching gets fuzzy.
+        # (2026-07-03 R5: was 200, tightened after Shobhit-style fork
+        # blunders showed cp=200-350 with dest_hanging=False.)
+        if cp_loss >= 400:
+            return "quiet_blunder"
+        return "small_slip"
     return "small_slip"
 
 
@@ -373,6 +384,12 @@ def _classify_time_flag(
         if user_eval_before < -300 and user_eval_after < -300:
             return None
     was_critical = bool(mv.get("is_critical"))
+    # v10/v14: suppress at low elapsed — clock-not-ticking data artifact,
+    # not human impulse. Real fast moves take >= 0.5s to submit (v14
+    # tightened from 0.1 after Parth mv61 Kg7 0.1s showed as impulse
+    # in what was actually an increment-refreshed clock).
+    if time_spent is not None and time_spent < 0.5:
+        return None
     if time_spent is not None and was_critical and time_spent < 3:
         return "impulsive_critical"
     if time_left is not None and time_left < 30 and quality == "blunder":
@@ -509,6 +526,35 @@ def derive_observations_for_game(
                     from services.cognitive_gap_subtypes import should_reroute_king_safety_to_endgame
                     if should_reroute_king_safety_to_endgame(mv):
                         missed_pattern = "endgame_technique"
+                except Exception:
+                    pass
+
+            # v10: king_safety events where the MOVE actually hangs a piece
+            # (board-verified attackers > defenders on destination) get
+            # rerouted to piece_safety. This fixes Shobhit-style
+            # "d6 tagged king_safety just because opp has pieces near king"
+            # when the real mistake is losing the pawn on d6.
+            if missed_pattern == "king_safety":
+                try:
+                    import chess as _chess
+                    _fen = mv.get("fen_before")
+                    _uci = mv.get("move_uci")
+                    if _fen and _uci and len(_uci) >= 4:
+                        _b = _chess.Board(_fen)
+                        _mv2 = _chess.Move.from_uci(_uci)
+                        _piece = _b.piece_at(_mv2.from_square)
+                        if _piece and _piece.piece_type != _chess.KING:
+                            _b.push(_mv2)
+                            _dest = _mv2.to_square
+                            _opp_col = _b.turn
+                            _n_att = len(list(_b.attackers(_opp_col, _dest)))
+                            _n_def = len(list(_b.attackers(not _opp_col, _dest)))
+                            if _n_att > _n_def:
+                                missed_pattern = "piece_safety"
+                                # Re-run the piece_safety classifier now
+                                subtype = _classify_piece_safety_subtype(mv, opponent_previous, opp_next)
+                                if subtype is not None:
+                                    severity = _classify_piece_safety_severity(subtype, mv, opp_next)
                 except Exception:
                     pass
 

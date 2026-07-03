@@ -74,16 +74,49 @@ _SUBTYPE_SHORT = {
 }
 
 
-def _build_topic_badge(missed_pattern: str, subtype: Optional[str]) -> Optional[Dict[str, Any]]:
-    """Badge for the cognitive-gap topic classification. None if it's a
-    soft/unclassifiable bucket (unverified_hint, small_slip)."""
+_LOW_SIGNAL_SUBTYPES = {
+    "unverified_hint",
+    "small_slip",
+    "generic_oversight",
+    "generic_calc_gap",
+    "generic_endgame_slip",
+    "generic_structure_slip",
+    "missed_generic_tactic",
+}
+
+
+def _build_topic_badge(
+    missed_pattern: str, subtype: Optional[str], severity: Optional[str],
+    cp_loss: Optional[float],
+) -> Optional[Dict[str, Any]]:
+    """Badge for the cognitive-gap topic classification. Fires only when
+    we have real specific signal.
+
+    Silence when ANY of:
+      - subtype is a soft / generic bucket (no specific pattern detected)
+      - subtype is None AND severity is None/minor AND cp_loss < 200
+        (the analyzer gave a topic but no verified detail — don't invent one)
+    """
     if not missed_pattern:
         return None
-    if subtype in ("unverified_hint", "small_slip"):
-        return None  # honest silence — don't tag with unreliable buckets
     entry = _TOPIC_BADGE.get(missed_pattern)
     if not entry:
         return None
+    # Generic / soft-labeled subtypes: suppress unless severity is critical
+    # or the loss is huge (e.g., missed_generic_tactic on a mate-blunder is
+    # still coaching-relevant even though the subtype label is bland).
+    if subtype in _LOW_SIGNAL_SUBTYPES:
+        if not (severity == "critical" or (cp_loss or 0) >= 400):
+            return None
+    # No specific subtype: only badge if we have BOTH real severity AND
+    # meaningful cp_loss. Without either signal, the analyzer's top-level
+    # tag alone isn't enough — could be a "fine" move that got flagged
+    # (Parth G1 mv46 Bd4 caption: "fine, you're still winning").
+    if subtype is None:
+        sev_ok = severity in ("moderate", "critical")
+        cp_big = (cp_loss or 0) >= 300
+        if not (sev_ok and cp_big):
+            return None
     emoji, label, short = entry
     subtype_short = _SUBTYPE_SHORT.get(subtype) if subtype else None
     return {
@@ -135,8 +168,11 @@ async def get_badges_for_game(db, game_id: str, user_id: str) -> Dict[int, List[
         if mn is None:
             continue
         badges: List[Dict[str, Any]] = []
-        # Topic badge (from missed_pattern + subtype)
-        b_topic = _build_topic_badge(o.get("missed_pattern"), o.get("subtype"))
+        # Topic badge (from missed_pattern + subtype + severity + cp_loss)
+        b_topic = _build_topic_badge(
+            o.get("missed_pattern"), o.get("subtype"),
+            o.get("severity"), o.get("cp_loss"),
+        )
         if b_topic:
             b_topic["cp_loss"] = o.get("cp_loss")
             b_topic["severity"] = o.get("severity")
