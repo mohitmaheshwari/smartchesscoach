@@ -18,7 +18,10 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 15  # bumped: ignored_king_attack requires 3+ opp-attacked squares near king (was any 1) — filters ambient middlegame activity
+SCHEMA_VERSION = 16  # v16 (2026-07-05): simple_hang upgraded from attacker>defender COUNT to
+# strict SEE. The count rule over-fired ~1/3 of the time — measured on the live corpus, only
+# 66% of simple_hang events were real hangs under SEE, and a 150-game re-derivation reclassified
+# 30% (mostly to small_slip). Bump forces re-derivation of the whole corpus (~30 min backfill).
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -145,29 +148,39 @@ def _is_king_move(fen_before: str, move_uci: str) -> bool:
         return False
 
 
-def _piece_is_hanging_after_move(fen_before: str, move_uci: str) -> Optional[bool]:
-    """After the user makes the move, is the destination piece hanging
-    (attackers strictly greater than defenders on that square)?
+def _piece_is_hanging_after_move(
+    fen_before: str, move_uci: str, floor_cp: int = 150
+) -> Optional[bool]:
+    """After the user makes the move, does it hang material — i.e. can the
+    opponent win >= floor_cp in a single capture sequence (Static Exchange
+    Evaluation)?
 
-    Returns None if we can't tell (bad FEN, etc.). This is a proper board
-    check, NOT a heuristic based on cp_loss + forcing flags.
+    Returns None if we can't tell (bad FEN, illegal move).
 
-    Simple attacker/defender count for v1 — good enough to distinguish
-    real hangs from unrelated blunders. Doesn't do full SEE (which would
-    require sorting by piece value)."""
+    v3 (2026-07-05): upgraded from a raw attacker>defender COUNT to proper
+    SEE. The count version over-fired ~1/3 of the time — measured on the live
+    corpus, only 66% of `simple_hang` events were real hangs under strict SEE.
+    A bare count ignores piece VALUES and exchange order: a square with 2
+    attackers vs 1 defender is NOT a hang if the cheapest attacker is worth
+    more than it wins back (e.g. a pawn defended by a pawn, "attacked" by a
+    rook and a queen — capturing loses the opponent material). SEE sorts by
+    least-valuable attacker and models the option to stop capturing, so it
+    only fires on a real net material loss. It also catches a hang on ANY
+    square (a piece left hanging elsewhere), not just the destination.
+
+    Reuses `material_hung_after` from coach_blunder_guard — the single source
+    of truth for one-move material safety across the codebase."""
     if not fen_before or not move_uci or len(move_uci) < 4:
         return None
     try:
         import chess
+        from coach_play.coach_blunder_guard import material_hung_after
         board = chess.Board(fen_before)
         mv = chess.Move.from_uci(move_uci)
-        board.push(mv)
-        dest = mv.to_square
-        opp_color = board.turn        # after push, it's opponent's turn
-        user_color = not opp_color
-        n_attackers = len(list(board.attackers(opp_color, dest)))
-        n_defenders = len(list(board.attackers(user_color, dest)))
-        return n_attackers > n_defenders
+        if mv not in board.legal_moves:
+            return None
+        worst, _ = material_hung_after(board, mv)
+        return worst >= floor_cp
     except Exception:
         return None
 
