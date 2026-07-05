@@ -264,6 +264,70 @@ def _is_pinned_against_target(board: chess.Board, attacker_sq: int, target_sq: i
     return not (chess.BB_SQUARES[target_sq] & pin_mask)
 
 
+def detect_relevant_king_pin(
+    board: chess.Board,
+    mover_color: chess.Color,
+    played_move: Optional[chess.Move] = None,
+    best_move: Optional[chess.Move] = None,
+) -> Optional[Dict[str, Any]]:
+    """The mover's most valuable non-pawn piece ABSOLUTELY pinned to its own king,
+    when the pin is RELEVANT to this move — the pinned piece is attacked, OR a move
+    under discussion (played/best) defends it. Emits GEOMETRIC EVIDENCE only (LAW 3:
+    detectors emit geometry, the renderer labels it "pinned"): the pinned piece + its
+    square + the pinning enemy slider + its square. Board-verified via board.is_pinned
+    + the pin ray. Returns None when no relevant king-pin exists.
+    docs/reasoning_correctness_scope.md — the crux the caption kept missing (m9)."""
+    king_sq = board.king(mover_color)
+    if king_sq is None:
+        return None
+    enemy = not mover_color
+    best_ev: Optional[tuple] = None
+    for sq, p in board.piece_map().items():
+        if p.color != mover_color or p.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if not board.is_pinned(mover_color, sq):
+            continue
+        # The pinner = the enemy slider on the pin ray (board.pin returns the ray).
+        ray = board.pin(mover_color, sq)
+        ray_sqs = ray if isinstance(ray, chess.SquareSet) else chess.SquareSet(ray)
+        pinner_sq = None
+        for rsq in ray_sqs:
+            rp = board.piece_at(rsq)
+            if rp is not None and rp.color == enemy and rp.piece_type in (
+                chess.BISHOP, chess.ROOK, chess.QUEEN
+            ):
+                pinner_sq = rsq
+                break
+        if pinner_sq is None:
+            continue
+        # Relevance: attacked, OR a move under discussion adds a defender of it.
+        relevant = bool(board.attackers(enemy, sq))
+        if not relevant:
+            for mv in (played_move, best_move):
+                if mv is None or mv.from_square == sq:
+                    continue
+                b2 = board.copy()
+                try:
+                    b2.push(mv)
+                except Exception:
+                    continue
+                if sq in b2.attacks(mv.to_square):
+                    relevant = True
+                    break
+        if not relevant:
+            continue
+        val = PIECE_VALUE_CP.get(p.piece_type, 0)
+        if best_ev is None or val > best_ev[0]:
+            pinner = board.piece_at(pinner_sq)
+            best_ev = (val, {
+                "piece": PIECE_TYPE_NAMES.get(p.piece_type, "piece"),
+                "square": chess.square_name(sq),
+                "pinner_piece": PIECE_TYPE_NAMES.get(pinner.piece_type, "piece"),
+                "pinner_square": chess.square_name(pinner_sq),
+            })
+    return best_ev[1] if best_ev else None
+
+
 def static_exchange_eval(board: chess.Board, target_sq: int, initiating_side: chess.Color) -> int:
     """
     Compute SEE on `target_sq` assuming `initiating_side` makes the
@@ -5637,6 +5701,20 @@ def extract_facts(
     # WHY the engine's best move is good (principle OR trade/win) — for the law that
     # every recommended move needs its why (feedback_explain_why_recommended_move_good).
     best_move_why = _recommended_move_why(board_before, _best_mv)
+
+    # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
+    # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7
+    # was stronger, develops a piece" (but Bc5 also develops); "Rd8 was better — moves your
+    # rook out of danger" (but Rc8 also escapes). Null it so NO surface (R12 template or the
+    # why-better append) can crown a move with a reason that doesn't distinguish the choice.
+    # Mohit 2026-07-01: "Bc5 is also development, something is not good here."
+    if best_move_why and played_move is not None and _best_mv is not None and played_move != _best_mv:
+        try:
+            _played_move_why = _recommended_move_why(board_before, played_move)
+            if _played_move_why and _played_move_why == best_move_why:
+                best_move_why = None
+        except Exception:
+            pass
 
     # Queen-chase (verifiable-true): a NON-check, NON-capture queen move that's a real
     # mistake, met by a NON-capturing lower piece attacking the queen → the queen must

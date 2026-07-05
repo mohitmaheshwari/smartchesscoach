@@ -4409,6 +4409,34 @@ def build_move_teaching_decision(
     except Exception as _vexc:
         logger.warning(f"[verify_then_ship] m{inputs.full_move_number}: {_vexc!r}")
 
+    # ─── 11e. PIN CONTEXT — the crux the caption kept missing ──────
+    # When the user's mistake happens with one of their pieces ABSOLUTELY pinned to
+    # their king, that pin is usually THE point (why the piece is fragile, why the move
+    # fails). Prepend it. Runs AFTER verify-then-ship on purpose: the pin is board-
+    # verified by construction (detect_relevant_king_pin uses is_pinned + the pin ray),
+    # so it needs no claim-verifier — and this way it survives even when the primary
+    # caption fell to the verified floor (which discards it). Mohit 2026-07-01 (m9: the
+    # e5 knight was pinned to the king; caption said only "d6 defends it").
+    # docs/reasoning_correctness_scope.md
+    try:
+        if inputs.mover_is_user and abs(int(inputs.cp_loss or 0)) >= 100 and inputs.played_san:
+            from services.caption_facts import detect_relevant_king_pin as _drkp
+            _pb = chess.Board(inputs.fen_before)
+            _pm = _pb.parse_san(inputs.played_san)
+            _bm2 = _pb.parse_san(inputs.best_move_san) if inputs.best_move_san else None
+            _pin = _drkp(_pb, _pb.turn, _pm, _bm2)
+            if _pin:
+                _pin_clause = (
+                    f"Your {_pin['piece']} on {_pin['square']} is pinned to your king by "
+                    f"the {_pin['pinner_piece']} on {_pin['pinner_square']}."
+                )
+                _existing = (caption_payload.get("caption") or "").strip()
+                if "pinned to your king" not in _existing.lower():
+                    caption_payload["caption"] = (_pin_clause + " " + _existing).strip()
+                    caption_facts["user_king_pin"] = _pin
+    except Exception as _pin_exc:
+        logger.warning(f"[king_pin] m{inputs.full_move_number}: {_pin_exc!r}")
+
     # ─── 12. A8 caption tier classification ──────────────────────
     tier = classify_caption_tier(
         caption_text=caption_payload.get("caption") or "",

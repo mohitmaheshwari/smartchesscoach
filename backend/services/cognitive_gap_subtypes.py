@@ -166,16 +166,21 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
             if central_pieces >= 2:
                 return ("king_in_center", _promote_severity("moderate", mv))
 
-    # ── weakened_shelter — flank pawn moved near king, with opp attackers on that flank
+    # ── weakened_shelter — flank pawn moved near king, and opp has
+    # attackers close to the king (not just anywhere on the flank).
+    # 2026-07-04: tightened to require attackers WITHIN 2 squares of king
+    # (was "anywhere on the flank") — matches ignored_king_attack rule.
     if piece_moved and piece_moved.piece_type == chess.PAWN and king_sq is not None and not in_endgame:
         from_file = chess.square_file(move.from_square)
         king_file = chess.square_file(king_sq)
         if abs(from_file - king_file) <= 2 and from_file in (5, 6, 7, 0, 1, 2):
             opp_col = not board.turn
-            flank_squares = [sq for sq in chess.SQUARES
-                             if abs(chess.square_file(sq) - king_file) <= 2]
-            n_flank_attackers = sum(1 for sq in flank_squares if board.attackers(opp_col, sq))
-            if n_flank_attackers >= 2 and (mv.get("cp_loss") or 0) >= 100:
+            n_attacked_near_king = 0
+            for sq in chess.SQUARES:
+                if chess.square_distance(sq, king_sq) <= 2:
+                    if board.attackers(opp_col, sq):
+                        n_attacked_near_king += 1
+            if n_attacked_near_king >= 2 and (mv.get("cp_loss") or 0) >= 100:
                 return ("weakened_shelter", _promote_severity("moderate", mv))
 
     return (None, None)

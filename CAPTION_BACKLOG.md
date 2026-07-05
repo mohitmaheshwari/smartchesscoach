@@ -525,3 +525,77 @@ Scanned 3000 games (33,624 user blunder captions ≥100cp). Verdicts:
 - h3 `1k5r/1p1b1p2/7p/4n3/3pP1nb/1P1P4/P2KB2P/2R3R1 w - - 2 29` (−569 before, Bg5+ check): → "h3 lets Bg5+ — the check drives your king off and costs your rook. Kc2 keeps your pieces defending each other."
 
 **Recommendation:** Lane B template fix, **no new predicate** — B and C are pure JSON variant/selection edits; A is a one-fact sub-variant split. ⚠️ Line numbers are from `working-code` before Lane B's latest even-trade/assessment-conflict commits — reconcile `select_variant` ordering before applying.
+
+---
+
+## Focus-area tags in review captions (2026-07-03 request, Mohit)
+
+**Status:** Filed, not started. Requested after the coaching-spine work
+lands (34575cb5 / 7b0fb11e / 5b739fff / 9ad53cb0). Depends on the
+subtype classifiers already shipped in `move_observation_deriver.py` +
+`cognitive_gap_subtypes.py` (schema v9).
+
+**The ask:**
+Every mistake move in the game-review caption should surface which
+FOCUS-AREA tag(s) it belongs to. Right now the review reads *"Bh6 was
+a mistake (-180cp)"* and stops there. The user has no way to see this
+mistake maps to their `time_management` or `king_safety` focus.
+
+The user should see the *categories* their mistakes cluster into — not
+just what went wrong on this one move.
+
+**Design sketch:**
+- The observation record ALREADY carries `missed_pattern`, `subtype`,
+  `severity`, and `time_flag` per user move (v9 schema).
+- Extend `caption_pipeline.build_move_teaching_decision` (or its
+  downstream renderer) to fetch the observation for the same
+  `(game_id, move_number)` and prepend a small badge/prefix to the
+  caption when a non-null tag exists.
+
+**Caption prefix rules (single tag):**
+- `time_flag = impulsive_critical` → *"⏱ **Time issue** — you played
+  {move} in {time_spent}s. {existing_caption_text}"*
+- `missed_pattern = king_safety, subtype = ignored_king_attack` →
+  *"👑 **King safety** — {existing_caption_text}"*
+- `missed_pattern = piece_safety, subtype = simple_hang` →
+  *"🎯 **Piece safety** — {existing_caption_text}"*
+- ...etc, one per (topic, subtype) pair from
+  `primary_weakness_picker._CLOSING_BY_SUBTYPE`
+
+**Caption prefix rules (multi-tag on same move):**
+A fast Bh6 that also weakened the king shelter tags BOTH
+`time_management.impulsive_critical` AND
+`king_safety.weakened_shelter`. Show both:
+*"⏱ **Time issue** + 👑 **King safety weakening** — you played Bh6
+in 1.5s and it opened the h-file to your king. {existing_caption_text}"*
+
+**Non-goal for v1:**
+- Don't rewrite the existing caption body — just prepend the badge/tag
+- Don't tag routine-good moves; silence on non-mistakes preserved
+- Don't invent tags — only ship badges for subtypes that have ≥85%
+  verified-true classification (i.e. the ones already board-verified
+  in the v9 corpus audit)
+
+**Why it matters:**
+Connects individual mistakes to the user's KNOWN pattern areas.
+Currently the review is per-move; the user has to mentally aggregate
+"oh this is another king safety mistake." The tag makes the pattern
+visible per-move. Compounds well with FocusCard's histogram +
+day-grid — the review page becomes the "why my focus is what it is"
+receipt trail.
+
+**Dependency:**
+Do not start until:
+1. The 8 non-time non-piece-safety subtypes have topic-specific live
+   PWC coach messages wired (the audit in this session found only
+   time_management + piece_safety are complete).
+2. Subtypes with `verified-true < 85%` are either tightened or
+   labeled `unverified_hint` (mostly done in v8, some soft buckets
+   remain — those should NOT be surfaced as tags in the review).
+
+Otherwise the review page will contradict itself vs the FocusCard
+histogram, and users will see tags for patterns the coach can't
+actually help them with yet.
+
+**Owner:** unassigned. File closed as "spec-ready" — build when the
+PWC intervention loop closes across all topics.
