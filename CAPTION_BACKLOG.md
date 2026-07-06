@@ -528,9 +528,36 @@ Scanned 3000 games (33,624 user blunder captions ≥100cp). Verdicts:
 
 ---
 
-## Focus-area tags in review captions (2026-07-03 request, Mohit)
+## Focus-area tags in review captions (2026-07-03 request, Mohit) — SHIPPED
 
-**Status:** Filed, not started. Requested after the coaching-spine work
+**Status:** ✅ SHIPPED as commit `05c861e2` (2026-07-03).
+
+**What actually shipped:**
+- Emoji badge chip row rendered above the review caption per mistake move
+  (see `frontend/src/components/GameDecryptionV5.jsx`). Multi-tag
+  supported — a fast mistake near the king gets ⏱ + 👑 both.
+- Backend: new `GET /games/{game_id}/focus-badges` in
+  `backend/routes/games.py` reads `move_observations` (v9+ schema) and
+  returns the chip data per move.
+- Badge inclusion rules tightened over rounds R1–R13 of the audit-loop
+  session — final state passes 3 consecutive 9.0/10 audits on
+  Parth+Mohit+Shobhit (commit `fcffe6ef`) and 43-user auto-audit avg
+  9.75/10, 42/43 users ≥9 (2026-07-04).
+- Blockers pre-ship (all cleared before ship):
+  1. PWC coach messages cover all 10 topics live → done by `d93ef75d`
+     (`services/focus_move_coaching.py`).
+  2. Subtypes ≥85% verified-true → v9 audit confirmed for piece_safety;
+     v11–v15 tightenings for king_safety, backward_pawn, threat_ignored,
+     quiet_blunder.
+
+**Kept below as historical spec / design record.**
+
+---
+
+**Original spec (below is the 2026-07-03 filing — kept for future
+reference on how the design started):**
+
+Filed, not started. Requested after the coaching-spine work
 lands (34575cb5 / 7b0fb11e / 5b739fff / 9ad53cb0). Depends on the
 subtype classifiers already shipped in `move_observation_deriver.py` +
 `cognitive_gap_subtypes.py` (schema v9).

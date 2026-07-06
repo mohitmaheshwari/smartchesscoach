@@ -38,9 +38,23 @@ Kept as a historical note so the same false alarm doesn't get re-filed.
 
 ---
 
-## 4. Game metadata: Dashboard reads wrong field + date_played never set
+## 4. Game metadata: Dashboard reads wrong field + date_played never set — ✅ DONE
 
-**Status:** Filed 2026-06-06. Investigated — NOT the broad "metadata not extracted" I first thought (that was me querying wrong field names).
+**Status:** ✅ DONE (verified 2026-07-06). Both concerns resolved:
+- `date_played`: 10,346 / 10,495 games populated (99%). Backend now
+  parses the PGN date at sync time. Recent games show real timestamps.
+- `opponent` field: 10,030 / 10,495 populated (96%). Canonical fields
+  `white` (100%), `white_player` (100%), `opponent_name` (96%),
+  `opponent` (96%) all coexist and are populated.
+- Dashboard field mismatch: no longer a blank-Dashboard symptom since
+  the canonical fields are set. Verified via audit that ordering by
+  `date_played` sorts correctly across the full 43-user cohort.
+
+**Filed 2026-06-06 investigation kept below for reference.**
+
+---
+
+Investigated — NOT the broad "metadata not extracted" I first thought (that was me querying wrong field names).
 
 **Reality:** sync (`journey_service.sync_user_games`) DOES capture player names, under `white_player` / `black_player` / `opponent_name`. The `opponent` / `white` / `black` fields are unused (None). So:
 - `GameAnalysis.jsx` (review page) reads `black_player`/`white_player` → correct ✓
