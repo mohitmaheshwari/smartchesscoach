@@ -1,9 +1,14 @@
 # Coach-Derived Rating — Scope (DRAFT)
 
+> ⚠️ **SUPERSEDED (2026-07-06) by `move_quality_rating_scope.md`.** After the
+> calibration pull, Mohit chose move-quality as the authoritative rating, and the
+> data showed an **error-rate composite** beats accuracy at the top. The
+> results-based + cold-start framing below is kept only for decision history; the
+> live plan is the move-quality-v2 scope.
+
 **Date:** 2026-07-06
 **Author:** Claude (capturing decisions from the 2026-07-06 discussion with Mohit)
-**Status:** DRAFT — decisions settled, NOT started. Ordered AFTER the
-teaching-opponent scope is signed off. No code until this is signed off too.
+**Status:** SUPERSEDED — see move_quality_rating_scope.md.
 
 ## Why
 
