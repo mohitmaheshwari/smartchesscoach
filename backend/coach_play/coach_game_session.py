@@ -253,6 +253,21 @@ async def start_coach_session(
     user_rating = rating_data.get('rating', 1200)
     rating_source = rating_data.get('source', 'default')
 
+    # Move-quality override (flag-gated, docs/move_quality_rating_scope.md): the
+    # coach's OWN read of strength from how the user plays — not the platform Elo,
+    # which is contaminated by timeouts/disconnects. Only when we have >= MIN_GAMES
+    # and it isn't saturated (move-quality can't resolve above ~1600, so we defer
+    # to the imported number there).
+    try:
+        from services.move_quality_rating import enabled as _mq_enabled, compute_move_quality_rating
+        if _mq_enabled():
+            _mq = await compute_move_quality_rating(db, user_id)
+            if _mq and not _mq.get("saturated"):
+                user_rating = _mq["rating"]
+                rating_source = "move_quality"
+    except Exception as _mq_exc:
+        logger.warning(f"[move_quality_rating] fell back to imported: {_mq_exc}")
+
     # Log for debugging
     logger.info(f"User {user_id} rating: {user_rating} (source: {rating_source})")
 
