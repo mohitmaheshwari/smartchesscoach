@@ -46,6 +46,28 @@ def _pwc_coach_uci_elo_enabled() -> bool:
     return os.environ.get(PWC_COACH_USE_UCI_ELO_FLAG, "false").lower() == "true"
 
 
+# ── Teaching opponent (docs/teaching_opponent_scope.md) ──────────────────────
+# A teaching opponent should be weak in DEPTH, not weak in FUNDAMENTALS. Stockfish
+# skill 0 is the opposite — near-random, and it MISSES free material, so a beginner
+# who hangs a piece is never punished and never learns (that's the whole lesson).
+# Two adjustments, both behind PWC_TEACHING_OPPONENT:
+#   1. a skill FLOOR so the opponent never plays random junk, and
+#   2. a PUNISH-OVERRIDE: if the student left material hanging (>= the floor) and
+#      the weak engine's move ignores it, take it. Mirror of the blunder guard.
+PWC_TEACHING_OPPONENT_FLAG = "PWC_TEACHING_OPPONENT"
+TEACHING_SKILL_FLOOR = 3
+# Data-locked 2026-07-06: the SEE-hang histogram is bimodal — a pawn cluster at
+# 100-199 and piece hangs at 300+, with a valley at 200-299. 200cp punishes every
+# piece+ hang and clear material win while letting single-pawn slips go (keeps the
+# opponent beatable, focuses the lesson on real blunders). NOT guessed — see the
+# histogram in the scope doc.
+PUNISH_FLOOR_CP = 200
+
+
+def _pwc_teaching_opponent_enabled() -> bool:
+    return os.environ.get(PWC_TEACHING_OPPONENT_FLAG, "false").lower() == "true"
+
+
 def rating_to_uci_elo(user_rating: int) -> Optional[int]:
     """Map user rating to Stockfish UCI_Elo target, or None when the
     rating is below UCI_Elo's calibration floor (caller should fall
@@ -99,6 +121,11 @@ class CoachOpponent:
         """
         self.user_rating = user_rating
         self.skill_level = rating_to_skill_level(user_rating)
+        # Teaching-opponent skill floor: never let the opponent drop to near-random
+        # (skill 0 misses free material — the beginner's hangs go unpunished, so the
+        # lesson never lands). Behind PWC_TEACHING_OPPONENT. docs/teaching_opponent_scope.md
+        if _pwc_teaching_opponent_enabled() and self.skill_level < TEACHING_SKILL_FLOOR:
+            self.skill_level = TEACHING_SKILL_FLOOR
         self.depth = depth
         self.time_limit = time_limit
         # Mohit 2026-06-03 — when PWC_COACH_USE_UCI_ELO=true AND the
@@ -216,7 +243,48 @@ class CoachOpponent:
         # with a sound move while leaving the coach's calibrated, beatable mistakes
         # intact. Behind PWC_COACH_BLUNDER_GUARD (default off).
         proposed = self._apply_blunder_guard(board, proposed)
+        # ─── PUNISH-OVERRIDE (the mirror of the blunder guard) ───
+        # If the student left material hanging and the weak engine ignored it,
+        # take it — that consequence is where the learning lives.
+        proposed = self._apply_punish_override(board, proposed)
         return board.san(proposed)
+
+    def _apply_punish_override(self, board: chess.Board, proposed: chess.Move) -> chess.Move:
+        """If enabled: when the side to move (the coach) can win >= PUNISH_FLOOR_CP
+        of material with a single capture (SEE) and the proposed move doesn't already
+        grab it, substitute the capture. Punishes the student's hangs so the lesson
+        lands — a teaching opponent must be sound in fundamentals even when weak in
+        depth. One-move SEE only (deliberately not a multi-move tactician).
+        docs/teaching_opponent_scope.md"""
+        if not _pwc_teaching_opponent_enabled():
+            return proposed
+        try:
+            from coach_play.coach_blunder_guard import see_gain, material_hung_after
+            best_cap, best_gain = None, 0
+            for mv in board.legal_moves:
+                if board.is_capture(mv):
+                    g = see_gain(board, mv)
+                    if g > best_gain:
+                        best_gain, best_cap = g, mv
+            if best_cap is None or best_gain < PUNISH_FLOOR_CP:
+                return proposed
+            # Already grabbing material >= floor? leave the engine's move alone.
+            prop_gain = see_gain(board, proposed) if board.is_capture(proposed) else 0
+            if prop_gain >= PUNISH_FLOOR_CP:
+                return proposed
+            # Don't punish into a desperado: skip if the capture hands back more than
+            # it wins (SEE on the target square can't see a loose piece elsewhere).
+            given_back, _ = material_hung_after(board, best_cap)
+            if given_back >= best_gain:
+                return proposed
+            logger.info(
+                f"[punish_override] {board.san(proposed)} -> {board.san(best_cap)} "
+                f"(takes {best_gain}cp the student hung)"
+            )
+            return best_cap
+        except Exception as e:
+            logger.warning(f"[punish_override] failed, keeping proposed move: {e}")
+            return proposed
 
     def _apply_blunder_guard(self, board: chess.Board, proposed: chess.Move) -> chess.Move:
         """If enabled, veto a catastrophic coach move (free piece hang / forced
