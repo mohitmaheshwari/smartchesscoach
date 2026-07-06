@@ -210,6 +210,10 @@ export default function PrescribedTraining() {
           fen: currentPuzzle.fen,
           played_uci: userMoveUci,
           known_best_san: currentPuzzle.solution_san || solution[0] || "",
+          // Pass the puzzle's themes (or the focus-session pattern) so the coach
+          // frames the miss as "you missed the fork" — not a generic "stronger
+          // move here". Drives the attacker-vs-defender role in miss coaching.
+          themes: currentPuzzle.themes || (patternFromUrl ? [patternFromUrl] : []),
         }),
       });
       if (res.ok) {
@@ -368,6 +372,11 @@ export default function PrescribedTraining() {
     trainingData.coaching_intro?.lesson ||
     (weakness === "current" ? "Your focus" : weakness.replace(/_/g, " "));
   const solvedMoves = currentPuzzle?.solution_san || currentPuzzle?.solution?.[0];
+  // The move the coach actually verified and explains. The puzzle's STORED
+  // solution can be stale/wrong (it showed "Rd1"/"c3" — illegal for the side to
+  // move); the engine-verified best from build_miss_coaching is ground truth.
+  // Use it in the header so the "(solution)" label never contradicts the lesson.
+  const verifiedSolution = missCoaching?.best_move_san || solvedMoves;
 
   // Progress pips — solved ✓, missed ✗, current ●, upcoming ○
   // `attempts` list isn't tracked globally; we synthesize pips from solvedCount + current index.
@@ -592,11 +601,11 @@ export default function PrescribedTraining() {
                 san={
                   isSolvedState
                     ? solvedMoves
-                    : userMove && solvedMoves
-                      ? `${userMove} (you played) · ${solvedMoves} (solution)`
-                      : currentPuzzle?.your_move && solvedMoves
-                        ? `${currentPuzzle.your_move} (originally) · ${solvedMoves} (solution)`
-                        : solvedMoves
+                    : userMove && verifiedSolution
+                      ? `${userMove} (you played) · ${verifiedSolution} (solution)`
+                      : currentPuzzle?.your_move && verifiedSolution
+                        ? `${currentPuzzle.your_move} (originally) · ${verifiedSolution} (solution)`
+                        : verifiedSolution
                 }
                 threat={currentPuzzle?.threat}
                 streak={streak}
@@ -787,7 +796,7 @@ function FeedbackPanel({
             )}
           </div>
           <p className="font-serif text-[17px] md:text-[19px] leading-snug text-foreground max-w-[540px] mb-3">
-            {principle}
+            {(!isCorrect && missCoaching?.lesson) ? missCoaching.lesson : principle}
           </p>
           {threat && !isCorrect && (
             <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px] mb-3">
@@ -796,38 +805,15 @@ function FeedbackPanel({
             </p>
           )}
 
-          {/* Bug 2 fix: rich per-move explanations from
-              build_miss_coaching. Only render on miss/revealed paths
-              (correct moves don't need a critique). Cards stay tight —
-              one short paragraph per available field, no filler. */}
-          {!isCorrect && missCoaching && (
-            <div className="mt-3 space-y-2 max-w-[560px]">
-              {missCoaching.played_critique && (
-                <div className="rounded-lg border border-rose-400/20 bg-rose-500/[0.03] p-3">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-rose-500/80 font-semibold mb-1">
-                    Why your move falls short
-                  </div>
-                  <p className="text-[13px] text-foreground/85 leading-relaxed">
-                    {missCoaching.played_critique}
-                  </p>
-                </div>
-              )}
-              {missCoaching.best_move_idea && (
-                <div className="rounded-lg border border-emerald-400/20 bg-emerald-500/[0.03] p-3">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-600/80 dark:text-emerald-300/80 font-semibold mb-1">
-                    Why the best move works
-                  </div>
-                  <p className="text-[13px] text-foreground/85 leading-relaxed">
-                    {missCoaching.best_move_idea}
-                  </p>
-                </div>
-              )}
-              {missCoaching.takeaway && (
-                <p className="text-[12px] italic text-muted-foreground leading-relaxed pl-1">
-                  {missCoaching.takeaway}
-                </p>
-              )}
-            </div>
+          {/* ONE line, not four boxes. The lesson (naming the pattern + the
+              verified why) is the headline above; here we add at most one small
+              takeaway. We deliberately dropped the stacked "falls short" / "why
+              best" boxes and the contradictory generic headline — the user reads
+              one studiable line, per Mohit 2026-07-06. */}
+          {!isCorrect && missCoaching?.takeaway && (
+            <p className="mt-3 text-[12px] italic text-muted-foreground leading-relaxed pl-1 max-w-[560px]">
+              {missCoaching.takeaway}
+            </p>
           )}
         </div>
 

@@ -480,11 +480,21 @@ def build_miss_coaching(
     else:
         takeaway = _GENERIC_TAKEAWAY
 
+    # Single concise teaching line for the card — names the pattern (when the
+    # role is clear) then the verified why, so the UI shows ONE studiable line
+    # instead of stacked "falls short" / "why best" boxes. The card was too long
+    # and internally contradictory; the lesson is the one thing to remember.
+    if role == "attacker" and theme_name:
+        lesson = f"You missed the {theme_name}. {best_move_idea}"
+    else:
+        lesson = best_move_idea
+
     return {
         "position_summary": position_summary,
         "opponent_threats": threats,
         "played_critique": played_critique,
         "best_move_idea": best_move_idea,
+        "lesson": lesson,
         "best_move_san": best_move_san,
         "played_move_san": played_move_san,
         "takeaway": takeaway,
