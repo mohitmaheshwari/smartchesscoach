@@ -600,7 +600,7 @@ export default function PrescribedTraining() {
                 }
                 san={
                   isSolvedState
-                    ? solvedMoves
+                    ? verifiedSolution
                     : userMove && verifiedSolution
                       ? `${userMove} (you played) · ${verifiedSolution} (solution)`
                       : currentPuzzle?.your_move && verifiedSolution
@@ -796,7 +796,7 @@ function FeedbackPanel({
             )}
           </div>
           <p className="font-serif text-[17px] md:text-[19px] leading-snug text-foreground max-w-[540px] mb-3">
-            {(!isCorrect && missCoaching?.lesson) ? missCoaching.lesson : principle}
+            {missCoaching?.lesson ? missCoaching.lesson : principle}
           </p>
           {threat && !isCorrect && (
             <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px] mb-3">

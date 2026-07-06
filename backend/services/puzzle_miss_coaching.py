@@ -419,6 +419,7 @@ def build_miss_coaching(
     pv_after_best: Optional[List[str]] = None,
     cognitive_gap: Optional[str] = None,
     themes: Optional[List[str]] = None,
+    found: bool = False,
 ) -> Optional[Dict]:
     """Build the full coaching breakdown for a puzzle miss. Returns None
     when the FEN can't be parsed — caller should fall back to a simpler
@@ -484,7 +485,17 @@ def build_miss_coaching(
     # role is clear) then the verified why, so the UI shows ONE studiable line
     # instead of stacked "falls short" / "why best" boxes. The card was too long
     # and internally contradictory; the lesson is the one thing to remember.
-    if role == "attacker" and theme_name:
+    #
+    # `found`: the user PLAYED the best move (a solve). Reinforce WHAT they found
+    # with the same verified idea — a correct solve should teach too, not just
+    # say "You found it." (Mohit 2026-07-06.) No critique on a correct move.
+    if found:
+        played_critique = ""
+        if role == "attacker" and theme_name:
+            lesson = f"You found the {theme_name}! {best_move_idea}"
+        else:
+            lesson = f"Nice — {best_move_idea}"
+    elif role == "attacker" and theme_name:
         lesson = f"You missed the {theme_name}. {best_move_idea}"
     else:
         lesson = best_move_idea

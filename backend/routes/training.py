@@ -330,7 +330,10 @@ async def evaluate_puzzle_move_endpoint(
     # Skip on best moves (no need to explain a correct answer beyond
     # the existing "You found it" line) and on parse errors.
     quality = result.get("quality")
-    if quality and quality not in ("invalid", "best") and result.get("best_move_san"):
+    # Build coaching for BOTH misses and solves. On a solve (quality == "best")
+    # the card should still teach WHAT they found (the fork), not just "You found
+    # it" — so we pass found=True and the lesson reframes to "You found the fork!"
+    if quality and quality != "invalid" and result.get("best_move_san"):
         try:
             from services.puzzle_miss_coaching import build_miss_coaching
 
@@ -356,6 +359,7 @@ async def evaluate_puzzle_move_endpoint(
                 played_move_uci=played_uci,
                 cognitive_gap=cognitive_gap,
                 themes=themes,
+                found=(quality == "best"),
             )
             if coaching:
                 result["miss_coaching"] = coaching
