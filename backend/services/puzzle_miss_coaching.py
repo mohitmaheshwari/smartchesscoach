@@ -365,18 +365,32 @@ def _verified_best_move_idea(
         # attacks a second enemy piece that's undefended or worth more — the
         # "double attack" lesson. Board-verified.
         my_val = PIECE_VALUE_CP.get(board.piece_at(best_move.from_square).piece_type, 0)
-        second = None
+        # A fork hits TWO+ things — collect ALL the enemy pieces the moved piece
+        # now attacks that are real targets (undefended, or worth more than the
+        # mover), and name them all, not just the most valuable one.
+        targets = []
         for sq in after.attacks(best_move.to_square):
+            if sq == best_move.to_square:
+                continue
             p = after.piece_at(sq)
             if not p or p.color != enemy or p.piece_type == chess.KING:
                 continue
-            if sq == best_move.to_square:
-                continue
             val = PIECE_VALUE_CP.get(p.piece_type, 0)
             if (not after.attackers(enemy, sq)) or val > my_val:
-                if second is None or val > second[1]:
-                    second = (PIECE_TYPE_NAMES.get(p.piece_type, "piece"), val,
-                              chess.square_name(sq))
+                targets.append((PIECE_TYPE_NAMES.get(p.piece_type, "piece"), val,
+                                chess.square_name(sq)))
+        targets.sort(key=lambda t: -t[1])
+        targets = targets[:3]  # cap so the line doesn't run on
+
+        def _phrase(ts):
+            parts = [f"the {n} on {s}" for n, _v, s in ts]
+            if len(parts) == 1:
+                return parts[0]
+            if len(parts) == 2:
+                return f"{parts[0]} and {parts[1]}"
+            return ", ".join(parts[:-1]) + f", and {parts[-1]}"
+
+        _COUNT = {2: "two", 3: "three", 4: "four"}
 
         if board.is_capture(best_move):
             if board.is_en_passant(best_move):
@@ -386,14 +400,18 @@ def _verified_best_move_idea(
                 cap_name = PIECE_TYPE_NAMES.get(cp.piece_type, "piece") if cp else "piece"
             see = static_exchange_eval(board, best_move.to_square, mover) or 0
             verb = "wins" if see >= 100 else "takes"
-            if second is not None:
-                return (f"{best_san} {verb} the {cap_name}, and the {second[0]} on "
-                        f"{second[2]} falls next — a double attack, two targets at once.")
+            if targets:
+                total = 1 + len(targets)
+                return (f"{best_san} {verb} the {cap_name} and hits {_phrase(targets)} — "
+                        f"a double attack, {_COUNT.get(total, str(total))} targets at once.")
             return f"{best_san} {verb} the {cap_name}."
 
-        # Non-capture: a quiet move that creates a second-target threat.
-        if second is not None:
-            return (f"{best_san} hits the {second[0]} on {second[2]} — and the threat "
+        # Non-capture: a quiet move that lands on multiple targets (a fork) or one.
+        if len(targets) >= 2:
+            return (f"{best_san} hits {_phrase(targets)} — "
+                    f"{_COUNT.get(len(targets), str(len(targets)))} targets at once.")
+        if len(targets) == 1:
+            return (f"{best_san} hits {_phrase(targets)} — and the threat "
                     f"can't be met without giving something up.")
 
         # Otherwise lean on the single-source why (threat/escape/defend/castle/principle).
