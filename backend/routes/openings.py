@@ -218,14 +218,23 @@ async def get_opening_lesson(
         for i, move in enumerate(lesson["moves"]):
             main_line.append({"move": move, "explanation": ""})
     
-    # Build trap details
+    # Build trap details.
+    # trap.full_line = setup_moves + trap-only moves. TrapPractice.jsx
+    # already prepends setup_moves separately, so `trap_line` must be
+    # the trap-only tail — sending full_line here made the demo play
+    # the setup twice and chess.js rejected the second pass with
+    # "Invalid move: e4" (already on e4). Slice from len(setup_moves).
     trap_details = []
     for trap in traps:
+        trap_only = trap.full_line[len(trap.setup_moves):]
         trap_details.append({
             "name": trap.name,
             "description": trap.explanation,
             "setup_moves": trap.setup_moves,
-            "trap_line": [{"move": m, "explanation": trap.explanation if m == trap.trap_move else ""} for m in trap.full_line],
+            "trap_line": [
+                {"move": m, "explanation": trap.explanation if m == trap.trap_move else ""}
+                for m in trap_only
+            ],
             "difficulty": trap.difficulty,
             "result_type": "verified_trap",
         })
