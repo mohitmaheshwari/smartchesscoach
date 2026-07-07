@@ -30,6 +30,9 @@ import {
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
+// Engine-2 skill curriculum — the Lab's new identity (moved off Progress).
+import MasteryPanel from "@/components/coach/MasteryPanel";
+import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
 import {
   Import,
   ChevronRight,
@@ -111,6 +114,7 @@ const Dashboard = ({ user }) => {
   const [filter, setFilter] = useState("all"); // all | unreviewed | losses | coach | week
   // Intelligence cards — each shows only when the user has real data. Fetched
   // in parallel with the main Lab data so the page isn't blocked.
+  const [learnNext, setLearnNext] = useState(null);  // Engine-2 next skill to learn
   const [trapIntel, setTrapIntel] = useState(null);
   const [openingReport, setOpeningReport] = useState(null);
   const [repeatMistakes, setRepeatMistakes] = useState(null);
@@ -122,6 +126,7 @@ const Dashboard = ({ user }) => {
 
   useEffect(() => {
     fetchData();
+    fetchLearnNext();
     fetchTrapIntel();
     fetchOpeningReport();
     fetchRepeatMistakes();
@@ -181,6 +186,20 @@ const Dashboard = ({ user }) => {
         /* engagement is best-effort — don't break the panel */
       }
     } catch (_e) { /* silent */ }
+  };
+
+  const fetchLearnNext = async () => {
+    try {
+      const res = await fetch(`${API}/engine2/learn-next`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setLearnNext(d.learn_next || null);
+      }
+    } catch (_e) {
+      // Silent — hero just stays hidden.
+    }
   };
 
   const fetchTrapIntel = async () => {
@@ -469,13 +488,50 @@ const Dashboard = ({ user }) => {
                 The Lab
               </p>
               <h1 className="font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
-                Review room
+                Your learning path
               </h1>
             </div>
-            <p className="text-[11px] md:text-[12px] text-muted-foreground shrink-0 text-right max-w-[220px]">
-              <span className="tabular-nums">{games.length} games</span>
-            </p>
           </div>
+
+          {/* ━━━━━━━━━━ LEARN NEXT · Engine 2 curriculum ━━━━━━━━━━ */}
+          {/* The Lab's identity: the forward-looking learning PATH. "Learn next"
+              is the prerequisite-gated, rating-aware pick from Engine 2; the skill
+              tree below shows what you've mastered / next / locked. (Progress is
+              the report card — how you're doing; this is the syllabus — what to
+              learn next.) 2026-07-07. */}
+          {learnNext && (
+            <motion.section {...revealOnScroll} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+                Learn next
+              </div>
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground mb-2">
+                  {learnNext.label}
+                </p>
+                {learnNext.reason && (
+                  <p className="text-[13.5px] text-muted-foreground mb-1">{learnNext.reason}</p>
+                )}
+                {learnNext.fixes && (
+                  <p className="text-[13px] text-muted-foreground/80 mb-5">
+                    Fixes: {learnNext.fixes}
+                  </p>
+                )}
+                <button
+                  onClick={() => navigate(`/training/skill/${learnNext.skill_id}`)}
+                  className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                >
+                  Start this lesson
+                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ━━━━━━━━━━ YOUR SKILL TREE · what you've mastered ━━━━━━━━━━ */}
+          <section className="mb-16 md:mb-24">
+            <MasteryPanel />
+            <InGameMasteryPanel />
+          </section>
 
           {/* ━━━━━━━━━━ SESSION REVIEW ━━━━━━━━━━ */}
           {/* Renders only when user arrived from Home's "Open in Lab"

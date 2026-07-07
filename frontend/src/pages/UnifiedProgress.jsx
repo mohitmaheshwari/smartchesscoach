@@ -48,8 +48,6 @@ import {
   Check,
   ArrowRight,
 } from "lucide-react";
-import MasteryPanel from "@/components/coach/MasteryPanel";
-import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
 
 // ─── Weakness → training-pattern key (same mapping Home uses) ───────────────
 
@@ -903,14 +901,10 @@ const UnifiedProgress = ({ user }) => {
           </motion.section>
         )}
 
-        {/* ─── Mastery — what you've learned ─── */}
-        <MasteryPanel />
-
-        {/* ─── In-game concept mastery — what the PWC gate considers
-             mastered, sourced from user_concept_understanding. Sibling
-             to MasteryPanel; auto-hides when the user has no rows.
-             See docs/mastery_panel_data_source_swap_scope.md. ─── */}
-        <InGameMasteryPanel />
+        {/* Mastery / Engine-2 skill tree MOVED to the Lab 2026-07-07 — the Lab is
+             the learning PATH (what to learn next + what you've mastered); Progress
+             is the report card (levels + trends). Keeping the skill curriculum here
+             was exactly the "Progress returns a lot" overload. See Dashboard.jsx. */}
 
         {/* ─── Empty-patterns fallback ─── */}
         {!derived.active && derived.tracked.length === 0 && (

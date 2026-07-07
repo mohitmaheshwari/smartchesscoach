@@ -3697,6 +3697,27 @@ async def engine2_skill_completed(
     return await _record_engine2_skill(user.user_id, req.skill_id, outcome)
 
 
+@router.get("/engine2/learn-next")
+async def engine2_learn_next(user: User = Depends(get_current_user)):
+    """The single next Engine 2 skill the user should learn — the forward-looking
+    'Learn next' pick that anchors the Lab (the skill curriculum). Prerequisite-
+    gated + rating-aware. Returns {"learn_next": {skill_id, label, tier, reason,
+    fixes, kind, stats}} or {"learn_next": None} when nothing is ready yet.
+
+    Mirrors what home-intelligence already computes (routes/home.py), exposed as a
+    cheap standalone call so the Lab doesn't have to pull the heavy home payload.
+    """
+    from services.coach_memory import get_or_create_memory
+    from services.engine2_skill_builder import pick_next_skill
+    try:
+        memory = await get_or_create_memory(db, user.user_id)
+        rating = (memory.performance.best_performance_rating or 1000)
+        return {"learn_next": pick_next_skill(memory, rating)}
+    except Exception as e:
+        logger.warning(f"[engine2/learn-next] {e}")
+        return {"learn_next": None}
+
+
 @router.get("/engine2/mastery-summary")
 async def engine2_mastery_summary(user: User = Depends(get_current_user)):
     """User-facing mastery roll-up across the full Engine 2 skill tree.
