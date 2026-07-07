@@ -230,7 +230,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     # Get all analyses and games for pattern tracking (owner's history)
     all_analyses = await db.game_analyses.find(
         {"user_id": owner_user_id},
-        {"_id": 0}
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"_id": 0, "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).to_list(100)
 
     # Include more fields for rich pattern context
@@ -622,7 +623,8 @@ async def get_mistake_pattern_context(game_id: str, move_number: int, user: User
     # Get all analyses and games for pattern history with rich context
     all_analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0}
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"_id": 0, "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).to_list(100)
     
     all_games = await db.games.find(

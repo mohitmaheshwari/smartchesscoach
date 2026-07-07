@@ -705,7 +705,9 @@ async def get_progress_v2(user: User = Depends(get_current_user)):
 
         # Add Before/After Coach comparison
         all_analyses = await db.game_analyses.find(
-            {"user_id": user.user_id}
+            {"user_id": user.user_id},
+            # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+            {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
         ).sort("created_at", -1).to_list(200)
 
         all_games = await db.games.find(
@@ -2406,7 +2408,9 @@ async def get_weakness_ranking(user: User = Depends(get_current_user)):
     - Stable Strength
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     return get_dominant_weakness_ranking(analyses)
@@ -2423,7 +2427,9 @@ async def get_win_state(user: User = Depends(get_current_user)):
     - When losing (with evidence)
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     games = await db.games.find(
@@ -2449,7 +2455,9 @@ async def get_heatmap(user: User = Depends(get_current_user)):
     - Hot squares
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     return get_mistake_heatmap(analyses)
@@ -2466,7 +2474,9 @@ async def get_drill_positions_endpoint(req: DrillRequest, user: User = Depends(g
     - state: Game state when blunder occurred ("winning", "equal", "losing")
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(20).to_list(20)
 
     games = await db.games.find(
@@ -2504,7 +2514,9 @@ async def get_rating_impact(user: User = Depends(get_current_user)):
     - Confidence level
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     return estimate_rating_impact(analyses)
@@ -2520,7 +2532,9 @@ async def get_identity(user: User = Depends(get_current_user)):
     - Description
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     return get_identity_profile(analyses)
@@ -2537,7 +2551,9 @@ async def get_current_mission(user: User = Depends(get_current_user)):
     Layer 3: Mission Difficulty → Actual challenge
     """
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(15).to_list(15)
 
     # Get user's rating from recent games

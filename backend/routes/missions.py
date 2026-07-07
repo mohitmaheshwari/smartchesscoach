@@ -160,9 +160,11 @@ async def get_mission_positions(mission_id: str, user: User = Depends(get_curren
     
     # Get more from other games if needed
     if len(positions) < target_count:
-        other_analyses = await db.game_analyses.find({
-            "user_id": user.user_id,
-        }).sort("analyzed_at", -1).limit(15).to_list(15)
+        other_analyses = await db.game_analyses.find(
+            {"user_id": user.user_id},
+            # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+            {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0},
+        ).sort("analyzed_at", -1).limit(15).to_list(15)
         
         for analysis in other_analyses:
             more_positions = _extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
@@ -397,7 +399,8 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
     # Get all game analyses for this user
     await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0}
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"_id": 0, "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).to_list(100)
     
     # Get mission history to calculate mastery

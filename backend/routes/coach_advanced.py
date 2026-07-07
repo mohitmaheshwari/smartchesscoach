@@ -1412,7 +1412,9 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
 
     # Get analyses
     analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(50).to_list(50)
 
     # Get more games for opening guidance (need at least 4 per opening)
@@ -1732,7 +1734,8 @@ async def get_bucket_breakdown(user: User = Depends(get_current_user)):
     game_ids = [g["game_id"] for g in games]
     analyses = await db.game_analyses.find(
         {"game_id": {"$in": game_ids}},
-        {"_id": 0}
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"_id": 0, "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).to_list(DEFAULT_GAME_WINDOW)
 
     # Compute costs

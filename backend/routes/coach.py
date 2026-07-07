@@ -4013,7 +4013,9 @@ async def get_memory_lane(user: User = Depends(get_current_user)):
     
     # Get recent analyzed games with mistakes
     recent_games = await db.game_analyses.find(
-        {"user_id": user_id}
+        {"user_id": user_id},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(20).to_list(20)
     
     memories = []
@@ -4170,7 +4172,9 @@ async def get_habit_challenge(user: User = Depends(get_current_user)):
     
     # Get analyzed games with stockfish data
     recent_games = await db.game_analyses.find(
-        {"user_id": user_id, "stockfish_analysis": {"$exists": True}}
+        {"user_id": user_id, "stockfish_analysis": {"$exists": True}},
+        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
+        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(30).to_list(30)
     
     challenges = []
