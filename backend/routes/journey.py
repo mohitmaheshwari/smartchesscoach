@@ -135,7 +135,9 @@ async def get_weekly_assessment(user: User = Depends(get_current_user)):
     
     recent_analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0, "_cqs_internal": 0}
+        # PERF: drop the heavy detail blobs (move_evaluations + decryption_*).
+        {"_id": 0, "_cqs_internal": 0, "stockfish_analysis.move_evaluations": 0,
+         "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).limit(5).to_list(5)
     
     improvement_trend = profile.get("improvement_trend", "stuck")
@@ -422,8 +424,12 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     from server import calculate_all_badges, get_journey_data
     
     # Get ALL analyses for baseline calculation
+    # PERF: 200 full docs was ~35MB (move_evaluations + decryption blobs). This
+    # only needs summary stats — exclude the heavy blobs.
     all_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        {"stockfish_analysis.move_evaluations": 0, "decryption_v5_data": 0,
+         "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).to_list(200)
     
     # Get last 25 games for current stats
@@ -508,8 +514,11 @@ async def get_rolling_evolution(user: User = Depends(get_current_user)):
     from baseline_service import calculate_rolling_evolution
     
     # Get all analyses
+    # PERF: exclude the heavy detail blobs — baseline only needs summary stats.
     all_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id},
+        {"stockfish_analysis.move_evaluations": 0, "decryption_v5_data": 0,
+         "decryption_data": 0, "decryption_block": 0}
     ).sort("created_at", -1).to_list(200)
     
     evolution = calculate_rolling_evolution(all_analyses)

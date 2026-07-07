@@ -237,7 +237,12 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
 
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, "stockfish_analysis": 1}
+        # PERF: exclude the 3 heavy detail blobs (move_evaluations ~42KB,
+        # decryption_v5_data ~102KB, decryption_data ~24KB). This handler only
+        # reads summary counts — pulling the blobs was ~176KB x 500 games = ~88MB
+        # (~48s). Excluding them drops to ~5KB/doc. Full docs are for game review.
+        {"_id": 0, "stockfish_analysis.move_evaluations": 0,
+         "decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
     ).to_list(500)
 
     # Sum stats - check both top-level fields and stockfish_analysis (prefer stockfish_analysis)

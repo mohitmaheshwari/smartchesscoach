@@ -106,10 +106,12 @@ async def get_memory_summary(user: User = Depends(get_current_user)):
     """
     global db
     
-    # Get recent analyses
+    # Get recent analyses — PERF: this handler only reads `blunders`, so project
+    # just that. Pulling full docs was ~176KB each (move_evaluations + decryption
+    # blobs) for nothing.
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0}
+        {"_id": 0, "blunders": 1}
     ).sort("created_at", -1).limit(20).to_list(20)
     
     # Aggregate patterns
