@@ -768,16 +768,15 @@ const UnifiedProgress = ({ user }) => {
                   )}
                 </div>
                 <div className="flex md:flex-col items-start md:items-end gap-4 justify-between md:justify-start">
+                  {/* Progress MEASURES; the Lab is where you DO the work. So this
+                      routes into the Lab rather than drilling in place — keeps the
+                      two pages distinct (Progress = is it improving; Lab = work on it). */}
                   <button
-                    onClick={() =>
-                      navigate(
-                        `/training/prescribed?weakness=${derived.active.pattern}`
-                      )
-                    }
+                    onClick={() => navigate("/lab")}
                     className="h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                   >
                     <Target className="h-3.5 w-3.5" strokeWidth={2} />
-                    Drill this pattern
+                    Work on this in the Lab
                   </button>
                   {derived.active.decay > 0 && (
                     <div className="md:text-right">
@@ -874,14 +873,12 @@ const UnifiedProgress = ({ user }) => {
                     )}
                   </div>
 
-                  {/* Drill action */}
+                  {/* Progress measures; action lives in the Lab. Route there. */}
                   <button
-                    onClick={() =>
-                      navigate(`/training/prescribed?weakness=${p.pattern}`)
-                    }
+                    onClick={() => navigate("/lab")}
                     className="text-[11.5px] text-muted-foreground hover:text-violet-500 dark:hover:text-violet-300 transition-colors text-right"
                   >
-                    Drill →
+                    In the Lab →
                   </button>
                 </motion.div>
               ))}
