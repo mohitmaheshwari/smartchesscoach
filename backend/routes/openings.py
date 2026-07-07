@@ -208,9 +208,11 @@ async def get_opening_lesson(
     variations = get_available_variations(opening_key)
     traps = get_verified_traps_for_opening(opening_key)
     
-    # Pick the requested variation or default to first
+    # Pick the requested variation or default to first (may be None
+    # for openings that don't split into variations — the service handles
+    # None by falling back to the opening's main_line, so ALWAYS call it).
     target_variation_key = variation or (variations[0]["key"] if variations else None)
-    lesson = get_variation_lesson_moves(opening_key, target_variation_key) if target_variation_key else None
+    lesson = get_variation_lesson_moves(opening_key, target_variation_key)
     main_line = []
     if lesson:
         for i, move in enumerate(lesson["moves"]):
@@ -235,7 +237,14 @@ async def get_opening_lesson(
         "color": "black" if "defense" in theory.get("name", "").lower() or "indian" in theory.get("name", "").lower() else "white",
         "first_moves": theory.get("main_line", [])[:5],
         "main_line": main_line,
-        "key_ideas": theory.get("common_learnings", []),
+        # common_learnings is populated for a minority of openings; fall
+        # back to golden_rules (present on ~half) so the Key Ideas card
+        # isn't empty on Italian Game / Ruy Lopez / Caro-Kann / etc.
+        "key_ideas": (
+            theory.get("common_learnings")
+            or theory.get("golden_rules")
+            or []
+        ),
         "common_mistakes": [],
         "traps": trap_details,
         "what_if": [],

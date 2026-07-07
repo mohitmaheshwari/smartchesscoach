@@ -283,7 +283,7 @@
                                 "idea_opponent": "Black checks, hoping to disrupt your development.",
                                 "next": "Nc3",
                                 "right_feedback": "Nc3 — block with the knight, accept the trade (or Bd2). Don't move the king.",
-                                "wrong_feedback": "In the Italian Game after cxd4 Bb4+, Nc3 is the natural block — develops a piece AND meets the check. Bd2 (Möller Attack variations) is also fine if you want sharper play. Don't play Kf1 (loses castling) or Kd2 (insane).",
+                                "wrong_feedback": "In the Italian Game after cxd4 Bb4+, Nc3 is the natural block — develops a piece AND meets the check. Bd2 (MÃ¶ller Attack variations) is also fine if you want sharper play. Don't play Kf1 (loses castling) or Kd2 (insane).",
                                 "responses": {}
                               }
                             }
@@ -405,8 +405,8 @@
       "Nc6",
       "Bc4"
     ],
-    "white_plan": "Exploit f7 weakness and central control",
-    "black_plan": "Develop piece activity and challenge center",
+    "white_plan": "Control the center, target f7 weakness, rapid development",
+    "black_plan": "Solid defense with d6 and Be7, or aggressive with Bc5",
     "demands": {
       "name": "Italian Game",
       "color": "white",
@@ -539,19 +539,7 @@
       ],
       "rewards_descriptor": "calm defense and resourceful counterattack",
       "theory_burden": 0.4
-    },
-    "eco_prefix": [
-      "C50"
-    ],
-    "main_line": [
-      "e4",
-      "e5",
-      "Nf3",
-      "Nc6",
-      "Bc4"
-    ],
-    "white_plan": "Exploit f7 weakness and central control",
-    "black_plan": "Defend with Bc5 (Giuoco Piano) or Nf6 (Two Knights Defense)"
+    }
   },
   "sicilian_defense": {
     "name": "Sicilian Defense",
@@ -769,8 +757,8 @@
       "e4",
       "c5"
     ],
-    "white_plan": "Develop with tempo and create kingside attacking chances",
-    "black_plan": "Create central pawn tension and queenside counterplay via c-file",
+    "white_plan": "Open the position with d4, gain central control, attack on the kingside",
+    "black_plan": "Create asymmetry with c5, fight for the d4 square, counter-attack on the queenside",
     "demands": {
       "name": "Sicilian Defense",
       "color": "black",
@@ -958,8 +946,8 @@
       "d4",
       "d5"
     ],
-    "white_plan": "1.e4 with solid position",
-    "black_plan": "Solid pawn structure",
+    "white_plan": "Build a strong center, use space advantage, attack with Nc3 or Nd2 systems",
+    "black_plan": "Solid structure with d5, develop the light bishop to f5 or g4 BEFORE e6",
     "demands": {
       "name": "Caro-Kann",
       "color": "black",
@@ -1133,8 +1121,8 @@
       "d4",
       "d5"
     ],
-    "white_plan": "Space advantage and kingside play",
-    "black_plan": "Solid structure, pawn break e5",
+    "white_plan": "Space advantage with e5, attack kingside, target the weak light squares",
+    "black_plan": "Undermine White's center with c5 and f6, solve the light-squared bishop problem",
     "demands": {
       "name": "French Defense",
       "color": "black",
@@ -1321,8 +1309,8 @@
       "d5",
       "c4"
     ],
-    "white_plan": "Control center with c4/d4, exploit light squares",
-    "black_plan": "Maintain d5 pawn, pawn breaks c5/e5",
+    "white_plan": "Central control, queenside space, push b4-b5 to crack their pawns, or break with e4",
+    "black_plan": "Solid defense of d5, counterattack with c5 or e5 when ready",
     "demands": {
       "name": "Queen's Gambit",
       "color": "white",
@@ -1613,8 +1601,8 @@
       "Nc6",
       "Bb5"
     ],
-    "white_plan": "Pin knight and control center",
-    "black_plan": "Challenge center with counterplay",
+    "white_plan": "Pressure e5 indirectly through the Nc6 pin, build a strong center with d4",
+    "black_plan": "Defend with a6 and b5, maintain the center, develop actively",
     "demands": {
       "name": "Ruy Lopez",
       "color": "white",
@@ -1883,7 +1871,7 @@
                     "next": "d6",
                     "hint": "Prepare the central counter-strike with e5 later.",
                     "right_feedback": "d6 — supports e5 break, the soul of the KID.",
-                    "wrong_feedback": "In the King's Indian Defense, d6 is the principled preparation for the e5 break — the entire KID plan revolves around striking e5 against White's center. d5 here closes the center prematurely (you'd be playing a worse Grünfeld).",
+                    "wrong_feedback": "In the King's Indian Defense, d6 is the principled preparation for the e5 break — the entire KID plan revolves around striking e5 against White's center. d5 here closes the center prematurely (you'd be playing a worse GrÃ¼nfeld).",
                     "responses": {
                       "Nf3": {
                         "name": "KID — Classical Mainline",
@@ -1905,11 +1893,11 @@
                     }
                   },
                   "f3": {
-                    "name": "KID — Sämisch Variation",
-                    "idea_opponent": "White plays the Sämisch — solid pawn shield for the king, plans kingside castle and attack.",
+                    "name": "KID — SÃ¤misch Variation",
+                    "idea_opponent": "White plays the SÃ¤misch — solid pawn shield for the king, plans kingside castle and attack.",
                     "next": "O-O",
-                    "right_feedback": "O-O — castle into safety; the Sämisch is slow, you have time.",
-                    "wrong_feedback": "Against the Sämisch (f3), O-O first is the modern main line — get safe, then play c5 or e5 break depending on White's setup. Nc6 too early can be met with d5; e5 is also OK and immediate. O-O keeps maximum flexibility.",
+                    "right_feedback": "O-O — castle into safety; the SÃ¤misch is slow, you have time.",
+                    "wrong_feedback": "Against the SÃ¤misch (f3), O-O first is the modern main line — get safe, then play c5 or e5 break depending on White's setup. Nc6 too early can be met with d5; e5 is also OK and immediate. O-O keeps maximum flexibility.",
                     "responses": {}
                   },
                   "g3": {
@@ -1931,7 +1919,7 @@
       "when_ahead": {
         "plan": "Convert the kingside attack — pawns roll forward.",
         "ideas": [
-          "f5 → f4 → f3",
+          "f5 â†’ f4 â†’ f3",
           "Open lines to king",
           "Sacrifice for attack"
         ]
@@ -2049,11 +2037,11 @@
                     "responses": {}
                   },
                   "a3": {
-                    "name": "Nimzo — Sämisch Variation",
+                    "name": "Nimzo — SÃ¤misch Variation",
                     "idea_opponent": "White asks the bishop — accept doubled pawns or retreat?",
                     "next": "Bxc3+",
                     "right_feedback": "Bxc3+ — accept the trade, double White's c-pawns. This is the soul of the Nimzo.",
-                    "wrong_feedback": "Against the Sämisch (a3), Bxc3+ is the Nimzo's principled move — give up the bishop, damage White's structure with doubled c-pawns. Retreating with Be7 wastes the entire opening idea (you'd be playing a worse QGD). Bxc3+ is the lesson the Nimzo teaches: structure over the bishop pair.",
+                    "wrong_feedback": "Against the SÃ¤misch (a3), Bxc3+ is the Nimzo's principled move — give up the bishop, damage White's structure with doubled c-pawns. Retreating with Be7 wastes the entire opening idea (you'd be playing a worse QGD). Bxc3+ is the lesson the Nimzo teaches: structure over the bishop pair.",
                     "responses": {}
                   }
                 }
@@ -2092,29 +2080,7 @@
     "endgame_tips": [
       "Knight endings often favor Black after the Nimzo — your better structure compounds.",
       "Bishop-vs-knight endings depend on pawn structure; closed positions favor the knight."
-    ],
-    "eco_prefix": [
-      "E20",
-      "E21",
-      "E22",
-      "E23",
-      "E24",
-      "E25",
-      "E26",
-      "E27",
-      "E28",
-      "E29"
-    ],
-    "main_line": [
-      "d4",
-      "Nf6",
-      "c4",
-      "e6",
-      "Nc3",
-      "Bb4"
-    ],
-    "white_plan": "Control center with pawns, pressure d5",
-    "black_plan": "Pin knight, execute pawn breaks c5/e5"
+    ]
   },
   "slav_defense": {
     "name": "Slav Defense",
@@ -2221,8 +2187,8 @@
       "c4",
       "c6"
     ],
-    "white_plan": "c4/d4 center with flexibility",
-    "black_plan": "Support d5, active piece play"
+    "white_plan": "Build a strong center, recover the c4 pawn if taken, push for e4",
+    "black_plan": "Support d5 with c6, develop the light bishop to f5 BEFORE e6, solid structure"
   },
   "english_opening": {
     "name": "English Opening",
@@ -2342,24 +2308,7 @@
       ],
       "rewards_descriptor": "flexible setups and middlegame creativity",
       "theory_burden": 0.4
-    },
-    "eco_prefix": [
-      "A10",
-      "A11",
-      "A12",
-      "A13",
-      "A14",
-      "A15",
-      "A16",
-      "A17",
-      "A18",
-      "A19"
-    ],
-    "main_line": [
-      "c4"
-    ],
-    "white_plan": "Flexible setup via c4",
-    "black_plan": "Flexible response"
+    }
   },
   "modern_defense": {
     "name": "Modern Defense (Classical Setup)",
@@ -2473,16 +2422,7 @@
     "endgame_tips": [
       "Your d4-e5 chain becomes a queenside majority in pawn endings — push the queenside.",
       "Black's dark-square bishop is the key piece; trade it for any meaningful concession."
-    ],
-    "eco_prefix": [
-      "B06"
-    ],
-    "main_line": [
-      "e4",
-      "g6"
-    ],
-    "white_plan": "Space with 1.e4",
-    "black_plan": "Fianchetto and counterattack"
+    ]
   },
   "philidor_defense": {
     "name": "Philidor Defense",
@@ -2587,8 +2527,8 @@
       "Nf3",
       "d6"
     ],
-    "white_plan": "Claim space and pressure",
-    "black_plan": "Solid setup, piece exchange"
+    "white_plan": "Control the center with d4, develop actively, exploit Black's cramped position",
+    "black_plan": "Maintain a solid but flexible structure, prepare f5 or Nf6-d7 setups"
   },
   "bishops_opening": {
     "name": "Bishops Opening",
@@ -2596,18 +2536,7 @@
     "difficulty": "intermediate",
     "summary": "Opening played in 38 games.",
     "from_games": true,
-    "game_count": 38,
-    "eco_prefix": [
-      "C23",
-      "C24"
-    ],
-    "main_line": [
-      "e4",
-      "e5",
-      "Bc4"
-    ],
-    "white_plan": "Bc4 placement early",
-    "black_plan": "Solid defense"
+    "game_count": 38
   },
   "vienna_game": {
     "name": "Vienna Game",
@@ -2802,16 +2731,7 @@
     "endgame_tips": [
       "Up-a-pawn endings: trade pieces, push passed pawns.",
       "The Englund Gambit's pawn advantage typically persists into the endgame."
-    ],
-    "eco_prefix": [
-      "A40"
-    ],
-    "main_line": [
-      "d4",
-      "e5"
-    ],
-    "white_plan": "Accept gambit and develop",
-    "black_plan": "Tactical complications"
+    ]
   },
   "kings_gambit": {
     "name": "King's Gambit",
@@ -2926,26 +2846,7 @@
     "endgame_tips": [
       "If you never won the f4 pawn back, you may be a pawn down — trade into rook endings where one pawn is hardest to convert.",
       "Open f-file rooks stay strong into the endgame; keep at least one rook active."
-    ],
-    "eco_prefix": [
-      "C30",
-      "C31",
-      "C32",
-      "C33",
-      "C34",
-      "C35",
-      "C36",
-      "C37",
-      "C38",
-      "C39"
-    ],
-    "main_line": [
-      "e4",
-      "e5",
-      "f4"
-    ],
-    "white_plan": "Rapid development and kingside attack",
-    "black_plan": "Consolidate extra pawn and defend"
+    ]
   },
   "four_knights_game": {
     "name": "Four Knights Game",
@@ -3028,22 +2929,7 @@
     "endgame_tips": [
       "Four Knights endings are usually balanced — the bishop pair is the asset to fight for.",
       "Doubled c-pawns (if you take on c6) can be a long-term target either way; know which side they help."
-    ],
-    "eco_prefix": [
-      "C47",
-      "C48",
-      "C49"
-    ],
-    "main_line": [
-      "e4",
-      "e5",
-      "Nf3",
-      "Nc6",
-      "Nc3",
-      "Nf6"
-    ],
-    "white_plan": "Symmetrical central development",
-    "black_plan": "Mirror White's setup"
+    ]
   },
   "pirc_defense": {
     "name": "Pirc Defense (Classical System)",
@@ -3146,22 +3032,7 @@
       ],
       "rewards_descriptor": "central counter-strikes after castling",
       "theory_burden": 0.4
-    },
-    "eco_prefix": [
-      "B07",
-      "B08",
-      "B09"
-    ],
-    "main_line": [
-      "e4",
-      "d6",
-      "d4",
-      "Nf6",
-      "Nc3",
-      "g6"
-    ],
-    "white_plan": "Space and center control",
-    "black_plan": "Hypermodern setup, e5 break"
+    }
   },
   "alekhine_defense": {
     "name": "Alekhine Defense",
@@ -3244,20 +3115,7 @@
     "endgame_tips": [
       "If White's e5/d4 pawns survive into the endgame, blockade them with a knight on d5 or e6.",
       "Your queenside majority can become a passed pawn once the centre is traded off."
-    ],
-    "eco_prefix": [
-      "B02",
-      "B03",
-      "B04",
-      "B05",
-      "B06"
-    ],
-    "main_line": [
-      "e4",
-      "Nf6"
-    ],
-    "white_plan": "Advance pawns and tempt pieces",
-    "black_plan": "Knight harassment, tactical breaks"
+    ]
   },
   "kings_pawn_opening_1_e5": {
     "name": "Kings Pawn Opening 1...e5",
@@ -3513,19 +3371,7 @@
     "difficulty": "intermediate",
     "summary": "Opening played in 29 games.",
     "from_games": true,
-    "game_count": 29,
-    "eco_prefix": [
-      "C42",
-      "C43"
-    ],
-    "main_line": [
-      "e4",
-      "e5",
-      "Nf3",
-      "Nf6"
-    ],
-    "white_plan": "Symmetrical but with tempo play",
-    "black_plan": "Symmetrical solid defense"
+    "game_count": 29
   },
   "van_t_kruijs_opening": {
     "name": "Van t Kruijs Opening",
@@ -4303,8 +4149,8 @@
       "Nc3",
       "d5"
     ],
-    "white_plan": "Central pawn wedge with space advantage",
-    "black_plan": "Challenge center with c5, hypermodern counterplay",
+    "white_plan": "Build a massive center with e4, use the pawn center for space advantage",
+    "black_plan": "LET White build the center, then DESTROY it with c5, Bg7 pressure, and Nc6",
     "critical_positions": {
       "after_d5": {
         "key_decision": "The Grunfeld gambit! Black INVITES White to build a center, planning to demolish it",
