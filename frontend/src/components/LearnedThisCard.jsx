@@ -17,8 +17,8 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Sparkles, TrendingUp, Trophy, ArrowRight, Award } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, TrendingUp, Trophy, ArrowRight, Award, ChevronDown } from "lucide-react";
 import { API } from "@/App";
 
 const iconFor = (kind) => {
@@ -31,6 +31,7 @@ const iconFor = (kind) => {
 export default function LearnedThisCard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [conceptsOpen, setConceptsOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -108,22 +109,86 @@ export default function LearnedThisCard() {
               Also
             </div>
             <ul className="space-y-2.5">
-              {data.supporting.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex items-baseline gap-3 text-[13.5px] md:text-[14px] text-foreground/80"
-                >
-                  <span className="text-emerald-500/70 shrink-0">·</span>
-                  <span className="flex-1">
-                    <span className="text-foreground">{s.label}</span>
-                    {s.detail && (
-                      <span className="text-muted-foreground tabular-nums ml-2">
-                        ({s.detail})
+              {data.supporting.map((s, i) => {
+                const isConcepts = s.type === "concept_summary" && Array.isArray(s.concepts) && s.concepts.length > 0;
+                if (!isConcepts) {
+                  return (
+                    <li
+                      key={i}
+                      className="flex items-baseline gap-3 text-[13.5px] md:text-[14px] text-foreground/80"
+                    >
+                      <span className="text-emerald-500/70 shrink-0">·</span>
+                      <span className="flex-1">
+                        <span className="text-foreground">{s.label}</span>
+                        {s.detail && (
+                          <span className="text-muted-foreground tabular-nums ml-2">
+                            ({s.detail})
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </li>
-              ))}
+                    </li>
+                  );
+                }
+                // Concept summary — clickable, expands to the full named list.
+                return (
+                  <li key={i} className="text-[13.5px] md:text-[14px]">
+                    <button
+                      type="button"
+                      onClick={() => setConceptsOpen((v) => !v)}
+                      className="flex items-baseline gap-3 w-full text-left group text-foreground/80 hover:text-foreground transition-colors"
+                      aria-expanded={conceptsOpen}
+                    >
+                      <span className="text-emerald-500/70 shrink-0">·</span>
+                      <span className="flex-1">
+                        <span className="text-foreground">{s.label}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {conceptsOpen ? "hide" : "show"}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-muted-foreground/70 shrink-0 transition-transform ${conceptsOpen ? "rotate-180" : ""}`}
+                        strokeWidth={2}
+                      />
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {conceptsOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <ul className="mt-3 ml-6 pl-3 border-l border-emerald-500/20 space-y-1.5">
+                            {s.concepts.map((c) => (
+                              <li
+                                key={c.concept_id}
+                                className="text-[13px] text-foreground/85 flex items-baseline gap-2"
+                              >
+                                <span className="flex-1">{c.name}</span>
+                                <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">
+                                  {c.clean_games_total} clean
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            type="button"
+                            onClick={() => navigate("/progress#in-game-mastery")}
+                            className="mt-3 ml-6 inline-flex items-center gap-1.5 text-[11.5px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors group"
+                          >
+                            Open in your mastery ledger
+                            <ArrowRight
+                              className="h-3 w-3 transition-transform group-hover:translate-x-0.5"
+                              strokeWidth={2}
+                            />
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

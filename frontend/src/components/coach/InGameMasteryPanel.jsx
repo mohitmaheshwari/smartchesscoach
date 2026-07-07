@@ -205,7 +205,8 @@ export default function InGameMasteryPanel() {
 
   return (
     <section
-      className="mb-16 md:mb-20"
+      id="in-game-mastery"
+      className="mb-16 md:mb-20 scroll-mt-24"
       data-testid="in-game-mastery-panel"
     >
       <div className="flex items-baseline justify-between mb-5 flex-wrap gap-2">

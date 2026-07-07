@@ -122,21 +122,61 @@ def _motif_wins(splits) -> List[Dict[str, Any]]:
     return wins
 
 
+def _load_principle_names() -> Dict[str, str]:
+    """Same catalog InGameMasteryPanel already reads via
+    /coach/principles-catalog. Cached at module scope so the hero card
+    doesn't re-import PRINCIPLES on every request. Returns concept_id ->
+    human-readable name (falls back to the concept_id itself for
+    catalog gaps, so the frontend never shows raw TAC_/OP_/MID_ codes).
+    """
+    global _PRINCIPLE_NAMES
+    if _PRINCIPLE_NAMES is not None:
+        return _PRINCIPLE_NAMES
+    try:
+        from services.caption_principles import PRINCIPLES
+        _PRINCIPLE_NAMES = {p["id"]: (p.get("name") or p["id"]) for p in PRINCIPLES}
+    except Exception:
+        _PRINCIPLE_NAMES = {}
+    return _PRINCIPLE_NAMES
+
+
+_PRINCIPLE_NAMES: Optional[Dict[str, str]] = None
+
+
+def _pretty_concept_name(concept_id: str) -> str:
+    """Look up the human name; fall back to a titlecased version of the id."""
+    name = _load_principle_names().get(concept_id)
+    if name:
+        return name
+    # Fallback: strip category prefix + titlecase — so unknown ids read
+    # as "Rook Open File" instead of "MID_ROOK_OPEN_FILE".
+    parts = concept_id.split("_", 1)
+    tail = parts[1] if len(parts) > 1 else concept_id
+    return tail.replace("_", " ").title()
+
+
 async def _fresh_mastered_concepts(db, user_id: str, days: int = CONCEPT_FRESHNESS_DAYS) -> List[Dict[str, Any]]:
     """Concepts newly-mastered in the last `days` days — the "you own
-    this pattern now" signal. Reads user_concept_understanding.mastered_at."""
+    this pattern now" signal. Reads user_concept_understanding.mastered_at.
+
+    Each entry carries the human-readable `name` from the principles
+    catalog so the card can list "Middlegame king safety, Rook on the
+    open file, ..." instead of raw concept_ids like MID_KING_SAFETY.
+    """
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     out = []
     async for row in db.user_concept_understanding.find(
         {"user_id": user_id, "mastered_at": {"$ne": None}},
         {"_id": 0, "concept_id": 1, "mastered_at": 1, "clean_games_total": 1},
-    ).sort("mastered_at", -1).limit(20):
+    ).sort("mastered_at", -1).limit(30):
         m_at = _parse_date(row.get("mastered_at"))
         if not m_at or m_at < cutoff:
             continue
+        cid = row.get("concept_id") or ""
         out.append({
             "type": "concept",
-            "concept_id": row.get("concept_id"),
+            "concept_id": cid,
+            "name": _pretty_concept_name(cid),
             "mastered_at": row.get("mastered_at"),
             "clean_games_total": row.get("clean_games_total"),
         })
@@ -256,12 +296,21 @@ async def compute_learned_this(db, user_id: str) -> Dict[str, Any]:
         })
         if len(supporting) >= 5:
             break
-    # Include concept masteries as a compact summary
+    # Include concept masteries as a compact summary — the card expands
+    # to show the full list on click, so ship the whole list here (not
+    # just the count). Sorted newest-first by mastered_at (already the
+    # order from _fresh_mastered_concepts).
     if concept_wins and headline["kind"] != "concept_mastered":
         supporting.append({
             "type": "concept_summary",
             "label": f"{len(concept_wins)} concept{'s' if len(concept_wins) > 1 else ''} mastered this month",
             "detail": None,
+            "concepts": [
+                {"concept_id": c["concept_id"], "name": c["name"],
+                 "mastered_at": c["mastered_at"],
+                 "clean_games_total": c["clean_games_total"]}
+                for c in concept_wins
+            ],
         })
 
     return {
