@@ -21,8 +21,57 @@ import chess
 SOUND_CP = 40      # <= this: the motif move was good → strength
 BLUNDER_CP = 100   # >= this: a real blunder → tunnel-vision (made) / got-forked (allowed)
 
-MOTIFS = ["fork", "pin", "skewer"]  # discovered to be added after its audit
+# 2026-07-07: added "discovered" (audit gate lifted after 4.59% probe rate
+# on 5,290 moves — ideal motif frequency) and "loose" (Stockfish-PV-gated
+# loose-piece events — 1.83% defensive, ~49% offensive recognition rate).
+# See docs/motif_profile_backlog.md "Scope — discovered-attack + loose-piece"
+# section for the data lock and design decisions.
+MOTIFS = ["fork", "pin", "skewer", "discovered", "loose"]
 SKEWER_GAP_CP = 150  # front must be a real piece more valuable than rear (not B-over-N)
+
+
+def _move_captures_loose(fen_before: str, move_san: str) -> bool:
+    """True if `move_san` captures an enemy piece that had ZERO defenders in
+    board_before. The atomic offensive-loose-piece primitive — mirrors the
+    "did you spot the free enemy piece?" question my probe measured.
+
+    Kings excluded (they can't be "loose"). Pawns included — a hanging pawn
+    is a real material win at 600-1500.
+    """
+    try:
+        board = chess.Board(fen_before)
+        own_color = board.turn
+        mv = board.parse_san(move_san)
+        captured_sq = mv.to_square
+        piece = board.piece_at(captured_sq)
+        if not piece or piece.color == own_color or piece.piece_type == chess.KING:
+            return False
+        opp_color = not own_color
+        defenders = board.attackers(opp_color, captured_sq)
+        return not defenders
+    except Exception:
+        return False
+
+
+def _pv_captures_own_loose(fen_after: str, pv_first_san: str) -> bool:
+    """DEFENSIVE loose primitive: after the user's move (board = `fen_after`),
+    does the opponent's PV first reply capture an OWN (user's) piece that had
+    zero defenders? Same shape as `_move_captures_loose` but for the mirror
+    side. Kings excluded.
+    """
+    try:
+        board = chess.Board(fen_after)
+        opp_color = board.turn  # opponent is about to move
+        own_color = not opp_color
+        mv = board.parse_san(pv_first_san)
+        captured_sq = mv.to_square
+        piece = board.piece_at(captured_sq)
+        if not piece or piece.color != own_color or piece.piece_type == chess.KING:
+            return False
+        defenders = board.attackers(own_color, captured_sq)
+        return not defenders
+    except Exception:
+        return False
 
 
 def _classify_aligned(aligned) -> set:
@@ -80,7 +129,9 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
         cp = abs(int(ev.get("cp_loss") or 0))
         pv = ev.get("pv_after_played") or []
 
-        # MADE side (user's own move): fork (winnability-checked) + pin/skewer (aligned geom).
+        # MADE side (user's own move): fork (winnability-checked) + pin/skewer
+        # (aligned geom) + discovered attack (uncovered ray) + loose-piece capture
+        # (direct board check).
         try:
             mf = extract_facts(fen_before=fen, played_san=played, best_move_san=best,
                                cp_loss=cp, pv_after_played=pv, mover_is_user=True)
@@ -88,10 +139,16 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
             if mf.get("multi_target_attack_evidence"):
                 made.add("fork")
             made |= _classify_aligned(mf.get("aligned_pieces_evidence"))
-            for mt in made:
-                out[mt]["made_sound" if cp <= SOUND_CP else "made_tunnel"] += 1
+            if mf.get("discovered_attack_evidence"):
+                made.add("discovered")
         except Exception:
-            pass
+            made = set()
+        # Loose-capture is a direct board check, outside the extract_facts try —
+        # keeps loose signal alive even if caption_facts throws on a weird FEN.
+        if _move_captures_loose(fen, played):
+            made.add("loose")
+        for mt in made:
+            out[mt]["made_sound" if cp <= SOUND_CP else "made_tunnel"] += 1
 
         # GOT side: the user's move was a blunder whose engine reply creates the motif
         # against the user (same verified detectors, applied to the opponent's reply).
@@ -106,18 +163,24 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                 if gf.get("multi_target_attack_evidence"):
                     got.add("fork")
                 got |= _classify_aligned(gf.get("aligned_pieces_evidence"))
-                for mt in got:
-                    out[mt]["got"] += 1
-                    # Store position AFTER user's blunder but BEFORE opponent replies
-                    # This way opp_creates_motif move is playable in this FEN
-                    out[mt]["got_positions"].append({
-                        "fen": fen_after,  # position after user's blunder, ready for opponent's move
-                        "solution": best,  # what user should have played instead
-                        "user_blunder_move": played,  # the blunder move that led here
-                        "opp_creates_motif": pv[0]  # opponent's reply that creates the motif (NOW LEGAL)
-                    })
+                if gf.get("discovered_attack_evidence"):
+                    got.add("discovered")
             except Exception:
-                pass
+                got = set()
+            # Loose-defensive: does the opp PV first move capture an own
+            # loose piece? Direct board check, not via caption_facts.
+            if _pv_captures_own_loose(fen_after, pv[0]):
+                got.add("loose")
+            for mt in got:
+                out[mt]["got"] += 1
+                # Store position AFTER user's blunder but BEFORE opponent replies
+                # This way opp_creates_motif move is playable in this FEN
+                out[mt]["got_positions"].append({
+                    "fen": fen_after,  # position after user's blunder, ready for opponent's move
+                    "solution": best,  # what user should have played instead
+                    "user_blunder_move": played,  # the blunder move that led here
+                    "opp_creates_motif": pv[0]  # opponent's reply that creates the motif (NOW LEGAL)
+                })
     return out
 
 
@@ -125,8 +188,18 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
 # users (>=5 games). Relative thresholds — "you walk into X MORE than most players" — so the
 # card flags each user's standout ~30%, not everyone-on-everything. Pins/skewers are
 # inherently more common than forks, hence per-motif cutoffs.
-WEAKNESS_RATE = {"fork": 0.18, "pin": 0.30, "skewer": 0.26}   # got per game
-STRENGTH_RATE = {"fork": 0.26, "pin": 0.77, "skewer": 0.69}   # made_sound per game
+#
+# 2026-07-07: discovered/loose defaults are PROVISIONAL — derived from the
+# 8-user probe (5,290 moves) as starting points. Formal p70 population lock
+# happens after the first full-cohort backfill produces distributions.
+#   discovered got:  ~0.05 events/game observed, use 0.20 (parity with fork)
+#   discovered made: ~4.6% of moves, ~0.30/game, use 0.35 for strength
+#   loose got:       ~1.8% of moves, ~0.60/game, use 0.40 for weakness
+#   loose made:      ~49% recognition of ~0.65 opps/game, use 0.30 for strength
+WEAKNESS_RATE = {"fork": 0.18, "pin": 0.30, "skewer": 0.26,
+                 "discovered": 0.20, "loose": 0.40}   # got per game
+STRENGTH_RATE = {"fork": 0.26, "pin": 0.77, "skewer": 0.69,
+                 "discovered": 0.35, "loose": 0.30}   # made_sound per game
 
 
 def _verdict(m: Dict[str, Any], games: int, motif: str) -> Dict[str, Any]:
@@ -163,8 +236,17 @@ MOTIF_LESSON = {
         "strength": "You find skewers well — keep lining up their big piece with a smaller one behind it.",
         "weakness": "Don't line up a valuable piece in front of a smaller one — when it's attacked and must move, the piece behind falls. That's the skewer.",
     },
+    "discovered": {
+        "strength": "You use discovered attacks well — moving one piece uncovers another's attack. Keep looking for this pattern.",
+        "weakness": "Before moving a piece that stands between yours and theirs, check what's BEHIND you on that line. Moving it can uncover a hit on your own piece.",
+    },
+    "loose": {
+        "strength": "You spot free pieces well — you take undefended enemy pieces cleanly.",
+        "weakness": "Before every move, scan your pieces: which one has NO defender? Those are the ones that get taken. Loose pieces drop off.",
+    },
 }
-MOTIF_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
+MOTIF_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers",
+               "discovered": "Discovered attacks", "loose": "Loose pieces"}
 
 
 def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]], games: int = 0) -> Dict[str, Any]:
@@ -189,9 +271,14 @@ def render_motif_card(motif_profile_raw: Optional[Dict[str, Dict]], games: int =
 
 def position_allows_motif(ev: Dict) -> Optional[str]:
     """For a user blunder eval, which motif did the move WALK INTO (via the opponent's
-    verified reply)? Returns 'fork' (pin/skewer later) or None. Used to motif-tag extracted
-    puzzles so weakness drills filter by motif — SAME verified detector as the profile's
-    got-side, so the tag and the diagnosis never disagree."""
+    verified reply)? Returns 'fork'/'pin'/'skewer'/'discovered'/'loose' or None. Used to
+    motif-tag extracted puzzles so weakness drills filter by motif — SAME verified detector
+    as the profile's got-side, so the tag and the diagnosis never disagree.
+
+    Priority order when multiple fire on the same position: fork > pin > skewer >
+    discovered > loose. Fork is highest-teaching-value (creates two threats),
+    loose is lowest (one piece drops). Only one motif tag per position.
+    """
     from services.caption_facts import extract_facts
     fa = ev.get("fen_after")
     pv = ev.get("pv_after_played") or []
@@ -206,8 +293,13 @@ def position_allows_motif(ev: Dict) -> Optional[str]:
             return "pin"
         if "skewer" in aligned:
             return "skewer"
+        if gf.get("discovered_attack_evidence"):
+            return "discovered"
     except Exception:
         pass
+    # Loose defensive — separate primitive, checked outside the try/except.
+    if _pv_captures_own_loose(fa, pv[0]):
+        return "loose"
     return None
 
 
@@ -255,9 +347,13 @@ def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:
 # Population breakpoints locked-via-data 2026-06-22 (45 users, 120-game samples,
 # >=8 opportunities/motif): p25 / median / p75 of found/available. Refit as the
 # user base grows.
-RECOGNITION_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers"}
+RECOGNITION_LABEL = {"fork": "Forks", "pin": "Pins", "skewer": "Skewers",
+                     "discovered": "Discovered attacks", "loose": "Loose pieces"}
 # trust of the standing: fork verified-winnable; pin/skewer detector is noisier (rougher tier)
-RECOGNITION_TRUST = {"fork": "solid", "pin": "rough", "skewer": "rough"}
+# discovered: ray-uncover geometry, feedback-hardened (fb_a6f596afbba0 fixes) → solid
+# loose: direct board attackers/defenders count, no ambiguity → solid
+RECOGNITION_TRUST = {"fork": "solid", "pin": "rough", "skewer": "rough",
+                     "discovered": "solid", "loose": "solid"}
 MIN_OPPS_TO_SHOW = 8       # lifetime opportunities before a motif row appears at all
 MIN_OPPS_TREND = 6         # opportunities needed in BOTH windows to show a trend arrow
 TREND_DELTA = 0.04         # rate change (pts) to call it up/down vs steady
@@ -274,6 +370,13 @@ MASTERY_EDGES = {
     "fork":   [0.36, 0.44, 0.53, 0.57],
     "pin":    [0.35, 0.41, 0.45, 0.49],
     "skewer": [0.33, 0.41, 0.47, 0.51],
+    # 2026-07-07: PROVISIONAL — locked from the 8-user probe. Refit after
+    # first full-cohort backfill produces the real distribution. Starting
+    # tier lines: [p25, med, p75, p90] estimates from probe recognition
+    # rates. discovered was ~30% found on offensive availability; loose
+    # was ~49% on the 8-user cohort — hence higher tiers for loose.
+    "discovered": [0.20, 0.30, 0.42, 0.55],
+    "loose":      [0.35, 0.49, 0.60, 0.72],
 }
 
 
@@ -294,7 +397,19 @@ def _tier_for(rate: float, motif: str):
 
 
 def _move_motifs(fen, move, pv, mover_user) -> set:
-    """Which verified motifs `move` creates in this position (single-source detectors)."""
+    """Which verified motifs `move` creates (or exploits) in this position —
+    single-source detectors. Returns a subset of MOTIFS.
+
+    fork / pin / skewer / discovered are "the move CREATES this pattern"
+    (checked via caption_facts geometry facts on board_after).
+
+    loose is different — it's "the move CAPTURES a free enemy piece" — an
+    exploitation of pre-existing geometry, not a creation. Checked directly
+    against board_before via `_move_captures_loose`. Same aggregation shape
+    still works because a loose-piece capture at cp_loss<=SOUND_CP is a
+    strength (you spotted it) and at cp_loss>=BLUNDER_CP would be a very
+    weird tunnel-vision (grabbed the pawn, missed mate) — same tiers apply.
+    """
     from services.caption_facts import extract_facts
     out = set()
     if not (fen and move):
@@ -305,8 +420,15 @@ def _move_motifs(fen, move, pv, mover_user) -> set:
         if f.get("multi_target_attack_evidence"):
             out.add("fork")
         out |= _classify_aligned(f.get("aligned_pieces_evidence"))
+        if f.get("discovered_attack_evidence"):
+            out.add("discovered")
     except Exception:
         pass
+    # Loose-piece capture — direct board check, no caption_facts needed.
+    # Kept OUTSIDE the try/except above so a caption_facts failure doesn't
+    # also hide the loose signal.
+    if _move_captures_loose(fen, move):
+        out.add("loose")
     return out
 
 
