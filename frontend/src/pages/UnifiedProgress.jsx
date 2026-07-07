@@ -604,15 +604,7 @@ const UnifiedProgress = ({ user }) => {
                           </div>
                         )}
                       </div>
-                      {r.drill && (
-                        <button
-                          onClick={() => navigate(`/training/pattern/${r.motif}`)}
-                          className="h-8 px-3 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[12px] inline-flex items-center gap-1.5 transition-colors shrink-0"
-                        >
-                          Drill {r.label.toLowerCase()}
-                          <ArrowRight className="h-3 w-3" strokeWidth={2} />
-                        </button>
-                      )}
+                      {/* No drilling on Progress — it measures. Work happens in the Lab. */}
                     </div>
                   </div>
                 );
@@ -652,15 +644,7 @@ const UnifiedProgress = ({ user }) => {
                     <div key={w.motif} className="mb-4 last:mb-0">
                       <div className="text-[14px] font-medium text-foreground">{w.label} — keeps catching you</div>
                       <div className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">💡 {w.lesson}</div>
-                      {(w.drill_positions?.length || 0) > 0 && (
-                        <button
-                          onClick={() => navigate(`/training/motif/${w.motif}`)}
-                          className="h-9 px-4 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-medium text-[13px] inline-flex items-center gap-2 transition-colors"
-                        >
-                          Drill it from your games
-                          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                      )}
+                      {/* No drilling on Progress — it measures. Work happens in the Lab. */}
                     </div>
                   ))
                 ) : (
