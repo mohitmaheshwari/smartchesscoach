@@ -22,6 +22,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn, GLOW, MOTI
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
+import LearnedThisCard from "@/components/LearnedThisCard";
 import MotivationPrompt from "@/components/MotivationPrompt";
 import FocusCard from "@/components/FocusCard";
 import FocusResolutionBanner from "@/components/FocusResolutionBanner";
@@ -292,6 +293,18 @@ const HomePage = ({ user }) => {
 
           {/* One-time motivation backfill for existing users (self-gates). */}
           <MotivationPrompt />
+
+          {/* ━━ YOU LEARNED THIS ━━
+              2026-07-08: composed proof-of-improvement card. Reads
+              /api/coach/learned-this which pulls improvement_proof +
+              motif recognition deltas + freshly-mastered concepts into
+              one hero celebration. Silent when there's nothing to say
+              (returns null on has_data=false).
+
+              Placed above TodayHero on purpose: users need "you got
+              better" BEFORE "here's what to do next". Emotional payoff
+              first, prescription second. */}
+          <LearnedThisCard />
 
           {/* ━━ HERO PRESCRIPTION (via TodayHero) ━━
               scaleIn (0.95 → 1) — the hero card lands with weight instead

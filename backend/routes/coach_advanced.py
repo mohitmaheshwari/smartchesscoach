@@ -308,6 +308,19 @@ async def get_home_intelligence_endpoint(user: User = Depends(get_current_user))
     return data
 
 
+@router.get("/coach/learned-this")
+async def get_learned_this_endpoint(user: User = Depends(get_current_user)):
+    """
+    "You Learned This" — the emotional-payoff surface for the home page.
+    Composes three sources of user-improvement signal (improvement_proof
+    patterns, motif_recognition deltas, freshly-mastered concepts) into
+    ONE prominent card. See services/learned_this_service.py for the
+    design rules (no new detection, silence when nothing to say).
+    """
+    from services.learned_this_service import compute_learned_this
+    return await compute_learned_this(db, user.user_id)
+
+
 # ==================== COACH STATE - SINGLE SOURCE OF TRUTH ====================
 
 @router.get("/coach/game-summary/{game_id}")
