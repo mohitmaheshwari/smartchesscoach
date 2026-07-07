@@ -710,17 +710,16 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     from reflect_service import get_games_needing_reflection
     games_needing_reflection = await get_games_needing_reflection(db, user_id, limit=5)
     
-    # NEW: Get specific mistake patterns from recent games
-    specific_patterns = await get_specific_mistake_patterns(db, user_id, games_needing_reflection)
-    
-    # NEW: Get progress trends (comparing last 5 games vs previous 5)
-    progress_trend = await get_progress_trend(db, user_id)
-    
-    # NEW: Get last session info for continuity
-    last_session_info = await get_last_session_info(db, user_id)
-    
-    # P1-3: Calculate win streak from recent coach sessions
-    win_streak_data = await _calculate_win_streak(db, user_id)
+    # PERF: these four are independent (each runs its own DB queries) — gather
+    # them concurrently instead of awaiting one after another. This was a large
+    # chunk of the ~12s home-intelligence latency (sequential round-trips).
+    import asyncio
+    specific_patterns, progress_trend, last_session_info, win_streak_data = await asyncio.gather(
+        get_specific_mistake_patterns(db, user_id, games_needing_reflection),   # recent mistake patterns
+        get_progress_trend(db, user_id),                                        # last 5 vs previous 5
+        get_last_session_info(db, user_id),                                     # continuity
+        _calculate_win_streak(db, user_id),                                     # win streak
+    )
     
     # If user has 3+ consecutive wins, suppress negative profiling
     mood_override = None
@@ -848,25 +847,22 @@ async def get_specific_mistake_patterns(db, user_id: str, recent_games: List[Dic
     # Fetch analyses for these games
     pattern_counts = defaultdict(int)
     
-    for game_id in game_ids:
-        analysis = await db.game_analyses.find_one(
-            {"game_id": game_id, "user_id": user_id},
-            {"stockfish_analysis.move_evaluations": 1, "_id": 0}
-        )
-        
-        if not analysis:
-            continue
-        
+    # PERF: one $in query instead of a find_one PER game — this was an N+1
+    # (~20 sequential round-trips, each pulling the 42KB move_evaluations array).
+    async for analysis in db.game_analyses.find(
+        {"game_id": {"$in": game_ids}, "user_id": user_id},
+        {"stockfish_analysis.move_evaluations": 1, "_id": 0}
+    ):
         evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
-        
+
         for move in evals:
             cp_loss = move.get("cp_loss", 0)
             if cp_loss < 100:  # Only look at significant mistakes
                 continue
-            
+
             threat = move.get("threat", "")
             pv = move.get("pv_after_played", [])
-            
+
             # Analyze the pattern
             pattern = classify_mistake_pattern(move, threat, pv)
             if pattern:
