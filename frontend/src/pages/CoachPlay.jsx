@@ -1575,22 +1575,17 @@ const CoachPlay = ({ user }) => {
           console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
           setV5Coaching(data.user_move_coaching);
 
-          // Lock board ONLY for mistakes/blunders — these deserve attention
-          const sev = data.user_move_coaching.severity;
-          if (sev === "mistake" || sev === "blunder") {
-            setCoachingLocked(true);
-            console.log("[V2-FLOW] Board locked — student made a", sev);
-          }
+          // Coaching is NON-BLOCKING (Mohit 2026-07-07): show the feedback card
+          // but NEVER freeze the board. The old lock-on-mistake + "I understand —
+          // let me play" gate interrupted the game. The card still renders; the
+          // player just keeps playing.
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
         }
 
-        // Lock board if coach played a teaching move (fork/hanging piece)
-        const coachIntent = data.coach_move_coaching?.v2_intent;
-        if (coachIntent === "fork_opportunity" || coachIntent === "hanging_piece_punishment") {
-          setCoachingLocked(true);
-          console.log("[V2-FLOW] Board locked — coach played teaching move:", coachIntent);
-        }
+        // Non-blocking: the coach's teaching-move explanation ("Coach played Bd7…")
+        // still shows, but we no longer freeze the board or force an "I see it —
+        // let me play" click. (Mohit 2026-07-07 — the popups stopped the game.)
 
         // Update CommentaryPanel with v2 coach explanation (replaces generic text)
         if (data.coach_move_coaching?.explanation) {
