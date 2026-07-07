@@ -485,7 +485,7 @@ const Dashboard = ({ user }) => {
           <div className="flex items-baseline justify-between mb-10 md:mb-14">
             <div>
               <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-                The Lab
+                Learn
               </p>
               <h1 className="font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
                 Your learning path

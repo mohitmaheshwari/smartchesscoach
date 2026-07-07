@@ -123,7 +123,7 @@ const Layout = ({ children, user }) => {
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Lab', href: '/lab', icon: FlaskConical },
+    { name: 'Learn', href: '/lab', icon: BookOpen },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
