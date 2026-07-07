@@ -788,43 +788,9 @@ const Dashboard = ({ user }) => {
             </motion.section>
           )}
 
-          {/* ━━━━━━━━━━ OPENING REPORT CARD ━━━━━━━━━━ */}
-          {/* Surfaces when the user has a losing track record in a
-              specific opening. CTA routes to the opening LESSON when we
-              have one (opening_key matches a curriculum entry); otherwise
-              falls back to the opening overview page so we never route
-              "Study this opening" to generic training puzzles. */}
-          {openingReport?.has_data && openingReport.problem_opening && (
-            <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-rose-500 dark:text-rose-300/80 font-semibold mb-5">
-                Opening report
-              </div>
-              <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
-                  {openingReport.problem_opening.headline}
-                </p>
-                <p className="text-[13px] text-muted-foreground mb-5">
-                  {openingReport.problem_opening.subline}
-                </p>
-                <button
-                  onClick={() => {
-                    const key = openingReport.problem_opening.opening_key;
-                    navigate(key ? `/openings/${key}` : `/openings`);
-                  }}
-                  className="h-10 px-5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
-                >
-                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Study this opening
-                </button>
-                {openingBenchmark?.has_data && (
-                  <p className="text-[11px] text-muted-foreground/80 mt-4 pt-4 border-t border-rose-500/10">
-                    {openingBenchmark.subline ||
-                      `Your opening-theory mistakes are above your rating band's average.`}
-                  </p>
-                )}
-              </div>
-            </motion.section>
-          )}
+          {/* Opening report moved OFF the Lab — it's a trend/stat (your losing
+              openings), which is the /openings page's job (and Progress's). The
+              Lab is the experiment bench, not a stats report. 2026-07-07. */}
 
           {/* ━━━━━━━━━━ OPENINGS THAT FIT YOU ━━━━━━━━━━ */}
           {/* Combines win rate + Mirror's weakness patterns + theory
@@ -956,24 +922,34 @@ const Dashboard = ({ user }) => {
               </div>
             </motion.section>
           )}
-          {/* ━━━━━━━━━━ ARCHIVE ━━━━━━━━━━ */}
+          {/* ━━━━━━━━━━ BROWSE YOUR GAMES ━━━━━━━━━━ */}
+          {/* The full 50-game archive moved OFF the Lab — the game LIST + review
+              queue is /review (ReviewQueue) and /games (AllGames). The Lab is the
+              experiment bench (drills + the one curated Coach's Pick above), not a
+              game log. This is just a way out to those pages. 2026-07-07. */}
           <section id="lab-archive">
-            <div className="flex items-baseline justify-between mb-5">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-                Archive
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/20 px-6 py-5">
+              <div className="text-[13px] text-muted-foreground">
+                Looking for a specific game? Your full history and review queue live in Review.
               </div>
               <button
-                onClick={() => navigate("/games")}
-                className="flex items-center gap-2 text-[12px] text-muted-foreground/70 hover:text-foreground transition-colors"
+                onClick={() => navigate("/review")}
+                className="shrink-0 flex items-center gap-2 text-[12.5px] text-foreground hover:text-violet-500 dark:hover:text-violet-300 font-medium transition-colors"
               >
                 <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
-                <span>All games</span>
+                <span>Go to Review</span>
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
             </div>
+          </section>
 
-            {/* Filters — the active underline morphs between pills via
-                layoutId (shared layout animation). */}
-            <div className="flex items-center gap-5 md:gap-6 mb-6 pb-4 border-b border-border/60 overflow-x-auto">
+          {/* Legacy archive table removed 2026-07-07 (moved to /review + /games).
+              Kept the filter/row logic out of the Lab — it was the biggest source
+              of noise. If a compact recent-games strip is wanted here later, build
+              it fresh rather than restoring the 50-row scroll. */}
+          {false && (
+            <section>
+              <div className="flex items-center gap-5 md:gap-6 mb-6 pb-4 border-b border-border/60 overflow-x-auto">
               {FILTERS.map((f) => (
                 <motion.button
                   key={f.key}
@@ -1100,7 +1076,8 @@ const Dashboard = ({ user }) => {
                 </button>
               </div>
             )}
-          </section>
+            </section>
+          )}
         </motion.div>
       </motion.div>
     </Layout>
