@@ -514,6 +514,10 @@ const LegacyChatMessages = ({
             ? "bg-amber-50 border border-amber-500/40 dark:bg-amber-950/30 dark:border-amber-500/40"
             : msg.type === "fast_good_affirm"
             ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "pre_move_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "pace_check"
+            ? "bg-yellow-50 border border-yellow-500/40 dark:bg-yellow-950/30 dark:border-yellow-500/40"
             : msg.type === "focus_coach"
             ? "bg-rose-50 border border-rose-400/40 dark:bg-rose-950/30 dark:border-rose-500/40"
             : msg.type === "coach"
@@ -542,6 +546,10 @@ const LegacyChatMessages = ({
             <span className="text-amber-700 text-base mt-0.5 flex-shrink-0">⏱</span>
           ) : msg.type === "fast_good_affirm" ? (
             <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "pre_move_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠</span>
+          ) : msg.type === "pace_check" ? (
+            <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">⏳</span>
           ) : msg.type === "focus_coach" ? (
             <span className="text-rose-700 text-base mt-0.5 flex-shrink-0">🎯</span>
           ) : msg.type === "coach" ? (

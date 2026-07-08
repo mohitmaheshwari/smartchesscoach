@@ -69,6 +69,34 @@ def _is_piece_safety_moment(fen_before: str, move_uci: str) -> bool:
         return False
 
 
+def position_is_critical(fen: str) -> bool:
+    """Return True if the position at `fen` is critical for the side to move.
+
+    Extracted 2026-07-08 for the pre-move nag (Mohit's Phase 2 follow-up).
+    Mirrors coach_play.live_behavior_extractor._is_critical_position — same
+    rules (king in check OR ≥2 of the moving side's pieces attacked). Kept
+    as a standalone module-level function so it can be called without
+    instantiating LiveBehaviorExtractor from the coach_play route.
+    """
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        if board.is_check():
+            return True
+        our_color = board.turn
+        attacked = 0
+        for sq in _c.SQUARES:
+            piece = board.piece_at(sq)
+            if piece and piece.color == our_color:
+                if board.is_attacked_by(not our_color, sq):
+                    attacked += 1
+                    if attacked >= 2:
+                        return True
+        return False
+    except Exception:
+        return False
+
+
 def _is_time_management_moment(is_critical: bool, time_spent_seconds: Optional[float]) -> bool:
     """A moment is 'time_management-relevant' if it's critical AND the user's
     time_spent is being tracked (regardless of whether they went fast)."""

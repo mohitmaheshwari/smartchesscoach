@@ -3049,6 +3049,48 @@ async def get_interactive_coaching(
             except Exception as _aff_e:
                 logger.warning(f"fast_good_affirm check failed: {_aff_e}")
 
+            # ── PHASE 3: MID-GAME PACE CHECK (2026-07-08) ──
+            # Once per game, after ≥8 user moves on a time_management focus
+            # session, look at the user's rolling avg time-per-move. If the
+            # user is CONSISTENTLY fast (<5s avg) across the last 6 moves,
+            # coach fires a pace check — the "hey, you're moving quick, watch
+            # the clock" surface that fills the gap between impulse-on-blunder
+            # (only fires on mistakes) and the goal card (never fires).
+            try:
+                _sf = session_doc.get("session_focus") or {}
+                if _sf.get("topic_key") == "time_management":
+                    _user_moves = [
+                        m for m in (session_doc.get("move_history") or [])
+                        if m.get("by") == "player" and m.get("time_spent") is not None
+                    ]
+                    # Include the just-played move whose time_spent we already have
+                    if last_user_move and last_user_move.get("time_spent") is not None:
+                        _user_moves = _user_moves + [last_user_move]
+                    if len(_user_moves) >= 8:
+                        _tail = _user_moves[-6:]
+                        _avg = sum(m.get("time_spent", 0) for m in _tail) / len(_tail)
+                        if _avg < 5.0:
+                            _already = await db.coach_messages.count_documents({
+                                "session_id": session_id, "type": "pace_check",
+                            })
+                            if _already == 0:
+                                _pace_msg = (
+                                    f"You're moving quick today — averaging {_avg:.1f}s "
+                                    f"across your last 6 moves. On the next critical position, "
+                                    f"take the clock. That's your time management focus this week."
+                                )
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "pace_check",
+                                    "message": _pace_msg,
+                                    "avg_time_last_6": round(_avg, 2),
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False,
+                                })
+                                logger.info(f"[pace_check] fired for {session_id} avg={_avg:.2f}s")
+            except Exception as _pc_e:
+                logger.warning(f"pace_check failed: {_pc_e}")
+
             # Determine game phase
             fullmove = board.fullmove_number
             phase_str = "opening" if fullmove <= 10 else ("middlegame" if fullmove <= 30 else "endgame")
@@ -7203,6 +7245,44 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             {"$set": update}
         )
         logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
+
+        # ── PHASE 3: PRE-MOVE NAG (2026-07-08, Mohit's Phase 2 follow-up) ──
+        # After the coach's move, the position handed BACK to the user may be
+        # critical (in check, ≥2 attacked pieces). When the user's active
+        # focus is time_management, fire a pre-move coach_message so the
+        # user sees a "take the clock" nudge BEFORE they move — not just an
+        # impulse_warning after they blunder fast. Restraint: at most once
+        # per session (checked via coach_messages count). Silent when focus
+        # isn't time_management OR the position isn't critical.
+        try:
+            _sess_after = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "session_focus": 1},
+            ) or {}
+            _sf_topic = (_sess_after.get("session_focus") or {}).get("topic_key")
+            if _sf_topic == "time_management":
+                from services.mission_scoreboard import position_is_critical
+                if position_is_critical(fen_after):
+                    _already = await db.coach_messages.count_documents({
+                        "session_id": session_id, "type": "pre_move_nag",
+                    })
+                    if _already == 0:
+                        _nag = (
+                            "⚠ Critical moment — take 10 seconds before you move. "
+                            "That's your time management focus this week."
+                        )
+                        await db.coach_messages.insert_one({
+                            "session_id": session_id,
+                            "type": "pre_move_nag",
+                            "message": _nag,
+                            "fen": fen_after,
+                            "after_coach_move": coach_move_san,
+                            "created_at": datetime.now(timezone.utc),
+                            "read": False,
+                        })
+                        logger.info(f"[pre_move_nag] fired for {session_id} after coach {coach_move_san}")
+        except Exception as _nag_e:
+            logger.warning(f"pre_move_nag check failed: {_nag_e}")
 
         # Phase 1.3 — adaptive coach-move teaching (Mohit 2026-05-18).
         # Surface V5 named-pattern teaching for the coach's move when
