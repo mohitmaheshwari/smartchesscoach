@@ -892,6 +892,7 @@ async def generate_move_coaching(
     player_motif_threads: Optional[Dict[str, Any]] = None,
     player_opening_threads: Optional[Dict[str, Any]] = None,
     player_concept_threads: Optional[Dict[str, Any]] = None,
+    player_identity: Optional[Dict[str, Any]] = None,
     session_conductor_threads_pulled: Optional[set] = None,
 ) -> V5Coaching:
     """
