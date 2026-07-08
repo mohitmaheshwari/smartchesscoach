@@ -231,12 +231,20 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "e4, e5, d4, d5 (whichever is legal and uncontested)",
         "gate_policy": "endorsement_preferred",
         "suppress": "once_per_game",
-        "cue_best":   "Take the centre with a pawn — central pawns open lines for every piece.",
-        "cue_top_n":  "e4 and d4 open lines for your pieces immediately.",
+        # COUNTERFACTUAL cues: the renderer glues the PLAYED san in front
+        # ("{played}. {cue}"). The old cue_best "Take the centre with a
+        # pawn" read as if the played wing move WAS central — Mohit
+        # fb_ca093ed82599: "a4. Take the centre with a pawn" on 2.a4.
+        # Fixed: phrase as "instead" (clearly counterfactual) and stay
+        # COLOR-NEUTRAL (no hardcoded d4/e4 — this principle also serves
+        # Black, where the centre pawns are d5/e5). Never name the played
+        # move as the centre move. 2026-07-08.
+        "cue_best":   "Push a pawn into the centre instead — a centre pawn opens lines for all your pieces.",
+        "cue_top_n":  "A centre pawn push opens lines for your pieces right away.",
         # Was "Engine sees a tactic this move..." — engine-meta language
         # banned per [[teaching-not-reading]]. 2026-05-17 sweep alongside
         # Parth's flagged cue_absent variants.
-        "cue_absent": "Tactics work here. As a default: e4 or d4 first — central pawns open lines for every piece.",
+        "cue_absent": "This works, but the habit is to put a pawn in the centre first — it opens lines for your pieces.",
         "visual_signature": {
             "highlight": ["d4", "e4", "d5", "e5"],
             "arrows": [],
