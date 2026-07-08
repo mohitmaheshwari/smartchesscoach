@@ -836,6 +836,13 @@ def _precedence_adjust(cognitive_gap, move):
     """
     if not cognitive_gap:
         return cognitive_gap
+
+    # Phase 1 (2026-07-08): Filter out low-confidence categories
+    # These have <50% accuracy and confuse players more than help
+    LOW_CONFIDENCE_GAPS = {"piece_activity", "calculation_depth", "pawn_structure"}
+    if cognitive_gap in LOW_CONFIDENCE_GAPS:
+        return None  # Don't surface to coaching
+
     try:
         import chess
         fen = move.get("fen_before") or ""
@@ -862,18 +869,19 @@ def _precedence_adjust(cognitive_gap, move):
             except Exception:
                 pass
 
-        # Rule B: king_safety on a queens-off endgame king move -> endgame_technique.
+        # Rule B: king_safety on a queens-off king move -> endgame_technique.
+        # More aggressive gate (Phase 1, 2026-07-08): ANY king move when queens are off
+        # is about king positioning/activity, not king safety. A king's primary job
+        # in a queens-off endgame is positioning, not defense.
         if cognitive_gap == "king_safety" and uci and len(uci) >= 4:
             queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
-            nonpawn = sum(
-                len(board.pieces(pt, c))
-                for pt in (chess.ROOK, chess.BISHOP, chess.KNIGHT)
-                for c in (chess.WHITE, chess.BLACK)
-            )
-            if queens == 0 and nonpawn <= 6 and not board.is_check():
-                pc = board.piece_at(chess.parse_square(uci[:2]))
-                if pc and pc.piece_type == chess.KING:
-                    return "endgame_technique"
+            if queens == 0:  # Aggressive: just check queens are off
+                try:
+                    pc = board.piece_at(chess.parse_square(uci[:2]))
+                    if pc and pc.piece_type == chess.KING:
+                        return "endgame_technique"
+                except Exception:
+                    pass
 
         return cognitive_gap
     except Exception:
