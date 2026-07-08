@@ -268,6 +268,16 @@ class MoveInputs:
     # confidence, and never for coach moves.
     player_identity: Optional[Dict[str, Any]] = None
 
+    # ─── Session focus — the ACTIVE GOAL FILTER (Phase 1, 2026-07-08).
+    # Mohit push: "if it's goal, coach should act on it." This is the
+    # focus_bridge output at session start ({topic_key, topic_label,
+    # dominant_subtype, days_into_focus, ...}). When a conductor thread
+    # fires with a kind that aligns with the focus topic, the door
+    # decorates the thread with a short "that's your [topic] focus this
+    # week" anchor — so the coach voice EXPLICITLY connects today's stated
+    # goal to what it just said. Once per session (goal_anchor restraint).
+    session_focus: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -4638,6 +4648,20 @@ def build_move_teaching_decision(
                     )
                 except Exception as _il_exc:
                     logger.info(f"[conductor] identity lead-in skipped: {_il_exc}")
+            # Goal anchor (Phase 1 goal-filter, 2026-07-08). When the fired
+            # thread's kind aligns with today's session focus topic, append a
+            # short anchor line so the goal card and the coaching voice read
+            # as one connected thing. Once per session.
+            if _conductor_thread and inputs.session_focus:
+                try:
+                    from services.coach_conductor import maybe_apply_goal_anchor
+                    _conductor_thread = maybe_apply_goal_anchor(
+                        _conductor_thread,
+                        inputs.session_focus,
+                        state.conductor_threads_pulled,
+                    )
+                except Exception as _ga_exc:
+                    logger.info(f"[conductor] goal anchor skipped: {_ga_exc}")
 
             if _conductor_thread and _conductor_thread.get("text"):
                 if _conductor_thread.get("prepend"):

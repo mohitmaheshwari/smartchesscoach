@@ -3123,6 +3123,25 @@ async def get_interactive_coaching(
                 except Exception as _id_exc:
                     logger.warning(f"[conductor] identity load failed: {_id_exc}")
                     _identity = None
+                # Session focus (Phase 1 goal-filter, 2026-07-08). The active
+                # weekly focus from focus_bridge — same reader the FocusCard
+                # + session_goal_service use, so the goal card and the coach
+                # voice speak with one anchor. When a thread fires whose kind
+                # aligns with focus.topic_key, the door appends a short
+                # "that's your [topic] focus this week" line.
+                _session_focus = None
+                try:
+                    _session_focus = session_doc.get("session_focus")
+                    if _session_focus is None:
+                        from services.focus_bridge import get_active_focus_bundle
+                        _session_focus = await get_active_focus_bundle(db, session_doc.get("user_id"))
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"session_focus": _session_focus}},
+                        )
+                except Exception as _sf_exc:
+                    logger.warning(f"[conductor] session_focus load failed: {_sf_exc}")
+                    _session_focus = None
 
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
@@ -3153,6 +3172,7 @@ async def get_interactive_coaching(
                 player_opening_threads=_opening_digest,
                 player_concept_threads=_concept_digest,
                 player_identity=_identity,
+                session_focus=_session_focus,
                 session_conductor_threads_pulled=_conductor_pulled,
             )
 

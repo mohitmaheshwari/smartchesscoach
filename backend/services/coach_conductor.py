@@ -462,6 +462,85 @@ def maybe_prepend_identity_lead_in(
     return thread
 
 
+# ── SESSION FOCUS: the goal anchor layer (Phase 1, docs/pwc_memory_wiring_scope.md).
+# Mohit 2026-07-08: "if it's goal, coach should act on it, somehow it should feel
+# like coach is taking this nicely, otherwise it's just there piece of crap."
+#
+# The session goal is only real if it FILTERS what the coach says. When a
+# conductor thread fires AND its kind aligns with the user's active focus,
+# decorate the text with a short anchor that names the focus — so the user
+# feels the coach connected today's goal to what it just said.
+#
+# Restraint: at most ONCE per session (key `goal_anchor`) — an anchor on every
+# fire becomes a repeated jingle. One well-placed anchor lands.
+# Silent when the focus is time_management (Phase 2 handles that separately
+# via time-per-move detection).
+_FOCUS_THREAD_ALIGNMENT: Dict[str, set] = {
+    # Hanging pieces + walk-into weak motifs = the piece-safety topic.
+    "piece_safety":       {"concept_miss", "walk_into"},
+    # King attacks + walked-into pins/skewers against your king.
+    "king_safety":        {"concept_miss", "walk_into"},
+    # Missing offensive tactics = motif miss or concept_miss on TAC_*.
+    "missed_tactic":      {"miss", "concept_miss"},
+    # Same shape, calculation flavor.
+    "tactical_oversight": {"miss", "concept_miss"},
+    "calculation_depth":  {"miss", "concept_miss"},
+    # MID_* concepts on activity.
+    "piece_activity":     {"concept_miss", "concept_win"},
+    # Opening recurrence thread aligns cleanly.
+    "opening_knowledge":  {"opening_recur", "opening_strength"},
+    # Endgame technique concept-detectors thread.
+    "endgame_technique":  {"endgame_missed", "endgame_applied"},
+    # Structural concepts (MID_PAWN_BREAK, etc.).
+    "pawn_structure":     {"concept_miss"},
+    # Time management is intentionally empty — Phase 2 wires it via a
+    # separate impulse-detection path (time-per-move + is_focus_moment).
+    "time_management":    set(),
+}
+
+
+def maybe_apply_goal_anchor(
+    thread: Optional[Dict[str, Any]],
+    session_focus: Optional[Dict[str, Any]],
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """Decorate the fired conductor thread with a goal-anchor phrase when the
+    thread kind aligns with today's session focus. Mutates thread["text"];
+    silent otherwise. Once per session via `goal_anchor` in threads_pulled.
+
+    Motivation: without this, the coach's chosen thread — even when it's a
+    real teaching moment — doesn't reference today's stated goal, and the
+    goal card feels passive. Anchoring the thread to the focus makes the
+    connection explicit ("this IS the thing we're working on") so the goal
+    surface feels connected to the play surface.
+    """
+    if not thread or not session_focus:
+        return thread
+    if "goal_anchor" in threads_pulled:
+        return thread
+    topic = session_focus.get("topic_key") or session_focus.get("focus_topic_key")
+    if not topic:
+        return thread
+    kind = thread.get("kind") or ""
+    aligned = _FOCUS_THREAD_ALIGNMENT.get(topic, set())
+    if kind not in aligned:
+        return thread
+    # Human label — prefer what focus_bridge already computed for the UI so
+    # the anchor and the goal card read as one voice.
+    label = (
+        session_focus.get("topic_label")
+        or topic.replace("_", " ")
+    )
+    # Append rather than prepend — the thread text already leads with the
+    # specific pattern ("There it is again — Loose piece"); the goal anchor
+    # is a footnote that connects that specific to today's frame.
+    anchor = f" That's your {label} focus this week."
+    thread["text"] = (thread.get("text") or "") + anchor
+    thread["goal_anchor_applied"] = True
+    threads_pulled.add("goal_anchor")
+    return thread
+
+
 def compute_opening_strength_thread(
     *,
     move_history_san: Optional[List[str]],
