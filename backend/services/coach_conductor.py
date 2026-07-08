@@ -106,6 +106,187 @@ def player_motif_threads(
     return {"defense": defense, "offense": offense}
 
 
+# ── CONCEPTS: user_concept_understanding as coaching memory ────────────
+# Item B of docs/pwc_memory_wiring_scope.md (2026-07-08). Mohit's ask:
+# "coach memory says I am good with finding forks... or if I am not good,
+# coach guides me there." The mastery gate already writes 17-33 named
+# concepts per active user with lifetime clean_rate. The conductor was
+# reading motif + opening but NOT this collection.
+#
+# Weakness gate: lifetime clean_rate < CONCEPT_WEAKNESS_FLOOR AND ≥
+# CONCEPT_MIN_OPPS (small samples = noise). Strength gate: clean_rate ≥
+# CONCEPT_STRENGTH_FLOOR (mirrors the "You Learned This" card's floor
+# so the two surfaces agree on what counts as owned).
+CONCEPT_WEAKNESS_FLOOR = 0.60   # < 60% clean = real weakness worth threading
+CONCEPT_STRENGTH_FLOOR = 0.60   # >= 60% clean = strength — silent (never nag)
+CONCEPT_MIN_OPPS = 20           # need at least 20 chances before the rate is trustable
+CONCEPT_WEAK_CAP = 6            # digest keeps top-N weaknesses by (1-rate)*log(opps)
+
+
+async def player_concept_threads(db, user_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Digest user_concept_understanding into the concepts that are THIS
+    player's teaching material.
+
+    Returns:
+      {
+        "weaknesses": {concept_id: {name, clean_rate_pct, opps, last_violation_at}},
+        "strengths":  {concept_id: {name, clean_rate_pct, opps}},
+      }
+
+    Weaknesses fire on user's mistake matching the concept ("you keep
+    slipping on this — [teach]"). Strengths are the silence-list — the
+    conductor never nags a strength, but a WIN thread can fire on the
+    good move that touches one ("that's the shape you own — good").
+
+    Same source of truth (services.caption_principles.PRINCIPLES) that
+    the InGameMasteryPanel + LearnedThisCard read for names — no new
+    naming layer, keeps single-source-of-truth. See
+    docs/pwc_memory_wiring_scope.md §5 Item B.
+    """
+    try:
+        from services.caption_principles import PRINCIPLES
+        _NAMES = {p["id"]: (p.get("name") or p["id"]) for p in PRINCIPLES}
+    except Exception:
+        _NAMES = {}
+
+    weaknesses: Dict[str, Dict[str, Any]] = {}
+    strengths: Dict[str, Dict[str, Any]] = {}
+    try:
+        async for row in db.user_concept_understanding.find(
+            {"user_id": user_id},
+            {"_id": 0, "concept_id": 1, "clean_games_total": 1,
+             "violations_total": 1, "last_violation_at": 1, "mastered_at": 1},
+        ):
+            cid = row.get("concept_id")
+            if not cid:
+                continue
+            clean = int(row.get("clean_games_total") or 0)
+            viol = int(row.get("violations_total") or 0)
+            opps = clean + viol
+            if opps < CONCEPT_MIN_OPPS:
+                continue
+            rate = clean / opps
+            entry = {
+                "name": _NAMES.get(cid) or cid,
+                "clean_rate_pct": round(rate * 100),
+                "opps": opps,
+                "last_violation_at": row.get("last_violation_at"),
+            }
+            if rate < CONCEPT_WEAKNESS_FLOOR:
+                weaknesses[cid] = entry
+            elif rate >= CONCEPT_STRENGTH_FLOOR:
+                strengths[cid] = entry
+    except Exception:
+        pass
+
+    # Cap weaknesses to the strongest signals — most-often-violated + biggest
+    # sample. Sort by (1 - rate) * opps so a 25%-clean-441-opp beats a
+    # 55%-clean-40-opp. Prevents the digest ballooning to 30+ concepts.
+    if len(weaknesses) > CONCEPT_WEAK_CAP:
+        ranked = sorted(
+            weaknesses.items(),
+            key=lambda kv: -(1.0 - kv[1]["clean_rate_pct"] / 100.0) * kv[1]["opps"],
+        )
+        weaknesses = dict(ranked[:CONCEPT_WEAK_CAP])
+
+    return {"weaknesses": weaknesses, "strengths": strengths}
+
+
+def compute_concept_thread(
+    *,
+    principle_id_used: Optional[str],
+    principles_violated: Optional[List[Dict[str, Any]]],
+    severity: Optional[str],
+    played_san: str,
+    is_user_move: bool,
+    threads: Optional[Dict[str, Any]],
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """Return a concept STATEMENT for THIS user move, or None.
+
+    Fires on:
+      MISS  — severity ∈ {mistake, blunder, serious} AND the move's
+              principle_id_used OR any violated principle matches a
+              weakness concept in the digest.
+      WIN   — severity ∈ {good, best, brilliant} AND the played move's
+              principle_id_used matches a weakness concept (the player
+              is finally getting it — catch the win).
+
+    Strengths are silent — the conductor never nags a mastered pattern.
+    Restraint: one thread per concept per game (keyed `concept:{cid}`).
+
+    All text is a STATEMENT (never "?"), rating-agnostic (caption_facts
+    already produced principle_id_used, which is the same signal the
+    mastery gate uses — so the concept genuinely applies to this move).
+    """
+    if not is_user_move or not played_san or not threads:
+        return None
+    weaknesses = (threads.get("weaknesses") or {})
+    if not weaknesses:
+        return None
+
+    # Collect all concept IDs the caption facts said this move touches.
+    touched: List[str] = []
+    if principle_id_used:
+        touched.append(principle_id_used)
+    for v in (principles_violated or []):
+        if isinstance(v, dict):
+            vid = v.get("principle_id")
+            if vid and vid not in touched:
+                touched.append(vid)
+
+    if not touched:
+        return None
+
+    # Intersect with weaknesses in a stable order (first-touched wins so
+    # the primary caption_facts signal takes priority over the accessory
+    # violated list).
+    matched = None
+    for cid in touched:
+        if cid in weaknesses:
+            matched = cid
+            break
+    if matched is None:
+        return None
+
+    key = f"concept:{matched}"
+    if key in threads_pulled:
+        return None
+
+    info = weaknesses[matched]
+    name = info["name"]
+
+    sev = (severity or "").lower()
+    # Include 'inaccuracy' — a ~200cp move that touches a weakness concept
+    # IS a teaching moment even if the eval-adjusted tier softens it.
+    # Verified 2026-07-08 against Mohit's real game where a TAC_HANGING_PIECE
+    # move at cp_loss=206 came out severity_practical='inaccuracy' but was
+    # displayed as "Nd4 is a mistake" in the caption. Restraint (one thread
+    # per concept per game) keeps this from over-firing.
+    MISS_TIERS = {"inaccuracy", "mistake", "blunder", "serious"}
+    WIN_TIERS = {"good", "best", "brilliant", "excellent"}
+
+    if sev in MISS_TIERS:
+        threads_pulled.add(key)
+        return {
+            "kind": "concept_miss", "motif": matched, "side": "concept",
+            "text": (
+                f"There it is again — {name}. "
+                f"This is the pattern you've been slipping on. Slow down here."
+            ),
+        }
+    if sev in WIN_TIERS:
+        threads_pulled.add(key)
+        return {
+            "kind": "concept_win", "motif": matched, "side": "concept",
+            "text": (
+                f"{played_san} — that's {name}. "
+                f"The pattern you've been working on — good."
+            ),
+        }
+    return None
+
+
 # Known-endgame technique recognition — STATEMENTS (no quiz), fired when the
 # existing concept detectors confirm a textbook endgame. "missed" = teach the
 # technique; "applied" = name + credit it. docs/pwc_coach_conductor_scope.md.

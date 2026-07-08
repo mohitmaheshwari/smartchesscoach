@@ -770,6 +770,7 @@ def _central_narrative_for_move(
     session_fired_state_keys: Optional[set] = None,
     player_motif_threads: Optional[Dict[str, Any]] = None,
     player_opening_threads: Optional[Dict[str, Any]] = None,
+    player_concept_threads: Optional[Dict[str, Any]] = None,
     session_conductor_threads_pulled: Optional[set] = None,
 ) -> "tuple[str, Optional[str]]":
     """Return (caption, severity_practical) from the central caption
@@ -834,6 +835,7 @@ def _central_narrative_for_move(
             pv_after_best=list(pv_after_best or []),
             player_motif_threads=player_motif_threads,
             player_opening_threads=player_opening_threads,
+            player_concept_threads=player_concept_threads,
             **_opp_kwargs,
         )
         state = CrossMoveState(
@@ -885,6 +887,7 @@ async def generate_move_coaching(
     session_fired_state_keys: Optional[set] = None,
     player_motif_threads: Optional[Dict[str, Any]] = None,
     player_opening_threads: Optional[Dict[str, Any]] = None,
+    player_concept_threads: Optional[Dict[str, Any]] = None,
     session_conductor_threads_pulled: Optional[set] = None,
 ) -> V5Coaching:
     """
@@ -951,6 +954,7 @@ async def generate_move_coaching(
             session_fired_state_keys=session_fired_state_keys,
             player_motif_threads=player_motif_threads,
             player_opening_threads=player_opening_threads,
+            player_concept_threads=player_concept_threads,
             session_conductor_threads_pulled=session_conductor_threads_pulled,
         )
         # NOTE: we deliberately do NOT overwrite `severity` with the central

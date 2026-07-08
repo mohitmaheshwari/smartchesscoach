@@ -242,6 +242,16 @@ class MoveInputs:
     # recurrence framing to the caption. None for review / coach moves.
     player_opening_threads: Optional[Dict[str, Any]] = None
 
+    # ─── Coach Conductor: the player's CONCEPT strengths + weaknesses from
+    # user_concept_understanding. See docs/pwc_memory_wiring_scope.md §5 Item B,
+    # shipped 2026-07-08. Shape: {weaknesses: {cid: {name, clean_rate_pct, ...}},
+    # strengths: {cid: ...}}. When the played move's principle_id_used matches a
+    # weakness concept AND severity is mistake+, the door fires a STATEMENT
+    # thread: "There it is again — [concept name]. This is the pattern you've
+    # been slipping on. Slow down here." Silent on strengths (mastered concepts
+    # never nagged). None for review / coach moves.
+    player_concept_threads: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -4516,7 +4526,11 @@ def build_move_teaching_decision(
     # most useful thing". All gating (relevance, restraint, win eval-gain, engine-
     # truth) lives in coach_conductor; here we let it override + stamp the marker.
     _conductor_thread = None
-    if inputs.mover_is_user and (inputs.player_motif_threads or inputs.player_opening_threads):
+    if inputs.mover_is_user and (
+        inputs.player_motif_threads
+        or inputs.player_opening_threads
+        or inputs.player_concept_threads
+    ):
         try:
             if inputs.player_motif_threads:
                 from services.coach_conductor import compute_motif_thread
@@ -4533,6 +4547,23 @@ def build_move_teaching_decision(
                     eval_before_cp=inputs.eval_before_cp,
                     eval_after_cp=inputs.eval_after_cp,
                     mover_is_white=inputs.mover_is_white,
+                )
+            # Concept memory — user_concept_understanding weaknesses (2026-07-08,
+            # docs/pwc_memory_wiring_scope.md §5 Item B). Fires when the played
+            # move's principle_id_used matches a weakness concept in the digest.
+            # Priority sits between motif (specific pattern) and endgame
+            # (position-type): concept is more general than motif but more
+            # user-personal than endgame technique.
+            if _conductor_thread is None and inputs.player_concept_threads:
+                from services.coach_conductor import compute_concept_thread
+                _conductor_thread = compute_concept_thread(
+                    principle_id_used=caption_facts.get("principle_id_used"),
+                    principles_violated=caption_facts.get("caption_facts_principles_violated"),
+                    severity=caption_facts.get("severity_practical") or caption_facts.get("severity"),
+                    played_san=inputs.played_san,
+                    is_user_move=True,
+                    threads=inputs.player_concept_threads,
+                    threads_pulled=state.conductor_threads_pulled,
                 )
             # Endgame technique recognition — a position-based STATEMENT, only when
             # no motif thread already won. Technique-verified by the concept detectors.

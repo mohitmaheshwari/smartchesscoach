@@ -3090,6 +3090,23 @@ async def get_interactive_coaching(
                 except Exception as _od_exc:
                     logger.warning(f"[conductor] opening digest load failed: {_od_exc}")
                     _opening_digest = None
+                # Concept-mastery digest — user_concept_understanding weaknesses +
+                # strengths (docs/pwc_memory_wiring_scope.md §5 Item B, shipped
+                # 2026-07-08). Cached on the session; the underlying collection is
+                # updated per game analysis so no per-session backfill needed.
+                _concept_digest = None
+                try:
+                    _concept_digest = session_doc.get("player_concept_threads")
+                    if _concept_digest is None:
+                        from services.coach_conductor import player_concept_threads as _pct
+                        _concept_digest = await _pct(db, session_doc.get("user_id"))
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"player_concept_threads": _concept_digest}},
+                        )
+                except Exception as _cc_exc:
+                    logger.warning(f"[conductor] concept digest load failed: {_cc_exc}")
+                    _concept_digest = None
 
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
@@ -3118,6 +3135,7 @@ async def get_interactive_coaching(
                 move_evaluations=session_doc.get("move_evaluations") or None,
                 player_motif_threads=_conductor_digest,
                 player_opening_threads=_opening_digest,
+                player_concept_threads=_concept_digest,
                 session_conductor_threads_pulled=_conductor_pulled,
             )
 
