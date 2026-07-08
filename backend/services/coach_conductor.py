@@ -381,6 +381,145 @@ def player_opening_threads(opening_profile: Optional[Dict[str, Any]]) -> Dict[st
     return out
 
 
+# ── IDENTITY: prepend a short identity-cued lead-in to the first-fired
+# conductor thread of the session (Item C, docs/pwc_memory_wiring_scope.md).
+# Never invents; only fires when player_identity_engine has HIGH confidence
+# AND the identity's main_leak / phase_vulnerability aligns with the fired
+# thread's kind. Silent otherwise (matches the TRUTH law: no personal claim
+# without evidence). At most once per session (keyed `identity` in
+# threads_pulled) so it stays a moment, not a signature.
+
+
+async def player_identity_lead_in(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """Load the identity engine's narrative for THIS user. Returns
+    {level, main_leak_label, phase_label, style_label} or None if the
+    identity isn't confident enough for a lead-in.
+
+    Confidence gate: only 'high' / 'definitive' — 'medium' identities
+    are honest ambiguity; a lead-in over medium confidence would be a
+    personal claim without evidence.
+    """
+    try:
+        from player_identity_engine import compute_player_identity
+        r = await compute_player_identity(db, user_id) or {}
+        confidence = (r.get("confidence") or {}).get("level")
+        if confidence not in ("high", "definitive"):
+            return None
+        expanded = r.get("expanded") or {}
+        return {
+            "level": confidence,
+            "main_leak_label": (expanded.get("main_leak") or {}).get("label"),
+            "phase_label": (expanded.get("phase_vulnerability") or {}).get("label"),
+            "style_label": (expanded.get("playing_style") or {}).get("label"),
+        }
+    except Exception:
+        return None
+
+
+# Map a conductor-thread kind to a matching identity dimension. When the
+# fired thread aligns with the user's known main_leak / phase, we get a
+# real "the coach knows me" moment instead of a generic prepend.
+_IDENTITY_LEAD_IN_MAP = {
+    # concept-miss = a mistake matching a weakness concept. Almost always
+    # aligns with "main_leak" — the recurring shape of the user's mistakes.
+    "concept_miss": "main_leak_label",
+    # motif walk-into = defense-side. Same alignment.
+    "walk_into": "main_leak_label",
+    # motif miss / opening recur = both are recurring blind spots.
+    "miss": "main_leak_label",
+    "opening_recur": "main_leak_label",
+    # endgame missed = phase vulnerability if they slip in endgames.
+    "endgame_missed": "phase_label",
+}
+
+
+def maybe_prepend_identity_lead_in(
+    thread: Optional[Dict[str, Any]],
+    identity: Optional[Dict[str, Any]],
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """When a conductor thread fires, optionally decorate its text with a
+    short identity phrase — but only once per session (restraint).
+
+    Mutates thread["text"] in place; returns the (possibly-decorated)
+    thread. Silent when the identity isn't confident, doesn't align with
+    the fired kind, or the identity lead-in was already spent."""
+    if not thread or not identity or "identity" in threads_pulled:
+        return thread
+    kind = thread.get("kind") or ""
+    dim_key = _IDENTITY_LEAD_IN_MAP.get(kind)
+    if not dim_key:
+        return thread
+    label = identity.get(dim_key)
+    if not label:
+        return thread
+    # Short, one-sentence lead-in. Keep it human, not "your identity is X".
+    # The label already reads as a narrative phrase from the engine.
+    lead = f"Careful — {label.lower()}. "
+    thread["text"] = lead + (thread.get("text") or "")
+    threads_pulled.add("identity")
+    thread["identity_lead_in_applied"] = True
+    return thread
+
+
+def compute_opening_strength_thread(
+    *,
+    move_history_san: Optional[List[str]],
+    played_san: str,
+    practical_tier: Optional[str],
+    user_is_white: bool,
+    strong_openings: Optional[Set[str]],
+    threads_pulled: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """Item E of docs/pwc_memory_wiring_scope.md. The mirror of
+    compute_opening_thread — catches WINS in familiar-strong shapes.
+
+    Fires when ALL hold:
+      - User is currently in a canonical opening (opening_lookup gives us the family)
+      - That opening is in the user's `strong_openings` set (≥5 games,
+        ≥55% win rate — see services/player_performance.get_strong_openings)
+      - The move is sound (practical_tier ∈ {good, best, excellent, brilliant})
+        so we don't celebrate a strong opening on a blundered move
+      - Restraint: once per opening family per game (same key as the
+        mistake-side thread so mutually-exclusive within a game)
+
+    Text is a plain STATEMENT — never "?", never a stat recital. Just
+    the "trust it, this is your shape" nudge that lets the coach feel
+    like it knows what the user owns.
+    """
+    if not played_san or not move_history_san or not strong_openings:
+        return None
+    if (practical_tier or "").lower() not in {"good", "best", "excellent", "brilliant"}:
+        return None
+    try:
+        from services.opening_lookup import match_opening_for_mover
+        from services.user_opening_profile import _normalize_opening_family
+    except Exception:
+        return None
+    user_color = "white" if user_is_white else "black"
+    try:
+        current = match_opening_for_mover(list(move_history_san), user_color)
+    except Exception:
+        current = None
+    if not current or not current.get("name"):
+        return None
+    family = _normalize_opening_family(current.get("name"))
+    # strong_openings uses the raw opening name string; match on either
+    # the family or the raw name if either is in the strong set.
+    raw_name = (current.get("name") or "").lower()
+    if family not in strong_openings and raw_name not in strong_openings:
+        return None
+    key = f"opening:{family}"
+    if key in threads_pulled:
+        return None
+    threads_pulled.add(key)
+    display = family or (current.get("name") or "this opening")
+    return {
+        "kind": "opening_strength", "motif": family, "side": "opening",
+        "text": f"You own the {display} — this is your weapon. Trust it.",
+    }
+
+
 def compute_opening_thread(
     *,
     move_history_san: Optional[List[str]],

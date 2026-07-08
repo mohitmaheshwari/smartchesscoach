@@ -252,6 +252,22 @@ class MoveInputs:
     # never nagged). None for review / coach moves.
     player_concept_threads: Optional[Dict[str, Any]] = None
 
+    # ─── Coach Conductor: user's STRONG openings (2026-07-08, Item E).
+    # Set of normalized opening names (from services.player_performance.
+    # get_strong_openings — ≥5 games, ≥55% win rate). When the player is
+    # currently in one of these AND plays a sound move, fires a strength
+    # thread: "You own the {opening} — this is your weapon. Trust it."
+    # Complements player_opening_threads (which is the MISTAKE side).
+    strong_openings: Optional[Set[str]] = None
+
+    # ─── Coach Conductor: identity engine narrative (Item C).
+    # {level, main_leak_label, phase_label, style_label} from
+    # coach_conductor.player_identity_lead_in — high-confidence only.
+    # When any conductor thread fires, decorated with a short
+    # identity-cued lead-in ONCE per session. Silent for medium/low
+    # confidence, and never for coach moves.
+    player_identity: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -4590,6 +4606,39 @@ def build_move_teaching_decision(
                     threads=inputs.player_opening_threads,
                     threads_pulled=state.conductor_threads_pulled,
                 )
+            # Opening STRENGTH — the mirror of the mistake thread (Item E,
+            # docs/pwc_memory_wiring_scope.md). Fires when the user plays a
+            # sound move in an opening they own (≥5 games, ≥55% win rate).
+            # Same threads_pulled key as the mistake thread so mutually
+            # exclusive within a game — a player who's ALSO recurring-
+            # mistake-prone in that opening gets the mistake thread first;
+            # a player playing cleanly gets the strength callback.
+            if _conductor_thread is None and inputs.strong_openings:
+                from services.coach_conductor import compute_opening_strength_thread
+                _conductor_thread = compute_opening_strength_thread(
+                    move_history_san=inputs.move_history_san,
+                    played_san=inputs.played_san,
+                    practical_tier=caption_facts.get("severity_practical"),
+                    user_is_white=inputs.mover_is_white,
+                    strong_openings=inputs.strong_openings,
+                    threads_pulled=state.conductor_threads_pulled,
+                )
+            # Identity lead-in (Item C, docs/pwc_memory_wiring_scope.md).
+            # Decorate the first-fired conductor thread of the session with a
+            # short identity-cued phrase if the fired kind aligns with the
+            # user's known main_leak or phase vulnerability. Silent otherwise,
+            # once-per-session restraint.
+            if _conductor_thread and inputs.player_identity:
+                try:
+                    from services.coach_conductor import maybe_prepend_identity_lead_in
+                    _conductor_thread = maybe_prepend_identity_lead_in(
+                        _conductor_thread,
+                        inputs.player_identity,
+                        state.conductor_threads_pulled,
+                    )
+                except Exception as _il_exc:
+                    logger.info(f"[conductor] identity lead-in skipped: {_il_exc}")
+
             if _conductor_thread and _conductor_thread.get("text"):
                 if _conductor_thread.get("prepend"):
                     # Keep the underlying engine why + better move; lead with the

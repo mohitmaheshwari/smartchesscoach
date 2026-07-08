@@ -197,10 +197,30 @@ async def analyze_postgame(
     # ========== STEP 4: GENERATE MEMORY INSIGHTS ==========
     # This is what makes the coach feel like it KNOWS you
     memory_insights = _generate_memory_insights(
-        mistakes, habit_violations, habits_improved, 
+        mistakes, habit_violations, habits_improved,
         known_weaknesses, games_together, avg_accuracy, avg_blunders,
         perf_rating.estimated_rating, user_rating
     )
+
+    # ========== STEP 4b: CONDUCTOR THREAD RECAP ==========
+    # docs/pwc_memory_wiring_scope.md §5 Item F, 2026-07-08. What the
+    # coach ACTUALLY said during play is the memory-of-this-session —
+    # not just the aggregate "you keep doing X" signal. Read the set of
+    # conductor threads that fired this game and cite them in the recap
+    # so the post-game story reflects what got taught, not just what
+    # went wrong.
+    try:
+        session_doc = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "conductor_threads_pulled": 1,
+             "player_concept_threads": 1, "player_motif_threads": 1,
+             "player_opening_threads": 1},
+        ) or {}
+        threads_recap = _conductor_thread_recap(session_doc)
+        if threads_recap:
+            memory_insights.extend(threads_recap)
+    except Exception as _tr_exc:
+        logger.info(f"conductor-thread recap failed: {_tr_exc}")
     
     # ========== STEP 5: GENERATE RECOMMENDATIONS ==========
     priority_focus, training_suggestions = _generate_recommendations(
@@ -617,6 +637,103 @@ def _generate_memory_insights(
         ))
     
     return insights[:5]  # Max 5 insights
+
+
+def _conductor_thread_recap(session_doc: Dict) -> List[MemoryInsight]:
+    """Turn the session's conductor_threads_pulled set into MemoryInsights
+    for the post-game recap. docs/pwc_memory_wiring_scope.md §5 Item F.
+
+    Each thread key follows the conductor's convention:
+      concept:{concept_id}   → e.g. "concept:TAC_HANGING_PIECE"
+      motif:{motif} / offense:{motif} / defense:{motif} → the fork/pin/skewer
+        family (compute_motif_thread uses "offense:" and "defense:" prefixes)
+      opening:{family}       → recurring opening mistake
+      endgame:{skill}        → endgame technique
+
+    Silent when nothing fired — a game where the coach had nothing
+    personal to say is a real signal (matches the RESTRAINT law from
+    docs/pwc_coach_conductor_scope.md).
+    """
+    pulled = session_doc.get("conductor_threads_pulled") or []
+    if not pulled:
+        return []
+
+    # Concept-id → human name via the same catalog the live conductor uses.
+    concept_names: Dict[str, str] = {}
+    try:
+        from services.caption_principles import PRINCIPLES
+        concept_names = {p["id"]: (p.get("name") or p["id"]) for p in PRINCIPLES}
+    except Exception:
+        pass
+
+    _MOTIF_LABEL = {
+        "fork": "the fork pattern",
+        "pin": "the pin pattern",
+        "skewer": "the skewer pattern",
+        "discovered": "the discovered-attack pattern",
+        "loose": "the loose-piece pattern",
+    }
+    _ENDGAME_LABEL = {
+        "endgame_lucena": "the Lucena position",
+        "endgame_philidor": "the Philidor defense",
+        "endgame_opposition": "the opposition",
+        "endgame_rule_of_square": "the rule of the square",
+    }
+
+    out: List[MemoryInsight] = []
+    seen: set = set()
+    for key in pulled:
+        if not isinstance(key, str) or ":" not in key:
+            continue
+        kind, tag = key.split(":", 1)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        if kind == "concept":
+            name = concept_names.get(tag) or tag.replace("_", " ").title()
+            msg = f"Coach flagged {name} today — the pattern you've been slipping on. Watch for it next game."
+            out.append(MemoryInsight(
+                insight_type="thread_recap_concept",
+                message=msg,
+                pattern_name=name,
+            ))
+        elif kind in ("offense", "defense") or kind == "motif":
+            motif = tag
+            label = _MOTIF_LABEL.get(motif, motif)
+            if kind == "defense":
+                msg = f"Coach caught {label} against you today — the shape you keep walking into."
+            elif kind == "offense":
+                # Offense side can be a win or a miss depending on the fired thread,
+                # but the post-game only sees the KEY not the kind. Neutral phrasing.
+                msg = f"Coach worked on {label} with you today."
+            else:
+                msg = f"Coach worked on {label} today."
+            out.append(MemoryInsight(
+                insight_type="thread_recap_motif",
+                message=msg,
+                pattern_name=motif,
+            ))
+        elif kind == "opening":
+            fam = tag.replace("_", " ").title()
+            msg = f"Coach caught your recurring {fam} pattern today — the one you keep hitting."
+            out.append(MemoryInsight(
+                insight_type="thread_recap_opening",
+                message=msg,
+                pattern_name=fam,
+            ))
+        elif kind == "endgame":
+            label = _ENDGAME_LABEL.get(tag, tag.replace("_", " ").title())
+            msg = f"Coach walked you through {label} today."
+            out.append(MemoryInsight(
+                insight_type="thread_recap_endgame",
+                message=msg,
+                pattern_name=tag,
+            ))
+
+    # Cap to 3 so the recap doesn't drown the other insights the caller
+    # already assembled.
+    return out[:3]
 
 
 async def _check_habits_with_memory(

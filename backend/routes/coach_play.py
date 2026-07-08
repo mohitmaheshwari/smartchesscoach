@@ -3107,6 +3107,22 @@ async def get_interactive_coaching(
                 except Exception as _cc_exc:
                     logger.warning(f"[conductor] concept digest load failed: {_cc_exc}")
                     _concept_digest = None
+                # Identity lead-in (Item C, docs/pwc_memory_wiring_scope.md).
+                # High-confidence identity narrative from the identity engine;
+                # decorates the first-fired conductor thread of the session.
+                _identity = None
+                try:
+                    _identity = session_doc.get("player_identity")
+                    if _identity is None:
+                        from services.coach_conductor import player_identity_lead_in as _pil
+                        _identity = await _pil(db, session_doc.get("user_id"))
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"player_identity": _identity}},
+                        )
+                except Exception as _id_exc:
+                    logger.warning(f"[conductor] identity load failed: {_id_exc}")
+                    _identity = None
 
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
@@ -3136,6 +3152,7 @@ async def get_interactive_coaching(
                 player_motif_threads=_conductor_digest,
                 player_opening_threads=_opening_digest,
                 player_concept_threads=_concept_digest,
+                player_identity=_identity,
                 session_conductor_threads_pulled=_conductor_pulled,
             )
 
