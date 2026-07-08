@@ -85,6 +85,11 @@ services:
       # beatability preserved (fires on ~10% of moves). Adds one full-strength depth-14
       # analyse per coach move (~watch coach-move latency). Kill-switch: set false.
       - PWC_COACH_BLUNDER_GUARD=true
+      # TEACHING OPPONENT (2026-07-08, docs/teaching_opponent_scope.md): the mirror
+      # of the blunder guard. If the student hangs a piece, the weakened engine has
+      # to grab it — one-move SEE-verified, ~one calc per move. Without this, the
+      # student's mistakes go unpunished and the lesson never lands.
+      - PWC_TEACHING_OPPONENT=true
       # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.

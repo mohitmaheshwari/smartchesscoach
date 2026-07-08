@@ -22,6 +22,32 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      # ─── PWC feature flags ─────────────────────────────────────────
+      # 2026-07-08 — Mohit spotted the coach hanging queens in real
+      # sessions (session ceda181d: coach played Qxf6 walking into Bh4
+      # x-ray, -539cp when gxf6 was -176cp). The guards for this are
+      # already coded + wired + tested behind flags in coach_opponent.py
+      # — they just never reached prod because docker-compose.yml sets
+      # them on the `backend` service which prod DISABLES in favor of
+      # this combined `app` service. Fixed here.
+      #
+      # PWC_COACH_BLUNDER_GUARD (docs/coach_blunder_guard_scope.md):
+      #   Vetoes coach moves that hang >=300cp of material to a single
+      #   capture, or lose >=500cp on eval, substitutes a sound
+      #   candidate. Preserves the coach's calibrated beatable mistakes.
+      # PWC_TEACHING_OPPONENT (docs/teaching_opponent_scope.md):
+      #   Punish-override — if the student hangs a piece, the weak
+      #   engine has to grab it (SEE-verified, one-move only). Makes
+      #   the learning consequence land.
+      # PWC central pipeline + conductor + every-move-teaches — these
+      # were live in the local backend compose, kept parity here.
+      - PWC_COACH_BLUNDER_GUARD=true
+      - PWC_TEACHING_OPPONENT=true
+      - PWC_USE_CENTRAL_CAPTION_PIPELINE=true
+      - PWC_CENTRAL_CAPTION_TELEMETRY=true
+      - PWC_COACH_CONDUCTOR=true
+      - PWC_EVERY_MOVE_TEACHES=true
+      - MOTIF_RECOGNITION_CARD=true
     depends_on:
       mongodb:
         condition: service_healthy
