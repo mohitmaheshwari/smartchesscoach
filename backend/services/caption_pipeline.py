@@ -1527,6 +1527,19 @@ def inject_coach_move_facts(
     caption_facts["student_can_exploit"] = student_opportunities
 
 
+# ── Verified-caption rollout flag ───────────────────────────────────
+# docs/caption_production_rollout_scope.md. When true,
+# inject_good_move_reason_facts may emit the board-verified "attacks"
+# reason for near-best QUIET moves that create a real new threat on an
+# enemy piece (the "a4 could be hitting a piece on b5" gap). Purely
+# additive — only fires where the good-move cascade would otherwise be
+# silent, so it changes nothing else. Default OFF; flip server-side after
+# the measured coverage / zero-false-claims report. 2026-07-08.
+_VERIFIED_CAPTIONS = os.getenv("VERIFIED_CAPTIONS", "false").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+
 def inject_good_move_reason_facts(
     caption_facts: Dict[str, Any],
     *,
@@ -1843,6 +1856,43 @@ def inject_good_move_reason_facts(
             except Exception:
                 caption_facts["good_move_reason"] = "develop"
             return
+
+    # 12) ATTACKS — a near-best QUIET move (non-capture) that creates a NEW
+    #     attack on an enemy piece worth pressuring (knight or better). Fills
+    #     the gap the develop cascade misses: pawn pushes (a4 hitting a bishop
+    #     on b5), rook/queen shifts, any-phase threats. Reaches here only when
+    #     no earlier branch fired (purely additive — converts a silent good
+    #     move into a teachable one). VERIFIED by construction, then re-checked
+    #     (belt-and-suspenders): only set when board_after literally attacks an
+    #     enemy piece on that square. Behind VERIFIED_CAPTIONS (default off) for
+    #     measured rollout. 2026-07-08 — docs/caption_production_rollout_scope.md
+    if _VERIFIED_CAPTIONS and not caption_facts.get("good_move_reason"):
+        try:
+            if not board_before.is_capture(move):
+                _post2 = board_before.copy()
+                _post2.push(move)
+                _enemy2 = not mover_color
+                _pval2 = {chess.QUEEN: 9, chess.ROOK: 5, chess.BISHOP: 3, chess.KNIGHT: 3}
+                _before_atk = set(board_before.attacks(move.from_square))
+                _best2 = None
+                for _s in _post2.attacks(move.to_square):
+                    _p = _post2.piece_at(_s)
+                    if (_p and _p.color == _enemy2 and _p.piece_type in _pval2
+                            and _s not in _before_atk):
+                        if (_best2 is None
+                                or _pval2[_p.piece_type] > _pval2[_post2.piece_at(_best2).piece_type]):
+                            _best2 = _s
+                if _best2 is not None:
+                    _pp = _post2.piece_at(_best2)
+                    # Independent re-verify of the exact claim we will render.
+                    if (_pp and _pp.color == _enemy2
+                            and _post2.is_attacked_by(mover_color, _best2)):
+                        caption_facts["good_move_reason"] = "attacks"
+                        caption_facts["good_move_attacks_piece"] = chess.piece_name(_pp.piece_type)
+                        caption_facts["good_move_attacks_square"] = chess.square_name(_best2)
+        except Exception:
+            pass
+    return
 
 
 def inject_socratic_user_facts(

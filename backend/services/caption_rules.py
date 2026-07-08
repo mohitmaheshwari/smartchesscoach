@@ -774,6 +774,10 @@ def _r15_render(f):
         # develop_eyes category — the enemy piece + square the developed minor aims at.
         "good_move_eyes_piece": f.get("good_move_eyes_piece"),
         "good_move_eyes_square": f.get("good_move_eyes_square"),
+        # attacks category (VERIFIED_CAPTIONS) — quiet near-best move that
+        # makes a new threat on an enemy piece (e.g. a4 hitting a bishop on b5).
+        "good_move_attacks_piece": f.get("good_move_attacks_piece"),
+        "good_move_attacks_square": f.get("good_move_attacks_square"),
         # fb_bdff53b7e4d9 — bishop-pair-trade-offer category.
         "good_move_trade_target_color": f.get("good_move_trade_target_color"),
         # fb_b250249f7724 / fb_fa464cae3b84 — controls-key-squares category.

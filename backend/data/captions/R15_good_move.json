@@ -10,7 +10,9 @@
     "good_move_captured_square": "square of the capture, when good_move_reason == capture",
     "good_move_trade_target_color": "'light' | 'dark' — square colour of the enemy bishop the trade offer targets. Set with bishop_pair_trade.",
     "good_move_controlled_squares": "Comma-separated central/semi-central squares newly attacked by the move (e.g. 'b5, d5' for c6). Set with controls_key_squares.",
-    "good_move_supported_pawn_square": "Square of the central pawn the move newly defends (e.g. 'e5'). Set with supports_central_pawn."
+    "good_move_supported_pawn_square": "Square of the central pawn the move newly defends (e.g. 'e5'). Set with supports_central_pawn.",
+    "good_move_attacks_piece": "piece-name of the enemy piece the quiet move newly threatens. Set with good_move_reason == attacks (VERIFIED_CAPTIONS).",
+    "good_move_attacks_square": "square of the enemy piece newly threatened. Set with attacks."
   },
   "requires": ["played_san"],
   "trigger": {
@@ -29,6 +31,7 @@
     {"when": {"good_move_reason": "connects_rooks"}, "variant": "connects_rooks"},
     {"when": {"good_move_reason": "develop_complete"}, "variant": "develop_complete"},
     {"when": {"good_move_reason": "develop_eyes"}, "variant": "develop_eyes"},
+    {"when": {"good_move_reason": "attacks"}, "variant": "attacks"},
     {"when": {"good_move_reason": "develop_castle_ready"}, "variant": "develop_castle_ready"},
     {"when": {"good_move_reason": "develop"}, "variant": "develop"},
     {"when": {"cp_loss": 0}, "variant": "default"},
@@ -45,6 +48,7 @@
     "develop": "{played_san} — develops a piece. Get every piece into the game before you attack.",
     "develop_complete": "{played_san} — that's your last minor piece developed. With everything in the game, you're ready to start active play.",
     "develop_eyes": "{played_san} — develops, eyeing the {good_move_eyes_piece} on {good_move_eyes_square}.",
+    "attacks": "{played_san} — attacks the {good_move_attacks_piece} on {good_move_attacks_square}. A move that makes a threat forces your opponent to answer it.",
     "develop_castle_ready": "{played_san} — develops a piece and clears the way to castle. Get your king safe next.",
     "default": "{played_san} — strongest move here.",
     "silent_near_best": ""
