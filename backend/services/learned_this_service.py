@@ -159,18 +159,41 @@ async def _fresh_mastered_concepts(db, user_id: str, days: int = CONCEPT_FRESHNE
     """Concepts newly-mastered in the last `days` days — the "you own
     this pattern now" signal. Reads user_concept_understanding.mastered_at.
 
-    Each entry carries the human-readable `name` from the principles
-    catalog so the card can list "Middlegame king safety, Rook on the
-    open file, ..." instead of raw concept_ids like MID_KING_SAFETY.
+    Rate over count:
+      Mohit 2026-07-08 — "226 clean and all is not worth it, it should
+      be percentage of me playing vs opportunities". The mastery gate
+      uses a recent-streak criterion (see docs/pwc_mastery_gate_scope.md),
+      which means a concept can be flagged 'mastered' with a low
+      LIFETIME clean rate. Showing "226 clean" for TAC_HANGING_PIECE at
+      25% lifetime clean rate is dishonest coaching.
+      Fix (both halves):
+        1. Each row carries clean_rate + opportunity_count so the card
+           can render "99% clean (291 chances)" instead of raw counts.
+        2. STRENGTH_FILTER excludes concepts below CLEAN_RATE_FLOOR from
+           the "You Learned This" celebration — those aren't wins to
+           surface here. Users can still see them on /progress.
+      Sort is by clean_rate DESC — the strongest actual masteries lead.
     """
+    CLEAN_RATE_FLOOR = 0.60           # ≥60% lifetime clean rate to count as a real win here
+    MIN_OPPORTUNITIES = 20            # need enough sample before the rate is trustworthy
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     out = []
     async for row in db.user_concept_understanding.find(
         {"user_id": user_id, "mastered_at": {"$ne": None}},
-        {"_id": 0, "concept_id": 1, "mastered_at": 1, "clean_games_total": 1},
-    ).sort("mastered_at", -1).limit(30):
+        {"_id": 0, "concept_id": 1, "mastered_at": 1,
+         "clean_games_total": 1, "violations_total": 1},
+    ).sort("mastered_at", -1).limit(50):
         m_at = _parse_date(row.get("mastered_at"))
         if not m_at or m_at < cutoff:
+            continue
+        clean = int(row.get("clean_games_total") or 0)
+        viol = int(row.get("violations_total") or 0)
+        opps = clean + viol
+        if opps < MIN_OPPORTUNITIES:
+            continue
+        rate = clean / opps
+        if rate < CLEAN_RATE_FLOOR:
             continue
         cid = row.get("concept_id") or ""
         out.append({
@@ -178,8 +201,13 @@ async def _fresh_mastered_concepts(db, user_id: str, days: int = CONCEPT_FRESHNE
             "concept_id": cid,
             "name": _pretty_concept_name(cid),
             "mastered_at": row.get("mastered_at"),
-            "clean_games_total": row.get("clean_games_total"),
+            "clean_rate_pct": round(rate * 100),
+            "opportunity_count": opps,
+            # kept for backward compat; frontend prefers clean_rate_pct
+            "clean_games_total": clean,
         })
+    # Sort by CLEAN RATE desc — strongest genuine masteries lead the list.
+    out.sort(key=lambda c: (-c["clean_rate_pct"], -c["opportunity_count"]))
     return out
 
 
@@ -308,7 +336,8 @@ async def compute_learned_this(db, user_id: str) -> Dict[str, Any]:
             "concepts": [
                 {"concept_id": c["concept_id"], "name": c["name"],
                  "mastered_at": c["mastered_at"],
-                 "clean_games_total": c["clean_games_total"]}
+                 "clean_rate_pct": c["clean_rate_pct"],
+                 "opportunity_count": c["opportunity_count"]}
                 for c in concept_wins
             ],
         })

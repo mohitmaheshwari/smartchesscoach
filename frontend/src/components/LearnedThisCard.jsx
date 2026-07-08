@@ -166,8 +166,15 @@ export default function LearnedThisCard() {
                                 className="text-[13px] text-foreground/85 flex items-baseline gap-2"
                               >
                                 <span className="flex-1">{c.name}</span>
-                                <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">
-                                  {c.clean_games_total} clean
+                                {/* Rate over raw count — 2026-07-08 fix.
+                                    "226 clean" is a vanity number; a clean
+                                    rate anchored on opportunity count is
+                                    the skill signal. */}
+                                <span className="text-[11.5px] text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0 font-medium">
+                                  {c.clean_rate_pct}% clean
+                                </span>
+                                <span className="text-[10.5px] text-muted-foreground/60 tabular-nums shrink-0">
+                                  · {c.opportunity_count}
                                 </span>
                               </li>
                             ))}
