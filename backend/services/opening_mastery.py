@@ -150,9 +150,13 @@ def _build_opening_database():
                 continue
             variations.append(OpeningVariation(
                 name=lesson["variation_name"],
-                eco=", ".join(theory.get("eco_prefix", [])),
+                # 2026-07-08 crash fix: some openings (englund_gambit)
+                # have `eco_prefix: null` explicitly, and dict.get(k, [])
+                # only returns the default on MISSING keys, not on null
+                # values. `theory.get(k) or []` guards both cases.
+                eco=", ".join(theory.get("eco_prefix") or []),
                 moves=lesson["moves"],  # Full deep line (10-15+ moves)
-                key_ideas=lesson.get("common_learnings", [])[:5],
+                key_ideas=(lesson.get("common_learnings") or [])[:5],
                 plans_for_white=[lesson.get("white_plan", "")] if lesson.get("white_plan") else [],
                 plans_for_black=[lesson.get("black_plan", "")] if lesson.get("black_plan") else [],
                 common_mistakes=[],
@@ -164,9 +168,9 @@ def _build_opening_database():
         if not variations:
             variations.append(OpeningVariation(
                 name="Main Line",
-                eco=", ".join(theory.get("eco_prefix", [])),
-                moves=theory.get("main_line", []),
-                key_ideas=theory.get("common_learnings", [])[:5],
+                eco=", ".join(theory.get("eco_prefix") or []),
+                moves=theory.get("main_line") or [],
+                key_ideas=(theory.get("common_learnings") or [])[:5],
                 plans_for_white=[theory.get("white_plan", "")] if theory.get("white_plan") else [],
                 plans_for_black=[theory.get("black_plan", "")] if theory.get("black_plan") else [],
                 common_mistakes=[],
@@ -176,8 +180,8 @@ def _build_opening_database():
         
         OPENING_DATABASE[opening_key] = OpeningFamily(
             name=theory.get("name", opening_key.replace("_", " ").title()),
-            eco_range=", ".join(theory.get("eco_prefix", [])),
-            first_moves=theory.get("main_line", []),
+            eco_range=", ".join(theory.get("eco_prefix") or []),
+            first_moves=theory.get("main_line") or [],
             description=theory.get("white_plan", "") + " / " + theory.get("black_plan", ""),
             character="open" if any(m in theory.get("main_line", []) for m in ["e4", "e5"]) else "closed",
             suitable_for=["all levels"],
