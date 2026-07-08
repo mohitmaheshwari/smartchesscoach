@@ -1308,11 +1308,37 @@ def process_job(db, job):
             # Don't set fields — leaves them absent, lazy regen will fill on first read
 
         # Upsert analysis (update if exists, insert if not)
-        db.game_analyses.update_one(
-            {"game_id": game_id, "user_id": user_id},
-            {"$set": analysis_doc},
-            upsert=True
+        # WITH RETRY: concurrent workers sometimes fail on sync writes
+        from tenacity import retry, stop_after_attempt, wait_exponential
+
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10)
         )
+        def _write_analysis():
+            db.game_analyses.update_one(
+                {"game_id": game_id, "user_id": user_id},
+                {"$set": analysis_doc},
+                upsert=True
+            )
+
+        _write_analysis()
+
+        # Compute pattern decay scores (now that analysis is written)
+        try:
+            from services.pattern_decay_service import compute_pattern_scores
+            analysis_doc_written = db.game_analyses.find_one(
+                {"game_id": game_id, "user_id": user_id}
+            )
+            if analysis_doc_written:
+                moves = analysis_doc_written.get("stockfish_analysis", {}).get("move_evaluations", [])
+                gaps = [m.get("cognitive_gap") for m in moves if m.get("cognitive_gap")]
+                if gaps:
+                    game_data = {"game_id": game_id, "cognitive_gaps": list(set(gaps))}
+                    compute_pattern_scores([game_data], puzzle_recoveries={})
+                    logger.info(f"[pattern-decay] scored for {user_id} on game {game_id}")
+        except Exception as decay_err:
+            logger.warning(f"[pattern-decay] computation failed (non-fatal): {decay_err}")
 
         # Per-user opening profile refresh (Phase-3 Component 1).
         # The newly-analyzed game is now in the corpus; recompute the
