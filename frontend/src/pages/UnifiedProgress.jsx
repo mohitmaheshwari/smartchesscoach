@@ -204,26 +204,20 @@ const UnifiedProgress = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
-  const [motif, setMotif] = useState(null);
-  const [reco, setReco] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, narrativeRes, proofRes, motifRes, recoRes] = await Promise.all([
+        const [progressRes, narrativeRes, proofRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
           fetch(`${API}/progress/improvement-proof`, {
             credentials: "include",
           }),
-          fetch(`${API}/motif-profile`, { credentials: "include" }),
-          fetch(`${API}/motif-recognition`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
         if (proofRes.ok) setProof(await proofRes.json());
-        if (motifRes.ok) setMotif(await motifRes.json());
-        if (recoRes.ok) setReco(await recoRes.json());
       } catch (e) {
         console.error(e);
       } finally {
@@ -538,120 +532,9 @@ const UnifiedProgress = ({ user }) => {
           </p>
         </motion.div>
 
-        {/* ─── Tactics mastery ladder: your level + which way you're moving (you vs your past) ─── */}
-        {reco && (reco.rows || []).length > 0 && (
-          <motion.section variants={fadeInUp} className="mb-14">
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-2">
-              Your tactics · where you are, where you're heading
-            </div>
-            <div className="text-[12px] text-muted-foreground mb-5">
-              Your level on the path to mastering each tactic — and whether you're climbing.
-            </div>
-            <div className="space-y-5">
-              {(reco.rows || []).map((r) => {
-                const t = r.trend || {};
-                const trend = {
-                  up:     { dot: "bg-emerald-500", label: "Improving lately", icon: "↗", cls: "text-emerald-600 dark:text-emerald-400" },
-                  down:   { dot: "bg-amber-500",   label: "Slipped a little",  icon: "↘", cls: "text-amber-600 dark:text-amber-400" },
-                  steady: { dot: "bg-sky-500",     label: "Holding steady",    icon: "→", cls: "text-sky-600 dark:text-sky-400" },
-                  new:    { dot: "bg-muted-foreground/40", label: "Just getting going", icon: "·", cls: "text-muted-foreground" },
-                }[t.dir] || {};
-                return (
-                  <div key={r.motif} className="rounded-xl border border-border p-5">
-                    <div className="flex items-baseline justify-between mb-3">
-                      <div className="text-[15px] font-semibold text-foreground">{r.label}</div>
-                      <div className={`text-[12px] font-medium inline-flex items-center gap-1 ${trend.cls}`}>
-                        <span className="text-[14px] leading-none">{trend.icon}</span> {trend.label}
-                      </div>
-                    </div>
-                    {/* tier ladder */}
-                    <div className="flex items-center justify-between mb-1.5">
-                      {(r.tiers || []).map((name, i) => (
-                        <div
-                          key={name}
-                          className={`text-[10px] tracking-wide ${
-                            i === r.tier_index
-                              ? "text-foreground font-semibold"
-                              : "text-muted-foreground/50"
-                          }`}
-                        >
-                          {name}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="relative h-2.5 rounded-full bg-muted overflow-hidden">
-                      <div className={`h-full rounded-full ${trend.dot}`} style={{ width: `${r.fill_pct}%` }} />
-                      {/* tier dividers at 20/40/60/80 */}
-                      {[20, 40, 60, 80].map((x) => (
-                        <div key={x} className="absolute top-0 h-full w-px bg-background/70" style={{ left: `${x}%` }} />
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between gap-3 mt-2.5">
-                      <div className="text-[12.5px] text-muted-foreground">
-                        You're at <span className="text-foreground font-medium">{r.tier}</span>
-                        {r.next_tier ? <> · next rung: {r.next_tier}</> : <> — top of the ladder.</>}
-                        {r.trust === "rough" && <span className="text-[11px] opacity-60"> · rough read</span>}
-                        {/* Two-sided truth: overall = weaker of attack/defense, so a motif
-                            that keeps catching you can't read "Mastered". */}
-                        {r.two_sided_note && (
-                          <div className="mt-1.5 text-[12px]">
-                            <span className="text-emerald-600 dark:text-emerald-400">Attack: {r.attack?.tier}</span>
-                            <span className="opacity-40"> · </span>
-                            <span className="text-amber-600 dark:text-amber-400">Defense: {r.defense?.tier ?? "—"}</span>
-                            <div className="text-foreground/70 mt-0.5">{r.two_sided_note}</div>
-                          </div>
-                        )}
-                      </div>
-                      {/* No drilling on Progress — it measures. Work happens in the Lab. */}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.section>
-        )}
-
-        {/* ─── Tactics profile: patterns you find vs patterns that catch you ─── */}
-        {motif && ((motif.strengths || []).length > 0 || (motif.weaknesses || []).length > 0) && (
-          <motion.section variants={fadeInUp} className="mb-14">
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
-              Your tactics · patterns you find vs patterns that catch you
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-border p-5">
-                <div className="text-[11px] uppercase tracking-wide text-emerald-500 dark:text-emerald-400 font-semibold mb-3">
-                  You identify easily
-                </div>
-                {(motif.strengths || []).length ? (
-                  (motif.strengths || []).map((s) => (
-                    <div key={s.motif} className="mb-3 last:mb-0">
-                      <div className="text-[14px] font-medium text-foreground">{s.label} ✓</div>
-                      <div className="text-[12.5px] text-muted-foreground leading-relaxed">{s.lesson}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-[12.5px] text-muted-foreground">Keep playing — your strengths will surface here.</div>
-                )}
-              </div>
-              <div className="rounded-xl border border-border p-5">
-                <div className="text-[11px] uppercase tracking-wide text-rose-500 dark:text-rose-400 font-semibold mb-3">
-                  Patterns giving you trouble
-                </div>
-                {(motif.weaknesses || []).length ? (
-                  (motif.weaknesses || []).map((w) => (
-                    <div key={w.motif} className="mb-4 last:mb-0">
-                      <div className="text-[14px] font-medium text-foreground">{w.label} — keeps catching you</div>
-                      <div className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">💡 {w.lesson}</div>
-                      {/* No drilling on Progress — it measures. Work happens in the Lab. */}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-[12.5px] text-muted-foreground">No recurring tactical weakness yet — nice.</div>
-                )}
-              </div>
-            </div>
-          </motion.section>
-        )}
+        {/* Tactics mastery (fork/pin/skewer ladder + strengths/weaknesses) moved
+             to the Lab 2026-07-08 — now rendered by <TacticsMasteryPanel/> next to
+             the fundamentals skill tree, so all mastery lives in one place. */}
 
         {/* ─── Sparkline — only when we have real data ─── */}
         {derived.spark && derived.spark.length >= 3 && (
@@ -901,10 +784,10 @@ const UnifiedProgress = ({ user }) => {
           </motion.section>
         )}
 
-        {/* Mastery / Engine-2 skill tree MOVED to the Lab 2026-07-07 — the Lab is
-             the learning PATH (what to learn next + what you've mastered); Progress
-             is the report card (levels + trends). Keeping the skill curriculum here
-             was exactly the "Progress returns a lot" overload. See Dashboard.jsx. */}
+        {/* Mastery — fundamentals skill tree AND fork/pin/skewer tactics ladder
+             — lives on the LAB (the mastery + learning-path home), unified in one
+             place there. Mohit chose that home 2026-07-08. Progress stays the
+             lighter trends/ledger view. See components/coach/TacticsMasteryPanel. */}
 
         {/* ─── Empty-patterns fallback ─── */}
         {!derived.active && derived.tracked.length === 0 && (

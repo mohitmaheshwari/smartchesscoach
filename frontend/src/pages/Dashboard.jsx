@@ -33,6 +33,7 @@ import LichessBoard from "@/components/LichessBoard";
 // Engine-2 skill curriculum — the Lab's new identity (moved off Progress).
 import MasteryPanel from "@/components/coach/MasteryPanel";
 import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
+import TacticsMasteryPanel from "@/components/coach/TacticsMasteryPanel";
 import {
   Import,
   ChevronRight,
@@ -527,10 +528,14 @@ const Dashboard = ({ user }) => {
             </motion.section>
           )}
 
-          {/* ━━━━━━━━━━ YOUR SKILL TREE · what you've mastered ━━━━━━━━━━ */}
-          <section className="mb-16 md:mb-24">
+          {/* ━━━━━━━━━━ YOUR MASTERY · fundamentals + tactics ━━━━━━━━━━ */}
+          {/* Fundamentals skill tree (openings/mates/concepts/endgames) AND the
+              fork/pin/skewer tactics ladder — unified here 2026-07-08 so pins &
+              forks show up in the mastery view, not a separate page. */}
+          <section className="mb-16 md:mb-24 space-y-14">
             <MasteryPanel />
             <InGameMasteryPanel />
+            <TacticsMasteryPanel />
           </section>
 
           {/* ━━━━━━━━━━ SESSION REVIEW ━━━━━━━━━━ */}
