@@ -90,6 +90,12 @@ services:
       # to grab it — one-move SEE-verified, ~one calc per move. Without this, the
       # student's mistakes go unpunished and the lesson never lands.
       - PWC_TEACHING_OPPONENT=true
+      # PWC SKILL GATE (docs/pwc_skills_aware_coaching.md, shipped v2 2026-06-03):
+      # DOWNGRADE mastered nudges → "You've handled this before — quick reminder."
+      # ESCALATE struggle → "You've missed this pattern 3 times before — let's lock it in."
+      # Was built + wired + tested, then defaulted OFF for a live-check that never
+      # ran. Flipping on per Mohit 2026-07-08 sign-off.
+      - PWC_SKILL_GATE_ENABLED=true
       # Tactics recognition card on /progress (per-opportunity fork/pin/skewer recognition,
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.

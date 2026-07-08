@@ -43,6 +43,7 @@ services:
       # were live in the local backend compose, kept parity here.
       - PWC_COACH_BLUNDER_GUARD=true
       - PWC_TEACHING_OPPONENT=true
+      - PWC_SKILL_GATE_ENABLED=true
       - PWC_USE_CENTRAL_CAPTION_PIPELINE=true
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
       - PWC_COACH_CONDUCTOR=true

@@ -122,6 +122,56 @@ Built, tested, sitting behind a flag no one turned on. Would immediately give ev
 
 The conductor's `compute_motif_thread` iterates `MOTIFS` which as of yesterday's commit `28ec4db9` includes `discovered` and `loose`. It should Just Work — but no test proves it fires cleanly on those two on Mohit's data. Small verify, not a build.
 
+**Verified 2026-07-08 (probe on Mohit's account):** `player_motif_threads` picks up `loose` (offense, tier=Mastered but trending down → slipping-strength thread) and `skewer` (offense, tier=Developing → weakness thread). Fork/pin/skewer defense all populated. `discovered` doesn't yet appear because Mohit's `motif_recognition` for discovered isn't backfilled on prod yet — will appear after `backfill_motif_recognition.py --apply` runs on the server post-deploy. **Code path is correct; only the data is pending backfill.**
+
+### Gap H — Session Teaching Queue (proactive picker, added 2026-07-08 per Mohit)
+
+Mohit 2026-07-08: *"From the mastery skills, lab, coach can also pick up something if that's possible to show in the game to teach."*
+
+**How this differs from A/B/C/E:** those items are REACTIVE — they fire when the user makes a mistake, walks into a motif, or plays a recurring opening pattern. Gap H is PROACTIVE: at session start, coach picks 2-3 topics from the mastery ledger + Lab and WATCHES the live game for chances to teach them — even when the user hasn't made a mistake.
+
+**What already exists** (audit, so we don't duplicate):
+
+- **`PedagogicalOpportunityService`** (`backend/services/pedagogical_opportunity_service.py`, 793 lines) — ALREADY BUILT. Reads user's weakness profile, at 20-30% probability per middlegame/endgame move plays a "good but not best" candidate that creates an opportunity matching one of the user's weakness types (fork/pin/skewer/hanging_piece/back_rank/king_safety/piece_activity/pawn_structure/endgame_technique). Behind `PWC_TEACHING_OPPONENT` flag (flipped on today, `404e119c`).
+  - **Bug found + fixed 2026-07-08 (`get_weakness_profile` was querying `db.games` for `habits_report`, which lives on `db.game_analyses`).** Since 2026-06 the service returned `games_analyzed=0` for every user, defaulted all weakness scores to 50, and effectively fired at ~random rather than at the user's actual weaknesses. Post-fix, Mohit's profile now has 20 analyzed games backing it and `primary_weaknesses=['fork','pin','tactics']`.
+
+- **`PositionTeachingService`** — recognizes what opening/position pattern is on the board; can offer to teach it. Not aggressively wired into PWC voice today. Reusable for the queue's position→topic matcher.
+
+- **`focus_bridge.py`** — the one reader for "your focus this week." Already tells us the user's active weakness topic + subtype.
+
+- **`user_concept_understanding`** — 33 mastered concepts + slipping/violating concepts, named via `PRINCIPLES` catalog. This is Mohit's exact "mastery skills" reference.
+
+- **Lab's Coach's Pick** — best unreviewed game with headline pattern. Reusable as a "reference callback" — coach can say "remember your Tuesday game — same shape."
+
+**What's genuinely NEW (the queue itself)** — a session-scoped picker + live matcher, ~2 days:
+
+1. `services/session_teaching_queue.py` — pure module.
+   - `pick_queue(user_id, session, active_focus) -> List[TeachingItem]`
+     - Reads `user_concept_understanding` for slipping concepts (< 60% clean, ≥ 20 opportunities) + focus_bridge topic + Lab's Coach's Pick teaching moment.
+     - Rating-appropriate filter (uses `RATING_BANDS`).
+     - Returns 2-3 items ordered by learning priority.
+   - `try_match_queue(queue, board, played_move, caption_facts) -> Optional[TeachingItem]`
+     - Per move, check whether the position matches any queue item's trigger pattern.
+     - Reuses existing `concept_detectors/registry.py` for the pattern match.
+     - Returns the matched item or None.
+
+2. `caption_pipeline` extension — new priority slot for Session Teaching Queue thread. Fires as a **statement + directive** (never a quiz):
+   - *"Here's a chance to work on loose king pawns. Notice how h3 opens your king. Slow down here."*
+   - *"Remember your Tuesday game — same Italian shape. Play it right this time."*
+
+3. Restraint — max 2 injections per session. Reuses the conductor's `conductor_threads_pulled` state pattern (already in `CrossMoveState`).
+
+**Why not fold into Item B (concept-mastery connector):** Item B fires when the user MAKES a concept-related mistake. Item H picks topics AT SESSION START and watches for teaching WINDOWS — no mistake required. Different triggers, complementary. Item H can reuse whatever concept-lookup Item B builds.
+
+**Lab callback specifically:** on session start, read `/api/lab-coach-pick` for the user's Coach's Pick game. Extract its headline pattern (e.g., "you hung the queen on move 24"). Add to the queue. If a similar pattern arises in the live game, the coach references the earlier game. Feel: the coach remembers what it prescribed.
+
+**Acceptance for H:**
+- 2-3 items in the queue for any user with ≥ 15 analyzed games.
+- ≤ 2 injections per game.
+- Every fire is engine-verified against the position.
+- No quiz language (STATE law).
+- On Mohit's active session: coach picks `OP_LOOSE_KING_PAWNS` (25% clean, real weakness) into the queue; fires when the live position matches.
+
 ---
 
 ## 5. The connector work (small, well-defined)

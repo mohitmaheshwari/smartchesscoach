@@ -174,22 +174,30 @@ class PedagogicalOpportunityService:
         """
         Get user's weakness profile from analyzed games.
         This is the key input for targeting opportunities.
+
+        Bug fix 2026-07-08: `habits_report` and `stockfish_analysis`
+        live on `game_analyses`, not `games`. The prior query returned
+        0 for every user, which left every weakness score at the
+        neutral default of 50 and made the pedagogical opportunity
+        service functionally silent since 2026-06 (Mohit's active
+        session ceda181d ran 20 moves with 0 opportunities fired).
+        Fixed by querying game_analyses directly, sorted by
+        analyzed_at desc so we still get the most-recent 20.
         """
         profile = WeaknessProfile(user_id=self.user_id)
-        
+
         try:
-            # Get user's analyzed games with habits reports
-            games = await self.db.games.find(
+            games = await self.db.game_analyses.find(
                 {
                     "user_id": self.user_id,
-                    "habits_report": {"$exists": True}
+                    "habits_report": {"$exists": True},
                 },
-                {"habits_report": 1, "stockfish_analysis": 1}
-            ).sort("imported_at", -1).limit(20).to_list(length=20)
-            
+                {"habits_report": 1, "stockfish_analysis": 1},
+            ).sort("analyzed_at", -1).limit(20).to_list(length=20)
+
             if not games:
                 return profile
-            
+
             profile.games_analyzed = len(games)
             
             # Aggregate weakness data
