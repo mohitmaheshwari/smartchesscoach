@@ -347,7 +347,7 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
     )
 
     remaining = len(main_line_moves) - resume_index
-    first_instruction = _get_teaching_instruction(teaching_data, mode, resume_index)
+    first_instruction = _get_teaching_instruction(teaching_data, mode, resume_index, current_fen=current_fen)
 
     result = {
         "success": True,
@@ -485,7 +485,7 @@ async def _start_trap_lesson(
         }}
     )
 
-    first_instruction = _get_teaching_instruction(teaching_data, mode, current_move_index)
+    first_instruction = _get_teaching_instruction(teaching_data, mode, current_move_index, current_fen=current_fen)
 
     # Whose side is the trap's "attacker" (the one springing it).
     # victim_color is the side that GETS caught — so attacker is the other.
@@ -539,10 +539,39 @@ async def _start_trap_lesson(
     return result
 
 
-def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -> Dict:
+def _san_to_arrow(fen: str, san: str) -> Optional[Dict[str, str]]:
+    """Parse `san` against `fen` and return {from, to} square names for the
+    board-arrow hint. Returns None if the SAN is unplayable in this
+    position — the caller should just omit the arrow, not raise.
+
+    Handles SAN annotation suffixes (+, #, !, ?) implicitly via
+    python-chess's parse_san.
+    """
+    import chess
+    try:
+        board = chess.Board(fen)
+        mv = board.parse_san(san)
+        return {
+            "from": chess.square_name(mv.from_square),
+            "to": chess.square_name(mv.to_square),
+        }
+    except Exception:
+        return None
+
+
+def _get_teaching_instruction(
+    teaching_data: Dict, mode: str, move_index: int,
+    current_fen: Optional[str] = None,
+) -> Dict:
     """
     Get teaching instruction for current move.
     Enriched with critical position data from JSON when available.
+
+    When `current_fen` is provided AND the instruction is for a user move,
+    the return dict includes `arrow: {from, to}` so the client can render
+    a green hint arrow on the board. Silent if fen is missing or the
+    SAN doesn't parse in the given position — the arrow is a helpful
+    optional, never a blocker.
     """
     if mode == "trap":
         moves = teaching_data.get("trap_moves", [])
@@ -593,7 +622,7 @@ def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -
         elif move_index == 0:
             instruction_text += " Watch the opening begin."
 
-    return {
+    result = {
         "complete": False,
         "move": move,
         "move_number": move_number,
@@ -604,6 +633,17 @@ def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -
         "should_user_play": is_user_move,
         "is_user_move": is_user_move,
     }
+
+    # Board arrow hint (2026-07-08 — Mohit ask: "show arrows automatically
+    # when a teaching lesson starts"). Only for user moves; opponent auto-
+    # plays don't need a hint. Silent when we can't parse — the arrow is
+    # helpful, not required for the lesson to work.
+    if is_user_move and current_fen:
+        arrow = _san_to_arrow(current_fen, move)
+        if arrow:
+            result["arrow"] = arrow
+
+    return result
 
 
 async def process_teaching_move(
@@ -689,7 +729,7 @@ async def process_teaching_move(
     if new_index >= len(moves):
         return await _complete_teaching(db, session_id, teaching_data)
 
-    next_instruction = _get_teaching_instruction(teaching_data, mode, new_index)
+    next_instruction = _get_teaching_instruction(teaching_data, mode, new_index, current_fen=new_fen)
 
     is_white = new_index % 2 == 0
     user_plays_white = teaching_data.get("user_plays_white", True)
@@ -750,7 +790,7 @@ async def _auto_play_teaching_move(db, session_id: str, teaching_data: Dict, mod
     if new_index >= len(moves):
         return await _complete_teaching(db, session_id, teaching_data)
 
-    next_instruction = _get_teaching_instruction(teaching_data, mode, new_index)
+    next_instruction = _get_teaching_instruction(teaching_data, mode, new_index, current_fen=new_fen)
 
     return {
         "correct": True,
@@ -977,7 +1017,7 @@ async def undo_teaching_move(db, session_id: str) -> Dict:
         },
     )
 
-    instruction = _get_teaching_instruction(teaching_data, mode, rewind_index)
+    instruction = _get_teaching_instruction(teaching_data, mode, rewind_index, current_fen=board.fen())
     return {
         "success": True,
         "mode": "teaching",

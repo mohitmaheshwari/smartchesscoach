@@ -335,6 +335,23 @@ const CoachPlay = ({ user }) => {
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
 
+  // ─── Teaching-lesson hint arrow (2026-07-08) ─────────────────────────
+  // When a trap or opening lesson is active AND the current instruction
+  // is for the user's move, the backend attaches an `arrow: {from, to}`
+  // to instruction (opening_teaching_integration._get_teaching_instruction).
+  // Render it as a green arrow so the user sees exactly what to play,
+  // instead of parsing SAN in their head. Clears the arrow when the
+  // instruction becomes an opponent-auto-play or the lesson exits.
+  useEffect(() => {
+    if (!isInTeachingMode) return;
+    const arrow = lessonInstruction?.arrow;
+    if (arrow?.from && arrow?.to && lessonInstruction?.is_user_move) {
+      setCoachArrows([[arrow.from, arrow.to, "green"]]);
+    } else {
+      setCoachArrows([]);
+    }
+  }, [lessonInstruction, isInTeachingMode]);
+
   // Auto-render candidate moves as arrows on the board, Lichess-style.
   // When v5Coaching surfaces candidate_moves (after a mistake), we
   // overlay all of them simultaneously with rank-varying colors:
