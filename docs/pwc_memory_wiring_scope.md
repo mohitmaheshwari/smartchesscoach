@@ -1,7 +1,15 @@
 # PWC Memory Wiring — Audit + Connector Scope
 
 **Date:** 2026-07-08
-**Status:** DRAFT for sign-off. No new build begins until Mohit approves the connector items in §5. The flag flips in §3 already shipped today (`404e119c`) — they need only the deploy to reach users.
+**Status:** **Items A / B / C / D / E / F SHIPPED.** Item G folded into A. Item H filed for post-deploy re-evaluation per Mohit's Option A call (ship, eyeball, decide).
+
+**Ship log:**
+- `404e119c` — flag flips (`PWC_COACH_BLUNDER_GUARD`, `PWC_TEACHING_OPPONENT`, `PWC_COACH_CONDUCTOR`, `PWC_USE_CENTRAL_CAPTION_PIPELINE`, `PWC_CENTRAL_CAPTION_TELEMETRY`, `PWC_EVERY_MOVE_TEACHES`, `MOTIF_RECOGNITION_CARD`)
+- `1d80d96f` — prep: `PWC_SKILL_GATE_ENABLED=true` (Item A), pedagogical_opportunity query bug fix, Gap D probe result, Gap H scope
+- `965eccd6` — **Item B** — concept-mastery memory in the live coach voice
+- `0be10880` — **Items C + E + F** — identity lead-in, opening strength, post-game recap
+
+Item H (Session Teaching Queue) is deferred *after* production validation, not before. Rationale: the built items already deliver the "coach with memory" experience; the incremental value of H's proactive picker + Lab callback is best judged after Mohit uses the shipped system live.
 **Author:** Claude, after Mohit's 2026-07-08 push: *"PWC is currently feeling like a bot with just explaining moves, no teaching, no memories, no categories capture that we are tracking like forks and pins."*
 **Constraint (Mohit):** *"See what is already there, don't just start from scratch."*
 
