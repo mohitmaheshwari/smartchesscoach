@@ -2967,15 +2967,29 @@ async def get_interactive_coaching(
                         _grade = "big mistake"
                     else:
                         _grade = "mistake"
+                    # Goal anchor (Phase 2, 2026-07-08): if the user's active
+                    # focus IS time_management, the impulse warning IS the
+                    # goal in action. Anchor the message to it so the coach
+                    # voice + goal card read as connected — instead of the
+                    # goal card sitting dead upstairs. When focus is anything
+                    # else, we still fire the impulse warning (universal
+                    # rule) but skip the anchor.
+                    _tm_focus = (
+                        session_doc.get("session_focus") or {}
+                    ).get("topic_key") == "time_management"
+                    _anchor = (
+                        " That's your time management focus this week."
+                        if _tm_focus else ""
+                    )
                     if _today >= 5:
                         _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
                                 f"into a {_grade} ({cp_loss}cp lost). That's your "
                                 f"{_today + 1}{'st' if (_today + 1) % 10 == 1 and (_today+1) % 100 != 11 else 'th'} "
-                                f"impulsive move today. Slow down on the next one.")
+                                f"impulsive move today. Slow down on the next one.{_anchor}")
                     else:
                         _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
                                 f"into a {_grade} ({cp_loss}cp lost). "
-                                f"Take a few more seconds before you move next time.")
+                                f"Take a few more seconds before you move next time.{_anchor}")
                     await db.coach_messages.insert_one({
                         "session_id": session_id,
                         "type": "impulse_warning",
@@ -2987,9 +3001,53 @@ async def get_interactive_coaching(
                         "created_at": datetime.now(timezone.utc),
                         "read": False,
                     })
-                    logger.info(f"[impulse] fired for {session_id} move={move_san} time={_tspent_disp}s cp={cp_loss}")
+                    logger.info(f"[impulse] fired for {session_id} move={move_san} time={_tspent_disp}s cp={cp_loss} tm_focus={_tm_focus}")
             except Exception as _imp_e:
                 logger.warning(f"impulse-warning check failed: {_imp_e}")
+
+            # ── PHASE 2: FAST-BUT-CORRECT AFFIRMATION ─────────────────
+            # Mirror of impulse_warning. When the user is on the time_management
+            # focus AND plays fast (< 3s) on a critical position AND the move
+            # was actually GOOD (cp_loss < 50), the coach acknowledges the
+            # instinct but names the risk. Prevents the goal from feeling
+            # one-sided ("coach only calls me out when I'm wrong") — a great
+            # coach also catches when your instinct was right.
+            # Restraint: fires at most ONCE per session (checked below via
+            # coach_messages count for this session + type).
+            try:
+                _sf_topic = (session_doc.get("session_focus") or {}).get("topic_key")
+                _tspent_aff = last_user_move.get("time_spent") if last_user_move else None
+                _is_critical_aff = bool(last_user_move.get("is_critical")) if last_user_move else False
+                if (
+                    _sf_topic == "time_management"
+                    and _tspent_aff is not None and _tspent_aff < 3.0
+                    and cp_loss < 50
+                    and _is_critical_aff
+                ):
+                    _already_fired = await db.coach_messages.count_documents({
+                        "session_id": session_id, "type": "fast_good_affirm",
+                    })
+                    if _already_fired == 0:
+                        _t_disp = round(_tspent_aff, 1)
+                        _aff_msg = (
+                            f"Fast — {move_san} in {_t_disp}s on a critical position. "
+                            f"You spotted it. Trust that instinct ONLY when you see "
+                            f"the pattern; when you don't, take the clock. "
+                            f"That's your time management focus this week."
+                        )
+                        await db.coach_messages.insert_one({
+                            "session_id": session_id,
+                            "type": "fast_good_affirm",
+                            "move_san": move_san,
+                            "message": _aff_msg,
+                            "time_spent": _tspent_aff,
+                            "cp_loss": cp_loss,
+                            "created_at": datetime.now(timezone.utc),
+                            "read": False,
+                        })
+                        logger.info(f"[fast_good_affirm] fired for {session_id} move={move_san} time={_t_disp}s cp={cp_loss}")
+            except Exception as _aff_e:
+                logger.warning(f"fast_good_affirm check failed: {_aff_e}")
 
             # Determine game phase
             fullmove = board.fullmove_number
