@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 132  # v132 (2026-06-24): this session — endgame never-silence, why-better gap (44->71%), why-bad material-drop enrichment, verifier-inside-the-door (framework step 2), outpost jargon fix. Bump forces stored review captions to re-render through the new pipeline.
+V5_COACHING_VERSION = 133  # v133 (2026-07-08): jargon + defeatist-phrase sweep from the 987-move gold comparison — killed "you were already losing", "leverage", "compensation", "the engine sees", "tempo/with tempo" from R12/R_PROMOTED variants (plain-English replacements). Bump forces stored review captions to re-render through the new pipeline.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
