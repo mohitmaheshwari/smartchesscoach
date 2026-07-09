@@ -121,17 +121,25 @@ class FocusCoachingBranch:
 
     def resolved_cp_min(self, user_rating: Optional[int]) -> int:
         """Rating-aware fire threshold. Uses the band base × the
-        branch's multiplier. Falls back to warning_cp_min when the
-        user's rating is missing or the resolver fails."""
-        if user_rating is None:
+        branch's multiplier. When the rating is missing or the
+        resolver fails, treats the user as intermediate (band base
+        50) × multiplier — preserves per-branch weight even without
+        rating data. Explicit warning_cp_min override wins if the
+        subclass set it."""
+        # An explicit warning_cp_min override (not the 50 default)
+        # wins — rare escape hatch for a branch that wants a fixed
+        # rating-agnostic gate.
+        if self.warning_cp_min != FocusCoachingBranch.warning_cp_min:
             return self.warning_cp_min
-        try:
-            from services.rating_resolver import get_rating_band
-            band = get_rating_band(int(user_rating))
-            base = self._BAND_CP_BASE.get(band, self.warning_cp_min)
-            return int(base * self.warning_cp_multiplier)
-        except Exception:
-            return self.warning_cp_min
+        base = self._BAND_CP_BASE.get("intermediate", 50)
+        if user_rating is not None:
+            try:
+                from services.rating_resolver import get_rating_band
+                band = get_rating_band(int(user_rating))
+                base = self._BAND_CP_BASE.get(band, base)
+            except Exception:
+                pass
+        return int(base * self.warning_cp_multiplier)
 
     # ── Detector methods (subclasses MUST override) ──
 
