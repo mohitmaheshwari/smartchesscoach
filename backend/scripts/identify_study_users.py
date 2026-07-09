@@ -67,13 +67,13 @@ async def main():
     user_puzzle_stats = {}
 
     for user_id in active_users:
-        # Get user rating
+        # Get user rating (try 'rating' first, fallback to 'detected_rating')
         user_doc = await db.users.find_one(
-            {"user_id": user_id}, {"_id": 0, "rating": 1}
+            {"user_id": user_id}, {"_id": 0, "rating": 1, "detected_rating": 1}
         )
         if not user_doc:
             continue
-        rating = user_doc.get("rating")
+        rating = user_doc.get("rating") or user_doc.get("detected_rating")
         if rating is None or rating < RATING_MIN or rating > RATING_MAX:
             continue
 
