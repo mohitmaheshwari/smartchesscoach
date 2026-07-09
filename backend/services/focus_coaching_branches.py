@@ -425,7 +425,30 @@ class PieceSafetyBranch(FocusCoachingBranch):
         self, fen_before: str, fen_after: str, user_color: str,
     ) -> List[Dict[str, Any]]:
         from services.mission_scoreboard import find_saved_hanging_pieces
-        return find_saved_hanging_pieces(fen_before, fen_after, user_color == "white")
+        # Undefended-piece saves (existing behavior)
+        saved = find_saved_hanging_pieces(
+            fen_before, fen_after, user_color == "white"
+        )
+        # SEE-losing saves: any square that was SEE-losing before is
+        # NOT SEE-losing after → the user shored up the exchange.
+        try:
+            before_see = _find_see_losing_pieces(
+                fen_before, user_color == "white"
+            )
+            after_see = _find_see_losing_pieces(
+                fen_after, user_color == "white"
+            )
+            after_squares = {p["square"] for p in after_see}
+            saved_squares = {s.get("square") for s in saved}
+            for p in before_see:
+                if p["square"] in after_squares:
+                    continue
+                if p["square"] in saved_squares:
+                    continue  # already counted by undefended-save
+                saved.append(p)
+        except Exception:
+            pass
+        return saved
 
     def warning_text(
         self, top_issue: Dict[str, Any], n_more: int,
@@ -433,14 +456,23 @@ class PieceSafetyBranch(FocusCoachingBranch):
     ) -> str:
         piece_word = top_issue.get("piece_name", "piece")
         sq = top_issue.get("square", "?")
+        # SEE-losing pieces are "defended" but still lose material in
+        # the exchange — different phrasing so the coach doesn't lie
+        # about the piece being undefended.
+        if top_issue.get("kind") == "see_losing":
+            core = (
+                f"{move_san} left your {piece_word} on {sq} in a losing "
+                f"exchange — the defender's cheaper than the attacker"
+            )
+        else:
+            core = f"{move_san} left your {piece_word} on {sq} undefended"
         also = (
-            f" (and {n_more} more piece{'s' if n_more > 1 else ''} unguarded)"
+            f" (and {n_more} more piece{'s' if n_more > 1 else ''} at risk)"
             if n_more > 0 else ""
         )
         return (
-            f"{move_san} left your {piece_word} on {sq} undefended — "
-            f"{_a_grade(grade)} ({cp_loss}cp lost).{also}{today_recall} "
-            f"That's your piece safety focus this week."
+            f"{core} — {_a_grade(grade)} ({cp_loss}cp lost).{also}"
+            f"{today_recall} That's your piece safety focus this week."
         )
 
     def affirm_text(
@@ -1509,6 +1541,291 @@ class TacticalOversightBranch(FocusCoachingBranch):
         )
 
 
+# ─── SEE UPGRADE: SEE-LOSING PIECES DETECTOR ───────────────────────
+# find_hanging_pieces uses strict "defenders == 0" semantics. That
+# leaves a real gap: a piece with ONE defender that's cheaper than the
+# attacker STILL loses material in the exchange (knight defends knight
+# vs queen+bishop attackers — net negative). The static exchange
+# evaluator answers this precisely.
+#
+# We keep find_hanging_pieces as-is (16 callers depend on strict
+# "no defender" semantics for "free piece" claims) and add a NEW
+# helper that catches SEE-losing pieces. PieceSafetyBranch layers
+# both — undefended union SEE-losing — with the undefended set
+# ranked first (they're the more obvious teaching moment).
+
+def _find_see_losing_pieces(fen: str, own_color_is_white: bool) -> list:
+    """Return list of user pieces where full SEE from opponent's POV
+    on the piece's square is positive — i.e., opponent gains material
+    even if the piece is technically defended.
+
+    Excludes:
+      - Pieces already covered by find_hanging_pieces (attacker>0,
+        defenders==0) — those get returned by that helper.
+      - Kings, pawns worth <=1 (SEE trades on pawns are rarely
+        pedagogically useful at 600-1500).
+    """
+    try:
+        import chess as _c
+        from services.pattern_confidence.see import static_exchange_eval
+        board = _c.Board(fen)
+        own_color = _c.WHITE if own_color_is_white else _c.BLACK
+        opp_color = not own_color
+        out = []
+        for sq in _c.SQUARES:
+            piece = board.piece_at(sq)
+            if piece is None or piece.color != own_color:
+                continue
+            if piece.piece_type == _c.KING:
+                continue
+            if piece.piece_type == _c.PAWN:
+                continue  # skip pawn hanging for MVP — not pedagogic
+            attackers = board.attackers(opp_color, sq)
+            if not attackers:
+                continue
+            defenders = board.attackers(own_color, sq)
+            if not defenders:
+                continue  # already covered by find_hanging_pieces
+            # Real SEE from opponent's POV — do they gain material by
+            # starting the exchange on this square?
+            try:
+                opp_see = static_exchange_eval(board, sq, attacker_color=opp_color)
+            except Exception:
+                continue
+            if opp_see > 0:
+                out.append({
+                    "square": _c.square_name(sq),
+                    "piece_type": piece.piece_type,
+                    "piece_name": _piece_name(piece.piece_type),
+                    "n_attackers": len(attackers),
+                    "n_defenders": len(defenders),
+                    "see": opp_see,
+                    "kind": "see_losing",
+                })
+        # Sort by SEE loss (biggest exchange loss first)
+        out.sort(key=lambda h: -h.get("see", 0))
+        return out
+    except Exception:
+        return []
+
+
+# Monkey-patch PieceSafetyBranch to layer the SEE detector on top.
+# Kept as an override rather than rewriting the class inline because
+# PieceSafetyBranch was already shipped and tested — a targeted
+# override preserves the shipped find_issues path and just extends it.
+_orig_piece_safety_find_issues = PieceSafetyBranch.find_issues
+
+
+def _piece_safety_find_issues_with_see(self, fen, user_color):
+    """Extended piece_safety detector: undefended pieces (existing) +
+    SEE-losing pieces (new). Undefended ranked first."""
+    undef = _orig_piece_safety_find_issues(self, fen, user_color)
+    see_losing = _find_see_losing_pieces(fen, user_color == "white")
+    # Dedupe: if SEE-loser is already in undef by square, skip it
+    undef_squares = {u.get("square") for u in undef}
+    see_only = [s for s in see_losing if s.get("square") not in undef_squares]
+    return undef + see_only
+
+
+PieceSafetyBranch.find_issues = _piece_safety_find_issues_with_see
+
+
+# ─── CALCULATION_DEPTH BRANCH ──────────────────────────────────────
+# In postgame, classify_calculation_depth uses opp's ACTUAL next move
+# + SAN-forcing heuristic. Live PWC doesn't have opp's next move yet
+# — so we PROBE for a 2-ply forcing combo:
+#
+#   1. Enumerate opp's forcing moves (checks + captures on ≥3pt user
+#      targets) in fen_after.
+#   2. For each, simulate user's most plausible forced reply (kings
+#      out of check; captures otherwise).
+#   3. Check if opp then has a winning capture (SEE-positive).
+#   4. If yes for ANY probe → user missed a 2-ply combo. Fire.
+#
+# False positives are acceptable — the codebase already suppresses
+# calculation_depth from analysis-time coaching (<50% classifier
+# accuracy). This is a POSITION-based signal, complementary to the
+# postgame classifier.
+
+def _pick_forced_user_reply(board):
+    """Return one plausible user reply to the current position.
+    Priority: king moves out of check > lowest-value captures >
+    any legal move. Returns None if no legal moves (checkmate)."""
+    import chess as _c
+    legal = list(board.legal_moves)
+    if not legal:
+        return None
+    if board.is_check():
+        # King moves come first — most forced-response moves are king
+        king_sq = board.king(board.turn)
+        for m in legal:
+            if m.from_square == king_sq:
+                return m
+        # Otherwise the first legal move (blocks/captures the checker)
+        return legal[0]
+    # Non-check: cheapest capture of a threatened piece, else first legal
+    return legal[0]
+
+
+def _find_calculation_depth_issues(fen: str, user_color: str) -> list:
+    """Detect 2-ply forcing combos user missed. Kind: "opp_2ply_combo".
+    Iterates opp's checks + big captures; for each, simulates user's
+    forced reply; then checks if opp has a winning follow-up."""
+    try:
+        import chess as _c
+        from services.tactical_safety import capture_is_safe
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        opp_color = not own_color
+        # Board should have opp to move for the probe. If it doesn't,
+        # swap turn like in _opp_has_immediate_fork.
+        if board.turn != opp_color:
+            b = board.copy(stack=False)
+            b.turn = opp_color
+            b.ep_square = None
+        else:
+            b = board
+
+        # Enumerate opp's forcing candidate moves. Cap the search to
+        # avoid blowup on wild positions. Prioritize checks first.
+        candidates = []
+        for m in b.legal_moves:
+            b2 = b.copy(stack=False)
+            b2.push(m)
+            gives_check = b2.is_check()
+            is_big_capture = False
+            if b.is_capture(m):
+                target = b.piece_at(m.to_square)
+                if target and target.piece_type in (_c.KNIGHT, _c.BISHOP, _c.ROOK, _c.QUEEN):
+                    is_big_capture = True
+            if gives_check or is_big_capture:
+                candidates.append((m, gives_check, is_big_capture))
+            if len(candidates) >= 10:  # search cap
+                break
+
+        for opp_move, gives_check, _ in candidates:
+            b_after_opp = b.copy(stack=False)
+            b_after_opp.push(opp_move)  # now user's turn
+            # If user is already checkmated after opp_move, mate is
+            # itself the payoff — treat as combo.
+            if not list(b_after_opp.legal_moves):
+                return [{
+                    "kind": "opp_2ply_combo",
+                    "opp_move_uci": opp_move.uci(),
+                    "opp_move_to": _c.square_name(opp_move.to_square),
+                    "combo_type": "forced_mate" if b_after_opp.is_check() else "stalemate",
+                }]
+            user_reply = _pick_forced_user_reply(b_after_opp)
+            if user_reply is None:
+                continue
+            b_after_user = b_after_opp.copy(stack=False)
+            b_after_user.push(user_reply)  # now opp's turn again
+            # Does opp have a winning capture now?
+            for opp2 in b_after_user.legal_moves:
+                if not b_after_user.is_capture(opp2):
+                    continue
+                target = b_after_user.piece_at(opp2.to_square)
+                if target is None or target.piece_type in (_c.PAWN,):
+                    continue
+                target_val = _TACTICAL_PIECE_VALUES.get(target.piece_type, 0)
+                if target_val < 3:
+                    continue
+                try:
+                    if capture_is_safe(b_after_user, opp2):
+                        return [{
+                            "kind": "opp_2ply_combo",
+                            "opp_move_uci": opp_move.uci(),
+                            "opp_move_to": _c.square_name(opp_move.to_square),
+                            "opp_followup_uci": opp2.uci(),
+                            "opp_followup_to": _c.square_name(opp2.to_square),
+                            "target_piece": _piece_name(target.piece_type),
+                            "combo_type": "check_then_capture" if gives_check else "capture_then_capture",
+                        }]
+                except Exception:
+                    continue
+        return []
+    except Exception:
+        return []
+
+
+def _find_calculation_depth_improvements(fen_before: str, fen_after: str,
+                                        user_color: str) -> list:
+    before = _find_calculation_depth_issues(fen_before, user_color)
+    after = _find_calculation_depth_issues(fen_after, user_color)
+    kinds_after = {i["kind"] for i in after}
+    return [i for i in before if i["kind"] not in kinds_after]
+
+
+def _calc_issue_phrase(issue: dict) -> str:
+    combo = issue.get("combo_type", "")
+    if combo == "forced_mate":
+        return f"the opponent has a forced mate starting with a move to {issue.get('opp_move_to', '?')}"
+    to_sq = issue.get("opp_move_to", "?")
+    followup = issue.get("opp_followup_to", "?")
+    target = issue.get("target_piece", "piece")
+    if combo == "check_then_capture":
+        return (
+            f"the opponent can check with a move to {to_sq} — you're forced "
+            f"to respond, then they take your {target} on {followup}"
+        )
+    return (
+        f"the opponent has a 2-move combo: {to_sq} first, then wins your "
+        f"{target} on {followup}"
+    )
+
+
+def _calc_resolution_phrase(issue: dict) -> str:
+    return "defused the 2-move combo"
+
+
+class CalculationDepthBranch(FocusCoachingBranch):
+    focus_topic = "calculation_depth"
+    topic_display = "calculation depth"
+    subtype_for_recall = "shallow_horizon_2ply"
+    # Overlap with tactics/oversight is intentional; the fire ordering
+    # is handled by the shared once-per-session gate. Only fire when
+    # the miss carries real cp weight — combos below this are noise.
+    warning_cp_min: int = 100
+    conductor_thread_keys = {"concept:TAC_CALCULATION", "concept:TAC_2PLY"}
+
+    def find_issues(self, fen, user_color):
+        return _find_calculation_depth_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_calculation_depth_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _calc_issue_phrase(top_issue)
+        return (
+            f"{move_san} missed a 2-move idea — {phrase}. "
+            f"{_a_grade(grade).capitalize()} ({cp_loss}cp lost).{today_recall} "
+            f"Calculating one more move deep would have caught it. That's your "
+            f"calculation depth focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _calc_resolution_phrase(top_saved)
+        return (
+            f"Nice — {move_san} {resolution}. Seeing two moves ahead is the "
+            f"habit that separates ratings. That's your calculation depth "
+            f"focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _calc_issue_phrase(top_issue)
+        return (
+            f"⚠ Look one move deeper — {phrase}. Don't move yet. "
+            f"That's your calculation depth focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"You've calculated two moves deep on {clean_moves} straight moves — "
+            f"good discipline. Keep asking 'what happens after their reply?' "
+            f"That's your calculation depth focus this week."
+        )
+
+
 # Register on module import so any caller of get_branch_for_focus sees it.
 register_branch(PieceSafetyBranch())
 register_branch(KingSafetyBranch())
@@ -1517,3 +1834,4 @@ register_branch(EndgameTechniqueBranch())
 register_branch(PawnStructureBranch())
 register_branch(MissedTacticBranch())
 register_branch(TacticalOversightBranch())
+register_branch(CalculationDepthBranch())

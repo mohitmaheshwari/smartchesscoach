@@ -572,6 +572,14 @@ const LegacyChatMessages = ({
             ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
             : msg.type === "tactical_oversight_streak"
             ? "bg-orange-50 border border-orange-500/50 dark:bg-orange-950/30 dark:border-orange-500/40"
+            : msg.type === "calculation_depth_warning"
+            ? "bg-purple-50 border border-purple-500/40 dark:bg-purple-950/30 dark:border-purple-500/40"
+            : msg.type === "calculation_depth_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "calculation_depth_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "calculation_depth_streak"
+            ? "bg-purple-50 border border-purple-500/50 dark:bg-purple-950/30 dark:border-purple-500/40"
             : msg.type === "pace_check"
             ? "bg-yellow-50 border border-yellow-500/40 dark:bg-yellow-950/30 dark:border-yellow-500/40"
             : msg.type === "focus_coach"
@@ -660,6 +668,14 @@ const LegacyChatMessages = ({
             <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
           ) : msg.type === "tactical_oversight_streak" ? (
             <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">👁</span>
+          ) : msg.type === "calculation_depth_warning" ? (
+            <span className="text-purple-700 text-base mt-0.5 flex-shrink-0">🧮</span>
+          ) : msg.type === "calculation_depth_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "calculation_depth_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "calculation_depth_streak" ? (
+            <span className="text-purple-700 text-base mt-0.5 flex-shrink-0">🧮</span>
           ) : msg.type === "pace_check" ? (
             <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">⏳</span>
           ) : msg.type === "focus_coach" ? (
