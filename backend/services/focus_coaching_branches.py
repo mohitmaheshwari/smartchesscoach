@@ -101,9 +101,37 @@ class FocusCoachingBranch:
         return override or f"{self.focus_topic}_{surface}"
 
     # Fire gates (subclasses override if needed)
-    warning_cp_min: int = 50         # inclusive lower bound
+    warning_cp_min: int = 50         # rating-agnostic fallback
     affirm_cp_max: int = 50          # exclusive upper bound
     streak_min_moves: int = 10       # after this many user moves
+
+    # Rating-band scaling. Per-band base cp thresholds; the branch's
+    # `warning_cp_multiplier` scales all four uniformly. Lower ratings
+    # get a higher gate (their moves are noisier — don't nag on small
+    # slips); higher ratings get a smaller gate (subtler misses matter).
+    #
+    # Falls back to warning_cp_min if the user rating is unknown.
+    _BAND_CP_BASE: Dict[str, int] = {
+        "beginner_low":  100,
+        "beginner_high": 75,
+        "intermediate":  50,
+        "advanced":      30,
+    }
+    warning_cp_multiplier: float = 1.0  # branch-specific weight
+
+    def resolved_cp_min(self, user_rating: Optional[int]) -> int:
+        """Rating-aware fire threshold. Uses the band base × the
+        branch's multiplier. Falls back to warning_cp_min when the
+        user's rating is missing or the resolver fails."""
+        if user_rating is None:
+            return self.warning_cp_min
+        try:
+            from services.rating_resolver import get_rating_band
+            band = get_rating_band(int(user_rating))
+            base = self._BAND_CP_BASE.get(band, self.warning_cp_min)
+            return int(base * self.warning_cp_multiplier)
+        except Exception:
+            return self.warning_cp_min
 
     # ── Detector methods (subclasses MUST override) ──
 
@@ -184,7 +212,10 @@ async def fire_focus_warning(
       4. Branch's detector finds at least one issue
       5. Not already fired this session (once per session per branch)
     """
-    if cp_loss < branch.warning_cp_min or not fen_after:
+    # Resolve the fire threshold from the user's rating band (falls
+    # back to warning_cp_min if rating missing).
+    _cp_gate = branch.resolved_cp_min(session_doc.get("user_rating"))
+    if cp_loss < _cp_gate or not fen_after:
         return False
 
     pulled = session_doc.get("conductor_threads_pulled") or []
@@ -1207,8 +1238,9 @@ class PawnStructureBranch(FocusCoachingBranch):
     topic_display = "pawn structure"
     subtype_for_recall = "weak_pawns"
     conductor_thread_keys = {"concept:MID_PAWN_STRUCTURE", "concept:OP_LOOSE_PAWNS"}
-    # Structure damage isn't a snap decision — allow higher cp threshold
-    warning_cp_min: int = 40
+    # Structure damage is long-term — slightly softer gate than tactical
+    # branches (0.8x band base). Beginner_low: 80cp; intermediate: 40cp.
+    warning_cp_multiplier: float = 0.8
 
     def find_issues(self, fen, user_color):
         return _find_pawn_structure_issues(fen, user_color)
@@ -1503,8 +1535,9 @@ class TacticalOversightBranch(FocusCoachingBranch):
     topic_display = "tactical oversight"
     subtype_for_recall = "missed_second_move"
     conductor_thread_keys = {"defense:loose", "concept:TAC_HANGING_PIECE"}
-    # Oversight often flows from cp_loss ≥ 100; be a touch stricter.
-    warning_cp_min: int = 60
+    # 2-move oversights typically carry more cp weight — slightly
+    # stricter (1.2x band base). Beginner_low: 120cp; intermediate: 60cp.
+    warning_cp_multiplier: float = 1.2
 
     def find_issues(self, fen, user_color):
         return _find_tactical_oversight_issues(fen, user_color)
@@ -1784,8 +1817,10 @@ class CalculationDepthBranch(FocusCoachingBranch):
     subtype_for_recall = "shallow_horizon_2ply"
     # Overlap with tactics/oversight is intentional; the fire ordering
     # is handled by the shared once-per-session gate. Only fire when
-    # the miss carries real cp weight — combos below this are noise.
-    warning_cp_min: int = 100
+    # the miss carries real cp weight — noisier signal than tactical
+    # branches, so 2x band base (beginner_low: 200cp; intermediate:
+    # 100cp; advanced: 60cp).
+    warning_cp_multiplier: float = 2.0
     conductor_thread_keys = {"concept:TAC_CALCULATION", "concept:TAC_2PLY"}
 
     def find_issues(self, fen, user_color):
