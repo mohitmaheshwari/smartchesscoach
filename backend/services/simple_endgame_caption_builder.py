@@ -59,46 +59,46 @@ async def build_endgame_caption(
     caption_lines = []
     principles = []
 
-    # Check for promotion threats
+    # Check for promotion threats - BEFORE the move
     opp_color = not user_color
+
+    # Get state before move
+    board.push(move)
+
     for pawn_sq in board.pieces(chess.PAWN, opp_color):
         pawn_rank = chess.square_rank(pawn_sq)
         pawn_file = chess.square_file(pawn_sq)
 
-        # Is this pawn threatening?
-        if opp_color == chess.WHITE and pawn_rank >= 6:
+        # Is this pawn close to queening? (within 2-3 moves)
+        if opp_color == chess.WHITE and pawn_rank >= 5:
             promotion_sq = chess.square(pawn_file, 7)
-            # After move, do we defend?
-            board.push(move)
-            defended = board.is_attacked_by(user_color, promotion_sq)
-            board.pop()
+            squares_to_promotion = 7 - pawn_rank
 
-            if defended:
-                caption_lines.append(f"{move_san} defends against the promotion threat on {chess.square_name(promotion_sq)}.")
+            # Do we defend the promotion square?
+            defended = board.is_attacked_by(user_color, promotion_sq)
+
+            if defended and squares_to_promotion <= 2:
+                caption_lines.append(f"{move_san} controls {chess.square_name(promotion_sq)} to stop the pawn.")
                 principles.append("promotion_defense")
-            elif cp_loss > 100:
-                caption_lines.append(
-                    f"{move_san} allows Black's pawn to promote on {chess.square_name(promotion_sq)}."
-                )
+            elif not defended and squares_to_promotion <= 2 and cp_loss > 80:
+                caption_lines.append(f"{move_san} allows the Black pawn on {chess.square_name(pawn_sq)} to promote.")
                 principles.append("allows_promotion")
 
         elif opp_color == chess.BLACK and pawn_rank <= 2:
             promotion_sq = chess.square(pawn_file, 0)
-            # After move, do we defend?
-            board.push(move)
-            defended = board.is_attacked_by(user_color, promotion_sq)
-            board.pop()
+            squares_to_promotion = pawn_rank
 
-            if defended:
-                caption_lines.append(
-                    f"{move_san} defends against the promotion threat on {chess.square_name(promotion_sq)}."
-                )
+            # Do we defend the promotion square?
+            defended = board.is_attacked_by(user_color, promotion_sq)
+
+            if defended and squares_to_promotion <= 2:
+                caption_lines.append(f"{move_san} controls {chess.square_name(promotion_sq)} to stop the pawn.")
                 principles.append("promotion_defense")
-            elif cp_loss > 100:
-                caption_lines.append(
-                    f"{move_san} allows White's pawn to promote on {chess.square_name(promotion_sq)}."
-                )
+            elif not defended and squares_to_promotion <= 2 and cp_loss > 80:
+                caption_lines.append(f"{move_san} allows the White pawn on {chess.square_name(pawn_sq)} to promote.")
                 principles.append("allows_promotion")
+
+    board.pop()
 
     # If big loss and no explanation yet
     if not caption_lines:
