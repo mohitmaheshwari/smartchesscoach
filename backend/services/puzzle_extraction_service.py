@@ -121,14 +121,16 @@ async def extract_puzzles_from_game(
     user_rating = (user_doc or {}).get("rating", 1200)
 
     # Rating-aware extraction thresholds (centipawns)
+    # AGGRESSIVE backfill: extract ALL mistakes, not just big blunders
+    # More drill material = more learning opportunity
     if user_rating < 1000:
-        min_cp_loss = 200  # Only big blunders — that's what matters at this level
+        min_cp_loss = 75   # Include small mistakes for beginners (was 200)
     elif user_rating < 1400:
-        min_cp_loss = 150
+        min_cp_loss = 50   # More puzzles for intermediate (was 150)
     elif user_rating < 1800:
-        min_cp_loss = 100  # Standard
+        min_cp_loss = 30   # Capture subtle mistakes for advanced (was 100)
     else:
-        min_cp_loss = 75   # Include subtle mistakes for advanced players
+        min_cp_loss = 20   # Capture inaccuracies for experts (was 75)
 
     sf = analysis.get("stockfish_analysis", {})
     evals = sf.get("move_evaluations", [])
