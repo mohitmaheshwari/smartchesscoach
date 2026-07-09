@@ -347,6 +347,70 @@ async def compute_today_focus_count(db, user_id: str, focus_topic: str, dominant
     return await db.move_observations.count_documents(q)
 
 
+# ── PUZZLE DIFFICULTY SCALING (2026-07-09) ────────────────────────
+# Compute difficulty tiers (easy/medium/hard) for puzzles based on
+# cp_loss (material swing) and avg_rating (who struggles with it).
+# Difficulty is computed on-demand (no DB writes).
+
+
+def estimate_puzzle_difficulty(cp_loss: float, avg_rating: Optional[float]) -> str:
+    """
+    Compute puzzle difficulty from cp_loss and avg_rating.
+
+    Returns: "easy" | "medium" | "hard"
+
+    Two signals:
+      - cp_loss: how big is the error if best move not found
+      - avg_rating: what rating of players typically solve this
+
+    Priority: avg_rating (captures tactical depth better)
+    Override: high cp_loss can escalate "easy" puzzles to "hard"
+    """
+    cp = cp_loss if cp_loss is not None else 100  # default: medium
+    rating = avg_rating if avg_rating is not None else 1200  # default: medium
+
+    # Signal 1: cp_loss tier
+    if cp <= 100:
+        cp_tier = "easy"       # Small mistake (inaccuracy)
+    elif cp <= 250:
+        cp_tier = "medium"     # Real mistake
+    else:
+        cp_tier = "hard"       # Big blunder / forcing sequence
+
+    # Signal 2: rating tier (primary)
+    if rating < 1000:
+        rating_tier = "easy"       # Beginners find it hard
+    elif rating < 1400:
+        rating_tier = "medium"     # Intermediates find it hard
+    else:
+        rating_tier = "hard"       # Advanced players find it hard
+
+    # Combine: use rating_min as primary, allow cp_loss to upgrade
+    if rating_tier == "easy":
+        return "easy"
+    elif rating_tier == "medium":
+        # Upgrade to hard if cp_loss is very high (forcing)
+        return "hard" if cp >= 300 else "medium"
+    else:  # rating_tier == "hard"
+        return "hard"
+
+
+def recommend_difficulty(user_rating: Optional[float]) -> str:
+    """
+    Recommend difficulty tier based on player rating.
+
+    Returns: "easy" | "medium" | "hard"
+    """
+    if user_rating is None:
+        return "medium"  # default
+    if user_rating < 1000:
+        return "easy"
+    elif user_rating < 1500:
+        return "medium"
+    else:
+        return "hard"
+
+
 def build_recall_callout(
     scoreboard: Optional[Dict[str, Any]],
     today_count_before_move: int,

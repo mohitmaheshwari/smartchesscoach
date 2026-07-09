@@ -1827,30 +1827,28 @@ async def get_game_replay(game_id: str, user: User = Depends(get_current_user)):
 async def get_pattern_puzzles(
     pattern: str,
     limit: int = 15,
+    difficulty: str = None,
     user: User = Depends(get_current_user),
 ):
     """
-    DEPRECATED — kept for backwards compat and tests only.
-
-    As of 2026-04-21, the frontend consolidated all three training routes
-    (`/training`, `/training/prescribed`, `/training/pattern/:pattern`) to
-    render the single PrescribedTraining component, which calls the
-    canonical endpoint `/api/training/prescribed/{weakness}`. This endpoint
-    is no longer hit from the live UI.
-
-    Kept because: backend/tests/test_decay_model_puzzles.py still calls it,
-    and the auto-backfill trigger here is useful as a standalone warmup.
-
     Get training puzzles for a specific cognitive gap pattern.
+
+    Enhanced 2026-07-09 to support difficulty filtering.
+
+    Query params:
+      - pattern: cognitive_gap (piece_safety, missed_tactic, etc.)
+      - limit: max puzzles (default 15)
+      - difficulty: optional filter (easy, medium, hard)
+
     Returns user's own game positions first, then community puzzles.
     Excludes already-solved puzzles.
     Auto-triggers backfill if no puzzles exist yet.
 
-    Pass `current` to use whatever the curriculum brain has set as
-    coach_memory.learning.current_focus.
+    Difficulty is computed on-demand from cp_loss + avg_rating.
     """
     from services.puzzle_extraction_service import get_pattern_training_puzzles, backfill_puzzles_for_user
     from services.focus_resolver import get_active_focus
+    from services.mission_scoreboard import estimate_puzzle_difficulty, recommend_difficulty
 
     resolved_focus = None
     if pattern in ("current", "auto", "focus"):
@@ -1871,6 +1869,32 @@ async def get_pattern_puzzles(
             logger.warning(f"Auto-backfill failed: {e}")
 
     result = await get_pattern_training_puzzles(db, user.user_id, pattern, limit)
+
+    # NEW: Apply difficulty filtering if requested (2026-07-09)
+    if difficulty and isinstance(result, dict) and "puzzles" in result:
+        filtered = []
+        for p in result["puzzles"]:
+            p_difficulty = estimate_puzzle_difficulty(p.get("cp_loss"), p.get("avg_rating"))
+            if p_difficulty == difficulty:
+                filtered.append(p)
+        result["puzzles"] = filtered[:limit]
+        # Add difficulty metadata to response
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "rating": 1})
+        user_rating = user_doc.get("rating") if user_doc else None
+        result["difficulty_filter"] = difficulty
+        result["recommended_difficulty"] = recommend_difficulty(user_rating)
+        result["user_rating"] = user_rating
+    elif isinstance(result, dict):
+        # No filter applied, but add recommended difficulty for frontend
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "rating": 1})
+        user_rating = user_doc.get("rating") if user_doc else None
+        result["recommended_difficulty"] = recommend_difficulty(user_rating)
+        result["user_rating"] = user_rating
+        # Compute difficulty for each puzzle
+        if "puzzles" in result:
+            for p in result["puzzles"]:
+                p["difficulty"] = estimate_puzzle_difficulty(p.get("cp_loss"), p.get("avg_rating"))
+
     if resolved_focus:
         if isinstance(result, dict):
             result["active_focus"] = resolved_focus
