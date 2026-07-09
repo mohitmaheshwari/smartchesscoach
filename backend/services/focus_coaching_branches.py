@@ -467,5 +467,226 @@ class PieceSafetyBranch(FocusCoachingBranch):
         )
 
 
+# ─── KING_SAFETY BRANCH ────────────────────────────────────────────
+# The second concrete branch. Same 4-surface pattern as piece_safety
+# but with king-specific detectors: in-check, attack-density near the
+# king, and open files at a castled king. Conservative on false
+# positives — a 1200 player already has too much going on to be nagged
+# on a routine king walk.
+
+# Which of the conductor's motif keys mean "the king was the target"?
+# Skip the warning fire when any is pulled — the motif layer already spoke.
+_KING_MOTIF_KEYS = {
+    "defense:pin",       # walked into a pin against the king
+    "defense:skewer",    # walked into a skewer through the king
+    "defense:discovered",# walked into a discovered check
+    "concept:MID_KING_SAFETY",
+    "concept:DEF_WALK_KING",
+    "concept:OP_NOT_CASTLED",
+    "concept:OP_LOOSE_KING_PAWNS",
+}
+
+
+_PIECE_NAMES = {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen", 6: "king"}
+
+
+def _piece_name(piece_type: int) -> str:
+    return _PIECE_NAMES.get(piece_type, "piece")
+
+
+def _king_zone_squares(king_sq: int) -> list:
+    """Return squares within 2 of the king (king's own square + 3x3
+    neighborhood + a diamond around it). Used for attack-density scan."""
+    try:
+        import chess as _c
+        kf, kr = _c.square_file(king_sq), _c.square_rank(king_sq)
+        out = []
+        for f in range(max(0, kf - 2), min(7, kf + 2) + 1):
+            for r in range(max(0, kr - 2), min(7, kr + 2) + 1):
+                out.append(_c.square(f, r))
+        return out
+    except Exception:
+        return []
+
+
+def _find_king_safety_issues(fen: str, user_color: str) -> list:
+    """Return list of king_safety issue dicts for the user in `fen`.
+    Kinds:
+      - "in_check": user's king is in check (turn matters)
+      - "king_zone_swarm": 3+ distinct opponent pieces attack squares
+        within 2 of the king
+      - "open_file_at_castled_king": king on g1/g8/c1/c8 with no own
+        pawn on its file AND opponent rook or queen on the same file
+    """
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        opp_color = not own_color
+        king_sq = board.king(own_color)
+        if king_sq is None:
+            return []
+        king_sq_name = _c.square_name(king_sq)
+        issues = []
+
+        # Issue 1: in check when it's the user's turn to move
+        if board.turn == own_color and board.is_check():
+            for checker_sq in board.checkers():
+                checker = board.piece_at(checker_sq)
+                if checker is None:
+                    continue
+                issues.append({
+                    "kind": "in_check",
+                    "attacker_square": _c.square_name(checker_sq),
+                    "attacker_piece": _piece_name(checker.piece_type),
+                    "king_square": king_sq_name,
+                })
+
+        # Issue 2: king-zone attack density
+        zone = _king_zone_squares(king_sq)
+        attackers_in_zone = set()
+        for sq in zone:
+            for asq in board.attackers(opp_color, sq):
+                attackers_in_zone.add(asq)
+        if len(attackers_in_zone) >= 3:
+            issues.append({
+                "kind": "king_zone_swarm",
+                "attacker_count": len(attackers_in_zone),
+                "king_square": king_sq_name,
+            })
+
+        # Issue 3: open file at castled king
+        # Post-castle king squares: g1/c1 (white) or g8/c8 (black).
+        king_file = _c.square_file(king_sq)
+        king_rank = _c.square_rank(king_sq)
+        is_post_castle = (
+            (own_color == _c.WHITE and king_rank == 0 and king_file in (2, 6))
+            or (own_color == _c.BLACK and king_rank == 7 and king_file in (2, 6))
+        )
+        if is_post_castle:
+            own_pawn_on_king_file = False
+            for r in range(8):
+                p = board.piece_at(_c.square(king_file, r))
+                if p and p.color == own_color and p.piece_type == _c.PAWN:
+                    own_pawn_on_king_file = True
+                    break
+            if not own_pawn_on_king_file:
+                # Opponent rook or queen on same file?
+                for r in range(8):
+                    p = board.piece_at(_c.square(king_file, r))
+                    if p and p.color == opp_color and p.piece_type in (_c.ROOK, _c.QUEEN):
+                        issues.append({
+                            "kind": "open_file_at_castled_king",
+                            "file": chr(ord("a") + king_file),
+                            "attacker_piece": _piece_name(p.piece_type),
+                            "attacker_square": _c.square_name(_c.square(king_file, r)),
+                            "king_square": king_sq_name,
+                        })
+                        break
+
+        # Sort by severity: in_check > swarm > open_file
+        _RANK = {"in_check": 0, "king_zone_swarm": 1, "open_file_at_castled_king": 2}
+        issues.sort(key=lambda i: _RANK.get(i.get("kind"), 99))
+        return issues
+    except Exception:
+        return []
+
+
+def _find_king_safety_improvements(fen_before: str, fen_after: str,
+                                   user_color: str) -> list:
+    """Return the king_safety issues that were RESOLVED by the user's
+    move. Kind-based intersection — any issue kind present in the
+    before-set but absent in the after-set counts as a save.
+    """
+    before = _find_king_safety_issues(fen_before, user_color)
+    after = _find_king_safety_issues(fen_after, user_color)
+    kinds_after = {i["kind"] for i in after}
+    return [i for i in before if i["kind"] not in kinds_after]
+
+
+def _issue_phrase(issue: dict) -> str:
+    """One-liner describing the issue for insertion into templates."""
+    kind = issue.get("kind")
+    if kind == "in_check":
+        return f"in check from the {issue.get('attacker_piece', 'piece')} on {issue.get('attacker_square', '?')}"
+    if kind == "king_zone_swarm":
+        n = issue.get("attacker_count", 0)
+        return f"under {n} attackers near your king on {issue.get('king_square', '?')}"
+    if kind == "open_file_at_castled_king":
+        f = issue.get("file", "?")
+        return f"the {f}-file open at your king with a {issue.get('attacker_piece', 'piece')} bearing down"
+    return "under fire"
+
+
+def _resolution_phrase(issue: dict) -> str:
+    """What did the user's move achieve (past tense) for the affirmation."""
+    kind = issue.get("kind")
+    if kind == "in_check":
+        return "got out of check"
+    if kind == "king_zone_swarm":
+        return "cleared the pressure near your king"
+    if kind == "open_file_at_castled_king":
+        f = issue.get("file", "?")
+        return f"closed the {f}-file at your king"
+    return "defended the king"
+
+
+class KingSafetyBranch(FocusCoachingBranch):
+    """The king_safety focus. 3 detectable issue kinds: in_check,
+    king_zone_swarm, open_file_at_castled_king. Coordinates with the
+    conductor's king-related concept and defensive-motif threads so
+    the warning doesn't double-fire on the same event.
+    """
+
+    focus_topic = "king_safety"
+    topic_display = "king safety"
+    subtype_for_recall = "ignored_king_attack"
+
+    conductor_thread_keys = _KING_MOTIF_KEYS
+
+    def find_issues(self, fen, user_color):
+        return _find_king_safety_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_king_safety_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _issue_phrase(top_issue)
+        also = (
+            f" (and {n_more} more king-safety problem{'s' if n_more > 1 else ''})"
+            if n_more > 0 else ""
+        )
+        return (
+            f"{move_san} left your king {phrase} — "
+            f"a {grade} ({cp_loss}cp lost).{also}{today_recall} "
+            f"That's your king safety focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _resolution_phrase(top_saved)
+        also = f" (and cleaned up {n_more} more)" if n_more > 0 else ""
+        return (
+            f"Nice — {move_san} {resolution}{also}. That's exactly "
+            f"the discipline we're working on. That's your king safety "
+            f"focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _issue_phrase(top_issue)
+        also = f" (and {n_more} more)" if n_more > 0 else ""
+        return (
+            f"⚠ Your king is {phrase}{also} — defend before you push. "
+            f"That's your king safety focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"Your king's been safe through {clean_moves} moves so far — "
+            f"good discipline. Keep watching for pressure on the king. "
+            f"That's your king safety focus this week."
+        )
+
+
 # Register on module import so any caller of get_branch_for_focus sees it.
 register_branch(PieceSafetyBranch())
+register_branch(KingSafetyBranch())
