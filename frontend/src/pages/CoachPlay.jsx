@@ -277,6 +277,39 @@ const CoachPlay = ({ user }) => {
   
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
+  // Coach geometry overlay (Phase 1) — living plan arrows for BOTH sides.
+  // green = your plan, yellow = coach's plan, pale = latent line to watch.
+  // Behind PWC_GEOMETRY_ARROWS: backend returns [] when off, so it's a no-op
+  // by default. docs/coach_geometry_arrows_scope.md
+  const [geometryPlans, setGeometryPlans] = useState([]);
+  useEffect(() => {
+    if (!gameStarted || isInTeachingMode || gameOver || !currentFen) return;
+    let cancelled = false;
+    const brushFor = (p) =>
+      p.color === "green"
+        ? (p.style === "dashed" ? "paleGreen" : "green")
+        : (p.style === "dashed" ? "paleGrey" : "yellow");
+    fetch(
+      `${API}/coach/play/geometry?fen=${encodeURIComponent(currentFen)}&user_color=${selectedColor}`,
+      { credentials: "include" }
+    )
+      .then((r) => (r.ok ? r.json() : { plans: [] }))
+      .then((d) => {
+        if (cancelled) return;
+        const plans = d.plans || [];
+        setGeometryPlans(plans);
+        if (plans.length) {
+          const tuples = plans.flatMap((p) =>
+            (p.arrows || []).map(([f, t]) => [f, t, brushFor(p)])
+          );
+          setCoachArrows(tuples);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentFen, gameStarted, isInTeachingMode, gameOver, selectedColor]);
   // Coach move explanation — shown after coach plays
   const [coachMoveExplanation, setCoachMoveExplanation] = useState(null);
   // Track last commentary observation titles to suppress repeats

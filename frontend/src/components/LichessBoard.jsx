@@ -409,11 +409,16 @@ const LichessBoard = forwardRef(({
           enabled: true,
           visible: true,
           autoShapes: arrows.length > 0 ? arrows.map(([from, to, color]) => {
+            // Coach geometry overlay: green = your plan, yellow = coach's plan,
+            // pale variants = latent "line to watch". docs/coach_geometry_arrows_scope.md
             let brush = "blue";
             if (color) {
-              const colorLower = color.toLowerCase();
-              if (colorLower.includes("red") || colorLower.includes("239")) brush = "red";
-              else if (colorLower.includes("green")) brush = "green";
+              const c = color.toLowerCase();
+              if (c.includes("palegreen")) brush = "paleGreen";
+              else if (c.includes("palegrey") || c.includes("palegray")) brush = "paleGrey";
+              else if (c.includes("yellow") || c.includes("amber")) brush = "yellow";
+              else if (c.includes("red") || c.includes("239")) brush = "red";
+              else if (c.includes("green")) brush = "green";
             }
             return { orig: from, dest: to, brush };
           }) : [],

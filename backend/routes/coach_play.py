@@ -4627,6 +4627,27 @@ async def get_pregame_intro_endpoint(
     return await get_pregame_intro(db, user.user_id, opening)
 
 
+@router.get("/geometry")
+async def get_geometry_plans_endpoint(
+    fen: str,
+    user_color: str = "white",
+    user: User = Depends(get_current_user),
+):
+    """Living plan overlay (Phase 1) — verified geometric plans for BOTH sides
+    (pins / forks / loose targets / open files / latent lines) as arrows + zones
+    for the PWC board. Distilled to the top ~2 per side. Behind
+    PWC_GEOMETRY_ARROWS (default off). docs/coach_geometry_arrows_scope.md."""
+    import os as _os
+    if _os.environ.get("PWC_GEOMETRY_ARROWS", "false").lower() != "true":
+        return {"plans": []}
+    try:
+        from services.geometry_plans import find_plans
+        return {"plans": find_plans(fen, user_color, per_side=2)}
+    except Exception as _e:
+        logger.warning(f"[geometry] plan detection failed: {_e}")
+        return {"plans": []}
+
+
 @router.post("/position/read")
 async def read_position_general(
     request: Dict = Body(...),
