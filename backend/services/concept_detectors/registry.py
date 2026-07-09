@@ -55,6 +55,12 @@ from services.concept_detectors.endgame_lucena import (
 from services.concept_detectors.endgame_philidor import (
     detect_endgame_philidor_application,
 )
+from services.concept_detectors.trap_detection import (
+    detect_trap_application,
+)
+from services.concept_detectors.opening_play import (
+    detect_opening_play_application,
+)
 
 
 # Type alias for clarity.
@@ -71,6 +77,9 @@ DETECTORS: Dict[str, DetectorFn] = {
     "endgame_opposition":     detect_endgame_opposition_application,
     "endgame_lucena":         detect_endgame_lucena_application,
     "endgame_philidor":       detect_endgame_philidor_application,
+    # Trap and opening detection (Tier 2-3 wiring)
+    "trap_detection":         detect_trap_application,
+    "opening_play":           detect_opening_play_application,
 }
 
 

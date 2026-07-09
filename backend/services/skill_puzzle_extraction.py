@@ -83,6 +83,42 @@ SKILL_PROMPT = {
     "concept_minority_attack": (
         "Queenside attack. Use the minority attack to create weaknesses."
     ),
+
+    # Trap detection
+    "trap_detection": (
+        "Opening trap. Avoid falling for the trap line."
+    ),
+
+    # Opening play
+    "opening_play": (
+        "Opening repertoire. Stay in theory or play sound deviations."
+    ),
+    "opening_london_white": (
+        "London System for White. Solid setup and attack plan."
+    ),
+    "opening_caro_kann_black": (
+        "Caro-Kann Defense. Solid response to 1.e4."
+    ),
+    "opening_italian_white": (
+        "Italian Game. Attack the weak f7 square."
+    ),
+    "opening_ruy_lopez": (
+        "Ruy Lopez. Deep classical opening with many nuances."
+    ),
+    "opening_sicilian_black": (
+        "Sicilian Defense. Counterattack against 1.e4."
+    ),
+
+    # Trap sets
+    "trap_set_italian": (
+        "Italian Game traps. Know the common tricks and avoid them."
+    ),
+    "trap_set_caro_kann": (
+        "Caro-Kann traps. Watch for opening surprises."
+    ),
+    "trap_set_london": (
+        "London System traps. Defend against opponent counterplay."
+    ),
 }
 
 # ENGINE 1 PATTERNS (cognitive gaps — for backfill extraction)
