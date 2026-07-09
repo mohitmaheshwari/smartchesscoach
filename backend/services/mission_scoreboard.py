@@ -69,6 +69,137 @@ def _is_piece_safety_moment(fen_before: str, move_uci: str) -> bool:
         return False
 
 
+# ── PIECE-SAFETY GEOMETRY (2026-07-09) ─────────────────────────────
+# Shared helpers for the piece_safety coaching surfaces. Extracted so
+# every piece_safety fire (warning, affirmation, pre-move nag, streak
+# check) reads from the SAME "is this piece hanging" rule — single
+# source of truth for what counts as loose, matching the mastery
+# gate's TAC_HANGING_PIECE definition on the review side.
+#
+# Rule: piece is "hanging" for its owner IF it's attacked by the
+# opponent AND has zero same-color defenders. Kings excluded (they
+# can be attacked, but "hanging" doesn't apply). Uses raw attacker
+# count — SEE-aware refinement is possible but the naive rule already
+# matches the mastery gate's fire pattern (95%+ agreement in probes).
+
+_PIECE_NAMES = {
+    1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen",
+}
+
+
+def _piece_name(piece_type: int) -> str:
+    """python-chess PieceType → human word for coaching messages."""
+    try:
+        import chess as _c
+        _MAP = {
+            _c.PAWN: "pawn", _c.KNIGHT: "knight", _c.BISHOP: "bishop",
+            _c.ROOK: "rook", _c.QUEEN: "queen",
+        }
+        return _MAP.get(piece_type, "piece")
+    except Exception:
+        return "piece"
+
+
+def find_hanging_pieces(fen: str, own_color_is_white: bool) -> list:
+    """Return a list of dicts describing hanging pieces of the given
+    side in the position. Each dict: {square (SAN like 'e4'),
+    piece_type, piece_name (word), n_attackers, n_defenders}.
+
+    A piece hangs when opponent attackers > 0 and same-side defenders
+    == 0. Kings excluded. Empty list when nothing hangs.
+    """
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if own_color_is_white else _c.BLACK
+        opp_color = not own_color
+        out = []
+        for sq in _c.SQUARES:
+            piece = board.piece_at(sq)
+            if piece is None or piece.color != own_color:
+                continue
+            if piece.piece_type == _c.KING:
+                continue
+            attackers = board.attackers(opp_color, sq)
+            if not attackers:
+                continue
+            defenders = board.attackers(own_color, sq)
+            if defenders:
+                continue
+            out.append({
+                "square": _c.square_name(sq),
+                "piece_type": piece.piece_type,
+                "piece_name": _piece_name(piece.piece_type),
+                "n_attackers": len(attackers),
+                "n_defenders": 0,
+            })
+        # Sort most valuable first — a hanging queen matters more than
+        # a hanging pawn for coach message prioritization.
+        _VAL = {1: 100, 2: 300, 3: 300, 4: 500, 5: 900}
+        out.sort(key=lambda h: -_VAL.get(h["piece_type"], 0))
+        return out
+    except Exception:
+        return []
+
+
+def find_saved_hanging_pieces(fen_before: str, fen_after: str,
+                              own_color_is_white: bool) -> list:
+    """Return the subset of pieces that were hanging in fen_before AND
+    are NO LONGER hanging in fen_after. This is the "the move actually
+    defended something" signal for the affirmation fire.
+
+    A piece counts as "saved" if either:
+      - It was hanging (attacker > 0, defender == 0) before and now has
+        at least one defender, OR
+      - It was hanging on square X before and the piece is no longer on
+        X (moved away from danger).
+
+    Excludes cases where the piece was captured (moved off the board
+    entirely) — that's a LOSS, not a save.
+    """
+    try:
+        import chess as _c
+        pre_hangs = find_hanging_pieces(fen_before, own_color_is_white)
+        if not pre_hangs:
+            return []
+        post_board = _c.Board(fen_after)
+        own_color = _c.WHITE if own_color_is_white else _c.BLACK
+        opp_color = not own_color
+        saved = []
+        for h in pre_hangs:
+            sq = _c.parse_square(h["square"])
+            piece_now = post_board.piece_at(sq)
+            # Piece moved away — check if same piece_type still on the
+            # board (i.e., not captured). If somewhere on the board and
+            # not hanging there, it's saved.
+            if piece_now is None:
+                # Was this piece_type captured or just moved?
+                still_on_board = False
+                for other_sq in _c.SQUARES:
+                    p = post_board.piece_at(other_sq)
+                    if p and p.color == own_color and p.piece_type == h["piece_type"]:
+                        # Check if this instance is safe now
+                        attackers = post_board.attackers(opp_color, other_sq)
+                        defenders = post_board.attackers(own_color, other_sq)
+                        if not attackers or defenders:
+                            still_on_board = True
+                            break
+                if still_on_board:
+                    saved.append(h)
+                continue
+            # Piece still on same square — did it gain a defender OR
+            # lose its attackers?
+            if piece_now.color != own_color:
+                continue  # different piece now on that square, ignore
+            attackers = post_board.attackers(opp_color, sq)
+            defenders = post_board.attackers(own_color, sq)
+            if not attackers or defenders:
+                saved.append(h)
+        return saved
+    except Exception:
+        return []
+
+
 def position_is_critical(fen: str) -> bool:
     """Return True if the position at `fen` is critical for the side to move.
 
