@@ -1,15 +1,38 @@
-# Deterministic Principle-Based Coaching System — READY ✅
+# Deterministic Principle-Based Coaching System — STOCKFISH-VERIFIED ✅
 
-**Date:** July 9, 2026  
-**Status:** WORKING & TESTED  
+**Date:** July 9, 2026 (Updated)  
+**Status:** WORKING & STOCKFISH-VERIFIED  
 **Commit:** b489ff68  
+**Critical Rule:** Every caption MUST be backed by Stockfish evaluation  
 **Next:** Integrate into postgame_analysis.py
 
 ---
 
+## Verification Gates (MANDATORY)
+
+Every caption now passes THREE gates before firing:
+
+**Gate 1: Stockfish Evaluation Gate**
+- Only caption if `cp_loss >= 100` (real mistake by engine standard)
+- Below 100cp loss → fallback to eval-only caption
+- Purpose: Avoid false positives on marginal moves
+
+**Gate 2: Threat Consistency Gate**
+- Verify detected threat is consistent with Stockfish eval
+- Check: Are there threats within 3 moves? Does threat severity match cp_loss?
+- Threat→allows detection only if cp_loss >= 75
+- Threat→defends detection only if cp_loss < 50
+- Purpose: Ensure threat explains the eval, not coincidence
+
+**Gate 3: Verification Flag**
+- Every caption returned includes `"verified": true/false`
+- Only `verified=true` captions should be shown to users
+- Fallback captions set `verified=false`
+- Purpose: Audit trail for caption reliability
+
 ## What Works Now
 
-**Promotion Threat Detector** — Proven correct on test cases
+**Promotion Threat Detector** — Proven correct & Stockfish-verified
 
 ```
 Test Case 1: Rook leaves undefended pawn
