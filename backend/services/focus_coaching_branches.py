@@ -443,10 +443,10 @@ class PieceSafetyBranch(FocusCoachingBranch):
 
     focus_topic = "piece_safety"
     topic_display = "piece safety"
-    subtype_for_recall = "hung_piece"
+    subtype_for_recall = "simple_hang"  # canonical: move_observations.subtype
 
     conductor_thread_keys = {
-        "concept:TAC_HANGING_PIECE",
+        # Real motif keys the conductor emits from board detection.
         "defense:loose",
         "offense:loose",
     }
@@ -557,10 +557,9 @@ _KING_MOTIF_KEYS = {
     "defense:pin",       # walked into a pin against the king
     "defense:skewer",    # walked into a skewer through the king
     "defense:discovered",# walked into a discovered check
-    "concept:MID_KING_SAFETY",
-    "concept:DEF_WALK_KING",
-    "concept:OP_NOT_CASTLED",
-    "concept:OP_LOOSE_KING_PAWNS",
+    # Concept keys are dynamic (concept:{matched_id}, e.g.
+    # concept:defend_fried_liver). Board-detected motif keys above
+    # are the reliable ones the conductor pulls from PWC games.
 }
 
 
@@ -921,8 +920,10 @@ def _activity_resolution_phrase(issue: dict) -> str:
 class PieceActivityBranch(FocusCoachingBranch):
     focus_topic = "piece_activity"
     topic_display = "piece activity"
-    subtype_for_recall = "passive_piece"
-    conductor_thread_keys = {"concept:OP_DEVELOP", "concept:MID_ACTIVITY"}
+    subtype_for_recall = "piece_parked_on_start"  # canonical
+    # No motif thread cleanly maps to piece_activity — leave empty.
+    # (Invented concept:* keys don't match real conductor IDs.)
+    conductor_thread_keys: Set[str] = set()
 
     def find_issues(self, fen, user_color):
         return _find_piece_activity_issues(fen, user_color)
@@ -1098,8 +1099,11 @@ def _endgame_resolution_phrase(issue: dict) -> str:
 class EndgameTechniqueBranch(FocusCoachingBranch):
     focus_topic = "endgame_technique"
     topic_display = "endgame technique"
-    subtype_for_recall = "poor_endgame"
-    conductor_thread_keys = {"concept:END_ACTIVE_KING", "concept:END_PASSED_PAWN"}
+    subtype_for_recall = "passive_king_in_endgame"  # canonical
+    # Endgame conductor keys are dynamic (endgame:{skill} for specific
+    # endgame types). Don't invent; leave empty for now — the once-
+    # per-session gate is the primary anti-double-fire mechanism.
+    conductor_thread_keys: Set[str] = set()
 
     def find_issues(self, fen, user_color):
         return _find_endgame_technique_issues(fen, user_color)
@@ -1244,8 +1248,10 @@ def _structure_resolution_phrase(issue: dict) -> str:
 class PawnStructureBranch(FocusCoachingBranch):
     focus_topic = "pawn_structure"
     topic_display = "pawn structure"
-    subtype_for_recall = "weak_pawns"
-    conductor_thread_keys = {"concept:MID_PAWN_STRUCTURE", "concept:OP_LOOSE_PAWNS"}
+    subtype_for_recall = "generic_structure_slip"  # canonical (also
+    # exists: doubled_pawn_created / isolated_pawn_created / backward_
+    # pawn_created — pick per-issue-kind is a follow-up refinement)
+    conductor_thread_keys: Set[str] = set()
     # Structure damage is long-term — slightly softer gate than tactical
     # branches (0.8x band base). Beginner_low: 80cp; intermediate: 40cp.
     warning_cp_multiplier: float = 0.8
@@ -1386,10 +1392,13 @@ def _tactic_resolution_phrase(issue: dict) -> str:
 class MissedTacticBranch(FocusCoachingBranch):
     focus_topic = "missed_tactic"
     topic_display = "tactics"
-    subtype_for_recall = "missed_threat"
+    subtype_for_recall = "missed_fork"  # canonical (per-motif exists:
+    # missed_fork / missed_pin / missed_skewer / missed_discovered_
+    # attack — using the most common one as the recall default)
     conductor_thread_keys = {
+        # Real motif keys the conductor emits from board detection.
         "defense:fork", "defense:pin", "defense:skewer",
-        "defense:discovered", "concept:TAC_FORK", "concept:TAC_PIN",
+        "defense:discovered",
     }
 
     def find_issues(self, fen, user_color):
@@ -1541,8 +1550,8 @@ def _oversight_resolution_phrase(issue: dict) -> str:
 class TacticalOversightBranch(FocusCoachingBranch):
     focus_topic = "tactical_oversight"
     topic_display = "tactical oversight"
-    subtype_for_recall = "missed_second_move"
-    conductor_thread_keys = {"defense:loose", "concept:TAC_HANGING_PIECE"}
+    subtype_for_recall = "overlooked_immediate_reply"  # canonical
+    conductor_thread_keys = {"defense:loose"}  # real motif key
     # 2-move oversights typically carry more cp weight — slightly
     # stricter (1.2x band base). Beginner_low: 120cp; intermediate: 60cp.
     warning_cp_multiplier: float = 1.2
@@ -1832,14 +1841,15 @@ def _calc_resolution_phrase(issue: dict) -> str:
 class CalculationDepthBranch(FocusCoachingBranch):
     focus_topic = "calculation_depth"
     topic_display = "calculation depth"
-    subtype_for_recall = "shallow_horizon_2ply"
+    subtype_for_recall = "generic_calc_gap"  # canonical
     # Overlap with tactics/oversight is intentional; the fire ordering
     # is handled by the shared once-per-session gate. Only fire when
     # the miss carries real cp weight — noisier signal than tactical
     # branches, so 2x band base (beginner_low: 200cp; intermediate:
     # 100cp; advanced: 60cp).
     warning_cp_multiplier: float = 2.0
-    conductor_thread_keys = {"concept:TAC_CALCULATION", "concept:TAC_2PLY"}
+    # No motif thread cleanly maps to a 2-ply calculation event.
+    conductor_thread_keys: Set[str] = set()
 
     def find_issues(self, fen, user_color):
         return _find_calculation_depth_issues(fen, user_color)
