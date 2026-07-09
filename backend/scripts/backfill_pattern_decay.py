@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Backfill pattern decay scores for existing analyzed games.
+Backfill pattern decay scores + puzzle extraction for existing analyzed games.
+
+Phase 1, 2026-07-09: Extended to also extract puzzles from existing game analyses
+so that users can immediately start training on their own mistakes.
 """
 import asyncio
 import os
@@ -11,6 +14,7 @@ sys.path.insert(0, '/app/backend')
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
 from services.pattern_decay_service import compute_pattern_scores, get_puzzle_recoveries
+from services.puzzle_extraction_service import extract_puzzles_from_game
 
 
 async def main():
@@ -96,8 +100,32 @@ async def main():
         decay = updated.get("pattern_decay_scores", {})
         print(f"  ✓ coach_memory has {len(decay)} pattern scores")
 
+    # Phase 1 (2026-07-09): Extract puzzles from analyzed games
+    print(f"\n" + "=" * 70)
+    print("Backfill: Puzzle Extraction from Analyzed Games")
+    print("=" * 70)
+
+    puzzle_count = 0
+    extraction_errors = 0
+
+    for g in games[:100]:  # Limit to first 100 to avoid timeout
+        try:
+            puzzles = await extract_puzzles_from_game(db, g["game_id"], user_id)
+            if puzzles:
+                puzzle_count += len(puzzles)
+                print(f"  ✓ {g['game_id'][:8]}...: extracted {len(puzzles)} puzzles")
+        except Exception as e:
+            extraction_errors += 1
+            if extraction_errors <= 3:  # Show first 3 errors
+                print(f"  ! {g['game_id'][:8]}...: extraction failed ({str(e)[:50]})")
+
+    print(f"\nPuzzle Extraction Summary:")
+    print(f"  Total extracted: {puzzle_count} puzzles")
+    print(f"  Errors: {extraction_errors}")
+    print(f"  Avg per game: {puzzle_count / min(100, len(games)):.1f}")
+
     print("\n" + "=" * 70)
-    print("✓ Backfill complete")
+    print("✓ Backfill complete (pattern decay + puzzle extraction)")
     print("=" * 70)
 
 
