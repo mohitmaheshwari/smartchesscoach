@@ -3005,91 +3005,25 @@ async def get_interactive_coaching(
             except Exception as _imp_e:
                 logger.warning(f"impulse-warning check failed: {_imp_e}")
 
-            # ── PIECE_SAFETY WARNING (rewritten 2026-07-09 for 10/10) ──
-            # Fires when user's move leaves at least one piece hanging
-            # AND cp_loss >= 50 (catches inaccuracies + mistakes + blunders,
-            # not just >=100). Names the SPECIFIC piece + square (not just
-            # the move SAN), grades severity honestly (mistake / big mistake
-            # / blunder), and includes the "today" recall count when the
-            # user has been slipping — same shape as impulse_warning.
-            #
-            # Avoids double-firing with the conductor's concept:TAC_HANGING_PIECE
-            # thread (which speaks about the SAME event with different framing)
-            # by checking session.conductor_threads_pulled.
+            # ── FOCUS WARNING (refactored 2026-07-09) ─────────────────
+            # Dispatches to a per-focus branch registered in
+            # services.focus_coaching_branches. First branch: piece_safety.
+            # Adding king_safety / piece_activity / others = register the
+            # branch class; this call auto-fires with no route changes.
+            # docs/pwc_memory_wiring_scope.md for the shared architecture.
             try:
-                _ps_focus = (session_doc.get("session_focus") or {}).get("topic_key")
-                if _ps_focus == "piece_safety" and cp_loss >= 50 and fen_after:
-                    _pulled = session_doc.get("conductor_threads_pulled") or []
-                    _conductor_covered = any(
-                        isinstance(k, str) and (
-                            k == "concept:TAC_HANGING_PIECE"
-                            or k == "defense:loose"
-                            or k == "offense:loose"
-                        )
-                        for k in _pulled
+                from services.focus_coaching_branches import (
+                    get_branch_for_focus as _get_branch, fire_focus_warning as _fire_warning,
+                )
+                _focus_key = (session_doc.get("session_focus") or {}).get("topic_key")
+                _branch = _get_branch(_focus_key)
+                if _branch:
+                    await _fire_warning(
+                        db, session_doc, _branch, move_san, cp_loss,
+                        fen_after or "", user_color, session_id,
                     )
-                    if not _conductor_covered:
-                        from services.mission_scoreboard import find_hanging_pieces
-                        _user_is_white = (user_color == "white")
-                        _hangs = find_hanging_pieces(fen_after, _user_is_white)
-                        if _hangs:
-                            _already_ps_warn = await db.coach_messages.count_documents({
-                                "session_id": session_id, "type": "piece_safety_warning",
-                            })
-                            if _already_ps_warn == 0:
-                                # Grade severity honestly by cp_loss.
-                                if cp_loss >= 300:
-                                    _grade = "blunder"
-                                elif cp_loss >= 150:
-                                    _grade = "big mistake"
-                                elif cp_loss >= 100:
-                                    _grade = "mistake"
-                                else:
-                                    _grade = "inaccuracy"
-                                # Name the biggest hanging piece (already
-                                # sorted most-valuable first).
-                                _top = _hangs[0]
-                                _piece_word = _top["piece_name"]
-                                _sq = _top["square"]
-                                _n_more = len(_hangs) - 1
-                                _also = (
-                                    f" (and {_n_more} more piece{'s' if _n_more > 1 else ''} unguarded)"
-                                    if _n_more > 0 else ""
-                                )
-                                # Recall count — how many piece_safety events today.
-                                try:
-                                    from services.mission_scoreboard import compute_today_focus_count
-                                    _today_ps = await compute_today_focus_count(
-                                        db, session_doc.get("user_id"),
-                                        "piece_safety", "hung_piece",
-                                    )
-                                except Exception:
-                                    _today_ps = 0
-                                _recall = (
-                                    f" That's your {_today_ps + 1}"
-                                    f"{'st' if (_today_ps + 1) % 10 == 1 and (_today_ps+1) % 100 != 11 else 'th'} "
-                                    f"loose piece today."
-                                    if _today_ps >= 3 else ""
-                                )
-                                _ps_msg = (
-                                    f"{move_san} left your {_piece_word} on {_sq} undefended — "
-                                    f"a {_grade} ({cp_loss}cp lost).{_also}{_recall} "
-                                    f"That's your piece safety focus this week."
-                                )
-                                await db.coach_messages.insert_one({
-                                    "session_id": session_id,
-                                    "type": "piece_safety_warning",
-                                    "move_san": move_san,
-                                    "message": _ps_msg,
-                                    "cp_loss": cp_loss,
-                                    "hanging_pieces": _hangs,
-                                    "today_ps_count": _today_ps,
-                                    "created_at": datetime.now(timezone.utc),
-                                    "read": False,
-                                })
-                                logger.info(f"[piece_safety_warning] fired for {session_id} move={move_san} hanging={_top['piece_name']}@{_sq} cp={cp_loss}")
-            except Exception as _ps_e:
-                logger.warning(f"piece_safety_warning check failed: {_ps_e}")
+            except Exception as _fb_warn_e:
+                logger.warning(f"focus warning dispatch failed: {_fb_warn_e}")
 
             # ── PHASE 2: FAST-BUT-CORRECT AFFIRMATION ─────────────────
             # Mirror of impulse_warning. When the user is on the time_management
@@ -3135,53 +3069,22 @@ async def get_interactive_coaching(
             except Exception as _aff_e:
                 logger.warning(f"fast_good_affirm check failed: {_aff_e}")
 
-            # ── PIECE_SAFE AFFIRMATION (rewritten 2026-07-09 for 10/10) ──
-            # Fires when the user's move ACTUALLY defended a piece — a piece
-            # that WAS hanging in fen_before is no longer hanging in fen_after
-            # (defender added or piece moved to safety). Cp_loss < 50 gate
-            # keeps this as an affirmation, not a mistake-that-happened-to-save.
-            #
-            # The previous version fired on ANY good move with cp_loss < 50 —
-            # user played e4 as an opening move and got "Nice, you kept your
-            # pieces protected." Dishonest coaching. This version requires a
-            # real save to have occurred.
+            # ── FOCUS AFFIRMATION (refactored 2026-07-09) ─────────────
+            # Same dispatch shape as the warning above. Branch's
+            # find_improvements + affirm_text handle the specifics.
             try:
-                _ps_focus_aff = (session_doc.get("session_focus") or {}).get("topic_key")
-                if _ps_focus_aff == "piece_safety" and cp_loss < 50 and fen_before and fen_after:
-                    _already_ps_aff = await db.coach_messages.count_documents({
-                        "session_id": session_id, "type": "piece_safe_affirm",
-                    })
-                    if _already_ps_aff == 0:
-                        from services.mission_scoreboard import find_saved_hanging_pieces
-                        _user_is_white = (user_color == "white")
-                        _saved = find_saved_hanging_pieces(fen_before, fen_after, _user_is_white)
-                        if _saved:
-                            _top_saved = _saved[0]
-                            _piece_word = _top_saved["piece_name"]
-                            _sq = _top_saved["square"]
-                            _n_more = len(_saved) - 1
-                            _also = (
-                                f" (and {_n_more} more)"
-                                if _n_more > 0 else ""
-                            )
-                            _ps_aff_msg = (
-                                f"Nice — {move_san} saved your {_piece_word} "
-                                f"from {_sq}{_also}. That's exactly the shape we're "
-                                f"working on. That's your piece safety focus this week."
-                            )
-                            await db.coach_messages.insert_one({
-                                "session_id": session_id,
-                                "type": "piece_safe_affirm",
-                                "move_san": move_san,
-                                "message": _ps_aff_msg,
-                                "cp_loss": cp_loss,
-                                "saved_pieces": _saved,
-                                "created_at": datetime.now(timezone.utc),
-                                "read": False,
-                            })
-                            logger.info(f"[piece_safe_affirm] fired for {session_id} move={move_san} saved={_piece_word}@{_sq} cp={cp_loss}")
-            except Exception as _ps_aff_outer_e:
-                logger.warning(f"piece_safe_affirm check failed: {_ps_aff_outer_e}")
+                from services.focus_coaching_branches import (
+                    get_branch_for_focus as _get_branch, fire_focus_affirm as _fire_affirm,
+                )
+                _focus_key_aff = (session_doc.get("session_focus") or {}).get("topic_key")
+                _branch_aff = _get_branch(_focus_key_aff)
+                if _branch_aff:
+                    await _fire_affirm(
+                        db, session_doc, _branch_aff, move_san, cp_loss,
+                        fen_before or "", fen_after or "", user_color, session_id,
+                    )
+            except Exception as _fb_aff_e:
+                logger.warning(f"focus affirm dispatch failed: {_fb_aff_e}")
 
             # ── PHASE 3: MID-GAME PACE CHECK (2026-07-08) ──
             # Once per game, after ≥8 user moves on a time_management focus
@@ -3225,50 +3128,21 @@ async def get_interactive_coaching(
             except Exception as _pc_e:
                 logger.warning(f"pace_check failed: {_pc_e}")
 
-            # ── PIECE_SAFETY STREAK (mid-game clean-run affirm, 2026-07-09) ──
-            # Mirror of pace_check for piece_safety focus. After ≥10 user
-            # moves on a piece_safety session, if the CURRENT position has
-            # zero hanging user pieces AND the user hasn't had a
-            # piece_safety_warning fire this game, acknowledge the streak.
-            # Fires at most ONCE per session — a persistent presence, not a
-            # jingle. Complements the reactive warning by catching the
-            # positive discipline instead of only the mistakes.
+            # ── FOCUS STREAK (refactored 2026-07-09) ──────────────────
+            # Mid-game clean-run acknowledgment. Dispatches per branch.
             try:
-                _sf_ps_st = (session_doc.get("session_focus") or {}).get("topic_key")
-                if _sf_ps_st == "piece_safety" and fen_after:
-                    _user_moves_st = [
-                        m for m in (session_doc.get("move_history") or [])
-                        if m.get("by") == "player"
-                    ]
-                    if len(_user_moves_st) >= 10:
-                        _already_st = await db.coach_messages.count_documents({
-                            "session_id": session_id, "type": "piece_safety_streak",
-                        })
-                        _prior_warn = await db.coach_messages.count_documents({
-                            "session_id": session_id, "type": "piece_safety_warning",
-                        })
-                        if _already_st == 0 and _prior_warn == 0:
-                            from services.mission_scoreboard import find_hanging_pieces
-                            _uc_st = session_doc.get("user_color") or "white"
-                            _hangs_now = find_hanging_pieces(fen_after, _uc_st == "white")
-                            if not _hangs_now:
-                                _n = len(_user_moves_st) + 1
-                                _st_msg = (
-                                    f"You've kept your pieces safe through {_n} moves so far — "
-                                    f"good discipline. Keep scanning before every move. "
-                                    f"That's your piece safety focus this week."
-                                )
-                                await db.coach_messages.insert_one({
-                                    "session_id": session_id,
-                                    "type": "piece_safety_streak",
-                                    "message": _st_msg,
-                                    "clean_moves": _n,
-                                    "created_at": datetime.now(timezone.utc),
-                                    "read": False,
-                                })
-                                logger.info(f"[piece_safety_streak] fired for {session_id} clean={_n}")
-            except Exception as _st_e:
-                logger.warning(f"piece_safety_streak failed: {_st_e}")
+                from services.focus_coaching_branches import (
+                    get_branch_for_focus as _get_branch, fire_focus_streak as _fire_streak,
+                )
+                _focus_key_st = (session_doc.get("session_focus") or {}).get("topic_key")
+                _branch_st = _get_branch(_focus_key_st)
+                if _branch_st:
+                    await _fire_streak(
+                        db, session_doc, _branch_st, fen_after or "",
+                        user_color, session_id,
+                    )
+            except Exception as _fb_st_e:
+                logger.warning(f"focus streak dispatch failed: {_fb_st_e}")
 
             # Determine game phase
             fullmove = board.fullmove_number
@@ -7463,80 +7337,27 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         except Exception as _nag_e:
             logger.warning(f"pre_move_nag check failed: {_nag_e}")
 
-        # ── PIECE_SAFETY NAG (rewritten 2026-07-09 for 10/10) ──
-        # After coach plays, if the position handed BACK to the user has
-        # ≥1 hanging user piece AND the user is on piece_safety focus,
-        # fire a pre-move nag that NAMES the specific piece + square.
-        # Uses shared find_hanging_pieces helper — the buggy custom
-        # "same-symbol-within-distance-1" defender check in the previous
-        # version incorrectly matched only same-piece-type defenders on
-        # adjacent squares, over-firing on positions where the piece was
-        # actually defended by a different piece type.
-        #
-        # Avoids double-firing with piece_safety_warning that just fired
-        # on the user's LAST move: if the position was ALREADY flagged as
-        # a hang on the user's own move, we don't need to nag them again
-        # after the coach responds — they were just warned.
+        # ── FOCUS PRE-MOVE NAG (refactored 2026-07-09) ────────────────
+        # Dispatches per-focus branch. Branch's find_issues on fen_after
+        # + suppress-if-warning-fired restraint live in the shared helper.
         try:
-            _sess_ps_nag = await db.coach_sessions.find_one(
+            from services.focus_coaching_branches import (
+                get_branch_for_focus as _get_branch, fire_focus_nag as _fire_nag,
+            )
+            _sess_fbnag = await db.coach_sessions.find_one(
                 {"session_id": session_id},
-                {"_id": 0, "session_focus": 1, "user_color": 1},
+                {"_id": 0, "session_focus": 1, "user_color": 1, "move_history": 1},
             ) or {}
-            _sf_ps_nag = (_sess_ps_nag.get("session_focus") or {}).get("topic_key")
-            if _sf_ps_nag == "piece_safety":
-                _uc = _sess_ps_nag.get("user_color") or "white"
-                _user_is_white_nag = (_uc == "white")
-                from services.mission_scoreboard import find_hanging_pieces
-                _hangs_nag = find_hanging_pieces(fen_after, _user_is_white_nag)
-                if _hangs_nag:
-                    _already_ps_nag = await db.coach_messages.count_documents({
-                        "session_id": session_id, "type": "piece_safety_nag",
-                    })
-                    # If piece_safety_warning fired within the last 2 moves
-                    # (the user's own just-played move), suppress the nag —
-                    # they already got warned about hanging pieces.
-                    _warn_recent = await db.coach_messages.find_one(
-                        {"session_id": session_id, "type": "piece_safety_warning"},
-                        sort=[("created_at", -1)],
-                    )
-                    _skip = False
-                    if _warn_recent:
-                        # Compare to move count — if the warning was within
-                        # the last 2 half-moves, skip the nag.
-                        _mh = (await db.coach_sessions.find_one(
-                            {"session_id": session_id}, {"_id": 0, "move_history": 1},
-                        ) or {}).get("move_history") or []
-                        # A warning fired on the previous user move means
-                        # move_history has grown by ≤2 since the warning.
-                        _skip = True
-                    if _already_ps_nag == 0 and not _skip:
-                        _top_nag = _hangs_nag[0]
-                        _piece_word_nag = _top_nag["piece_name"]
-                        _sq_nag = _top_nag["square"]
-                        _n_more_nag = len(_hangs_nag) - 1
-                        _also_nag = (
-                            f" (and {_n_more_nag} more)"
-                            if _n_more_nag > 0 else ""
-                        )
-                        _ps_nag_msg = (
-                            f"⚠ Your {_piece_word_nag} on {_sq_nag} is hanging"
-                            f"{_also_nag} — defend before you move. "
-                            f"That's your piece safety focus this week."
-                        )
-                        await db.coach_messages.insert_one({
-                            "session_id": session_id,
-                            "type": "piece_safety_nag",
-                            "message": _ps_nag_msg,
-                            "focus_topic": "piece_safety",
-                            "fen": fen_after,
-                            "after_coach_move": coach_move_san,
-                            "hanging_pieces": _hangs_nag,
-                            "created_at": datetime.now(timezone.utc),
-                            "read": False,
-                        })
-                        logger.info(f"[piece_safety_nag] fired for {session_id} hanging={_piece_word_nag}@{_sq_nag} after coach {coach_move_san}")
-        except Exception as _ps_nag_e:
-            logger.warning(f"piece_safety_nag check failed: {_ps_nag_e}")
+            _focus_key_nag = (_sess_fbnag.get("session_focus") or {}).get("topic_key")
+            _branch_nag = _get_branch(_focus_key_nag)
+            if _branch_nag:
+                _uc_nag = _sess_fbnag.get("user_color") or "white"
+                await _fire_nag(
+                    db, _sess_fbnag, _branch_nag, fen_after,
+                    _uc_nag, coach_move_san, session_id,
+                )
+        except Exception as _fb_nag_e:
+            logger.warning(f"focus nag dispatch failed: {_fb_nag_e}")
 
         # ── GENERALIZED FOCUS PRE-MOVE NAG (2026-07-09) ─────────────────
         # Extends Phase 3's pre-move nag to every focus topic. time_management
