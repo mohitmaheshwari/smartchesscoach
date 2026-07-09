@@ -48,6 +48,9 @@ SKILL_PROMPT = {
     "endgame_rule_of_square": (
         "Pawn race. Can the king catch it? Find the right move."
     ),
+    "endgame_opposition": (
+        "King and pawn endgame. Use opposition to force your pawn through."
+    ),
     # extend as we wire other detectors into puzzles
 }
 
@@ -86,7 +89,10 @@ async def extract_skill_puzzles_for_user(
     evidence = skill.get("evidence") or []
 
     for ev in evidence:
-        if ev.get("outcome") != "missed":
+        outcome = ev.get("outcome")
+        # Extract both "missed" (rule_of_square) and "wrong" (opposition)
+        # as teaching material. "applied" = already correct, skip.
+        if outcome not in ("missed", "wrong"):
             continue
         fen = ev.get("fen_before")
         if not fen:
