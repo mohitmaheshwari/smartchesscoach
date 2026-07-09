@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
+import DifficultySelector from "@/components/training/DifficultySelector";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
@@ -75,7 +76,11 @@ export default function PrescribedTraining() {
   const [trainingData, setTrainingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
+  // Difficulty state (2026-07-09)
+  const [selectedDifficulty, setSelectedDifficulty] = useState(null); // Will be set to recommended on load
+  const [solveRates, setSolveRates] = useState({}); // {easy: 0.67, medium: 0.45, hard: 0.0}
+
   // Puzzle state
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking, correct, incorrect, revealed
@@ -129,10 +134,12 @@ export default function PrescribedTraining() {
           }
         } else {
           // Use prescribed endpoint for cognitive gaps
-          const response = await fetch(
-            `${API}/training/prescribed/${weakness}?num_puzzles=10`,
-            { credentials: "include" }
-          );
+          // NEW (2026-07-09): Add difficulty filter if selected
+          let url = `${API}/training/prescribed/${weakness}?num_puzzles=10`;
+          if (selectedDifficulty) {
+            url += `&difficulty=${selectedDifficulty}`;
+          }
+          const response = await fetch(url, { credentials: "include" });
           if (response.ok) {
             data = await response.json();
           } else {
@@ -142,6 +149,18 @@ export default function PrescribedTraining() {
         }
 
         setTrainingData(data);
+
+        // NEW (2026-07-09): Extract difficulty metadata for selector
+        if (data.recommended_difficulty && !selectedDifficulty) {
+          setSelectedDifficulty(data.recommended_difficulty);
+        }
+        if (data.filters) {
+          setSolveRates({
+            easy: data.filters.easy?.solve_rate || 0,
+            medium: data.filters.medium?.solve_rate || 0,
+            hard: data.filters.hard?.solve_rate || 0,
+          });
+        }
 
         // Set up first puzzle
         if (data.puzzles && data.puzzles.length > 0) {
@@ -163,7 +182,7 @@ export default function PrescribedTraining() {
     };
 
     fetchTraining();
-  }, [weakness]);
+  }, [weakness, selectedDifficulty]);
   
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
@@ -473,6 +492,18 @@ export default function PrescribedTraining() {
               )}
             </p>
           </div>
+        )}
+
+        {/* ─── Difficulty Selector (2026-07-09) ─── */}
+        {selectedDifficulty && trainingData?.recommended_difficulty && (
+          <DifficultySelector
+            selectedDifficulty={selectedDifficulty}
+            recommendedDifficulty={trainingData.recommended_difficulty}
+            userRating={trainingData.user_rating}
+            solveRates={solveRates}
+            onSelectDifficulty={setSelectedDifficulty}
+            showRecommendation={true}
+          />
         )}
 
         {/* ─── Stage: board + coaching panel ─── */}
