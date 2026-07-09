@@ -2224,7 +2224,7 @@ const CoachPlay = ({ user }) => {
               setGameOver(true);
               setGameResult(data.session.result);
               if (data.session.result === "loss") {
-                toast.info("Coach won this one. Let's review what happened.");
+                toast.info("I won that one — but that's not the point. Let's see what you can take from it.");
               } else if (data.session.result === "draw") {
                 toast.info("It's a draw.");
               }

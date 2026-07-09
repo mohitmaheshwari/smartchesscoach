@@ -488,10 +488,11 @@ const LegacyChatMessages = ({
         <div className="flex items-start gap-2">
           <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-medium text-primary">Let's play!</p>
+            <p className="font-medium text-primary">I'm not here to beat you — I'm here to help you see the board.</p>
             <p className="text-muted-foreground mt-1">
-              I'll give you feedback on interesting moves. Feel free to ask me
-              anything!
+              Play your game. The result doesn't matter — I'll point out the
+              patterns and plans as they come up, so you learn to see them too.
+              Ask me anything.
             </p>
           </div>
         </div>
