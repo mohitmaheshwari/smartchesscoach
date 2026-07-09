@@ -52,6 +52,12 @@ def _grade_by_cp(cp_loss: float) -> str:
     return "inaccuracy"
 
 
+def _a_grade(grade: str) -> str:
+    """Return grade with correct indefinite article — 'an inaccuracy',
+    'a mistake'."""
+    return f"an {grade}" if grade and grade[0].lower() in "aeiou" else f"a {grade}"
+
+
 def _ordinal(n: int) -> str:
     """1 → '1st', 2 → '2nd', 3 → '3rd', 4 → '4th', etc."""
     if n <= 0:
@@ -433,7 +439,7 @@ class PieceSafetyBranch(FocusCoachingBranch):
         )
         return (
             f"{move_san} left your {piece_word} on {sq} undefended — "
-            f"a {grade} ({cp_loss}cp lost).{also}{today_recall} "
+            f"{_a_grade(grade)} ({cp_loss}cp lost).{also}{today_recall} "
             f"That's your piece safety focus this week."
         )
 
@@ -658,7 +664,7 @@ class KingSafetyBranch(FocusCoachingBranch):
         )
         return (
             f"{move_san} left your king {phrase} — "
-            f"a {grade} ({cp_loss}cp lost).{also}{today_recall} "
+            f"{_a_grade(grade)} ({cp_loss}cp lost).{also}{today_recall} "
             f"That's your king safety focus this week."
         )
 
@@ -855,9 +861,12 @@ class PieceActivityBranch(FocusCoachingBranch):
 
     def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
         phrase = _activity_issue_phrase(top_issue)
-        also = f" (and {n_more} more activity problems)" if n_more > 0 else ""
+        also = (
+            f" (and {n_more} more activity problem{'s' if n_more > 1 else ''})"
+            if n_more > 0 else ""
+        )
         return (
-            f"{move_san} left you with {phrase} — a {grade} ({cp_loss}cp lost)."
+            f"{move_san} left you with {phrase} — {_a_grade(grade)} ({cp_loss}cp lost)."
             f"{also}{today_recall} That's your piece activity focus this week."
         )
 
@@ -1030,7 +1039,7 @@ class EndgameTechniqueBranch(FocusCoachingBranch):
     def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
         phrase = _endgame_issue_phrase(top_issue)
         return (
-            f"{move_san} kept {phrase} — a {grade} ({cp_loss}cp lost).{today_recall} "
+            f"{move_san} kept {phrase} — {_a_grade(grade)} ({cp_loss}cp lost).{today_recall} "
             f"That's your endgame technique focus this week."
         )
 
@@ -1177,9 +1186,12 @@ class PawnStructureBranch(FocusCoachingBranch):
 
     def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
         phrase = _structure_issue_phrase(top_issue)
-        also = f" (and {n_more} more structure problems)" if n_more > 0 else ""
+        also = (
+            f" (and {n_more} more structure problem{'s' if n_more > 1 else ''})"
+            if n_more > 0 else ""
+        )
         return (
-            f"{move_san} created {phrase} — a {grade} ({cp_loss}cp lost).{also}"
+            f"{move_san} created {phrase} — {_a_grade(grade)} ({cp_loss}cp lost).{also}"
             f"{today_recall} That's your pawn structure focus this week."
         )
 
@@ -1280,7 +1292,15 @@ def _tactic_issue_phrase(issue: dict) -> str:
         piece = issue.get("piece", "piece")
         to_sq = issue.get("to_square", "?")
         n_targets = len(issue.get("targets", []))
-        return f"the opponent can now fork with {piece} to {to_sq} (hitting {n_targets} pieces)"
+        if n_targets >= 2:
+            return (
+                f"the opponent can play {piece} to {to_sq}, forking "
+                f"{n_targets} pieces at once"
+            )
+        return (
+            f"the opponent can play {piece} to {to_sq} with a check-and-"
+            f"attack pattern"
+        )
     return "a tactic against you"
 
 
@@ -1309,7 +1329,7 @@ class MissedTacticBranch(FocusCoachingBranch):
     def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
         phrase = _tactic_issue_phrase(top_issue)
         return (
-            f"{move_san} missed a tactic — {phrase}. A {grade} ({cp_loss}cp lost)."
+            f"{move_san} missed a tactic — {phrase}. {_a_grade(grade).capitalize()} ({cp_loss}cp lost)."
             f"{today_recall} That's your tactics focus this week."
         )
 
@@ -1435,7 +1455,10 @@ def _oversight_issue_phrase(issue: dict) -> str:
         tgt = issue.get("target", "piece")
         to_sq = issue.get("to_square", "?")
         gain = issue.get("gain", 0)
-        return f"the opponent can play {atk}x{to_sq} winning the {tgt} for +{gain}"
+        return (
+            f"the opponent can take your {tgt} on {to_sq} with their "
+            f"{atk} — a clear material gain"
+        )
     return "a material loss"
 
 
@@ -1460,7 +1483,7 @@ class TacticalOversightBranch(FocusCoachingBranch):
     def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
         phrase = _oversight_issue_phrase(top_issue)
         return (
-            f"{move_san} let it slip — {phrase}. A {grade} ({cp_loss}cp lost)."
+            f"{move_san} let it slip — {phrase}. {_a_grade(grade).capitalize()} ({cp_loss}cp lost)."
             f"{today_recall} That's your tactical oversight focus this week."
         )
 

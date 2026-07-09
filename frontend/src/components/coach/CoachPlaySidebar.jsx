@@ -532,6 +532,46 @@ const LegacyChatMessages = ({
             ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
             : msg.type === "king_safety_streak"
             ? "bg-red-50 border border-red-500/50 dark:bg-red-950/30 dark:border-red-500/40"
+            : msg.type === "piece_activity_warning"
+            ? "bg-indigo-50 border border-indigo-500/40 dark:bg-indigo-950/30 dark:border-indigo-500/40"
+            : msg.type === "piece_activity_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "piece_activity_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "piece_activity_streak"
+            ? "bg-indigo-50 border border-indigo-500/50 dark:bg-indigo-950/30 dark:border-indigo-500/40"
+            : msg.type === "endgame_technique_warning"
+            ? "bg-amber-50 border border-amber-500/40 dark:bg-amber-950/30 dark:border-amber-500/40"
+            : msg.type === "endgame_technique_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "endgame_technique_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "endgame_technique_streak"
+            ? "bg-amber-50 border border-amber-500/50 dark:bg-amber-950/30 dark:border-amber-500/40"
+            : msg.type === "pawn_structure_warning"
+            ? "bg-slate-100 border border-slate-500/40 dark:bg-slate-900/30 dark:border-slate-500/40"
+            : msg.type === "pawn_structure_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "pawn_structure_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "pawn_structure_streak"
+            ? "bg-slate-100 border border-slate-500/50 dark:bg-slate-900/30 dark:border-slate-500/40"
+            : msg.type === "missed_tactic_warning"
+            ? "bg-yellow-50 border border-yellow-500/40 dark:bg-yellow-950/30 dark:border-yellow-500/40"
+            : msg.type === "missed_tactic_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "missed_tactic_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "missed_tactic_streak"
+            ? "bg-yellow-50 border border-yellow-500/50 dark:bg-yellow-950/30 dark:border-yellow-500/40"
+            : msg.type === "tactical_oversight_warning"
+            ? "bg-orange-50 border border-orange-500/40 dark:bg-orange-950/30 dark:border-orange-500/40"
+            : msg.type === "tactical_oversight_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "tactical_oversight_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "tactical_oversight_streak"
+            ? "bg-orange-50 border border-orange-500/50 dark:bg-orange-950/30 dark:border-orange-500/40"
             : msg.type === "pace_check"
             ? "bg-yellow-50 border border-yellow-500/40 dark:bg-yellow-950/30 dark:border-yellow-500/40"
             : msg.type === "focus_coach"
@@ -580,6 +620,46 @@ const LegacyChatMessages = ({
             <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
           ) : msg.type === "king_safety_streak" ? (
             <span className="text-red-700 text-base mt-0.5 flex-shrink-0">♛</span>
+          ) : msg.type === "piece_activity_warning" ? (
+            <span className="text-indigo-700 text-base mt-0.5 flex-shrink-0">⚡</span>
+          ) : msg.type === "piece_activity_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "piece_activity_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "piece_activity_streak" ? (
+            <span className="text-indigo-700 text-base mt-0.5 flex-shrink-0">⚡</span>
+          ) : msg.type === "endgame_technique_warning" ? (
+            <span className="text-amber-700 text-base mt-0.5 flex-shrink-0">♜</span>
+          ) : msg.type === "endgame_technique_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "endgame_technique_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "endgame_technique_streak" ? (
+            <span className="text-amber-700 text-base mt-0.5 flex-shrink-0">♜</span>
+          ) : msg.type === "pawn_structure_warning" ? (
+            <span className="text-slate-700 text-base mt-0.5 flex-shrink-0">♟</span>
+          ) : msg.type === "pawn_structure_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "pawn_structure_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "pawn_structure_streak" ? (
+            <span className="text-slate-700 text-base mt-0.5 flex-shrink-0">♟</span>
+          ) : msg.type === "missed_tactic_warning" ? (
+            <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">💡</span>
+          ) : msg.type === "missed_tactic_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "missed_tactic_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "missed_tactic_streak" ? (
+            <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">💡</span>
+          ) : msg.type === "tactical_oversight_warning" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">👁</span>
+          ) : msg.type === "tactical_oversight_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "tactical_oversight_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
+          ) : msg.type === "tactical_oversight_streak" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">👁</span>
           ) : msg.type === "pace_check" ? (
             <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">⏳</span>
           ) : msg.type === "focus_coach" ? (
