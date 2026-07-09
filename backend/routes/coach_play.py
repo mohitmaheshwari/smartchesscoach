@@ -7420,6 +7420,59 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         except Exception as _ps_nag_e:
             logger.warning(f"piece_safety_nag outer check failed: {_ps_nag_e}")
 
+        # ── GENERALIZED FOCUS PRE-MOVE NAG (2026-07-09) ─────────────────
+        # Extends Phase 3's pre-move nag to every focus topic. time_management
+        # and piece_safety have dedicated blocks above (specialized detectors);
+        # every OTHER focus uses position_is_critical as the gate + topic-
+        # specific text. Same restraint (one nag per session across ALL nag
+        # types via `type == 'pre_move_nag'` — the dedicated blocks above
+        # also use that type, so they don't double-fire).
+        _PRE_MOVE_NAG_BY_TOPIC = {
+            "king_safety":        "⚠ Your king is under fire — defend before you push. "
+                                  "That's your king safety focus this week.",
+            "missed_tactic":      "⚠ There's a tactic here — scan for forks, pins, and checks "
+                                  "before you move. That's your tactical focus this week.",
+            "tactical_oversight": "⚠ Look at their last move — what does it attack? "
+                                  "That's your tactical-awareness focus this week.",
+            "calculation_depth":  "⚠ Complex position — calculate two moves deep before you commit. "
+                                  "That's your calculation focus this week.",
+            "piece_activity":     "⚠ Pause — is any of your pieces doing nothing? "
+                                  "That's your piece-activity focus this week.",
+            "endgame_technique":  "⚠ Endgame technique matters here — think about the pattern "
+                                  "before you move. That's your endgame focus this week.",
+            "pawn_structure":     "⚠ Structural moment — look at the pawn breaks before you move. "
+                                  "That's your pawn-structure focus this week.",
+            # opening_knowledge intentionally omitted — book theory is
+            # different in kind from tactical-critical positions.
+        }
+        try:
+            _sess_gen = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "session_focus": 1},
+            ) or {}
+            _sf_gen = (_sess_gen.get("session_focus") or {}).get("topic_key")
+            _gen_text = _PRE_MOVE_NAG_BY_TOPIC.get(_sf_gen)
+            if _gen_text:
+                from services.mission_scoreboard import position_is_critical
+                if position_is_critical(fen_after):
+                    _already_gen = await db.coach_messages.count_documents({
+                        "session_id": session_id, "type": "pre_move_nag",
+                    })
+                    if _already_gen == 0:
+                        await db.coach_messages.insert_one({
+                            "session_id": session_id,
+                            "type": "pre_move_nag",
+                            "message": _gen_text,
+                            "focus_topic": _sf_gen,
+                            "fen": fen_after,
+                            "after_coach_move": coach_move_san,
+                            "created_at": datetime.now(timezone.utc),
+                            "read": False,
+                        })
+                        logger.info(f"[pre_move_nag/generalized] fired for {session_id} focus={_sf_gen} after coach {coach_move_san}")
+        except Exception as _gen_e:
+            logger.warning(f"generalized pre_move_nag check failed: {_gen_e}")
+
         # Phase 1.3 — adaptive coach-move teaching (Mohit 2026-05-18).
         # Surface V5 named-pattern teaching for the coach's move when
         # a shape/principle hit + adaptive weight + 2/6 cooldown all

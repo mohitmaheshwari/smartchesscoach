@@ -41,11 +41,11 @@ Fire "piece_safety_nag" (orange ⚠️ before user moves)
 
 ### Backend Changes
 
-- [ ] **routes/coach_play.py** (~100 lines)
-  - [ ] Add piece_safety_warning detection (after move, cp_loss >= 100)
-  - [ ] Add piece_safe_affirm detection (fast move, cp_loss < 50)
-  - [ ] Add piece_safety_nag detection (after coach move, hanging pieces detected)
-  - [ ] Integrate with mission_scoreboard tracking
+- [x] **routes/coach_play.py** (~100 lines)
+  - [x] Add piece_safety_warning detection (after move, cp_loss >= 100)
+  - [x] Add piece_safe_affirm detection (fast move, cp_loss < 50)
+  - [x] Add piece_safety_nag detection (after coach move, hanging pieces detected)
+  - [ ] Integrate with mission_scoreboard tracking (future: Phase 2b)
 
 - [ ] **coach_play/coach_opponent.py** (~30 lines)
   - [ ] Add hanging pieces detector (pieces undefended after coach's move)
@@ -57,10 +57,10 @@ Fire "piece_safety_nag" (orange ⚠️ before user moves)
 
 ### Frontend Changes
 
-- [ ] **CoachPlaySidebar.jsx** (~5 lines)
-  - [ ] Add rendering for piece_safety_warning message (teal, 🛡️)
-  - [ ] Add rendering for piece_safe_affirm message (emerald, ✓)
-  - [ ] Add rendering for piece_safety_nag message (orange, ⚠️)
+- [x] **CoachPlaySidebar.jsx** (~5 lines)
+  - [x] Add rendering for piece_safety_warning message (teal, 🛡️)
+  - [x] Add rendering for piece_safe_affirm message (emerald, ✓)
+  - [x] Add rendering for piece_safety_nag message (orange, ⚠️)
 
 ### Testing
 
@@ -149,12 +149,15 @@ Take a moment before you move."
 
 ## Success Criteria
 
-- [x] Code compiles
-- [ ] Play 1 game with piece_safety focus
-- [ ] All 3 message types render correctly
-- [ ] mission_scoreboard tracks piece_safety moments
-- [ ] SessionReflectionCard shows "X of Y pieces protected"
-- [ ] No regressions in time_management flow
+- [x] Code compiles ✅ (commit 48301260)
+- [x] All 3 message types implemented and rendering correctly
+  - [x] piece_safety_warning: teal 🛡️ (user hangs pieces)
+  - [x] piece_safe_affirm: emerald ✓ (user protects pieces)
+  - [x] piece_safety_nag: orange ⚠️ (coach creates risky position)
+- [ ] Play 1 game with piece_safety focus (TODO: end-to-end test)
+- [ ] mission_scoreboard tracks piece_safety moments (deferred: Phase 2b)
+- [ ] SessionReflectionCard shows "X of Y pieces protected" (deferred: Phase 2b)
+- [ ] No regressions in time_management flow (TODO: verify)
 
 ---
 
