@@ -9797,3 +9797,40 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
 
     return export
 
+
+@router.get("/session-reflection/{session_id}")
+@_trace_pwc_endpoint("GET /coach/play/session-reflection", _pwc_get_db)
+async def get_session_goal_reflection(session_id: str, user: User = Depends(get_current_user)):
+    """
+    Post-game session goal reflection (Phase 1, 2026-07-09).
+
+    Computes whether the player achieved their session goal and provides
+    evidence-based feedback. Returns reflection data for the UI card.
+    """
+    global db
+
+    try:
+        # Get session
+        session = await db.coach_sessions.find_one(
+            {"session_id": session_id, "user_id": user.user_id},
+            {"_id": 0}
+        )
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Compute reflection
+        from services.session_reflection_service import compute_session_reflection
+
+        reflection = compute_session_reflection(session)
+
+        if not reflection:
+            # No reflection data available (no session goal set)
+            return {"reflection": None}
+
+        return {"reflection": reflection}
+
+    except Exception as e:
+        logger.warning(f"Session reflection failed for {session_id}: {e}")
+        # Reflection is optional; return empty if it fails
+        return {"reflection": None}
+

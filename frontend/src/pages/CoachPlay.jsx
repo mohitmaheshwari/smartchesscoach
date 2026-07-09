@@ -33,6 +33,7 @@ import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import CommentaryPanel from "@/components/coach/CommentaryPanel";
 import PredictMovePanel from "@/components/coach/PredictMovePanel";
 import RateMovePanel from "@/components/coach/RateMovePanel";
+import SessionReflectionCard from "@/components/coach/SessionReflectionCard";
 import "@/styles/pwc-theme.css";
 
 // KILL-SWITCHES (2026-06-11): the "withhold the reveal after /move applied it" approach LEAKS — the
@@ -142,6 +143,7 @@ const CoachPlay = ({ user }) => {
   const [summary, setSummary] = useState(null);
   const [cprResult, setCprResult] = useState(null);
   const [playerIdentity, setPlayerIdentity] = useState(null);
+  const [sessionReflection, setSessionReflection] = useState(null);
   
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
@@ -814,6 +816,26 @@ const CoachPlay = ({ user }) => {
     }
   }, []);
 
+  // Compute session reflection when game ends (Phase 1, 2026-07-09)
+  useEffect(() => {
+    if (!gameOver || !gameResult || !session) return;
+
+    (async () => {
+      try {
+        const response = await fetch(`${API}/coach/play/session-reflection/${session.session_id}`, {
+          credentials: "include"
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSessionReflection(data.reflection);
+        }
+      } catch (e) {
+        console.warn("Failed to compute session reflection:", e);
+        // Reflection is nice-to-have, don't break the game
+      }
+    })();
+  }, [gameOver, gameResult, session?.session_id]);
 
   // Keyboard arrow navigation — browse through move history
   const [browseIndex, setBrowseIndex] = useState(-1); // -1 = live position
@@ -3334,6 +3356,19 @@ const CoachPlay = ({ user }) => {
           missionSummary={session?.mission_postgame_summary}
           onContinue={() => setShowPostGameStreakResult(false)}
           onGoToTraining={() => navigate("/plateau-breaker/training")}
+        />
+      )}
+
+      {/* Session Goal Reflection Card (Phase 1, 2026-07-09) */}
+      {sessionReflection && (
+        <SessionReflectionCard
+          sessionId={session?.session_id}
+          reflection={sessionReflection}
+          onClose={() => {
+            setSessionReflection(null);
+            setGameResult(null);
+            setGameOver(false);
+          }}
         />
       )}
     </Layout>
