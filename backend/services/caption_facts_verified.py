@@ -246,7 +246,7 @@ def _has_verified_detection(details: Dict[str, bool]) -> bool:
     return any(v for v in details.values() if v is True)
 
 
-async def extract_facts_verified(
+def extract_facts_verified(
     fen_before: str,
     played_san: str,
     best_move_san: Optional[str],
@@ -258,7 +258,7 @@ async def extract_facts_verified(
     full_move_number: int = 1,
 ) -> Dict[str, Any]:
     """
-    Extract facts with Stockfish verification.
+    Extract facts with Stockfish verification (synchronous).
 
     Every fact is checked: is the detection backed by engine eval?
     """

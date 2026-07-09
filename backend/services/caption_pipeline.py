@@ -3760,9 +3760,16 @@ def build_move_teaching_decision(
     except Exception:
         extract_facts = None  # type: ignore
     try:
+        from services.caption_facts_verified import extract_facts_verified
+    except Exception:
+        extract_facts_verified = None  # type: ignore
+    try:
         from services.caption_renderer import render_caption_dict
     except Exception:
         render_caption_dict = None  # type: ignore
+
+    # Feature flag: use Stockfish verification layer
+    USE_VERIFIED_FACTS = True
 
     # ─── State containers (caller-provided OR fresh per-call) ───
     _shapes = shapes_fired_this_game if shapes_fired_this_game is not None else set()
@@ -3795,7 +3802,28 @@ def build_move_teaching_decision(
     )
 
     caption_facts: Dict[str, Any] = {}
-    if extract_facts is not None:
+
+    # Try verified facts first (Stockfish-backed), fall back to raw facts
+    if USE_VERIFIED_FACTS and extract_facts_verified is not None:
+        try:
+            caption_facts = extract_facts_verified(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                eval_before_cp=inputs.eval_before_cp,
+                eval_after_cp=inputs.eval_after_cp,
+                pv_after_played=list(inputs.pv_after_played),
+                pv_after_best=list(inputs.pv_after_best),
+                move_history_san=list(inputs.move_history_san),
+                full_move_number=int(inputs.full_move_number or 0),
+            )
+            logger.debug(f"[caption_pipeline] verified facts: verified={caption_facts.get('verified', False)}")
+        except Exception:
+            logger.exception("[caption_pipeline] extract_facts_verified failed; falling back")
+            caption_facts = {}
+
+    # Fall back to non-verified facts if verification failed or disabled
+    if not caption_facts and extract_facts is not None:
         try:
             caption_facts = extract_facts(
                 fen_before=inputs.fen_before,
@@ -3810,6 +3838,8 @@ def build_move_teaching_decision(
                 full_move_number=int(inputs.full_move_number or 0),
                 mover_is_user=bool(inputs.mover_is_user),
             )
+            # Mark as not verified when using fallback
+            caption_facts["verified"] = False
         except Exception:
             logger.exception("[caption_pipeline] extract_facts failed; using empty dict")
             caption_facts = {}

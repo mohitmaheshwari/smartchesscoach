@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 CAPTION_VERIFICATION_ENABLED = True
 
 
-async def build_move_teaching_decision_verified(
+def build_move_teaching_decision_verified(
     inputs: MoveInputs,
     state: CrossMoveState,
 ) -> Tuple[MoveTeachingDecision, CrossMoveState]:
@@ -50,14 +50,14 @@ async def build_move_teaching_decision_verified(
 
     if not CAPTION_VERIFICATION_ENABLED:
         # Fallback to original pipeline
-        return await build_move_teaching_decision(inputs, state)
+        return build_move_teaching_decision(inputs, state)
 
     # Get original decision
-    decision, new_state = await build_move_teaching_decision(inputs, state)
+    decision, new_state = build_move_teaching_decision(inputs, state)
 
     # Verify the facts that generated this caption
     try:
-        verified_facts = await extract_facts_verified(
+        verified_facts = extract_facts_verified(
             fen_before=inputs.fen_before,
             played_san=inputs.played_san,
             best_move_san=inputs.best_move_san,

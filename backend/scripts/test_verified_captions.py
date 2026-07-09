@@ -14,13 +14,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.caption_facts_verified import extract_facts_verified
 
 
-async def test_position(name, fen, move_san, eval_before, eval_after):
+def test_position(name, fen, move_san, eval_before, eval_after):
     """Test a single position"""
     print(f"Test: {name}")
     print(f"Eval: {eval_before} -> {eval_after} (cp_loss={eval_before - eval_after})")
     print()
 
-    facts = await extract_facts_verified(
+    facts = extract_facts_verified(
         fen_before=fen,
         played_san=move_san,
         best_move_san=None,
@@ -47,7 +47,7 @@ async def test_position(name, fen, move_san, eval_before, eval_after):
     return verified
 
 
-async def main():
+def main():
     print("=" * 100)
     print("TESTING VERIFIED CAPTIONS")
     print("=" * 100)
@@ -79,7 +79,7 @@ async def main():
 
     verified_count = 0
     for test in tests:
-        is_verified = await test_position(
+        is_verified = test_position(
             test["name"],
             test["fen"],
             test["move"],
@@ -102,4 +102,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
