@@ -687,6 +687,810 @@ class KingSafetyBranch(FocusCoachingBranch):
         )
 
 
+# ─── PIECE_ACTIVITY BRANCH ─────────────────────────────────────────
+# Detects passive/undeveloped pieces. Fires WARNING when a user's
+# move leaves them with 2+ minor pieces still asleep after move 10,
+# or moves a knight to the rim, or leaves a bishop with almost no
+# squares.
+
+_STARTING_MINOR_SQUARES_WHITE = {1: "b1", 2: "c1", 5: "f1", 6: "g1"}  # b1, g1 = knights; c1, f1 = bishops
+_STARTING_MINOR_SQUARES_BLACK = {57: "b8", 58: "c8", 61: "f8", 62: "g8"}
+
+
+def _undeveloped_minors(board, own_color) -> list:
+    """Return list of {piece, square} for minor pieces still on their
+    starting squares."""
+    import chess as _c
+    starts = _STARTING_MINOR_SQUARES_WHITE if own_color == _c.WHITE else _STARTING_MINOR_SQUARES_BLACK
+    out = []
+    for sq, name in starts.items():
+        p = board.piece_at(sq)
+        if p and p.color == own_color and p.piece_type in (_c.KNIGHT, _c.BISHOP):
+            out.append({"piece": _piece_name(p.piece_type), "square": name})
+    return out
+
+
+def _knights_on_rim(board, own_color) -> list:
+    """Return list of {piece, square} for knights on a- or h-file."""
+    import chess as _c
+    out = []
+    for sq in board.pieces(_c.KNIGHT, own_color):
+        f = _c.square_file(sq)
+        if f == 0 or f == 7:
+            out.append({"piece": "knight", "square": _c.square_name(sq)})
+    return out
+
+
+def _cramped_bishops(board, own_color) -> list:
+    """Return list of {piece, square, mobility} for bishops with ≤2
+    legal moves in the current position (mobility check via attacks)."""
+    import chess as _c
+    out = []
+    for sq in board.pieces(_c.BISHOP, own_color):
+        # Count non-blocked squares the bishop actually reaches.
+        moves = 0
+        for target in board.attacks(sq):
+            t = board.piece_at(target)
+            if t is None or t.color != own_color:
+                moves += 1
+        if moves <= 2:
+            out.append({"piece": "bishop", "square": _c.square_name(sq), "mobility": moves})
+    return out
+
+
+def _find_piece_activity_issues(fen: str, user_color: str) -> list:
+    """Return piece_activity issue dicts. Kinds:
+      - "undeveloped_minors": ≥2 minor pieces on starting squares past
+        move 10 (fullmove_number ≥ 10)
+      - "knight_on_rim": knight on a- or h-file
+      - "cramped_bishop": bishop with ≤2 legal moves
+    """
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        issues = []
+
+        undeveloped = _undeveloped_minors(board, own_color)
+        if len(undeveloped) >= 2 and board.fullmove_number >= 10:
+            issues.append({
+                "kind": "undeveloped_minors",
+                "count": len(undeveloped),
+                "pieces": undeveloped,
+            })
+
+        rim = _knights_on_rim(board, own_color)
+        if rim:
+            issues.append({
+                "kind": "knight_on_rim",
+                "count": len(rim),
+                "pieces": rim,
+                "square": rim[0]["square"],
+            })
+
+        cramped = _cramped_bishops(board, own_color)
+        if cramped:
+            issues.append({
+                "kind": "cramped_bishop",
+                "count": len(cramped),
+                "square": cramped[0]["square"],
+                "mobility": cramped[0]["mobility"],
+            })
+
+        # Sort by rank: undeveloped is worst pedagogically, then rim, then cramped
+        _RANK = {"undeveloped_minors": 0, "knight_on_rim": 1, "cramped_bishop": 2}
+        issues.sort(key=lambda i: _RANK.get(i.get("kind"), 99))
+        return issues
+    except Exception:
+        return []
+
+
+def _find_piece_activity_improvements(fen_before: str, fen_after: str,
+                                      user_color: str) -> list:
+    """Kind-based intersection: kinds present before but absent after
+    are counted as saves. Also: if undeveloped count strictly decreased
+    (a piece was developed), that's a save regardless of kind presence."""
+    before = _find_piece_activity_issues(fen_before, user_color)
+    after = _find_piece_activity_issues(fen_after, user_color)
+    kinds_after = {i["kind"] for i in after}
+    saved = [i for i in before if i["kind"] not in kinds_after]
+
+    # Special: undeveloped count went from N to N-1 → still an issue in
+    # after but user did develop a piece. Give credit.
+    try:
+        import chess as _c
+        b_before = _c.Board(fen_before)
+        b_after = _c.Board(fen_after)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        u_before = len(_undeveloped_minors(b_before, own_color))
+        u_after = len(_undeveloped_minors(b_after, own_color))
+        if u_before > u_after and u_before >= 2:
+            already_saved_undev = any(s["kind"] == "undeveloped_minors" for s in saved)
+            if not already_saved_undev:
+                saved.append({
+                    "kind": "piece_developed",
+                    "count_before": u_before,
+                    "count_after": u_after,
+                })
+    except Exception:
+        pass
+    return saved
+
+
+def _activity_issue_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "undeveloped_minors":
+        return f"still {issue.get('count', 0)} minor pieces on their starting squares"
+    if kind == "knight_on_rim":
+        return f"a knight on the rim ({issue.get('square', '?')}) — passive"
+    if kind == "cramped_bishop":
+        return f"a bishop on {issue.get('square', '?')} with almost no squares"
+    return "passive pieces"
+
+
+def _activity_resolution_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "undeveloped_minors":
+        return "developed the sleeping pieces"
+    if kind == "knight_on_rim":
+        return "activated the knight"
+    if kind == "cramped_bishop":
+        return "freed the bishop"
+    if kind == "piece_developed":
+        return "developed a sleeping piece"
+    return "activated the pieces"
+
+
+class PieceActivityBranch(FocusCoachingBranch):
+    focus_topic = "piece_activity"
+    topic_display = "piece activity"
+    subtype_for_recall = "passive_piece"
+    conductor_thread_keys = {"concept:OP_DEVELOP", "concept:MID_ACTIVITY"}
+
+    def find_issues(self, fen, user_color):
+        return _find_piece_activity_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_piece_activity_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _activity_issue_phrase(top_issue)
+        also = f" (and {n_more} more activity problems)" if n_more > 0 else ""
+        return (
+            f"{move_san} left you with {phrase} — a {grade} ({cp_loss}cp lost)."
+            f"{also}{today_recall} That's your piece activity focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _activity_resolution_phrase(top_saved)
+        also = f" (and cleaned up {n_more} more)" if n_more > 0 else ""
+        return (
+            f"Nice — {move_san} {resolution}{also}. Active pieces do the work. "
+            f"That's your piece activity focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _activity_issue_phrase(top_issue)
+        also = f" (and {n_more} more)" if n_more > 0 else ""
+        return (
+            f"⚠ You have {phrase}{also} — activate before attacking. "
+            f"That's your piece activity focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"Your pieces have been busy through {clean_moves} moves — good "
+            f"coordination. Keep every piece contributing. That's your piece "
+            f"activity focus this week."
+        )
+
+
+# ─── ENDGAME_TECHNIQUE BRANCH ──────────────────────────────────────
+# Simplest signals: king on back rank when board is simplified;
+# passed pawn present but not being pushed. The "endgame" threshold
+# is total non-king material ≤ 20 (roughly: down to 2 minors + a rook
+# each side or less).
+
+def _non_king_material(board) -> int:
+    """Total centipawn-equivalent material excluding kings, both colors."""
+    import chess as _c
+    total = 0
+    for pt, val in ((_c.PAWN, 1), (_c.KNIGHT, 3), (_c.BISHOP, 3),
+                    (_c.ROOK, 5), (_c.QUEEN, 9)):
+        total += len(board.pieces(pt, _c.WHITE)) * val
+        total += len(board.pieces(pt, _c.BLACK)) * val
+    return total
+
+
+def _has_passed_pawn(board, own_color) -> list:
+    """Return list of {square, rank} for user's passed pawns (no opposing
+    pawns on same file or adjacent files AHEAD of the pawn)."""
+    import chess as _c
+    passed = []
+    own_pawns = board.pieces(_c.PAWN, own_color)
+    opp_pawns = list(board.pieces(_c.PAWN, not own_color))
+    for sq in own_pawns:
+        f = _c.square_file(sq)
+        r = _c.square_rank(sq)
+        # Direction of advance
+        direction = 1 if own_color == _c.WHITE else -1
+        blocked = False
+        for opp_sq in opp_pawns:
+            of = _c.square_file(opp_sq)
+            or_ = _c.square_rank(opp_sq)
+            if abs(of - f) > 1:
+                continue
+            if (direction == 1 and or_ > r) or (direction == -1 and or_ < r):
+                blocked = True
+                break
+        if not blocked:
+            passed.append({"square": _c.square_name(sq), "rank": r})
+    return passed
+
+
+def _find_endgame_technique_issues(fen: str, user_color: str) -> list:
+    """Kinds:
+      - "king_on_back_rank": in simplified position, own king still on
+        rank 0 (white) or 7 (black)
+      - "passed_pawn_available": user has a passed pawn (recognize the
+        winning weapon — this fires with EVERY endgame position; used
+        for streak/nag messaging only, NOT the main warning)
+    Only fires when non-king material ≤ 20.
+    """
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        if _non_king_material(board) > 20:
+            return []
+        issues = []
+        king_sq = board.king(own_color)
+        if king_sq is not None:
+            r = _c.square_rank(king_sq)
+            back_rank = 0 if own_color == _c.WHITE else 7
+            if r == back_rank:
+                issues.append({
+                    "kind": "king_on_back_rank",
+                    "king_square": _c.square_name(king_sq),
+                })
+        return issues
+    except Exception:
+        return []
+
+
+def _find_endgame_technique_improvements(fen_before: str, fen_after: str,
+                                        user_color: str) -> list:
+    try:
+        import chess as _c
+        b_before = _c.Board(fen_before)
+        b_after = _c.Board(fen_after)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        saved = []
+        # King moved off the back rank in a simplified position?
+        if _non_king_material(b_before) <= 20 and _non_king_material(b_after) <= 20:
+            k_before = b_before.king(own_color)
+            k_after = b_after.king(own_color)
+            back_rank = 0 if own_color == _c.WHITE else 7
+            if k_before is not None and k_after is not None:
+                if _c.square_rank(k_before) == back_rank and _c.square_rank(k_after) != back_rank:
+                    saved.append({
+                        "kind": "king_activated",
+                        "from_square": _c.square_name(k_before),
+                        "to_square": _c.square_name(k_after),
+                    })
+        # Pushed a passed pawn?
+        passed_before = _has_passed_pawn(b_before, own_color)
+        passed_after = _has_passed_pawn(b_after, own_color)
+        for p_after in passed_after:
+            # Same file, higher rank than any before? = pushed
+            matching_before = [
+                p for p in passed_before
+                if p["square"][0] == p_after["square"][0]
+            ]
+            if matching_before and p_after["rank"] > max(p["rank"] for p in matching_before):
+                saved.append({
+                    "kind": "passed_pawn_pushed",
+                    "square": p_after["square"],
+                    "rank": p_after["rank"],
+                })
+                break
+        return saved
+    except Exception:
+        return []
+
+
+def _endgame_issue_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "king_on_back_rank":
+        return f"your king on {issue.get('king_square', 'the back rank')} — endgames are king endgames"
+    return "an endgame technique issue"
+
+
+def _endgame_resolution_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "king_activated":
+        return f"activated your king (to {issue.get('to_square', '?')})"
+    if kind == "passed_pawn_pushed":
+        return f"pushed your passed pawn to {issue.get('square', '?')}"
+    return "improved your endgame play"
+
+
+class EndgameTechniqueBranch(FocusCoachingBranch):
+    focus_topic = "endgame_technique"
+    topic_display = "endgame technique"
+    subtype_for_recall = "poor_endgame"
+    conductor_thread_keys = {"concept:END_ACTIVE_KING", "concept:END_PASSED_PAWN"}
+
+    def find_issues(self, fen, user_color):
+        return _find_endgame_technique_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_endgame_technique_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _endgame_issue_phrase(top_issue)
+        return (
+            f"{move_san} kept {phrase} — a {grade} ({cp_loss}cp lost).{today_recall} "
+            f"That's your endgame technique focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _endgame_resolution_phrase(top_saved)
+        return (
+            f"Nice — {move_san} {resolution}. That's the endgame mindset. "
+            f"That's your endgame technique focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _endgame_issue_phrase(top_issue)
+        return (
+            f"⚠ In this endgame, {phrase}. Activate the king before you push. "
+            f"That's your endgame technique focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"You've handled {clean_moves} endgame moves cleanly — good technique. "
+            f"Keep the king active and pawns coordinated. That's your endgame "
+            f"technique focus this week."
+        )
+
+
+# ─── PAWN_STRUCTURE BRANCH ─────────────────────────────────────────
+# Delegates to PawnStructureClassifier from pawn_structure_service.
+# Kinds:
+#   - "doubled_pawns_appeared" — user has doubled pawns
+#   - "isolated_pawns_appeared" — user has isolated pawns
+#   - "backward_pawn_appeared" — user has backward pawn(s)
+
+def _analyze_pawns(fen: str, user_color: str) -> dict:
+    """Return dict with 'doubled', 'isolated', 'backward', 'passed' as
+    lists of square-names for user's pieces of that color."""
+    from services.pawn_structure_service import PawnStructureClassifier
+    import chess as _c
+    board = _c.Board(fen)
+    classifier = PawnStructureClassifier()
+    result = classifier.analyze(board)
+    color_key = user_color  # "white" or "black" matches result feature tuples
+    out = {"doubled": [], "isolated": [], "backward": [], "passed": []}
+    for f in result.features:
+        if f.color != color_key:
+            continue
+        if f.type == "doubled":
+            out["doubled"].append(f.square)
+        elif f.type == "isolated":
+            out["isolated"].append(f.square)
+        elif f.type == "backward":
+            out["backward"].append(f.square)
+        elif f.type == "passed":
+            out["passed"].append(f.square)
+    return out
+
+
+def _find_pawn_structure_issues(fen: str, user_color: str) -> list:
+    try:
+        analysis = _analyze_pawns(fen, user_color)
+        issues = []
+        if analysis["doubled"]:
+            issues.append({
+                "kind": "doubled_pawns",
+                "count": len(analysis["doubled"]),
+                "squares": analysis["doubled"],
+                "file": analysis["doubled"][0][0],  # letter
+            })
+        if analysis["isolated"]:
+            issues.append({
+                "kind": "isolated_pawns",
+                "count": len(analysis["isolated"]),
+                "squares": analysis["isolated"],
+                "square": analysis["isolated"][0],
+            })
+        if analysis["backward"]:
+            issues.append({
+                "kind": "backward_pawns",
+                "count": len(analysis["backward"]),
+                "squares": analysis["backward"],
+                "square": analysis["backward"][0],
+            })
+        _RANK = {"doubled_pawns": 0, "isolated_pawns": 1, "backward_pawns": 2}
+        issues.sort(key=lambda i: _RANK.get(i.get("kind"), 99))
+        return issues
+    except Exception:
+        return []
+
+
+def _find_pawn_structure_improvements(fen_before: str, fen_after: str,
+                                     user_color: str) -> list:
+    try:
+        before = _find_pawn_structure_issues(fen_before, user_color)
+        after = _find_pawn_structure_issues(fen_after, user_color)
+        kinds_after = {i["kind"] for i in after}
+        saved = []
+        for i in before:
+            if i["kind"] not in kinds_after:
+                saved.append(i)
+            else:
+                # Count strictly went down?
+                match_after = next((a for a in after if a["kind"] == i["kind"]), None)
+                if match_after and i.get("count", 0) > match_after.get("count", 0):
+                    saved.append(i)
+        return saved
+    except Exception:
+        return []
+
+
+def _structure_issue_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "doubled_pawns":
+        return f"doubled pawns on the {issue.get('file', '?')}-file — a long-term weakness"
+    if kind == "isolated_pawns":
+        return f"an isolated pawn on {issue.get('square', '?')} — no pawn neighbors to defend it"
+    if kind == "backward_pawns":
+        return f"a backward pawn on {issue.get('square', '?')} — the square in front is weak"
+    return "a pawn-structure problem"
+
+
+def _structure_resolution_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "doubled_pawns":
+        return f"fixed the doubled pawns on the {issue.get('file', '?')}-file"
+    if kind == "isolated_pawns":
+        return "resolved an isolated pawn"
+    if kind == "backward_pawns":
+        return "resolved a backward pawn"
+    return "improved the pawn structure"
+
+
+class PawnStructureBranch(FocusCoachingBranch):
+    focus_topic = "pawn_structure"
+    topic_display = "pawn structure"
+    subtype_for_recall = "weak_pawns"
+    conductor_thread_keys = {"concept:MID_PAWN_STRUCTURE", "concept:OP_LOOSE_PAWNS"}
+    # Structure damage isn't a snap decision — allow higher cp threshold
+    warning_cp_min: int = 40
+
+    def find_issues(self, fen, user_color):
+        return _find_pawn_structure_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_pawn_structure_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _structure_issue_phrase(top_issue)
+        also = f" (and {n_more} more structure problems)" if n_more > 0 else ""
+        return (
+            f"{move_san} created {phrase} — a {grade} ({cp_loss}cp lost).{also}"
+            f"{today_recall} That's your pawn structure focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _structure_resolution_phrase(top_saved)
+        also = f" (and cleaned up {n_more} more)" if n_more > 0 else ""
+        return (
+            f"Nice — {move_san} {resolution}{also}. Structure decides long games. "
+            f"That's your pawn structure focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _structure_issue_phrase(top_issue)
+        return (
+            f"⚠ You have {phrase} — think about pawn moves carefully. "
+            f"That's your pawn structure focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"Your pawn structure has held up through {clean_moves} moves — "
+            f"good discipline. Keep watching pawn breaks. That's your pawn "
+            f"structure focus this week."
+        )
+
+
+# ─── MISSED_TACTIC BRANCH ──────────────────────────────────────────
+# Detects opponent tactics AVAILABLE in the current position. If
+# opponent can play a fork/pin/skewer/discovered attack, the user
+# "missed" the threat.
+
+def _opp_has_immediate_fork(board, opp_color) -> Optional[dict]:
+    """Iterate opponent's knight/queen legal moves and return the first
+    one that creates a fork (reuses pv_tactical_analyzer)."""
+    import chess as _c
+    try:
+        from services.pv_tactical_analyzer import _immediate_fork
+    except Exception:
+        return None
+    # Need to make it opp's turn to enumerate their moves. If it isn't,
+    # push a null-move-like approach isn't safe with chess — instead
+    # temporarily swap turn field.
+    if board.turn != opp_color:
+        b = board.copy(stack=False)
+        b.turn = opp_color
+        # Clear en-passant target that references our-color turn
+        b.ep_square = None
+    else:
+        b = board
+    # Only check knight/queen moves for MVP fork detection
+    for move in b.legal_moves:
+        p = b.piece_at(move.from_square)
+        if p is None or p.piece_type not in (_c.KNIGHT, _c.QUEEN):
+            continue
+        result = _immediate_fork(b, move)
+        if result is not None:
+            return {
+                "move_uci": move.uci(),
+                "from_square": _c.square_name(move.from_square),
+                "to_square": _c.square_name(move.to_square),
+                "piece": _piece_name(p.piece_type),
+                "targets": result.get("targets", []),
+            }
+    return None
+
+
+def _find_missed_tactic_issues(fen: str, user_color: str) -> list:
+    """Returns list of tactic-issue dicts. Kind: "opp_has_fork"."""
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        opp_color = not own_color
+        issues = []
+        fork = _opp_has_immediate_fork(board, opp_color)
+        if fork:
+            issues.append({
+                "kind": "opp_has_fork",
+                **fork,
+            })
+        return issues
+    except Exception:
+        return []
+
+
+def _find_missed_tactic_improvements(fen_before: str, fen_after: str,
+                                    user_color: str) -> list:
+    """If opp had a fork before AND doesn't after → user defended it."""
+    before = _find_missed_tactic_issues(fen_before, user_color)
+    after = _find_missed_tactic_issues(fen_after, user_color)
+    kinds_after = {i["kind"] for i in after}
+    return [i for i in before if i["kind"] not in kinds_after]
+
+
+def _tactic_issue_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "opp_has_fork":
+        piece = issue.get("piece", "piece")
+        to_sq = issue.get("to_square", "?")
+        n_targets = len(issue.get("targets", []))
+        return f"the opponent can now fork with {piece} to {to_sq} (hitting {n_targets} pieces)"
+    return "a tactic against you"
+
+
+def _tactic_resolution_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "opp_has_fork":
+        return "defused the fork threat"
+    return "defended the tactic"
+
+
+class MissedTacticBranch(FocusCoachingBranch):
+    focus_topic = "missed_tactic"
+    topic_display = "tactics"
+    subtype_for_recall = "missed_threat"
+    conductor_thread_keys = {
+        "defense:fork", "defense:pin", "defense:skewer",
+        "defense:discovered", "concept:TAC_FORK", "concept:TAC_PIN",
+    }
+
+    def find_issues(self, fen, user_color):
+        return _find_missed_tactic_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_missed_tactic_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _tactic_issue_phrase(top_issue)
+        return (
+            f"{move_san} missed a tactic — {phrase}. A {grade} ({cp_loss}cp lost)."
+            f"{today_recall} That's your tactics focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _tactic_resolution_phrase(top_saved)
+        return (
+            f"Nice — {move_san} {resolution}. Seeing the threat is half the "
+            f"work. That's your tactics focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _tactic_issue_phrase(top_issue)
+        return (
+            f"⚠ Watch out — {phrase}. Defend before you push. "
+            f"That's your tactics focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"You've navigated {clean_moves} moves without missing a tactic — "
+            f"good vigilance. Keep looking for two-move threats. That's your "
+            f"tactics focus this week."
+        )
+
+
+# ─── TACTICAL_OVERSIGHT BRANCH ─────────────────────────────────────
+# The 2-move miss: user played a move that seemed safe but opponent
+# has a winning material capture. Uses SEE (from tactical_safety) to
+# ensure the capture is genuinely winning.
+
+_TACTICAL_PIECE_VALUES = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0}
+
+
+def _opp_has_winning_capture(board, opp_color) -> Optional[dict]:
+    """Iterate opponent captures; return the first that gains ≥3 net
+    material via SEE. Excludes losing sacrifices and pawn-for-pawn
+    trades."""
+    import chess as _c
+    try:
+        from services.tactical_safety import capture_is_safe
+    except Exception:
+        capture_is_safe = None
+    if board.turn != opp_color:
+        b = board.copy(stack=False)
+        b.turn = opp_color
+        b.ep_square = None
+    else:
+        b = board
+    best = None
+    for move in b.legal_moves:
+        if not b.is_capture(move):
+            continue
+        target = b.piece_at(move.to_square)
+        if target is None:
+            continue
+        attacker = b.piece_at(move.from_square)
+        if attacker is None:
+            continue
+        target_val = _TACTICAL_PIECE_VALUES.get(target.piece_type, 0)
+        attacker_val = _TACTICAL_PIECE_VALUES.get(attacker.piece_type, 0)
+        if target_val < 3:
+            continue  # ignore pawn captures for MVP
+        # Cheap SEE-lite: if defender count zero AND target > attacker,
+        # obviously winning. If defended, use capture_is_safe if avail.
+        defenders = b.attackers(not opp_color, move.to_square)
+        if not defenders and target_val > 0:
+            gain = target_val
+            if best is None or gain > best.get("gain", 0):
+                best = {
+                    "move_uci": move.uci(),
+                    "from_square": _c.square_name(move.from_square),
+                    "to_square": _c.square_name(move.to_square),
+                    "attacker": _piece_name(attacker.piece_type),
+                    "target": _piece_name(target.piece_type),
+                    "gain": gain,
+                }
+            continue
+        if defenders and capture_is_safe is not None:
+            # Rough check: is opponent's capture SEE-positive?
+            try:
+                if capture_is_safe(b, move.to_square, opp_color):
+                    gain = target_val - attacker_val
+                    if gain >= 3 and (best is None or gain > best.get("gain", 0)):
+                        best = {
+                            "move_uci": move.uci(),
+                            "from_square": _c.square_name(move.from_square),
+                            "to_square": _c.square_name(move.to_square),
+                            "attacker": _piece_name(attacker.piece_type),
+                            "target": _piece_name(target.piece_type),
+                            "gain": gain,
+                        }
+            except Exception:
+                pass
+    return best
+
+
+def _find_tactical_oversight_issues(fen: str, user_color: str) -> list:
+    try:
+        import chess as _c
+        board = _c.Board(fen)
+        own_color = _c.WHITE if user_color == "white" else _c.BLACK
+        opp_color = not own_color
+        cap = _opp_has_winning_capture(board, opp_color)
+        if cap:
+            return [{"kind": "opp_wins_material", **cap}]
+        return []
+    except Exception:
+        return []
+
+
+def _find_tactical_oversight_improvements(fen_before: str, fen_after: str,
+                                         user_color: str) -> list:
+    before = _find_tactical_oversight_issues(fen_before, user_color)
+    after = _find_tactical_oversight_issues(fen_after, user_color)
+    kinds_after = {i["kind"] for i in after}
+    return [i for i in before if i["kind"] not in kinds_after]
+
+
+def _oversight_issue_phrase(issue: dict) -> str:
+    kind = issue.get("kind")
+    if kind == "opp_wins_material":
+        atk = issue.get("attacker", "piece")
+        tgt = issue.get("target", "piece")
+        to_sq = issue.get("to_square", "?")
+        gain = issue.get("gain", 0)
+        return f"the opponent can play {atk}x{to_sq} winning the {tgt} for +{gain}"
+    return "a material loss"
+
+
+def _oversight_resolution_phrase(issue: dict) -> str:
+    return "prevented the material loss"
+
+
+class TacticalOversightBranch(FocusCoachingBranch):
+    focus_topic = "tactical_oversight"
+    topic_display = "tactical oversight"
+    subtype_for_recall = "missed_second_move"
+    conductor_thread_keys = {"defense:loose", "concept:TAC_HANGING_PIECE"}
+    # Oversight often flows from cp_loss ≥ 100; be a touch stricter.
+    warning_cp_min: int = 60
+
+    def find_issues(self, fen, user_color):
+        return _find_tactical_oversight_issues(fen, user_color)
+
+    def find_improvements(self, fen_before, fen_after, user_color):
+        return _find_tactical_oversight_improvements(fen_before, fen_after, user_color)
+
+    def warning_text(self, top_issue, n_more, move_san, cp_loss, grade, today_recall):
+        phrase = _oversight_issue_phrase(top_issue)
+        return (
+            f"{move_san} let it slip — {phrase}. A {grade} ({cp_loss}cp lost)."
+            f"{today_recall} That's your tactical oversight focus this week."
+        )
+
+    def affirm_text(self, top_saved, n_more, move_san):
+        resolution = _oversight_resolution_phrase(top_saved)
+        return (
+            f"Nice — {move_san} {resolution}. Slowing down works. "
+            f"That's your tactical oversight focus this week."
+        )
+
+    def nag_text(self, top_issue, n_more):
+        phrase = _oversight_issue_phrase(top_issue)
+        return (
+            f"⚠ Two-move check — {phrase}. Take another look before moving. "
+            f"That's your tactical oversight focus this week."
+        )
+
+    def streak_text(self, clean_moves):
+        return (
+            f"You've slowed down and stayed sharp through {clean_moves} moves — "
+            f"good discipline. Keep asking 'what do they do next?' That's your "
+            f"tactical oversight focus this week."
+        )
+
+
 # Register on module import so any caller of get_branch_for_focus sees it.
 register_branch(PieceSafetyBranch())
 register_branch(KingSafetyBranch())
+register_branch(PieceActivityBranch())
+register_branch(EndgameTechniqueBranch())
+register_branch(PawnStructureBranch())
+register_branch(MissedTacticBranch())
+register_branch(TacticalOversightBranch())
