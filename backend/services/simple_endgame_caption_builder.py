@@ -1,12 +1,17 @@
 """
 Simple Endgame Caption Builder — Deterministic, local, no Claude.
 
-Analyzes endgame moves using simple principle checks.
+Analyzes endgame moves using correct principle checks.
+Uses verified chess logic, not heuristics.
 """
 
 import logging
 import chess
 from typing import Dict, Optional
+from services.endgame_detectors.promotion_threat_correct import (
+    detect_promotion_threat_move,
+    build_promotion_threat_caption,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +25,8 @@ async def build_endgame_caption(
 ) -> Dict:
     """
     Build principle-based endgame caption without Claude.
+
+    Uses correct chess logic to detect promotion threats and defenses.
 
     Args:
         fen: Position FEN
@@ -53,80 +60,47 @@ async def build_endgame_caption(
         return _fallback_caption(move_san, best_move_san, eval_before - eval_after)
 
     cp_loss = eval_before - eval_after
-    user_color = chess.WHITE if board.turn else chess.BLACK
+    user_color = board.turn  # User's color is who's turn it is BEFORE the move
 
-    # Analyze the move
-    caption_lines = []
-    principles = []
+    # PRIMARY DETECTOR: Promotion Threats
+    promotion_detection = detect_promotion_threat_move(board, move, user_color)
 
-    # Check for promotion threats - BEFORE the move
-    opp_color = not user_color
+    if promotion_detection:
+        # Use the promotion threat caption
+        caption_result = build_promotion_threat_caption(
+            board=board,
+            move=move,
+            move_san=move_san,
+            user_color=user_color,
+            detection=promotion_detection,
+            eval_before=eval_before,
+            eval_after=eval_after,
+        )
 
-    # Get state before move
-    board.push(move)
-
-    for pawn_sq in board.pieces(chess.PAWN, opp_color):
-        pawn_rank = chess.square_rank(pawn_sq)
-        pawn_file = chess.square_file(pawn_sq)
-
-        # Is this pawn close to queening? (within 2-3 moves)
-        if opp_color == chess.WHITE and pawn_rank >= 5:
-            promotion_sq = chess.square(pawn_file, 7)
-            squares_to_promotion = 7 - pawn_rank
-
-            # Do we defend the promotion square?
-            defended = board.is_attacked_by(user_color, promotion_sq)
-
-            if defended and squares_to_promotion <= 2:
-                caption_lines.append(f"{move_san} controls {chess.square_name(promotion_sq)} to stop the pawn.")
-                principles.append("promotion_defense")
-            elif not defended and squares_to_promotion <= 2 and cp_loss > 80:
-                caption_lines.append(f"{move_san} allows the Black pawn on {chess.square_name(pawn_sq)} to promote.")
+        if caption_result:
+            principles = []
+            if promotion_detection == "allows":
                 principles.append("allows_promotion")
-
-        elif opp_color == chess.BLACK and pawn_rank <= 2:
-            promotion_sq = chess.square(pawn_file, 0)
-            squares_to_promotion = pawn_rank
-
-            # Do we defend the promotion square?
-            defended = board.is_attacked_by(user_color, promotion_sq)
-
-            if defended and squares_to_promotion <= 2:
-                caption_lines.append(f"{move_san} controls {chess.square_name(promotion_sq)} to stop the pawn.")
+            elif promotion_detection == "defends":
                 principles.append("promotion_defense")
-            elif not defended and squares_to_promotion <= 2 and cp_loss > 80:
-                caption_lines.append(f"{move_san} allows the White pawn on {chess.square_name(pawn_sq)} to promote.")
-                principles.append("allows_promotion")
+            elif promotion_detection == "maintains":
+                principles.append("maintains_defense")
 
-    board.pop()
+            quality_score = 0.80 if cp_loss > 100 else 0.70
 
-    # If big loss and no explanation yet
-    if not caption_lines:
-        if cp_loss >= 300:
-            caption_lines.append(f"{move_san} is a serious blunder (loses ~{int(cp_loss)} cp).")
-        elif cp_loss >= 150:
-            caption_lines.append(f"{move_san} is a significant mistake.")
-        elif cp_loss >= 50:
-            caption_lines.append(f"{move_san} is slightly inaccurate.")
+            return {
+                "caption": caption_result,
+                "principles": principles,
+                "quality_score": quality_score,
+                "method": "deterministic",
+            }
 
-    # Add better move if available
-    if best_move_san and cp_loss > 50:
-        caption_lines.append(f"Better: {best_move_san}.")
-
-    caption = " ".join(caption_lines) if caption_lines else f"{move_san} is played."
-
-    quality_score = min(0.9, 0.4 + len(principles) * 0.25)
-
-    return {
-        "caption": caption,
-        "principles": principles,
-        "quality_score": quality_score,
-        "method": "deterministic",
-    }
+    # FALLBACK: If no promotion threats detected, use eval-based caption
+    return _fallback_caption(move_san, best_move_san, cp_loss)
 
 
 def _fallback_caption(move_san: str, best_move_san: Optional[str], cp_loss: float) -> Dict:
-    """Fallback simple caption"""
+    """Fallback caption when no principles detect"""
     if cp_loss >= 300:
         caption = f"{move_san} is a blunder."
     elif cp_loss >= 150:
