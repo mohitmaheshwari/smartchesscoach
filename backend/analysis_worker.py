@@ -1340,6 +1340,29 @@ def process_job(db, job):
         except Exception as decay_err:
             logger.warning(f"[pattern-decay] computation failed (non-fatal): {decay_err}")
 
+        # Extract puzzles from analyzed game (Phase 1, 2026-07-09)
+        # Now that analysis is complete, auto-extract blunders as training puzzles.
+        # These land in community_puzzles tagged with cognitive_gap for the Training page.
+        try:
+            import asyncio as _asyncio_puzzle
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor_puzzle
+
+            async def _extract_puzzles():
+                _client = _AsyncMotor_puzzle(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+                _db = _client[os.environ.get("DB_NAME", "chess_coach")]
+                try:
+                    from services.puzzle_extraction_service import extract_puzzles_from_game
+                    puzzles = await extract_puzzles_from_game(_db, game_id, user_id)
+                    if puzzles:
+                        logger.info(f"[puzzle-extraction] {game_id}: extracted {len(puzzles)} puzzles for {user_id}")
+                    return len(puzzles) if puzzles else 0
+                finally:
+                    _client.close()
+
+            puzzle_count = _asyncio_puzzle.run(_extract_puzzles())
+        except Exception as puzzle_err:
+            logger.warning(f"[puzzle-extraction] failed for {game_id} (non-fatal): {puzzle_err}")
+
         # Per-user opening profile refresh (Phase-3 Component 1).
         # The newly-analyzed game is now in the corpus; recompute the
         # user's opening identity so Lab / Play-with-Coach / /openings
