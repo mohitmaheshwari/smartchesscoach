@@ -633,15 +633,15 @@ const UnifiedProgress = ({ user }) => {
                   )}
                 </div>
                 <div className="flex md:flex-col items-start md:items-end gap-4 justify-between md:justify-start">
-                  {/* Progress MEASURES; the Lab is where you DO the work. So this
-                      routes into the Lab rather than drilling in place — keeps the
-                      two pages distinct (Progress = is it improving; Lab = work on it). */}
+                  {/* Direct exposure to the specific training for THIS weakness.
+                      Mohit 2026-07-09: Focus / weaknesses must link to their OWN
+                      training, not a generic page. */}
                   <button
-                    onClick={() => navigate("/lab")}
+                    onClick={() => navigate(`/training/pattern/${derived.active.trained_pattern}`)}
                     className="h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                   >
                     <Target className="h-3.5 w-3.5" strokeWidth={2} />
-                    Work on this in the Lab
+                    Practice this pattern
                   </button>
                   {derived.active.decay > 0 && (
                     <div className="md:text-right">
@@ -738,12 +738,12 @@ const UnifiedProgress = ({ user }) => {
                     )}
                   </div>
 
-                  {/* Progress measures; action lives in the Lab. Route there. */}
+                  {/* Direct link to the specific training for this pattern. */}
                   <button
-                    onClick={() => navigate("/lab")}
+                    onClick={() => navigate(`/training/pattern/${p.pattern}`)}
                     className="text-[11.5px] text-muted-foreground hover:text-violet-500 dark:hover:text-violet-300 transition-colors text-right"
                   >
-                    In the Lab →
+                    Practice →
                   </button>
                 </motion.div>
               ))}

@@ -176,6 +176,17 @@ const FocusCard = () => {
             <ArrowRight className="w-4 h-4" />
           </motion.button>
 
+          {/* Direct exposure to the specific training for this focus pattern.
+              Mohit 2026-07-09: Focus must link to its own training. */}
+          <button
+            onClick={() => navigate(`/training/pattern/${focus.moments_page_topic || "piece_safety"}`)}
+            className="w-full mt-2.5 rounded-lg py-2.5 px-4 flex items-center justify-center gap-2 text-[13.5px] font-medium border transition-all hover:bg-muted/40"
+            style={{ borderColor: `${WINE}44`, color: WINE }}
+          >
+            Practice this pattern now
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
           {/* Focus trend since this focus started */}
           {focusTrend && focusTrend.trend && (
             <div
