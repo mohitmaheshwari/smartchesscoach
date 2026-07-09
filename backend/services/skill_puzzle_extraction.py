@@ -44,14 +44,60 @@ logger = logging.getLogger(__name__)
 # Mapping from skill_id to a human caption shown in the drill card.
 # Kept here (not on the skill_tree) because skill-tree captions are
 # the lesson hooks; these are drill prompts — different audience.
+#
+# ENGINE 2 SKILLS (endgames + concepts)
 SKILL_PROMPT = {
+    # Endgame skills (detector-graded)
     "endgame_rule_of_square": (
         "Pawn race. Can the king catch it? Find the right move."
     ),
     "endgame_opposition": (
         "King and pawn endgame. Use opposition to force your pawn through."
     ),
-    # extend as we wire other detectors into puzzles
+    "endgame_lucena": (
+        "Rook + pawn endgame. Build a bridge to win the rook endgame."
+    ),
+    "endgame_philidor": (
+        "Rook + pawn endgame. Draw by defending correctly."
+    ),
+    "mate_kq_vs_k": (
+        "Checkmate with King and Queen. Restrict and deliver mate."
+    ),
+    "mate_kr_vs_k": (
+        "Checkmate with King and Rook. Build the box and checkmate."
+    ),
+
+    # Concept skills
+    "defend_scholars_mate": (
+        "Defend against Scholar's Mate. Protect f7 and counterattack."
+    ),
+    "defend_fried_liver": (
+        "Defend against Fried Liver Attack. Solid defense wins."
+    ),
+    "concept_iqp": (
+        "Isolated Queen's Pawn positions. Exploit or defend the IQP."
+    ),
+    "concept_prophylaxis": (
+        "Prophylaxis. Stop your opponent's plan before executing yours."
+    ),
+    "concept_minority_attack": (
+        "Queenside attack. Use the minority attack to create weaknesses."
+    ),
+}
+
+# ENGINE 1 PATTERNS (cognitive gaps — for backfill extraction)
+# These are extracted from game_analyses.move_evaluations.cognitive_gap
+COGNITIVE_GAP_PROMPTS = {
+    "piece_safety": "Check for hanging pieces before every move.",
+    "missed_tactic": "Look for captures, checks, and threats.",
+    "tactical_oversight": "Calculate your opponent's best response.",
+    "calculation_depth": "Think one move deeper than you normally do.",
+    "king_safety": "Don't attack if your king is under threat.",
+    "piece_activity": "Activate passive pieces for better positions.",
+    "pawn_structure": "Consider pawn structure before exchanges.",
+    "opening_knowledge": "Stick to theory in the opening phase.",
+    "endgame_technique": "Activate your king and push passed pawns.",
+    "time_pressure": "Slow down on critical moves.",
 }
 
 
