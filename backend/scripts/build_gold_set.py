@@ -14,12 +14,23 @@ from services.narrator_claim_verifier import verify_caption
 URL=os.environ["LLM_EXPOSER_URL"].rstrip("/"); KEY=os.environ["LLM_EXPOSER_KEY"]; RATING=1200
 GAPS=["piece_safety","king_safety","missed_tactic","tactical_oversight","opening_knowledge","piece_activity"]
 
-PROMPT="""You are a chess coach writing a SHORT caption (max 2 sentences, ~30-40 words) for a {rating} student who plays {scol}. Coach who TEACHES, not rates. Every you/your = the student.
-This move ({move}) was played by {mover}. STUDENT move: name opening/fundamental, or (mistake) the better move + a one-line why. OPPONENT move: what it means for you + what you do.
-Land one short principle, stated directly. RULES: concrete squares; no jargon/markdown/CAPS; NEVER state a capture/tactic/follow-up unless true per the engine lines; never say "free" unless truly undefended.
-FEN: {fen}  Side: {side}
-Played: {move} (engine ~{cp}cp lost)  Best: {best}  Line-after-best: {pvb}  Line-after-played: {pvp}
-Write ONLY the caption."""
+PROMPT="""You are a kind chess coach talking to a {rating} student who plays {scol}. Write a SHORT caption (max 2 short sentences).
+WRITE LIKE YOU ARE TALKING TO A CHILD, OR AN OLD BEGINNER WHO DOES NOT KNOW GOOD ENGLISH:
+- Use only easy, everyday words. Short sentences. Talking style, warm and calm.
+- NO chess jargon at all (no "fianchetto", "prophylaxis", "zwischenzug", "outpost", "zugzwang", "initiative", "tempo"). If you mean a square, just name the square.
+- Do NOT show off notation. Lead with the IDEA or PATTERN in plain words (what is happening on the board), not the move letters. The move name can appear once, small.
+- TEACH the WHY. The student must really understand. Every mistake caption must say WHY it is bad in simple words, and if you give a better move you MUST say in simple words WHY that move is good — never just "X was better".
+- End with ONE tiny lesson they can reuse next game, said plainly.
+- Calm, undramatic. Never say "you were already losing". Structure: what happened -> why -> what is better.
+
+This move ({move}) was played by {mover}. STUDENT move that is fine/good: name the plan or idea in simple words. STUDENT mistake: say what went wrong and the better idea + why. OPPONENT move: say in simple words what they are trying to do to you, and what you should do about it.
+
+HARD TRUTH RULES (never break): only say something is captured / attacked / a fork / "wins a piece" / "free" if it is TRUE in the engine lines below. Never invent a threat. Do not just repeat the square the move already lands on.
+A move that stays winning is NOT a blunder — say "there was an even stronger move", not "blunder".
+
+FEN: {fen}  Side to move: {side}
+Played: {move} (engine ~{cp}cp lost)  Best move: {best}  Line after best: {pvb}  Line after played: {pvp}
+Write ONLY the caption, in that simple talking voice."""
 CORRECT="""Your caption: "{cap}"
 FACTUAL ERRORS vs the board (ground truth):
 {errs}

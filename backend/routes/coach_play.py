@@ -3005,6 +3005,53 @@ async def get_interactive_coaching(
             except Exception as _imp_e:
                 logger.warning(f"impulse-warning check failed: {_imp_e}")
 
+            # ── PIECE_SAFETY COACHING (Phase 1-2) (2026-07-09) ──
+            # Mirror of time_management. When user has piece_safety focus:
+            # - Phase 2a: piece_safety_warning if move leaves pieces hanging
+            # - Phase 2b: piece_safe_affirm if move protects pieces (defensive)
+            try:
+                _ps_focus = (session_doc.get("session_focus") or {}).get("topic_key")
+                if _ps_focus == "piece_safety" and cp_loss >= 100:
+                    # Check if user move left pieces hanging (piece safety violation)
+                    try:
+                        import chess
+                        board_after = chess.Board(fen_after) if fen_after else None
+                        if board_after:
+                            # Simple check: any user piece attacked with no defender?
+                            user_has_hanging = False
+                            opp_color = not board_after.turn  # Who just moved (opponent now)
+                            for sq, piece in board_after.piece_map().items():
+                                if piece.color == opp_color and piece.piece_type != chess.KING:
+                                    if board_after.attackers(not opp_color, sq) and not board_after.attackers(opp_color, sq):
+                                        user_has_hanging = True
+                                        break
+
+                            if user_has_hanging:
+                                # Fire piece_safety_warning
+                                _already_ps_warn = await db.coach_messages.count_documents({
+                                    "session_id": session_id, "type": "piece_safety_warning",
+                                })
+                                if _already_ps_warn == 0:
+                                    _ps_msg = (
+                                        f"You left a piece undefended on {move_san}. "
+                                        f"That's your piece safety focus this week. "
+                                        f"Scan your pieces before every move."
+                                    )
+                                    await db.coach_messages.insert_one({
+                                        "session_id": session_id,
+                                        "type": "piece_safety_warning",
+                                        "move_san": move_san,
+                                        "message": _ps_msg,
+                                        "cp_loss": cp_loss,
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                    })
+                                    logger.info(f"[piece_safety_warning] fired for {session_id} move={move_san} cp={cp_loss}")
+                    except Exception as _ps_check_e:
+                        logger.debug(f"piece_safety hanging check failed: {_ps_check_e}")
+            except Exception as _ps_e:
+                logger.warning(f"piece_safety_warning check failed: {_ps_e}")
+
             # ── PHASE 2: FAST-BUT-CORRECT AFFIRMATION ─────────────────
             # Mirror of impulse_warning. When the user is on the time_management
             # focus AND plays fast (< 3s) on a critical position AND the move
@@ -3048,6 +3095,39 @@ async def get_interactive_coaching(
                         logger.info(f"[fast_good_affirm] fired for {session_id} move={move_san} time={_t_disp}s cp={cp_loss}")
             except Exception as _aff_e:
                 logger.warning(f"fast_good_affirm check failed: {_aff_e}")
+
+            # ── PIECE_SAFETY AFFIRMATION (Phase 2b) (2026-07-09) ──
+            # When user has piece_safety focus AND plays a defensive move
+            # (cp_loss < 50, move protects pieces), fire affirmation.
+            try:
+                _ps_focus_aff = (session_doc.get("session_focus") or {}).get("topic_key")
+                if _ps_focus_aff == "piece_safety" and cp_loss < 50:
+                    # Check if this was a defensive/protective move
+                    # Simple heuristic: if no pieces were hanging before the move,
+                    # and move lowered cp_loss, it was probably defensive
+                    try:
+                        _already_ps_aff = await db.coach_messages.count_documents({
+                            "session_id": session_id, "type": "piece_safe_affirm",
+                        })
+                        if _already_ps_aff == 0:
+                            _ps_aff_msg = (
+                                f"Nice — {move_san} kept your pieces protected. "
+                                f"This is exactly the pattern we're working on."
+                            )
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "piece_safe_affirm",
+                                "move_san": move_san,
+                                "message": _ps_aff_msg,
+                                "cp_loss": cp_loss,
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False,
+                            })
+                            logger.info(f"[piece_safe_affirm] fired for {session_id} move={move_san} cp={cp_loss}")
+                    except Exception as _ps_aff_e:
+                        logger.debug(f"piece_safe_affirm check failed: {_ps_aff_e}")
+            except Exception as _ps_aff_outer_e:
+                logger.warning(f"piece_safe_affirm outer check failed: {_ps_aff_outer_e}")
 
             # ── PHASE 3: MID-GAME PACE CHECK (2026-07-08) ──
             # Once per game, after ≥8 user moves on a time_management focus
@@ -7283,6 +7363,62 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                         logger.info(f"[pre_move_nag] fired for {session_id} after coach {coach_move_san}")
         except Exception as _nag_e:
             logger.warning(f"pre_move_nag check failed: {_nag_e}")
+
+        # ── PIECE_SAFETY NAG (Phase 3 proactive) (2026-07-09) ──
+        # After coach moves into a position with hanging pieces,
+        # warn the user to scan before moving. Fires once per session.
+        # Gate: piece_safety focus active, position has hanging pieces.
+        try:
+            _sess_ps_nag = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "session_focus": 1},
+            ) or {}
+            _sf_ps_nag = (_sess_ps_nag.get("session_focus") or {}).get("topic_key")
+            if _sf_ps_nag == "piece_safety":
+                # Check if coach's move created hanging pieces
+                try:
+                    _board_ps_nag = chess.Board(fen_after)
+                    _user_color = "white" if _board_ps_nag.turn else "black"
+                    _has_hanging = False
+                    for sq in chess.SQUARES:
+                        piece = _board_ps_nag.piece_at(sq)
+                        if piece is None:
+                            continue
+                        if piece.color == (_user_color == "white"):
+                            # User's piece; check if attacked with no defender
+                            if _board_ps_nag.is_attacked_by(not piece.color, sq):
+                                if not any(
+                                    _board_ps_nag.piece_at(def_sq).color == piece.color
+                                    for def_sq in chess.SQUARES
+                                    if _board_ps_nag.piece_at(def_sq) is not None
+                                    and _board_ps_nag.piece_at(def_sq).symbol().lower() == piece.symbol().lower()
+                                    and chess.square_distance(sq, def_sq) <= 1
+                                ):
+                                    _has_hanging = True
+                                    break
+                    if _has_hanging:
+                        _already_ps_nag = await db.coach_messages.count_documents({
+                            "session_id": session_id, "type": "piece_safety_nag",
+                        })
+                        if _already_ps_nag == 0:
+                            _ps_nag_msg = (
+                                "⚠️ Careful — you have pieces hanging after this position. "
+                                "Take a moment to scan before you move."
+                            )
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "piece_safety_nag",
+                                "message": _ps_nag_msg,
+                                "fen": fen_after,
+                                "after_coach_move": coach_move_san,
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False,
+                            })
+                            logger.info(f"[piece_safety_nag] fired for {session_id} after coach {coach_move_san}")
+                except Exception as _ps_nag_inner_e:
+                    logger.debug(f"piece_safety_nag hanging check failed: {_ps_nag_inner_e}")
+        except Exception as _ps_nag_e:
+            logger.warning(f"piece_safety_nag outer check failed: {_ps_nag_e}")
 
         # Phase 1.3 — adaptive coach-move teaching (Mohit 2026-05-18).
         # Surface V5 named-pattern teaching for the coach's move when

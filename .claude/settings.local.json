@@ -1,5 +1,7 @@
 {
+  "skipDangerousModePermissionPrompt": true,
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Read",
       "Glob",
@@ -10,9 +12,7 @@
       "TodoWrite",
       "WebFetch",
       "WebSearch",
-
       "Bash(*)",
-
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push)",
@@ -31,20 +31,17 @@
       "Bash(git restore:*)",
       "Bash(git mv:*)",
       "Bash(git rm:*)",
-
       "Bash(yarn:*)",
       "Bash(npm:*)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
-
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(pip:*)",
       "Bash(pip3:*)",
       "Bash(pytest:*)",
-
       "Bash(ls:*)",
       "Bash(ls -la:*)",
       "Bash(ls -1:*)",
@@ -60,14 +57,13 @@
       "Bash(touch:*)",
       "Bash(mv:*)",
       "Bash(cp:*)",
-
       "Bash(timeout:*)",
       "Bash(curl:*)",
       "Bash(which:*)",
       "Bash(command:*)",
-
       "Bash(python -c ':*)",
-      "Bash(python3 -m py_compile routes/voice.py)"
+      "Bash(python3 -m py_compile routes/voice.py)",
+      "Bash(MSYS_NO_PATHCONV=1 '/c/Program Files/Docker/Docker/resources/bin/docker.exe' exec chess-coach-backend python3 -c ' *)"
     ],
     "deny": [
       "Bash(rm -rf /)",

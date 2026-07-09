@@ -516,6 +516,12 @@ const LegacyChatMessages = ({
             ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
             : msg.type === "pre_move_nag"
             ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
+            : msg.type === "piece_safety_warning"
+            ? "bg-teal-50 border border-teal-500/40 dark:bg-teal-950/30 dark:border-teal-500/40"
+            : msg.type === "piece_safe_affirm"
+            ? "bg-emerald-50 border border-emerald-500/40 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "piece_safety_nag"
+            ? "bg-orange-100 border border-orange-500/60 dark:bg-orange-950/40 dark:border-orange-500/50"
             : msg.type === "pace_check"
             ? "bg-yellow-50 border border-yellow-500/40 dark:bg-yellow-950/30 dark:border-yellow-500/40"
             : msg.type === "focus_coach"
@@ -548,6 +554,12 @@ const LegacyChatMessages = ({
             <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
           ) : msg.type === "pre_move_nag" ? (
             <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠</span>
+          ) : msg.type === "piece_safety_warning" ? (
+            <span className="text-teal-700 text-base mt-0.5 flex-shrink-0">🛡️</span>
+          ) : msg.type === "piece_safe_affirm" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">✓</span>
+          ) : msg.type === "piece_safety_nag" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠️</span>
           ) : msg.type === "pace_check" ? (
             <span className="text-yellow-700 text-base mt-0.5 flex-shrink-0">⏳</span>
           ) : msg.type === "focus_coach" ? (

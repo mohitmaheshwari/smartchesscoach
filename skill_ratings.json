@@ -1,0 +1,1307 @@
+[
+  {
+    "user_id": "user_b189135388c9",
+    "name": "Nityanand Kalangutkar",
+    "email": "nityanandkalangutkar@gmail.com",
+    "games": 1046,
+    "accuracy": 66.5,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "WEAK",
+      "King safety": "MISSING",
+      "Openings": "WEAK",
+      "Middlegame": "MISSING",
+      "Endgame": "MISSING",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.29,
+      "Tactics": 0.73,
+      "King safety": 0.71,
+      "Openings": 0.33,
+      "Middlegame": 0.92,
+      "Endgame": 0.09,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_398eda90a293",
+    "name": "SAMUEL MARANDI",
+    "email": "samuelmarandi03@gmail.com",
+    "games": 886,
+    "accuracy": 61.9,
+    "accuracy_label": "SOLID",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "WEAK",
+      "King safety": "MISSING",
+      "Openings": "SOLID",
+      "Middlegame": "WEAK",
+      "Endgame": "MISSING",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.18,
+      "Tactics": 0.67,
+      "King safety": 0.9,
+      "Openings": 0.26,
+      "Middlegame": 0.79,
+      "Endgame": 0.08,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_3d451aa18861",
+    "name": "Akshay",
+    "email": "akshaykumar9676@gmail.com",
+    "games": 734,
+    "accuracy": 72.1,
+    "accuracy_label": "STRONG",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "WEAK",
+      "King safety": "MISSING",
+      "Openings": "WEAK",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.15,
+      "Tactics": 0.74,
+      "King safety": 0.75,
+      "Openings": 0.34,
+      "Middlegame": 0.77,
+      "Endgame": 0.07,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_3798d8af93ed",
+    "name": "Pulak Gogoi",
+    "email": "pulakgogoi931@gmail.com",
+    "games": 722,
+    "accuracy": 64.1,
+    "accuracy_label": "SOLID",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "WEAK",
+      "King safety": "WEAK",
+      "Openings": "SOLID",
+      "Middlegame": "MISSING",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.89,
+      "Tactics": 0.78,
+      "King safety": 0.69,
+      "Openings": 0.23,
+      "Middlegame": 0.89,
+      "Endgame": 0.05,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_f7e92a45149c",
+    "name": "Ronak Mundra",
+    "email": "mundrar321@gmail.com",
+    "games": 696,
+    "accuracy": 68.1,
+    "accuracy_label": "STRONG",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "SOLID",
+      "King safety": "STRONG",
+      "Openings": "SOLID",
+      "Middlegame": "WEAK",
+      "Endgame": "SOLID",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.77,
+      "Tactics": 0.55,
+      "King safety": 0.31,
+      "Openings": 0.21,
+      "Middlegame": 0.53,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "ADVANCED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_8b599930d7ef",
+    "name": "Mohit Maheshwari",
+    "email": "bhutramohit@gmail.com",
+    "games": 634,
+    "accuracy": 66.7,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "SOLID",
+      "King safety": "SOLID",
+      "Openings": "WEAK",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.31,
+      "Tactics": 0.58,
+      "King safety": 0.56,
+      "Openings": 0.33,
+      "Middlegame": 0.58,
+      "Endgame": 0.06,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_46f04c4f3b21",
+    "name": "Neeraj Kushwaha",
+    "email": "06062010neeraj.kushwaha@gmail.com",
+    "games": 602,
+    "accuracy": 56.5,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "MISSING",
+      "King safety": "WEAK",
+      "Openings": "MISSING",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.32,
+      "Tactics": 0.81,
+      "King safety": 0.65,
+      "Openings": 0.46,
+      "Middlegame": 0.64,
+      "Endgame": 0.06,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_76ee10b87522",
+    "name": "jasmir singh Gandhi",
+    "email": "jasmirgandhi@gmail.com",
+    "games": 520,
+    "accuracy": 58.6,
+    "accuracy_label": "WEAK",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "WEAK",
+      "Openings": "SOLID",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.04,
+      "Tactics": 0.63,
+      "King safety": 0.61,
+      "Openings": 0.3,
+      "Middlegame": 0.7,
+      "Endgame": 0.05,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_a3a0aa964ebf",
+    "name": "Abhilash Shrotriya",
+    "email": "ashrotriya635@gmail.com",
+    "games": 485,
+    "accuracy": 52.3,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "MISSING",
+      "King safety": "SOLID",
+      "Openings": "MISSING",
+      "Middlegame": "STRONG",
+      "Endgame": "WEAK",
+      "Calc depth": "STRONG"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.61,
+      "Tactics": 0.99,
+      "King safety": 0.52,
+      "Openings": 0.47,
+      "Middlegame": 0.28,
+      "Endgame": 0.05,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_614cc832fc89",
+    "name": "Shravan Verma",
+    "email": "vermashravan12@gmail.com",
+    "games": 404,
+    "accuracy": 60.6,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "WEAK",
+      "King safety": "WEAK",
+      "Openings": "WEAK",
+      "Middlegame": "WEAK",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.02,
+      "Tactics": 0.79,
+      "King safety": 0.64,
+      "Openings": 0.37,
+      "Middlegame": 0.76,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_3e1eaba9e5ad",
+    "name": "Niranjan Kurhe",
+    "email": "kurheniranjan@gmail.com",
+    "games": 392,
+    "accuracy": 67.1,
+    "accuracy_label": "STRONG",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "WEAK",
+      "King safety": "WEAK",
+      "Openings": "STRONG",
+      "Middlegame": "MISSING",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.84,
+      "Tactics": 0.71,
+      "King safety": 0.59,
+      "Openings": 0.17,
+      "Middlegame": 0.8,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_e6de078c2508",
+    "name": "Mahehs Anuragi",
+    "email": "mahehsanuragi@gmail.com",
+    "games": 341,
+    "accuracy": 68.7,
+    "accuracy_label": "STRONG",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "SOLID",
+      "Openings": "STRONG",
+      "Middlegame": "MISSING",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.85,
+      "Tactics": 0.63,
+      "King safety": 0.57,
+      "Openings": 0.2,
+      "Middlegame": 0.89,
+      "Endgame": 0.04,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_88682a1254d4",
+    "name": "chatg",
+    "email": "chatgpt.miisco@gmail.com",
+    "games": 303,
+    "accuracy": 45.5,
+    "accuracy_label": "MISSING",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "WEAK",
+      "King safety": "WEAK",
+      "Openings": "MISSING",
+      "Middlegame": "SOLID",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.91,
+      "Tactics": 0.79,
+      "King safety": 0.6,
+      "Openings": 0.57,
+      "Middlegame": 0.38,
+      "Endgame": 0.02,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_a66b5bb10c86",
+    "name": "Mustafa Jamse",
+    "email": "romjokajo@gmail.com",
+    "games": 302,
+    "accuracy": 69.0,
+    "accuracy_label": "STRONG",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "SOLID",
+      "King safety": "SOLID",
+      "Openings": "SOLID",
+      "Middlegame": "MISSING",
+      "Endgame": "MISSING",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.88,
+      "Tactics": 0.62,
+      "King safety": 0.54,
+      "Openings": 0.27,
+      "Middlegame": 0.89,
+      "Endgame": 0.09,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_9659e4516831",
+    "name": "Ayush Raj",
+    "email": "ayush0118v@gmail.com",
+    "games": 269,
+    "accuracy": 64.8,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "WEAK",
+      "Openings": "WEAK",
+      "Middlegame": "SOLID",
+      "Endgame": "WEAK",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.93,
+      "Tactics": 0.56,
+      "King safety": 0.61,
+      "Openings": 0.36,
+      "Middlegame": 0.45,
+      "Endgame": 0.07,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_e9acb79dfc26",
+    "name": "Shobhit Maheshwari",
+    "email": "shobhit.bhutra1993@gmail.com",
+    "games": 265,
+    "accuracy": 45.0,
+    "accuracy_label": "MISSING",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "MISSING",
+      "King safety": "WEAK",
+      "Openings": "MISSING",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 2.17,
+      "Tactics": 0.85,
+      "King safety": 0.62,
+      "Openings": 0.64,
+      "Middlegame": 0.36,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_4a671526e834",
+    "name": "Imtiyaz Uddin",
+    "email": "uimtiyaz513@gmail.com",
+    "games": 236,
+    "accuracy": 49.9,
+    "accuracy_label": "MISSING",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "WEAK",
+      "King safety": "STRONG",
+      "Openings": "WEAK",
+      "Middlegame": "STRONG",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.67,
+      "Tactics": 0.74,
+      "King safety": 0.26,
+      "Openings": 0.33,
+      "Middlegame": 0.11,
+      "Endgame": 0.02,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_d8b9996203d4",
+    "name": "Yugal Kumar999",
+    "email": "yugalkumar662@gmail.com",
+    "games": 235,
+    "accuracy": 61.6,
+    "accuracy_label": "SOLID",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "MISSING",
+      "King safety": "WEAK",
+      "Openings": "WEAK",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.23,
+      "Tactics": 0.92,
+      "King safety": 0.57,
+      "Openings": 0.37,
+      "Middlegame": 0.55,
+      "Endgame": 0.06,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_c9cf3e2d3093",
+    "name": "Rina Khatoon",
+    "email": "jumakhatoon@gmail.com",
+    "games": 231,
+    "accuracy": 55.8,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "SOLID",
+      "King safety": "WEAK",
+      "Openings": "SOLID",
+      "Middlegame": "WEAK",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.6,
+      "Tactics": 0.5,
+      "King safety": 0.58,
+      "Openings": 0.3,
+      "Middlegame": 0.51,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_adffcf31fcc7",
+    "name": "madhav",
+    "email": "itsmadhav2156@gmail.com",
+    "games": 224,
+    "accuracy": 59.9,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "WEAK",
+      "King safety": "STRONG",
+      "Openings": "WEAK",
+      "Middlegame": "SOLID",
+      "Endgame": "SOLID",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.13,
+      "Tactics": 0.67,
+      "King safety": 0.35,
+      "Openings": 0.36,
+      "Middlegame": 0.3,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_c90a2ac2ad02",
+    "name": "Mahesh Jangid",
+    "email": "maheshjangid2416@gmail.com",
+    "games": 200,
+    "accuracy": 52.2,
+    "accuracy_label": "MISSING",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "MISSING",
+      "King safety": "STRONG",
+      "Openings": "WEAK",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.16,
+      "Tactics": 0.79,
+      "King safety": 0.34,
+      "Openings": 0.38,
+      "Middlegame": 0.29,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_0bffabdb44f6",
+    "name": "Akshay Anand",
+    "email": "anandakshay442@gmail.com",
+    "games": 173,
+    "accuracy": 57.1,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "MISSING",
+      "King safety": "MISSING",
+      "Openings": "MISSING",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.77,
+      "Tactics": 0.98,
+      "King safety": 0.74,
+      "Openings": 0.47,
+      "Middlegame": 0.5,
+      "Endgame": 0.06,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_3f6b964a5c05",
+    "name": "Milind Sakharkar",
+    "email": "milindsakhar.1122@gmail.com",
+    "games": 173,
+    "accuracy": 66.3,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "STRONG",
+      "Middlegame": "SOLID",
+      "Endgame": "WEAK",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.65,
+      "Tactics": 0.39,
+      "King safety": 0.41,
+      "Openings": 0.18,
+      "Middlegame": 0.37,
+      "Endgame": 0.06,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_d5430c2e4709",
+    "name": "Dhruv Patel",
+    "email": "dhruvpatel6826@gmail.com",
+    "games": 155,
+    "accuracy": 47.4,
+    "accuracy_label": "MISSING",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "MISSING",
+      "King safety": "SOLID",
+      "Openings": "WEAK",
+      "Middlegame": "STRONG",
+      "Endgame": "SOLID",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.87,
+      "Tactics": 0.97,
+      "King safety": 0.45,
+      "Openings": 0.33,
+      "Middlegame": 0.2,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_186ab42ab69e",
+    "name": "Dhruv Gohil",
+    "email": "fatih3377b@gmail.com",
+    "games": 135,
+    "accuracy": 57.0,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "MISSING",
+      "King safety": "SOLID",
+      "Openings": "MISSING",
+      "Middlegame": "SOLID",
+      "Endgame": "SOLID",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.24,
+      "Tactics": 1.3,
+      "King safety": 0.47,
+      "Openings": 0.5,
+      "Middlegame": 0.39,
+      "Endgame": 0.03,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_82fa02e586b4",
+    "name": "Shuvam Basak",
+    "email": "shuvambasak00@gmail.com",
+    "games": 131,
+    "accuracy": 55.5,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "STRONG",
+      "Middlegame": "STRONG",
+      "Endgame": "STRONG",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.44,
+      "Tactics": 0.27,
+      "King safety": 0.44,
+      "Openings": 0.13,
+      "Middlegame": 0.23,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "ADVANCED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_666b2f164455",
+    "name": "Malik Farhan",
+    "email": "malikfarhan6769@gmail.com",
+    "games": 129,
+    "accuracy": 55.3,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "STRONG",
+      "King safety": "STRONG",
+      "Openings": "WEAK",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.8,
+      "Tactics": 0.43,
+      "King safety": 0.33,
+      "Openings": 0.33,
+      "Middlegame": 0.32,
+      "Endgame": 0.0,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_df228c5293ea",
+    "name": "Arman Ronnie",
+    "email": "armanronnie086@gmail.com",
+    "games": 126,
+    "accuracy": 66.7,
+    "accuracy_label": "SOLID",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "WEAK",
+      "King safety": "WEAK",
+      "Openings": "MISSING",
+      "Middlegame": "MISSING",
+      "Endgame": "WEAK",
+      "Calc depth": "SOLID"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.17,
+      "Tactics": 0.71,
+      "King safety": 0.67,
+      "Openings": 0.44,
+      "Middlegame": 0.8,
+      "Endgame": 0.07,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_d9c030e9167c",
+    "name": "Garvit Aggarwal",
+    "email": "garvit.agg2013@gmail.com",
+    "games": 112,
+    "accuracy": 63.6,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "MISSING",
+      "Tactics": "SOLID",
+      "King safety": "MISSING",
+      "Openings": "SOLID",
+      "Middlegame": "WEAK",
+      "Endgame": "MISSING",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.59,
+      "Tactics": 0.62,
+      "King safety": 0.85,
+      "Openings": 0.27,
+      "Middlegame": 0.62,
+      "Endgame": 0.12,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_7dc37dafd86f",
+    "name": "TARUN GUPTA",
+    "email": "tarung961658@gmail.com",
+    "games": 104,
+    "accuracy": 62.1,
+    "accuracy_label": "SOLID",
+    "trend": "stuck",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "SOLID",
+      "King safety": "WEAK",
+      "Openings": "SOLID",
+      "Middlegame": "SOLID",
+      "Endgame": "SOLID",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.72,
+      "Tactics": 0.51,
+      "King safety": 0.57,
+      "Openings": 0.23,
+      "Middlegame": 0.44,
+      "Endgame": 0.04,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_d35b37459e10",
+    "name": "parth gilda",
+    "email": "parththegilda123@gmail.com",
+    "games": 100,
+    "accuracy": 69.9,
+    "accuracy_label": "STRONG",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "WEAK",
+      "King safety": "MISSING",
+      "Openings": "SOLID",
+      "Middlegame": "MISSING",
+      "Endgame": "MISSING",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.63,
+      "Tactics": 0.75,
+      "King safety": 0.71,
+      "Openings": 0.22,
+      "Middlegame": 0.92,
+      "Endgame": 0.13,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_2bfd0958600e",
+    "name": "Parth Gilda",
+    "email": "parthgilda0709@gmail.com",
+    "games": 98,
+    "accuracy": 69.8,
+    "accuracy_label": "STRONG",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "MISSING",
+      "King safety": "MISSING",
+      "Openings": "SOLID",
+      "Middlegame": "MISSING",
+      "Endgame": "MISSING",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.65,
+      "Tactics": 0.79,
+      "King safety": 0.71,
+      "Openings": 0.22,
+      "Middlegame": 0.94,
+      "Endgame": 0.13,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_84fc6fbf6eeb",
+    "name": "Sanjay Gowda",
+    "email": "sanjaygowda2404@gmail.com",
+    "games": 95,
+    "accuracy": 46.9,
+    "accuracy_label": "MISSING",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "STRONG",
+      "Openings": "MISSING",
+      "Middlegame": "STRONG",
+      "Endgame": "SOLID",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.79,
+      "Tactics": 0.48,
+      "King safety": 0.16,
+      "Openings": 0.44,
+      "Middlegame": 0.11,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_ce4f53ccb28e",
+    "name": "Bibek Dasgupta",
+    "email": "rdasgupta469@gmail.com",
+    "games": 95,
+    "accuracy": 52.2,
+    "accuracy_label": "MISSING",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "STRONG",
+      "Openings": "SOLID",
+      "Middlegame": "STRONG",
+      "Endgame": "SOLID",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.85,
+      "Tactics": 0.48,
+      "King safety": 0.14,
+      "Openings": 0.25,
+      "Middlegame": 0.14,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_f83438834985",
+    "name": "Shreyan Sinha Roy",
+    "email": "sinharoyshreyan@gmail.com",
+    "games": 88,
+    "accuracy": 61.7,
+    "accuracy_label": "SOLID",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "STRONG",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.58,
+      "Tactics": 0.44,
+      "King safety": 0.53,
+      "Openings": 0.18,
+      "Middlegame": 0.35,
+      "Endgame": 0.0,
+      "Calc depth": 0.0
+    },
+    "overall": "ADVANCED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_d0b09cdc9a2e",
+    "name": "Hanok Ragbansingh",
+    "email": "hanokragbansingh@gmail.com",
+    "games": 86,
+    "accuracy": 61.5,
+    "accuracy_label": "SOLID",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "WEAK",
+      "Openings": "STRONG",
+      "Middlegame": "SOLID",
+      "Endgame": "SOLID",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.93,
+      "Tactics": 0.55,
+      "King safety": 0.58,
+      "Openings": 0.12,
+      "Middlegame": 0.37,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_b62f1d5c1f11",
+    "name": "\u0906\u091a\u093e\u0930\u094d\u092f \u0928\u092e\u0928 \u092c\u093e\u091c\u092a\u0947\u0908",
+    "email": "namanbajpai100@gmail.com",
+    "games": 83,
+    "accuracy": 48.8,
+    "accuracy_label": "MISSING",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "MISSING",
+      "Middlegame": "STRONG",
+      "Endgame": "STRONG",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.95,
+      "Tactics": 0.39,
+      "King safety": 0.39,
+      "Openings": 0.41,
+      "Middlegame": 0.06,
+      "Endgame": 0.0,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "balanced \u00b7 positional"
+  },
+  {
+    "user_id": "user_51935ec559ed",
+    "name": "Naveen Lal",
+    "email": "naveenlal.79@gmail.com",
+    "games": 80,
+    "accuracy": 51.7,
+    "accuracy_label": "MISSING",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "WEAK",
+      "King safety": "MISSING",
+      "Openings": "SOLID",
+      "Middlegame": "STRONG",
+      "Endgame": "WEAK",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.39,
+      "Tactics": 0.71,
+      "King safety": 0.86,
+      "Openings": 0.31,
+      "Middlegame": 0.25,
+      "Endgame": 0.07,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_2be2fb47630e",
+    "name": "IQ_IQ_IQX Vvvvk g",
+    "email": "abdull4h204@gmail.com",
+    "games": 75,
+    "accuracy": 53.9,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "SOLID",
+      "King safety": "SOLID",
+      "Openings": "WEAK",
+      "Middlegame": "WEAK",
+      "Endgame": "WEAK",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.11,
+      "Tactics": 0.57,
+      "King safety": 0.4,
+      "Openings": 0.33,
+      "Middlegame": 0.52,
+      "Endgame": 0.05,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_dfbfd50a110e",
+    "name": "Kuldeep Garg",
+    "email": "garg32235@gmail.com",
+    "games": 75,
+    "accuracy": 59.1,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "STRONG",
+      "King safety": "STRONG",
+      "Openings": "WEAK",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.2,
+      "Tactics": 0.35,
+      "King safety": 0.32,
+      "Openings": 0.32,
+      "Middlegame": 0.36,
+      "Endgame": 0.01,
+      "Calc depth": 0.0
+    },
+    "overall": "DEVELOPING",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_aea9afc4dfed",
+    "name": "SWAYAM MELKUNDE",
+    "email": "2025.swayam.melkunde@ves.ac.in",
+    "games": 72,
+    "accuracy": 57.2,
+    "accuracy_label": "WEAK",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "SOLID",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "SOLID",
+      "Middlegame": "SOLID",
+      "Endgame": "MISSING",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.94,
+      "Tactics": 0.31,
+      "King safety": 0.42,
+      "Openings": 0.21,
+      "Middlegame": 0.39,
+      "Endgame": 0.11,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_63fe50a05e64",
+    "name": "Matthew Ma",
+    "email": "matthewma1522@gmail.com",
+    "games": 62,
+    "accuracy": 68.8,
+    "accuracy_label": "STRONG",
+    "trend": "improving",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "SOLID",
+      "King safety": "MISSING",
+      "Openings": "STRONG",
+      "Middlegame": "MISSING",
+      "Endgame": "MISSING",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.34,
+      "Tactics": 0.53,
+      "King safety": 0.89,
+      "Openings": 0.1,
+      "Middlegame": 0.92,
+      "Endgame": 0.16,
+      "Calc depth": 0.0
+    },
+    "overall": "BEGINNER",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_58dc26172549",
+    "name": "mahmoud gamal",
+    "email": "mahmoudgamalcrossfire@gmail.com",
+    "games": 58,
+    "accuracy": 62.1,
+    "accuracy_label": "SOLID",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "WEAK",
+      "Tactics": "STRONG",
+      "King safety": "SOLID",
+      "Openings": "SOLID",
+      "Middlegame": "SOLID",
+      "Endgame": "STRONG",
+      "Calc depth": "WEAK"
+    },
+    "rates": {
+      "Basics (piece safety)": 1.34,
+      "Tactics": 0.43,
+      "King safety": 0.52,
+      "Openings": 0.26,
+      "Middlegame": 0.4,
+      "Endgame": 0.0,
+      "Calc depth": 0.0
+    },
+    "overall": "INTERMEDIATE",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_0695e1b4ab12",
+    "name": "Toby",
+    "email": "trbx65@gmail.com",
+    "games": 49,
+    "accuracy": 67.0,
+    "accuracy_label": "STRONG",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "WEAK",
+      "King safety": "SOLID",
+      "Openings": "STRONG",
+      "Middlegame": "WEAK",
+      "Endgame": "MISSING",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.63,
+      "Tactics": 0.71,
+      "King safety": 0.41,
+      "Openings": 0.2,
+      "Middlegame": 0.67,
+      "Endgame": 0.08,
+      "Calc depth": 0.0
+    },
+    "overall": "MIXED",
+    "style": "aggressive \u00b7 positional"
+  },
+  {
+    "user_id": "user_59c9df7e4a3d",
+    "name": "Sazid",
+    "email": "sazid.indiamart@gmail.com",
+    "games": 44,
+    "accuracy": 52.3,
+    "accuracy_label": "WEAK",
+    "trend": "regressing",
+    "ratings": {
+      "Basics (piece safety)": "STRONG",
+      "Tactics": "STRONG",
+      "King safety": "STRONG",
+      "Openings": "STRONG",
+      "Middlegame": "STRONG",
+      "Endgame": "STRONG",
+      "Calc depth": "MISSING"
+    },
+    "rates": {
+      "Basics (piece safety)": 0.57,
+      "Tactics": 0.32,
+      "King safety": 0.2,
+      "Openings": 0.18,
+      "Middlegame": 0.14,
+      "Endgame": 0.0,
+      "Calc depth": 0.0
+    },
+    "overall": "ADVANCED",
+    "style": "aggressive \u00b7 positional"
+  }
+]

@@ -1,0 +1,3179 @@
+[
+  {
+    "uid": "user_b189135388c9",
+    "name": "Nityanand Kalangutkar",
+    "email": "nityanandkalangutkar@gmail.com",
+    "chess_com": "nityanandnk",
+    "lichess": null,
+    "rating": null,
+    "total": 936,
+    "analyzed": 931,
+    "r7": 75,
+    "r14": 226,
+    "r30": 485,
+    "first_at": "2026-04-20T17:41:53.840578+00:00",
+    "last_at": "2026-06-29T09:40:23.125555+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 14,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Gambit Declined Queens Knight Defense 3.Nf3",
+        12
+      ],
+      [
+        "Caro Kann Defense Exchange Variation 3...cxd5 4.Nf3",
+        8
+      ],
+      [
+        "Caro Kann Defense 2.f4 d5 3.e5",
+        5
+      ],
+      [
+        "Kings Gambit Accepted Fischer Defense 4.d4",
+        5
+      ],
+      [
+        "Kings Gambit Accepted Kings Knight Gambit",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 954,
+        "first_occurrence": "2026-04-20T17:43:59.557840+00:00",
+        "last_occurrence": "2026-06-29T09:36:26.357257+00:00",
+        "decayed_score": 954.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 551,
+        "first_occurrence": "2026-04-20T17:43:59.557840+00:00",
+        "last_occurrence": "2026-06-28T22:21:03.477574+00:00",
+        "decayed_score": 551.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_398eda90a293",
+    "name": "SAMUEL MARANDI",
+    "email": "samuelmarandi03@gmail.com",
+    "chess_com": "chesstribe64",
+    "lichess": "samuel1494",
+    "rating": null,
+    "total": 781,
+    "analyzed": 765,
+    "r7": 98,
+    "r14": 165,
+    "r30": 394,
+    "first_at": "2026-04-19T07:48:22.635370+00:00",
+    "last_at": "2026-06-29T09:35:27.157152+00:00",
+    "win_loss_draw_last30": {
+      "win": 16,
+      "loss": 10,
+      "draw": 4,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Caro Kann Defense Exchange Variation 3...cxd5 4.Nf3 Nc6",
+        13
+      ],
+      [
+        "Caro Kann Defense Advance Botvinnik Carls Defense 4.c3 Nc6",
+        10
+      ],
+      [
+        "Queens Pawn Opening Chigorin Variation",
+        9
+      ],
+      [
+        "Queens Pawn Opening Chigorin Alburt Defense",
+        9
+      ],
+      [
+        "Caro Kann Defense 2.Nc3 d5",
+        9
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 722,
+        "first_occurrence": "2026-04-19T07:51:34.435633+00:00",
+        "last_occurrence": "2026-06-29T09:27:01.095758+00:00",
+        "decayed_score": 722.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 415,
+        "first_occurrence": "2026-04-19T07:51:34.435633+00:00",
+        "last_occurrence": "2026-06-27T07:13:32.719407+00:00",
+        "decayed_score": 415.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_f7e92a45149c",
+    "name": "Ronak Mundra",
+    "email": "mundrar321@gmail.com",
+    "chess_com": "roni",
+    "lichess": null,
+    "rating": null,
+    "total": 676,
+    "analyzed": 663,
+    "r7": 232,
+    "r14": 479,
+    "r30": 661,
+    "first_at": "2026-04-27T08:09:41.140872+00:00",
+    "last_at": "2026-06-29T07:25:31.991603+00:00",
+    "win_loss_draw_last30": {
+      "win": 21,
+      "loss": 8,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Sicilian Defense Bowdler Attack",
+        10
+      ],
+      [
+        "Sicilian Defense 2.Nf3 d6 3.Bc4 e6",
+        9
+      ],
+      [
+        "Scandinavian Defense 2.exd5",
+        4
+      ],
+      [
+        "Sicilian Defense Wing Gambit",
+        4
+      ],
+      [
+        "French Defense Knight Variation",
+        3
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 297,
+        "first_occurrence": "2026-04-27T08:19:40.102541+00:00",
+        "last_occurrence": "2026-06-28T20:47:41.132237+00:00",
+        "decayed_score": 297.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 296,
+        "first_occurrence": "2026-04-27T08:14:31.961792+00:00",
+        "last_occurrence": "2026-06-28T19:52:22.138474+00:00",
+        "decayed_score": 296.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_3d451aa18861",
+    "name": "Akshay",
+    "email": "akshaykumar9676@gmail.com",
+    "chess_com": "2myselfakshy",
+    "lichess": null,
+    "rating": null,
+    "total": 661,
+    "analyzed": 648,
+    "r7": 0,
+    "r14": 0,
+    "r30": 209,
+    "first_at": "2026-04-19T03:37:46.158252+00:00",
+    "last_at": "2026-06-12T10:53:17.854250+00:00",
+    "win_loss_draw_last30": {
+      "win": 19,
+      "loss": 9,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Englund Gambit 2.dxe5",
+        16
+      ],
+      [
+        "Queens Gambit Accepted 3.Nf3",
+        12
+      ],
+      [
+        "Englund Gambit",
+        12
+      ],
+      [
+        "Reti Opening Queenside Fianchetto Variation 2.d4 Bb7 3.c4",
+        9
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 646,
+        "first_occurrence": "2026-04-19T03:41:13.131608+00:00",
+        "last_occurrence": "2026-06-12T10:56:47.577606+00:00",
+        "decayed_score": 646.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 409,
+        "first_occurrence": "2026-04-19T03:41:13.131608+00:00",
+        "last_occurrence": "2026-06-12T10:56:47.577606+00:00",
+        "decayed_score": 409.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_8b599930d7ef",
+    "name": "Mohit Maheshwari",
+    "email": "bhutramohit@gmail.com",
+    "chess_com": "killerknightroyalrook",
+    "lichess": "bhutramohit",
+    "rating": null,
+    "total": 561,
+    "analyzed": 544,
+    "r7": 77,
+    "r14": 145,
+    "r30": 236,
+    "first_at": "2026-04-06T09:57:13.880182+00:00",
+    "last_at": "2026-06-29T09:01:34.450584+00:00",
+    "win_loss_draw_last30": {
+      "win": 16,
+      "loss": 13,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Italian Game",
+        27
+      ],
+      [
+        "Scandinavian Defense",
+        11
+      ],
+      [
+        "Philidor Defense",
+        11
+      ],
+      [
+        "Ruy Lopez",
+        9
+      ],
+      [
+        "Philidor Defense 3.Bc4",
+        9
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 593,
+        "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+        "last_occurrence": "2026-06-29T06:26:59.242297+00:00",
+        "decayed_score": 593.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 327,
+        "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+        "last_occurrence": "2026-06-29T06:41:39.565584+00:00",
+        "decayed_score": 327.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_3798d8af93ed",
+    "name": "Pulak Gogoi",
+    "email": "pulakgogoi931@gmail.com",
+    "chess_com": "pulakchess1",
+    "lichess": null,
+    "rating": null,
+    "total": 550,
+    "analyzed": 545,
+    "r7": 13,
+    "r14": 30,
+    "r30": 88,
+    "first_at": "2026-04-19T19:05:42.152979+00:00",
+    "last_at": "2026-06-29T04:42:53.372754+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 15,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Sicilian Defense Bowdler Attack 2...Nc6",
+        8
+      ],
+      [
+        "Bishops Opening",
+        7
+      ],
+      [
+        "Sicilian Defense Old Sicilian Variation 3.Bc4",
+        7
+      ],
+      [
+        "Sicilian Defense Bowdler Attack",
+        6
+      ],
+      [
+        "Sicilian Defense Open Lowenthal Variation 5.Nxc6 bxc6",
+        6
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 589,
+        "first_occurrence": "2026-04-19T20:34:07.155911+00:00",
+        "last_occurrence": "2026-06-29T04:44:13.334048+00:00",
+        "decayed_score": 589.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 405,
+        "first_occurrence": "2026-04-19T20:35:23.868060+00:00",
+        "last_occurrence": "2026-06-26T04:30:35.255866+00:00",
+        "decayed_score": 405.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_46f04c4f3b21",
+    "name": "Neeraj Kushwaha",
+    "email": "06062010neeraj.kushwaha@gmail.com",
+    "chess_com": "neeraj_0666",
+    "lichess": null,
+    "rating": null,
+    "total": 546,
+    "analyzed": 531,
+    "r7": 23,
+    "r14": 59,
+    "r30": 287,
+    "first_at": "2026-04-19T06:31:05.837412+00:00",
+    "last_at": "2026-06-28T01:46:54.660302+00:00",
+    "win_loss_draw_last30": {
+      "win": 17,
+      "loss": 11,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        15
+      ],
+      [
+        "Caro Kann Defense",
+        15
+      ],
+      [
+        "Scotch Game 3...exd4",
+        14
+      ],
+      [
+        "Caro Kann Defense 2.Nf3 d5 3.exd5 cxd5",
+        9
+      ],
+      [
+        "Caro Kann Defense 2.Nf3 d5",
+        8
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 602,
+        "first_occurrence": "2026-04-19T06:33:38.021523+00:00",
+        "last_occurrence": "2026-06-28T01:37:11.740165+00:00",
+        "decayed_score": 602.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 445,
+        "first_occurrence": "2026-04-19T06:33:38.021523+00:00",
+        "last_occurrence": "2026-06-28T01:37:11.740165+00:00",
+        "decayed_score": 445.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_76ee10b87522",
+    "name": "jasmir singh Gandhi",
+    "email": "jasmirgandhi@gmail.com",
+    "chess_com": "mrred_13",
+    "lichess": null,
+    "rating": null,
+    "total": 401,
+    "analyzed": 397,
+    "r7": 6,
+    "r14": 19,
+    "r30": 93,
+    "first_at": "2026-04-19T21:50:43.920621+00:00",
+    "last_at": "2026-06-28T13:40:05.474792+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 14,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Scotch Game 3...exd4",
+        34
+      ],
+      [
+        "Scotch Game",
+        8
+      ],
+      [
+        "Scotch Game 3...d6",
+        8
+      ],
+      [
+        "Sicilian Defense",
+        6
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        6
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 448,
+        "first_occurrence": "2026-04-19T21:54:04.075747+00:00",
+        "last_occurrence": "2026-06-27T17:05:52.850263+00:00",
+        "decayed_score": 448.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 315,
+        "first_occurrence": "2026-04-19T21:57:13.350130+00:00",
+        "last_occurrence": "2026-06-28T13:41:18.141793+00:00",
+        "decayed_score": 315.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_a3a0aa964ebf",
+    "name": "Abhilash Shrotriya",
+    "email": "ashrotriya635@gmail.com",
+    "chess_com": "abhilashbrahman",
+    "lichess": null,
+    "rating": null,
+    "total": 378,
+    "analyzed": 355,
+    "r7": 4,
+    "r14": 16,
+    "r30": 82,
+    "first_at": "2026-04-20T21:09:30.512186+00:00",
+    "last_at": "2026-06-28T20:30:03.673820+00:00",
+    "win_loss_draw_last30": {
+      "win": 13,
+      "loss": 16,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        17
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        17
+      ],
+      [
+        "Four Knights Game",
+        13
+      ],
+      [
+        "Scandinavian Defense",
+        13
+      ],
+      [
+        "Nimzowitsch Defense",
+        10
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 642,
+        "first_occurrence": "2026-04-20T21:11:21.221938+00:00",
+        "last_occurrence": "2026-06-22T09:14:28.698137+00:00",
+        "decayed_score": 642.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 593,
+        "first_occurrence": "2026-04-20T21:11:21.221938+00:00",
+        "last_occurrence": "2026-06-28T20:30:44.650723+00:00",
+        "decayed_score": 593.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_a66b5bb10c86",
+    "name": "Mustafa Jamse",
+    "email": "romjokajo@gmail.com",
+    "chess_com": "lomorr392",
+    "lichess": null,
+    "rating": null,
+    "total": 303,
+    "analyzed": 303,
+    "r7": 19,
+    "r14": 217,
+    "r30": 303,
+    "first_at": "2026-06-11T06:29:53.703562+00:00",
+    "last_at": "2026-06-28T21:43:24.071571+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 12,
+      "draw": 3,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Sicilian Defense Old Sicilian Variation 3.Bc4 e6",
+        9
+      ],
+      [
+        "Sicilian Defense Bowdler Attack 2...e6",
+        7
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        6
+      ],
+      [
+        "Ruy Lopez Opening Old Steinitz Defense 4.c3",
+        5
+      ],
+      [
+        "Sicilian Defense French Variation 3.d3 Nc6",
+        3
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 265,
+        "first_occurrence": "2026-06-11T06:32:07.536083+00:00",
+        "last_occurrence": "2026-06-28T21:46:45.026433+00:00",
+        "decayed_score": 265.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 160,
+        "first_occurrence": "2026-06-11T06:33:42.702696+00:00",
+        "last_occurrence": "2026-06-27T17:46:00.382816+00:00",
+        "decayed_score": 160.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_614cc832fc89",
+    "name": "Shravan Verma",
+    "email": "vermashravan12@gmail.com",
+    "chess_com": "skverma91311",
+    "lichess": null,
+    "rating": null,
+    "total": 300,
+    "analyzed": 298,
+    "r7": 12,
+    "r14": 19,
+    "r30": 105,
+    "first_at": "2026-04-21T07:02:16.991850+00:00",
+    "last_at": "2026-06-28T12:38:30.030270+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 14,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Sicilian Defense",
+        17
+      ],
+      [
+        "Italian Game",
+        14
+      ],
+      [
+        "Sicilian Defense Bowdler Attack 2...Nc6",
+        8
+      ],
+      [
+        "Philidor Defense 3.Bc4",
+        6
+      ],
+      [
+        "Scandinavian Defense",
+        5
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 410,
+        "first_occurrence": "2026-04-21T07:11:41.859493+00:00",
+        "last_occurrence": "2026-06-28T12:11:36.308202+00:00",
+        "decayed_score": 410.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 259,
+        "first_occurrence": "2026-04-21T07:11:41.859493+00:00",
+        "last_occurrence": "2026-06-28T12:42:23.681758+00:00",
+        "decayed_score": 259.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_3e1eaba9e5ad",
+    "name": "Niranjan Kurhe",
+    "email": "kurheniranjan@gmail.com",
+    "chess_com": "niranjan9766",
+    "lichess": null,
+    "rating": null,
+    "total": 292,
+    "analyzed": 289,
+    "r7": 15,
+    "r14": 38,
+    "r30": 106,
+    "first_at": "2026-04-20T08:08:16.583338+00:00",
+    "last_at": "2026-06-29T08:21:36.640723+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 16,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Englund Gambit",
+        10
+      ],
+      [
+        "Sicilian Defense",
+        8
+      ],
+      [
+        "Queen's Pawn Game",
+        6
+      ],
+      [
+        "Alapin Sicilian Defense 2...Nc6 3.Nf3",
+        6
+      ],
+      [
+        "Queen's Gambit Accepted",
+        5
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 332,
+        "first_occurrence": "2026-04-20T08:11:52.443357+00:00",
+        "last_occurrence": "2026-06-29T08:23:39.657486+00:00",
+        "decayed_score": 332.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 216,
+        "first_occurrence": "2026-04-20T08:14:46.108138+00:00",
+        "last_occurrence": "2026-06-23T04:10:46.973405+00:00",
+        "decayed_score": 216.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_e9acb79dfc26",
+    "name": "Shobhit Maheshwari",
+    "email": "shobhit.bhutra1993@gmail.com",
+    "chess_com": "chesstesterone",
+    "lichess": null,
+    "rating": null,
+    "total": 261,
+    "analyzed": 248,
+    "r7": 57,
+    "r14": 58,
+    "r30": 111,
+    "first_at": "2026-04-15T05:08:25.104195+00:00",
+    "last_at": "2026-06-28T19:33:39.348250+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 15,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        22
+      ],
+      [
+        "Italian Game",
+        11
+      ],
+      [
+        "Scotch Game",
+        8
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        8
+      ],
+      [
+        "London System",
+        6
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 374,
+        "first_occurrence": "2026-04-27T16:39:08.001218+00:00",
+        "last_occurrence": "2026-06-28T19:37:13.340835+00:00",
+        "decayed_score": 374.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 200,
+        "first_occurrence": "2026-04-27T16:41:11.395912+00:00",
+        "last_occurrence": "2026-06-28T19:37:13.340835+00:00",
+        "decayed_score": 200.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_88682a1254d4",
+    "name": "chatg",
+    "email": "chatgpt.miisco@gmail.com",
+    "chess_com": "chesstesterone",
+    "lichess": null,
+    "rating": null,
+    "total": 251,
+    "analyzed": 236,
+    "r7": 58,
+    "r14": 59,
+    "r30": 112,
+    "first_at": "2026-04-07T01:17:44.269292+00:00",
+    "last_at": "2026-06-28T19:33:39.278404+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 15,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        22
+      ],
+      [
+        "Sicilian Defense",
+        9
+      ],
+      [
+        "Scandinavian Defense",
+        8
+      ],
+      [
+        "Scotch Game",
+        8
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        8
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 382,
+        "first_occurrence": "2026-04-07T01:19:25.875806+00:00",
+        "last_occurrence": "2026-06-28T19:35:20.054886+00:00",
+        "decayed_score": 382.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 245,
+        "first_occurrence": "2026-04-07T01:24:51.335144+00:00",
+        "last_occurrence": "2026-06-28T19:35:20.054886+00:00",
+        "decayed_score": 245.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_e6de078c2508",
+    "name": "Mahehs Anuragi",
+    "email": "mahehsanuragi@gmail.com",
+    "chess_com": "maheshanurag",
+    "lichess": null,
+    "rating": null,
+    "total": 244,
+    "analyzed": 242,
+    "r7": 41,
+    "r14": 70,
+    "r30": 89,
+    "first_at": "2026-04-19T18:09:50.874768+00:00",
+    "last_at": "2026-06-28T18:26:33.122134+00:00",
+    "win_loss_draw_last30": {
+      "win": 17,
+      "loss": 12,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Sicilian Defense",
+        10
+      ],
+      [
+        "Ruy Lopez",
+        5
+      ],
+      [
+        "Ruy Lopez Opening Old Steinitz Defense",
+        5
+      ],
+      [
+        "Queen's Pawn Game",
+        4
+      ],
+      [
+        "Philidor Defense",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 300,
+        "first_occurrence": "2026-04-19T18:13:23.590856+00:00",
+        "last_occurrence": "2026-06-27T21:23:59.846005+00:00",
+        "decayed_score": 300.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 132,
+        "first_occurrence": "2026-04-19T18:17:40.080550+00:00",
+        "last_occurrence": "2026-06-28T18:27:54.620140+00:00",
+        "decayed_score": 132.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_9659e4516831",
+    "name": "Ayush Raj",
+    "email": "ayush0118v@gmail.com",
+    "chess_com": "ayushraj_18",
+    "lichess": null,
+    "rating": null,
+    "total": 189,
+    "analyzed": 185,
+    "r7": 14,
+    "r14": 23,
+    "r30": 51,
+    "first_at": "2026-04-19T18:26:07.547767+00:00",
+    "last_at": "2026-06-28T05:31:29.586566+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 15,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Italian Game",
+        9
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        5
+      ],
+      [
+        "King's Pawn Game",
+        4
+      ],
+      [
+        "Italian Game Knight Attack",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 297,
+        "first_occurrence": "2026-04-19T19:32:39.503472+00:00",
+        "last_occurrence": "2026-06-28T03:51:17.320786+00:00",
+        "decayed_score": 297.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 166,
+        "first_occurrence": "2026-04-19T19:32:39.503472+00:00",
+        "last_occurrence": "2026-06-28T03:45:43.718705+00:00",
+        "decayed_score": 166.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_4a671526e834",
+    "name": "Imtiyaz Uddin",
+    "email": "uimtiyaz513@gmail.com",
+    "chess_com": "ackerman_8639",
+    "lichess": null,
+    "rating": null,
+    "total": 186,
+    "analyzed": 167,
+    "r7": 17,
+    "r14": 21,
+    "r30": 28,
+    "first_at": "2026-04-19T17:35:21.370998+00:00",
+    "last_at": "2026-06-26T16:24:38.020373+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 14,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        12
+      ],
+      [
+        "Bishops Opening",
+        12
+      ],
+      [
+        "King's Pawn Game",
+        8
+      ],
+      [
+        "Englund Gambit",
+        7
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        6
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 308,
+        "first_occurrence": "2026-04-19T17:37:50.064026+00:00",
+        "last_occurrence": "2026-06-26T16:21:27.137702+00:00",
+        "decayed_score": 308.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 265,
+        "first_occurrence": "2026-04-19T17:37:50.064026+00:00",
+        "last_occurrence": "2026-06-26T14:26:42.482487+00:00",
+        "decayed_score": 265.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_d8b9996203d4",
+    "name": "Yugal Kumar999",
+    "email": "yugalkumar662@gmail.com",
+    "chess_com": "yugal69888",
+    "lichess": null,
+    "rating": null,
+    "total": 183,
+    "analyzed": 179,
+    "r7": 0,
+    "r14": 9,
+    "r30": 14,
+    "first_at": "2026-04-19T03:02:14.417243+00:00",
+    "last_at": "2026-06-22T03:47:17.733590+00:00",
+    "win_loss_draw_last30": {
+      "win": 11,
+      "loss": 17,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        12
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        11
+      ],
+      [
+        "Italian Game",
+        6
+      ],
+      [
+        "Four Knights Game Italian Variation",
+        4
+      ],
+      [
+        "Italian Game Knight Attack Normal Variation 5.exd5",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 290,
+        "first_occurrence": "2026-04-19T03:04:51.177743+00:00",
+        "last_occurrence": "2026-06-22T03:48:45.373382+00:00",
+        "decayed_score": 290.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 189,
+        "first_occurrence": "2026-04-19T03:04:51.177743+00:00",
+        "last_occurrence": "2026-06-22T03:48:45.373382+00:00",
+        "decayed_score": 189.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_c9cf3e2d3093",
+    "name": "Rina Khatoon",
+    "email": "jumakhatoon@gmail.com",
+    "chess_com": "samiul_haque454",
+    "lichess": null,
+    "rating": null,
+    "total": 168,
+    "analyzed": 164,
+    "r7": 15,
+    "r14": 15,
+    "r30": 31,
+    "first_at": "2026-04-19T08:03:56.703810+00:00",
+    "last_at": "2026-06-28T04:29:40.625071+00:00",
+    "win_loss_draw_last30": {
+      "win": 18,
+      "loss": 10,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ],
+      [
+        "Four Knights Game Italian Variation",
+        6
+      ],
+      [
+        "Italian Game Knight Attack",
+        6
+      ],
+      [
+        "Philidor Defense 3.Bc4",
+        5
+      ],
+      [
+        "Scotch Game 3...exd4 4.Nxd4 Nxd4 5.Qxd4",
+        5
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 251,
+        "first_occurrence": "2026-04-19T08:12:57.857520+00:00",
+        "last_occurrence": "2026-06-28T04:30:54.655060+00:00",
+        "decayed_score": 251.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 195,
+        "first_occurrence": "2026-04-19T08:12:57.857520+00:00",
+        "last_occurrence": "2026-06-28T04:19:34.547477+00:00",
+        "decayed_score": 195.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_adffcf31fcc7",
+    "name": "madhav",
+    "email": "itsmadhav2156@gmail.com",
+    "chess_com": "madhav_2121",
+    "lichess": null,
+    "rating": null,
+    "total": 154,
+    "analyzed": 151,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-20T18:36:11.717987+00:00",
+    "last_at": "2026-05-13T06:40:00.579132+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 15,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Four Knights Game Italian Variation",
+        9
+      ],
+      [
+        "Italian Game",
+        8
+      ],
+      [
+        "Giuoco Piano Game Four Knights Game",
+        8
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ],
+      [
+        "Scandinavian Defense 2.e5",
+        6
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 229,
+        "first_occurrence": "2026-04-20T18:39:09.782900+00:00",
+        "last_occurrence": "2026-06-06T19:11:13.296559+00:00",
+        "decayed_score": 229.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 176,
+        "first_occurrence": "2026-04-20T18:42:38.117170+00:00",
+        "last_occurrence": "2026-06-06T19:08:28.597023+00:00",
+        "decayed_score": 176.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_c90a2ac2ad02",
+    "name": "Mahesh Jangid",
+    "email": "maheshjangid2416@gmail.com",
+    "chess_com": "maheshio",
+    "lichess": null,
+    "rating": null,
+    "total": 136,
+    "analyzed": 131,
+    "r7": 16,
+    "r14": 25,
+    "r30": 36,
+    "first_at": "2026-04-20T19:34:02.351930+00:00",
+    "last_at": "2026-06-28T17:36:11.658457+00:00",
+    "win_loss_draw_last30": {
+      "win": 17,
+      "loss": 13,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        9
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ],
+      [
+        "Scotch Game",
+        5
+      ],
+      [
+        "Scandinavian Defense",
+        4
+      ],
+      [
+        "Saragossa Opening 1...e5",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 261,
+        "first_occurrence": "2026-04-20T19:37:20.728980+00:00",
+        "last_occurrence": "2026-06-28T17:14:31.419246+00:00",
+        "decayed_score": 261.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 180,
+        "first_occurrence": "2026-04-20T19:37:20.728980+00:00",
+        "last_occurrence": "2026-06-26T12:23:09.480987+00:00",
+        "decayed_score": 180.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_0bffabdb44f6",
+    "name": "Akshay Anand",
+    "email": "anandakshay442@gmail.com",
+    "chess_com": "akshay8434",
+    "lichess": null,
+    "rating": null,
+    "total": 136,
+    "analyzed": 132,
+    "r7": 2,
+    "r14": 5,
+    "r30": 27,
+    "first_at": "2026-04-21T06:43:57.833297+00:00",
+    "last_at": "2026-06-26T05:12:48.375496+00:00",
+    "win_loss_draw_last30": {
+      "win": 9,
+      "loss": 20,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Scotch Game 3...exd4",
+        9
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        7
+      ],
+      [
+        "Scotch Game 3...d6",
+        5
+      ],
+      [
+        "Petrovs Defense Classical Variation",
+        4
+      ],
+      [
+        "Philidor Defense 3.d4",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 239,
+        "first_occurrence": "2026-04-21T06:47:07.188523+00:00",
+        "last_occurrence": "2026-06-26T05:15:24.817884+00:00",
+        "decayed_score": 239.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 180,
+        "first_occurrence": "2026-04-21T06:47:07.188523+00:00",
+        "last_occurrence": "2026-06-26T05:15:24.817884+00:00",
+        "decayed_score": 180.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_d5430c2e4709",
+    "name": "Dhruv Patel",
+    "email": "dhruvpatel6826@gmail.com",
+    "chess_com": "pateldhruv686",
+    "lichess": null,
+    "rating": null,
+    "total": 108,
+    "analyzed": 100,
+    "r7": 2,
+    "r14": 5,
+    "r30": 6,
+    "first_at": "2026-04-19T04:28:39.676938+00:00",
+    "last_at": "2026-06-27T09:57:29.437356+00:00",
+    "win_loss_draw_last30": {
+      "win": 13,
+      "loss": 15,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Scandinavian Defense",
+        7
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        6
+      ],
+      [
+        "Bishops Opening Berlin Defense",
+        6
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        6
+      ],
+      [
+        "Petrovs Defense Classical Variation",
+        5
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 276,
+        "first_occurrence": "2026-04-19T04:34:36.839749+00:00",
+        "last_occurrence": "2026-06-27T09:59:45.313588+00:00",
+        "decayed_score": 276.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 218,
+        "first_occurrence": "2026-04-19T04:34:36.839749+00:00",
+        "last_occurrence": "2026-06-27T09:59:45.313588+00:00",
+        "decayed_score": 218.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_df228c5293ea",
+    "name": "Arman Ronnie",
+    "email": "armanronnie086@gmail.com",
+    "chess_com": "ronniearman",
+    "lichess": null,
+    "rating": null,
+    "total": 104,
+    "analyzed": 100,
+    "r7": 18,
+    "r14": 44,
+    "r30": 87,
+    "first_at": "2026-04-19T20:04:26.215408+00:00",
+    "last_at": "2026-06-29T09:46:14.093967+00:00",
+    "win_loss_draw_last30": {
+      "win": 22,
+      "loss": 7,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Caro Kann Defense Advance Variation",
+        8
+      ],
+      [
+        "Caro Kann Defense",
+        8
+      ],
+      [
+        "Caro Kann Defense 2.d4 d5 3.Nc3",
+        6
+      ],
+      [
+        "Queens Gambit Accepted Central Variation Alekhine System 4.Nc3",
+        5
+      ],
+      [
+        "Caro Kann Defense 2.Nf3 d5",
+        3
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 128,
+        "first_occurrence": "2026-04-19T21:14:44.884011+00:00",
+        "last_occurrence": "2026-06-29T09:47:16.835430+00:00",
+        "decayed_score": 128.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 91,
+        "first_occurrence": "2026-04-19T21:17:05.097226+00:00",
+        "last_occurrence": "2026-06-24T09:40:07.659094+00:00",
+        "decayed_score": 91.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_2bfd0958600e",
+    "name": "Parth Gilda",
+    "email": "parthgilda0709@gmail.com",
+    "chess_com": "parthgilda",
+    "lichess": null,
+    "rating": null,
+    "total": 96,
+    "analyzed": 96,
+    "r7": 2,
+    "r14": 2,
+    "r30": 5,
+    "first_at": "2026-04-28T13:37:17.247877+00:00",
+    "last_at": "2026-06-27T17:00:11.905254+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 14,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Ruy Lopez",
+        4
+      ],
+      [
+        "Queens Pawn Opening Krause Variation...4.Bf4 Nc6 5.e3 Nf6 6.Bd3",
+        3
+      ],
+      [
+        "Scandinavian Defense 2.e5",
+        2
+      ],
+      [
+        "Italian Game",
+        2
+      ],
+      [
+        "Queens Gambit",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 55,
+        "first_occurrence": "2026-04-28T13:52:21.034817+00:00",
+        "last_occurrence": "2026-06-06T15:59:52.725387+00:00",
+        "decayed_score": 55.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 32,
+        "first_occurrence": "2026-04-28T13:57:19.954564+00:00",
+        "last_occurrence": "2026-06-06T15:55:57.536966+00:00",
+        "decayed_score": 32.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_3f6b964a5c05",
+    "name": "Milind Sakharkar",
+    "email": "milindsakhar.1122@gmail.com",
+    "chess_com": "19milind",
+    "lichess": null,
+    "rating": null,
+    "total": 95,
+    "analyzed": 92,
+    "r7": 1,
+    "r14": 1,
+    "r30": 13,
+    "first_at": "2026-04-20T04:28:06.027711+00:00",
+    "last_at": "2026-06-23T05:45:11.011031+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 13,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Queen's Pawn Game",
+        6
+      ],
+      [
+        "Scotch Game",
+        3
+      ],
+      [
+        "King's Pawn Game",
+        3
+      ],
+      [
+        "Italian Game",
+        3
+      ],
+      [
+        "Slav Defense",
+        3
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 152,
+        "first_occurrence": "2026-04-20T04:33:26.087359+00:00",
+        "last_occurrence": "2026-06-14T14:59:56.644716+00:00",
+        "decayed_score": 152.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 124,
+        "first_occurrence": "2026-04-20T04:33:26.087359+00:00",
+        "last_occurrence": "2026-06-12T08:05:46.488450+00:00",
+        "decayed_score": 124.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_d9c030e9167c",
+    "name": "Garvit Aggarwal",
+    "email": "garvit.agg2013@gmail.com",
+    "chess_com": null,
+    "lichess": "garvit_aggarwal123",
+    "rating": null,
+    "total": 94,
+    "analyzed": 93,
+    "r7": 11,
+    "r14": 35,
+    "r30": 73,
+    "first_at": "2026-05-24T11:39:42.371276+00:00",
+    "last_at": "2026-06-24T14:11:37.828495+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 15,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 105,
+        "first_occurrence": "2026-05-24T11:44:48.104602+00:00",
+        "last_occurrence": "2026-06-24T14:13:07.007566+00:00",
+        "decayed_score": 105.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 57,
+        "first_occurrence": "2026-05-24T11:49:24.521280+00:00",
+        "last_occurrence": "2026-06-23T07:30:09.770556+00:00",
+        "decayed_score": 57.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_d35b37459e10",
+    "name": "parth gilda",
+    "email": "parththegilda123@gmail.com",
+    "chess_com": "parthgilda",
+    "lichess": null,
+    "rating": null,
+    "total": 82,
+    "analyzed": 82,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-28T13:20:15.343662+00:00",
+    "last_at": "2026-05-29T18:20:36.868127+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 14,
+      "draw": 2,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Queens Pawn Opening Krause Variation...4.Bf4 Nc6 5.e3 Nf6 6.Bd3",
+        3
+      ],
+      [
+        "Scandinavian Defense 2.e5",
+        2
+      ],
+      [
+        "Giuoco Piano Game Center Attack 5...exd4 6.e5",
+        2
+      ],
+      [
+        "Kings Gambit Declined Queens Knight Defense 3.Nf3",
+        2
+      ],
+      [
+        "Giuoco Piano Game Giuoco Pianissimo Italian Four Knights Variation 5...h6",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 56,
+        "first_occurrence": "2026-04-28T13:23:49.191796+00:00",
+        "last_occurrence": "2026-06-06T20:11:28.612404+00:00",
+        "decayed_score": 56.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 32,
+        "first_occurrence": "2026-04-28T13:28:54.963641+00:00",
+        "last_occurrence": "2026-06-06T20:10:21.101940+00:00",
+        "decayed_score": 32.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_186ab42ab69e",
+    "name": "Dhruv Gohil",
+    "email": "fatih3377b@gmail.com",
+    "chess_com": "fatih1511",
+    "lichess": null,
+    "rating": null,
+    "total": 72,
+    "analyzed": 69,
+    "r7": 1,
+    "r14": 4,
+    "r30": 16,
+    "first_at": "2026-04-19T08:29:34.489222+00:00",
+    "last_at": "2026-06-26T06:37:57.400536+00:00",
+    "win_loss_draw_last30": {
+      "win": 16,
+      "loss": 8,
+      "draw": 6,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "King's Pawn Game",
+        6
+      ],
+      [
+        "Uncommon King's Pawn",
+        6
+      ],
+      [
+        "French Defense",
+        4
+      ],
+      [
+        "Queen's Pawn Game",
+        4
+      ],
+      [
+        "Scandinavian Defense",
+        4
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 259,
+        "first_occurrence": "2026-04-19T08:32:32.752410+00:00",
+        "last_occurrence": "2026-06-26T06:39:17.162013+00:00",
+        "decayed_score": 259.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 255,
+        "first_occurrence": "2026-04-19T08:32:32.752410+00:00",
+        "last_occurrence": "2026-06-21T11:56:40.679808+00:00",
+        "decayed_score": 255.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_666b2f164455",
+    "name": "Malik Farhan",
+    "email": "malikfarhan6769@gmail.com",
+    "chess_com": "ringmaster35",
+    "lichess": null,
+    "rating": null,
+    "total": 72,
+    "analyzed": 68,
+    "r7": 1,
+    "r14": 3,
+    "r30": 3,
+    "first_at": "2026-04-19T09:45:13.970172+00:00",
+    "last_at": "2026-06-28T03:39:07.434886+00:00",
+    "win_loss_draw_last30": {
+      "win": 14,
+      "loss": 16,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Italian Game",
+        7
+      ],
+      [
+        "Scandinavian Defense",
+        3
+      ],
+      [
+        "Scandinavian Defense Mieses Kotrc Variation 3.Nc3",
+        3
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        3
+      ],
+      [
+        "Four Knights Game",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 138,
+        "first_occurrence": "2026-04-19T10:23:05.063120+00:00",
+        "last_occurrence": "2026-06-28T03:40:36.163118+00:00",
+        "decayed_score": 138.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 80,
+        "first_occurrence": "2026-04-19T10:23:05.063120+00:00",
+        "last_occurrence": "2026-06-06T17:51:05.818626+00:00",
+        "decayed_score": 80.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_82fa02e586b4",
+    "name": "Shuvam Basak",
+    "email": "shuvambasak00@gmail.com",
+    "chess_com": "shuvam62916533",
+    "lichess": null,
+    "rating": null,
+    "total": 68,
+    "analyzed": 67,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-19T14:08:46.740398+00:00",
+    "last_at": "2026-05-15T16:40:46.317617+00:00",
+    "win_loss_draw_last30": {
+      "win": 12,
+      "loss": 17,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Four Knights Game",
+        4
+      ],
+      [
+        "Italian Game",
+        4
+      ],
+      [
+        "Philidor Defense",
+        3
+      ],
+      [
+        "Bishop's Opening",
+        2
+      ],
+      [
+        "Queen's Pawn Game",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 81,
+        "first_occurrence": "2026-04-19T14:12:24.285508+00:00",
+        "last_occurrence": "2026-06-06T18:17:40.991248+00:00",
+        "decayed_score": 81.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 74,
+        "first_occurrence": "2026-04-19T14:14:49.705880+00:00",
+        "last_occurrence": "2026-06-06T18:17:40.991248+00:00",
+        "decayed_score": 74.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_63fe50a05e64",
+    "name": "Matthew Ma",
+    "email": "matthewma1522@gmail.com",
+    "chess_com": "chickenpieb2c",
+    "lichess": null,
+    "rating": null,
+    "total": 64,
+    "analyzed": 63,
+    "r7": 19,
+    "r14": 36,
+    "r30": 64,
+    "first_at": "2026-06-10T06:57:57.888915+00:00",
+    "last_at": "2026-06-26T02:52:41.401183+00:00",
+    "win_loss_draw_last30": {
+      "win": 18,
+      "loss": 12,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Caro-Kann Defense",
+        7
+      ],
+      [
+        "Queen's Pawn Game",
+        4
+      ],
+      [
+        "Slav Defense",
+        3
+      ],
+      [
+        "Queen's Indian Defense",
+        2
+      ],
+      [
+        "Uncommon Opening",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 39,
+        "first_occurrence": "2026-06-10T07:04:19.541805+00:00",
+        "last_occurrence": "2026-06-26T02:37:20.936339+00:00",
+        "decayed_score": 39.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 18,
+        "first_occurrence": "2026-06-10T07:04:19.541805+00:00",
+        "last_occurrence": "2026-06-25T01:05:53.452329+00:00",
+        "decayed_score": 18.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_58dc26172549",
+    "name": "mahmoud gamal",
+    "email": "mahmoudgamalcrossfire@gmail.com",
+    "chess_com": "xtxttx",
+    "lichess": null,
+    "rating": null,
+    "total": 60,
+    "analyzed": 59,
+    "r7": 12,
+    "r14": 60,
+    "r30": 60,
+    "first_at": "2026-06-21T17:14:07.971390+00:00",
+    "last_at": "2026-06-29T05:39:18.287308+00:00",
+    "win_loss_draw_last30": {
+      "win": 20,
+      "loss": 9,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Ruy Lopez",
+        4
+      ],
+      [
+        "Sicilian Defense",
+        3
+      ],
+      [
+        "Scandinavian Defense",
+        3
+      ],
+      [
+        "Italian Game",
+        3
+      ],
+      [
+        "Scotch Game",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 35,
+        "first_occurrence": "2026-06-21T17:16:38.235889+00:00",
+        "last_occurrence": "2026-06-29T05:41:50.248853+00:00",
+        "decayed_score": 35.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 32,
+        "first_occurrence": "2026-06-21T17:15:23.926388+00:00",
+        "last_occurrence": "2026-06-29T05:41:50.248853+00:00",
+        "decayed_score": 32.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_2be2fb47630e",
+    "name": "IQ_IQ_IQX Vvvvk g",
+    "email": "abdull4h204@gmail.com",
+    "chess_com": "abrahim_122",
+    "lichess": "abrahim_122",
+    "rating": null,
+    "total": 58,
+    "analyzed": 57,
+    "r7": 0,
+    "r14": 15,
+    "r30": 58,
+    "first_at": "2026-06-01T01:08:41.773363+00:00",
+    "last_at": "2026-06-18T15:35:46.809057+00:00",
+    "win_loss_draw_last30": {
+      "win": 11,
+      "loss": 16,
+      "draw": 3,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Caro Kann Defense",
+        5
+      ],
+      [
+        "Ruy Lopez Opening Old Steinitz Defense 4.d4",
+        2
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        2
+      ],
+      [
+        "Scandinavian Defense Mieses Kotrc Variation 3.Nc3 Qe5 4.Be2",
+        2
+      ],
+      [
+        "Ruy Lopez Opening Birds Defense 4.Nxd4 exd4 5.O O",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 71,
+        "first_occurrence": "2026-06-01T01:10:15.080121+00:00",
+        "last_occurrence": "2026-06-18T15:37:23.741077+00:00",
+        "decayed_score": 71.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 57,
+        "first_occurrence": "2026-06-01T01:18:33.823404+00:00",
+        "last_occurrence": "2026-06-16T11:02:52.044070+00:00",
+        "decayed_score": 57.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_7dc37dafd86f",
+    "name": "TARUN GUPTA",
+    "email": "tarung961658@gmail.com",
+    "chess_com": "blamemyinstincts",
+    "lichess": null,
+    "rating": null,
+    "total": 55,
+    "analyzed": 55,
+    "r7": 2,
+    "r14": 4,
+    "r30": 8,
+    "first_at": "2026-04-19T16:21:21.485802+00:00",
+    "last_at": "2026-06-25T19:44:40.887585+00:00",
+    "win_loss_draw_last30": {
+      "win": 15,
+      "loss": 15,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Englund Gambit",
+        2
+      ],
+      [
+        "Sicilian Defense French Variation 3.d4",
+        2
+      ],
+      [
+        "Slav Defense Slav Gambit Alekhine Attack 4...b5 5.a4",
+        2
+      ],
+      [
+        "Ruy Lopez Opening Morphy Defense Modern Steinitz Defense 5.c3 Bd7 6.O O",
+        1
+      ],
+      [
+        "Indian Game...5.Bg3 c5 6.c3 O O 7.Nbd2",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 108,
+        "first_occurrence": "2026-04-19T16:26:22.938400+00:00",
+        "last_occurrence": "2026-06-25T18:27:50.052932+00:00",
+        "decayed_score": 108.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 47,
+        "first_occurrence": "2026-04-19T16:24:21.533381+00:00",
+        "last_occurrence": "2026-06-25T18:27:50.052932+00:00",
+        "decayed_score": 47.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_84fc6fbf6eeb",
+    "name": "Sanjay Gowda",
+    "email": "sanjaygowda2404@gmail.com",
+    "chess_com": "sanjaygowda24",
+    "lichess": null,
+    "rating": null,
+    "total": 50,
+    "analyzed": 38,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-21T11:27:54.450683+00:00",
+    "last_at": "2026-04-30T12:31:26.083177+00:00",
+    "win_loss_draw_last30": {
+      "win": 9,
+      "loss": 20,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Kings Pawn Opening 1...e5",
+        14
+      ],
+      [
+        "Nimzowitsch Defense",
+        3
+      ],
+      [
+        "Scandinavian Defense",
+        3
+      ],
+      [
+        "Vienna Game",
+        2
+      ],
+      [
+        "Center Game",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 134,
+        "first_occurrence": "2026-04-21T11:32:10.226966+00:00",
+        "last_occurrence": "2026-06-06T18:24:36.263404+00:00",
+        "decayed_score": 134.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 126,
+        "first_occurrence": "2026-04-21T11:32:10.226966+00:00",
+        "last_occurrence": "2026-06-06T18:25:00.238976+00:00",
+        "decayed_score": 126.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_dfbfd50a110e",
+    "name": "Kuldeep Garg",
+    "email": "garg32235@gmail.com",
+    "chess_com": "itsmegarg09",
+    "lichess": "itsmegarg09",
+    "rating": null,
+    "total": 43,
+    "analyzed": 43,
+    "r7": 7,
+    "r14": 12,
+    "r30": 25,
+    "first_at": "2026-04-19T06:41:23.096398+00:00",
+    "last_at": "2026-06-26T16:47:03.188634+00:00",
+    "win_loss_draw_last30": {
+      "win": 9,
+      "loss": 16,
+      "draw": 5,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Vienna Game Anderssen Defense 3.Nf3 d6",
+        2
+      ],
+      [
+        "Englund Gambit 2.dxe5",
+        2
+      ],
+      [
+        "Scandinavian Defense Mieses Kotrc Variation 3.Nc3 Qd8 4.Bc4 Nf6 5.Nf3",
+        2
+      ],
+      [
+        "Scandinavian Defense Mieses Kotrc Variation 3.Nc3 Qe5 4.Be2",
+        2
+      ],
+      [
+        "Queens Pawn Opening Accelerated London System 2...Nf6 3.e3",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 75,
+        "first_occurrence": "2026-04-19T06:56:01.310159+00:00",
+        "last_occurrence": "2026-06-26T16:48:58.695853+00:00",
+        "decayed_score": 75.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 41,
+        "first_occurrence": "2026-04-19T06:56:01.310159+00:00",
+        "last_occurrence": "2026-06-24T18:47:50.122434+00:00",
+        "decayed_score": 41.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_d0b09cdc9a2e",
+    "name": "Hanok Ragbansingh",
+    "email": "hanokragbansingh@gmail.com",
+    "chess_com": "call-me-hanok",
+    "lichess": "call-me-hanok",
+    "rating": null,
+    "total": 41,
+    "analyzed": 40,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-21T07:22:17.144880+00:00",
+    "last_at": "2026-05-24T11:45:08.886856+00:00",
+    "win_loss_draw_last30": {
+      "win": 10,
+      "loss": 19,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Undefined",
+        2
+      ],
+      [
+        "Giuoco Piano Game Giuoco Pianissimo Italian Four Knights Variation 5...h6",
+        2
+      ],
+      [
+        "Scandinavian Defense 2.exd5",
+        1
+      ],
+      [
+        "Nimzowitsch Defense 2.d4",
+        1
+      ],
+      [
+        "Birds Opening",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 144,
+        "first_occurrence": "2026-04-21T08:23:08.360216+00:00",
+        "last_occurrence": "2026-06-06T20:03:09.200396+00:00",
+        "decayed_score": 144.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 84,
+        "first_occurrence": "2026-04-21T08:23:08.360216+00:00",
+        "last_occurrence": "2026-06-06T20:03:09.200396+00:00",
+        "decayed_score": 84.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_51935ec559ed",
+    "name": "Naveen Lal",
+    "email": "naveenlal.79@gmail.com",
+    "chess_com": "kartikthepro007",
+    "lichess": null,
+    "rating": null,
+    "total": 39,
+    "analyzed": 39,
+    "r7": 0,
+    "r14": 0,
+    "r30": 2,
+    "first_at": "2026-04-19T05:19:36.119348+00:00",
+    "last_at": "2026-06-04T13:27:07.444425+00:00",
+    "win_loss_draw_last30": {
+      "win": 13,
+      "loss": 16,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Bishops Opening Berlin Defense",
+        4
+      ],
+      [
+        "Scandinavian Defense",
+        4
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        4
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        4
+      ],
+      [
+        "Kings Pawn Opening",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 150,
+        "first_occurrence": "2026-04-19T05:22:59.921138+00:00",
+        "last_occurrence": "2026-06-06T17:24:49.522699+00:00",
+        "decayed_score": 150.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 122,
+        "first_occurrence": "2026-04-19T05:22:59.921138+00:00",
+        "last_occurrence": "2026-06-06T17:24:49.522699+00:00",
+        "decayed_score": 122.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_f83438834985",
+    "name": "Shreyan Sinha Roy",
+    "email": "sinharoyshreyan@gmail.com",
+    "chess_com": "gmzorojuro777",
+    "lichess": "notshreyan39",
+    "rating": null,
+    "total": 38,
+    "analyzed": 38,
+    "r7": 0,
+    "r14": 0,
+    "r30": 2,
+    "first_at": "2026-04-19T11:51:59.212029+00:00",
+    "last_at": "2026-06-09T07:19:06.442662+00:00",
+    "win_loss_draw_last30": {
+      "win": 12,
+      "loss": 14,
+      "draw": 4,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "English Opening Reversed Sicilian Closed 3.g3 Nf6 4.Bg2",
+        3
+      ],
+      [
+        "English Opening",
+        2
+      ],
+      [
+        "English Opening Carls Bremen Reversed Dragon Variation 4.cxd5 Nxd5 5.Bg2 Nxc3 6.bxc3",
+        2
+      ],
+      [
+        "English Opening Anglo Indian Defense...5.d3 d6 6.e4 e5",
+        2
+      ],
+      [
+        "English Opening Carls Bremen Reversed Dragon Variation 4.cxd5 Nxd5 5.Bg2",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 86,
+        "first_occurrence": "2026-04-19T11:58:09.996857+00:00",
+        "last_occurrence": "2026-06-10T10:16:08.366994+00:00",
+        "decayed_score": 86.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 76,
+        "first_occurrence": "2026-04-19T11:56:30.369903+00:00",
+        "last_occurrence": "2026-06-06T21:45:06.149568+00:00",
+        "decayed_score": 76.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_ce4f53ccb28e",
+    "name": "Bibek Dasgupta",
+    "email": "rdasgupta469@gmail.com",
+    "chess_com": "rohanchess1523",
+    "lichess": null,
+    "rating": null,
+    "total": 38,
+    "analyzed": 38,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-19T07:06:12.980601+00:00",
+    "last_at": "2026-04-26T06:12:27.654161+00:00",
+    "win_loss_draw_last30": {
+      "win": 9,
+      "loss": 21,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Uncommon King's Pawn",
+        3
+      ],
+      [
+        "Italian Game",
+        3
+      ],
+      [
+        "Kings Pawn Opening 1...e5",
+        3
+      ],
+      [
+        "Four Knights Game",
+        2
+      ],
+      [
+        "Uncommon Opening",
+        2
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 110,
+        "first_occurrence": "2026-04-19T07:09:27.789469+00:00",
+        "last_occurrence": "2026-06-06T19:53:02.816403+00:00",
+        "decayed_score": 110.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 99,
+        "first_occurrence": "2026-04-19T07:10:55.419305+00:00",
+        "last_occurrence": "2026-06-06T19:52:31.182440+00:00",
+        "decayed_score": 99.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_0695e1b4ab12",
+    "name": "Toby",
+    "email": "trbx65@gmail.com",
+    "chess_com": "bluey5555",
+    "lichess": "blueyandbingo65",
+    "rating": null,
+    "total": 37,
+    "analyzed": 37,
+    "r7": 13,
+    "r14": 19,
+    "r30": 37,
+    "first_at": "2026-06-03T17:32:06.477609+00:00",
+    "last_at": "2026-06-28T18:38:02.514049+00:00",
+    "win_loss_draw_last30": {
+      "win": 23,
+      "loss": 6,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Giuoco Piano Game Center Attack Greco Attack",
+        4
+      ],
+      [
+        "Indian Game London System 3...b6 4.e3 Bb7 5.Nbd2",
+        2
+      ],
+      [
+        "Caro Kann Defense 2.Nf3 d5",
+        2
+      ],
+      [
+        "Caro Kann Defense",
+        2
+      ],
+      [
+        "Scotch Game Dubois Reti Max Lange Attack",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 36,
+        "first_occurrence": "2026-06-03T17:35:37.399786+00:00",
+        "last_occurrence": "2026-06-28T18:39:32.358016+00:00",
+        "decayed_score": 36.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 20,
+        "first_occurrence": "2026-06-03T18:25:11.207156+00:00",
+        "last_occurrence": "2026-06-28T18:39:32.358016+00:00",
+        "decayed_score": 20.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_b62f1d5c1f11",
+    "name": "\u0906\u091a\u093e\u0930\u094d\u092f \u0928\u092e\u0928 \u092c\u093e\u091c\u092a\u0947\u0908",
+    "email": "namanbajpai100@gmail.com",
+    "chess_com": null,
+    "lichess": "mahakalbabaji",
+    "rating": null,
+    "total": 35,
+    "analyzed": 35,
+    "r7": 0,
+    "r14": 0,
+    "r30": 0,
+    "first_at": "2026-04-19T19:11:02.503977+00:00",
+    "last_at": "2026-05-26T10:14:17.488680+00:00",
+    "win_loss_draw_last30": {
+      "win": 1,
+      "loss": 28,
+      "draw": 1,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 111,
+        "first_occurrence": "2026-04-19T20:53:41.217382+00:00",
+        "last_occurrence": "2026-06-06T19:35:19.667994+00:00",
+        "decayed_score": 111.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 108,
+        "first_occurrence": "2026-04-19T20:53:41.217382+00:00",
+        "last_occurrence": "2026-06-06T19:35:19.667994+00:00",
+        "decayed_score": 108.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_aea9afc4dfed",
+    "name": "SWAYAM MELKUNDE",
+    "email": "2025.swayam.melkunde@ves.ac.in",
+    "chess_com": null,
+    "lichess": "maxverstappen_3",
+    "rating": null,
+    "total": 35,
+    "analyzed": 35,
+    "r7": 0,
+    "r14": 0,
+    "r30": 2,
+    "first_at": "2026-04-19T12:18:22.944842+00:00",
+    "last_at": "2026-06-03T14:55:35.611069+00:00",
+    "win_loss_draw_last30": {
+      "win": 13,
+      "loss": 17,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 115,
+        "first_occurrence": "2026-04-19T12:26:55.994835+00:00",
+        "last_occurrence": "2026-06-06T19:18:29.457851+00:00",
+        "decayed_score": 115.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 47,
+        "first_occurrence": "2026-04-19T12:22:46.817708+00:00",
+        "last_occurrence": "2026-06-06T19:18:29.457851+00:00",
+        "decayed_score": 47.0
+      }
+    ],
+    "improvement_trend": null
+  },
+  {
+    "uid": "user_59c9df7e4a3d",
+    "name": "Sazid",
+    "email": "sazid.indiamart@gmail.com",
+    "chess_com": "sazidfarqaleet",
+    "lichess": null,
+    "rating": null,
+    "total": 22,
+    "analyzed": 21,
+    "r7": 0,
+    "r14": 0,
+    "r30": 12,
+    "first_at": "2026-04-20T04:17:59.171018+00:00",
+    "last_at": "2026-06-06T09:30:59.706003+00:00",
+    "win_loss_draw_last30": {
+      "win": 9,
+      "loss": 13,
+      "draw": 0,
+      "unknown": 0
+    },
+    "avg_accuracy": null,
+    "top_gaps": [],
+    "top_openings": [
+      [
+        "Petrovs Defense",
+        4
+      ],
+      [
+        "Petrovs Defense Classical Variation",
+        3
+      ],
+      [
+        "Kings Pawn Opening Kings Knight Variation",
+        3
+      ],
+      [
+        "Petrovs Defense 3.d3 Nc6",
+        2
+      ],
+      [
+        "Alekhines Defense Brooklyn Variation 3.d4 d6",
+        1
+      ]
+    ],
+    "style": {
+      "primary_style": "positional",
+      "confidence": 0.9,
+      "tactical_tendency": 0.5,
+      "positional_tendency": 0.5,
+      "aggressive_tendency": 0.5,
+      "defensive_tendency": 0.5
+    },
+    "top_weaknesses_profile": [
+      {
+        "category": "tactical",
+        "subcategory": "one_move_blunder",
+        "occurrence_count": 41,
+        "first_occurrence": "2026-04-20T04:19:45.735544+00:00",
+        "last_occurrence": "2026-06-06T17:34:09.354628+00:00",
+        "decayed_score": 41.0
+      },
+      {
+        "category": "tactical",
+        "subcategory": "complex_tactical_miss",
+        "occurrence_count": 25,
+        "first_occurrence": "2026-04-20T04:20:55.054451+00:00",
+        "last_occurrence": "2026-06-06T17:33:11.152681+00:00",
+        "decayed_score": 25.0
+      }
+    ],
+    "improvement_trend": null
+  }
+]

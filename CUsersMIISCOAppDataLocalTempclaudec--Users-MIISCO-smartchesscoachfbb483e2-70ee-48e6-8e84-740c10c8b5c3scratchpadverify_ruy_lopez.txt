@@ -1,0 +1,46 @@
+CLAIM VERIFICATION: Ruy Lopez ECO codes and main line
+
+CLAIM STATES:
+- ECO codes: C60 (main line), C65, C67 (Berlin Defense), C80-C81 (Open variations)
+- Main line: 1.e4 e5 2.Nf3 Nc6 3.Bb5
+
+EVIDENCE FROM CODEBASE (eco_openings.json):
+C60: "Ruy Lopez"
+C61: "Ruy Lopez: Bird's Defense"
+C62: "Ruy Lopez: Steinitz Defense"
+C63: "Ruy Lopez: Schliemann Defense"
+C64: "Ruy Lopez: Classical Defense"
+C65: "Ruy Lopez: Berlin Defense"
+C66: "Ruy Lopez: Berlin Defense"
+C67: "Ruy Lopez: Berlin Defense"
+C68: "Ruy Lopez: Exchange Variation"
+C69: "Ruy Lopez: Exchange Variation"
+C70: "Ruy Lopez: Morphy Defense"
+C71-C79: "Ruy Lopez: Morphy Defense"
+C80: "Ruy Lopez: Open Variation"
+C81: "Ruy Lopez: Open Variation"
+C82-C83: "Ruy Lopez: Open Variation"
+C84-C85: "Ruy Lopez: Closed Variation"
+... etc through C99 (all Closed Variation)
+
+EVIDENCE FROM OPENING_CURRICULUM.JSON:
+eco_prefix: ["C60", "C65", "C70", "C80", "C84", "C88", "C92", "C96"]
+main_line: ["e4", "e5", "Nf3", "Nc6", "Bb5"]
+
+CRITICAL ANALYSIS:
+1. The claim says C65 is in the classification - VERIFIED (C65 is Berlin Defense)
+2. The claim says C67 is Berlin Defense - VERIFIED (C67 is Berlin Defense)
+3. The claim says C80-C81 are Open variations - VERIFIED (both are Open Variation)
+4. The claim says main line is 1.e4 e5 2.Nf3 Nc6 3.Bb5 - VERIFIED
+
+POTENTIAL ISSUES:
+1. The claim says C60 is "main line" specifically, but ECO codes are more granular:
+   - C60 = Ruy Lopez (umbrella code)
+   - C61-C67 = various Black defenses
+   - C68-C69 = Exchange Variation
+   - C70-C79 = Morphy Defense
+   - C80-C83 = Open Variation
+   - C84-C99 = Closed Variation
+
+2. The claim is INCOMPLETE - it lists C60, C65, C67, C80-C81 but the full Ruy Lopez 
+   family includes C60-C99 (40 codes total). This is a significant omission.

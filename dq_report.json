@@ -1,0 +1,151 @@
+{
+  "issue_1_rating": {
+    "users_doc_keys": [
+      "_id",
+      "assessed_rating",
+      "chess_com_username",
+      "chesscom_username",
+      "created_at",
+      "detected_platform",
+      "detected_rating",
+      "email",
+      "feature_flags",
+      "feedback_email_sent_at",
+      "focus",
+      "is_reviewer",
+      "last_game_sync",
+      "last_login",
+      "lichess_connected_at",
+      "lichess_profile",
+      "lichess_rating",
+      "lichess_token",
+      "lichess_username",
+      "mirror_window",
+      "name",
+      "onboarding_completed",
+      "onboarding_completed_at",
+      "picture",
+      "plan",
+      "rating_source",
+      "role",
+      "skill_level",
+      "user_id"
+    ],
+    "users_has_current_rating_field": false,
+    "users_with_current_rating": 0,
+    "users_total": 92,
+    "games_doc_keys": [
+      "_id",
+      "analysis_error",
+      "analysis_status",
+      "analyzed_at",
+      "black",
+      "black_player",
+      "date_played",
+      "game_id",
+      "imported_at",
+      "is_active",
+      "is_analyzed",
+      "move_time_stats",
+      "opening",
+      "pgn",
+      "platform",
+      "result",
+      "termination",
+      "time_control",
+      "user_color",
+      "user_id",
+      "white",
+      "white_player"
+    ],
+    "game_white_rating_sample": null,
+    "game_black_rating_sample": null,
+    "game_white_type": "str",
+    "game_white_sample": "owino",
+    "games_total": 9812,
+    "games_with_white_rating": 0,
+    "games_with_black_rating": 0,
+    "profile_doc_keys": [
+      "_id",
+      "average_accuracy",
+      "avg_habits_score",
+      "avg_time_management_score",
+      "biggest_weakness",
+      "chesscom_stats",
+      "current_rating",
+      "errors_per_game",
+      "games_analyzed",
+      "games_analyzed_count",
+      "last_updated",
+      "lichess_stats",
+      "mistake_breakdown",
+      "motif_anticipation",
+      "motif_profile",
+      "motif_recognition",
+      "phase_accuracy",
+      "rating_history",
+      "ratings_backfilled_at",
+      "top_weaknesses",
+      "total_best_moves",
+      "total_blunders",
+      "total_impulse_moves",
+      "total_inaccuracies",
+      "total_mistakes",
+      "updated_at",
+      "user_id"
+    ],
+    "profile_with_current_rating": 42,
+    "profiles_total": 55
+  },
+  "issue_2_cognitive_gap": {
+    "sample_analysis_id": "69d383c7fd3269f33019b653",
+    "n_moves_in_sample": 0,
+    "move_keys_sample": [],
+    "move_sample_0": null,
+    "user_moves_in_sample": 0,
+    "user_moves_with_cognitive_gap_field": 0,
+    "user_moves_with_non_none_gap": 0,
+    "gap_value_distribution_sample": {},
+    "cohort_user_moves_50games": 0,
+    "cohort_with_gap": 0,
+    "cohort_gap_distribution": {}
+  },
+  "issue_3_weaknesses_lockin": {
+    "profiles_inspected": 55,
+    "distinct_subcategory_distribution": {
+      "one_move_blunder": 55,
+      "complex_tactical_miss": 54
+    },
+    "unique_subcategories_count": 2
+  },
+  "issue_4_style_placeholder": {
+    "identities_inspected": 55,
+    "primary_style_distribution": {
+      "positional": 48,
+      "developing": 7
+    },
+    "confidence_distribution": {
+      "0.9": 45,
+      "0.1": 5,
+      "0.3": 2,
+      "0.6": 3
+    },
+    "tactical_tendency_distribution": {
+      "0.5": 55
+    }
+  },
+  "issue_5_avg_accuracy": {
+    "profiles_with_avg_accuracy": 0,
+    "profiles_total": 55,
+    "game_analyses_with_accuracy": 0,
+    "sample_game_analysis_accuracy": null
+  },
+  "issue_6_improvement_trend": {
+    "profiles_with_improvement_trend": 0,
+    "sample_profile_with_trend": null
+  },
+  "bonus_duplicate_chesscom_handles": {
+    "chesstesterone": 2,
+    "parthgilda": 2
+  }
+}
