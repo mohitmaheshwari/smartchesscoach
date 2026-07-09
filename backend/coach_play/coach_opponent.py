@@ -56,6 +56,13 @@ def _pwc_coach_uci_elo_enabled() -> bool:
 #      the weak engine's move ignores it, take it. Mirror of the blunder guard.
 PWC_TEACHING_OPPONENT_FLAG = "PWC_TEACHING_OPPONENT"
 TEACHING_SKILL_FLOOR = 3
+# Hard coach strength floor — Mohit 2026-07-09: "the coach should never play
+# less than 1500." A coach that blunders like a 1200 undermines the lesson;
+# it must play solid, punishing chess so the student's mistakes are always
+# answered. Applied to the STRENGTH derivation (skill level + UCI_Elo), NOT to
+# the displayed user rating. 1500 -> skill 10 (~1600) on the skill path, or
+# exactly 1500 UCI_Elo when that mode is on.
+COACH_MIN_RATING = 1500
 # Data-locked 2026-07-06: the SEE-hang histogram is bimodal — a pawn cluster at
 # 100-199 and piece hangs at 300+, with a valley at 200-299. 200cp punishes every
 # piece+ hang and clear material win while letting single-pawn slips go (keeps the
@@ -120,10 +127,14 @@ class CoachOpponent:
             time_limit: Time limit per move in seconds
         """
         self.user_rating = user_rating
-        self.skill_level = rating_to_skill_level(user_rating)
-        # Teaching-opponent skill floor: never let the opponent drop to near-random
-        # (skill 0 misses free material — the beginner's hangs go unpunished, so the
-        # lesson never lands). Behind PWC_TEACHING_OPPONENT. docs/teaching_opponent_scope.md
+        # Coach strength floor (Mohit 2026-07-09): the coach never plays below
+        # COACH_MIN_RATING, even against a weaker student — it must play solid,
+        # punishing chess so mistakes always get answered. Floor the rating used
+        # for STRENGTH only; self.user_rating stays the real value.
+        _strength_rating = max(int(user_rating or COACH_MIN_RATING), COACH_MIN_RATING)
+        self.skill_level = rating_to_skill_level(_strength_rating)
+        # Legacy teaching-opponent skill floor — now a lower backstop beneath the
+        # 1500 rating floor. Behind PWC_TEACHING_OPPONENT. docs/teaching_opponent_scope.md
         if _pwc_teaching_opponent_enabled() and self.skill_level < TEACHING_SKILL_FLOOR:
             self.skill_level = TEACHING_SKILL_FLOOR
         self.depth = depth
@@ -132,7 +143,7 @@ class CoachOpponent:
         # user's rating is in UCI_Elo's range (1320+), prefer UCI_Elo
         # over Skill Level. Below 1320 we leave self.uci_elo=None and
         # fall back to Skill Level transparently.
-        self.uci_elo = rating_to_uci_elo(user_rating) if _pwc_coach_uci_elo_enabled() else None
+        self.uci_elo = rating_to_uci_elo(_strength_rating) if _pwc_coach_uci_elo_enabled() else None
     
     async def get_move(self, fen: str) -> Optional[str]:
         """
