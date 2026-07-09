@@ -358,6 +358,21 @@ const HomePage = ({ user }) => {
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   Seen {data.pattern_of_the_day.count}× across {data.pattern_of_the_day.games} game{data.pattern_of_the_day.games === 1 ? "" : "s"}
                 </p>
+                {/* Training exposure from the Home pattern card. Shapes aren't in
+                    the puzzle taxonomy, so fork/pin/skewer shapes route to their
+                    motif drill; the rest fall back to general training (never a
+                    dead-end empty pattern page). Mohit 2026-07-09. */}
+                <button
+                  onClick={() => {
+                    const pid = data.pattern_of_the_day.pattern_id || "";
+                    const motif = ["fork", "pin", "skewer"].find((m) => pid.includes(m));
+                    navigate(motif ? `/training/motif/${motif}` : "/training");
+                  }}
+                  className="mt-4 h-9 px-4 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-600 dark:text-teal-300 font-medium text-[12.5px] transition-colors inline-flex items-center gap-1.5"
+                >
+                  Practice this pattern
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
               </div>
             </motion.section>
           )}
