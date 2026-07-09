@@ -1769,7 +1769,18 @@ def _find_calculation_depth_issues(fen: str, user_color: str) -> list:
                 if target is None or target.piece_type in (_c.PAWN,):
                     continue
                 target_val = _TACTICAL_PIECE_VALUES.get(target.piece_type, 0)
-                if target_val < 3:
+                # calculation_depth signals on the position-changing
+                # combos — rook/queen targets only. Knight/bishop
+                # 2-move captures are already covered by tactical
+                # oversight + missed_tactic branches (2026-07-09
+                # corpus study: capture_then_capture ate 63% of fires
+                # and mostly overlapped with piece_safety).
+                if target_val < 5:
+                    continue
+                # And only fire on check_then_capture / forced_mate —
+                # capture_then_capture is a piece_safety event, not a
+                # calculation-depth event.
+                if not gives_check:
                     continue
                 try:
                     if capture_is_safe(b_after_user, opp2):
@@ -1780,7 +1791,7 @@ def _find_calculation_depth_issues(fen: str, user_color: str) -> list:
                             "opp_followup_uci": opp2.uci(),
                             "opp_followup_to": _c.square_name(opp2.to_square),
                             "target_piece": _piece_name(target.piece_type),
-                            "combo_type": "check_then_capture" if gives_check else "capture_then_capture",
+                            "combo_type": "check_then_capture",
                         }]
                 except Exception:
                     continue
@@ -1800,18 +1811,17 @@ def _find_calculation_depth_improvements(fen_before: str, fen_after: str,
 def _calc_issue_phrase(issue: dict) -> str:
     combo = issue.get("combo_type", "")
     if combo == "forced_mate":
-        return f"the opponent has a forced mate starting with a move to {issue.get('opp_move_to', '?')}"
+        return (
+            f"the opponent has a forced mate starting with a move to "
+            f"{issue.get('opp_move_to', '?')}"
+        )
     to_sq = issue.get("opp_move_to", "?")
     followup = issue.get("opp_followup_to", "?")
     target = issue.get("target_piece", "piece")
-    if combo == "check_then_capture":
-        return (
-            f"the opponent can check with a move to {to_sq} — you're forced "
-            f"to respond, then they take your {target} on {followup}"
-        )
+    # Only check_then_capture remains after the 2026-07-09 tightening.
     return (
-        f"the opponent has a 2-move combo: {to_sq} first, then wins your "
-        f"{target} on {followup}"
+        f"the opponent can check with a move to {to_sq} — you're forced "
+        f"to respond, then they take your {target} on {followup}"
     )
 
 
