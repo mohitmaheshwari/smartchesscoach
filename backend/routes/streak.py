@@ -39,29 +39,71 @@ def set_db(database):
 async def get_streak_status(user_id: str) -> Dict[str, Any]:
     """
     Get current streak status for pre-game popup.
-    
+
     This powers the "carry-forward" feature:
     - Shows current streak
     - Shows focus rule
     - Applies psychological pressure
-    
+
     Returns:
         Streak state with messaging for UI
     """
     global db
-    
+
     # Get user's streak data
     user = await db.users.find_one(
         {"user_id": user_id},
         {"_id": 0, "streak_data": 1}
     )
-    
+
     if not user or not user.get("streak_data"):
         # Initialize default streak data
         default_streak = _get_default_streak_data()
-        return get_pregame_streak_data(default_streak)
-    
-    return get_pregame_streak_data(user["streak_data"])
+        result = get_pregame_streak_data(default_streak)
+    else:
+        result = get_pregame_streak_data(user["streak_data"])
+
+    # If still needs_detection, check motif profile as fallback
+    if result.get("needs_detection"):
+        prof = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "motif_profile": 1}
+        )
+        if prof and prof.get("motif_profile"):
+            motif_data = prof.get("motif_profile", {})
+
+            # Find weakest motif (highest "got" count)
+            weakest_motif = None
+            max_got = -1
+            for motif_name, stats in motif_data.items():
+                if motif_name in ("made_sound", "made_tunnel"):
+                    continue
+                got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+                if got_count > max_got:
+                    max_got = got_count
+                    weakest_motif = motif_name
+
+            if weakest_motif and max_got > 0:
+                # Map motif to focus type
+                motif_to_focus = {
+                    "fork": "TACTICAL_MISS",
+                    "pin": "TACTICAL_MISS",
+                    "skewer": "TACTICAL_MISS",
+                    "discovered": "TACTICAL_MISS",
+                    "loose": "HANGING_PIECE",
+                }
+                focus_type = motif_to_focus.get(weakest_motif, "TACTICAL_MISS")
+                focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+
+                result["needs_detection"] = False
+                result["focus_mistake_type"] = focus_type
+                result["focus_mistake_name"] = focus_info.get("name", f"Spot {weakest_motif}s")
+                result["rule"] = focus_info.get("rule", f"Practice spotting {weakest_motif}s")
+                result["headline"] = f"Spot {weakest_motif.title()}s"
+                result["message"] = f"You've been caught {max_got} times. Let's fix this."
+                result["tone"] = "neutral"
+
+    return result
 
 
 @router.get("/history")
