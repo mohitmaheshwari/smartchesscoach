@@ -12,18 +12,15 @@ export default function CoachingPrescriptions() {
     const fetchPrescriptions = async () => {
       try {
         setLoading(true)
-        const token = localStorage.getItem('authToken')
-        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const baseUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
 
         const [current, next] = await Promise.all([
-          fetch(
-            `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/current-prescriptions`,
-            { headers }
-          ).then(r => r.json()),
-          fetch(
-            `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/next-prescription`,
-            { headers }
-          ).then(r => r.json())
+          fetch(`${baseUrl}/api/coaching/current-prescriptions`, {
+            credentials: 'include'
+          }).then(r => r.json()),
+          fetch(`${baseUrl}/api/coaching/next-prescription`, {
+            credentials: 'include'
+          }).then(r => r.json())
         ])
 
         setCurrentPrescriptions(current.prescriptions || [])
