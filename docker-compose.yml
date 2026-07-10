@@ -90,6 +90,10 @@ services:
       # to grab it — one-move SEE-verified, ~one calc per move. Without this, the
       # student's mistakes go unpunished and the lesson never lands.
       - PWC_TEACHING_OPPONENT=true
+      # GEOMETRY ARROWS (2026-07-10, docs/coach_geometry_arrows_scope.md): living
+      # plan overlay on the PWC board — green=your plan, amber=coach's plan,
+      # every arrow board-verified. Phase 1.
+      - PWC_GEOMETRY_ARROWS=true
       # PWC SKILL GATE (docs/pwc_skills_aware_coaching.md, shipped v2 2026-06-03):
       # DOWNGRADE mastered nudges → "You've handled this before — quick reminder."
       # ESCALATE struggle → "You've missed this pattern 3 times before — let's lock it in."

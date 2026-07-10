@@ -48,6 +48,10 @@ services:
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
       - PWC_COACH_CONDUCTOR=true
       - PWC_EVERY_MOVE_TEACHES=true
+      # GEOMETRY ARROWS (2026-07-10, docs/coach_geometry_arrows_scope.md): living
+      # plan overlay — verified pins/forks/loose-targets/open-files/latent lines as
+      # green(you)/amber(coach) arrows on the PWC board.
+      - PWC_GEOMETRY_ARROWS=true
       - MOTIF_RECOGNITION_CARD=true
     depends_on:
       mongodb:
