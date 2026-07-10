@@ -691,7 +691,7 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         }
         if average_accuracy is not None:
             update_doc["average_accuracy"] = average_accuracy
-        db.player_profiles.update_one({"user_id": user_id}, {"$set": update_doc})
+        db.player_profiles.update_one({"user_id": user_id}, {"$set": update_doc}, upsert=True)
         
         logger.info(f"Updated profile for {user_id}: {games_analyzed} games, {len(identified_weaknesses)} new weaknesses tracked")
         
