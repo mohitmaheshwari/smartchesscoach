@@ -233,6 +233,54 @@ export default function PrescribedTraining() {
     fetchModules();
   }, [planId]);
 
+  // [PART C] Fetch puzzles when module is selected
+  useEffect(() => {
+    if (!selectedModule || !modules) return;
+
+    const fetchModulePuzzles = async () => {
+      setLoading(true);
+      setCurrentPuzzleIndex(0); // Reset to first puzzle
+      setPuzzleState("thinking");
+
+      try {
+        // Use the plan's cognitive_gap (modules don't have their own gap)
+        // and the module's puzzle_count
+        const cognitiveGap = modules.cognitive_gap || "piece_safety";
+        const puzzleCount = selectedModule.puzzle_count || 15;
+
+        const url = `${API}/training/prescribed/${cognitiveGap}?num_puzzles=${puzzleCount}`;
+        const response = await fetch(url, { credentials: "include" });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch module puzzles");
+        }
+
+        const data = await response.json();
+        setTrainingData(data);
+
+        // Set up first puzzle
+        if (data.puzzles && data.puzzles.length > 0) {
+          const firstPuzzle = data.puzzles[0];
+          if (firstPuzzle.fen) {
+            const newGame = new Chess(firstPuzzle.fen);
+            setGame(newGame);
+            const turn = firstPuzzle.fen.split(" ")[1];
+            setBoardOrientation(turn === "w" ? "white" : "black");
+          }
+        }
+
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching module puzzles:", err);
+        setError("Failed to load module puzzles");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModulePuzzles();
+  }, [selectedModule, modules]);
+
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
   
