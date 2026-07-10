@@ -787,6 +787,34 @@ async def get_coach_home(user: User = Depends(get_current_user)):
                 "anger": anger,
                 "trending_better": trending_better,
             }
+        else:
+            # Fallback: if no active problem, try motif profile weakness
+            prof = await db.player_profiles.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "motif_profile": 1}
+            )
+            if prof and prof.get("motif_profile"):
+                motif_data = prof.get("motif_profile", {})
+
+                # Find weakest motif (highest "got" count)
+                weakest_motif = None
+                max_got = -1
+                for motif_name, stats in motif_data.items():
+                    if motif_name in ("made_sound", "made_tunnel"):
+                        continue
+                    got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+                    if got_count > max_got:
+                        max_got = got_count
+                        weakest_motif = motif_name
+
+                if weakest_motif and max_got > 0:
+                    result["problem"] = {
+                        "category": weakest_motif,
+                        "count": max_got,
+                        "anger": "recurring",
+                        "trending_better": False,
+                        "motif": True,
+                    }
     except Exception as e:
         logger.warning(f"[COACH-HOME] Problem detection failed: {e}")
 
