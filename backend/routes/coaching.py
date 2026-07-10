@@ -291,7 +291,7 @@ async def get_current_prescriptions(
 
         if not prescriptions:
             return {
-                "current_prescriptions": [],
+                "prescriptions": [],
                 "total_active": 0,
                 "message": "No active prescriptions. Coach will recommend a focus area soon."
             }
@@ -304,7 +304,7 @@ async def get_current_prescriptions(
             responses.append(response)
 
         return {
-            "current_prescriptions": responses,
+            "prescriptions": responses,
             "total_active": len(responses),
             "highest_priority": responses[0].dict() if responses else None
         }
@@ -408,26 +408,26 @@ async def get_next_prescription_recommendation(
         urgency = "critical" if issue_frequency > 5 else "high" if issue_frequency > 3 else "medium"
 
         return {
-            "recommended_plan": {
+            "recommendation": {
                 "plan_id": recommended_plan["plan_id"],
                 "name": recommended_plan["name"],
                 "description": recommended_plan["description"],
                 "cognitive_gap": recommended_plan["cognitive_gap"],
                 "duration_weeks": recommended_plan["duration_weeks"],
-                "weekly_commitment_hours": recommended_plan["weekly_commitment_hours"]
+                "weekly_commitment_hours": recommended_plan["weekly_commitment_hours"],
+                "reasoning": f"Coach detected {issue_counts.get(top_issue, 0)} occurrences of {top_issue.replace('_', ' ')} in your last 10 games.",
+                "issue_severity": top_issue,
+                "occurrence_count": issue_counts.get(top_issue, 0),
+                "trend": "increasing" if issue_frequency > 2 else "stable",
+                "alternatives": [
+                    {
+                        "plan_id": alt["plan_id"],
+                        "name": alt["name"],
+                        "cognitive_gap": alt["cognitive_gap"]
+                    } for alt in alternatives
+                ],
+                "urgency": urgency
             },
-            "reasoning": f"Coach detected {issue_counts.get(top_issue, 0)} occurrences of {top_issue.replace('_', ' ')} in your last 10 games.",
-            "issue_severity": top_issue,
-            "occurrence_count": issue_counts.get(top_issue, 0),
-            "trend": "increasing" if issue_frequency > 2 else "stable",
-            "alternatives": [
-                {
-                    "plan_id": alt["plan_id"],
-                    "name": alt["name"],
-                    "cognitive_gap": alt["cognitive_gap"]
-                } for alt in alternatives
-            ],
-            "urgency": urgency,
             "current_prescriptions_count": active_count,
             "can_add_parallel": active_count < 2
         }
