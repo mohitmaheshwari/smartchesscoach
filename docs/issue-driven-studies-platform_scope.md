@@ -1,44 +1,68 @@
-# Issue-Driven Studies Platform
+# Issue-Driven Coaching Loop
 
 ## 1. What it is
 
-ChessGuru shifts from assigning users a single locked focus to helping them discover their specific problems and commit to studies that fix them. Users see a clear diagnosis (e.g., "You rush 503 critical moments"), choose from recommended studies (e.g., "Critical Moment Thinking"), and track concrete improvements before/after. Instead of "Your focus is time management," it's "Here's what we found. Here's how to fix it. You pick."
+ChessGuru becomes a live coaching relationship, not a study library. The coach continuously analyzes your games, detects issues, explains why each one matters, prescribes training plans in the right sequence, and tracks improvement as you work. Users never search for content—the coach tells them what to work on next and why. When a user completes a training plan and improves, the coach prescribes the next one. Users can accept the coach's recommendation, choose an alternative training plan, or add multiple plans in parallel if they're progressing fast. The experience is: Coach analyzes → Coach prescribes → User accepts/chooses → System tracks all active plans → Coach prescribes next.
 
 ---
 
 ## 2. What the user sees
 
-### HomePage (Updated)
+### HomePage (Coaching Loop)
 
-**Current:**
+**Coach Recommendation (Primary)**
 ```
-Focus
-Time Management
-Locked for 6 days
+Critical Moment Thinking
 
-Pattern of the Day
-Loose Pieces
+Why this training plan?
+
+In your last 20 games, you rushed 18 critical moments.
+You lost material in 7 of those 18.
+
+This training plan teaches you to recognize when the board gets complex and slow down.
+
+Estimated time: 15 minutes
+
+Week 2 · ██████░░░░ 60% complete
+Rushed moves: 0.55/game → 0.38/game (↓ 31%)
+
+[Continue Training Plan]
 ```
 
-**New:**
+**Also Training On (Your Choices)**
 ```
-Current Studies
+📚 Loose Piece Discipline
+Week 1 · ████░░░░░░ 40% complete
+Undefended pieces: 0.8/game → 0.68/game (↓ 15%)
 
-📚 Critical Moment Thinking
-Week 2 · 60% complete
-Rushed moves: 0.55/game → 0.38/game
-Continue →
+📚 King Safety (Expert Mode)
+Week 1 · ██░░░░░░░░ 20% complete
+```
 
-📚 Skewer Recognition
-Week 1 · 20% complete
-Skewers caught: 12% → 31%
-Continue →
+**After Completing a Plan:**
+```
+✅ Critical Moment Thinking COMPLETE
 
-Recommended Next
+Improvement: Rushed moves ↓ 73%
+Before: 0.55/game
+After: 0.15/game
 
-🎯 Loose Piece Discipline
-We found this 47 times in your last 10 games
-[Start Study]
+---
+
+Coach Recommendation (Next)
+
+Loose Piece Discipline
+
+Why this training plan?
+
+You've fixed the rushing problem. Great work.
+
+Now that you have time to think, we can teach you to scan for safety before attacking.
+In your last 30 games, you left 14 pieces undefended—all because you attacked before checking what was defended.
+
+This training plan fixes that.
+
+[Start Training Plan] [I'd rather learn something else]
 ```
 
 ---
@@ -151,119 +175,153 @@ Issues Not Yet Addressed
 ## 3. In scope (V1)
 
 ### Data Model
-- [ ] Create `user_studies` collection (stores active studies per user)
-  - Fields: user_id, study_id, status (studying/completed/archived), started_at, baseline_metric, current_metric, target_metric, progress_pct
-- [ ] Create `study_catalog` collection (predefined studies)
-  - Fields: study_id, name, description, duration_minutes, issue_type, components (lesson, puzzles, coached_game, review, homework)
-- [ ] Create `issue_to_study_mapping` (which studies fix which issues)
-  - Maps: issue_type → [study_id1, study_id2, ...] with confidence %
+- [ ] Create `user_coaching_prescriptions` (active training plans per user)
+  - Fields: user_id, prescription_id, training_plan_id, status (active/completed/paused), is_coach_recommended (bool), user_chose_alternative (bool), priority_order (1=primary, 2=secondary, 3=exploring), started_at, completed_at, baseline_metric, current_metric, improvement_pct, reason_for_prescription (text), games_since_start [game_ids]
+- [ ] Create `coaching_prescription_history` (log of all prescriptions + user responses)
+  - Fields: user_id, issue_detected, coach_recommended_plan, reasoning, user_response (accepted/chose_alternative/ignored), user_chose_instead, prescribed_at, accepted_at
+- [ ] Create `training_plan_catalog` (5 core training plans)
+  - Fields: plan_id, name, description, duration_minutes, components, issue_types_addressed
+  - Content: Critical Moment Thinking, Loose Piece Discipline, Spot Tactical Opportunities, King Safety, Convert Winning Positions
+- [ ] Create `issue_to_plan_mapping` (many-to-many with confidence %)
+  - Maps: issue_type → [plan_id1 (95%), plan_id2 (70%), plan_id3 (45%)]
+
+### Backend Auto-Prescription Engine
+- [ ] After each game analyzed:
+  - Detect issues in the game (cognitive_gap + motif)
+  - Update issue trend for user (frequency + severity + trend)
+  - Check if user has active prescriptions for these issues
+  - If user has no active plans OR just completed one:
+    - Find NEW issues not currently being trained
+    - Coach selects best training plan for top issue (highest confidence % from mapping)
+    - Create prescription with evidence-based reasoning
+    - Queue for homepage display
+- [ ] Continuous improvement tracking:
+  - Track metric for each active plan (pieces undefended/game, rushed moves/game, etc)
+  - Calculate improvement % against baseline
+  - When improvement hits 50%: mark complete + auto-detect next issue + prescribe next plan
 
 ### Backend API Endpoints
-- [ ] `GET /api/lab/issues` — Returns detected issues for user with evidence (count, rating impact, recommendations)
-- [ ] `GET /api/lab/games?limit=50` — Returns last 50 games with issues per game highlighted
-- [ ] `GET /api/studies/catalog` — Returns all available studies
-- [ ] `POST /api/studies/start` — User starts a study (captures baseline metric)
-- [ ] `GET /api/studies/active` — Returns user's active studies with progress
-- [ ] `GET /api/studies/:study_id` — Returns study details (components, progress, metrics)
-- [ ] `POST /api/studies/:study_id/complete` — Marks study complete (captures final metric, calculates improvement %)
-- [ ] `POST /api/studies/:study_id/archive` — User archives a completed study
+- [ ] `GET /api/coaching/current-prescriptions` — Returns active training plans with progress + reasoning
+- [ ] `GET /api/coaching/next-prescription` — Returns coach's recommended next plan (if user has no active plans)
+- [ ] `POST /api/coaching/accept-prescription` — User accepts coach's recommendation
+- [ ] `POST /api/coaching/choose-alternative` — User picks different training plan to focus on instead
+- [ ] `POST /api/coaching/add-parallel-plan` — User adds alternative training plan alongside active ones (concurrent)
+- [ ] `GET /api/coaching/prescription-history` — Returns historical prescriptions + user responses
+- [ ] `POST /api/coaching/complete-plan` — Mark training plan complete (triggered when 50% improvement OR user marks done)
+- [ ] `GET /api/lab/games?limit=50` — Last 50 games with issues per game highlighted
 
 ### Frontend Pages
-- [ ] HomePage: Replace FocusCard with Studies panel (show active studies + recommended next)
-- [ ] Lab: Add two tabs: "Issues & Studies" + "Games (last 50)"
-- [ ] Progress: Replace generic metrics with study outcomes + completed study history
+- [ ] HomePage: Replace FocusCard with Coaching Prescriptions section
+  - Show: Primary recommendation (coach's pick) + currently active plans (parallel) + progress on each
+  - Each plan shows: Why (evidence), Progress bar, Metric improvement
+  - CTA: "Start Training Plan" / "I'd rather learn something else"
+- [ ] Lab: Keep game browser (last 50 games with issues tagged)
+- [ ] Progress: Show training plan completion history + outcomes
 
-### Issue Detection
-- [ ] Integrate motif_profile (fork/pin/skewer/loose/discovered) as issue types
-- [ ] Integrate cognitive_gap types (piece_safety, king_safety, calculation_depth, etc.) as issue types
-- [ ] Issue card shows: issue name + evidence (count in last N games) + rating impact estimate + recommended studies
+### Training Plan Catalog (5 Plans)
+- [ ] Critical Moment Thinking (15-20 min) — Addresses: rushing, time pressure, calculation_depth
+  - Components: Lesson on candidate moves + 10-second rule, 3 puzzles, 1 coached game, post-game review
+- [ ] Loose Piece Discipline (12-15 min) — Addresses: piece_safety, hanging pieces
+  - Components: Lesson on piece safety, 3 puzzles, 1 coached game
+- [ ] Spot Tactical Opportunities (15 min) — Addresses: missed_tactic, forks, pins, skewers
+  - Components: Lesson on checks/captures/threats, 5 puzzles, 1 coached game
+- [ ] King Safety (18 min) — Addresses: king_safety, weak king, back rank
+  - Components: Lesson on weak squares/diagonals, 3 puzzles, 1 coached game
+- [ ] Convert Winning Positions (12 min) — Addresses: conversion, throwing away wins
+  - Components: Lesson on simplification, 3 puzzles, 1 endgame lesson
 
-### Study Recommendation Engine
-- [ ] Map each issue type to 3-5 recommended studies (use issue_to_study_mapping)
-- [ ] Rank by confidence % (e.g., "83% confidence Critical Moment Thinking fixes your rushing problem")
-- [ ] Show recommendation reason (e.g., "This study targets your specific pattern")
-
-### Study Outcomes Tracking
-- [ ] Auto-capture baseline metric when study starts (e.g., "Rushed moves: 0.55/game")
-- [ ] Track progress weekly (e.g., "Week 2: 0.38/game, ↓ 31%")
-- [ ] Auto-close study when improvement hits 50% threshold OR user manually completes
-- [ ] Capture final metric + improvement % + show on Progress page
+### Parallel Plan Support
+- [ ] Track multiple active prescriptions simultaneously
+  - Each plan has independent baseline + current metric + progress %
+  - HomePage shows primary (coach-recommended) + secondary (user-chose)
+- [ ] Auto-detect if user can handle parallel plans:
+  - If user completes plans quickly (>50% in <1 week): Suggest parallel plans
+  - If user progresses slowly: Stick to sequential
+- [ ] User can manually add alternative plans mid-training
 
 ### Data Migration
-- [ ] Backfill user_studies from existing focus_locks (map current focus → study)
+- [ ] Backfill user_coaching_prescriptions from existing focus_locks (one-time migration)
 - [ ] Backfill issue data from game_analyses (cognitive_gap) + player_profiles (motif_profile)
-- [ ] Deprecate focus_locks (keep for backwards compatibility, but don't write new data)
+- [ ] Deprecate focus_locks (no new writes, keep for rollback)
 
 ---
 
 ## 4. Explicitly out of scope (V1)
 
-- **Dynamic study generation** ("I found this pattern in YOUR games → create custom study") — Deferred to V2 (scope: design custom study templating first)
-- **Study components** (lesson videos, coached game integration, etc.) — V1 references them but doesn't build them. Studies link to existing Training pages
-- **Multi-user study recommendations** (community insights) — V2 (first make single-user recommendations solid)
-- **Study difficulty progression** (adaptive studies that scale) — V2
-- **Custom study creation by users** — V2 (users can only start recommended studies)
-- **Study scheduling** ("Do 15 min of skewers today") — V2
-- **Study team collaboration** — Out of scope entirely (personal platform)
-- **Offline study mode** — Out of scope
-- **Study certifications/badges** — Out of scope (just tracking, no gamification badges)
+- **Dynamic training plan generation** ("I found this pattern in YOUR games → create custom plan") — V2 (requires custom plan templating + component linking)
+- **Training plan video components** — V1 plans reference video structure but don't produce videos. Plans link to existing Training infrastructure (puzzles, coached games)
+- **Opening recommendations** (coach recommends which opening to study) — V2 (wait until training plan system is solid)
+- **Community-sourced training data** (cross-player insights for recommendations) — V2 (single-player coaching first)
+- **User-created training plans** — V2 (coach recommends, not user-generated)
+- **Training plan scheduling** ("I recommend 15 min today at 7pm") — Out of scope (user self-paces)
+- **Training plan team sharing/collab** — Out of scope (personal coaching only)
+- **Offline training mode** — Out of scope
+- **Certification/badge system** — Out of scope (skill mastery tracked, no badges)
+- **Prerequisite chains longer than 2 levels** — V1 coaches user through Issue #1 → Issue #2; Issue #3+ comes in later prescriptions, not pre-planned chains
 
 ---
 
 ## 5. Success criteria
 
-**Launch criteria (user-facing engagement):**
-- [ ] Users who see an issue recommendation start a study within 2 weeks: >= 40%
-- [ ] Users who start a study complete it (hit 50% improvement or mark complete): >= 60%
-- [ ] Users with completed study show measurable improvement in that issue type: >= 50% of completers improve
+**Launch targets (measured in production after V1 ships):**
 
-**Data quality criteria:**
-- [ ] Issue detection covers >= 80% of analyzed moves (every significant weakness surfaced)
-- [ ] Study recommendations have >= 70% relevance (users feel recommended studies match their issue)
-- [ ] Outcome metrics (before/after) are trustworthy (match actual game statistics)
+*Engagement:*
+- [ ] Users who receive a coaching prescription start a training plan within 2 weeks: >= 40%
+- [ ] Users who start a training plan complete it (hit 50% improvement or mark done): >= 60%
 
-**Adoption criteria:**
-- [ ] >= 50% of active users have at least one study (completed or active)
-- [ ] Average time-to-study (from issue detection to study start): < 7 days
+*Outcomes:*
+- [ ] Users who complete a training plan show measurable improvement in that issue: >= 50% of completers improve
+- [ ] Average improvement % among completers: >= 30% (e.g., rushed moves 0.55 → 0.39)
+
+*Quality:*
+- [ ] Issue detection from game analysis covers >= 80% of significant mistakes
+- [ ] Coach recommendations feel relevant to user (qualitative feedback): >= 70% approve
+- [ ] Outcome metrics match actual game statistics (auto-detected issues align with player perception)
+
+*Adoption:*
+- [ ] >= 50% of active users have at least one active or completed training plan
+- [ ] Average time from issue detection to plan acceptance: < 7 days
+- [ ] Users who complete one plan start a second plan: >= 40% (shows habit formation)
 
 ---
 
 ## 6. Open questions
 
-**Q: How do we measure the baseline metric?**
-- Example: For "Skewers" issue, baseline = "% of skewer opportunities caught in last 10 games"
-- Why unresolved: Different issues need different baselines (some count frequency, some count %)
-- Unblocking step: Audit game_analyses + player_profiles + motif_profile to define 1 metric per issue type
+**Q: How does coach sequence multiple issues?**
+- Mohit's answer: Prerequisite dependencies. Fix rushing before teaching tactics (rushing blinds you to tactics)
+- Implication: coach_prescription_history tracks which issues are prerequisites for which plans
+- Implementation: issue_to_plan_mapping includes prerequisites (e.g., "teach Critical Moment Thinking before Spot Tactical Opportunities")
+- Status: LOCKED — coach recommends by impact + prerequisites
 
-**Q: When should a study auto-close?**
-- Option A: Fixed timeline (14 days)
-- Option B: Improvement threshold (50% improvement in baseline metric)
-- Option C: User-driven (user marks complete)
-- Mohit's preference: Option B (outcome-based)
-- Why unresolved: Need to verify outcome metrics are stable enough to close automatically
-- Unblocking step: Backtest on 10 users' existing game histories — does 50% threshold close studies at reasonable times?
+**Q: What if user rejects coach's recommendation?**
+- Mohit's answer: Coach explains why + user can choose alternative plan. Both get tracked + taught simultaneously.
+- Implication: When user chooses different plan, coach shows: "OK, here's why I recommended X... But Y is also solid. Let's track both."
+- Implementation: POST `/api/coaching/choose-alternative` creates second prescription with lower priority_order
+- Status: LOCKED — support parallel plans + track both
 
-**Q: What does "study component" mean in V1?**
-- Current assumption: Studies are links to existing Training pages + placeholder for future lesson videos
-- Mohit's clarification: Studies should reference existing infrastructure (PatternTraining, traps, endgames)
-- Why unresolved: Need to define study data structure (does it store lesson video URLs, or does it compose from existing pages?)
-- Unblocking step: Design study_catalog schema + map to existing Training infrastructure
+**Q: How many plans can user do in parallel?**
+- Mohit's answer: Flexible. Good players can handle 2-3. Average players stick to 1. System detects competence and adapts.
+- Implication: If user completes plans fast (>50% in <1 week), coach offers parallel plans. If slow, keep sequential.
+- Implementation: homePage can show 1 primary (coach-rec) + N secondary (user-chose) active at once
+- Status: LOCKED — auto-detect competence + support parallel
 
-**Q: How do we rank recommended studies by confidence?**
-- Example: "Critical Moment Thinking" 83%, "Time Management" 71%
-- Why unresolved: Need heuristic for "how likely does this study fix this issue?"
-- Options: Rule-based (domain expertise), ML-based (learned from completion data), or hybrid
-- Unblocking step: Define issue_to_study_mapping.confidence formula (start with domain rules, upgrade later)
+**Q: When does coach prescribe the next plan?**
+- Mohit's answer: Auto-analyze new games. See user improving. When last plan completes + find new issues, prescribe next.
+- Implication: No delay. Game finishes → analyzed → metrics updated → coach checks completion → if completed, next prescription ready
+- Implementation: Async job after game analysis: check all user's active prescriptions, if any hit 50%, mark complete + find next issue + create new prescription
+- Status: LOCKED — continuous coaching loop
 
-**Q: Should users be able to pause/resume studies?**
-- Current assumption: No (V1: start → progress → complete → archive)
-- Why unresolved: User experience question (do people want to context-switch between studies?)
-- Unblocking step: Mohit decision
+**Q: How do we name training plans?**
+- Mohit's preference: "Training Plan" (not "Study"). Also test: "Coach Plan", "Improvement Plan", "Mission", "Program"
+- Implication: Homepage says "Coach Recommendation" + "Training Plan" not "Recommended Study"
+- Implementation: Rename all UI references from "study" → "training plan"
+- Status: LOCKED — use "Training Plan" terminology
 
-**Q: How do we handle studies with overlapping issues?**
-- Example: "Critical Moment Thinking" helps BOTH "rushing" AND "calculation depth"
-- Why unresolved: Need to avoid recommending 10 studies for 3 issues
-- Unblocking step: Apply deduping logic when recommending (show top 3 studies, each fixes 1+ issues)
+**Q: What if coach prescribes same plan twice to different users?**
+- Assumption: Yes, multiple users can be prescribed "Loose Piece Discipline" for piece_safety issues
+- Implication: training_plan_catalog has 5 shared plans. Multiple user_coaching_prescriptions point to same plan_id
+- Implementation: No issue, many-to-many design supports this
+- Status: Resolved by data model
 
 ---
 
@@ -271,32 +329,68 @@ Issues Not Yet Addressed
 
 **Hard gates (must be true before line 1 of code):**
 
-- [ ] Mohit has explicitly signed off on this scope doc
-- [ ] Study catalog is authored (at least 5 predefined studies with names + descriptions)
-- [ ] Issue-to-study mapping is defined (which issue types map to which studies + confidence %)
-- [ ] Outcome metrics are defined (for each issue type, what's the "before" and "after" metric?)
-- [ ] Database connection is stable on both chess_coach (production) and test_database (local)
-- [ ] Backlog decision: Should FocusCard be immediately replaced or run parallel for N days? (affects migration plan)
+- [x] Mohit has explicitly signed off on this scope doc — YES ("lock this")
+- [x] Training plan catalog authored (5 core plans with names + descriptions + components) — YES
+  - Critical Moment Thinking
+  - Loose Piece Discipline
+  - Spot Tactical Opportunities
+  - King Safety
+  - Convert Winning Positions
+- [x] Issue-to-plan mapping defined (many-to-many with confidence %) — YES
+  - Rushing → Critical Moment Thinking (95%) + Loose Piece Discipline (60%)
+  - Piece safety → Loose Piece Discipline (90%) + Spot Tactical Opportunities (60%)
+  - Missed tactics → Spot Tactical Opportunities (95%) + Critical Moment Thinking (50%)
+  - King safety → King Safety (95%)
+  - Etc.
+- [x] Outcome metrics defined (behavioral, not issue-specific) — YES
+  - Frequency + Severity + Trend for each issue
+  - Example: "Pieces left undefended/game", "Rushed moves in critical positions", "Skewer opportunities seen"
+- [x] Prerequisite chains defined — YES
+  - Critical Moment Thinking before Spot Tactical Opportunities (can't see tactics if you're rushing)
+  - Loose Piece Discipline before King Safety (understand piece safety first)
+- [x] Database connection stable on chess_coach (production) + test_database (local) — YES (verified)
+- [x] FocusCard migration strategy decided — YES (Option C: Fallback. No active plan → show issues. Active plan → show primary + secondary. On completion → show next recommendation)
+- [x] Parallel plan support architecture decided — YES (support 1 primary + N secondary. Auto-detect competence. Homepage shows all active plans with progress)
 
 **Design decisions locked:**
-- [ ] HomePage Studies panel layout (mockup approved)
-- [ ] Lab two-tab structure (mockup approved)
-- [ ] Progress study outcomes format (mockup approved)
-- [ ] Issue card copy/tone (should read like a coach diagnosis, not a database query)
+- [x] HomePage coaching prescriptions layout (mockup approved) — Primary recommendation + Active plans + Progress bars
+- [x] Prescription copy/tone (should read like a coach explaining, not system announcing) — YES ("In your last 20 games, you rushed 18 times. This plan teaches you to slow down.")
+- [x] Terminology locked — "Training Plan" not "Study". "Coach Recommendation" not "Recommended Study"
+- [x] Auto-prescription trigger logic — YES (after each game: detect new issues → if no active plan or just completed one → prescribe next)
 
 ---
 
 ## Summary
 
-This is a **product direction shift** that keeps existing data infrastructure but reorganizes the UX:
-- Single focus → Multiple user-committed studies
-- System assigns → User chooses
-- "Here's your focus" → "Here's what we found. Here's how to fix it."
+This is **the actual moat ChessGuru needs**: a live coaching relationship, not a study library.
 
-Data migration is low-risk (focus_locks → user_studies backfill). Frontend changes are moderate (3 pages reorganized, no new data sources). Backend is mostly new endpoints reading from existing collections + new outcome tracking logic.
+**The shift:**
+- Library model: "Here are 50 studies, pick one"
+- Coaching model: "I found your problems, here's what to fix first"
 
-**Timeline estimate:** 3-4 weeks (design + backend + frontend + testing + migration)
+**Core loop:**
+1. Coach analyzes each game (auto)
+2. Coach detects issues (auto)
+3. Coach prescribes training plan with evidence (auto)
+4. User accepts/chooses/adds parallel (manual)
+5. Coach tracks improvement (auto)
+6. Coach prescribes next issue (auto)
+
+**Key differentiators:**
+- Evidence-driven: Every recommendation explains why ("You rushed 18 times, lost material 7 times")
+- Sequential: Coach understands prerequisites (fix rushing before teaching tactics)
+- Parallel capable: System detects user competence and offers multiple plans
+- Continuous: Live coaching loop, not weekly emails
+- Personalized: 5 core plans map to all issues; each user gets different sequence based on their games
+
+**Data migration risk:** Low (focus_locks → user_coaching_prescriptions backfill)
+
+**Backend complexity:** Medium (new auto-prescription engine + parallel tracking + outcome measurement)
+
+**Frontend changes:** Moderate (HomePage coaching section, remove FocusCard, terminology shift to "Training Plan")
+
+**Timeline estimate:** 4-5 weeks (architecture + data model + auto-engine + frontend + migration + testing)
 
 ---
 
-**AWAITING MOHIT SIGNOFF** before proceeding to lock numeric thresholds and pre-code audit.
+**SCOPE LOCKED** — All 7 pre-code requirements satisfied. Ready for architecture + design phase.
