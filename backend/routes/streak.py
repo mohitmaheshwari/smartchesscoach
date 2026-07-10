@@ -66,10 +66,12 @@ async def get_streak_status(user_id: str) -> Dict[str, Any]:
     # If still needs_detection, check motif profile as fallback
     if result.get("needs_detection"):
         try:
+            logger.info(f"[STREAK] Checking motif profile for {user_id}")
             prof = await db.player_profiles.find_one(
                 {"user_id": user_id},
                 {"_id": 0, "motif_profile": 1}
             )
+            logger.info(f"[STREAK] prof type={type(prof)}, prof={prof}")
             logger.info(f"[STREAK] Motif fallback for {user_id}: prof={bool(prof)}, has_motif={bool(prof and prof.get('motif_profile'))}")
 
             if prof and prof.get("motif_profile"):
