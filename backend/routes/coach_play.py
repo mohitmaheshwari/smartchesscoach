@@ -6479,6 +6479,21 @@ async def start_play_with_coach(
         )
 
     try:
+        # If no explicit teaching_focus provided, check for active training plans
+        if not teaching_focus:
+            active_prescriptions = await db.user_coaching_prescriptions.find({
+                "user_id": user.user_id,
+                "status": "active"
+            }).to_list(1)  # Get primary active prescription
+
+            if active_prescriptions:
+                pres = active_prescriptions[0]
+                plan = await db.training_plans.find_one({"plan_id": pres.get("plan_id")})
+                if plan:
+                    # Use the primary cognitive gap from the training plan as focus
+                    teaching_focus = plan.get("cognitive_gap")
+                    logger.info(f"[COACH-START] Auto-set teaching_focus from active training: {teaching_focus}")
+
         session = await start_coach_session(
             db=db,
             user_id=user.user_id,
