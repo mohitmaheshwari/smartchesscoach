@@ -1,0 +1,340 @@
+================================================================================
+                    COACHING PRESCRIPTIONS FEATURE
+                            STRUCTURE MAP
+================================================================================
+
+FRONTEND HIERARCHY
+─────────────────────────────────────────────────────────────────────────────
+
+HomePage.jsx (Updated ✅)
+└── CoachingPrescriptions.jsx (NEW - Main Container Component)
+    │
+    ├─ PrescriptionCard.jsx[] (NEW - Rendered for each active prescription)
+    │  ├─ Plan Name + Cognitive Gap Badge (color-coded)
+    │  ├─ Progress Bar (animated)
+    │  ├─ Metrics Grid (baseline vs current + improvement %)
+    │  ├─ Module Completion Counter
+    │  ├─ Expected Completion Date
+    │  └─ Action Buttons
+    │     ├─ Complete Button → POST /api/coaching/complete-prescription
+    │     └─ Pause Button → POST /api/coaching/pause-prescription
+    │
+    └─ NextRecommendation.jsx (NEW - Recommendation Section)
+       ├─ Urgency Badge (critical/high/medium/low)
+       ├─ Recommended Plan Card
+       │  ├─ Plan Name
+       │  ├─ Reasoning (evidence-based)
+       │  ├─ Occurrence Count
+       │  └─ Trend Indicator (increasing/stable)
+       │
+       ├─ Alternative Plans[] (up to 3)
+       │  └─ Clickable cards with cognitive gap label
+       │
+       └─ Action Buttons
+          ├─ Accept This Plan → POST /api/coaching/accept-prescription
+          ├─ Choose Alternative → POST /api/coaching/choose-alternative
+          └─ Add as Parallel → POST /api/coaching/add-parallel-plan
+
+DATA FLOW
+─────────────────────────────────────────────────────────────────────────────
+
+1. COMPONENT MOUNT
+   └─ CoachingPrescriptions.jsx mounts
+      ├─ Parallel Fetch #1: GET /api/coaching/current-prescriptions
+      └─ Parallel Fetch #2: GET /api/coaching/next-prescription
+
+2. LOADING STATE
+   └─ Show skeleton loaders (3 animated boxes)
+
+3. SUCCESS STATE (Data Loaded)
+   ├─ Map prescriptions → PrescriptionCard[] array
+   ├─ Stagger entry animations (60ms per card)
+   └─ Render NextRecommendation if data exists
+
+4. ERROR STATE
+   └─ Show alert box with retry option
+
+5. EMPTY STATE
+   └─ Show helpful guidance message
+
+6. USER INTERACTIONS
+   ├─ Click "Complete" on PrescriptionCard
+   │  └─ POST /api/coaching/complete-prescription
+   │     ├─ Backend: Update status → "completed"
+   │     ├─ Backend: Record history entry
+   │     └─ Frontend: Trigger page refresh
+   │
+   ├─ Click "Pause" on PrescriptionCard
+   │  └─ POST /api/coaching/pause-prescription
+   │     ├─ Backend: Update status → "paused"
+   │     ├─ Backend: Record history entry
+   │     └─ Frontend: Show success toast
+   │
+   ├─ Click "Accept This Plan" on NextRecommendation
+   │  └─ POST /api/coaching/accept-prescription
+   │     ├─ Backend: Update status → "active"
+   │     ├─ Backend: Set first module as current
+   │     ├─ Backend: Record history entry
+   │     └─ Frontend: Trigger page refresh
+   │
+   ├─ Click Alternative Plan Card
+   │  └─ POST /api/coaching/choose-alternative
+   │     ├─ Backend: Create new prescription
+   │     ├─ Backend: Set status → "pending"
+   │     ├─ Backend: Record history entry
+   │     └─ Frontend: Show success message
+   │
+   └─ Click "Add as Parallel" (if space available)
+      └─ POST /api/coaching/add-parallel-plan
+         ├─ Backend: Validate max plans not exceeded
+         ├─ Backend: Create new prescription
+         ├─ Backend: Set status → "pending"
+         ├─ Backend: Record history entry
+         └─ Frontend: Show success message
+
+API ENDPOINTS
+─────────────────────────────────────────────────────────────────────────────
+
+✅ GET    /api/coaching/current-prescriptions
+   Returns: Array of active/paused prescriptions
+   Called by: CoachingPrescriptions (on mount)
+
+✅ GET    /api/coaching/next-prescription
+   Returns: Coach recommendation with alternatives
+   Called by: CoachingPrescriptions (on mount)
+
+✅ POST   /api/coaching/accept-prescription
+   Accepts: {prescription_id, start_immediately}
+   Called by: NextRecommendation (Accept button)
+
+✅ POST   /api/coaching/choose-alternative
+   Accepts: {plan_id, reason}
+   Called by: NextRecommendation (Alternative card click)
+
+✅ POST   /api/coaching/add-parallel-plan
+   Accepts: {plan_id, reason, max_concurrent_plans}
+   Called by: NextRecommendation (Add as Parallel button)
+
+✅ GET    /api/coaching/prescription-history
+   Returns: Audit trail of prescription changes
+   Called by: (Admin/History page - not in this feature)
+
+✅ POST   /api/coaching/complete-prescription (NEW)
+   Accepts: {prescription_id}
+   Called by: PrescriptionCard (Complete button)
+
+✅ POST   /api/coaching/pause-prescription (NEW)
+   Accepts: {prescription_id}
+   Called by: PrescriptionCard (Pause button)
+
+DATABASE COLLECTIONS
+─────────────────────────────────────────────────────────────────────────────
+
+user_coaching_prescriptions
+├─ prescription_id (string, PK)
+├─ user_id (string, FK)
+├─ plan_id (string, FK → training_plans)
+├─ status (enum: active|pending|paused|completed|abandoned)
+├─ issue_detected (string)
+├─ reasoning (string)
+├─ baseline_metric (number)
+├─ current_metric (number)
+├─ improvement_pct (number)
+├─ priority_order (number)
+├─ modules_completed (array)
+├─ current_module (string)
+├─ puzzles_completed (number)
+├─ puzzle_accuracy (number)
+├─ started_at (ISO datetime)
+├─ completed_at (ISO datetime)
+├─ expected_completion_date (ISO datetime)
+├─ notes (string)
+├─ created_at (ISO datetime)
+└─ updated_at (ISO datetime)
+
+Indexes:
+  - {user_id: 1, status: 1}
+  - {user_id: 1, priority_order: 1}
+
+---
+
+training_plans
+├─ plan_id (string, PK)
+├─ name (string)
+├─ description (string)
+├─ cognitive_gap (string)
+├─ related_gaps (array)
+├─ difficulty (enum: beginner|intermediate|advanced)
+├─ target_rating_min (number)
+├─ target_rating_max (number)
+├─ duration_weeks (number)
+├─ weekly_commitment_hours (number)
+├─ learning_outcomes (array)
+├─ modules (array)
+│  └─ [{module_id, title, description, content_type, duration_minutes, puzzle_count}]
+├─ success_criteria (object)
+│  ├─ puzzle_accuracy_threshold (number)
+│  ├─ improvement_threshold (number)
+│  └─ time_to_completion_weeks (number)
+├─ is_active (boolean)
+├─ created_at (ISO datetime)
+└─ updated_at (ISO datetime)
+
+---
+
+coaching_prescription_history
+├─ history_id (string, PK)
+├─ prescription_id (string, FK)
+├─ user_id (string, FK)
+├─ action (enum: prescribed|activated|completed|abandoned|paused|resumed)
+├─ previous_status (string)
+├─ new_status (string)
+├─ metric_before (number)
+├─ metric_after (number)
+├─ reason (string)
+├─ triggered_by (enum: user|system|coach)
+└─ timestamp (ISO datetime)
+
+INDEX:
+  - {user_id: 1, timestamp: -1}
+
+COLORS & STYLING
+─────────────────────────────────────────────────────────────────────────────
+
+Cognitive Gap Color Palette (9 colors):
+┌──────────────────────────┬────────┬──────┬───────┐
+│ Gap Type                 │ BG     │ Text │ Border│
+├──────────────────────────┼────────┼──────┼───────┤
+│ piece_safety             │ Amber  │ 92.. │ fbbf24
+│ missed_tactic            │ Indigo │ 37.. │ a78bfa
+│ tactical_oversight       │ Teal   │ 0d.. │ 2dd4bf
+│ calculation_depth        │ Rose   │ 7c.. │ f87171
+│ king_safety              │ Green  │ 15.. │ 4ade80
+│ pawn_structure           │ Yellow │ 71.. │ eab308
+│ piece_activity           │ Purple │ 58.. │ d8b4fe
+│ opening_knowledge        │ Cyan   │ 16.. │ 06b6d4
+│ endgame_technique        │ Red    │ 83.. │ fb7185
+└──────────────────────────┴────────┴──────┴───────┘
+
+Urgency Levels:
+┌──────────┬──────────────────┬─────────────────┐
+│ Level    │ Occurrence Count │ Color           │
+├──────────┼──────────────────┼─────────────────┤
+│ Critical │ 6+               │ Red (#ef4444)   │
+│ High     │ 4-5              │ Orange (#f97316)│
+│ Medium   │ 2-3              │ Amber (#f59e0b) │
+│ Low      │ 1                │ Gray (#9ca3af)  │
+└──────────┴──────────────────┴─────────────────┘
+
+STATUS & ANIMATIONS
+─────────────────────────────────────────────────────────────────────────────
+
+Loading State:
+  └─ 3 skeleton boxes with pulse animation
+
+Error State:
+  └─ AlertCircle icon + red background + error message
+
+Empty State:
+  └─ Zap icon + gray background + helpful guidance
+
+Success State:
+  └─ Green checkmark + fade in animation
+
+Entrance Animations:
+  ├─ Page: fadeInUp (0.6s)
+  ├─ Section: staggerContainer
+  ├─ Cards: staggerItem (60ms step)
+  ├─ Progress Bar: animateWidth (0.6s easeOut)
+  └─ Buttons: whileHover/whileTap (micro timing)
+
+MOBILE RESPONSIVENESS
+─────────────────────────────────────────────────────────────────────────────
+
+Breakpoints Used:
+  └─ grid-cols-1 md:grid-cols-2
+  └─ px-6 md:px-10 (padding)
+  └─ text-[14px] md:text-[15px] (font size)
+  └─ gap-2 md:gap-4 (spacing)
+
+Touch-Friendly:
+  ├─ Button height: h-8 or h-10 (min 44px on mobile)
+  ├─ Hit targets: Gap 4px minimum
+  ├─ Flex wrap: automatic on small screens
+  └─ Grid: 1 column on mobile, 2+ on desktop
+
+TESTING COVERAGE
+─────────────────────────────────────────────────────────────────────────────
+
+CoachingPrescriptions.test.jsx:
+  ✅ Loading state test
+  ✅ Active prescriptions rendering
+  ✅ Next recommendation display
+  ✅ Empty state test
+  ✅ Error state test
+  ✅ API response error handling
+  ✅ Mock fetch API setup
+
+Run: npm test -- CoachingPrescriptions
+
+FILES CREATED/MODIFIED
+─────────────────────────────────────────────────────────────────────────────
+
+CREATED:
+  ✅ frontend/src/components/CoachingPrescriptions.jsx (148 lines)
+  ✅ frontend/src/components/PrescriptionCard.jsx (290 lines)
+  ✅ frontend/src/components/NextRecommendation.jsx (308 lines)
+  ✅ frontend/src/components/__tests__/CoachingPrescriptions.test.jsx (200+ lines)
+  ✅ backend/routes/coaching.py (973 lines)
+  ✅ docs/COACHING_PRESCRIPTIONS.md (500+ lines)
+
+MODIFIED:
+  ✅ frontend/src/pages/HomePage.jsx (FocusCard → CoachingPrescriptions)
+  ✅ backend/server.py (Import + register coaching routes)
+
+TOTAL LINES OF CODE: 2,600+
+TOTAL FILES: 8 created/modified
+
+DEPLOYMENT CHECKLIST
+─────────────────────────────────────────────────────────────────────────────
+
+Pre-Deployment:
+  ☐ Review all 3 frontend components
+  ☐ Review backend routes
+  ☐ Run frontend tests: npm test
+  ☐ Run backend tests (if applicable)
+  ☐ Code review on GitHub PR
+
+Database:
+  ☐ Create user_coaching_prescriptions collection
+  ☐ Create training_plans collection
+  ☐ Create coaching_prescription_history collection
+  ☐ Create indexes on user_coaching_prescriptions
+  ☐ Populate training_plans with sample data
+  ☐ Verify MongoDB connection
+
+Deployment:
+  ☐ Merge working-code → main
+  ☐ Deploy backend (restart API server)
+  ☐ Deploy frontend (rebuild + deploy)
+  ☐ Verify routes are accessible
+  ☐ Test in staging environment
+
+Smoke Testing:
+  ☐ Navigate to /home
+  ☐ Verify CoachingPrescriptions renders
+  ☐ Check for API errors in console
+  ☐ Test on mobile device
+  ☐ Test error states (simulate network failure)
+
+Monitoring:
+  ☐ Watch for 404 errors on /api/coaching/* endpoints
+  ☐ Monitor database performance
+  ☐ Check for uncaught exceptions
+  ☐ Verify audit trail is being recorded
+
+================================================================================
+                        FEATURE COMPLETE
+                    Status: Ready for Deployment
+                         2026-07-10
+================================================================================

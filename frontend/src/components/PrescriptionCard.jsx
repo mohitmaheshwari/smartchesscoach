@@ -1,297 +1,108 @@
-/**
- * PrescriptionCard — Individual coaching plan with metrics and progress
- *
- * Displays:
- * - Plan name and cognitive gap
- * - Progress bar (puzzles completed / accuracy)
- * - Baseline vs current metric with improvement percentage
- * - Module completion status
- * - Expected completion date
- * - Action buttons (continue, complete, pause)
- *
- * Design: Shadcn/ui card with smooth animations
- */
+import React, { useState } from 'react'
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { API } from "@/App";
-import { ChevronRight, CheckCircle2, Pause, BarChart3, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+export default function PrescriptionCard({ prescription, isPrimary }) {
+  const [accepting, setAccepting] = useState(false)
+  const [alternativeOpen, setAlternativeOpen] = useState(false)
 
-const COLORS = {
-  piece_safety: { bg: "#fef3c7", border: "#fbbf24", text: "#92400e" },
-  missed_tactic: { bg: "#e0e7ff", border: "#a78bfa", text: "#3730a3" },
-  tactical_oversight: { bg: "#f0fdfa", border: "#2dd4bf", text: "#0d3b35" },
-  calculation_depth: { bg: "#fef2f2", border: "#f87171", text: "#7c2d12" },
-  king_safety: { bg: "#dcfce7", border: "#4ade80", text: "#15803d" },
-  pawn_structure: { bg: "#fef08a", border: "#eab308", text: "#713f12" },
-  piece_activity: { bg: "#e9d5ff", border: "#d8b4fe", text: "#581c87" },
-  opening_knowledge: { bg: "#cffafe", border: "#06b6d4", text: "#164e63" },
-  endgame_technique: { bg: "#fecdd3", border: "#fb7185", text: "#831a27" },
-};
-
-const getGapColor = (gap) => {
-  return COLORS[gap] || { bg: "#f3f4f6", border: "#d1d5db", text: "#374151" };
-};
-
-const PrescriptionCard = ({ prescription, onUpdate }) => {
-  const [completing, setCompleting] = useState(false);
-  const [pausing, setPausing] = useState(false);
-  const [error, setError] = useState(null);
-
-  const gap = prescription.issue_detected || "piece_safety";
-  const color = getGapColor(gap);
-
-  // Format dates
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
+  const handleAccept = async () => {
     try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
-  };
-
-  // Calculate progress percentage
-  const puzzlesTotal = prescription.puzzles_completed + 50; // Assume ~50 puzzles per module
-  const progressPct = Math.min(
-    Math.round((prescription.puzzles_completed / puzzlesTotal) * 100),
-    100
-  );
-
-  // Handle completion
-  const handleComplete = async () => {
-    try {
-      setCompleting(true);
-      setError(null);
-
-      const res = await fetch(
-        `${API}/coaching/complete-prescription`,
+      setAccepting(true)
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/accept-prescription`,
         {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+          },
           body: JSON.stringify({
-            prescription_id: prescription.prescription_id,
-          }),
+            prescription_id: prescription.prescription_id
+          })
         }
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to complete prescription");
+      )
+      if (response.ok) {
+        window.location.reload()
       }
-
-      onUpdate?.();
-    } catch (e) {
-      setError(e.message);
+    } catch (err) {
+      console.error('Failed to accept prescription:', err)
     } finally {
-      setCompleting(false);
+      setAccepting(false)
     }
-  };
+  }
 
-  // Handle pause
-  const handlePause = async () => {
-    try {
-      setPausing(true);
-      setError(null);
-
-      const res = await fetch(
-        `${API}/coaching/pause-prescription`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prescription_id: prescription.prescription_id,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to pause prescription");
-      }
-
-      onUpdate?.();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setPausing(false);
-    }
-  };
-
-  // Gap label
-  const gapLabel = gap.replace(/_/g, " ");
+  const getProgressColor = (pct) => {
+    if (pct < 25) return 'bg-red-500'
+    if (pct < 50) return 'bg-yellow-500'
+    if (pct < 75) return 'bg-blue-500'
+    return 'bg-green-500'
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="rounded-lg border border-border/60 bg-card overflow-hidden hover:border-border transition-colors"
-    >
-      {/* Header with plan name and gap badge */}
-      <div className="p-5 md:p-6 border-b border-border/60">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground font-medium truncate">
-              {prescription.plan_name}
-            </h3>
-          </div>
+    <div className={`border rounded-lg p-4 ${isPrimary ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <h3 className="font-semibold text-lg">{prescription.plan_name}</h3>
+          <p className="text-gray-600 text-sm">{prescription.issue_detected}</p>
+        </div>
+        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+          prescription.status === 'active' ? 'bg-green-100 text-green-800' :
+          prescription.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {prescription.status}
+        </span>
+      </div>
+
+      <p className="text-sm text-gray-700 mb-4">{prescription.reasoning}</p>
+
+      <div className="mb-4">
+        <div className="flex justify-between text-sm mb-1">
+          <span className="font-medium">Progress</span>
+          <span className="text-gray-600">{Math.round(prescription.improvement_pct)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
           <div
-            className="px-2.5 py-1.5 rounded-md text-[11px] font-medium uppercase tracking-wider whitespace-nowrap flex-shrink-0"
-            style={{
-              backgroundColor: color.bg,
-              color: color.text,
-              borderLeft: `3px solid ${color.border}`,
-            }}
-          >
-            {gapLabel}
-          </div>
-        </div>
-
-        {prescription.reasoning && (
-          <p className="text-[13px] text-muted-foreground leading-relaxed">
-            {prescription.reasoning}
-          </p>
-        )}
-      </div>
-
-      {/* Progress section */}
-      <div className="p-5 md:p-6 border-b border-border/60">
-        <div className="mb-4">
-          <div className="flex items-baseline justify-between mb-2">
-            <span className="text-[12px] uppercase tracking-[0.18em] font-medium text-muted-foreground">
-              Progress
-            </span>
-            <span className="text-[13px] font-medium text-foreground">
-              {progressPct}%
-            </span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPct}%` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="h-full bg-violet-500 rounded-full"
-            />
-          </div>
-          <p className="text-[12px] text-muted-foreground mt-2">
-            {prescription.puzzles_completed} puzzle{prescription.puzzles_completed !== 1 ? "s" : ""} completed
-            {prescription.puzzle_accuracy > 0 && (
-              <>
-                {" "}
-                · {Math.round(prescription.puzzle_accuracy)}% accuracy
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Metrics grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {prescription.baseline_metric !== undefined &&
-            prescription.baseline_metric !== null && (
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-1">
-                  Baseline
-                </div>
-                <div className="font-serif text-[18px] font-medium text-foreground">
-                  {prescription.baseline_metric.toFixed(2)}
-                  <span className="text-[12px] text-muted-foreground font-sans ml-1">
-                    /game
-                  </span>
-                </div>
-              </div>
-            )}
-
-          {prescription.current_metric !== undefined &&
-            prescription.current_metric !== null && (
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-1">
-                  Current
-                </div>
-                <div className="font-serif text-[18px] font-medium text-foreground">
-                  {prescription.current_metric.toFixed(2)}
-                  <span className="text-[12px] text-muted-foreground font-sans ml-1">
-                    /game
-                  </span>
-                </div>
-
-                {prescription.improvement_pct > 0 && (
-                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                    ↓ {prescription.improvement_pct.toFixed(0)}%
-                  </div>
-                )}
-              </div>
-            )}
+            className={`h-2 rounded-full transition-all ${getProgressColor(prescription.improvement_pct)}`}
+            style={{ width: `${Math.min(prescription.improvement_pct, 100)}%` }}
+          ></div>
         </div>
       </div>
 
-      {/* Module status and completion date */}
-      <div className="p-5 md:p-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          {prescription.modules_completed &&
-            prescription.modules_completed.length > 0 && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="flex -space-x-1">
-                  {[...Array(Math.min(prescription.modules_completed.length, 3))].map(
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/50 flex items-center justify-center flex-shrink-0"
-                      >
-                        <CheckCircle2 className="w-3 h-3 text-violet-600 dark:text-violet-400" />
-                      </div>
-                    )
-                  )}
-                </div>
-                <span className="text-[12px] text-muted-foreground">
-                  {prescription.modules_completed.length} module{prescription.modules_completed.length !== 1 ? "s" : ""} done
-                </span>
-              </div>
-            )}
-
-          {prescription.expected_completion_date && (
-            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>
-                Due {formatDate(prescription.expected_completion_date)}
-              </span>
-            </div>
-          )}
+      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+        <div>
+          <p className="text-gray-600">Before</p>
+          <p className="font-semibold">{prescription.baseline_metric?.toFixed(2) || 'N/A'}</p>
         </div>
+        <div>
+          <p className="text-gray-600">Now</p>
+          <p className="font-semibold">{prescription.current_metric?.toFixed(2) || 'N/A'}</p>
+        </div>
+      </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+      {prescription.status === 'pending' && isPrimary && (
+        <div className="flex gap-2">
           <button
-            disabled={pausing}
-            onClick={handlePause}
-            className="h-8 px-3 rounded-lg text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            onClick={handleAccept}
+            disabled={accepting}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            <Pause className="w-3.5 h-3.5" />
+            {accepting ? 'Starting...' : 'Start Training Plan'}
           </button>
           <button
-            disabled={completing}
-            onClick={handleComplete}
-            className="h-8 px-3.5 rounded-lg bg-violet-500 hover:bg-violet-400 text-white text-[12px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+            onClick={() => setAlternativeOpen(!alternativeOpen)}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
           >
-            Complete
-            <ChevronRight className="w-3.5 h-3.5" />
+            Choose Different
           </button>
-        </div>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="px-5 md:px-6 py-3 bg-red-50 dark:bg-red-950/20 border-t border-red-200 dark:border-red-900/40">
-          <p className="text-[12px] text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
-    </motion.div>
-  );
-};
 
-export default PrescriptionCard;
+      {prescription.status === 'active' && (
+        <button className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200">
+          Continue Training Plan
+        </button>
+      )}
+    </div>
+  )
+}
