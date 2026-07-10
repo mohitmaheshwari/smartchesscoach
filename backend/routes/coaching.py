@@ -351,21 +351,31 @@ async def get_next_prescription_recommendation(
         # Check if user already has active prescriptions
         active_count = await count_active_user_plans(user.user_id)
 
-        # Get recent game analyses to identify top issues
-        recent_games = await db.game_analyses.find(
+        # Get ALL game analyses to identify top issues (not just last 10)
+        all_games = await db.game_analyses.find(
             {"user_id": user.user_id},
-            {"_id": 0, "cognitive_gaps": 1, "blunders": 1}
-        ).sort("created_at", -1).limit(10).to_list(10)
+            {"_id": 0, "cognitive_gaps": 1, "created_at": 1}
+        ).sort("created_at", -1).to_list(None)
 
-        # Aggregate issues from recent games
-        issue_counts: Dict[str, int] = {}
-        for game in recent_games:
-            for gap in game.get("cognitive_gaps", []):
-                gap_type = gap if isinstance(gap, str) else gap.get("gap_type", "piece_safety")
-                issue_counts[gap_type] = issue_counts.get(gap_type, 0) + 1
+        # Aggregate issues from all games with recency weighting
+        # Recent games weighted higher than old games
+        issue_scores: Dict[str, float] = {}
 
-        # Determine top issue
-        top_issue = max(issue_counts.items(), key=lambda x: x[1])[0] if issue_counts else "piece_safety"
+        if all_games:
+            newest_date = all_games[0].get("created_at")
+
+            for i, game in enumerate(all_games):
+                # Recency weight: most recent = 1.0, older = decreases
+                # Games in last 10: full weight, older games: reduced weight
+                recency_weight = 1.0 if i < 10 else (0.5 + (0.5 * (10.0 / (i + 1))))
+
+                for gap in game.get("cognitive_gaps", []):
+                    gap_type = gap if isinstance(gap, str) else gap.get("gap_type", "piece_safety")
+                    issue_scores[gap_type] = issue_scores.get(gap_type, 0.0) + recency_weight
+
+        # Determine top issue by weighted score
+        top_issue = max(issue_scores.items(), key=lambda x: x[1])[0] if issue_scores else "piece_safety"
+        issue_frequency = int(issue_scores.get(top_issue, 0))
 
         # Find recommended plan based on issue and rating
         recommended_plan = await db.training_plans.find_one(
@@ -419,9 +429,9 @@ async def get_next_prescription_recommendation(
             {"_id": 0}
         ).limit(3).to_list(3)
 
-        # Determine urgency based on frequency and severity
-        issue_frequency = issue_counts.get(top_issue, 0)
-        urgency = "critical" if issue_frequency > 5 else "high" if issue_frequency > 3 else "medium"
+        # Determine urgency based on weighted score
+        # Score > 10 = many recent issues, Score 5-10 = moderate, < 5 = occasional
+        urgency = "critical" if issue_frequency > 10 else "high" if issue_frequency > 5 else "medium"
 
         return {
             "recommendation": {
@@ -431,10 +441,10 @@ async def get_next_prescription_recommendation(
                 "cognitive_gap": recommended_plan["cognitive_gap"],
                 "duration_weeks": recommended_plan["duration_weeks"],
                 "weekly_commitment_hours": recommended_plan["weekly_commitment_hours"],
-                "reasoning": f"Coach detected {issue_counts.get(top_issue, 0)} occurrences of {top_issue.replace('_', ' ')} in your last 10 games.",
+                "reasoning": f"Coach detected {int(issue_frequency)} weighted occurrences of {top_issue.replace('_', ' ')} across all your games (weighted by recency).",
                 "issue_severity": top_issue,
-                "occurrence_count": issue_counts.get(top_issue, 0),
-                "trend": "increasing" if issue_frequency > 2 else "stable",
+                "occurrence_count": int(issue_frequency),
+                "trend": "increasing" if issue_frequency > 10 else "stable",
                 "alternatives": [
                     {
                         "plan_id": alt["plan_id"],
