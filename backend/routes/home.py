@@ -456,6 +456,42 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                         "severity": impact.get("severity", ""),
                         "rating_gain": impact.get("estimated_rating_gain", 0),
                     }
+                else:
+                    # Fallback: if no impact projection, try motif profile weakness
+                    prof = await db.player_profiles.find_one(
+                        {"user_id": user.user_id},
+                        {"_id": 0, "motif_profile": 1}
+                    )
+                    if prof and prof.get("motif_profile"):
+                        motif_data = prof.get("motif_profile", {})
+
+                        # Find weakest motif (highest "got" count)
+                        weakest_motif = None
+                        max_got = -1
+                        for motif_name, stats in motif_data.items():
+                            if motif_name in ("made_sound", "made_tunnel"):
+                                continue
+                            got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+                            if got_count > max_got:
+                                max_got = got_count
+                                weakest_motif = motif_name
+
+                        if weakest_motif and max_got > 0:
+                            motif_labels = {
+                                "fork": "Spot forks",
+                                "pin": "Spot pins",
+                                "skewer": "Spot skewers",
+                                "discovered": "Spot discovered attacks",
+                                "loose": "Spot undefended pieces"
+                            }
+                            result["one_thing_to_fix"] = {
+                                "pattern": motif_labels.get(weakest_motif, weakest_motif),
+                                "stat_line": f"You've been caught {max_got} times",
+                                "fix_line": f"Practice spotting {weakest_motif}s in your games",
+                                "diff_line": f"Next: drill {weakest_motif} tactics",
+                                "severity": "medium",
+                                "motif": weakest_motif,
+                            }
 
         # Accuracy — compute from analyses if profile doesn't have it
         profile = await db.player_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
