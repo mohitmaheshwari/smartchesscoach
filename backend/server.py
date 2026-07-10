@@ -311,6 +311,7 @@ from routes import analysis as analysis_routes
 from routes import player as player_routes
 from routes import training_advanced as training_advanced_routes
 from routes import coach_advanced as coach_advanced_routes
+from routes import coaching as coaching_routes
 from routes import oauth as oauth_routes
 from routes import public_seo as public_seo_routes
 from routes import billing as billing_routes
@@ -371,8 +372,9 @@ player_routes.set_llm(call_llm)
 training_advanced_routes.set_db(db)
 training_advanced_routes.set_llm(call_llm)
 coach_advanced_routes.set_db(db)
-oauth_routes.init_db(db)
 coach_advanced_routes.set_llm(call_llm)
+coaching_routes.set_db(db)
+oauth_routes.init_db(db)
 billing_routes.set_db(db)
 reviewer_routes.set_db(db)
 diagnostic_routes.set_db(db)
@@ -413,6 +415,7 @@ app.include_router(analysis_routes.router, prefix="/api")
 app.include_router(player_routes.router, prefix="/api")
 app.include_router(training_advanced_routes.router, prefix="/api")
 app.include_router(coach_advanced_routes.router, prefix="/api")
+app.include_router(coaching_routes.router, prefix="/api")
 app.include_router(oauth_routes.router, prefix="/api")
 app.include_router(public_seo_routes.router, prefix="/api")
 app.include_router(billing_routes.router, prefix="/api")

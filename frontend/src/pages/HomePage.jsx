@@ -24,7 +24,7 @@ import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
 import LearnedThisCard from "@/components/LearnedThisCard";
 import MotivationPrompt from "@/components/MotivationPrompt";
-import FocusCard from "@/components/FocusCard";
+import CoachingPrescriptions from "@/components/CoachingPrescriptions";
 import FocusResolutionBanner from "@/components/FocusResolutionBanner";
 import { MistakeFreeStreak } from "@/components/streak";
 import {
@@ -331,12 +331,11 @@ const HomePage = ({ user }) => {
             </motion.div>
           )}
 
-          {/* ━━ PRIMARY FOCUS ━━
-              The one locked coaching pattern from user_active_focus (see
-              backend/services/primary_weakness_picker.py). Renders nothing
-              if no focus is assigned yet. Only ONE thing surfaced — this
-              IS the subtractive-at-single-user-scale bet. */}
-          <FocusCard />
+          {/* ━━ COACHING PRESCRIPTIONS ━━
+              2026-07-10: New coaching prescriptions system showing active
+              training plans with progress tracking + coach recommendation
+              for next focus area. Replaces FocusCard with richer plan data. */}
+          <CoachingPrescriptions />
 
           {/* ━━ PATTERN OF THE DAY ━━
               TIER 3 visual-danger-language: the named shape that fires
