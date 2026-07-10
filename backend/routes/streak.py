@@ -65,43 +65,52 @@ async def get_streak_status(user_id: str) -> Dict[str, Any]:
 
     # If still needs_detection, check motif profile as fallback
     if result.get("needs_detection"):
-        prof = await db.player_profiles.find_one(
-            {"user_id": user_id},
-            {"_id": 0, "motif_profile": 1}
-        )
-        if prof and prof.get("motif_profile"):
-            motif_data = prof.get("motif_profile", {})
+        try:
+            prof = await db.player_profiles.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "motif_profile": 1}
+            )
+            logger.info(f"[STREAK] Motif fallback for {user_id}: prof={bool(prof)}, has_motif={bool(prof and prof.get('motif_profile'))}")
 
-            # Find weakest motif (highest "got" count)
-            weakest_motif = None
-            max_got = -1
-            for motif_name, stats in motif_data.items():
-                if motif_name in ("made_sound", "made_tunnel"):
-                    continue
-                got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
-                if got_count > max_got:
-                    max_got = got_count
-                    weakest_motif = motif_name
+            if prof and prof.get("motif_profile"):
+                motif_data = prof.get("motif_profile", {})
+                logger.info(f"[STREAK] Motif data keys: {list(motif_data.keys())}")
 
-            if weakest_motif and max_got > 0:
-                # Map motif to focus type
-                motif_to_focus = {
-                    "fork": "TACTICAL_MISS",
-                    "pin": "TACTICAL_MISS",
-                    "skewer": "TACTICAL_MISS",
-                    "discovered": "TACTICAL_MISS",
-                    "loose": "HANGING_PIECE",
-                }
-                focus_type = motif_to_focus.get(weakest_motif, "TACTICAL_MISS")
-                focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+                # Find weakest motif (highest "got" count)
+                weakest_motif = None
+                max_got = -1
+                for motif_name, stats in motif_data.items():
+                    if motif_name in ("made_sound", "made_tunnel"):
+                        continue
+                    got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+                    if got_count > max_got:
+                        max_got = got_count
+                        weakest_motif = motif_name
 
-                result["needs_detection"] = False
-                result["focus_mistake_type"] = focus_type
-                result["focus_mistake_name"] = focus_info.get("name", f"Spot {weakest_motif}s")
-                result["rule"] = focus_info.get("rule", f"Practice spotting {weakest_motif}s")
-                result["headline"] = f"Spot {weakest_motif.title()}s"
-                result["message"] = f"You've been caught {max_got} times. Let's fix this."
-                result["tone"] = "neutral"
+                logger.info(f"[STREAK] Weakest motif: {weakest_motif}, max_got={max_got}")
+
+                if weakest_motif and max_got > 0:
+                    # Map motif to focus type
+                    motif_to_focus = {
+                        "fork": "TACTICAL_MISS",
+                        "pin": "TACTICAL_MISS",
+                        "skewer": "TACTICAL_MISS",
+                        "discovered": "TACTICAL_MISS",
+                        "loose": "HANGING_PIECE",
+                    }
+                    focus_type = motif_to_focus.get(weakest_motif, "TACTICAL_MISS")
+                    focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+
+                    result["needs_detection"] = False
+                    result["focus_mistake_type"] = focus_type
+                    result["focus_mistake_name"] = focus_info.get("name", f"Spot {weakest_motif}s")
+                    result["rule"] = focus_info.get("rule", f"Practice spotting {weakest_motif}s")
+                    result["headline"] = f"Spot {weakest_motif.title()}s"
+                    result["message"] = f"You've been caught {max_got} times. Let's fix this."
+                    result["tone"] = "neutral"
+                    logger.info(f"[STREAK] Motif fallback applied: {result}")
+        except Exception as e:
+            logger.error(f"[STREAK] Motif fallback error: {e}", exc_info=True)
 
     return result
 
