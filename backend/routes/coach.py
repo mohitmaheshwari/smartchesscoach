@@ -836,9 +836,53 @@ async def get_game_decryption_v5(
                             "move_number": move_data.get("move_number"),
                             "prompt": move_data.get("acknowledgment_prompt")
                         })
-            
+
+            # [PART B] Enrich with active training plan context
+            # Check each move against active training plans
+            active_plans = await db.user_coaching_prescriptions.find({
+                "user_id": user.user_id,
+                "status": "active"
+            }).to_list(None)
+
+            # Map plan_id → training_plan details
+            plan_map = {}
+            for plan in active_plans:
+                plan_doc = await db.training_plans.find_one({"plan_id": plan.get("plan_id")})
+                if plan_doc:
+                    plan_map[plan.get("plan_id")] = {
+                        "plan_id": plan.get("plan_id"),
+                        "plan_name": plan_doc.get("name"),
+                        "cognitive_gap": plan_doc.get("cognitive_gap"),
+                        "description": plan_doc.get("description")
+                    }
+
+            # Enrich decryption_v5_data with training plan links
+            enriched_data = []
+            for move_data in analysis.get("decryption_v5_data", []):
+                enriched_move = dict(move_data)
+
+                # Check if this move's cognitive_gap matches any active training plan
+                move_gap = move_data.get("cognitive_gap")
+                related_plans = []
+
+                if move_gap and move_data.get("is_user_move"):  # Only show for user's mistakes
+                    for plan_info in plan_map.values():
+                        if plan_info["cognitive_gap"] == move_gap:
+                            related_plans.append({
+                                "plan_id": plan_info["plan_id"],
+                                "plan_name": plan_info["plan_name"],
+                                "description": plan_info["description"]
+                            })
+
+                # Add training context
+                if related_plans:
+                    enriched_move["related_training_plans"] = related_plans
+                    logger.info(f"[GAME-REVIEW] Move {move_data.get('move_number')} ({move_gap}) matches {len(related_plans)} active training plan(s)")
+
+                enriched_data.append(enriched_move)
+
             return {
-                "decryption_data": analysis.get("decryption_v5_data", []),
+                "decryption_data": enriched_data,
                 "status": "complete",
                 "generated_at": analysis.get("decryption_v5_generated_at"),
                 "concepts_to_acknowledge": concepts_to_acknowledge,
