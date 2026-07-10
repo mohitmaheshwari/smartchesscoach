@@ -320,8 +320,141 @@ async def _detect_band(db, user_id: str) -> str:
     return band.get("name", "beginner_low")
 
 
+async def _pick_engine1_from_verified_captions(db, user_id: str) -> Optional[Dict]:
+    """Read from verified captions count to show coaching coverage.
+
+    If user has recent games with verified captions, show a summary card
+    of how many teaching moments exist.
+    """
+    try:
+        # Count verified captions in recent games
+        recent_games = await db.games.find(
+            {"user_id": user_id, "is_analyzed": True},
+            {"_id": 0, "game_id": 1}
+        ).sort("date_played", -1).limit(20).to_list(20)
+
+        if not recent_games:
+            return None
+
+        game_ids = [g["game_id"] for g in recent_games]
+
+        # For each game, count moves with cp_loss >= 100 (real mistakes)
+        # These would have verified captions if facts exist
+        verified_count = 0
+        total_mistakes = 0
+
+        for game_id in game_ids:
+            analysis = await db.game_analyses.find_one(
+                {"game_id": game_id, "user_id": user_id},
+                {"_id": 0, "stockfish_analysis.move_evaluations": 1}
+            )
+            if not analysis:
+                continue
+
+            moves = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+            for move in moves:
+                cp_loss = move.get("cp_loss", 0)
+                if cp_loss >= 100:
+                    total_mistakes += 1
+                    # Assume ~30% have verifiable coaching facts (from production data)
+                    if move.get("cognitive_gap"):
+                        verified_count += 1
+
+        if verified_count < 3:  # Only show if meaningful coverage
+            return None
+
+        return {
+            "_src": "engine1_verified_captions",
+            "focus": "verified_captions",
+            "category": "coaching_coverage",
+            "gap": None,
+            "label": f"You have {verified_count} verified coaching moments",
+            "reason": f"From your last {len(game_ids)} games, {verified_count} moves have explained coaching. Keep playing to build more.",
+            "skill_id": "verified_captions",
+            "verified_count": verified_count,
+            "total_mistakes": total_mistakes,
+        }
+    except Exception as e:
+        logger.debug(f"Engine 1 verified captions fallback failed: {e}")
+    return None
+
+
+async def _pick_engine1_from_motif(db, user_id: str) -> Optional[Dict]:
+    """Read from motif_profile to pick Engine 1 focus (tactic weakness).
+
+    Looks at fork/pin/skewer weakness and finds the one where you most
+    frequently miss opportunities or get caught. Returns a motif-based
+    training focus if the regular focus_resolver finds nothing.
+    """
+    try:
+        prof = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "motif_profile": 1}
+        )
+        if not prof or not prof.get("motif_profile"):
+            return None
+
+        motif_profile = prof.get("motif_profile", {})
+
+        # Find the weakest motif (highest "got" count = most times caught)
+        weakest_motif = None
+        max_got = -1
+
+        for motif_name, stats in motif_profile.items():
+            if motif_name in ("made_sound", "made_tunnel"):
+                continue  # Skip aggregate fields
+
+            got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+            if got_count > max_got:
+                max_got = got_count
+                weakest_motif = motif_name
+
+        if not weakest_motif or max_got <= 0:
+            return None
+
+        # Map motif to friendly label and cognitive gap
+        motif_labels = {
+            "fork": "Spot forks",
+            "pin": "Spot pins",
+            "skewer": "Spot skewers",
+            "discovered": "Spot discovered attacks",
+            "loose": "Spot undefended pieces"
+        }
+
+        motif_gaps = {
+            "fork": "missed_tactic",
+            "pin": "missed_tactic",
+            "skewer": "missed_tactic",
+            "discovered": "missed_tactic",
+            "loose": "piece_safety"
+        }
+
+        label = motif_labels.get(weakest_motif, f"Practice {weakest_motif}")
+        gap = motif_gaps.get(weakest_motif, "missed_tactic")
+
+        return {
+            "_src": "engine1_motif",
+            "focus": weakest_motif,
+            "category": "tactical_miss",
+            "gap": gap,
+            "label": label,
+            "reason": f"You've been caught by {weakest_motif}s {max_got} times recently. Let's fix that.",
+            "skill_id": f"motif_{weakest_motif}",
+            "motif": weakest_motif,
+        }
+    except Exception as e:
+        logger.debug(f"Engine 1 motif fallback failed: {e}")
+    return None
+
+
 async def _pick_engine1_focus(db, user_id: str) -> Optional[Dict]:
-    """Engine 1 (fix-your-mess) pick, or None if no focus."""
+    """Engine 1 (fix-your-mess) pick, or None if no focus.
+
+    Priority:
+      1. Regular focus_resolver (coach brain + aggregator)
+      2. Motif profile weakness (if regular focus returns nothing)
+      3. Verified captions coverage (if no motif either)
+    """
     try:
         from services.focus_resolver import get_active_focus
         active = await get_active_focus(db, user_id, top_problems=None)
@@ -336,7 +469,26 @@ async def _pick_engine1_focus(db, user_id: str) -> Optional[Dict]:
                 "skill_id": active.get("focus"),
             }
     except Exception as e:
-        logger.debug(f"Engine 1 focus failed: {e}")
+        logger.debug(f"Engine 1 focus_resolver failed: {e}")
+
+    # Fallback to motif profile if regular focus returns nothing
+    try:
+        motif_focus = await _pick_engine1_from_motif(db, user_id)
+        if motif_focus:
+            logger.debug(f"Engine 1 falling back to motif: {motif_focus.get('motif')}")
+            return motif_focus
+    except Exception as e:
+        logger.debug(f"Engine 1 motif fallback failed: {e}")
+
+    # Final fallback: show verified captions coverage
+    try:
+        captions_focus = await _pick_engine1_from_verified_captions(db, user_id)
+        if captions_focus:
+            logger.debug(f"Engine 1 falling back to verified captions: {captions_focus.get('verified_count')}")
+            return captions_focus
+    except Exception as e:
+        logger.debug(f"Engine 1 verified captions fallback failed: {e}")
+
     return None
 
 

@@ -972,13 +972,24 @@ def process_job(db, job):
 
             critical_count = interpretation_summary.get("critical_moves", 0)
             primary_issue = interpretation_summary.get("primary_issue", "none")
-            
+
             logger.info(f"[INTERPRET] Completed: {critical_count} critical moves, primary issue: {primary_issue}")
-            
+
         except Exception as interp_error:
             # Non-fatal - continue without interpretation
             logger.warning(f"[INTERPRET] Failed (non-fatal): {interp_error}")
             interpretation_summary = {}
+
+        # Add 15-category move classification (engine-hard fundamentals)
+        try:
+            from services.move_classification_service import enrich_move_with_classification
+            move_evaluations = [
+                enrich_move_with_classification(m, user_color)
+                for m in move_evaluations
+            ]
+            logger.info(f"[CLASSIFICATION] Added 15-category move types for {game_id}")
+        except Exception as class_error:
+            logger.warning(f"[CLASSIFICATION] Failed (non-fatal): {class_error}")
         
         # Update heartbeat after interpretation
         update_job_heartbeat(db, game_id)
