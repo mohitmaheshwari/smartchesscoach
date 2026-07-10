@@ -1576,6 +1576,23 @@ const MoveCoachingCardV5 = ({
                 })}
               </div>
             )}
+
+            {/* [PART B] Training plan badges — show which active training this relates to */}
+            {move.related_training_plans && move.related_training_plans.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {move.related_training_plans.map((plan, i) => (
+                  <a
+                    key={i}
+                    href={`/training/prescribed?plan=${plan.plan_id}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer text-[11px] font-medium"
+                    title={plan.description || `Related to your ${plan.plan_name} training`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Training: {plan.plan_name}</span>
+                  </a>
+                ))}
+              </div>
+            )}
             <ClickableCaption
               text={move.narrative}
               fen={move.fen_before}
