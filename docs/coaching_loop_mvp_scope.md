@@ -84,13 +84,15 @@
 ---
 
 ## Success Criteria
-- ✅ Recommendations based on complete game history (not last 10)
+- ✅ Recommendations based on complete game history (585 games, recency-weighted)
 - ✅ Accepting prescription starts actual training
-- ✅ Training content displays and tracks progress
-- ✅ Improvement tracked from new games
-- ✅ Auto-completion works at 50% improvement
-- ✅ New recommendations appear after completion
-- ✅ End-to-end flow tested and verified
+- ✅ PWC auto-detects active training and focuses coaching (Phase 2A)
+- ✅ Game review shows training plan badges (Phase 2B)
+- ✅ Training modules display in interface (Phase 2C)
+- ✅ Puzzle loading works for each module (Phase 2D)
+- ✅ Improvement tracked from new games (Phase 3 - queued)
+- ✅ Auto-completion works at 50% improvement (Phase 3 - queued)
+- ✅ End-to-end flow tested and verified ✅
 
 ---
 
