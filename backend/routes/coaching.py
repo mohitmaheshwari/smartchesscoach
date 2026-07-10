@@ -997,3 +997,69 @@ async def pause_prescription(
     except Exception as e:
         logger.error(f"Error pausing prescription {req.prescription_id} for {user.user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error pausing prescription: {str(e)}")
+
+
+# ==================== ENDPOINT 8: GET /api/coaching/training-modules ====================
+
+@router.get("/training-modules")
+async def get_training_modules(
+    prescription_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get training modules for an active prescription.
+
+    Returns all modules for the prescribed training plan, allowing the user
+    to see what they need to work through.
+
+    Query params:
+    - prescription_id (str): The prescription to fetch modules for
+
+    Returns:
+    - plan_name: Name of the training plan
+    - plan_id: ID of the training plan
+    - modules: List of modules with content
+    - total_duration_minutes: Total time to complete all modules
+    """
+    global db
+
+    try:
+        # Get the prescription
+        prescription = await db.user_coaching_prescriptions.find_one({
+            "prescription_id": prescription_id,
+            "user_id": user.user_id,
+            "status": {"$in": ["active", "pending"]}
+        }, {"_id": 0})
+
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+
+        # Get the training plan with modules
+        plan = await db.training_plans.find_one({
+            "plan_id": prescription["plan_id"],
+            "is_active": True
+        }, {"_id": 0})
+
+        if not plan:
+            raise HTTPException(status_code=404, detail="Training plan not found")
+
+        # Calculate total duration
+        total_duration = sum(m.get("duration_minutes", 0) for m in plan.get("modules", []))
+
+        return {
+            "plan_name": plan.get("name"),
+            "plan_id": plan.get("plan_id"),
+            "description": plan.get("description"),
+            "difficulty": plan.get("difficulty"),
+            "modules": plan.get("modules", []),
+            "total_duration_minutes": total_duration,
+            "modules_count": len(plan.get("modules", [])),
+            "success_criteria": plan.get("success_criteria"),
+            "learning_outcomes": plan.get("learning_outcomes")
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching training modules for {user.user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching modules: {str(e)}")
