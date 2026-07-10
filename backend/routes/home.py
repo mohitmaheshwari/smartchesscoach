@@ -762,59 +762,67 @@ async def get_coach_home(user: User = Depends(get_current_user)):
         logger.warning(f"[COACH-HOME] Mirror failed: {e}")
 
     # ─── 3. CURRENT PROBLEM ───
+    # Priority: Motif profile (if exists) > problem_lifecycle
     try:
-        problems = await db.problem_lifecycle.find(
-            {"user_id": user_id, "state": "active"},
-            {"_id": 0, "category": 1, "count": 1, "anger": 1}
-        ).sort("count", -1).to_list(3)
+        # First check for motif profile weakness (newer system)
+        prof = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "motif_profile": 1}
+        )
 
-        if problems:
-            top = problems[0]
-            category = top.get("category", "")
-            count = top.get("count", 0)
-            anger = top.get("anger", "first_time")
+        motif_problem = None
+        if prof and prof.get("motif_profile"):
+            motif_data = prof.get("motif_profile", {})
 
-            # Check recent trend — compare last 5 games vs previous 5
-            trending_better = False
-            if len(recent_analyses) >= 10:
-                recent_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[:5])
-                older_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[5:10])
-                trending_better = recent_blunders < older_blunders
+            # Find weakest motif (highest "got" count)
+            weakest_motif = None
+            max_got = -1
+            for motif_name, stats in motif_data.items():
+                if motif_name in ("made_sound", "made_tunnel"):
+                    continue
+                got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
+                if got_count > max_got:
+                    max_got = got_count
+                    weakest_motif = motif_name
 
-            result["problem"] = {
-                "category": category,
-                "count": count,
-                "anger": anger,
-                "trending_better": trending_better,
-            }
+            if weakest_motif and max_got > 0:
+                motif_problem = {
+                    "category": weakest_motif,
+                    "count": max_got,
+                    "anger": "recurring",
+                    "trending_better": False,
+                    "motif": True,
+                }
+
+        # If we have a motif problem, use it
+        if motif_problem:
+            result["problem"] = motif_problem
         else:
-            # Fallback: if no active problem, try motif profile weakness
-            prof = await db.player_profiles.find_one(
-                {"user_id": user_id},
-                {"_id": 0, "motif_profile": 1}
-            )
-            if prof and prof.get("motif_profile"):
-                motif_data = prof.get("motif_profile", {})
+            # Fallback to problem_lifecycle
+            problems = await db.problem_lifecycle.find(
+                {"user_id": user_id, "state": "active"},
+                {"_id": 0, "category": 1, "count": 1, "anger": 1}
+            ).sort("count", -1).to_list(3)
 
-                # Find weakest motif (highest "got" count)
-                weakest_motif = None
-                max_got = -1
-                for motif_name, stats in motif_data.items():
-                    if motif_name in ("made_sound", "made_tunnel"):
-                        continue
-                    got_count = stats.get("got", 0) if isinstance(stats, dict) else 0
-                    if got_count > max_got:
-                        max_got = got_count
-                        weakest_motif = motif_name
+            if problems:
+                top = problems[0]
+                category = top.get("category", "")
+                count = top.get("count", 0)
+                anger = top.get("anger", "first_time")
 
-                if weakest_motif and max_got > 0:
-                    result["problem"] = {
-                        "category": weakest_motif,
-                        "count": max_got,
-                        "anger": "recurring",
-                        "trending_better": False,
-                        "motif": True,
-                    }
+                # Check recent trend — compare last 5 games vs previous 5
+                trending_better = False
+                if len(recent_analyses) >= 10:
+                    recent_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[:5])
+                    older_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[5:10])
+                    trending_better = recent_blunders < older_blunders
+
+                result["problem"] = {
+                    "category": category,
+                    "count": count,
+                    "anger": anger,
+                    "trending_better": trending_better,
+                }
     except Exception as e:
         logger.warning(f"[COACH-HOME] Problem detection failed: {e}")
 
