@@ -1,17 +1,15 @@
 /**
- * HOME — A text from your coach.
+ * HOME — One coach. One priority. One week.
  *
- * Implements `redesign/01_Home.html`:
- *   - Greeting strip (one line, quiet)
- *   - Hero prescription (via <TodayHero/>, editorial variant)
- *   - Evidence (last session recap + optional improvement trend)
- *   - Nav tiles (quiet four-up)
+ * NEW DESIGN (2026-07-11):
+ *   - Coach's opening (personality, one-sentence focus for the week)
+ *   - TODAY (immediate exercise from active training)
+ *   - You're improving (proof: metrics since training started)
+ *   - Next in queue (detected but not started)
+ *   - TRACKING (held for later decision)
  *
- * All data paths and onboarding flows are preserved from the previous
- * HomePage. Engine 1 + Engine 2 prescriptions are still driven by
- * /api/today inside <TodayHero/>. The old mood-based layered sections
- * ("celebrating / encouraging / confronting / neutral") collapse into a
- * single Evidence block that speaks in one voice regardless of mood.
+ * Removes: generic rules, progress bars on untouched items, info overload.
+ * Focuses: singular active training plan. Everything else is queued.
  */
 
 import { useState, useEffect } from "react";
@@ -83,10 +81,40 @@ const HomePage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [hasGames, setHasGames] = useState(false);
   const [proof, setProof] = useState(null);
+  const [prescription, setPrescription] = useState(null);
+  const [todayExercise, setTodayExercise] = useState(null);
+  const [queuedIssues, setQueuedIssues] = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
+        // Fetch primary prescription + modules
+        const presRes = await fetch(`${API}/coaching/current-prescriptions`, { credentials: "include" });
+        if (presRes.ok) {
+          const presData = await presRes.json();
+          const activePres = presData.prescriptions?.find(p => p.status === 'active');
+          if (activePres) {
+            setPrescription(activePres);
+
+            // Fetch modules for this prescription to get today's exercise
+            const modRes = await fetch(
+              `${API}/coaching/training-modules?prescription_id=${activePres.prescription_id}`,
+              { credentials: "include" }
+            );
+            if (modRes.ok) {
+              const modData = await modRes.json();
+              // Today's exercise is first module
+              if (modData.modules && modData.modules.length > 0) {
+                setTodayExercise(modData.modules[0]);
+              }
+              // Queued are other modules
+              if (modData.modules && modData.modules.length > 1) {
+                setQueuedIssues(modData.modules.slice(1));
+              }
+            }
+          }
+        }
+
         const [homeRes, dashRes, proofRes] = await Promise.all([
           fetch(`${API}/home/coach-home`, { credentials: "include" }),
           fetch(`${API}/home/dashboard-v2`, { credentials: "include" }),

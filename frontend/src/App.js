@@ -12,7 +12,7 @@ import RefundPolicy from "@/pages/RefundPolicy";
 import ContactUs from "@/pages/ContactUs";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
-import HomePage from "@/pages/HomePage";  // NEW focused homepage
+import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07-11)
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
@@ -246,7 +246,7 @@ function AppRouter() {
       } />
       <Route path="/home" element={
         <ProtectedRoute>
-          {({ user }) => <HomePage user={user} />}
+          {({ user }) => <HomePageNew user={user} />}
         </ProtectedRoute>
       } />
       {/* /today is now an alias for /home — one landing page */}

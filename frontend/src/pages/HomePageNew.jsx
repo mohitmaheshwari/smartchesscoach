@@ -1,0 +1,317 @@
+/**
+ * HOME — One coach. One priority. One week.
+ *
+ * NEW DESIGN (2026-07-11):
+ *   - Coach's opening (personality, one-sentence focus)
+ *   - TODAY (immediate exercise from active training)
+ *   - You're improving (proof metrics)
+ *   - Next in queue (detected but not started)
+ *   - Navigation tiles
+ *
+ * Removes: generic rules, progress bars on untouched, info overload.
+ * Focuses: singular active training plan.
+ */
+
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { API } from "@/App";
+import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
+import Layout from "@/components/Layout";
+import {
+  ChevronRight,
+  Swords,
+  FlaskConical,
+  Target,
+  BookOpen,
+  Import,
+  ArrowRight,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+
+const timeOfDayGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 5) return "Up late";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+};
+
+const formatWhen = () => {
+  const now = new Date();
+  const day = now.toLocaleDateString(undefined, { weekday: "long" });
+  const time = now.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${day} · ${time}`;
+};
+
+const NAV = [
+  { id: "play", icon: Swords, label: "Play with Coach", sub: "coached games", href: "/play-with-coach" },
+  { id: "lab", icon: FlaskConical, label: "Lab", sub: "review games", href: "/lab" },
+  { id: "training", icon: Target, label: "Training", sub: "drill patterns", href: "/training" },
+  { id: "openings", icon: BookOpen, label: "Openings", sub: "your repertoire", href: "/openings" },
+];
+
+export default function HomePageNew({ user }) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [hasGames, setHasGames] = useState(false);
+  const [prescription, setPrescription] = useState(null);
+  const [todayExercise, setTodayExercise] = useState(null);
+  const [proof, setProof] = useState(null);
+  const [queuedModules, setQueuedModules] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Check if user has games
+        const dashRes = await fetch(`${API}/home/dashboard-v2`, { credentials: "include" });
+        if (dashRes.ok) {
+          const d = await dashRes.json();
+          if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
+        }
+
+        // Fetch active prescription
+        const presRes = await fetch(`${API}/coaching/current-prescriptions`, { credentials: "include" });
+        if (presRes.ok) {
+          const presData = await presRes.json();
+          const activePres = presData.prescriptions?.find(p => p.status === 'active');
+          if (activePres) {
+            setPrescription(activePres);
+
+            // Fetch modules for today's exercise
+            const modRes = await fetch(
+              `${API}/coaching/training-modules?prescription_id=${activePres.prescription_id}`,
+              { credentials: "include" }
+            );
+            if (modRes.ok) {
+              const modData = await modRes.json();
+              if (modData.modules && modData.modules.length > 0) {
+                setTodayExercise(modData.modules[0]);
+                if (modData.modules.length > 1) {
+                  setQueuedModules(modData.modules.slice(1));
+                }
+              }
+            }
+          }
+        }
+
+        // Fetch improvement proof
+        const proofRes = await fetch(`${API}/progress/improvement-proof`, { credentials: "include" });
+        if (proofRes.ok) {
+          setProof(await proofRes.json());
+        }
+      } catch (e) {
+        console.error("Error loading home data:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // ─── Pretty name ───────────────────────────────────────────────────
+  const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
+  const firstName = rawName.split(/[._-]/).filter(Boolean)[0] || "";
+  const displayName =
+    firstName.length <= 12
+      ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+      : "";
+
+  // ─── Onboarding ────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <Layout user={user}>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!hasGames) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-[640px] mx-auto px-6 md:px-10 py-12 md:py-16" data-testid="home-page">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+            <div className="flex items-baseline justify-between">
+              <p className="text-muted-foreground text-[13px]">
+                {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
+              </p>
+              <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+            </div>
+
+            <section>
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+                First session
+              </p>
+              <h1 className="font-serif text-[32px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[560px]">
+                I'm your personal chess coach. Let's find out how you play.
+              </h1>
+              <p className="mt-6 text-[14px] text-muted-foreground max-w-[520px] leading-relaxed">
+                Play a game and I'll watch how you think. No preparation — your natural game is what I need to see.
+              </p>
+
+              <div className="mt-10 flex flex-wrap items-center gap-5">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate("/play-with-coach")}
+                  className="h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Swords className="h-4 w-4" strokeWidth={2} />
+                  Play my first game
+                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                </motion.button>
+              </div>
+            </section>
+
+            <section className="pt-8 border-t border-border/60">
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
+                Already play elsewhere?
+              </p>
+              <p className="text-[13.5px] text-muted-foreground mb-5 leading-relaxed max-w-[480px]">
+                Connect your Chess.com or Lichess account and I'll analyze your existing games.
+              </p>
+              <button
+                onClick={() => navigate("/import")}
+                className="text-[13px] text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
+              >
+                <Import className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Connect Chess.com or Lichess
+              </button>
+            </section>
+          </motion.div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ─── Main page ──────────────────────────────────────────────────────
+  return (
+    <Layout user={user}>
+      <motion.div
+        variants={pageEnter}
+        initial="initial"
+        animate="animate"
+        className="max-w-[880px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        data-testid="home-page"
+      >
+        <motion.div variants={staggerContainer} initial="initial" animate="animate">
+          {/* ─── GREETING ─── */}
+          <motion.div variants={fadeInUp} className="flex items-baseline justify-between mb-10 md:mb-12">
+            <p className="text-muted-foreground text-[13px]">
+              {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
+            </p>
+            <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+          </motion.div>
+
+          {/* ─── COACH OPENING ─── */}
+          {prescription && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="p-6 rounded-lg border border-blue-200/50 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+                <p className="text-[14px] leading-relaxed text-foreground">
+                  <span className="font-medium">Coach:</span> "This week we're fixing one thing.{" "}
+                  <span className="font-semibold">{prescription.reasoning}</span> For the next seven days, I only want you to focus on your {prescription.issue_detected} training."
+                </p>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── TODAY ─── */}
+          {todayExercise && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                Today
+              </div>
+              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+                <h3 className="text-[16px] font-semibold text-foreground mb-2">{todayExercise.title}</h3>
+                <p className="text-[13px] text-muted-foreground mb-4">{todayExercise.description}</p>
+                <button
+                  onClick={() => navigate(`/training/prescribed?plan=${prescription?.plan_id}`)}
+                  className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                >
+                  Practice
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+                {todayExercise.duration_minutes && (
+                  <p className="text-[11px] text-muted-foreground mt-3">
+                    Estimated: {todayExercise.duration_minutes} min
+                  </p>
+                )}
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── YOU'RE IMPROVING ─── */}
+          {proof?.has_data && proof?.primary_pattern?.reduction_pct > 0 && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                You're improving
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-50/50 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200 dark:border-emerald-900/50 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <div className="pt-1">
+                    <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-medium text-foreground mb-1">
+                      {proof.primary_pattern.reduction_pct}% fewer events per game
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {proof.primary_pattern.recent_count} events across {proof.primary_pattern.games_checked} games (7d). Keep the discipline.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── NEXT IN QUEUE ─── */}
+          {queuedModules.length > 0 && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                Coming up next
+              </div>
+              <div className="space-y-3">
+                {queuedModules.map((mod, i) => (
+                  <div key={i} className="p-4 rounded-lg border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                    <p className="text-[14px] font-medium text-foreground mb-1">{mod.title}</p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {mod.puzzle_count} puzzles · {mod.duration_minutes} min
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── TRACKING (held) ─── */}
+          {/* Section reserved for future decision */}
+
+          {/* ─── NAVIGATION TILES ─── */}
+          <motion.section variants={fadeInUp} className="mt-16 pt-12 border-t border-border/40">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {NAV.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(item.href)}
+                    className="group p-4 rounded-lg border border-border/60 hover:border-border bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-left"
+                  >
+                    <Icon className="w-5 h-5 text-foreground/70 group-hover:text-foreground mb-3 transition-colors" strokeWidth={1.5} />
+                    <p className="text-[12px] font-medium text-foreground">{item.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{item.sub}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.section>
+        </motion.div>
+      </motion.div>
+    </Layout>
+  );
+}
