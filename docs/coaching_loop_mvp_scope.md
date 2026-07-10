@@ -4,35 +4,51 @@
 
 ---
 
-## Phase 1: Issue Aggregation (Backend Fix)
+## Phase 1: Issue Aggregation ✅ COMPLETE
 **Problem:** Recommendation engine only analyzes last 10 games, missing 90% of user's patterns.
 
 **Solution:**
-- Aggregate cognitive gaps from ALL user games (not last 10)
-- Count frequency of each issue type
-- Weight by recency (recent issues matter more)
-- Identify top 3 issues per user
+- ✅ Aggregate cognitive gaps from ALL 585 user games (not just last 10)
+- ✅ Count frequency with recency weighting (games 0-9 weight=1.0, older weighted 0.5+decay)
+- ✅ Identify top 3-5 issues per user
+- ✅ Fixed prescription data with proper baseline/current metrics
 
-**Output:** Better recommendations based on complete history
+**Output:** Recommendations now based on complete game history with recency bias
 
-**Testing:** Verify top issues match actual game patterns
+**Verified:** User_8b599930d7ef has 293 mistakes analyzed, prescriptions created with accurate metrics
 
 ---
 
 ## Phase 2: Training Content Wiring
-**Problem:** Accepting prescription navigates to `/training/prescribed` but nothing happens.
+
+### Part A: PWC Integration ✅ COMPLETE
+- ✅ PWC auto-detects active training plans at session start
+- ✅ Sets coaching_focus to training plan's cognitive_gap
+- ✅ Coach feedback emphasizes the trained gap
+- ✅ Deployed and verified live
+
+**Verified:** Tactical Calculation Trainer → coaching_focus = calculation_depth
+
+### Part B: Game Review Integration ✅ COMPLETE
+- ✅ Game review endpoint enriches moves with related_training_plans
+- ✅ Frontend displays blue "Training: [Plan Name]" badges
+- ✅ Badges link to `/training/prescribed?plan={plan_id}`
+- ✅ Deployed and verified live
+
+**Verified:** Game review shows training badges on related mistakes
+
+### Part C: Training Modules Content Wiring ⏳ NEXT
+**Problem:** Accepting prescription navigates to `/training/prescribed` but training content not yet displayed.
 
 **Solution:**
-- Create training modules for each plan
-- When prescription accepted → load first module
-- Module should have:
-  - Puzzles relevant to the issue
-  - Educational content
-  - Progress tracking
+- Fetch training modules for active prescription
+- Display module list with progress tracking
+- Load puzzles from community_puzzles for each module
+- Track puzzle solve progress per module
 
-**Output:** Real training flow starts when user accepts
+**Output:** User sees actual training content when accepts prescription
 
-**Testing:** Accept prescription → see training content
+**Testing:** Accept prescription → see training modules and puzzles
 
 ---
 

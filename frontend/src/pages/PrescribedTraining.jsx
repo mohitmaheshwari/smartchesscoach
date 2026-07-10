@@ -72,6 +72,12 @@ export default function PrescribedTraining() {
   const { pattern: patternFromUrl } = useParams();
   const weakness = searchParams.get("weakness") || patternFromUrl || "current";
   
+  // [PART C] Module and prescription state
+  const planId = searchParams.get("plan");
+  const [modules, setModules] = useState(null);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [modulesLoading, setModulesLoading] = useState(false);
+
   // Data state
   const [trainingData, setTrainingData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -183,7 +189,50 @@ export default function PrescribedTraining() {
 
     fetchTraining();
   }, [weakness, selectedDifficulty]);
-  
+
+  // [PART C] Fetch training modules if plan is specified
+  useEffect(() => {
+    if (!planId) return;
+
+    const fetchModules = async () => {
+      setModulesLoading(true);
+      try {
+        // Get active prescription for this plan
+        const presRes = await fetch(`${API}/coaching/current-prescriptions`, {
+          credentials: "include"
+        });
+        if (!presRes.ok) throw new Error("Failed to fetch prescriptions");
+
+        const presData = await presRes.json();
+        const pres = presData.prescriptions?.find(p => p.plan_id === planId && p.status === "active");
+
+        if (!pres) throw new Error("No active prescription for this plan");
+
+        // Fetch modules for this prescription
+        const modRes = await fetch(
+          `${API}/coaching/training-modules?prescription_id=${pres.prescription_id}`,
+          { credentials: "include" }
+        );
+        if (!modRes.ok) throw new Error("Failed to fetch training modules");
+
+        const modData = await modRes.json();
+        setModules(modData);
+
+        // Auto-select first module
+        if (modData.modules && modData.modules.length > 0) {
+          setSelectedModule(modData.modules[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching modules:", err);
+        setError("Failed to load training modules");
+      } finally {
+        setModulesLoading(false);
+      }
+    };
+
+    fetchModules();
+  }, [planId]);
+
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
   
@@ -451,6 +500,47 @@ export default function PrescribedTraining() {
           <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
           Back
         </button>
+
+        {/* [PART C] Module selector — shown when viewing a training plan */}
+        {modules && modules.modules && modules.modules.length > 0 && (
+          <div className="mb-10 p-5 rounded-lg border border-blue-200 bg-blue-50">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">{modules.plan_name}</h2>
+              <p className="text-sm text-gray-600 mt-1">{modules.description}</p>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Module</p>
+              <div className="flex flex-wrap gap-2">
+                {modules.modules.map((mod, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedModule(mod)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedModule?.module_id === mod.module_id
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {mod.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedModule && (
+              <div className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200">
+                <p className="font-medium mb-1">{selectedModule.title}</p>
+                <p>{selectedModule.description}</p>
+                {selectedModule.duration_minutes && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    Estimated time: {selectedModule.duration_minutes} min
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── Page head: focus + progress pips ─── */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-10 md:mb-14">
