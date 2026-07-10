@@ -41,6 +41,9 @@ from mission_generation_service import (
 from reflect_constants import RewardEventType
 from reward_message_service import get_reward_message
 
+# Import coaching system initialization
+from services.coaching_model import initialize_coaching_system
+
 # ==================== SETUP ====================
 
 ROOT_DIR = Path(__file__).parent
@@ -223,6 +226,12 @@ async def analysis_queue_fallback_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _background_sync_task, _quick_sync_task, _analysis_queue_fallback_task
+
+    # Initialize coaching system (creates collections and seeds training plans)
+    try:
+        await initialize_coaching_system(db)
+    except Exception as e:
+        logger.error(f"Error initializing coaching system: {e}")
 
     _background_sync_task = asyncio.create_task(background_sync_loop())
     logger.info("Background sync scheduler started (6 hour interval)")

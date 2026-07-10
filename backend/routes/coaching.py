@@ -390,6 +390,14 @@ async def get_next_prescription_recommendation(
                 {"_id": 0}
             )
 
+        # If no training plans exist at all, return error
+        if not recommended_plan:
+            logger.warning(f"No training plans found for user {user.user_id}")
+            raise HTTPException(
+                status_code=503,
+                detail="Training plans are not yet available. Please check back soon."
+            )
+
         # Get alternative plans (related gaps or same difficulty)
         alternatives = await db.training_plans.find(
             {
