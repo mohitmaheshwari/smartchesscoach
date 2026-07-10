@@ -1,20 +1,21 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function PrescriptionCard({ prescription, isPrimary }) {
+  const navigate = useNavigate()
   const [accepting, setAccepting] = useState(false)
   const [alternativeOpen, setAlternativeOpen] = useState(false)
 
   const handleAccept = async () => {
     try {
       setAccepting(true)
-      const token = localStorage.getItem('authToken')
       const response = await fetch(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/accept-prescription`,
         {
           method: 'POST',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` })
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             prescription_id: prescription.prescription_id
@@ -22,7 +23,10 @@ export default function PrescriptionCard({ prescription, isPrimary }) {
         }
       )
       if (response.ok) {
-        window.location.reload()
+        // Navigate to the prescribed training page
+        navigate('/training/prescribed')
+      } else {
+        console.error('Failed to accept prescription:', response.statusText)
       }
     } catch (err) {
       console.error('Failed to accept prescription:', err)
@@ -99,7 +103,10 @@ export default function PrescriptionCard({ prescription, isPrimary }) {
       )}
 
       {prescription.status === 'active' && (
-        <button className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200">
+        <button
+          onClick={() => navigate('/training/prescribed')}
+          className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200"
+        >
           Continue Training Plan
         </button>
       )}
