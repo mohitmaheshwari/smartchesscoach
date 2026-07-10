@@ -1063,3 +1063,180 @@ async def get_training_modules(
     except Exception as e:
         logger.error(f"Error fetching training modules for {user.user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching modules: {str(e)}")
+
+
+# ==================== ENDPOINT 9: GET /api/coaching/recommendations-with-accuracy ====================
+
+@router.get("/recommendations-with-accuracy")
+async def get_recommendations_with_accuracy(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get top 5 recommended training plans with data-backed accuracy.
+
+    For each recommendation:
+    - Shows actual cp_loss data from user's games
+    - Calculates estimated elo rating improvement
+    - Provides confidence score based on sample size
+    - Shows ranges (conservative, realistic, optimistic)
+
+    Returns top 5 cognitive gaps to train on, ranked by impact.
+    """
+    global db
+
+    try:
+        # 1. Fetch all user games with analyses
+        games = await db.games.find({"user_id": user.user_id}).to_list(None)
+        if not games:
+            return {"recommendations": [], "error": "No games found"}
+
+        game_ids = [g["game_id"] for g in games]
+
+        # 2. Fetch all analyses for these games
+        analyses = await db.game_analyses.find(
+            {"game_id": {"$in": game_ids}}
+        ).to_list(None)
+
+        # 3. Aggregate cp_loss by cognitive_gap
+        gap_data = {}
+
+        for analysis in analyses:
+            moves = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+            for move in moves:
+                # Only count user mistakes (not opponent moves)
+                if move.get("is_opponent_move"):
+                    continue
+
+                gap = move.get("cognitive_gap")
+                cp_loss = move.get("cp_loss", 0)
+
+                if gap and cp_loss and cp_loss > 0:
+                    if gap not in gap_data:
+                        gap_data[gap] = {
+                            "cp_losses": [],
+                            "mistakes": 0,
+                            "games_with_gap": set(),
+                            "game_dates": []
+                        }
+
+                    gap_data[gap]["cp_losses"].append(cp_loss)
+                    gap_data[gap]["mistakes"] += 1
+                    # Track which games had this gap
+                    game_id = analysis.get("game_id")
+                    if game_id:
+                        gap_data[gap]["games_with_gap"].add(game_id)
+                        # Get game date
+                        game = next((g for g in games if g["game_id"] == game_id), None)
+                        if game:
+                            gap_data[gap]["game_dates"].append(game.get("date_played"))
+
+        # 4. Calculate metrics for each gap
+        recommendations = []
+
+        for gap, data in gap_data.items():
+            if data["mistakes"] < 3:  # Minimum sample size
+                continue
+
+            # Calculate totals and averages
+            total_cp_loss = sum(data["cp_losses"])
+            avg_cp_loss = total_cp_loss / data["mistakes"]
+            num_games = len(data["games_with_gap"])
+
+            # Calculate confidence score
+            # Higher sample size = higher confidence
+            confidence = min(100, 50 + (data["mistakes"] * 2))  # 50% base + 2% per mistake
+
+            # ELO conversion: roughly 30-35 cp = 1 elo
+            # Conservative: fix to 70% accuracy = recover 70% of cp_loss
+            # Realistic: fix to 85% accuracy = recover 85% of cp_loss
+            # Optimistic: fix to 95% accuracy = recover 95% of cp_loss
+            cp_per_elo = 32
+
+            conservative_cp_recovery = total_cp_loss * 0.70
+            realistic_cp_recovery = total_cp_loss * 0.85
+            optimistic_cp_recovery = total_cp_loss * 0.95
+
+            conservative_elo = int(conservative_cp_recovery / cp_per_elo)
+            realistic_elo = int(realistic_cp_recovery / cp_per_elo)
+            optimistic_elo = int(optimistic_cp_recovery / cp_per_elo)
+
+            # Get recency (days since last mistake in this gap)
+            if data["game_dates"]:
+                sorted_dates = sorted([d for d in data["game_dates"] if d], reverse=True)
+                last_occurrence = sorted_dates[0] if sorted_dates else None
+                if last_occurrence:
+                    try:
+                        last_date = datetime.fromisoformat(str(last_occurrence))
+                        days_ago = (datetime.now(timezone.utc) - last_date).days
+                    except:
+                        days_ago = None
+                else:
+                    days_ago = None
+            else:
+                days_ago = None
+
+            # Get training plan for this gap
+            training_plan = await db.training_plans.find_one(
+                {"cognitive_gap": gap}
+            )
+
+            recommendations.append({
+                "rank": None,  # Will be set after sorting
+                "gap": gap,
+                "plan_id": training_plan.get("plan_id") if training_plan else None,
+                "plan_name": training_plan.get("name") if training_plan else gap.replace("_", " ").title(),
+                "description": training_plan.get("description") if training_plan else None,
+
+                # Data evidence
+                "total_cp_loss": total_cp_loss,
+                "mistake_count": data["mistakes"],
+                "avg_cp_loss_per_mistake": round(avg_cp_loss, 1),
+                "games_affected": num_games,
+                "recent_games": num_games,  # Last N games with this gap
+
+                # Rating improvement estimates
+                "rating_improvement": {
+                    "conservative": {
+                        "elo_gain": conservative_elo,
+                        "recovery_pct": 70,
+                        "description": f"Fix to 70% accuracy"
+                    },
+                    "realistic": {
+                        "elo_gain": realistic_elo,
+                        "recovery_pct": 85,
+                        "description": f"Fix to 85% accuracy"
+                    },
+                    "optimistic": {
+                        "elo_gain": optimistic_elo,
+                        "recovery_pct": 95,
+                        "description": f"Fix to 95% accuracy"
+                    }
+                },
+
+                # Confidence & recency
+                "confidence_pct": confidence,
+                "last_mistake_days_ago": days_ago,
+                "status": "active" if days_ago and days_ago <= 7 else "past"
+            })
+
+        # 5. Sort by realistic elo gain and rank
+        recommendations.sort(
+            key=lambda x: x["rating_improvement"]["realistic"]["elo_gain"],
+            reverse=True
+        )
+
+        # Assign ranks
+        for i, rec in enumerate(recommendations[:5], 1):
+            rec["rank"] = i
+
+        # Return top 5
+        return {
+            "recommendations": recommendations[:5],
+            "total_gaps_detected": len(gap_data),
+            "games_analyzed": len(games),
+            "last_updated": datetime.now(timezone.utc).isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculating recommendations with accuracy for {user.user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error calculating recommendations: {str(e)}")
