@@ -230,6 +230,14 @@ async def record_prescription_history(
 
 def build_prescription_response(pres_doc: Dict, plan_doc: Optional[Dict] = None) -> PrescriptionResponse:
     """Convert database document to API response"""
+    from datetime import datetime
+
+    def to_iso_string(value):
+        """Convert datetime to ISO string, or return as-is if already a string"""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
     return PrescriptionResponse(
         prescription_id=pres_doc["prescription_id"],
         plan_id=pres_doc["plan_id"],
@@ -245,12 +253,12 @@ def build_prescription_response(pres_doc: Dict, plan_doc: Optional[Dict] = None)
         current_module=pres_doc.get("current_module"),
         puzzles_completed=pres_doc.get("puzzles_completed", 0),
         puzzle_accuracy=pres_doc.get("puzzle_accuracy", 0.0),
-        started_at=pres_doc.get("started_at"),
-        completed_at=pres_doc.get("completed_at"),
+        started_at=to_iso_string(pres_doc.get("started_at")),
+        completed_at=to_iso_string(pres_doc.get("completed_at")),
         expected_completion_date=pres_doc.get("expected_completion_date", ""),
         notes=pres_doc.get("notes", ""),
-        created_at=pres_doc.get("created_at", ""),
-        updated_at=pres_doc.get("updated_at", ""),
+        created_at=to_iso_string(pres_doc.get("created_at", "")),
+        updated_at=to_iso_string(pres_doc.get("updated_at", "")),
         plan_details=TrainingPlan(**plan_doc) if plan_doc else None
     )
 
