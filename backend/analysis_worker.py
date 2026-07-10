@@ -2001,7 +2001,36 @@ def process_job(db, job):
                 logger.info(f"[TRAINING] Extracted {len(positions)} training positions for {game_id}")
         except Exception as train_err:
             logger.warning(f"[TRAINING] Position extraction failed (non-critical): {train_err}")
-        
+
+        # =========================================================================
+        # PHASE 10: COACHING ENGINE
+        # Generate personalized coaching decisions based on game issues
+        # =========================================================================
+        try:
+            from services.coaching_engine import process_game_for_coaching
+
+            coaching_result = process_game_for_coaching(
+                db,
+                game_id,
+                user_id,
+                move_evaluations,
+                user_rating,
+                user_color,
+                game.get("time_control", "rapid")
+            )
+
+            if coaching_result and "error" not in coaching_result:
+                logger.info(
+                    f"[COACHING_ENGINE] Generated coaching for {game_id}: "
+                    f"issues={coaching_result.get('detected_issues', 0)}, "
+                    f"prescription={coaching_result.get('prescription', {}).get('primary_issue', 'none') if coaching_result.get('prescription') else 'none'}"
+                )
+            else:
+                logger.warning(f"[COACHING_ENGINE] Failed to generate coaching: {coaching_result.get('error', 'unknown')}")
+        except Exception as coaching_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[COACHING_ENGINE] Failed to process coaching (non-fatal): {coaching_err}")
+
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         
