@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import CoachRecommendationsGrid from "@/components/CoachRecommendationsGrid";
 import {
   ChevronRight,
   Swords,
@@ -207,6 +208,11 @@ export default function HomePageNew({ user }) {
             </p>
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
+
+          {/* ─── COACH RECOMMENDATIONS & PLAN SELECTION ─── */}
+          <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
+            <CoachRecommendationsGrid />
+          </motion.section>
 
           {/* ─── COACH OPENING ─── */}
           {prescription && (
