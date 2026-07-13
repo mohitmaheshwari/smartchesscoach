@@ -1,18 +1,16 @@
 """
-Move Evaluation Endpoint
-Real-time move evaluation using the caption pipeline (build_move_teaching_decision)
+Move Evaluation Endpoint (Training)
+Routes to the proven game_decryption_v5 flow used by review pages.
+One source of truth for all captions - no parallel systems.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, List
-import chess
-import subprocess
+from typing import Optional
 import logging
-import json
 
 from routes.auth import get_current_user, User
-from services.caption_pipeline import MoveInputs, CrossMoveState, build_move_teaching_decision
+from services.game_decryption_v5_service import generate_game_decryption_v5
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/move-eval", tags=["Move Evaluation"])
@@ -25,172 +23,111 @@ def set_db(database):
     db = database
 
 
-class MoveEvaluationRequest(BaseModel):
-    """Request to evaluate a move"""
-    fen: str
-    user_move_san: str
-    user_rating: Optional[int] = 1500
-    user_color: Optional[str] = "white"
-    full_move_number: Optional[int] = 1
-    move_history_san: Optional[List[str]] = None
+class MoveTeachingRequest(BaseModel):
+    """Request to get teaching caption for a move in a game"""
+    game_id: str
+    move_number: int  # 1-indexed full move number (1, 2, 3, etc.)
 
 
 class MoveTeachingResponse(BaseModel):
-    """Teaching response from caption pipeline"""
+    """Teaching response from the review pipeline"""
     caption_text: str
     severity: str
     teaching_meta: dict
-    # Raw engine data for debugging / flagging
     engine_data: dict
-
-
-def get_stockfish_analysis(position_fen: str, depth: int = 20) -> dict:
-    """Query Stockfish for move analysis."""
-    try:
-        result = subprocess.run(
-            ['/usr/games/stockfish'],
-            input=f"position fen {position_fen}\ngo depth {depth}\n",
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-
-        output = result.stdout
-        best_move = None
-        evaluation = None
-        best_line_uci = None
-
-        for line in output.split('\n'):
-            if 'bestmove ' in line:
-                parts = line.split('bestmove ')
-                if len(parts) > 1:
-                    best_move = parts[1].split()[0]
-
-            if 'depth 20' in line and 'score cp' in line:
-                if 'pv ' in line:
-                    pv_parts = line.split('pv ')
-                    if len(pv_parts) > 1:
-                        best_line_uci = pv_parts[1].strip()
-
-                if 'cp ' in line:
-                    cp_parts = line.split('cp ')
-                    if len(cp_parts) > 1:
-                        try:
-                            evaluation = int(cp_parts[1].split()[0])
-                        except:
-                            pass
-
-        return {
-            'best_move': best_move,
-            'evaluation': evaluation,
-            'best_line_uci': best_line_uci
-        }
-
-    except Exception as e:
-        logger.error(f"Stockfish error: {e}")
-        return {'best_move': None, 'evaluation': None, 'best_line_uci': None}
 
 
 @router.post("/teaching-caption")
 async def get_teaching_caption(
-    req: MoveEvaluationRequest,
+    req: MoveTeachingRequest,
     user: User = Depends(get_current_user)
 ) -> MoveTeachingResponse:
     """
-    Get teaching caption using the central caption pipeline.
-    Queries Stockfish, builds MoveInputs, calls build_move_teaching_decision.
+    Get teaching caption for a move using the SAME pipeline as game review.
+
+    This ensures training and review use ONE source of truth for captions.
+    The caption includes full game context (trap history, pattern tracking,
+    eval history, opening detection) - not just the isolated position.
     """
 
     try:
-        # Validate FEN and parse user's move
-        board = chess.Board(req.fen)
-
-        try:
-            user_move_obj = board.push_san(req.user_move_san)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid move: {req.user_move_san}")
-
-        # Stockfish analysis for position after user's move
-        fen_after_user = board.fen()
-        user_analysis = get_stockfish_analysis(fen_after_user)
-
-        # Stockfish analysis for original position (to find best move)
-        board_orig = chess.Board(req.fen)
-        best_analysis = get_stockfish_analysis(board_orig.fen())
-
-        if not best_analysis['best_move']:
-            raise HTTPException(status_code=500, detail="Could not analyze position")
-
-        # Stockfish analysis for position after best move
-        board_best = chess.Board(req.fen)
-        try:
-            best_move_obj = board_best.push_uci(best_analysis['best_move'])
-            best_analysis_after = get_stockfish_analysis(board_best.fen())
-        except:
-            best_analysis_after = {'evaluation': None, 'best_line_uci': None}
-
-        # Convert UCI best move to SAN
-        board_for_san = chess.Board(req.fen)
-        best_move_san = board_for_san.san(chess.Move.from_uci(best_analysis['best_move']))
-
-        # Calculate cp_loss
-        eval_before = best_analysis['evaluation'] or 0
-        eval_after_user = user_analysis['evaluation'] or 0
-        eval_after_best = best_analysis_after['evaluation'] or eval_before
-        cp_loss = eval_after_best - eval_after_user
-
-        # Build MoveInputs for the caption pipeline
-        move_inputs = MoveInputs(
-            fen_before=req.fen,
-            played_san=req.user_move_san,
-            mover_is_user=True,
-            mover_is_white=(req.user_color.lower() == "white"),
-            user_color=req.user_color.lower(),
-            full_move_number=req.full_move_number or 1,
-            move_history_san=req.move_history_san or [],
-            best_move_san=best_move_san,
-            eval_before_cp=eval_before,
-            eval_after_cp=eval_after_user,
-            cp_loss=max(0, cp_loss),
-            pv_after_played=best_analysis['best_line_uci'].split() if best_analysis['best_line_uci'] else [],
-            pv_after_best=best_analysis_after.get('best_line_uci', '').split() if best_analysis_after.get('best_line_uci') else [],
-            user_rating=req.user_rating or 1500
+        # Fetch the game
+        game = await db.games.find_one(
+            {"game_id": req.game_id, "user_id": user.user_id},
+            {"_id": 0}
         )
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
 
-        # Call the central caption pipeline
-        state = CrossMoveState()
-        decision = build_move_teaching_decision(move_inputs, state)
+        if not game.get("is_analyzed"):
+            raise HTTPException(
+                status_code=400,
+                detail="Game must be analyzed first (use /api/games/analyze endpoint)"
+            )
 
-        # Extract the teaching meta
+        # Fetch the game analysis (contains move_evaluations array)
+        analysis = await db.game_analyses.find_one(
+            {"game_id": req.game_id},
+            {"_id": 0}
+        )
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Game analysis not found")
+
+        # Generate full game decryption (this is the review pipeline)
+        decryption = await generate_game_decryption_v5(db, game, analysis)
+
+        if not decryption or "moves" not in decryption:
+            raise HTTPException(status_code=500, detail="Could not decrypt game")
+
+        # Find the move we want
+        moves = decryption["moves"]
+        # moves array is indexed by full_move_number (1, 2, 3, ...)
+        # Need to find the move at this index
+        target_move = None
+        for move_data in moves:
+            if move_data.get("full_move_number") == req.move_number:
+                target_move = move_data
+                break
+
+        if not target_move:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Move {req.move_number} not found in game"
+            )
+
+        # Extract the caption and metadata
+        caption_text = target_move.get("caption", "")
+        severity = target_move.get("severity", "context")
+
+        # Teaching metadata
         teaching_meta_dict = {
-            "severity": decision.teaching_meta.severity,
-            "severity_canonical": decision.teaching_meta.severity_canonical,
-            "caption_tier": decision.teaching_meta.caption_tier,
-            "has_teaching_content": decision.teaching_meta.has_teaching_content,
+            "severity": severity,
+            "severity_canonical": target_move.get("severity_canonical", "good"),
+            "caption_tier": target_move.get("caption_tier", "NONE"),
+            "has_teaching_content": len(caption_text) > 10,  # Heuristic: non-empty teaching
         }
 
-        # Return raw engine data for debugging/flagging
+        # Engine data from the analysis
         engine_data_dict = {
-            "user_move_san": req.user_move_san,
-            "best_move_san": best_move_san,
-            "eval_before_cp": eval_before,
-            "eval_after_user_cp": eval_after_user,
-            "eval_after_best_cp": eval_after_best,
-            "cp_loss": max(0, cp_loss),
-            "user_rating": req.user_rating,
-            "move_number": req.full_move_number,
+            "move_san": target_move.get("move", ""),
+            "best_move_san": target_move.get("best_move", ""),
+            "cp_loss": target_move.get("cp_loss", 0),
+            "eval_before_cp": target_move.get("eval_before", 0),
+            "eval_after_cp": target_move.get("eval_after", 0),
+            "classification": target_move.get("classification", ""),
+            "cognitive_gap": target_move.get("cognitive_gap", ""),
+            "move_number": req.move_number,
         }
 
         return MoveTeachingResponse(
-            caption_text=decision.text.caption or "",
-            severity=decision.teaching_meta.severity or "context",
+            caption_text=caption_text,
+            severity=severity,
             teaching_meta=teaching_meta_dict,
             engine_data=engine_data_dict
         )
 
-    except chess.InvalidMoveError as e:
-        logger.error(f"Invalid move error: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid move: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error in move evaluation: {e}")
-        raise HTTPException(status_code=500, detail=f"Error evaluating move: {str(e)}")
+        logger.error(f"Error in move teaching caption: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
