@@ -81,7 +81,7 @@ class TrainingPlan(BaseModel):
 class PrescriptionResponse(BaseModel):
     """User's current or historical prescription"""
     prescription_id: str
-    plan_id: str
+    plan_id: Optional[str]
     plan_name: str
     status: str
     issue_detected: str
