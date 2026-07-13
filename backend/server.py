@@ -312,6 +312,7 @@ from routes import streak as streak_routes
 from routes import voice as voice_routes
 from routes import gamification as gamification_routes
 from routes import admin as admin_routes
+from routes import move_evaluation as move_evaluation_routes
 from routes import caption_authoring as caption_authoring_routes
 from routes import thinking as thinking_routes
 from routes import home as home_routes
@@ -421,6 +422,10 @@ app.include_router(thinking_routes.router, prefix="/api")
 app.include_router(home_routes.router, prefix="/api")
 app.include_router(interactive_routes.router, prefix="/api")
 app.include_router(analysis_routes.router, prefix="/api")
+
+# Move evaluation routes (Stockfish-based teaching captions)
+move_evaluation_routes.set_db(db)
+app.include_router(move_evaluation_routes.router, prefix="/api")
 app.include_router(player_routes.router, prefix="/api")
 app.include_router(training_advanced_routes.router, prefix="/api")
 app.include_router(coach_advanced_routes.router, prefix="/api")
