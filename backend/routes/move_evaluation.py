@@ -40,6 +40,8 @@ class MoveTeachingResponse(BaseModel):
     caption_text: str
     severity: str
     teaching_meta: dict
+    # Raw engine data for debugging / flagging
+    engine_data: dict
 
 
 def get_stockfish_analysis(position_fen: str, depth: int = 20) -> dict:
@@ -167,10 +169,23 @@ async def get_teaching_caption(
             "has_teaching_content": decision.teaching_meta.has_teaching_content,
         }
 
+        # Return raw engine data for debugging/flagging
+        engine_data_dict = {
+            "user_move_san": req.user_move_san,
+            "best_move_san": best_move_san,
+            "eval_before_cp": eval_before,
+            "eval_after_user_cp": eval_after_user,
+            "eval_after_best_cp": eval_after_best,
+            "cp_loss": max(0, cp_loss),
+            "user_rating": req.user_rating,
+            "move_number": req.full_move_number,
+        }
+
         return MoveTeachingResponse(
             caption_text=decision.text.caption or "",
             severity=decision.teaching_meta.severity or "context",
-            teaching_meta=teaching_meta_dict
+            teaching_meta=teaching_meta_dict,
+            engine_data=engine_data_dict
         )
 
     except chess.InvalidMoveError as e:
