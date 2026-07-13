@@ -22,6 +22,14 @@ from datetime import datetime, timezone, timedelta
 import logging
 import uuid
 
+from services.prescription_tracking_service import (
+    calculate_baseline_metric,
+    calculate_current_metric,
+    calculate_improvement_percentage,
+    check_auto_close_eligibility,
+    mark_prescription_complete,
+)
+
 logger = logging.getLogger(__name__)
 
 # Create router for coaching endpoints
@@ -506,9 +514,19 @@ async def accept_prescription(
         now = datetime.now(timezone.utc)
         started_at = pres.get("started_at") or now.isoformat()
 
+        # Calculate baseline metric (cp_loss in this gap before training)
+        cognitive_gap = pres.get("issue_detected", "")
+        baseline_cp_loss, baseline_games = await calculate_baseline_metric(
+            db, user.user_id, cognitive_gap
+        )
+
+        # Initialize current_metric to baseline (no improvement yet)
         update_data = {
             "status": "active",
             "started_at": started_at,
+            "baseline_metric": baseline_cp_loss,
+            "current_metric": baseline_cp_loss,  # Start at baseline
+            "improvement_pct": 0.0,  # No improvement yet
             "updated_at": now.isoformat()
         }
 
@@ -517,6 +535,11 @@ async def accept_prescription(
             plan = await get_plan_by_id(pres["plan_id"])
             if plan and plan.get("modules"):
                 update_data["current_module"] = plan["modules"][0]["module_id"]
+
+        logger.info(
+            f"Activating prescription {pres['prescription_id']} for user {user.user_id}. "
+            f"Baseline: {baseline_cp_loss}cp from {baseline_games} games, gap={cognitive_gap}"
+        )
 
         await db.user_coaching_prescriptions.update_one(
             {
@@ -1187,10 +1210,25 @@ async def get_recommendations_with_accuracy(
                 {"cognitive_gap": gap}
             )
 
+            plan_id = training_plan.get("plan_id") if training_plan else None
+
+            # Look up pending prescription for this plan
+            # (created when recommendations were first generated)
+            pending_pres = await db.user_coaching_prescriptions.find_one(
+                {
+                    "user_id": user.user_id,
+                    "plan_id": plan_id,
+                    "status": "pending"
+                },
+                {"_id": 0, "prescription_id": 1}
+            )
+            prescription_id = pending_pres.get("prescription_id") if pending_pres else None
+
             recommendations.append({
                 "rank": None,  # Will be set after sorting
                 "gap": gap,
-                "plan_id": training_plan.get("plan_id") if training_plan else None,
+                "plan_id": plan_id,
+                "prescription_id": prescription_id,  # For frontend activation
                 "plan_name": training_plan.get("name") if training_plan else gap.replace("_", " ").title(),
                 "description": training_plan.get("description") if training_plan else None,
 
@@ -1247,3 +1285,189 @@ async def get_recommendations_with_accuracy(
     except Exception as e:
         logger.error(f"Error calculating recommendations with accuracy for {user.user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error calculating recommendations: {str(e)}")
+
+
+# ==================== ENDPOINT: POST /api/coaching/check-auto-close ====================
+
+@router.post("/check-auto-close")
+async def check_auto_close(
+    user: User = Depends(get_current_user)
+):
+    """
+    Check all active prescriptions for auto-close eligibility.
+
+    For each active prescription:
+    1. Verify minimum games played since training started (>=3)
+    2. Calculate current_metric (cp_loss after training started)
+    3. Compare against baseline_metric
+    4. If improvement >= 50%, mark as completed
+
+    Returns:
+        List of prescriptions with their eligibility status and metrics
+    """
+    global db
+
+    try:
+        # Fetch all active prescriptions for user
+        active_prescriptions = await db.user_coaching_prescriptions.find(
+            {
+                "user_id": user.user_id,
+                "status": "active"
+            }
+        ).to_list(None)
+
+        results = []
+
+        for pres in active_prescriptions:
+            prescription_id = pres.get("prescription_id")
+            baseline_cp = pres.get("baseline_metric", 0.0)
+            started_at_str = pres.get("started_at")
+
+            # Check eligibility
+            should_close, metadata = await check_auto_close_eligibility(
+                db,
+                prescription_id,
+                user.user_id,
+                baseline_cp,
+                started_at_str
+            )
+
+            result = {
+                "prescription_id": prescription_id,
+                "plan_name": pres.get("plan_name", ""),
+                "cognitive_gap": pres.get("issue_detected", ""),
+                "status": pres.get("status"),
+                "baseline_metric": baseline_cp,
+                "eligible_for_close": should_close,
+                "details": metadata
+            }
+
+            # If eligible, mark as completed
+            if should_close:
+                current_cp = metadata.get("current")
+                await mark_prescription_complete(
+                    db,
+                    prescription_id,
+                    user.user_id,
+                    baseline_cp,
+                    current_cp
+                )
+                result["action_taken"] = "auto_closed"
+                logger.info(
+                    f"Auto-closed prescription {prescription_id} for user {user.user_id}. "
+                    f"Improvement: {metadata.get('improvement', 0)*100:.1f}%"
+                )
+            else:
+                result["action_taken"] = "none"
+
+            results.append(result)
+
+        return {
+            "status": "success",
+            "checked_prescriptions": len(active_prescriptions),
+            "auto_closed": sum(1 for r in results if r["action_taken"] == "auto_closed"),
+            "results": results
+        }
+
+    except Exception as e:
+        logger.error(f"Error checking auto-close for {user.user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error checking auto-close: {str(e)}")
+
+
+# ==================== ENDPOINT: GET /api/coaching/prescription/{prescription_id}/progress ====================
+
+@router.get("/prescription/{prescription_id}/progress")
+async def get_prescription_progress(
+    prescription_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get detailed progress tracking for a specific prescription.
+
+    Returns:
+    - baseline_metric: cp_loss at activation
+    - current_metric: cp_loss after training
+    - improvement_pct: percentage improvement
+    - games_analyzed: how many games analyzed since start
+    - modules_completed: progress through training modules
+    - eligibility_status: whether ready for auto-close
+    """
+    global db
+
+    try:
+        # Fetch prescription
+        pres = await db.user_coaching_prescriptions.find_one(
+            {
+                "prescription_id": prescription_id,
+                "user_id": user.user_id
+            },
+            {"_id": 0}
+        )
+
+        if not pres:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+
+        # If still active, calculate current metrics
+        if pres.get("status") == "active":
+            cognitive_gap = pres.get("issue_detected", "")
+            started_at_str = pres.get("started_at")
+            baseline_cp = pres.get("baseline_metric", 0.0)
+
+            # Calculate current metric
+            current_cp, games_count = await calculate_current_metric(
+                db, user.user_id, cognitive_gap, started_at_str
+            )
+
+            # Calculate improvement
+            improvement = calculate_improvement_percentage(baseline_cp, current_cp)
+
+            # Check auto-close eligibility
+            eligible, eligibility_details = await check_auto_close_eligibility(
+                db, prescription_id, user.user_id, baseline_cp, started_at_str
+            )
+
+            progress_data = {
+                "prescription_id": prescription_id,
+                "plan_name": pres.get("plan_name", ""),
+                "cognitive_gap": cognitive_gap,
+                "status": pres.get("status"),
+                "started_at": started_at_str,
+                "baseline_metric": baseline_cp,
+                "current_metric": current_cp,
+                "improvement_pct": round(improvement * 100, 1),
+                "games_analyzed_since_start": games_count,
+                "modules_completed": pres.get("modules_completed", []),
+                "puzzles_completed": pres.get("puzzles_completed", 0),
+                "puzzle_accuracy": pres.get("puzzle_accuracy", 0.0),
+                "auto_close_eligible": eligible,
+                "auto_close_details": eligibility_details
+            }
+        else:
+            # Prescription is completed or pending
+            progress_data = {
+                "prescription_id": prescription_id,
+                "plan_name": pres.get("plan_name", ""),
+                "cognitive_gap": pres.get("issue_detected", ""),
+                "status": pres.get("status"),
+                "started_at": pres.get("started_at"),
+                "completed_at": pres.get("completed_at"),
+                "baseline_metric": pres.get("baseline_metric", 0.0),
+                "current_metric": pres.get("current_metric", 0.0),
+                "improvement_pct": pres.get("improvement_pct", 0.0),
+                "modules_completed": pres.get("modules_completed", []),
+                "puzzles_completed": pres.get("puzzles_completed", 0),
+                "puzzle_accuracy": pres.get("puzzle_accuracy", 0.0),
+                "auto_close_eligible": False,
+                "auto_close_details": {}
+            }
+
+        return {
+            "status": "success",
+            "progress": progress_data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching prescription progress: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching progress: {str(e)}")

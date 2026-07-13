@@ -74,14 +74,38 @@ export default function CoachRecommendationsGrid() {
   const topRecommendation = recommendations[0];
   const otherPlans = recommendations.slice(1);
 
-  const handleStartPlan = async (planId, planName) => {
+  const handleStartPlan = async (planId, planName, prescriptionId) => {
     setAccepting(planId);
     try {
-      // For now, navigate to the training page
-      // In production, this would accept the prescription first
+      // Activate the prescription
+      if (!prescriptionId) {
+        throw new Error("No prescription ID found for this plan");
+      }
+
+      const acceptRes = await fetch(
+        `${API}/coaching/accept-prescription`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            prescription_id: prescriptionId,
+            plan_id: planId,
+            start_immediately: true
+          })
+        }
+      );
+
+      if (!acceptRes.ok) {
+        const errData = await acceptRes.json();
+        throw new Error(errData.detail || "Failed to activate prescription");
+      }
+
+      // Navigate to training page
       navigate(`/training/prescribed?plan=${planId}`);
     } catch (err) {
       console.error("Error starting plan:", err);
+      setError(`Failed to start plan: ${err.message}`);
     } finally {
       setAccepting(null);
     }
@@ -157,8 +181,8 @@ export default function CoachRecommendationsGrid() {
 
           {/* CTA */}
           <button
-            onClick={() => handleStartPlan(topRecommendation.plan_id, topRecommendation.plan_name)}
-            disabled={accepting === topRecommendation.plan_id}
+            onClick={() => handleStartPlan(topRecommendation.plan_id, topRecommendation.plan_name, topRecommendation.prescription_id)}
+            disabled={accepting === topRecommendation.plan_id || !topRecommendation.prescription_id}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             {accepting === topRecommendation.plan_id ? "Starting..." : "Start This Training Plan"}
@@ -215,8 +239,8 @@ export default function CoachRecommendationsGrid() {
 
                   {/* Button */}
                   <button
-                    onClick={() => handleStartPlan(plan.plan_id, plan.plan_name)}
-                    disabled={accepting === plan.plan_id || isActive}
+                    onClick={() => handleStartPlan(plan.plan_id, plan.plan_name, plan.prescription_id)}
+                    disabled={accepting === plan.plan_id || isActive || !plan.prescription_id}
                     className={`w-full py-2 rounded font-medium text-[13px] transition-colors ${
                       isActive
                         ? "bg-emerald-100 text-emerald-700 cursor-default"
