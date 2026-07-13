@@ -1160,6 +1160,13 @@ async def get_recommendations_with_accuracy(
             realistic_elo = int(realistic_cp_recovery / cp_per_elo)
             optimistic_elo = int(optimistic_cp_recovery / cp_per_elo)
 
+            # Cap elo gains to realistic ranges (typical training yields 10-50 elo)
+            # Based on: fixing ONE cognitive gap won't yield 10k+ elo improvement
+            max_elo_gain = 75  # Realistic ceiling per training plan
+            conservative_elo = min(conservative_elo, max_elo_gain)
+            realistic_elo = min(realistic_elo, max_elo_gain)
+            optimistic_elo = min(optimistic_elo, max_elo_gain)
+
             # Get recency (days since last mistake in this gap)
             if data["game_dates"]:
                 sorted_dates = sorted([d for d in data["game_dates"] if d], reverse=True)
