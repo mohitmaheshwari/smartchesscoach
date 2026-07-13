@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Layout from "@/components/Layout";
 import ChessBoardViewer from "@/components/ChessBoardViewer";
+import useMoveCaption from "@/hooks/useMoveCaption";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -188,13 +189,16 @@ const GameAnalysis = ({ user }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialMove = searchParams.get('move');
-  
+
   const [game, setGame] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [initialMoveHandled, setInitialMoveHandled] = useState(false);
+
+  // Move caption from unified pipeline
+  const { caption: moveCaption, loading: captionLoading, fetchCaption } = useMoveCaption();
   
   // V5 Decryption data
   const [decryptionData, setDecryptionData] = useState(null);
@@ -1038,6 +1042,11 @@ const GameAnalysis = ({ user }) => {
                               onClick={() => {
                                 setCurrentMoveIndex(idx);
                                 boardRef.current?.goToMove(idx);
+                                // Fetch unified caption for this move (move_number is 1-indexed full move)
+                                const moveNumber = move.move_number || (idx + 2) / 2;
+                                if (gameId && moveNumber) {
+                                  fetchCaption(gameId, moveNumber);
+                                }
                               }}
                               className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
                                 isActive 
