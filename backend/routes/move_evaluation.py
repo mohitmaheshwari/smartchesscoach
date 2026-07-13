@@ -1,17 +1,18 @@
 """
 Move Evaluation Endpoint
-Evaluates moves in real-time during training and returns coaching captions
+Real-time move evaluation using the caption pipeline (build_move_teaching_decision)
 """
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import chess
 import subprocess
 import logging
+import json
 
 from routes.auth import get_current_user, User
-from services.move_teaching_template import build_move_caption
+from services.caption_pipeline import MoveInputs, CrossMoveState, build_move_teaching_decision
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/move-eval", tags=["Move Evaluation"])
@@ -29,25 +30,20 @@ class MoveEvaluationRequest(BaseModel):
     fen: str
     user_move_san: str
     user_rating: Optional[int] = 1500
+    user_color: Optional[str] = "white"
+    full_move_number: Optional[int] = 1
+    move_history_san: Optional[List[str]] = None
 
 
 class MoveTeachingResponse(BaseModel):
-    """Teaching caption for a move"""
-    classification: str
-    move_played: str
-    best_move: str
-    cp_loss: float
-    headline: str
-    analysis: str
-    best_plan: str
-    show_teaching: bool
+    """Teaching response from caption pipeline"""
+    caption_text: str
+    severity: str
+    teaching_meta: dict
 
 
 def get_stockfish_analysis(position_fen: str, depth: int = 20) -> dict:
-    """
-    Query Stockfish for move analysis.
-    Returns: best_move, evaluation, principal_variation
-    """
+    """Query Stockfish for move analysis."""
     try:
         result = subprocess.run(
             ['/usr/games/stockfish'],
@@ -60,40 +56,37 @@ def get_stockfish_analysis(position_fen: str, depth: int = 20) -> dict:
         output = result.stdout
         best_move = None
         evaluation = None
-        best_line = None
+        best_line_uci = None
 
-        # Parse Stockfish output
         for line in output.split('\n'):
             if 'bestmove ' in line:
                 parts = line.split('bestmove ')
                 if len(parts) > 1:
                     best_move = parts[1].split()[0]
 
-            # Get latest score and pv for depth 20
             if 'depth 20' in line and 'score cp' in line:
                 if 'pv ' in line:
                     pv_parts = line.split('pv ')
                     if len(pv_parts) > 1:
-                        best_line = pv_parts[1].strip()
+                        best_line_uci = pv_parts[1].strip()
 
                 if 'cp ' in line:
                     cp_parts = line.split('cp ')
                     if len(cp_parts) > 1:
                         try:
-                            score_str = cp_parts[1].split()[0]
-                            evaluation = int(score_str)
+                            evaluation = int(cp_parts[1].split()[0])
                         except:
                             pass
 
         return {
             'best_move': best_move,
             'evaluation': evaluation,
-            'best_line': best_line
+            'best_line_uci': best_line_uci
         }
 
     except Exception as e:
         logger.error(f"Stockfish error: {e}")
-        return {'best_move': None, 'evaluation': None, 'best_line': None}
+        return {'best_move': None, 'evaluation': None, 'best_line_uci': None}
 
 
 @router.post("/teaching-caption")
@@ -102,60 +95,74 @@ async def get_teaching_caption(
     user: User = Depends(get_current_user)
 ) -> MoveTeachingResponse:
     """
-    Get an AI-generated teaching caption for a move.
-
-    Evaluates the move using Stockfish and returns a coaching explanation.
-
-    Example:
-        Input: FEN + move "Nxd4"
-        Output: Classification, best move, cp_loss, and English teaching caption
+    Get teaching caption using the central caption pipeline.
+    Queries Stockfish, builds MoveInputs, calls build_move_teaching_decision.
     """
 
     try:
-        # Validate FEN
+        # Validate FEN and parse user's move
         board = chess.Board(req.fen)
 
-        # Parse user's move in SAN notation
         try:
-            user_move = board.push_san(req.user_move_san)
+            user_move_obj = board.push_san(req.user_move_san)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid move: {req.user_move_san}")
 
-        # Get position after user's move
+        # Stockfish analysis for position after user's move
         fen_after_user = board.fen()
-        user_eval = get_stockfish_analysis(fen_after_user)
+        user_analysis = get_stockfish_analysis(fen_after_user)
 
-        # Reset and get best move in original position
-        board = chess.Board(req.fen)
-        best_analysis = get_stockfish_analysis(board.fen())
+        # Stockfish analysis for original position (to find best move)
+        board_orig = chess.Board(req.fen)
+        best_analysis = get_stockfish_analysis(board_orig.fen())
 
         if not best_analysis['best_move']:
             raise HTTPException(status_code=500, detail="Could not analyze position")
 
-        # Get position after best move
-        board.push_san(chess.Move.from_uci(best_analysis['best_move']).uci())
-        best_fen = board.fen()
-        best_eval_data = get_stockfish_analysis(best_fen)
+        # Stockfish analysis for position after best move
+        board_best = chess.Board(req.fen)
+        try:
+            best_move_obj = board_best.push_uci(best_analysis['best_move'])
+            best_analysis_after = get_stockfish_analysis(board_best.fen())
+        except:
+            best_analysis_after = {'evaluation': None, 'best_line_uci': None}
 
-        # Build the teaching caption
-        caption = build_move_caption(
-            user_move=req.user_move_san,
-            best_move=chess.Move.from_uci(best_analysis['best_move']).uci(),
-            your_eval=user_eval['evaluation'] or 0,
-            best_eval=best_eval_data['evaluation'] or 0,
-            best_line=best_eval_data['best_line'],
-            user_rating=req.user_rating
+        # Convert UCI best move to SAN
+        board_for_san = chess.Board(req.fen)
+        best_move_san = board_for_san.san(chess.Move.from_uci(best_analysis['best_move']))
+
+        # Calculate cp_loss
+        eval_before = best_analysis['evaluation'] or 0
+        eval_after_user = user_analysis['evaluation'] or 0
+        eval_after_best = best_analysis_after['evaluation'] or eval_before
+        cp_loss = eval_after_best - eval_after_user
+
+        # Build MoveInputs for the caption pipeline
+        move_inputs = MoveInputs(
+            fen_before=req.fen,
+            played_san=req.user_move_san,
+            mover_is_user=True,
+            mover_is_white=(req.user_color.lower() == "white"),
+            user_color=req.user_color.lower(),
+            full_move_number=req.full_move_number or 1,
+            move_history_san=req.move_history_san or [],
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before,
+            eval_after_cp=eval_after_user,
+            cp_loss=max(0, cp_loss),
+            pv_after_played=best_analysis['best_line_uci'].split() if best_analysis['best_line_uci'] else [],
+            pv_after_best=best_analysis_after.get('best_line_uci', '').split() if best_analysis_after.get('best_line_uci') else [],
+            user_rating=req.user_rating or 1500
         )
 
+        # Call the central caption pipeline
+        state = CrossMoveState()
+        decision = build_move_teaching_decision(move_inputs, state)
+
         return MoveTeachingResponse(
-            classification=caption['classification'],
-            move_played=caption['move_played'],
-            best_move=caption['best_move'],
-            cp_loss=caption['cp_loss'],
-            headline=caption['headline'],
-            analysis=caption['analysis'],
-            best_plan=caption['best_plan'],
-            show_teaching=caption['show_teaching']
+            caption_text=decision.caption_text or "",
+            severity=decision.severity or "inaccuracy",
+            teaching_meta=decision.teaching_meta or {}
         )
 
     except chess.InvalidMoveError as e:
