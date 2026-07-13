@@ -1212,17 +1212,54 @@ async def get_recommendations_with_accuracy(
 
             plan_id = training_plan.get("plan_id") if training_plan else None
 
-            # Look up pending prescription for this plan
-            # (created when recommendations were first generated)
+            # Look up pending prescription for this gap
+            # If it doesn't exist, create it on-the-fly (lazy creation)
             pending_pres = await db.user_coaching_prescriptions.find_one(
                 {
                     "user_id": user.user_id,
-                    "plan_id": plan_id,
+                    "issue_detected": gap,
                     "status": "pending"
                 },
                 {"_id": 0, "prescription_id": 1}
             )
-            prescription_id = pending_pres.get("prescription_id") if pending_pres else None
+
+            if pending_pres:
+                prescription_id = pending_pres.get("prescription_id")
+            else:
+                # Auto-create pending prescription for this gap
+                prescription_id = str(uuid.uuid4())
+                now = datetime.now(timezone.utc)
+                duration_weeks = training_plan.get("duration_weeks", 4) if training_plan else 4
+                expected_completion = (now + timedelta(weeks=duration_weeks)).isoformat()
+
+                new_pres = {
+                    "prescription_id": prescription_id,
+                    "user_id": user.user_id,
+                    "plan_id": plan_id,
+                    "plan_name": training_plan.get("name") if training_plan else gap.replace("_", " ").title(),
+                    "status": "pending",
+                    "issue_detected": gap,
+                    "reasoning": f"Auto-detected from game analysis: {data['mistakes']} mistakes in this gap",
+                    "baseline_metric": 0.0,
+                    "current_metric": 0.0,
+                    "improvement_pct": 0.0,
+                    "started_at": None,
+                    "completed_at": None,
+                    "expected_completion_date": expected_completion,
+                    "priority_order": i + 1 if 'i' in locals() else 999,
+                    "modules_completed": [],
+                    "current_module": None,
+                    "puzzles_completed": 0,
+                    "puzzle_accuracy": 0.0,
+                    "notes": "",
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat()
+                }
+
+                await db.user_coaching_prescriptions.insert_one(new_pres)
+                logger.info(
+                    f"Auto-created pending prescription {prescription_id} for {user.user_id} gap {gap}"
+                )
 
             recommendations.append({
                 "rank": None,  # Will be set after sorting
