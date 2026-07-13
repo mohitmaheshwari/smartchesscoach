@@ -159,10 +159,18 @@ async def get_teaching_caption(
         state = CrossMoveState()
         decision = build_move_teaching_decision(move_inputs, state)
 
+        # Extract the teaching meta
+        teaching_meta_dict = {
+            "severity": decision.teaching_meta.severity,
+            "severity_canonical": decision.teaching_meta.severity_canonical,
+            "caption_tier": decision.teaching_meta.caption_tier,
+            "has_teaching_content": decision.teaching_meta.has_teaching_content,
+        }
+
         return MoveTeachingResponse(
-            caption_text=decision.caption_text or "",
-            severity=decision.severity or "inaccuracy",
-            teaching_meta=decision.teaching_meta or {}
+            caption_text=decision.text.caption or "",
+            severity=decision.teaching_meta.severity or "context",
+            teaching_meta=teaching_meta_dict
         )
 
     except chess.InvalidMoveError as e:
