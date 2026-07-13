@@ -1100,15 +1100,42 @@ const CoachPlay = ({ user }) => {
     }
   };
 
+  // Fetch active training prescriptions to personalize coaching
+  const fetchActiveTrainingFocus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/coaching/current-prescriptions`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const prescriptions = await res.json();
+        // Return first active prescription's cognitive gap (if any)
+        if (prescriptions && prescriptions.length > 0) {
+          return prescriptions[0].cognitive_gap; // e.g., "piece_safety", "king_safety", etc.
+        }
+      }
+    } catch (e) {
+      console.warn("[CoachPlay] Failed to fetch training focus:", e);
+    }
+    return null;
+  }, []);
+
   const startGame = async () => {
     await actuallyStartGame();
   };
-  
+
   const actuallyStartGame = async () => {
     setShowPreGameStreakPopup(false);
     setLoading(true);
     // Reset emotional state tracking for new game
     setBlundersThisGame(0);
+
+    // Fetch active training focus + pre-game banner
+    let trainingFocusCognitivGap = null;
+    try {
+      trainingFocusCognitivGap = await fetchActiveTrainingFocus();
+    } catch (e) {
+      console.warn("[CoachPlay] Error fetching training focus:", e);
+    }
 
     // Fetch active focus rule for pre-game banner
     try {
@@ -1157,6 +1184,11 @@ const CoachPlay = ({ user }) => {
       if (focusFromUrl) {
         requestBody.teaching_focus = focusFromUrl;
         console.log("[CoachPlay] Sending opening_name:", selectedOpening, "guided_mode:", guidedMode);
+      }
+      // Pass active training prescription's cognitive gap for personalized coaching
+      if (trainingFocusCognitivGap) {
+        requestBody.training_focus_cognitive_gap = trainingFocusCognitivGap;
+        console.log("[CoachPlay] Training focus cognitive gap:", trainingFocusCognitivGap);
       }
       
       // If in practice mode, use custom starting position

@@ -762,11 +762,15 @@ def _generate_coaching_message(
     eval_after: float = 0.0,
     user_color: str = "white",
     extra_meta_ctx: Optional[Dict] = None,
+    active_training_cognitive_gap: Optional[str] = None,  # User's active training focus
+    move_cognitive_gap: Optional[str] = None,  # This move's detected cognitive gap
 ) -> Dict[str, Any]:
     """
     Generate a human-like coaching message in Indian-English style.
     Rating-aware: beginners get simpler, more encouraging messages.
-    
+    If active_training_cognitive_gap is set, personalizes based on whether
+    this move's gap matches the training focus.
+
     Returns dict with:
     - coaching_message: Main message
     - socratic_question: Question to ask (for mistakes/blunders)
@@ -774,14 +778,33 @@ def _generate_coaching_message(
     - pattern_reference: If relates to recurring pattern
     """
     import random
-    
+
+    def _personalize_with_training_focus(base_message: str, is_mistake: bool) -> str:
+        """Add training context if the move relates to active training gap."""
+        if not active_training_cognitive_gap or not move_cognitive_gap:
+            return base_message
+
+        gap_match = move_cognitive_gap == active_training_cognitive_gap
+
+        if gap_match and is_mistake:
+            # On-topic mistake — emphasize it's part of training
+            return f"{base_message} This is exactly what we're training on right now."
+        elif not gap_match and is_mistake:
+            # Off-topic mistake — gently redirect
+            return f"{base_message} Keep focused on {active_training_cognitive_gap} today."
+        elif gap_match and not is_mistake:
+            # On-topic success — reinforce
+            return f"{base_message} That's the {move_cognitive_gap} discipline you're building."
+
+        return base_message
+
     result = {
         "coaching_message": "",
         "socratic_question": None,
         "encouragement": None,
         "expects_response": False
     }
-    
+
     is_beginner = user_rating < 1000
 
     # ========== BRILLIANT MOVES ==========
@@ -831,6 +854,8 @@ def _generate_coaching_message(
         ])
         context = _move_context(user_move, tactical_analysis)
         result["coaching_message"] = f"{base}{context}"
+        # Personalize for training focus (reinforce if on-topic)
+        result["coaching_message"] = _personalize_with_training_focus(result["coaching_message"], is_mistake=False)
         # No "{best} was a touch sharper" on a GOOD move — the move is good,
         # and second-guessing every solid move reads as nagging (Mohit
         # 2026-06-08, PWC caption audit). Promote an alternative only on
@@ -910,6 +935,9 @@ def _generate_coaching_message(
                 reveal_parts.append(f"The move to find was {best_move}.")
             result["coaching_message"] = " ".join(reveal_parts)
 
+        # Personalize based on training focus
+        result["coaching_message"] = _personalize_with_training_focus(result["coaching_message"], is_mistake=True)
+
         # One tight, honest acknowledgment — no platitudes
         result["encouragement"] = "Even strong players miss this kind of thing."
         return result
@@ -967,6 +995,9 @@ def _generate_coaching_message(
                 reveal_parts.append(f"The move was {best_move}.")
             result["coaching_message"] = " ".join(reveal_parts)
 
+        # Personalize based on training focus
+        result["coaching_message"] = _personalize_with_training_focus(result["coaching_message"], is_mistake=True)
+
         # One tight, honest acknowledgment — these moves are the ones that fade
         result["encouragement"] = "These are the moves that fade once you slow down on captures."
         return result
@@ -981,7 +1012,8 @@ async def generate_move_feedback(
     session_id: str,
     move_number: int,
     user_id: str,
-    use_chess_brain: bool = False  # DISABLED: see comment below
+    use_chess_brain: bool = False,  # DISABLED: see comment below
+    active_training_cognitive_gap: Optional[str] = None  # User's active training focus (e.g., "piece_safety")
 ) -> Optional[MoveFeedback]:
     """
     Generate comprehensive feedback for a specific move in a session.
@@ -1003,6 +1035,11 @@ async def generate_move_feedback(
             → contrastive explanation with best move, blunder → Socratic +
             contrastive). Re-enable only after lesson selection is fixed
             to surface lessons only when they actually match the position.
+        active_training_cognitive_gap: If set, personalizes coaching message
+            based on whether the move's gap matches the active training gap.
+            Used for training-aware coaching where mistakes in the active
+            area get emphasis, off-topic mistakes get a redirect, and
+            on-topic successes get reinforcement.
 
     Returns:
         MoveFeedback object with all analysis
@@ -1277,6 +1314,9 @@ async def generate_move_feedback(
             ],
         }
 
+        # Extract move's cognitive gap for training-aware personalization
+        move_cognitive_gap = user_move_data.get("cognitive_gap") if user_move_data else None
+
         coaching_result = _generate_coaching_message(
             user_move=user_move,
             quality=quality,
@@ -1291,8 +1331,10 @@ async def generate_move_feedback(
             eval_after=eval_after,
             user_color=user_color,
             extra_meta_ctx=extra_meta_ctx,
+            active_training_cognitive_gap=active_training_cognitive_gap,  # Pass training focus for personalization
+            move_cognitive_gap=move_cognitive_gap,  # Pass this move's cognitive gap
         )
-        
+
         coaching_message = coaching_result.get("coaching_message", "")
         socratic_question = coaching_result.get("socratic_question")
         expects_response = coaching_result.get("expects_response", False)
@@ -1906,19 +1948,28 @@ async def get_last_move_feedback(db, session_id: str, user_id: str) -> Optional[
     session = await db.coach_sessions.find_one({"session_id": session_id}, {"_id": 0})
     if not session:
         return None
-    
+
     move_history = session.get("move_history", [])
-    
+
     # Count user moves
     user_move_count = sum(1 for m in move_history if m.get("by") == "player")
-    
+
     if user_move_count == 0:
         return None
-    
-    # Generate feedback for the last user move
-    feedback = await generate_move_feedback(db, session_id, user_move_count, user_id)
-    
+
+    # Fetch active training cognitive gap for personalized coaching
+    active_training_gap = session.get("active_training_cognitive_gap")
+
+    # Generate feedback for the last user move with training context
+    feedback = await generate_move_feedback(
+        db,
+        session_id,
+        user_move_count,
+        user_id,
+        active_training_cognitive_gap=active_training_gap
+    )
+
     if feedback:
         return feedback.to_dict()
-    
+
     return None

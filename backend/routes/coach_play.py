@@ -6453,6 +6453,7 @@ async def start_play_with_coach(
     opening_name = request.get("opening_name", None)  # Opening name from user's repertoire
     guided_mode = request.get("guided_mode", True)  # True = arrows+ideas, False = test mode
     teaching_focus = request.get("teaching_focus", None)  # e.g. "tactics", "king_safety", "endgame_technique"
+    training_focus_cognitive_gap = request.get("training_focus_cognitive_gap", None)  # Active training plan's cognitive gap
 
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -6644,6 +6645,11 @@ async def start_play_with_coach(
                     logger.info(f"[COACH-START] Curriculum focus: {memory.learning.current_focus} -> teaching_focus={mapped}")
             except Exception:
                 pass
+
+        # Store active training prescription's cognitive gap for personalized coaching
+        if training_focus_cognitive_gap:
+            focus_update["active_training_cognitive_gap"] = training_focus_cognitive_gap
+            logger.info(f"[COACH-START] Active training cognitive gap: {training_focus_cognitive_gap}")
 
         if focus_update:
             await db.coach_sessions.update_one(
