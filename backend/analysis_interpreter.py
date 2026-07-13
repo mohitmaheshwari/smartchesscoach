@@ -885,7 +885,9 @@ def _precedence_adjust(cognitive_gap, move):
             if queens == 0:  # Aggressive: just check queens are off
                 try:
                     pc = board.piece_at(chess.parse_square(uci[:2]))
-                    if pc and pc.piece_type == chess.KING:
+                    # Reclassify king or pawn moves in endgame to endgame_technique
+                    # (both are about positioning, not safety threats)
+                    if pc and (pc.piece_type == chess.KING or pc.piece_type == chess.PAWN):
                         return "endgame_technique"
                 except Exception:
                     pass

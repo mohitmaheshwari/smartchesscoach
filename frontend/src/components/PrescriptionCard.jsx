@@ -1,10 +1,63 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function PrescriptionCard({ prescription, isPrimary }) {
   const navigate = useNavigate()
   const [accepting, setAccepting] = useState(false)
   const [alternativeOpen, setAlternativeOpen] = useState(false)
+  const [progress, setProgress] = useState(null)
+  const [loadingProgress, setLoadingProgress] = useState(false)
+
+  // Fetch fresh progress data from endpoint
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!prescription?.prescription_id) return
+
+      try {
+        setLoadingProgress(true)
+        const response = await fetch(
+          `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/prescription/${prescription.prescription_id}/progress`,
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+        if (response.ok) {
+          const data = await response.json()
+          setProgress(data)
+        } else {
+          console.error('Failed to fetch prescription progress:', response.statusText)
+          // Fall back to prescription metrics if endpoint fails
+          setProgress({
+            improvement_pct: prescription.improvement_pct || 0,
+            current_metric: prescription.current_metric,
+            games_analyzed_since_start: 0,
+            puzzles_completed: 0,
+            puzzle_accuracy: 0,
+            auto_close_eligible: false
+          })
+        }
+      } catch (err) {
+        console.error('Error fetching prescription progress:', err)
+        // Fallback to prescription data
+        setProgress({
+          improvement_pct: prescription.improvement_pct || 0,
+          current_metric: prescription.current_metric,
+          games_analyzed_since_start: 0,
+          puzzles_completed: 0,
+          puzzle_accuracy: 0,
+          auto_close_eligible: false
+        })
+      } finally {
+        setLoadingProgress(false)
+      }
+    }
+
+    fetchProgress()
+  }, [prescription?.prescription_id])
 
   const handleAccept = async () => {
     try {
@@ -63,14 +116,17 @@ export default function PrescriptionCard({ prescription, isPrimary }) {
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
           <span className="font-medium">Progress</span>
-          <span className="text-gray-600">{Math.round(prescription.improvement_pct)}%</span>
+          <span className="text-gray-600">{progress ? Math.round(progress.improvement_pct) : '—'}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
-            className={`h-2 rounded-full transition-all ${getProgressColor(prescription.improvement_pct)}`}
-            style={{ width: `${Math.min(prescription.improvement_pct, 100)}%` }}
+            className={`h-2 rounded-full transition-all ${getProgressColor(progress?.improvement_pct || 0)}`}
+            style={{ width: `${Math.min(progress?.improvement_pct || 0, 100)}%` }}
           ></div>
         </div>
+        {progress?.auto_close_eligible && (
+          <p className="text-xs text-green-600 font-semibold mt-1">Ready to close! 50% improvement achieved</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
@@ -80,9 +136,32 @@ export default function PrescriptionCard({ prescription, isPrimary }) {
         </div>
         <div>
           <p className="text-gray-600">Now</p>
-          <p className="font-semibold">{prescription.current_metric?.toFixed(2) || 'N/A'}</p>
+          <p className="font-semibold">{progress?.current_metric?.toFixed(2) || 'N/A'}</p>
         </div>
       </div>
+
+      {/* Puzzle and Game Stats */}
+      {progress && (
+        <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm space-y-2">
+          {progress.puzzles_completed > 0 && (
+            <div>
+              <p className="text-gray-600">Puzzle Progress</p>
+              <p className="font-semibold">
+                {progress.puzzles_completed} solved at {Math.round(progress.puzzle_accuracy)}% accuracy
+              </p>
+            </div>
+          )}
+          {progress.games_analyzed_since_start > 0 && (
+            <div>
+              <p className="text-gray-600">Games Analyzed</p>
+              <p className="font-semibold">{progress.games_analyzed_since_start} games since start</p>
+            </div>
+          )}
+          {progress.puzzles_completed === 0 && progress.games_analyzed_since_start === 0 && (
+            <p className="text-gray-500 italic">No activity yet. Start training to see progress.</p>
+          )}
+        </div>
+      )}
 
       {prescription.status === 'pending' && isPrimary && (
         <div className="flex gap-2">
