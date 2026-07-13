@@ -111,25 +111,19 @@ def build_move_caption(
             "best_move": user_move,
             "cp_loss": 0,
             "headline": f"{user_move} — Well played!",
-            "analysis": f"Stockfish approves. You maintain {format_evaluation(your_eval)}.",
+            "analysis": f"Stockfish approves this move. You're on the right track.",
             "best_plan": extract_plan_from_line(best_line),
             "show_teaching": False  # Good moves don't need explanation
         }
 
-    # Build the teaching caption
-    your_eval_str = format_evaluation(your_eval)
-    best_eval_str = format_evaluation(best_eval)
-    best_plan = extract_plan_from_line(best_line) if best_line else "advantage"
+    # Build the teaching caption - human-friendly, no math
+    best_plan = extract_plan_from_line(best_line) if best_line else "developing an advantage"
 
-    headline = f"{user_move} is a {classification.lower()} (loses {cp_loss}cp)"
+    headline = f"{user_move} is a {classification.lower()}"
 
-    analysis = f"""You played {user_move}.
+    analysis = f"""You played {user_move}. Better was {best_move}.
 
-Stockfish analysis:
-• After {user_move}: White has {your_eval_str}
-• After {best_move}: White has {best_eval_str}
-
-Better was {best_move}. After {best_move}, the plan is {best_plan}."""
+After {best_move}, the plan is {best_plan}."""
 
     return {
         "classification": classification,
