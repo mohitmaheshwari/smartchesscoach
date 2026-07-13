@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
 import DifficultySelector from "@/components/training/DifficultySelector";
+import useMoveCaption from "@/hooks/useMoveCaption";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
@@ -99,7 +100,10 @@ export default function PrescribedTraining() {
   // user gets a puzzle wrong. Carries position_summary, played_critique,
   // best_move_idea, takeaway. Cleared on next puzzle / retry.
   const [missCoaching, setMissCoaching] = useState(null);
-  
+
+  // Unified caption from game_decryption_v5 pipeline (for puzzles from user games)
+  const { caption: unifiedCaption, loading: unifiedCaptionLoading, fetchCaption } = useMoveCaption();
+
   // Board state
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
@@ -447,6 +451,19 @@ export default function PrescribedTraining() {
       setMissCoaching(null);
     }
   };
+
+  // Fetch unified caption for puzzles from user games
+  useEffect(() => {
+    if (
+      currentPuzzle?.source === "your_game" &&
+      currentPuzzle?.game_id &&
+      currentPuzzle?.move_number &&
+      (puzzleState === "correct" || puzzleState === "incorrect" || puzzleState === "acceptable")
+    ) {
+      // Fetch the unified caption from the real game analysis
+      fetchCaption(currentPuzzle.game_id, currentPuzzle.move_number);
+    }
+  }, [currentPuzzle?.game_id, currentPuzzle?.move_number, currentPuzzle?.source, puzzleState, fetchCaption]);
   
   // Show solution
   const revealSolution = () => {
@@ -757,16 +774,17 @@ export default function PrescribedTraining() {
                         : "missed"
                 }
                 principle={
-                  // "acceptable" always has the evaluator's feedback
-                  // ("Solid. X was sharper"). "correct" uses feedback if
-                  // provided, else the generic encouragement.
-                  isSolvedState
+                  // Show unified caption if puzzle is from user's game, otherwise generic
+                  currentPuzzle?.source === "your_game" && unifiedCaption?.caption_text
+                    ? unifiedCaption.caption_text
+                    : isSolvedState
                     ? encouragement ||
                       "You saw the pattern. That's exactly the instinct we're building."
                     : currentPuzzle?.coaching?.what_you_missed ||
                       trainingData?.coaching_intro?.what_to_look_for ||
                       "Before moving, always check what your opponent just threatened."
                 }
+                unifiedCaptionLoading={unifiedCaptionLoading && currentPuzzle?.source === "your_game"}
                 san={
                   isSolvedState
                     ? verifiedSolution
@@ -905,6 +923,7 @@ function FeedbackPanel({
   onRetry,
   onComplete,
   missCoaching,
+  unifiedCaptionLoading,
 }) {
   const isCorrect = outcome === "correct";
   const isRevealed = outcome === "revealed";
@@ -965,7 +984,14 @@ function FeedbackPanel({
             )}
           </div>
           <p className="font-serif text-[17px] md:text-[19px] leading-snug text-foreground max-w-[540px] mb-3">
-            {missCoaching?.lesson ? missCoaching.lesson : principle}
+            {unifiedCaptionLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading teaching...
+              </span>
+            ) : (
+              missCoaching?.lesson ? missCoaching.lesson : principle
+            )}
           </p>
           {threat && !isCorrect && (
             <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px] mb-3">
