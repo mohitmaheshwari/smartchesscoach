@@ -72,7 +72,7 @@ export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 const getStoredRedirectPath = () => {
   const savedPath = window.sessionStorage.getItem('post_auth_redirect');
-  return savedPath || '/dashboard';
+  return savedPath || '/home';
 };
 
 const consumeStoredRedirectPath = () => {
@@ -239,11 +239,7 @@ function AppRouter() {
       <Route path="/journey" element={
         <Navigate to="/progress" replace />
       } />
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          {({ user }) => <HomePage user={user} />}
-        </ProtectedRoute>
-      } />
+      <Route path="/dashboard" element={<Navigate to="/home" replace />} />
       <Route path="/home" element={
         <ProtectedRoute>
           {({ user }) => <HomePageNew user={user} />}
