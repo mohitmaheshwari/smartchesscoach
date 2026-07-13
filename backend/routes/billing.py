@@ -49,7 +49,7 @@ def set_db(database):
 
 # Pro plan price. Razorpay amounts are in paise (1 INR = 100 paise).
 # Tune via env if/when pricing changes.
-PRO_PLAN_PRICE_PAISE = int(os.environ.get("PRO_PLAN_PRICE_PAISE", "49900"))  # ₹499
+PRO_PLAN_PRICE_PAISE = int(os.environ.get("PRO_PLAN_PRICE_PAISE", "14900"))  # ₹149
 PRO_PLAN_CURRENCY = "INR"
 PRO_PLAN_NAME = "ChessGuru Pro — Monthly"
 

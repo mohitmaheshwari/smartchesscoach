@@ -18,13 +18,17 @@ services:
     container_name: chess-coach-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      # Bound to localhost only (2026-07-14 security hardening): the DB was
+      # publicly reachable on 0.0.0.0 with root creds. Remote access goes via
+      # SSH tunnel (ssh -L 27018:localhost:27017), never a public bind.
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=chess_coach
       - MONGO_INITDB_ROOT_USERNAME=admin_user_mii_s_c
-      - MONGO_INITDB_ROOT_PASSWORD=Mii123$44$
+      # Secret comes from the untracked project-root .env (same pattern as SMTP/Razorpay).
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -46,12 +50,19 @@ services:
       # reverts an errant 8001 change. nginx proxies to 8002.
       - "8002:8002"
     environment:
-      - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
+      # All secrets come from the untracked project-root .env (same pattern as
+      # SMTP/Razorpay below). NEVER put a real credential as a fallback default
+      # here — this file is git-tracked. (2026-07-14 hardening: previous
+      # committed defaults for the OpenAI key / Google secret / Mongo password
+      # must be treated as leaked and rotated.)
+      - MONGO_URL=${MONGO_URL:?set MONGO_URL in .env}
       - DB_NAME=chess_coach
-      - DEV_MODE=true
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      # Default OFF. DEV_MODE=true silently authenticates any anonymous request
+      # as the dev user (and grants Pro) — local dev opts in via .env only.
+      - DEV_MODE=${DEV_MODE:-false}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
       # PWC central-pipeline migration (2026-06-08). The divergence baseline
       # (commit 22eac125) confirmed a clear win: 100% content agreement where
@@ -161,9 +172,10 @@ services:
     healthcheck:
       disable: true
     environment:
-      - MONGO_URL=${MONGO_URL:-mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017}
+      # Secrets from untracked .env — see the backend service note.
+      - MONGO_URL=${MONGO_URL:?set MONGO_URL in .env}
       - DB_NAME=chess_coach
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
       mongodb:
         condition: service_healthy

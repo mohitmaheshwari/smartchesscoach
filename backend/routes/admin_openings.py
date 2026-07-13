@@ -41,9 +41,14 @@ class OpeningFeedbackValidateRequest(BaseModel):
 
 
 def _ensure_authenticated_admin(user: User) -> None:
-    # Development-stage behavior requested by user: current logged-in user can use it.
-    if not user.user_id:
-        raise HTTPException(status_code=403, detail="Admin access denied")
+    """Real admin gate — same policy as routes/admin.py (role AND owner email).
+    Replaces the development-stage any-logged-in-user behavior."""
+    from routes.admin import _is_admin_email
+
+    if user.role not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    if not _is_admin_email(getattr(user, "email", None)):
+        raise HTTPException(status_code=403, detail="Admin access restricted")
 
 
 @router.get("")
