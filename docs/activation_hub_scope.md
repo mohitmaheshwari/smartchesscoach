@@ -1,6 +1,10 @@
 # Activation Hub — Scope
 
-*Status: SIGNED OFF 2026-06-29. Decisions: (1) approved; (2) diagnostic = full 20 puzzles but EXITABLE — user can stop anytime and we still build their profile from whatever they solved (requires incremental/on-exit scoring); (3) hub shown to NEW signups only. Next: pre-code verification of the Wiring-#1 target, then build.*
+*Status: CODE-COMPLETE 2026-07-14 (pushed to working-code). Built: Wiring #1 (diagnostic→weakness pipeline, commit 5d20bc0f, tested), activation hub page + /welcome routing + diagnostic exitable→profile + Start-training CTA (commit 3e2318c4, linted). REMAINING = deploy + Wiring #2 ops (below). Decisions: (1) approved; (2) 20 puzzles, exitable, partial builds profile; (3) new signups — implemented as ALL un-activated users (new + existing 32%), which is strictly better than the old wall.*
+
+**To ship (Mohit's server):**
+1. `git pull working-code && docker compose up -d --build` (deploys Wiring #1 + hub).
+2. Wiring #2: set `PWC_GAP_ENRICHMENT=true` in server `.env` + restart, then `docker exec chess-coach-backend python3 scripts/regen_coach_game_gaps.py --apply` (spot-check accuracy first). GLOBAL flag — enriches all users' coach games.
 
 The problem in one line: **32% of signups are dead on arrival** (no account linked, never played a coached game) because onboarding forces a chess-account link *before* delivering any value. This replaces that account wall with a value-first "activation hub," AND — critically — pipes the cold-start data it gathers into the training engines so a no-account user actually gets **trained**, not just landed.
 
