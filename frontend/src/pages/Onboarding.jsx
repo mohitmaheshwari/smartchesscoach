@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import {
@@ -137,6 +138,26 @@ const Onboarding = () => {
       // Step 1: Sync games from Chess.com/Lichess (fast — just fetches PGNs)
       await fetch(`${API}/games/sync`, { method: "POST", credentials: "include" }).catch(() => {});
       setAnalysisProgress(60);
+
+      // FIRST-AHA fast path (docs/activation_scope.md): jump the user's most
+      // recent loss to the front of the analysis queue and take them straight
+      // to that decoded game. /game/:id already shows analyze-in-progress and
+      // renders the moment analysis lands — their first session opens on
+      // THEIR game, not an empty dashboard.
+      try {
+        const ahaRes = await fetch(`${API}/journey/first-aha`, {
+          method: "POST", credentials: "include",
+        });
+        if (ahaRes.ok) {
+          const aha = await ahaRes.json();
+          if (aha.game_id) {
+            track("funnel_first_aha", { was_loss: aha.was_loss });
+            setAnalysisProgress(100);
+            navigate(`/game/${aha.game_id}`);
+            return;
+          }
+        }
+      } catch { /* fall through to instant DNA / diagnostic */ }
 
       // Step 2: Get Instant Chess DNA (computed from PGN alone — no Stockfish)
       try {

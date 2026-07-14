@@ -187,6 +187,54 @@ async def get_weakness_trends(user: User = Depends(get_current_user)):
     return {"trends": trends}
 
 
+@router.post("/journey/first-aha")
+async def first_aha(user: User = Depends(get_current_user)):
+    """90-second aha (docs/activation_scope.md, 2026-07-14): sync the user's
+    games, pick their MOST RECENT LOSS (fallback: most recent game), bump its
+    analysis to the front of the queue (priority 100 — worker claims priority-
+    first), and return its game_id. The frontend navigates straight to
+    /game/:id, where LabV2 already shows analyze-in-progress and renders the
+    decoded game when ready — the new user's first session opens on THEIR game."""
+    global db
+    try:
+        from journey_service import sync_user_games
+        user_doc = await db.users.find_one({"user_id": user.user_id})
+        if user_doc:
+            try:
+                await sync_user_games(db, user.user_id, user_doc)
+            except Exception as sync_err:
+                logger.warning(f"first-aha sync failed (using existing games): {sync_err}")
+
+        games = await db.games.find(
+            {"user_id": user.user_id}, {"_id": 0, "game_id": 1, "date_played": 1, "result": 1}
+        ).to_list(None)
+        if not games:
+            return {"game_id": None, "reason": "no_games"}
+
+        def norm_date(g):
+            return str(g.get("date_played") or "").replace(".", "-")[:10]
+        games.sort(key=norm_date, reverse=True)
+        losses = [g for g in games if str(g.get("result", "")).lower() in ("loss", "lost", "0-1", "1-0-loss", "resigned", "timeout", "checkmated")]
+        pick = (losses[0] if losses else games[0])
+        game_id = pick["game_id"]
+
+        # Front of the queue: bump existing pending job or enqueue fresh.
+        now = datetime.now(timezone.utc)
+        res = await db.analysis_queue.update_one(
+            {"game_id": game_id, "status": "pending"},
+            {"$set": {"priority": 100, "updated_at": now}})
+        if res.matched_count == 0:
+            already = await db.game_analyses.find_one({"game_id": game_id}, {"_id": 1})
+            if not already:
+                await db.analysis_queue.insert_one({
+                    "game_id": game_id, "user_id": user.user_id, "status": "pending",
+                    "priority": 100, "created_at": now, "updated_at": now})
+        return {"game_id": game_id, "was_loss": bool(losses)}
+    except Exception as e:
+        logger.error(f"first-aha failed for {user.user_id}: {e}")
+        return {"game_id": None, "reason": "error"}
+
+
 @router.post("/journey/link-account")
 async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
     """

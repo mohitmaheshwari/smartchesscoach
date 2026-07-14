@@ -223,6 +223,27 @@ async def analysis_queue_fallback_loop():
 
 # ==================== LIFESPAN ====================
 
+async def daily_digest_loop():
+    """Post-game digest emails (docs/activation_scope.md). Fires once per UTC
+    day at DIGEST_SEND_HOUR_UTC (default 02:00 UTC = 07:30 IST), after the
+    overnight sync/analysis has done its work. Mode via DIGEST_EMAILS_MODE
+    (dry|pilot|live) read at send time — flip in .env, no rebuild."""
+    import os as _os
+    last_sent_date = None
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            send_hour = int(_os.environ.get("DIGEST_SEND_HOUR_UTC", "2"))
+            if now.hour == send_hour and last_sent_date != now.date():
+                from services.digest_email_service import run_daily_digest
+                result = await run_daily_digest(db)
+                logger.info(f"[digest] daily run: {result}")
+                last_sent_date = now.date()
+        except Exception as e:
+            logger.error(f"daily_digest_loop error: {e}")
+        await asyncio.sleep(1200)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _background_sync_task, _quick_sync_task, _analysis_queue_fallback_task
@@ -235,6 +256,9 @@ async def lifespan(app: FastAPI):
 
     _background_sync_task = asyncio.create_task(background_sync_loop())
     logger.info("Background sync scheduler started (6 hour interval)")
+
+    asyncio.create_task(daily_digest_loop())
+    logger.info("Daily digest scheduler started (mode=%s)" % os.environ.get("DIGEST_EMAILS_MODE", "dry"))
 
     _quick_sync_task = asyncio.create_task(quick_sync_loop())
     logger.info("Quick sync started (5 minute interval)")
