@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
@@ -56,6 +57,8 @@ export default function Pricing() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => { track("funnel_paywall_viewed"); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +139,7 @@ export default function Pricing() {
         handler: async (rzpResponse) => {
           // 3. Verify on the server
           try {
+            track("funnel_payment_attempted");
             const verifyRes = await fetch(`${API}/billing/verify-payment`, {
               method: "POST",
               credentials: "include",
@@ -151,6 +155,7 @@ export default function Pricing() {
               setError(data.detail || "Payment verification failed.");
               return;
             }
+            track("funnel_payment_success");
             setSuccess(true);
             setTimeout(() => navigate("/home"), 2500);
           } catch {

@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { Sparkles, Swords, ArrowRight } from "lucide-react";
@@ -63,7 +64,7 @@ const ActivationHub = () => {
 
         {/* PRIMARY — Chess DNA (instant, unlimited) */}
         <button
-          onClick={() => go("/diagnostic")}
+          onClick={() => { track("funnel_activation_cta", { cta: "diagnostic" }); go("/diagnostic"); }}
           disabled={busy}
           className="w-full text-left rounded-sm border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50"
           style={{ borderColor: WINE, background: "rgba(114,47,55,0.03)" }}
@@ -80,7 +81,7 @@ const ActivationHub = () => {
 
         {/* SECONDARY — play a coached game */}
         <button
-          onClick={() => go("/play-with-coach")}
+          onClick={() => { track("funnel_activation_cta", { cta: "coached_game" }); go("/play-with-coach"); }}
           disabled={busy}
           className="w-full text-left rounded-sm border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50"
           style={{ borderColor: BORDER, background: "white" }}

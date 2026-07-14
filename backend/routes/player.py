@@ -1580,9 +1580,40 @@ async def get_improvement_proof(user: User = Depends(get_current_user)):
     """
     Proof of Improvement — visual, emotional evidence the player is getting better.
     One primary pattern. Before/after board positions. Streaks.
+
+    2026-07-14 (+training_causal): the old before/after matched ANY clean
+    same-phase move — a coincidence, not proof. training_causal is the honest
+    join: for each prescription the user actually TRAINED, the per-game gap
+    rate before training vs after (same single-source math the auto-close
+    uses), i.e. "since training piece safety: 2.1 → 0.7 per game (4 games)".
     """
     from services.improvement_proof_engine import compute_improvement_proof
-    return await compute_improvement_proof(db, user.user_id)
+    proof = await compute_improvement_proof(db, user.user_id)
+
+    try:
+        from services.prescription_tracking_service import compute_prescription_progress
+        causal = []
+        async for pres in db.user_coaching_prescriptions.find(
+            {"user_id": user.user_id, "status": {"$in": ["active", "completed"]},
+             "started_at": {"$ne": None}}, {"_id": 0}):
+            prog = await compute_prescription_progress(db, pres)
+            if prog["baseline_games"] >= 3 and prog["current_games"] >= 3 and prog["baseline_avg"] > 0:
+                causal.append({
+                    "cognitive_gap": prog["cognitive_gap"],
+                    "label": prog["cognitive_gap"].replace("_", " ").title(),
+                    "status": pres.get("status"),
+                    "baseline_per_game": prog["baseline_avg"],
+                    "current_per_game": prog["current_avg"],
+                    "improvement_pct": int(round(prog["improvement"] * 100)),
+                    "games_measured": prog["current_games"],
+                })
+        proof["training_causal"] = sorted(
+            causal, key=lambda c: -c["improvement_pct"])
+    except Exception as causal_err:
+        logger.warning(f"training_causal enrich failed (non-fatal): {causal_err}")
+        proof["training_causal"] = []
+
+    return proof
 
 
 @router.get("/progress/narrative")

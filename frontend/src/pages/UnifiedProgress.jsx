@@ -606,6 +606,36 @@ const UnifiedProgress = ({ user }) => {
           </motion.section>
         )}
 
+        {/* ─── Trained → measured (causal proof) ───
+             Only renders for prescriptions the user actually trained, with
+             >=3 analyzed games on both sides of the training start. The
+             numbers are per-game gap rates from the same math auto-close
+             uses — a real join, not a coincidence match. */}
+        {proof?.training_causal?.length > 0 && (
+          <motion.section variants={fadeInUp} className="mb-12">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-400 font-semibold mb-4">
+              Trained → measured
+            </div>
+            <div className="space-y-3">
+              {proof.training_causal.slice(0, 3).map((c) => (
+                <div key={c.cognitive_gap}
+                     className="rounded-2xl border border-emerald-400/25 bg-gradient-to-b from-emerald-500/[0.04] to-transparent p-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                  <div className="font-serif text-[18px] text-foreground">{c.label}</div>
+                  <div className="text-[13px] text-muted-foreground tabular-nums">
+                    {Math.round(c.baseline_per_game)} → {Math.round(c.current_per_game)} per game
+                  </div>
+                  <div className={`text-[15px] font-semibold tabular-nums ${c.improvement_pct >= 40 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                    {c.improvement_pct > 0 ? `−${c.improvement_pct}%` : "no change yet"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    since you started training it ({c.games_measured} games measured)
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
         {/* ─── Active pattern ─── */}
         {derived.active && (
           <motion.section variants={fadeInUp} className="mb-12">

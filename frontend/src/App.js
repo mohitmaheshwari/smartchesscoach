@@ -10,7 +10,6 @@ import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
 import ContactUs from "@/pages/ContactUs";
-import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07-11)
 import ImportGames from "@/pages/ImportGames";
@@ -33,7 +32,6 @@ import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + journey
-import JourneyIntelligence from "@/pages/JourneyIntelligence";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import DiagnosticPuzzles from "@/pages/DiagnosticPuzzles";

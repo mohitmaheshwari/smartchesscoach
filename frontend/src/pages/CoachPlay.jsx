@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { track } from "@/lib/analytics";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -1132,6 +1133,7 @@ const CoachPlay = ({ user }) => {
   };
 
   const actuallyStartGame = async () => {
+    track("funnel_pwc_started");
     setShowPreGameStreakPopup(false);
     setLoading(true);
     // Reset emotional state tracking for new game

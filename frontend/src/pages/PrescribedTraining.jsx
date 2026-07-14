@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { track } from "@/lib/analytics";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
@@ -403,6 +404,7 @@ export default function PrescribedTraining() {
   // evaluator ran; omitted on binary-match fallback.
   const recordAttempt = async (puzzle, solved, quality = null) => {
     try {
+      track("funnel_training_solve");
       await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

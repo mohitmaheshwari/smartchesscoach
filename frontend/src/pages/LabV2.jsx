@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { track } from "@/lib/analytics";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -425,6 +426,8 @@ const LabV2 = ({ user }) => {
   const tabsVisitedRef = useRef(new Set(["decrypt"])); // Track which tabs user visited
   
   // Track tab visits
+  useEffect(() => { track("funnel_review_opened"); }, []);
+
   useEffect(() => {
     tabsVisitedRef.current.add(viewMode);
   }, [viewMode]);

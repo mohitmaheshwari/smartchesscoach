@@ -1576,3 +1576,45 @@ async def admin_analyze_moment(
             "severity": moment.get("severity"),
         },
     }
+
+
+# ==================== OUTCOME METRIC (2026-07-14, path_to_10 Phase 6.3) ====================
+
+@router.get("/admin/outcome-metric")
+async def admin_outcome_metric(admin: User = Depends(require_admin)):
+    """THE product outcome number: of all prescriptions users actually trained
+    (>=3 analyzed games before AND after training start, real baseline), what
+    percent achieved a >=40% per-game reduction in the trained gap?
+
+    This is the honest, per-game-rate measure ("ChessGuru users fix their #1
+    leak") — the same single-source math as auto-close, computed across the
+    whole user base. Small-N early: the response includes the sample size so
+    nobody quotes a percentage of 3 prescriptions as gospel."""
+    from services.prescription_tracking_service import compute_prescription_progress
+
+    measured = []
+    async for pres in db.user_coaching_prescriptions.find(
+        {"status": {"$in": ["active", "completed"]}, "started_at": {"$ne": None}},
+        {"_id": 0}):
+        try:
+            prog = await compute_prescription_progress(db, pres)
+        except Exception:
+            continue
+        if prog["baseline_games"] >= 3 and prog["current_games"] >= 3 and prog["baseline_avg"] > 0:
+            measured.append({
+                "user_id": pres.get("user_id"),
+                "cognitive_gap": prog["cognitive_gap"],
+                "status": pres.get("status"),
+                "improvement_pct": int(round(prog["improvement"] * 100)),
+                "games_measured": prog["current_games"],
+            })
+
+    fixed = [m for m in measured if m["improvement_pct"] >= 40]
+    return {
+        "measurable_prescriptions": len(measured),
+        "fixed_40pct_or_more": len(fixed),
+        "outcome_rate_pct": int(round(100 * len(fixed) / len(measured))) if measured else None,
+        "note": "quote only when measurable_prescriptions is meaningful (>=20)",
+        "rows": sorted(measured, key=lambda m: -m["improvement_pct"]),
+    }
+

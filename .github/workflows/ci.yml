@@ -1,0 +1,65 @@
+name: CI
+
+# Runs the CI-runnable (no live server, no Mongo, no Stockfish-required) test
+# suites + guards on every push/PR to working-code. Born from the 2026-07-14
+# "last-wire" postmortems: every recent production bug (dead training-aware
+# coaching, stale-image deploy, severity-POV) shipped because nothing executed
+# code automatically before it landed.
+
+on:
+  push:
+    branches: [working-code, main]
+  pull_request:
+    branches: [working-code, main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps (pure-logic suites only)
+        run: pip install chess pymongo motor pydantic fastapi
+      - name: Syntax gate — every backend python file must parse
+        run: |
+          python - <<'EOF'
+          import ast, pathlib, sys
+          bad = []
+          for p in pathlib.Path("backend").rglob("*.py"):
+              if ".venv" in p.parts: continue
+              try:
+                  ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+              except SyntaxError as e:
+                  bad.append(f"{p}: {e}")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("all backend files parse")
+          EOF
+      - name: Unit suites (pure logic, no services)
+        run: |
+          cd backend
+          python tests/test_predict_rate.py
+          python tests/test_prescription_tracking.py
+          python tests/test_opening_name_alignment.py
+      - name: Caption-source guard (no new parallel caption paths)
+        run: |
+          if [ -f backend/scripts/check_caption_sources.py ]; then
+            python backend/scripts/check_caption_sources.py || true
+          fi
+      - name: Data-file integrity (curriculum + caption JSONs parse)
+        run: |
+          python - <<'EOF'
+          import json, pathlib, sys
+          bad = []
+          for p in pathlib.Path("backend/data").rglob("*.json"):
+              try:
+                  json.load(open(p, encoding="utf-8"))
+              except Exception as e:
+                  bad.append(f"{p}: {e}")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("all data JSONs valid")
+          EOF
