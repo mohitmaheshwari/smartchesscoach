@@ -126,6 +126,10 @@ services:
       # .env + `docker compose up -d backend`.
       - VERIFIED_CAPTIONS=${VERIFIED_CAPTIONS:-false}
       - DISTILLED_CAPTIONS_ENABLED=${DISTILLED_CAPTIONS_ENABLED:-0}
+      # Post-game digest emails (docs/activation_scope.md): dry|pilot|live,
+      # read at send time from .env — flip without rebuild.
+      - DIGEST_EMAILS_MODE=${DIGEST_EMAILS_MODE:-dry}
+      - DIGEST_SEND_HOUR_UTC=${DIGEST_SEND_HOUR_UTC:-2}
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
       - FRONTEND_URL=https://chessguru.ai
