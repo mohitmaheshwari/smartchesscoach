@@ -186,6 +186,12 @@ def _mistake_caption(inp, lab):
             uea = _upov(inp.eval_after_cp, inp.user_color)
             if not (uea is not None and uea <= -9000):
                 return None
+            # 2026-07-14: on mate-score rows the stored best_move sometimes
+            # EQUALS the played move ("play Bxe4 instead" after they played
+            # Bxe4 — nonsense advice). No real alternative -> abstain and let
+            # the narrator/floor handle it.
+            if not best or best == inp.played_san:
+                return None
         elif lab == "opening_knowledge":
             pass
         else:

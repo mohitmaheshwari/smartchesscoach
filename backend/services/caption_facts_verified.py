@@ -164,15 +164,32 @@ def extract_facts_verified(
     pv_after_best: Optional[List[str]] = None,
     move_history_san: Optional[List[str]] = None,
     full_move_number: int = 1,
+    cp_loss: Optional[int] = None,
+    mover_is_user: bool = True,
 ) -> Dict[str, Any]:
     """
     Extract facts with Stockfish verification (synchronous).
 
     Every fact is checked: is the detection backed by engine eval?
-    """
 
-    # Get raw facts
-    cp_loss = (eval_before_cp or 0) - (eval_after_cp or 0)
+    2026-07-14 severity-POV fix (found chasing "check. King must move or
+    block." rendering on a 266cp blunder): this function used to DISCARD the
+    caller's mover-POV cp_loss and re-derive it as a white-POV delta
+    (eval_before - eval_after) with no color flip. For every BLACK mover a
+    real mistake came out NEGATIVE (floored to 0 downstream) — the blunder
+    became invisible and neutral templates (plain check / threat / king
+    safety) captioned it as a quiet move. It also never forwarded
+    mover_is_user, mis-attributing caption voice. Now: trust the caller's
+    cp_loss (stored analysis truth, already mover-POV); only derive when
+    absent, and derive from the MOVER's point of view.
+    """
+    if cp_loss is None:
+        raw = (eval_before_cp or 0) - (eval_after_cp or 0)
+        try:
+            _mover_white = chess.Board(fen_before).turn == chess.WHITE
+        except Exception:
+            _mover_white = True
+        cp_loss = max(0, raw if _mover_white else -raw)
 
     facts = extract_facts(
         fen_before=fen_before,
@@ -180,11 +197,12 @@ def extract_facts_verified(
         best_move_san=best_move_san,
         eval_before_cp=eval_before_cp,
         eval_after_cp=eval_after_cp,
-        cp_loss=cp_loss,
+        cp_loss=int(cp_loss),
         pv_after_played=pv_after_played or [],
         pv_after_best=pv_after_best or [],
         move_history_san=move_history_san or [],
         full_move_number=full_move_number,
+        mover_is_user=mover_is_user,
     )
 
     # Verify against Stockfish

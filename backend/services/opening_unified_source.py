@@ -40,18 +40,30 @@ class OpeningUnifiedSource:
         """
         Get theory tree data (backwards compatible with opening_theory_tree.json).
 
-        Returns all openings with theory data (eco_prefix, main_line, white_plan, black_plan).
+        2026-07-14 (Q3 revival): the projection used to strip everything but 5
+        fields, which silently KILLED the theory-lookup teaching features —
+        caption_pipeline's opening critical-position captions,
+        game_decryption_v5's get_mistake_from_theory, golden_rule_service's
+        learning lines, and the mastery tracker's variation ideas all read
+        variations/critical_positions/common_learnings/move_ideas and always
+        got nothing. Those fields (merged into the curriculum from the retired
+        theory_tree file, 24-25 openings) are now projected through.
         """
         result = {}
         for key, opening in self.curriculum.items():
             if isinstance(opening, dict) and "eco_prefix" in opening:
-                result[key] = {
+                entry = {
                     "name": opening.get("name"),
                     "eco_prefix": opening.get("eco_prefix"),
                     "main_line": opening.get("main_line"),
                     "white_plan": opening.get("white_plan"),
                     "black_plan": opening.get("black_plan"),
                 }
+                for rich in ("variations", "critical_positions",
+                             "common_learnings", "move_ideas"):
+                    if opening.get(rich):
+                        entry[rich] = opening[rich]
+                result[key] = entry
         return result
 
     def get_opening_plans(self) -> Dict[str, Any]:

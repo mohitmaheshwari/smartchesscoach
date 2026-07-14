@@ -64,7 +64,16 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
 
 
 def get_rating_band(rating: int) -> str:
-    """Return the rating-band key matching deterministic_coach_service.RATING_BANDS."""
+    """Return the rating-band key. Derives from deterministic_coach_service.
+    RATING_BANDS (the locked band definition) so the boundaries can never
+    drift; falls back to the mirrored constants if that import fails."""
+    try:
+        from deterministic_coach_service import RATING_BANDS
+        for key, band in RATING_BANDS.items():
+            if band["min"] <= rating <= band["max"]:
+                return key
+    except Exception:
+        pass
     if rating < 1000:
         return "beginner_low"
     if rating < 1400:
@@ -72,3 +81,38 @@ def get_rating_band(rating: int) -> str:
     if rating < 1800:
         return "intermediate"
     return "advanced"
+
+
+# ── Band-keyed domain tables (Q1 unification, 2026-07-14) ──────────────────
+# These tables used to live as inline if/elif ladders inside caption_pipeline
+# and realtime_coaching_feedback — the same band boundaries re-typed per file,
+# one edit away from divergence. The VALUES are unchanged (behavior-
+# preserving); only the definition moved here, keyed by the canonical bands.
+
+# Review-caption suppression: below this cp_loss (and with no concrete tactic),
+# a sub-threshold inaccuracy is NOT framed as a mistake for this band.
+CAPTION_SUPPRESS_CP = {
+    "beginner_low": 150,   # beginners: only flag blunders
+    "beginner_high": 75,   # improving: flag mistakes
+    "intermediate": 50,    # intermediate: flag bigger inaccuracies
+    "advanced": 30,        # advanced: flag subtle inaccuracies
+}
+
+
+def caption_suppress_threshold_cp(rating: int) -> int:
+    r = DEFAULT_RATING if rating is None else int(rating)
+    return CAPTION_SUPPRESS_CP[get_rating_band(r)]
+
+
+# Live move classification (PWC realtime feedback): cp-change cutoffs per band.
+MOVE_CLASSIFY_THRESHOLDS = {
+    "beginner_low": {"excellent": 20, "good": -30, "inaccuracy": -150, "mistake": -300},
+    "beginner_high": {"excellent": 20, "good": -20, "inaccuracy": -75, "mistake": -200},
+    "intermediate": {"excellent": 20, "good": -10, "inaccuracy": -50, "mistake": -150},
+    "advanced": {"excellent": 10, "good": -5, "inaccuracy": -30, "mistake": -100},
+}
+
+
+def move_classification_thresholds(rating: int) -> Dict[str, int]:
+    r = DEFAULT_RATING if rating is None else int(rating)
+    return MOVE_CLASSIFY_THRESHOLDS[get_rating_band(r)]

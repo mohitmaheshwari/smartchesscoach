@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 134  # v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). Bump forces stored review captions to re-render through the flagged-on pipeline. v133 (2026-07-08): jargon + defeatist-phrase sweep.
+V5_COACHING_VERSION = 135  # v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). Bump forces stored review captions to re-render through the flagged-on pipeline. v133 (2026-07-08): jargon + defeatist-phrase sweep.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -2926,7 +2926,24 @@ async def generate_game_decryption_v5(
             return []
         
         moves = list(game.mainline_moves())
-        
+
+        # Resolve the game owner's rating ONCE per render (Q1, 2026-07-14).
+        # The pipeline's rating-band caption gate (suppress sub-threshold
+        # "is a mistake" critiques for lower-rated players) only fires when
+        # MoveInputs.user_rating is set — and this path never set it, so an
+        # 800 and an 1800 got identical framing on every review. Canonical
+        # accessor per single-source rule: rating_resolver.get_current_rating.
+        _v5_user_rating = None
+        try:
+            from services.rating_resolver import get_current_rating
+            _u_doc = await db.users.find_one({"user_id": user_id}) if user_id else None
+            _p_doc = await db.player_profiles.find_one({"user_id": user_id}) if user_id else None
+            if _u_doc or _p_doc:
+                _v5_user_rating = int(get_current_rating(_u_doc or {}, _p_doc))
+                logger.info(f"[DECRYPTION V5] user_rating resolved: {_v5_user_rating}")
+        except Exception as _rr_exc:
+            logger.info(f"[DECRYPTION V5] rating resolve failed (band gate stays off): {_rr_exc}")
+
         # Detect opening
         opening_name, eco_code = detect_opening_from_pgn(pgn)
         opening_data = get_opening_data(eco_code, opening_name)
@@ -3522,6 +3539,7 @@ async def generate_game_decryption_v5(
                         opening_name=opening_name,
                         prev_move_uci=(prev_move.uci() if prev_move else None),
                         best_move_uci=(eval_data.get("best_move_uci") or None),
+                        user_rating=_v5_user_rating,
                     )
                     _state = _CaptionCrossMoveState(
                         fired_principles=set(principles_fired_this_game),

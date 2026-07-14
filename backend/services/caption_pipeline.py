@@ -3816,6 +3816,12 @@ def build_move_teaching_decision(
                 pv_after_best=list(inputs.pv_after_best),
                 move_history_san=list(inputs.move_history_san),
                 full_move_number=int(inputs.full_move_number or 0),
+                # 2026-07-14 severity-POV fix: pass the mover-POV cp_loss +
+                # mover identity instead of letting the wrapper re-derive a
+                # white-POV delta (which zeroed every black mover's mistakes
+                # and mis-voiced captions).
+                cp_loss=int(inputs.cp_loss or 0),
+                mover_is_user=bool(inputs.mover_is_user),
             )
             logger.debug(f"[caption_pipeline] verified facts: verified={caption_facts.get('verified', False)}")
         except Exception:
@@ -4090,16 +4096,11 @@ def build_move_teaching_decision(
     _should_gate_low_cp_caption = False
     if (inputs.mover_is_user and inputs.user_rating
             and (int(inputs.cp_loss or 0) or 0) > 0):
-        # Map user rating to band and get threshold
+        # Band threshold from the single source (rating_resolver, Q1 2026-07-14
+        # unification — was an inline ladder duplicating the band boundaries).
+        from services.rating_resolver import caption_suppress_threshold_cp
         _rating = int(inputs.user_rating)
-        if _rating < 1000:
-            _cp_threshold = 150  # beginner: only flag blunders
-        elif _rating < 1400:
-            _cp_threshold = 75   # improving: flag mistakes
-        elif _rating < 1800:
-            _cp_threshold = 50   # intermediate: flag bigger inaccuracies
-        else:
-            _cp_threshold = 30   # advanced: flag subtle inaccuracies
+        _cp_threshold = caption_suppress_threshold_cp(_rating)
 
         _cp_loss = int(inputs.cp_loss or 0)
         # Check if the move has a concrete-tactic reason to render despite

@@ -292,19 +292,11 @@ def _classify_move_quality(eval_before: float, eval_after: float, user_color: st
     
     cp_change = change * 100  # Convert to centipawns
     
-    # Rating-based thresholds (centipawns)
-    if user_rating < 1000:
-        # Beginners: only flag big blunders. Inaccuracies are noise at this level.
-        thresholds = {"excellent": 20, "good": -30, "inaccuracy": -150, "mistake": -300}
-    elif user_rating < 1400:
-        # Improving: start showing mistakes, still lenient on inaccuracies
-        thresholds = {"excellent": 20, "good": -20, "inaccuracy": -75, "mistake": -200}
-    elif user_rating < 1800:
-        # Intermediate: standard thresholds
-        thresholds = {"excellent": 20, "good": -10, "inaccuracy": -50, "mistake": -150}
-    else:
-        # Advanced: tight thresholds, every centipawn matters
-        thresholds = {"excellent": 10, "good": -5, "inaccuracy": -30, "mistake": -100}
+    # Rating-based thresholds (centipawns) — from the single source
+    # (rating_resolver.MOVE_CLASSIFY_THRESHOLDS, Q1 2026-07-14 unification;
+    # values unchanged, definition centralized).
+    from services.rating_resolver import move_classification_thresholds
+    thresholds = move_classification_thresholds(user_rating)
     
     if cp_change >= thresholds["excellent"]:
         return "excellent"

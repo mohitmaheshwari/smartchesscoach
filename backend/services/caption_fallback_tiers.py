@@ -98,8 +98,23 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
             if why and cp >= _INACCURACY_CP:
                 return (f"You played {played}; {best} was stronger — it {why}.",
                         "R_TIER_missed_principle")
-            # No why to name — only call out a better move on a real mistake.
+            # No why for the BETTER move — try the consequence of the PLAYED
+            # move instead (2026-07-14, Q2: the bare "Y was the stronger move
+            # here" floor was the largest remaining no-why class). Both facts
+            # are already board-verified upstream: opp_reply_san is the
+            # engine's reply from pv_after_played; the capture type was
+            # geometry-checked in extract_facts. Facts-only — no board here.
             if cp >= _MISTAKE_CP:
+                opp = facts.get("opp_reply_san") or ""
+                cap_pt = _PIECE.get(facts.get("opp_reply_captures_piece_type"))
+                if opp and cap_pt:
+                    return (f"You played {played}; {best} was the stronger move here — "
+                            f"{played} runs into {opp}, taking your {cap_pt}.",
+                            "R_TIER_mistake_floor_consequence")
+                if opp and (opp.endswith("+") or opp.endswith("#")):
+                    return (f"You played {played}; {best} was the stronger move here — "
+                            f"{played} lets {opp} come in with check.",
+                            "R_TIER_mistake_floor_consequence")
                 return (f"You played {played}; {best} was the stronger move here.",
                         "R_TIER_mistake_floor")
 

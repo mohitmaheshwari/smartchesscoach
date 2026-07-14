@@ -5087,6 +5087,17 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
                 return (f"defends your {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
                         f"on {chess.square_name(sq)}")
 
+        # 4b) MATE / CHECK / PROMOTION — concrete forcing purposes the floor
+        #     was missing (2026-07-14, Q2: "Qc4+ was the stronger move here"
+        #     rendered with no why because checks had no branch). All three
+        #     are true by construction on the after-board.
+        if after.is_checkmate():
+            return "delivers checkmate"
+        if move.promotion == chess.QUEEN:
+            return "makes a new queen"
+        if after.is_check():
+            return "gives check, forcing your opponent to respond"
+
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
         if pr in _REC_PRINCIPLE_PHRASE:
             return _REC_PRINCIPLE_PHRASE[pr]
