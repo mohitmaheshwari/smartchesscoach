@@ -11,7 +11,6 @@ Used by Lab page to render 5 pattern cards + coaching surfaces.
 """
 
 from fastapi import APIRouter, Depends
-from services.motif_profile_service import analyze_user_motifs
 from services.player_profile_service import get_player_profile
 from typing import Optional, Dict, List
 import logging
