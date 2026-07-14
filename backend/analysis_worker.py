@@ -980,6 +980,37 @@ def process_job(db, job):
             logger.warning(f"[INTERPRET] Failed (non-fatal): {interp_error}")
             interpretation_summary = {}
 
+        # ━━━━━━━━━━ PATTERN DETECTORS (NEW) ━━━━━━━━━━
+        # Wire: coordination, prophylaxis, opening deviations
+        # Non-fatal: detector errors don't block game analysis
+        try:
+            from services.coordination_detector import detect_coordination_gap
+            from services.prophylaxis_detector import detect_prophylaxis_gap
+
+            for i, move_eval in enumerate(move_evaluations):
+                fen_before = move_eval.get("fen_before", "")
+                fen_after = move_eval.get("fen_after", "")
+
+                # Coordination gap detector
+                coord_result = detect_coordination_gap(move_eval, fen_before, fen_after)
+                if coord_result:
+                    confidence, gap_type = coord_result
+                    move_eval["coordination_gap"] = gap_type
+                    move_eval["coordination_confidence"] = confidence
+
+                # Prophylaxis gap detector
+                proph_result = detect_prophylaxis_gap(move_eval, fen_before, fen_after)
+                if proph_result:
+                    confidence, gap_type = proph_result
+                    move_eval["prophylaxis_gap"] = gap_type
+                    move_eval["prophylaxis_confidence"] = confidence
+
+            logger.info(f"[PATTERNS] Coordination/Prophylaxis detectors completed")
+
+        except Exception as pattern_error:
+            # Non-fatal - continue without pattern detection
+            logger.warning(f"[PATTERNS] Detection failed (non-fatal): {pattern_error}")
+
         # Add 15-category move classification (engine-hard fundamentals)
         try:
             from services.move_classification_service import enrich_move_with_classification
