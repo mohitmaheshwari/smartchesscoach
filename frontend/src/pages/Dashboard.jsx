@@ -34,6 +34,7 @@ import LichessBoard from "@/components/LichessBoard";
 import MasteryPanel from "@/components/coach/MasteryPanel";
 import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
 import TacticsMasteryPanel from "@/components/coach/TacticsMasteryPanel";
+import CoachingPatternsPanel from "@/components/lab/CoachingPatternsPanel";
 import {
   Import,
   ChevronRight,
@@ -537,6 +538,12 @@ const Dashboard = ({ user }) => {
             <InGameMasteryPanel />
             <TacticsMasteryPanel />
           </section>
+
+          {/* ━━━━━━━━━━ COACHING PATTERNS · motifs, phases, coordination ━━━━━━━━━━ */}
+          {/* New: Display 5 coaching patterns (fork/pin/skewer, phase accuracy,
+              coordination, prophylaxis, opening deviations) with cards + CTAs.
+              Launched 2026-07-14 as part of complete pattern detector system. */}
+          <CoachingPatternsPanel user={user} />
 
           {/* ━━━━━━━━━━ SESSION REVIEW ━━━━━━━━━━ */}
           {/* Renders only when user arrived from Home's "Open in Lab"
