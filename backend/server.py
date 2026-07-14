@@ -346,6 +346,7 @@ from routes import player as player_routes
 from routes import training_advanced as training_advanced_routes
 from routes import coach_advanced as coach_advanced_routes
 from routes import coaching as coaching_routes
+from routes import coaching_patterns as coaching_patterns_routes
 from routes import oauth as oauth_routes
 from routes import public_seo as public_seo_routes
 from routes import billing as billing_routes
@@ -460,6 +461,7 @@ app.include_router(billing_routes.router, prefix="/api")
 app.include_router(reviewer_routes.router, prefix="/api")
 app.include_router(diagnostic_routes.router, prefix="/api")
 app.include_router(behavior_study_routes.router, prefix="/api")
+app.include_router(coaching_patterns_routes.router, prefix="/api")
 
 
 # ==================== CORS ====================

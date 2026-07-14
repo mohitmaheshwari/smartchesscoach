@@ -1,0 +1,112 @@
+.pattern-weakness-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.pattern-weakness-card:hover {
+  border-color: #2196f3;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+}
+
+.pattern-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pattern-icon {
+  font-size: 24px;
+}
+
+.pattern-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #212121;
+}
+
+.pattern-description {
+  margin: 12px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.pattern-stats {
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.stat-label {
+  color: #999;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #212121;
+}
+
+.pattern-cta {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pattern-cta:hover {
+  background: #1976d2;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .pattern-weakness-card {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .pattern-weakness-card:hover {
+    border-color: #2196f3;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+  }
+
+  .pattern-header h3 {
+    color: #fff;
+  }
+
+  .pattern-description {
+    color: #bbb;
+  }
+
+  .stat-row {
+    border-bottom-color: #444;
+  }
+
+  .stat-label {
+    color: #999;
+  }
+
+  .stat-value {
+    color: #fff;
+  }
+}
