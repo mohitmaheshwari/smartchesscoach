@@ -100,9 +100,44 @@ def _compose(summary):
     return subject, html
 
 
+async def _send_smtp(to_email: str, subject: str, html: str) -> bool:
+    """Zoho SMTP send — same proven pattern as the reengagement scripts
+    (email_service.py is an unconfigured SendGrid stub; SMTP_* is what works).
+    Runs in a thread so the blocking socket never stalls the event loop."""
+    import asyncio, smtplib, ssl
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    host = os.environ.get("SMTP_HOST")
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    port = int(os.environ.get("SMTP_PORT", "465"))
+    from_name = os.environ.get("SMTP_FROM_NAME", "ChessGuru Coach")
+    if not (host and user and password):
+        logger.warning("[digest] SMTP not configured — skipping send")
+        return False
+
+    def _send():
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{from_name} <{user}>"
+        msg["To"] = to_email
+        msg.attach(MIMEText(html, "html"))
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as smtp:
+            smtp.login(user, password)
+            smtp.sendmail(user, [to_email], msg.as_string())
+        return True
+
+    try:
+        return await asyncio.to_thread(_send)
+    except Exception as e:
+        logger.warning(f"[digest] SMTP send failed for {to_email}: {e}")
+        return False
+
+
 async def run_daily_digest(db) -> dict:
     """Compose + (per mode) send digests. Returns counts for the log."""
-    from email_service import send_email
     mode = _mode()
     sent = skipped = composed = 0
     today = datetime.now(timezone.utc).date().isoformat()
@@ -129,7 +164,7 @@ async def run_daily_digest(db) -> dict:
         composed += 1
         deliver = (mode == "live") or (mode == "pilot" and email.lower() in PILOT_EMAILS)
         if deliver:
-            ok = await send_email(email, subject, html)
+            ok = await _send_smtp(email, subject, html)
             if ok:
                 sent += 1
                 await db.digest_email_log.insert_one(
