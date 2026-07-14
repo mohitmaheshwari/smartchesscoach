@@ -277,6 +277,19 @@ async def record_puzzle_attempt_endpoint(
 
     await db.puzzle_attempts.insert_one(attempt)
 
+    # A correct solve is recovery credit — refresh the persisted decay state
+    # immediately so training visibly moves prioritization (Lab pick, and any
+    # consumer of db.user_pattern_decay) without waiting for the next game
+    # analysis. Fail-open: recording the attempt never depends on this.
+    if correct:
+        try:
+            from services.pattern_decay_service import refresh_user_pattern_decay
+            await refresh_user_pattern_decay(db, user.user_id)
+        except Exception as decay_err:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"decay refresh after puzzle solve failed (non-fatal): {decay_err}")
+
     return {
         "success": True,
         "correct": correct,

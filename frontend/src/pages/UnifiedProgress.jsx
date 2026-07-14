@@ -204,20 +204,30 @@ const UnifiedProgress = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
+  const [calibration, setCalibration] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, narrativeRes, proofRes] = await Promise.all([
+        const [progressRes, narrativeRes, proofRes, calibRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
           fetch(`${API}/progress/improvement-proof`, {
+            credentials: "include",
+          }),
+          // Self-rating calibration (Rate-Your-Move's consumer). Backend gates
+          // on >=10 rated moves — the card renders only when available.
+          fetch(`${API}/coach/play/rate-move/calibration`, {
             credentials: "include",
           }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
         if (proofRes.ok) setProof(await proofRes.json());
+        if (calibRes.ok) {
+          const calib = await calibRes.json();
+          if (calib && calib.available) setCalibration(calib);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -557,6 +567,41 @@ const UnifiedProgress = ({ user }) => {
               <span>start</span>
               <span>·</span>
               <span>today</span>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ─── Self-awareness (Rate-Your-Move calibration) ───
+             Renders only once the user has self-graded >=10 moves in
+             Play with Coach. The blindspot number is the coaching lever:
+             real mistakes the player called "Good". */}
+        {calibration && (
+          <motion.section variants={fadeInUp} className="mb-12">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+              Self-awareness · how you grade your own moves
+            </div>
+            <div className="rounded-2xl border border-border bg-gradient-to-b from-foreground/[0.03] to-transparent p-6 md:p-7">
+              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
+                <div>
+                  <div className="text-[28px] font-serif font-medium text-foreground tabular-nums">
+                    {calibration.accuracy_pct}%
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    of your own verdicts match the engine ({calibration.total} moves graded)
+                  </div>
+                </div>
+                {calibration.blindspot_pct !== null && calibration.real_mistakes_rated >= 5 && (
+                  <div>
+                    <div className={`text-[28px] font-serif font-medium tabular-nums ${calibration.blindspot_pct >= 40 ? "text-amber-500" : "text-foreground"}`}>
+                      {calibration.blindspot_pct}%
+                    </div>
+                    <div className="text-[11px] text-muted-foreground max-w-[260px]">
+                      of your real mistakes felt like good moves to you — that's the
+                      blind spot Play with Coach is training
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.section>
         )}

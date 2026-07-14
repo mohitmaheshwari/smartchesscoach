@@ -19,16 +19,18 @@ from services.rate_your_move import quality_bucket, rating_correct, is_instructi
 
 
 # ── predict_coach_move ─────────────────────────────────────────────────────
-def test_should_fire_clear_best_only():
-    G = 200  # a clearly-best gap (>= CLEAR_BEST_GAP_CP)
-    assert should_fire(1, G, 5, 0, 900) is True       # coach plays the clearly-best move -> fire
-    assert should_fire(2, G, 5, 0, 900) is False      # coach did NOT play the best -> no fire
-    assert should_fire(1, 50, 5, 0, 900) is False     # gap too small (opening/quiet, all moves fine) -> no fire
-    assert should_fire(1, None, 5, 0, 900) is False   # no gap info -> no fire
-    assert should_fire(1, G, 2, 0, 900) is False      # < 3 legal -> near-forced
-    assert should_fire(1, G, 5, 3, 900) is False      # beginner cap (3) hit
-    assert should_fire(1, G, 5, 1, 1500) is False     # intermediate cap (1) hit
-    assert should_fire(1, G, 5, 0, 1500) is True
+def test_should_fire_is_deliberately_disabled():
+    """2026-06-26 Coach Conductor LAW 1 ("state, never ask"): Call-My-Move is
+    parked — should_fire returns False unconditionally, BY DESIGN, until Mohit
+    decides revive-or-remove (his 2026-07-14 call: keep as-is). This test locks
+    the PARKED state so an accidental re-enable fails loudly; the clear-best
+    firing logic is preserved below the early return for the future opt-in."""
+    G = 200
+    # Every combination — including the ones that used to fire — must be False.
+    assert should_fire(1, G, 5, 0, 900) is False
+    assert should_fire(1, G, 5, 0, 1500) is False
+    assert should_fire(2, G, 5, 0, 900) is False
+    assert should_fire(1, None, 5, 0, 900) is False
 
 
 def test_bands():

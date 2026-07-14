@@ -2411,6 +2411,52 @@ async def rate_move_log(request: Dict = Body(...), user: User = Depends(get_curr
         return {"ok": False}
 
 
+@router.get("/rate-move/calibration")
+async def rate_move_calibration(user: User = Depends(get_current_user)):
+    """Self-rating calibration — the first CONSUMER of move_self_ratings
+    (2026-07-14). Until now the student model's self-grades were write-only:
+    collected on every Rate-Your-Move answer, read by nothing. This turns them
+    into the calibration insight: how often the student's own verdict matches
+    the engine's, and the blindspot rate — real mistakes/blunders the student
+    graded as 'Good'. Gated on >=10 rated moves so small samples never render.
+    Fail-open: errors return {available: False}."""
+    global db
+    MIN_RATINGS = 10
+    try:
+        rows = await db.move_self_ratings.find(
+            {"user_id": user.user_id},
+            {"_id": 0, "guessed_quality": 1, "actual_quality": 1, "correct": 1},
+        ).to_list(2000)
+
+        total = len(rows)
+        if total < MIN_RATINGS:
+            return {"available": False, "total": total, "needed": MIN_RATINGS}
+
+        from services.rate_your_move import quality_bucket
+        accurate = sum(1 for r in rows if r.get("correct"))
+        real_mistakes = [r for r in rows
+                         if quality_bucket(r.get("actual_quality")) == "mistake_blunder"]
+        blind = sum(1 for r in real_mistakes
+                    if (r.get("guessed_quality") or "").lower() == "good")
+        good_moves = [r for r in rows
+                      if quality_bucket(r.get("actual_quality")) == "good"]
+        harsh = sum(1 for r in good_moves
+                    if (r.get("guessed_quality") or "").lower() == "mistake_blunder")
+
+        return {
+            "available": True,
+            "total": total,
+            "accuracy_pct": round(100 * accurate / total),
+            "blindspot_pct": round(100 * blind / len(real_mistakes)) if real_mistakes else None,
+            "blindspot_count": blind,
+            "real_mistakes_rated": len(real_mistakes),
+            "harsh_pct": round(100 * harsh / len(good_moves)) if good_moves else None,
+        }
+    except Exception as e:
+        logger.warning(f"[rate-move] calibration failed (non-fatal): {e}")
+        return {"available": False, "error": True}
+
+
 @router.get("/opening-plan")
 async def get_opening_plan(
     session_id: str,
@@ -3663,7 +3709,35 @@ async def get_interactive_coaching(
                                     coaching_dict["theory_applied"] = f"You played the book move in the {opening_name}. The theory is sticking."
                 except Exception as ta_err:
                     logger.warning(f"Theory applied tracking failed (non-critical): {ta_err}")
-            
+
+            # ── TRAINING-FOCUS PERSONALIZATION on the LIVE v5 path (2026-07-14) ──
+            # The session stores the user's active training prescription gap
+            # (active_training_cognitive_gap, set at /start). Previously only the
+            # legacy /move-feedback path personalized on it — and that endpoint is
+            # unreachable from the live UI, so users never saw it. Here: when the
+            # user makes a real mistake (cp_loss>=100) that BOARD-VERIFIABLY
+            # matches the trained gap (same check the mission focus coach uses,
+            # not a label guess), the coach names the training connection.
+            try:
+                _train_gap = session_doc.get("active_training_cognitive_gap")
+                if _train_gap and cp_loss >= 100 and coaching_dict.get("narrative"):
+                    from services.focus_move_coaching import should_fire_focus_coach
+                    _t_uci = last_user_move.get("uci") or ""
+                    _t_match = await should_fire_focus_coach(
+                        _train_gap, fen_before, _t_uci, user_color,
+                        bool(last_user_move.get("is_critical")),
+                        last_user_move.get("time_spent"), cp_loss,
+                    )
+                    if _t_match:
+                        coaching_dict["narrative"] = (
+                            f"{coaching_dict['narrative']} This is exactly the "
+                            f"pattern you're training right now."
+                        )
+                        coaching_dict["training_focus_hit"] = _train_gap
+                        logger.info(f"[training-focus] fired for {session_id} gap={_train_gap} cp={cp_loss}")
+            except Exception as _tf_err:
+                logger.warning(f"training-focus personalization failed (non-fatal): {_tf_err}")
+
             result["user_move_coaching"] = coaching_dict
             result["best_move_uci"] = coaching_dict.get("best_move_uci", "")
 

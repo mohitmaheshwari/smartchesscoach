@@ -23,11 +23,13 @@ import logging
 import uuid
 
 from services.prescription_tracking_service import (
-    calculate_baseline_metric,
-    calculate_current_metric,
+    BASELINE_MAX_GAMES,
+    calculate_gap_rate,
     calculate_improvement_percentage,
     check_auto_close_eligibility,
+    compute_prescription_progress,
     mark_prescription_complete,
+    run_auto_close_for_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -514,10 +516,12 @@ async def accept_prescription(
         now = datetime.now(timezone.utc)
         started_at = pres.get("started_at") or now.isoformat()
 
-        # Calculate baseline metric (cp_loss in this gap before training)
+        # Baseline = per-game gap cp_loss rate over the last analyzed games
+        # (2026-07-14: replaces the lifetime SUM whose window-size bias made
+        # every improvement comparison meaningless).
         cognitive_gap = pres.get("issue_detected", "")
-        baseline_cp_loss, baseline_games = await calculate_baseline_metric(
-            db, user.user_id, cognitive_gap
+        baseline_cp_loss, baseline_games = await calculate_gap_rate(
+            db, user.user_id, cognitive_gap, max_games=BASELINE_MAX_GAMES
         )
 
         # Initialize current_metric to baseline (no improvement yet)
@@ -881,7 +885,9 @@ async def complete_prescription(
                 detail=f"Cannot complete prescription with status '{pres['status']}'"
             )
 
-        # Update prescription to completed
+        # Update prescription to completed — recording the REAL final metrics
+        # (2026-07-14: manual completion used to leave improvement_pct stale,
+        # so user-completed plans carried no evidence of what changed).
         now = datetime.now(timezone.utc)
 
         update_data = {
@@ -889,6 +895,15 @@ async def complete_prescription(
             "completed_at": now.isoformat(),
             "updated_at": now.isoformat()
         }
+        try:
+            prog = await compute_prescription_progress(db, pres)
+            update_data.update({
+                "baseline_metric": prog["baseline_avg"],
+                "current_metric": prog["current_avg"],
+                "improvement_pct": prog["improvement"],
+            })
+        except Exception as prog_err:
+            logger.warning(f"complete_prescription: metric snapshot failed (non-fatal): {prog_err}")
 
         await db.user_coaching_prescriptions.update_one(
             {
@@ -1345,63 +1360,14 @@ async def check_auto_close(
     global db
 
     try:
-        # Fetch all active prescriptions for user
-        active_prescriptions = await db.user_coaching_prescriptions.find(
-            {
-                "user_id": user.user_id,
-                "status": "active"
-            }
-        ).to_list(None)
-
-        results = []
-
-        for pres in active_prescriptions:
-            prescription_id = pres.get("prescription_id")
-            baseline_cp = pres.get("baseline_metric", 0.0)
-            started_at_str = pres.get("started_at")
-
-            # Check eligibility
-            should_close, metadata = await check_auto_close_eligibility(
-                db,
-                prescription_id,
-                user.user_id,
-                baseline_cp,
-                started_at_str
-            )
-
-            result = {
-                "prescription_id": prescription_id,
-                "plan_name": pres.get("plan_name", ""),
-                "cognitive_gap": pres.get("issue_detected", ""),
-                "status": pres.get("status"),
-                "baseline_metric": baseline_cp,
-                "eligible_for_close": should_close,
-                "details": metadata
-            }
-
-            # If eligible, mark as completed
-            if should_close:
-                current_cp = metadata.get("current")
-                await mark_prescription_complete(
-                    db,
-                    prescription_id,
-                    user.user_id,
-                    baseline_cp,
-                    current_cp
-                )
-                result["action_taken"] = "auto_closed"
-                logger.info(
-                    f"Auto-closed prescription {prescription_id} for user {user.user_id}. "
-                    f"Improvement: {metadata.get('improvement', 0)*100:.1f}%"
-                )
-            else:
-                result["action_taken"] = "none"
-
-            results.append(result)
+        # Single source: same function the analysis worker calls after each
+        # game analysis (2026-07-14 — the loop's missing trigger). Closes
+        # eligible prescriptions, records final metrics, notifies the user.
+        results = await run_auto_close_for_user(db, user.user_id)
 
         return {
             "status": "success",
-            "checked_prescriptions": len(active_prescriptions),
+            "checked_prescriptions": len(results),
             "auto_closed": sum(1 for r in results if r["action_taken"] == "auto_closed"),
             "results": results
         }
@@ -1444,40 +1410,30 @@ async def get_prescription_progress(
         if not pres:
             raise HTTPException(status_code=404, detail="Prescription not found")
 
-        # If still active, calculate current metrics
+        # If still active, calculate current metrics via the single source of
+        # prescription math (per-game rate, recomputed baseline — 2026-07-14).
         if pres.get("status") == "active":
-            cognitive_gap = pres.get("issue_detected", "")
-            started_at_str = pres.get("started_at")
-            baseline_cp = pres.get("baseline_metric", 0.0)
-
-            # Calculate current metric
-            current_cp, games_count = await calculate_current_metric(
-                db, user.user_id, cognitive_gap, started_at_str
-            )
-
-            # Calculate improvement
-            improvement = calculate_improvement_percentage(baseline_cp, current_cp)
-
-            # Check auto-close eligibility
-            eligible, eligibility_details = await check_auto_close_eligibility(
-                db, prescription_id, user.user_id, baseline_cp, started_at_str
-            )
+            prog = await compute_prescription_progress(db, pres)
 
             progress_data = {
                 "prescription_id": prescription_id,
                 "plan_name": pres.get("plan_name", ""),
-                "cognitive_gap": cognitive_gap,
+                "cognitive_gap": prog["cognitive_gap"],
                 "status": pres.get("status"),
-                "started_at": started_at_str,
-                "baseline_metric": baseline_cp,
-                "current_metric": current_cp,
-                "improvement_pct": round(improvement * 100, 1),
-                "games_analyzed_since_start": games_count,
+                "started_at": pres.get("started_at"),
+                "baseline_metric": prog["baseline_avg"],
+                "current_metric": prog["current_avg"],
+                "improvement_pct": round(prog["improvement"] * 100, 1),
+                "games_analyzed_since_start": prog["current_games"],
                 "modules_completed": pres.get("modules_completed", []),
                 "puzzles_completed": pres.get("puzzles_completed", 0),
                 "puzzle_accuracy": pres.get("puzzle_accuracy", 0.0),
-                "auto_close_eligible": eligible,
-                "auto_close_details": eligibility_details
+                "auto_close_eligible": prog["eligible"],
+                "auto_close_details": {
+                    "reason": prog["reason"],
+                    "baseline_games": prog["baseline_games"],
+                    "current_games": prog["current_games"],
+                }
             }
         else:
             # Prescription is completed or pending

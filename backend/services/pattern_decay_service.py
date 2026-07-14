@@ -176,6 +176,73 @@ async def get_puzzle_recoveries(
     return recoveries
 
 
+async def build_decay_games(db, user_id: str, max_games: int = 20) -> List[Dict]:
+    """Newest-first analyzed games with their cognitive_gaps — the minimal
+    shape compute_pattern_scores needs. Date order uses date_played
+    normalized from the chess.com '2026.03.01' format."""
+    games = await db.games.find(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "date_played": 1},
+    ).to_list(None)
+
+    def norm(d):
+        s = str(d or "").replace(".", "-")[:10]
+        return s if len(s) == 10 else ""
+
+    ordered = sorted(games, key=lambda g: norm(g.get("date_played")), reverse=True)
+    ordered = [g for g in ordered if norm(g.get("date_played"))][: max_games * 2]
+    ids = [g["game_id"] for g in ordered]
+
+    analyses = await db.game_analyses.find(
+        {"game_id": {"$in": ids}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+    ).to_list(None)
+    gaps_by_game = {}
+    for a in analyses:
+        moves = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        gaps = {m.get("cognitive_gap") for m in moves
+                if m.get("cognitive_gap") and not m.get("is_opponent_move")}
+        gaps_by_game[a["game_id"]] = sorted(gaps)
+
+    out = []
+    for g in ordered:
+        if g["game_id"] in gaps_by_game:
+            out.append({"game_id": g["game_id"],
+                        "cognitive_gaps": gaps_by_game[g["game_id"]]})
+        if len(out) >= max_games:
+            break
+    return out
+
+
+async def refresh_user_pattern_decay(db, user_id: str) -> Dict[str, Dict]:
+    """Recompute decay scores WITH puzzle recoveries and PERSIST them to
+    db.user_pattern_decay (2026-07-14). Previously the analysis worker computed
+    scores with empty recoveries and threw the result away — training success
+    never fed back into any stored state. Called by the worker after each
+    analysis and by the puzzle-attempt route after each correct solve, so both
+    playing and training move the persisted state immediately."""
+    from datetime import datetime, timezone
+
+    games = await build_decay_games(db, user_id)
+    recoveries = await get_puzzle_recoveries(db, user_id)
+    scores = compute_pattern_scores(games, puzzle_recoveries=recoveries)
+    try:
+        await db.user_pattern_decay.replace_one(
+            {"user_id": user_id},
+            {
+                "user_id": user_id,
+                "scores": scores,
+                "puzzle_recoveries": recoveries,
+                "games_considered": len(games),
+                "computed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            upsert=True,
+        )
+    except Exception as e:
+        logger.warning(f"persist user_pattern_decay failed for {user_id}: {e}")
+    return scores
+
+
 def build_pick_message(
     pattern: str,
     score_data: Dict,

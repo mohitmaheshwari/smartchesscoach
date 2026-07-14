@@ -116,6 +116,16 @@ services:
       # last-15-days rate + population percentile). docs/motif_recognition_card_scope.md
       # Kill-switch: set to false to hide the card without a redeploy.
       - MOTIF_RECOGNITION_CARD=true
+      # VERIFIED + DISTILLED CAPTIONS (2026-07-14, W5 of the broken-wires fix):
+      # the validated quality layers, previously dark. VERIFIED_CAPTIONS adds the
+      # board-verified "attacks" reason for near-best quiet moves (98/98 verified,
+      # purely additive). DISTILLED_CAPTIONS_ENABLED swaps caption text with the
+      # distilled-template render when available+engine-verified (91% coverage /
+      # 99% truth on 46k moves; abstain keeps the existing caption). Values come
+      # from .env so either can be killed WITHOUT a rebuild: set to 0/false in
+      # .env + `docker compose up -d backend`.
+      - VERIFIED_CAPTIONS=${VERIFIED_CAPTIONS:-false}
+      - DISTILLED_CAPTIONS_ENABLED=${DISTILLED_CAPTIONS_ENABLED:-0}
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
       - FRONTEND_URL=https://chessguru.ai

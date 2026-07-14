@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 133  # v133 (2026-07-08): jargon + defeatist-phrase sweep from the 987-move gold comparison — killed "you were already losing", "leverage", "compensation", "the engine sees", "tempo/with tempo" from R12/R_PROMOTED variants (plain-English replacements). Bump forces stored review captions to re-render through the new pipeline.
+V5_COACHING_VERSION = 134  # v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). Bump forces stored review captions to re-render through the flagged-on pipeline. v133 (2026-07-08): jargon + defeatist-phrase sweep.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

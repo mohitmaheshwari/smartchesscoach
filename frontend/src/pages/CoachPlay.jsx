@@ -41,8 +41,10 @@ import "@/styles/pwc-theme.css";
 // it. The reveal must be deferred at the SOURCE (the /move flow), not withheld after. Disabled until
 // that rework lands. Flip to true only after the deferred-at-source fix is verified.
 const PREDICT_MOVE_ENABLED = true;  // re-enabled with the defer-at-source fix (coach move not applied
-                                    // until you guess, so nothing leaks). RATE stays off until verified.
-const RATE_MOVE_ENABLED = false;
+                                    // until you guess, so nothing leaks).
+const RATE_MOVE_ENABLED = true;     // ON 2026-07-14 (W4): verified fail-open live; self-grades now feed
+                                    // the calibration insight (/coach/play/rate-move/calibration) shown
+                                    // on /progress — the student model's first read consumer.
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -1107,10 +1109,16 @@ const CoachPlay = ({ user }) => {
         credentials: "include"
       });
       if (res.ok) {
-        const prescriptions = await res.json();
-        // Return first active prescription's cognitive gap (if any)
-        if (prescriptions && prescriptions.length > 0) {
-          return prescriptions[0].cognitive_gap; // e.g., "piece_safety", "king_safety", etc.
+        // Response shape: { prescriptions: [...], total_active, ... } — the list
+        // includes BOTH active and pending; only an accepted (active) plan is a
+        // training focus. Field is issue_detected (there is no cognitive_gap
+        // field on PrescriptionResponse).
+        const data = await res.json();
+        const active = (data.prescriptions || []).filter(
+          (p) => p.status === "active" && p.issue_detected
+        );
+        if (active.length > 0) {
+          return active[0].issue_detected; // e.g., "piece_safety", "king_safety"
         }
       }
     } catch (e) {

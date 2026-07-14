@@ -1335,21 +1335,38 @@ def process_job(db, job):
 
         _write_analysis()
 
-        # Compute pattern decay scores (now that analysis is written)
+        # Pattern decay + prescription auto-close (2026-07-14 rewire).
+        # OLD behavior computed decay for the single new game with EMPTY puzzle
+        # recoveries and threw the result away — training success never fed back.
+        # NOW: recompute the user's full decay state WITH puzzle recoveries and
+        # PERSIST it (db.user_pattern_decay), then check whether any active
+        # training prescription has earned its auto-close (>=50% lower per-game
+        # gap rate over >=3 analyzed games) — the trigger the coaching loop was
+        # missing. Both fail-open: analysis success never depends on them.
         try:
-            from services.pattern_decay_service import compute_pattern_scores
-            analysis_doc_written = db.game_analyses.find_one(
-                {"game_id": game_id, "user_id": user_id}
-            )
-            if analysis_doc_written:
-                moves = analysis_doc_written.get("stockfish_analysis", {}).get("move_evaluations", [])
-                gaps = [m.get("cognitive_gap") for m in moves if m.get("cognitive_gap")]
-                if gaps:
-                    game_data = {"game_id": game_id, "cognitive_gaps": list(set(gaps))}
-                    compute_pattern_scores([game_data], puzzle_recoveries={})
-                    logger.info(f"[pattern-decay] scored for {user_id} on game {game_id}")
+            import asyncio as _asyncio_decay
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor_decay
+
+            async def _decay_and_autoclose():
+                _client = _AsyncMotor_decay(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+                _adb = _client[os.environ.get("DB_NAME", "chess_coach")]
+                try:
+                    from services.pattern_decay_service import refresh_user_pattern_decay
+                    scores = await refresh_user_pattern_decay(_adb, user_id)
+                    logger.info(f"[pattern-decay] persisted {len(scores)} pattern scores for {user_id}")
+
+                    from services.prescription_tracking_service import run_auto_close_for_user
+                    results = await run_auto_close_for_user(_adb, user_id)
+                    closed = [r for r in results if r.get("action_taken") == "auto_closed"]
+                    if closed:
+                        logger.info(f"[auto-close] closed {len(closed)} prescription(s) for {user_id}: "
+                                    f"{[c.get('cognitive_gap') for c in closed]}")
+                finally:
+                    _client.close()
+
+            _asyncio_decay.run(_decay_and_autoclose())
         except Exception as decay_err:
-            logger.warning(f"[pattern-decay] computation failed (non-fatal): {decay_err}")
+            logger.warning(f"[pattern-decay/auto-close] failed (non-fatal): {decay_err}")
 
         # Extract puzzles from analyzed game (Phase 1, 2026-07-09)
         # Now that analysis is complete, auto-extract blunders as training puzzles.
