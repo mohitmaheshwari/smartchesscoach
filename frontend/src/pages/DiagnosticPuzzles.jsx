@@ -160,13 +160,17 @@ const DiagnosticPuzzles = () => {
     }
   };
 
-  // ── Skip the diagnostic ────────────────────────────────────────
-  const handleSkip = async () => {
+  // ── Finish early — score whatever's solved and STILL build the profile ──
+  const handleExit = async () => {
     try {
-      await fetch(`${API}/diagnostic/skip`, {
+      const res = await fetch(`${API}/diagnostic/exit`, {
         method: "POST",
         credentials: "include",
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.diagnosis) { setDiagnosis(data.diagnosis); return; }
+      }
     } catch { /* non-fatal */ }
     navigate("/home");
   };
@@ -265,11 +269,19 @@ const DiagnosticPuzzles = () => {
             <Button
               variant="default"
               className="flex-1"
+              onClick={() => navigate("/training")}
+              data-testid="diagnostic-start-training"
+            >
+              Start training
+              <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={() => navigate("/home")}
               data-testid="diagnostic-continue-home"
             >
-              Continue to home
-              <ArrowRight className="w-4 h-4 ml-1.5" />
+              Go to home
             </Button>
           </div>
         </div>
@@ -306,11 +318,11 @@ const DiagnosticPuzzles = () => {
             </h1>
           </div>
           <button
-            onClick={handleSkip}
+            onClick={handleExit}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             data-testid="diagnostic-skip-btn"
           >
-            Skip for now
+            Finish early
           </button>
         </div>
 
