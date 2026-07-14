@@ -18,6 +18,15 @@ check() { # name, expected, actual
 
 BASE="http://localhost:8002/api"
 
+# 0. Wait for boot — the backend takes 30-90s to start after `up -d --build`;
+#    running the checks mid-boot produces false FAILs (2026-07-14 lesson).
+printf 'waiting for backend boot'
+for i in $(seq 1 40); do
+  curl -sf "$BASE/health" >/dev/null 2>&1 && break
+  printf '.'; sleep 3
+done
+echo
+
 # 1. Liveness (necessary, NOT sufficient)
 code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/health" || echo 000)
 check "health endpoint" "200" "$code"
