@@ -1101,7 +1101,7 @@ def _enhance_postgame_messaging(
 
 def _get_default_streak_data() -> Dict[str, Any]:
     """Get default streak data for new users.
-    
+
     IMPORTANT: current_focus_mistake is None until actual detection.
     We don't assume a problem - we detect it from game analysis.
     """
@@ -1120,4 +1120,160 @@ def _get_default_streak_data() -> Dict[str, Any]:
             "baseline_locked": False
         },
         "last_5_games": []
+    }
+
+
+# =============================================================================
+# DAILY PRACTICE STREAK (Daily Fix — docs/daily_fix_scope.md)
+# =============================================================================
+#
+# A DAY-based habit streak, distinct from the GAME-based mistake_streak above.
+# It increments when the user completes their daily fix (a mission). Forgiving:
+# a single missed day does not reset the streak (1 grace day, per signed-off
+# scope 2026-06-29); two or more consecutive missed days reset it.
+#
+# Stored on the user doc as a separate top-level field `practice_streak`, kept
+# deliberately separate from the mistake-streak lanes (users.streak_data /
+# user_streaks) so the two streak concepts never entangle. Fully deterministic.
+
+from datetime import date as _date
+
+# Max gap (in days) between two completions that still keeps the streak alive.
+# 1 = strict (must be consecutive). 2 = one grace day (a single miss forgiven).
+PRACTICE_STREAK_MAX_GAP_DAYS = 2
+
+
+def _default_practice_streak() -> Dict[str, Any]:
+    """Default practice-streak state for a user who has never done a daily fix."""
+    return {
+        "current": 0,
+        "best": 0,
+        "last_practice_date": None,  # ISO "YYYY-MM-DD" of last completed daily fix
+        "started_at": None,          # ISO date the current run began
+        "grace_used": False,         # whether the current run has spent its grace day
+    }
+
+
+def _coerce_date(value: Any) -> Optional[_date]:
+    """Accept a date, datetime, or ISO 'YYYY-MM-DD' string → date (or None)."""
+    if value is None:
+        return None
+    if isinstance(value, _date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        try:
+            return _date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def apply_practice_completion(
+    practice_streak: Optional[Dict[str, Any]],
+    today: Any,
+) -> Dict[str, Any]:
+    """
+    Apply one daily-fix completion to a practice-streak state and return the
+    new state. Pure/deterministic — `today` is passed in for testability.
+
+    Rules:
+    - First ever completion → streak = 1.
+    - Same day again → idempotent no-op (never double-counts one day).
+    - Consecutive day (gap 1) → +1.
+    - One missed day (gap 2) → +1 but consumes the grace day.
+    - Two+ missed days (gap >= 3) → reset to 1 (fresh run starting today).
+    `best` never decreases.
+    """
+    ps = dict(practice_streak) if practice_streak else _default_practice_streak()
+    today_d = _coerce_date(today)
+    if today_d is None:
+        raise ValueError("apply_practice_completion requires a valid `today` date")
+
+    last_d = _coerce_date(ps.get("last_practice_date"))
+    current = int(ps.get("current", 0) or 0)
+    best = int(ps.get("best", 0) or 0)
+
+    if last_d is None:
+        # First completion ever (or after data reset)
+        current = 1
+        started = today_d
+        grace_used = False
+    elif today_d <= last_d:
+        # Already counted today (or a stale/duplicate call) — do not double count.
+        return {
+            "current": current,
+            "best": max(best, current),
+            "last_practice_date": last_d.isoformat(),
+            "started_at": ps.get("started_at"),
+            "grace_used": bool(ps.get("grace_used", False)),
+        }
+    else:
+        gap = (today_d - last_d).days
+        started = _coerce_date(ps.get("started_at")) or last_d
+        grace_used = bool(ps.get("grace_used", False))
+        if gap == 1:
+            current += 1
+            grace_used = False  # a clean consecutive day refreshes the grace allowance
+        elif gap <= PRACTICE_STREAK_MAX_GAP_DAYS:
+            # exactly one missed day — forgiven, but the run has now used its grace
+            current += 1
+            grace_used = True
+        else:
+            # streak broke — start a fresh run today
+            current = 1
+            started = today_d
+            grace_used = False
+
+    best = max(best, current)
+    return {
+        "current": current,
+        "best": best,
+        "last_practice_date": today_d.isoformat(),
+        "started_at": (started.isoformat() if isinstance(started, _date) else (started or today_d.isoformat())),
+        "grace_used": grace_used,
+    }
+
+
+def practice_streak_view(
+    practice_streak: Optional[Dict[str, Any]],
+    today: Any,
+) -> Dict[str, Any]:
+    """
+    Read-only view of the practice streak for display + reminder logic, as of
+    `today`. Reports the streak the user CURRENTLY holds (a streak is still held
+    through its grace window even if today's fix isn't done yet) plus two flags:
+      - done_today:     the daily fix was already completed today
+      - at_risk:        a real streak exists, today isn't done, and it will break
+                        if not continued in time (drives the streak-at-risk nudge)
+    """
+    ps = dict(practice_streak) if practice_streak else _default_practice_streak()
+    today_d = _coerce_date(today)
+    last_d = _coerce_date(ps.get("last_practice_date"))
+    stored_current = int(ps.get("current", 0) or 0)
+    best = int(ps.get("best", 0) or 0)
+
+    if today_d is None or last_d is None:
+        return {
+            "current": stored_current if last_d is not None else 0,
+            "best": best,
+            "done_today": False,
+            "at_risk": False,
+            "last_practice_date": last_d.isoformat() if last_d else None,
+        }
+
+    gap = (today_d - last_d).days
+    done_today = gap <= 0
+    # The held streak survives while within the grace window; beyond it, it's stale (0).
+    held = stored_current if gap <= PRACTICE_STREAK_MAX_GAP_DAYS else 0
+    # At risk: a real streak is held, not yet continued today, and one more missed
+    # day would break it (i.e. we are at the edge of the grace window).
+    at_risk = (held > 0) and (not done_today) and (gap >= PRACTICE_STREAK_MAX_GAP_DAYS)
+    return {
+        "current": held,
+        "best": best,
+        "done_today": done_today,
+        "at_risk": at_risk,
+        "last_practice_date": last_d.isoformat(),
     }

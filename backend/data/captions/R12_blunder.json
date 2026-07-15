@@ -111,7 +111,18 @@
     "bs_file_letter": "File letter ('a'..'h') of an open file controlled by opp major — used by bs_open_file_owned_by_opp",
     "bs_opp_major_piece": "Piece type ('rook' or 'queen') controlling the open file — used by bs_open_file_owned_by_opp",
     "bs_queen_square": "User's queen square when she's the only active piece — used by bs_queen_alone_active",
-    "bs_passive_count": "Count of user non-pawn pieces still in own-side ranks — used by bs_passive_pieces_count"
+    "bs_passive_count": "Count of user non-pawn pieces still in own-side ranks — used by bs_passive_pieces_count",
+    "played_hangs_result": "true when user's move left own piece hanging (undefended + attacked). From played_hangs_detector.",
+    "played_hangs_square": "Square of the user's hanging piece.",
+    "played_hangs_piece": "Lowercase piece-name of the hanging piece.",
+    "opp_traded_active_result": "true when opponent traded an active piece for an inactive one (e.g. gave Qxb3 for the user's idle queenside rook). From opp_traded_active_detector.",
+    "opp_traded_active_piece": "Lowercase piece-name of what the opponent captured (e.g. 'rook').",
+    "opp_traded_active_square": "Square where the captured piece sat.",
+    "opp_traded_active_recapture": "SAN of the user's recapture (e.g. 'Qxb3').",
+    "opp_quiet_threat_result": "true when opponent played a quiet move despite having a hanging piece (bluffed/ignored the threat). From opp_quiet_threat_detector.",
+    "opp_quiet_threat_piece": "Lowercase piece-name of the opponent's hanging piece.",
+    "opp_quiet_threat_square": "Square where the opponent's piece sits undefended.",
+    "opp_quiet_threat_best": "SAN of the user's best reply (e.g. 'Qxc5')."
   },
   "requires": ["played_san"],
   "trigger": {
@@ -197,7 +208,9 @@
   "failure_mode_clauses_opp": [
     {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
     {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
-    {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"}
+    {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"},
+    {"when": {"opp_traded_active_result": true, "opp_traded_active_piece": "present", "opp_traded_active_square": "present", "opp_traded_active_recapture": "present"}, "variant": "opp_failure_traded_active"},
+    {"when": {"opp_quiet_threat_result": true, "opp_quiet_threat_piece": "present", "opp_quiet_threat_square": "present", "opp_quiet_threat_best": "present"}, "variant": "opp_failure_quiet_threat"}
   ],
   "teaching_principles": {
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
@@ -210,7 +223,9 @@
     "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
     "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
     "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate",
-    "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}"
+    "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}",
+    "opp_failure_traded_active":          "they swapped their {opp_traded_active_piece} on {opp_traded_active_square} — a piece that was doing nothing — and gave you time to build your attack",
+    "opp_failure_quiet_threat":           "they played quietly even though their {opp_quiet_threat_piece} on {opp_quiet_threat_square} is hanging — you can play {opp_quiet_threat_best} and grab it"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -292,6 +307,9 @@
     "failure_exchange_losing_no_reply": "loses material in the trade",
     "failure_played_piece_attacked": "walks into {opp_reply_san} attacking the {moving_piece_type} on {target_square}",
     "failure_hangs_piece": "leaves your {moving_piece_type} on {target_square} undefended",
+
+    "opp_failure_traded_active": "gave up their {opp_traded_active_piece} without getting anything in return — it was just sitting idle, so they freed up your attack pieces",
+    "opp_failure_quiet_threat": "they left their {opp_quiet_threat_piece} hanging on {opp_quiet_threat_square}. You play {opp_quiet_threat_best} and win it",
 
     "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
     "why_user_missed_mate": "it would have led to mate in {missed_tactic_moves_to_mate} {missed_tactic_mate_word}.",
