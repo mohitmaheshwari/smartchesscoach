@@ -327,6 +327,7 @@ from routes import cognitive as cognitive_routes
 from routes import behavioral as behavioral_routes
 from routes import notifications as notifications_routes
 from routes import missions as missions_routes
+from routes import daily_fix as daily_fix_routes
 from routes import settings as settings_routes
 from routes import openings as openings_routes
 from routes import admin_openings as admin_openings_routes
@@ -373,6 +374,7 @@ cognitive_routes.set_db(db)
 behavioral_routes.set_db(db)
 notifications_routes.set_db(db)
 missions_routes.set_db(db)
+daily_fix_routes.set_db(db)
 missions_routes.set_mission_services(
     generate_daily_mission_fn=generate_daily_mission,
     start_mission_fn=start_mission,
@@ -431,6 +433,7 @@ app.include_router(cognitive_routes.router, prefix="/api")
 app.include_router(behavioral_routes.router, prefix="/api")
 app.include_router(notifications_routes.router, prefix="/api")
 app.include_router(missions_routes.router, prefix="/api")
+app.include_router(daily_fix_routes.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
 app.include_router(openings_routes.router, prefix="/api")
 app.include_router(admin_openings_routes.router, prefix="/api")
