@@ -34,7 +34,7 @@ import LichessBoard from "@/components/LichessBoard";
 import MasteryPanel from "@/components/coach/MasteryPanel";
 import InGameMasteryPanel from "@/components/coach/InGameMasteryPanel";
 import TacticsMasteryPanel from "@/components/coach/TacticsMasteryPanel";
-import CoachingPatternsPanel from "@/components/lab/CoachingPatternsPanel";
+import CoachingPatternsPanel from "@/components/Lab/CoachingPatternsPanel";
 import {
   Import,
   ChevronRight,
