@@ -12,6 +12,7 @@ import RefundPolicy from "@/pages/RefundPolicy";
 import ContactUs from "@/pages/ContactUs";
 import Dashboard from "@/pages/Dashboard";
 import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07-11)
+import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-test drill
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
@@ -303,6 +304,11 @@ function AppRouter() {
       <Route path="/training" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/daily-fix/drill" element={
+        <ProtectedRoute>
+          {({ user }) => <DailyFixDrill user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/prescribed" element={

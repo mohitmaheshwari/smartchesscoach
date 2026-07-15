@@ -29,6 +29,7 @@ import {
   ArrowRight,
   TrendingUp,
   Zap,
+  Flame,
 } from "lucide-react";
 
 const timeOfDayGreeting = () => {
@@ -64,6 +65,8 @@ export default function HomePageNew({ user }) {
   const [todayExercise, setTodayExercise] = useState(null);
   const [proof, setProof] = useState(null);
   const [queuedModules, setQueuedModules] = useState([]);
+  const [dailyFix, setDailyFix] = useState(null);
+  const [streak, setStreak] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -104,6 +107,14 @@ export default function HomePageNew({ user }) {
         const proofRes = await fetch(`${API}/progress/improvement-proof`, { credentials: "include" });
         if (proofRes.ok) {
           setProof(await proofRes.json());
+        }
+
+        // Fetch today's daily fix + practice streak
+        const fixRes = await fetch(`${API}/daily-fix/today`, { credentials: "include" });
+        if (fixRes.ok) {
+          const fixData = await fixRes.json();
+          setDailyFix(fixData);
+          if (fixData.streak) setStreak(fixData.streak);
         }
       } catch (e) {
         console.error("Error loading home data:", e);
@@ -208,6 +219,65 @@ export default function HomePageNew({ user }) {
             </p>
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
+
+          {/* ─── DAILY FIX ─── */}
+          {dailyFix && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                  Today's fix
+                </div>
+                {streak && (streak.current > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-600 dark:text-amber-400">
+                    <Flame className="h-3.5 w-3.5" strokeWidth={2} /> {streak.current}-day streak
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Start your streak</span>
+                ))}
+              </div>
+              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+                {streak?.done_today ? (
+                  <div>
+                    <p className="text-[15px] font-medium text-foreground mb-1">
+                      Done for today. 🔥 {streak.current}-day streak.
+                    </p>
+                    <p className="text-[13px] text-muted-foreground">Come back tomorrow to keep it going.</p>
+                  </div>
+                ) : dailyFix.drill_type === "rush_test" ? (
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-foreground mb-2">Beat the clock</h3>
+                    <p className="text-[13px] text-muted-foreground mb-4">
+                      {(dailyFix.drills?.length || 5)} positions you played too fast last time. Slow down — find the move you missed.
+                    </p>
+                    <button
+                      onClick={() => navigate("/daily-fix/drill")}
+                      className="h-9 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                    >
+                      Start timed fix
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-foreground mb-2">
+                      {dailyFix.mission?.focus_label || "Today's drill"}
+                    </h3>
+                    <p className="text-[13px] text-muted-foreground mb-4">
+                      A few drills from your own games
+                      {dailyFix.mission?.estimated_minutes ? ` · ~${dailyFix.mission.estimated_minutes} min` : ""}.
+                    </p>
+                    <button
+                      onClick={() => navigate("/training/prescribed")}
+                      className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                    >
+                      Start today's fix
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.section>
+          )}
 
           {/* ─── COACH RECOMMENDATIONS & PLAN SELECTION ─── */}
           <motion.section variants={fadeInUp} className="mb-16 md:mb-20">

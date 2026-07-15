@@ -1277,3 +1277,37 @@ def practice_streak_view(
         "at_risk": at_risk,
         "last_practice_date": last_d.isoformat(),
     }
+
+
+def _today_iso(today: Any = None) -> str:
+    """UTC 'YYYY-MM-DD' for today, or the passed-in override (for tests/cron)."""
+    if today is not None:
+        d = _coerce_date(today)
+        if d is None:
+            raise ValueError("invalid `today`")
+        return d.isoformat()
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+async def record_daily_fix_completion(db, user_id: str, today: Any = None) -> Dict[str, Any]:
+    """Persist one daily-fix completion → advance the user's practice streak.
+
+    Idempotent per day (completing two fixes in one day counts once). Stored on
+    the users doc under `practice_streak`. Returns the new streak state."""
+    today_iso = _today_iso(today)
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "practice_streak": 1})
+    prev = (user or {}).get("practice_streak")
+    new_state = apply_practice_completion(prev, today_iso)
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"practice_streak": new_state}},
+        upsert=True,
+    )
+    return new_state
+
+
+async def get_practice_streak_view(db, user_id: str, today: Any = None) -> Dict[str, Any]:
+    """Read-only practice-streak view for display + reminder logic."""
+    today_iso = _today_iso(today)
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "practice_streak": 1})
+    return practice_streak_view((user or {}).get("practice_streak"), today_iso)
