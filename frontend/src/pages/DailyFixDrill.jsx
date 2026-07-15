@@ -22,6 +22,7 @@ export default function DailyFixDrill({ user }) {
   const [phase, setPhase] = useState("solving"); // solving | correct | wrong | done
   const [elapsed, setElapsed] = useState(0);
   const [streakResult, setStreakResult] = useState(null);
+  const [boardFen, setBoardFen] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -41,6 +42,11 @@ export default function DailyFixDrill({ user }) {
 
   const drill = drills[idx];
 
+  // Keep the board on the drill's start position; reset when the drill changes.
+  useEffect(() => {
+    if (drill?.fen) setBoardFen(drill.fen);
+  }, [idx, drill]);
+
   // Clock runs while the user is solving the current position.
   useEffect(() => {
     if (phase !== "solving" || !drill) return;
@@ -57,14 +63,16 @@ export default function DailyFixDrill({ user }) {
   const onDrop = useCallback(
     (source, target) => {
       if (!drill || phase !== "solving") return false;
-      let uci;
+      let uci, newFen;
       try {
         const g = new Chess(drill.fen);
         const mv = g.move({ from: source, to: target, promotion: "q" }); // chess.js v1 throws on illegal
         uci = (mv.from + mv.to + (mv.promotion || "")).toLowerCase();
+        newFen = g.fen();
       } catch (e) {
-        return false; // illegal move — reject the drop
+        return false; // illegal move — reject the drop (piece snaps back, correct)
       }
+      setBoardFen(newFen); // reflect the move so the piece STAYS on the board
       const sol = (drill.solution_uci || "").toLowerCase();
       const correct = uci === sol || uci.slice(0, 4) === sol.slice(0, 4);
       setPhase(correct ? "correct" : "wrong");
@@ -158,7 +166,7 @@ export default function DailyFixDrill({ user }) {
 
         <div className="aspect-square w-full max-w-[440px] mx-auto">
           <Chessboard
-            position={drill.fen}
+            position={boardFen || drill.fen}
             onPieceDrop={onDrop}
             boardOrientation={orientation}
             arePiecesDraggable={phase === "solving"}
@@ -184,7 +192,7 @@ export default function DailyFixDrill({ user }) {
             <p className="text-[12px] text-muted-foreground mb-3">{drill.teaching}</p>
             <div className="flex gap-2">
               <button
-                onClick={() => setPhase("solving")}
+                onClick={() => { setBoardFen(drill.fen); setPhase("solving"); }}
                 className="h-9 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[13px]"
               >
                 Try again
