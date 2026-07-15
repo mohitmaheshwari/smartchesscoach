@@ -5489,6 +5489,55 @@ def extract_facts(
                 # raising.
                 pass
 
+    # ── User move failures (NEW detectors 2026-07-14) ────────────────────
+    # Wire built-but-unwired detectors into the central facts layer.
+    # Non-fatal: detector errors are caught and logged; facts stay empty.
+    played_hangs_result = None
+    played_hangs_square = None
+    played_hangs_piece = None
+    try:
+        from services.played_hangs_detector import detect_played_hangs
+        _hangs = detect_played_hangs(board_before, played_move)
+        if _hangs:
+            played_hangs_result = True
+            played_hangs_square = _hangs.get("square")
+            played_hangs_piece = _hangs.get("piece")
+    except Exception as e:
+        logger.warning(f"played_hangs_detector failed: {e}")
+
+    # ── Opponent move failures (NEW detectors 2026-07-14) ────────────────
+    opp_traded_active_result = None
+    opp_traded_active_piece = None
+    opp_traded_active_square = None
+    opp_traded_active_recapture = None
+    try:
+        if mover_is_user is False:  # opponent move
+            from services.opp_traded_active_detector import detect_opp_traded_active
+            _opp_ta = detect_opp_traded_active(board_before, played_move, pv_after_played, cp_loss)
+            if _opp_ta:
+                opp_traded_active_result = True
+                opp_traded_active_piece = _opp_ta.get("piece")
+                opp_traded_active_square = _opp_ta.get("square")
+                opp_traded_active_recapture = _opp_ta.get("recapture_san")
+    except Exception as e:
+        logger.warning(f"opp_traded_active_detector failed: {e}")
+
+    opp_quiet_threat_result = None
+    opp_quiet_threat_piece = None
+    opp_quiet_threat_square = None
+    opp_quiet_threat_best = None
+    try:
+        if mover_is_user is False:  # opponent move
+            from services.opp_quiet_threat_detector import detect_quiet_when_threatened
+            _opp_qt = detect_quiet_when_threatened(board_before, played_move, best_move_san, cp_loss)
+            if _opp_qt:
+                opp_quiet_threat_result = True
+                opp_quiet_threat_piece = _opp_qt.get("piece")
+                opp_quiet_threat_square = _opp_qt.get("square")
+                opp_quiet_threat_best = _opp_qt.get("best_san")
+    except Exception as e:
+        logger.warning(f"opp_quiet_threat_detector failed: {e}")
+
     # ── Tactic-shape evidence (commit #3 + renamed in #4a) ──────────────
     # All detectors emit structured evidence per LAW 3. Names changed
     # from {fork/pin/skewer/discovery}_shape to more primitive forms:
@@ -5885,6 +5934,22 @@ def extract_facts(
         "opp_failure_missed_tactic": opp_failure_missed_tactic,
         "opp_missed_tactic_san": opp_missed_tactic_san,
         "opp_missed_tactic_desc": opp_missed_tactic_desc,
+
+        # USER MOVE FAILURES (2026-07-14, backlog items #6) — played hangs
+        "played_hangs_result": played_hangs_result,
+        "played_hangs_square": played_hangs_square,
+        "played_hangs_piece": played_hangs_piece,
+
+        # OPPONENT MOVE FAILURES (2026-07-14, backlog items #15, #16) —
+        # traded active for inactive, or quiet when threatened
+        "opp_traded_active_result": opp_traded_active_result,
+        "opp_traded_active_piece": opp_traded_active_piece,
+        "opp_traded_active_square": opp_traded_active_square,
+        "opp_traded_active_recapture": opp_traded_active_recapture,
+        "opp_quiet_threat_result": opp_quiet_threat_result,
+        "opp_quiet_threat_piece": opp_quiet_threat_piece,
+        "opp_quiet_threat_square": opp_quiet_threat_square,
+        "opp_quiet_threat_best": opp_quiet_threat_best,
         # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
         # Drives failure_allows_fork in R12_blunder.json. See in-place
         # comment at the extraction site.
