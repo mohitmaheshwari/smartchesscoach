@@ -277,6 +277,22 @@ async def backfill_puzzles_for_user(
     return total
 
 
+# Map a cognitive-gap key (community_puzzles.issue_type) to the equivalent
+# Play-with-Coach pattern_type(s) in community_training_positions, so the
+# pattern-training page serves BOTH pools. Mohit 2026-07-10 — the PWC pool
+# (~30k positions) was extracted but hidden from /training/pattern, which read
+# community_puzzles (~4k) only.
+GAP_TO_PWC_PATTERNS = {
+    "piece_safety":       ["piece_safety", "hanging_piece"],
+    "missed_tactic":      ["tactical", "tactical_miss", "missed_threat", "pin"],
+    "tactical_oversight": ["tactical_oversight", "tactical"],
+    "calculation_depth":  ["calculation_depth"],
+    "king_safety":        ["king_safety"],
+    # opening_knowledge / endgame_technique / piece_activity / pawn_structure:
+    # no PWC-pool equivalent — those serve from community_puzzles only.
+}
+
+
 async def get_pattern_training_puzzles(
     db: AsyncIOMotorDatabase,
     user_id: str,
@@ -369,6 +385,64 @@ async def get_pattern_training_puzzles(
             "already_solved": False,
             "solve_rate": round(p.get("solve_rate", 0), 1),
         })
+
+    # 3. Play-with-Coach pool (community_training_positions) for the same gap.
+    #    This pool is ~7x bigger than community_puzzles and was NOT reaching this
+    #    page. The user's OWN coach-game mistakes are the most impactful, so they
+    #    lead (own_puzzles); others fill the community list. Mohit 2026-07-10.
+    pwc_types = GAP_TO_PWC_PATTERNS.get(pattern, [])
+    if pwc_types:
+        def _pwc_int(v):
+            try:
+                return int(v)
+            except Exception:
+                return None
+
+        def _shape_pwc(p, source):
+            pid = p.get("position_id") or str(p.get("_id"))
+            return {
+                "puzzle_id": pid,
+                "fen": p.get("fen"),
+                "best_move_san": p.get("best_move_san") or "",
+                "issue_type": pattern,
+                "difficulty": p.get("difficulty", "intermediate"),
+                "move_number": _pwc_int(p.get("move_number")),
+                "user_color": p.get("user_color", "white"),
+                "source": source,
+                "source_game_id": p.get("source_game_id"),
+                "description": p.get("moment_tag") or "",
+                "already_solved": pid in solved_ids,
+                "solve_rate": round(float(p.get("solve_rate", 0) or 0), 1),
+            }
+
+        # IMPORTANT: on prod this collection reliably serves only EXACT-match
+        # queries — it has just the _id_ index and $in / $exists return WRONG
+        # results (0) on it (Mohit 2026-07-10 — flagged for a reindex). So query
+        # each pattern_type EXACTLY and do the rest of the filtering in Python.
+        for t in pwc_types:
+            # 3a. the user's OWN coach-game mistakes for this pattern — lead.
+            #     (compound exact match {pattern_type, source_user_id} works.)
+            own_pwc = db.community_training_positions.find(
+                {"pattern_type": t, "source_user_id": user_id}
+            ).sort("created_at", -1).limit(limit)
+            async for p in own_pwc:
+                sh = _shape_pwc(p, "own_coach_game")
+                if sh["fen"] and sh["best_move_san"]:
+                    own_puzzles.append(sh)
+            # 3b. other users' coach-game puzzles — fill community up to `limit`.
+            if len(community_puzzles) < limit:
+                comm_pwc = db.community_training_positions.find(
+                    {"pattern_type": t}
+                ).sort("solve_rate", -1).limit(limit + 20)
+                async for p in comm_pwc:
+                    if len(community_puzzles) >= limit:
+                        break
+                    if p.get("source_user_id") == user_id:
+                        continue  # own — already added above
+                    sh = _shape_pwc(p, "coach_game")
+                    if sh["puzzle_id"] in solved_ids or not sh["fen"] or not sh["best_move_san"]:
+                        continue
+                    community_puzzles.append(sh)
 
     # Stats
     total_own = len(own_puzzles)
