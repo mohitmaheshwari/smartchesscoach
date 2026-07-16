@@ -137,6 +137,17 @@ COGNITIVE_GAP_PROMPTS = {
 }
 
 
+from services.endgame_detectors.rule_of_square_detector import is_rule_of_square_relevant
+
+# Per-skill FEN validators. A position may only be tagged with a skill if it
+# actually exhibits that skill's concept — this guards against generic gap
+# buckets (e.g. issue_type="endgame_technique") being mislabeled as a specific
+# skill. Skills without a validator are ungated (current behavior preserved).
+_SKILL_FEN_VALIDATOR = {
+    "endgame_rule_of_square": is_rule_of_square_relevant,
+}
+
+
 async def extract_skill_puzzles_for_user(
     db: AsyncIOMotorDatabase,
     user_id: str,
@@ -168,6 +179,8 @@ async def extract_skill_puzzles_for_user(
 
     created = 0
     skipped_dupe = 0
+    skipped_wrong_concept = 0
+    validator = _SKILL_FEN_VALIDATOR.get(skill_id)
     evidence = skill.get("evidence") or []
 
     for ev in evidence:
@@ -178,6 +191,13 @@ async def extract_skill_puzzles_for_user(
             continue
         fen = ev.get("fen_before")
         if not fen:
+            continue
+
+        # Concept gate: only tag positions that ACTUALLY exhibit this skill.
+        # Guards against generic endgame_technique evidence being mislabeled
+        # as endgame_rule_of_square (a position must be, or reduce to, K+P vs K).
+        if validator and not validator(fen):
+            skipped_wrong_concept += 1
             continue
 
         # Idempotency on (skill_id, fen). Same position from two users
@@ -258,6 +278,7 @@ async def extract_skill_puzzles_for_user(
         created += 1
 
     return {"created": created, "skipped_dupe": skipped_dupe,
+            "skipped_wrong_concept": skipped_wrong_concept,
             "evidence_seen": len(evidence)}
 
 

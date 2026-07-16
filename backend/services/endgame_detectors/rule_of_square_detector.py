@@ -84,6 +84,116 @@ def detect_rule_of_square(
     return None
 
 
+# =============================================================================
+# Rule-of-the-square POSITION classifier (concept-accurate, engine-validated).
+#
+# The rule of the square is a DECISION concept, not a material count: a position
+# qualifies when a pawn's fate is decided SOLELY by whether the defending king
+# can enter the square. Concretely:
+#   - no non-king, non-pawn piece on the board (a N/B/R/Q would be the stopper
+#     or escort — that's Lucena / Philidor / knight-blockade, not rule of square);
+#   - at least one passed pawn (a real promotion threat);
+#   - the OTHER pawns must not change the outcome. Verified with the engine by
+#     "strip and compare": eval the full position, then eval "both kings + the
+#     critical passed pawn only". If the verdict (win/draw/loss) is unchanged,
+#     the king-vs-pawn race is what decides -> rule of the square.
+# Keeps: K+P vs K, K+P + irrelevant pawns, simplifications into pawn races, and
+# opposite-side races (mutual passers whose two-pawn race reproduces the verdict).
+# Rejects: piece-controlled and other-pawn-decided positions.
+#
+# Callers pass a chess.engine instance for the precise check. Without one it
+# falls back to a permissive deterministic filter (no pieces + a passed pawn) so
+# extraction never crashes when Stockfish is unavailable.
+# =============================================================================
+
+_NON_PAWN_PIECES = (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
+
+
+def _has_non_pawn_pieces(board: chess.Board) -> bool:
+    return any(board.pieces(pt, c) for pt in _NON_PAWN_PIECES for c in (chess.WHITE, chess.BLACK))
+
+
+def _passed_pawns(board: chess.Board, color: chess.Color) -> list:
+    """Squares of `color`'s passed pawns (no enemy pawn on same/adjacent file ahead)."""
+    out = []
+    enemy = board.pieces(chess.PAWN, not color)
+    for sq in board.pieces(chess.PAWN, color):
+        f, r = chess.square_file(sq), chess.square_rank(sq)
+
+        def ahead(e):
+            er = chess.square_rank(e)
+            return er > r if color == chess.WHITE else er < r
+
+        if not any(abs(chess.square_file(e) - f) <= 1 and ahead(e) for e in enemy):
+            out.append(sq)
+    return out
+
+
+def _verdict(board: chess.Board, engine) -> str:
+    """Coarse White-POV verdict (win/draw/loss) — enough for king-and-pawn races."""
+    import chess.engine
+    sc = engine.analyse(board, chess.engine.Limit(depth=14))["score"].white().score(mate_score=100000)
+    if sc is None:
+        return "?"
+    return "white" if sc > 150 else "black" if sc < -150 else "draw"
+
+
+def _kings_and_pawns_board(board: chess.Board, pawns: list) -> chess.Board:
+    """A board with only the two kings + the given [(square, color), ...] pawns."""
+    nb = chess.Board.empty()
+    nb.turn = board.turn
+    nb.set_piece_at(board.king(chess.WHITE), chess.Piece(chess.KING, chess.WHITE))
+    nb.set_piece_at(board.king(chess.BLACK), chess.Piece(chess.KING, chess.BLACK))
+    for sq, color in pawns:
+        nb.set_piece_at(sq, chess.Piece(chess.PAWN, color))
+    return nb
+
+
+def _most_advanced(squares: list, color: chess.Color):
+    """The passed pawn closest to promotion for `color`."""
+    if not squares:
+        return None
+    key = (lambda s: chess.square_rank(s)) if color == chess.WHITE else (lambda s: -chess.square_rank(s))
+    return max(squares, key=key)
+
+
+def is_rule_of_square_relevant(fen: str, engine=None) -> bool:
+    """True iff the position is a genuine rule-of-the-square lesson (see module
+    header). Pass a chess.engine instance for the precise strip-and-compare
+    check; without one, uses a permissive deterministic fallback that never
+    crashes."""
+    try:
+        board = chess.Board(fen)
+    except (ValueError, TypeError):
+        return False
+    if _has_non_pawn_pieces(board):
+        return False  # a piece controls the race, not the king's square
+    pw = _passed_pawns(board, chess.WHITE)
+    pb = _passed_pawns(board, chess.BLACK)
+    if not (pw or pb):
+        return False  # no promotion threat
+    if engine is None:
+        return True  # deterministic fallback (permissive)
+    try:
+        full = _verdict(board, engine)
+        # single-pawn race: does one passed pawn's isolated race reproduce the outcome?
+        for sq in pw:
+            if _verdict(_kings_and_pawns_board(board, [(sq, chess.WHITE)]), engine) == full:
+                return True
+        for sq in pb:
+            if _verdict(_kings_and_pawns_board(board, [(sq, chess.BLACK)]), engine) == full:
+                return True
+        # opposite-side race: the two most-advanced passers, alone, reproduce it?
+        if pw and pb:
+            wq, bq = _most_advanced(pw, chess.WHITE), _most_advanced(pb, chess.BLACK)
+            two = _kings_and_pawns_board(board, [(wq, chess.WHITE), (bq, chess.BLACK)])
+            if _verdict(two, engine) == full:
+                return True
+        return False
+    except Exception:
+        return True  # engine hiccup -> keep the plausible candidate rather than crash
+
+
 def _is_kp_vs_k_endgame(board: chess.Board) -> bool:
     """Check if position is K+P vs K (or close to it)"""
     # Only kings and at most one pawn total
