@@ -20,8 +20,8 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Chess } from "chess.js";
+import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
-import LichessBoard from "@/components/LichessBoard";
 import { ArrowLeft, RotateCcw, ChevronRight, Loader2, ExternalLink, Check, X, Lightbulb } from "lucide-react";
 
 // Per-skill drill copy. Keep terse — most teaching is in the verdict
@@ -253,20 +253,22 @@ const SkillDrill = ({ user }) => {
         <div className="w-full">
           <div className="rounded-lg overflow-hidden ring-1 ring-border">
             {chess && (
-              <LichessBoard
-                fen={chess.fen()}
-                orientation={orientation}
-                interactive={!verdict && !grading}
-                viewOnly={!!verdict || grading}
-                movableColor={
-                  !verdict && !grading
-                    ? (chess.turn() === "w" ? "white" : "black")
-                    : undefined
-                }
-                onMove={(moveData) => {
-                  if (moveData?.from && moveData?.to) {
-                    submitMove(moveData.from, moveData.to);
+              <Chessboard
+                position={chess.fen()}
+                boardOrientation={orientation}
+                arePiecesDraggable={!verdict && !grading}
+                onPieceDrop={(from, to) => {
+                  if (verdict || grading) return false;
+                  // Only accept legal moves (snap back otherwise); submitMove
+                  // then applies it on the board state and grades it.
+                  try {
+                    const test = new Chess(chess.fen());
+                    if (!test.move({ from, to, promotion: "q" })) return false;
+                  } catch {
+                    return false;
                   }
+                  submitMove(from, to);
+                  return true;
                 }}
               />
             )}
