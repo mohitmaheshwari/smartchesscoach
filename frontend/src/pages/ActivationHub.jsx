@@ -66,16 +66,19 @@ const ActivationHub = () => {
         <button
           onClick={() => { track("funnel_activation_cta", { cta: "diagnostic" }); go("/diagnostic"); }}
           disabled={busy}
-          className="w-full text-left rounded-sm border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50"
+          className="w-full text-left rounded-sm border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
           style={{ borderColor: WINE, background: "rgba(114,47,55,0.03)" }}
           data-testid="hub-diagnostic"
         >
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
-            <div>
-              <div className="text-[15px] font-medium text-foreground">Get your free Chess DNA</div>
-              <div className="text-[12.5px] text-muted-foreground">A few quick puzzles — find your level and your weak spots.</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
+              <div>
+                <div className="text-[15px] font-medium text-foreground">Get your free Chess DNA</div>
+                <div className="text-[12.5px] text-muted-foreground">A few quick puzzles — find your level and your weak spots.</div>
+              </div>
             </div>
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
           </div>
         </button>
 
@@ -83,16 +86,19 @@ const ActivationHub = () => {
         <button
           onClick={() => { track("funnel_activation_cta", { cta: "coached_game" }); go("/play-with-coach"); }}
           disabled={busy}
-          className="w-full text-left rounded-sm border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50"
+          className="w-full text-left rounded-sm border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
           style={{ borderColor: BORDER, background: "white" }}
           data-testid="hub-play"
         >
-          <div className="flex items-center gap-3">
-            <Swords className="w-5 h-5 shrink-0" style={{ color: GOLD_TEXT }} />
-            <div>
-              <div className="text-[15px] font-medium text-foreground">Play a game with your coach</div>
-              <div className="text-[12.5px] text-muted-foreground">Guided game — your coach talks you through it.</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Swords className="w-5 h-5 shrink-0" style={{ color: GOLD_TEXT }} />
+              <div>
+                <div className="text-[15px] font-medium text-foreground">Play a game with your coach</div>
+                <div className="text-[12.5px] text-muted-foreground">Guided game — your coach talks you through it.</div>
+              </div>
             </div>
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />
           </div>
         </button>
 
