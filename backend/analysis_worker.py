@@ -84,6 +84,10 @@ POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
 WORKER_ID = f"worker-{os.getpid()}"
 JOB_TIMEOUT_MINUTES = 10
+FAILED_RETRY_COOLDOWN_MINUTES = 20  # don't auto-retry a failure until it's this old (avoids tight loops on a live-bugged path)
+FAILED_RETRY_BATCH = 25             # cap auto-retries per sweep (avoids thundering herd on a large backlog)
+# Error substrings that mean the game will ALWAYS fail — never auto-retry these.
+PERMANENT_FAILURE_MARKERS = ("too few moves", "no pgn", "no moves", "retry_exhausted", "max retries")
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeat updates
 
 # Graceful shutdown flag
@@ -373,6 +377,41 @@ def cleanup_stuck_jobs(db):
     
     if stuck_count > 0:
         logger.info(f"Cleaned up {stuck_count} stuck jobs")
+
+    # ── Auto-retry FAILED jobs that hit a TRANSIENT error ──────────────
+    # A code exception marks the job status="failed" immediately; the stuck-job
+    # reaper above only sees status="processing", so exception-failed jobs never
+    # retry and silently strand forever (this is exactly what stranded ~200 games
+    # in the 'str'.get regression). Retry transient failures up to MAX_RETRIES;
+    # NEVER retry permanent ones (too-few-moves / no-pgn — they'll always fail).
+    retry_cutoff = datetime.now(timezone.utc) - timedelta(minutes=FAILED_RETRY_COOLDOWN_MINUTES)
+    requeued = 0
+    for job in db.analysis_queue.find({"status": "failed", "retry_count": {"$lt": MAX_RETRIES}}).limit(FAILED_RETRY_BATCH):
+        game_id = job.get("game_id")
+        if not game_id:
+            continue
+        # Only retry if the game still needs analysis and has a PGN to work from.
+        g = db.games.find_one({"game_id": game_id}, {"_id": 0, "is_analyzed": 1, "pgn": 1, "analysis_error": 1})
+        if not g or g.get("is_analyzed") or not g.get("pgn"):
+            continue
+        err_l = (str(g.get("analysis_error") or "") + " " + str(job.get("error") or job.get("failure_reason") or "")).lower()
+        if any(m in err_l for m in PERMANENT_FAILURE_MARKERS):
+            continue  # permanent failure — retrying is pointless
+        fa = job.get("failed_at")
+        if isinstance(fa, datetime) and fa > retry_cutoff:
+            continue  # too fresh — let a fix deploy first, avoid tight retry loops
+        db.analysis_queue.update_one(
+            {"game_id": game_id},
+            {"$set": {"status": "pending", "started_at": None, "last_heartbeat": None,
+                      "worker_id": None, "retrying": True, "last_retry_at": datetime.now(timezone.utc),
+                      "reset_reason": f"auto-retry transient failure (attempt {job.get('retry_count', 0) + 1}/{MAX_RETRIES})"},
+             "$inc": {"retry_count": 1}}
+        )
+        db.games.update_one({"game_id": game_id},
+                            {"$set": {"analysis_status": "retrying", "analysis_error": None}})
+        requeued += 1
+    if requeued:
+        logger.info(f"Auto-retried {requeued} transient-failed jobs (attempt-capped at {MAX_RETRIES})")
 
 
 def get_database():
