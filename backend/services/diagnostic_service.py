@@ -409,3 +409,499 @@ def diagnostic_supersedes_after(num_analyzed_games: int) -> bool:
     """When enough real games are analyzed, the diagnostic stops being
     the primary signal. Spec: 10 games."""
     return num_analyzed_games >= 10
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Diagnostic V2 — consequence-graded, staircase-tiered, concept-gated.
+#
+# Puzzles come from the curated `diagnostic_pool` collection
+# (built offline by scripts/build_diagnostic_pool.py: 10 concepts x
+# 3 rating tiers, each engine-verified single-idea with precomputed
+# multipv baselines). Grading is by CONSEQUENCE, not exact-match:
+# the user's move is evaluated and classified UNDERSTOOD / PARTIAL /
+# MISSING against the precomputed solution eval.
+# ═════════════════════════════════════════════════════════════════════
+
+import chess as _chess
+
+# Priority order = fundamentals first. Doubles as the headline-gap
+# tie-break: the earliest concept in this list with the worst level wins.
+CONCEPT_PRIORITY: List[str] = [
+    "threat_response",
+    "piece_safety",
+    "mate_patterns",
+    "fork",
+    "pin",
+    "skewer",
+    "calculation",
+    "opening",
+    "endgame",
+    "winning_technique",
+]
+
+CONCEPT_LABEL: Dict[str, str] = {
+    "threat_response": "Answering threats",
+    "piece_safety": "Keeping pieces safe",
+    "mate_patterns": "Spotting checkmates",
+    "fork": "Forks",
+    "pin": "Pins",
+    "skewer": "Skewers",
+    "calculation": "Calculating a few moves ahead",
+    "opening": "Opening principles",
+    "endgame": "Endgame technique",
+    "winning_technique": "Converting a winning position",
+}
+
+TIER_RATING: Dict[str, int] = {"low": 800, "mid": 1200, "high": 1600}
+_TIER_UP = {"low": "mid", "mid": "high", "high": "high"}
+_TIER_DOWN = {"low": "low", "mid": "low", "high": "mid"}
+
+VERDICT_SYMBOL = {"UNDERSTOOD": "✓", "PARTIAL": "≈", "MISSING": "✗"}
+
+# Mate-score convention shared with stockfish_service / the pool script.
+_MATE_CP_BASE = 10000
+
+_PIECE_NAME = {
+    _chess.PAWN: "pawn", _chess.KNIGHT: "knight", _chess.BISHOP: "bishop",
+    _chess.ROOK: "rook", _chess.QUEEN: "queen", _chess.KING: "king",
+}
+
+
+def _grading_thresholds(puzzle_rating: int) -> tuple:
+    """(partial_threshold, missing_threshold) in cp — same bands as
+    rating_resolver.MOVE_CLASSIFY_THRESHOLDS (inaccuracy/mistake edges)."""
+    r = puzzle_rating or 1200
+    if r < 1000:
+        return 100, 300
+    if r < 1400:
+        return 75, 200
+    if r < 1800:
+        return 50, 150
+    return 30, 100
+
+
+def _eval_sign(cp: float) -> int:
+    """Coarse winning/equal/losing bucket, solver POV."""
+    if cp > 50:
+        return 1
+    if cp < -50:
+        return -1
+    return 0
+
+
+def evaluate_fen_for_solver(fen: str, solver_color: bool, depth: int = 14) -> int:
+    """Blocking Stockfish eval of `fen`, in cp from `solver_color`'s POV,
+    mates mapped via the shared 10000-|m|*10 convention. Callers in async
+    routes must wrap in asyncio.to_thread."""
+    import chess.engine as _chess_engine
+    from config import STOCKFISH_PATH
+
+    board = _chess.Board(fen)
+    engine = _chess_engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+    try:
+        engine.configure({"Threads": 1, "Hash": 64})
+        info = engine.analyse(board, _chess_engine.Limit(depth=depth))
+        s = info["score"].pov(solver_color)
+        if s.is_mate():
+            m = s.mate()
+            cp = _MATE_CP_BASE - abs(m) * 10
+            return cp if m > 0 else -cp
+        return s.score() or 0
+    finally:
+        engine.quit()
+
+
+class DiagnosticGrader:
+    """Grades a diagnostic attempt by consequence.
+
+    eval_fn(fen, solver_color) -> cp  is injectable for tests; defaults
+    to a live Stockfish eval at depth 14.
+    """
+
+    def __init__(self, eval_fn=None, depth: int = 14):
+        self._depth = depth
+        self._eval_fn = eval_fn or (
+            lambda fen, solver: evaluate_fen_for_solver(fen, solver, depth=self._depth)
+        )
+
+    # ── move parsing ────────────────────────────────────────────────
+
+    @staticmethod
+    def parse_user_move(board: "_chess.Board", user_move: str) -> Optional["_chess.Move"]:
+        """Accept SAN ('Nxd5', 'O-O') or UCI ('e2e4'). None if illegal."""
+        try:
+            return board.parse_san(user_move)
+        except Exception:
+            pass
+        try:
+            mv = _chess.Move.from_uci(user_move)
+            if mv in board.legal_moves:
+                return mv
+        except Exception:
+            pass
+        return None
+
+    # ── core grading ────────────────────────────────────────────────
+
+    def _grade_move_consequence(
+        self,
+        user_move: str,
+        puzzle: Dict[str, Any],
+        fen: Optional[str] = None,
+        solution_uci: Optional[str] = None,
+        solution_eval_override: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Grade one move. `fen`/`solution_uci` default to the puzzle's
+        starting position + first solution move; the multi-move walk
+        passes the current mid-line position instead.
+
+        Returns {"verdict", "cp_loss", "eval_after", "explanation",
+                 "is_exact", "user_move_san", "solution_san"}.
+        """
+        fen = fen or puzzle["fen"]
+        board = _chess.Board(fen)
+        solver = board.turn
+        solution_uci = solution_uci or puzzle["moves"][puzzle.get("user_move_idx", 0)]
+        sol_move = _chess.Move.from_uci(solution_uci)
+        solution_san = board.san(sol_move)
+
+        user_mv = self.parse_user_move(board, user_move)
+        if user_mv is None:
+            raise ValueError(f"Illegal or unparseable move: {user_move}")
+        user_san = board.san(user_mv)
+
+        # Baseline: precomputed multipv on the starting position, or a
+        # live eval of the solution line when mid-walk.
+        if solution_eval_override is not None:
+            solution_eval = solution_eval_override
+        elif fen == puzzle["fen"] and puzzle.get("multipv"):
+            solution_eval = puzzle["multipv"][0]["eval_cp"]
+        else:
+            after_sol = board.copy()
+            after_sol.push(sol_move)
+            solution_eval = self._eval_fn(after_sol.fen(), solver)
+
+        # Exact match: no engine call needed.
+        if user_mv.uci() == solution_uci:
+            return {
+                "verdict": "UNDERSTOOD",
+                "cp_loss": 0,
+                "eval_after": solution_eval,
+                "is_exact": True,
+                "user_move_san": user_san,
+                "solution_san": solution_san,
+                "explanation": self._generate_verdict_explanation(
+                    puzzle, user_san, solution_san, "UNDERSTOOD",
+                    is_exact=True, eval_after=solution_eval, fen=fen,
+                    solution_uci=solution_uci,
+                ),
+            }
+
+        # Consequence: evaluate the position after the user's move.
+        after_user = board.copy()
+        after_user.push(user_mv)
+        if after_user.is_checkmate():
+            eval_after = _MATE_CP_BASE  # user delivered mate — best possible
+        else:
+            eval_after = self._eval_fn(after_user.fen(), solver)
+
+        cp_loss = solution_eval - eval_after
+        partial_th, missing_th = _grading_thresholds(puzzle.get("puzzle_rating"))
+        sign_unchanged = _eval_sign(eval_after) >= _eval_sign(solution_eval)
+
+        if eval_after >= solution_eval - 50 or (sign_unchanged and cp_loss < partial_th):
+            verdict = "UNDERSTOOD"
+        elif sign_unchanged and cp_loss < missing_th:
+            verdict = "PARTIAL"
+        else:
+            verdict = "MISSING"
+
+        return {
+            "verdict": verdict,
+            "cp_loss": max(0, int(cp_loss)),
+            "eval_after": eval_after,
+            "is_exact": False,
+            "user_move_san": user_san,
+            "solution_san": solution_san,
+            "explanation": self._generate_verdict_explanation(
+                puzzle, user_san, solution_san, verdict,
+                is_exact=False, eval_after=eval_after, fen=fen,
+                solution_uci=solution_uci,
+            ),
+        }
+
+    # ── explanation copy (deterministic, no jargon beyond fork/pin/skewer) ──
+
+    @staticmethod
+    def _solution_facts(fen: str, solution_uci: str) -> Dict[str, Any]:
+        """Board facts about the solution move, for the outcome clause."""
+        facts = {"captures": None, "gives_check": False, "is_mate": False}
+        try:
+            board = _chess.Board(fen)
+            mv = _chess.Move.from_uci(solution_uci)
+            target = board.piece_at(mv.to_square)
+            if board.is_en_passant(mv):
+                facts["captures"] = "pawn"
+            elif target:
+                facts["captures"] = _PIECE_NAME.get(target.piece_type)
+            board.push(mv)
+            facts["is_mate"] = board.is_checkmate()
+            facts["gives_check"] = board.is_check()
+        except Exception:
+            pass
+        return facts
+
+    @staticmethod
+    def _outcome_clause(facts: Dict[str, Any]) -> str:
+        if facts.get("is_mate"):
+            return "is checkmate"
+        cap = facts.get("captures")
+        if cap and facts.get("gives_check"):
+            return f"wins the {cap} with check"
+        if cap:
+            return f"wins the {cap}"
+        if facts.get("gives_check"):
+            return "keeps the pressure on with check"
+        return "was the strongest idea here"
+
+    _UNDERSTOOD_TAIL = {
+        "fork": "that's exactly the fork.",
+        "pin": "the pin made it work.",
+        "skewer": "that's the skewer.",
+        "mate_patterns": "you saw the mate.",
+        "piece_safety": "nothing left hanging.",
+        "threat_response": "threat handled.",
+        "calculation": "you saw the line through.",
+        "opening": "good opening judgment.",
+        "endgame": "clean technique.",
+        "winning_technique": "that keeps the win in hand.",
+    }
+
+    def _generate_verdict_explanation(
+        self, puzzle: Dict[str, Any], user_san: str, solution_san: str,
+        verdict: str, *, is_exact: bool, eval_after: int, fen: str,
+        solution_uci: str,
+    ) -> str:
+        concept = puzzle.get("concept", "")
+        facts = self._solution_facts(fen, solution_uci)
+        outcome = self._outcome_clause(facts)
+
+        if verdict == "UNDERSTOOD":
+            if is_exact:
+                tail = self._UNDERSTOOD_TAIL.get(concept, "well spotted.")
+                return f"{solution_san} {outcome} — {tail}"
+            return (
+                f"{user_san} works too — it keeps you on top. "
+                f"Our line was {solution_san}."
+            )
+
+        if verdict == "PARTIAL":
+            return (
+                f"{user_san} doesn't give anything big away, but "
+                f"{solution_san} {outcome} — worth a second look."
+            )
+
+        # MISSING
+        if concept == "threat_response" and _eval_sign(eval_after) < 0:
+            consequence = "the threat is still hanging over you"
+        elif _eval_sign(eval_after) < 0:
+            consequence = "your opponent takes over"
+        elif _eval_sign(eval_after) == 0:
+            consequence = "the advantage is gone"
+        else:
+            consequence = "most of your edge slips away"
+        if facts.get("is_mate"):
+            idea = f"The idea was {solution_san} — checkmate on the spot."
+        elif outcome == "was the strongest idea here":
+            idea = f"The idea was {solution_san}."
+        else:
+            idea = f"The idea was {solution_san} — it {outcome}."
+        return f"{idea} After {user_san}, {consequence}."
+
+
+# ── consistency gating + difficulty staircase ────────────────────────
+
+
+def next_tier(tier: str, verdict: str) -> str:
+    """UNDERSTOOD → up a tier, MISSING → down, PARTIAL → repeat."""
+    if verdict == "UNDERSTOOD":
+        return _TIER_UP.get(tier, "high")
+    if verdict == "MISSING":
+        return _TIER_DOWN.get(tier, "low")
+    return tier
+
+
+def concept_done(verdicts: List[str]) -> tuple:
+    """(done, adaptive_triggered_now).
+
+    [U,U] or [M,M] → done after 2. Anything else at 2 → adaptive third
+    puzzle. After 3 (or more) → done regardless."""
+    n = len(verdicts)
+    if n >= 3:
+        return True, False
+    if n == 2:
+        if verdicts[0] == verdicts[1] and verdicts[0] in ("UNDERSTOOD", "MISSING"):
+            return True, False
+        return False, True
+    return False, False
+
+
+def concept_level(verdicts: List[str]) -> str:
+    """solid / developing / missing from the verdict list."""
+    if not verdicts:
+        return "untested"
+    score = sum(
+        1.0 if v == "UNDERSTOOD" else 0.5 if v == "PARTIAL" else 0.0
+        for v in verdicts
+    ) / len(verdicts)
+    if score >= 0.75:
+        return "solid"
+    if score >= 0.35:
+        return "developing"
+    return "missing"
+
+
+def _round25(x: float) -> int:
+    return int(round(x / 25.0) * 25)
+
+
+def estimate_rating_v2(attempts: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Staircase midpoint of (highest tier passed, lowest tier failed)."""
+    passed = [a.get("puzzle_rating") or TIER_RATING.get(a.get("tier"), 1200)
+              for a in attempts if a.get("verdict") == "UNDERSTOOD"]
+    failed = [a.get("puzzle_rating") or TIER_RATING.get(a.get("tier"), 1200)
+              for a in attempts if a.get("verdict") == "MISSING"]
+    if passed and failed:
+        mid = (max(passed) + min(failed)) / 2.0
+    elif passed:
+        mid = max(passed) + 150
+    elif failed:
+        mid = min(failed) - 200
+    else:
+        partial = [a.get("puzzle_rating") or 1000 for a in attempts]
+        mid = sum(partial) / len(partial) if partial else 1000
+    mid = max(700, min(1800, mid))
+    return {"low": _round25(mid - 100), "high": _round25(mid + 100)}
+
+
+def score_diagnostic_v2(session: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the final diagnosis from a v2 session document."""
+    attempts = session.get("attempts", [])
+    progress = session.get("concept_progress", {})
+
+    per_concept: Dict[str, Any] = {}
+    for concept in CONCEPT_PRIORITY:
+        prog = progress.get(concept)
+        if not prog or not prog.get("verdicts"):
+            continue
+        verdicts = prog["verdicts"]
+        tiers = prog.get("tiers", [])
+        tier_passed = None
+        for v, t in zip(verdicts, tiers):
+            if v == "UNDERSTOOD":
+                r = TIER_RATING.get(t, t if isinstance(t, int) else 1200)
+                tier_passed = max(tier_passed or 0, r) or r
+        per_concept[concept] = {
+            "level": concept_level(verdicts),
+            "verdicts": [VERDICT_SYMBOL.get(v, "?") for v in verdicts],
+            "tier_passed": tier_passed,
+            "display_name": CONCEPT_LABEL.get(concept, concept),
+        }
+
+    headline_gap = None
+    for want in ("missing", "developing"):
+        for concept in CONCEPT_PRIORITY:
+            if per_concept.get(concept, {}).get("level") == want:
+                headline_gap = concept
+                break
+        if headline_gap:
+            break
+
+    n_missing = sum(1 for a in attempts if a.get("verdict") == "MISSING")
+    blunder_rate = round(n_missing / len(attempts), 2) if attempts else 0.0
+
+    solid = [per_concept[c]["display_name"] for c in per_concept
+             if per_concept[c]["level"] == "solid"]
+    if headline_gap and solid:
+        summary = (
+            f"You handled {solid[0].lower()} well. The clearest place to "
+            f"grow: {CONCEPT_LABEL[headline_gap].lower()} — that's where "
+            f"we'll start."
+        )
+    elif headline_gap:
+        summary = (
+            f"The clearest place to grow: "
+            f"{CONCEPT_LABEL[headline_gap].lower()} — that's where we'll start."
+        )
+    elif solid:
+        summary = (
+            f"Strong across the board, especially {solid[0].lower()}. "
+            f"A few real games will sharpen the picture."
+        )
+    else:
+        summary = "Mixed across the board. A few real games will sharpen this picture."
+
+    return {
+        "version": 2,
+        "rating_estimate": estimate_rating_v2(attempts),
+        "per_concept": per_concept,
+        "headline_gap": headline_gap,
+        "summary": summary,
+        "blunder_rate": blunder_rate,
+        "total_attempted": len(attempts),
+    }
+
+
+# ── wiring: v2 diagnosis → the same weakness pipeline v1 used ────────
+
+_CONCEPT_TO_WEAKNESS: Dict[str, tuple] = {
+    "threat_response": ("king_safety", "exposing_own_king"),
+    "piece_safety": ("tactical", "one_move_blunders"),
+    "mate_patterns": ("tactical", "one_move_blunders"),
+    "fork": ("tactical", "fork_misses"),
+    "pin": ("tactical", "fork_misses"),
+    "skewer": ("tactical", "fork_misses"),
+    "calculation": ("tactical", "one_move_blunders"),
+    "opening": ("opening_principles", "neglecting_development"),
+    "endgame": ("tactical", "one_move_blunders"),
+    "winning_technique": ("tactical", "one_move_blunders"),
+}
+
+_CONCEPT_TO_FOCUS: Dict[str, str] = {
+    "threat_response": "king_safety",
+    "piece_safety": "hanging_piece",
+    "mate_patterns": "tactical_error",
+    "fork": "missed_fork",
+    "pin": "missed_fork",
+    "skewer": "missed_fork",
+    "calculation": "tactical_error",
+}
+
+
+async def apply_diagnosis_v2_to_training(db, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+    """Score a v2 session and feed the headline gap into the same
+    weakness pipeline game analysis uses (see v1 wiring notes above)."""
+    from player_profile_service import update_weakness_tracking, get_or_create_profile
+
+    diagnosis = score_diagnostic_v2(session)
+    gap = diagnosis.get("headline_gap")
+    if not gap:
+        return diagnosis
+
+    u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1})
+    await get_or_create_profile(db, user_id, (u or {}).get("name") or "Player")
+
+    cat, subcat = _CONCEPT_TO_WEAKNESS.get(gap, ("tactical", "one_move_blunders"))
+    try:
+        await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
+    except Exception as e:
+        logger.warning(f"diagnostic v2 -> weakness write failed for {user_id}: {e}")
+
+    focus = _CONCEPT_TO_FOCUS.get(gap)
+    if focus:
+        await db.coach_memory.update_one(
+            {"user_id": user_id},
+            {"$set": {"learning.current_focus": focus, "learning.focus_source": "diagnostic"}},
+            upsert=True,
+        )
+    return diagnosis
