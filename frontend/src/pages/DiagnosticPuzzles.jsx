@@ -1,18 +1,11 @@
 /**
- * DiagnosticPuzzles.jsx — 20-puzzle onboarding diagnostic.
+ * DiagnosticPuzzles.jsx — Diagnostic V2: consequence-based grading.
  *
- * Spec: memory/project_diagnostic_onboarding_20_puzzles.md
+ * 25-puzzle diagnostic that measures chess understanding, not engine-move compliance.
+ * Grading: consequence-based (UNDERSTOOD/PARTIAL/MISSING based on move outcome).
+ * UI: concept progress chips + per-puzzle verdict + results breakdown per-concept.
  *
- * Walks the user through 20 stratified puzzles drawn from
- * community_puzzles. After each move:
- *   - Show whether it was correct (no toast spam, no score)
- *   - Move to the next puzzle
- * After all 20:
- *   - Show a real diagnosis: rating range + per-category labels
- *   - CTA: continue to home / training based on growth area
- *
- * No timer. No streak. No "X correct so far" counter. The user is
- * being assessed, not entertained.
+ * Spec: docs/diagnostic_v2_scope.md
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -22,19 +15,31 @@ import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertCircle, Loader2, TrendingUp } from "lucide-react";
 
-const TOTAL = 20;
+const CONCEPT_DISPLAY = {
+  piece_safety: "Piece Safety",
+  forks: "Forks",
+  pins: "Pins & Skewers",
+  mate_patterns: "Mate Patterns",
+  threat_response: "Threat Response",
+  calculation_depth: "Calculation",
+  endgame_technique: "Endgame",
+  opening_principles: "Opening",
+  winning_technique: "Winning",
+  piece_activity: "Piece Activity",
+};
 
 const DiagnosticPuzzles = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [puzzle, setPuzzle] = useState(null);
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const [resultBanner, setResultBanner] = useState(null); // null | {correct, best_move_san}
+  const [puzzleNumber, setPuzzleNumber] = useState(1);
+  const [verdict, setVerdict] = useState(null); // {verdict, explanation, cp_loss, concept_progress}
   const [diagnosis, setDiagnosis] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
   const boardRef = useRef(null);
 
   // ── Start the diagnostic on mount ──────────────────────────────
@@ -119,7 +124,7 @@ const DiagnosticPuzzles = () => {
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id,
-          user_move_san: san,
+          move_san: san,
         }),
       });
       if (!res.ok) {
@@ -129,31 +134,36 @@ const DiagnosticPuzzles = () => {
       }
       const data = await res.json();
 
-      // Show the per-puzzle banner so the user gets one beat of feedback.
-      setResultBanner({
-        correct: !!data.is_correct,
-        best_move_san: data.best_move_san,
-        user_move_san: san,
+      // Show the verdict card so the user gets feedback.
+      setVerdict({
+        verdict: data.verdict,
+        explanation: data.explanation,
+        cp_loss: data.cp_loss,
       });
 
+      // Update concept progress
+      if (data.concept_progress) {
+        setConceptProgress(data.concept_progress);
+      }
+
       if (data.status === "complete") {
-        // Hold the banner briefly, then reveal the diagnosis.
+        // Hold the verdict briefly, then reveal the diagnosis.
         setTimeout(() => {
           setDiagnosis(data.diagnosis);
           setPuzzle(null);
-          setResultBanner(null);
+          setVerdict(null);
           setSubmitting(false);
-        }, 1500);
+        }, 2000);
         return;
       }
 
       // Move to next puzzle after a short reveal.
       setTimeout(() => {
         setPuzzle(data.puzzle);
-        setCurrentIndex(data.current_index || (currentIndex + 1));
-        setResultBanner(null);
+        setPuzzleNumber(data.puzzle_number);
+        setVerdict(null);
         setSubmitting(false);
-      }, 1500);
+      }, 2000);
     } catch (e) {
       setError("Network error submitting your answer.");
       setSubmitting(false);
@@ -206,70 +216,120 @@ const DiagnosticPuzzles = () => {
   }
 
   // ──────────────────────────────────────────────────────────────
-  // Diagnosis screen (after 20 puzzles)
+  // Diagnosis screen (after all puzzles)
   // ──────────────────────────────────────────────────────────────
   if (diagnosis) {
-    const { rating_estimate, per_category, summary_line, total_correct, total_attempted } = diagnosis;
-    const sortedCats = Object.entries(per_category || {}).sort((a, b) => {
-      const order = { "Strong": 0, "Mixed": 1, "Needs work": 2 };
-      return (order[a[1].label] || 99) - (order[b[1].label] || 99);
-    });
+    const { rating_estimate, per_concept, headline_gap, summary } = diagnosis;
+
+    // Sort by level: Solid > Developing > Missing
+    const levelOrder = { solid: 0, developing: 1, missing: 2 };
+    const sortedConcepts = Object.entries(per_concept || {})
+      .sort((a, b) => levelOrder[a[1].level] - levelOrder[b[1].level]);
+
+    const levelColor = {
+      solid: "text-emerald-500",
+      developing: "text-amber-500",
+      missing: "text-rose-500",
+    };
+
+    const levelLabel = {
+      solid: "Solid ✓",
+      developing: "Developing ◐",
+      missing: "Missing ✗",
+    };
 
     return (
       <Layout>
         <div className="min-h-screen px-6 py-10 max-w-2xl mx-auto">
           <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
-            Diagnostic complete
+            Your Chess DNA
           </p>
           <h1 className="text-2xl font-serif font-medium text-foreground mb-1">
-            Your starting picture
+            Your diagnostic results
           </h1>
           <p className="text-sm text-muted-foreground mb-8">
-            Based on {total_attempted} puzzles. This sharpens as your real games get analyzed.
+            A profile of 10 chess concepts. This refines as you play real games and we analyze them.
           </p>
 
+          {/* Rating estimate */}
           <div className="rounded-xl border border-border p-5 mb-6 bg-card">
             <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-1">
-              Rating estimate
+              Estimated rating
             </p>
             <p className="text-3xl font-serif text-foreground">
               {rating_estimate?.low}–{rating_estimate?.high}
             </p>
-            <p className="font-serif text-[15px] text-foreground/85 mt-3 leading-snug">
-              {summary_line}
+            <p className="text-[13px] text-foreground/85 mt-3 leading-snug">
+              {summary}
             </p>
           </div>
 
-          <div className="space-y-2 mb-8">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
-              By area
+          {/* Per-concept breakdown */}
+          <div className="space-y-3 mb-8">
+            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-3">
+              By concept
             </p>
-            {sortedCats.map(([key, cat]) => (
+            {sortedConcepts.map(([key, concept]) => (
               <div
                 key={key}
-                className="flex items-center justify-between py-2 border-b border-border/40 last:border-0"
+                className="rounded-lg border border-border p-4 bg-card"
               >
-                <span className="text-sm text-foreground">{cat.display_name}</span>
-                <span
-                  className={`text-[11px] font-semibold uppercase tracking-wider ${
-                    cat.label === "Strong"
-                      ? "text-emerald-500"
-                      : cat.label === "Mixed"
-                        ? "text-amber-500"
-                        : "text-rose-500"
-                  }`}
-                >
-                  {cat.label}
-                </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-foreground">
+                        {CONCEPT_DISPLAY[key] || key}
+                      </span>
+                      <span className={`text-[11px] font-semibold uppercase tracking-wider ${levelColor[concept.level]}`}>
+                        {levelLabel[concept.level]}
+                      </span>
+                    </div>
+                    {/* Verdict dots */}
+                    <div className="flex gap-1 mt-2">
+                      {concept.verdicts.map((v, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold ${
+                            v === "✓"
+                              ? "bg-emerald-500/20 text-emerald-600"
+                              : v === "◐"
+                                ? "bg-amber-500/20 text-amber-600"
+                                : "bg-rose-500/20 text-rose-600"
+                          }`}
+                        >
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Headline gap focus area */}
+          {headline_gap && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 mb-8">
+              <div className="flex items-start gap-3">
+                <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-amber-700 mb-1">
+                    🎯 Your focus area
+                  </p>
+                  <p className="text-[13px] text-foreground leading-snug">
+                    {CONCEPT_DISPLAY[headline_gap] || headline_gap} needs attention.
+                    Practice this concept to unlock your next rating tier.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <Button
               variant="default"
               className="flex-1"
-              onClick={() => navigate("/training")}
+              onClick={() => headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training")}
               data-testid="diagnostic-start-training"
             >
               Start training
@@ -311,10 +371,10 @@ const DiagnosticPuzzles = () => {
         <div className="flex items-baseline justify-between mb-5">
           <div>
             <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground">
-              Diagnostic · {currentIndex} of {TOTAL}
+              Diagnostic · Puzzle {puzzleNumber} of 25
             </p>
             <h1 className="text-xl font-serif font-medium text-foreground mt-0.5">
-              Find the best move
+              Find the best move in {CONCEPT_DISPLAY[puzzle.concept] || puzzle.concept}
             </h1>
           </div>
           <button
@@ -326,16 +386,39 @@ const DiagnosticPuzzles = () => {
           </button>
         </div>
 
-        {/* Progress strip — flat dots, no percentage, no streak */}
-        <div className="flex gap-1 mb-6">
-          {Array.from({ length: TOTAL }).map((_, i) => (
-            <div
-              key={i}
-              className={`flex-1 h-0.5 rounded-full ${
-                i < currentIndex - 1 ? "bg-foreground/60" : "bg-border"
-              }`}
-            />
-          ))}
+        {/* Concept progress chips */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Object.entries(CONCEPT_DISPLAY).map(([key, label]) => {
+            const progress = conceptProgress[key] || [];
+            return (
+              <div
+                key={key}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium ${
+                  key === puzzle.concept
+                    ? "bg-foreground/10 border border-foreground/30"
+                    : "bg-border/40"
+                }`}
+              >
+                <span className="text-foreground/70">{label}</span>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`inline-block w-1.5 h-1.5 rounded-full ${
+                        progress[i] === "✓"
+                          ? "bg-emerald-500"
+                          : progress[i] === "◐"
+                            ? "bg-amber-500"
+                            : progress[i] === "✗"
+                              ? "bg-rose-500"
+                              : "bg-border"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Board + side info */}
@@ -346,52 +429,66 @@ const DiagnosticPuzzles = () => {
                 ref={boardRef}
                 fen={puzzle.fen}
                 orientation={orientation}
-                interactive={!resultBanner && !submitting}
-                viewOnly={!!resultBanner || submitting}
+                interactive={!verdict && !submitting}
+                viewOnly={!!verdict || submitting}
                 onMove={handleMove}
               />
-              {resultBanner && (
-                <div
-                  className={`absolute bottom-2 left-2 right-2 px-3 py-2 rounded text-sm flex items-center gap-2 ${
-                    resultBanner.correct
-                      ? "bg-emerald-600/90 text-white"
-                      : "bg-zinc-900/85 text-white"
-                  }`}
-                  data-testid="diagnostic-result-banner"
-                >
-                  {resultBanner.correct ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Correct — {resultBanner.best_move_san}.</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 text-rose-400" />
-                      <span>
-                        Best was{" "}
-                        <span className="font-mono">{resultBanner.best_move_san}</span>.
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
           <div className="lg:w-72">
-            <div className="rounded-xl border border-border p-4 bg-card">
-              <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
-                Position
-              </p>
-              <p className="text-sm text-foreground/85">
-                {orientation === "white" ? "White" : "Black"} to move.
-              </p>
-              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                Pick the move you'd play. No timer — take as long as you like.
-                We're building a picture of what you see well and what you'd
-                benefit from working on.
-              </p>
-            </div>
+            {verdict ? (
+              <div
+                className={`rounded-lg border p-4 ${
+                  verdict.verdict === "UNDERSTOOD"
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : verdict.verdict === "PARTIAL"
+                      ? "border-amber-500/40 bg-amber-500/5"
+                      : "border-rose-500/40 bg-rose-500/5"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {verdict.verdict === "UNDERSTOOD" ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                  ) : verdict.verdict === "PARTIAL" ? (
+                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                  )}
+                  <span
+                    className={`text-sm font-semibold ${
+                      verdict.verdict === "UNDERSTOOD"
+                        ? "text-emerald-600"
+                        : verdict.verdict === "PARTIAL"
+                          ? "text-amber-600"
+                          : "text-rose-600"
+                    }`}
+                  >
+                    {verdict.verdict === "UNDERSTOOD"
+                      ? "✓ Correct"
+                      : verdict.verdict === "PARTIAL"
+                        ? "◐ Partially correct"
+                        : "✗ Incorrect"}
+                  </span>
+                </div>
+                <p className="text-[13px] text-foreground leading-snug">
+                  {verdict.explanation}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border p-4 bg-card">
+                <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
+                  Position
+                </p>
+                <p className="text-sm text-foreground/85">
+                  {orientation === "white" ? "White" : "Black"} to move.
+                </p>
+                <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                  Pick the move you'd play. No timer — take as long as you like.
+                  We're measuring your understanding of chess fundamentals.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
