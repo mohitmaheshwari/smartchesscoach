@@ -86,7 +86,8 @@ const DiagnosticPuzzles = () => {
         setError("Unexpected response from server.");
         setLoading(false);
       } catch (e) {
-        setError("Network error.");
+        console.error("Diagnostic error:", e);
+        setError(`Network error: ${e.message}`);
         setLoading(false);
       }
     })();
