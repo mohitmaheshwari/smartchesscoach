@@ -212,7 +212,8 @@ async def start_coach_session(
     time_control: str = "15+10",
     starting_fen: str = None,
     practice_mode: bool = False,
-    source_game_id: str = None
+    source_game_id: str = None,
+    game_mode: str = "coach"  # "coach" (with captions) | "play" (pure chess)
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -381,15 +382,13 @@ async def start_coach_session(
         session_focus=focus_bundle,
     )
     
-    # Add practice mode metadata
+    # Add practice mode and game mode metadata
+    session_dict = session.to_dict()
+    session_dict['game_mode'] = game_mode  # "coach" or "play"
     if practice_mode:
-        session_dict = session.to_dict()
         session_dict['practice_mode'] = True
         session_dict['source_game_id'] = source_game_id
-        await db.coach_sessions.insert_one(session_dict)
-    else:
-        # Save to database
-        await db.coach_sessions.insert_one(session.to_dict())
+    await db.coach_sessions.insert_one(session_dict)
     
     # Determine whose turn based on FEN
     fen_parts = initial_fen.split(' ')

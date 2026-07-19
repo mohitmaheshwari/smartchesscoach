@@ -6520,6 +6520,7 @@ async def start_play_with_coach(
     
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
+    game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
     source_game_id = request.get("source_game_id", None)
@@ -6576,7 +6577,8 @@ async def start_play_with_coach(
             time_control=time_control,
             starting_fen=starting_fen,
             practice_mode=practice_mode,
-            source_game_id=source_game_id
+            source_game_id=source_game_id,
+            game_mode=game_mode
         )
 
         # Store opening preference and activate opening teaching if selected
@@ -7114,6 +7116,11 @@ async def make_coach_play_move(
                 "type": "game_over",
                 "result": result,
             })
+
+            # If this is a play-mode game, trigger profile aggregation (background)
+            session = await db.coach_sessions.find_one({"session_id": session_id})
+            if session and session.get("game_mode") == "play":
+                asyncio.create_task(_trigger_profile_aggregation(db, user_id=user.user_id))
 
         # Fire background task: analyze → message → coach move
         asyncio.create_task(
@@ -10077,4 +10084,68 @@ async def get_session_goal_reflection(session_id: str, user: User = Depends(get_
         logger.warning(f"Session reflection failed for {session_id}: {e}")
         # Reflection is optional; return empty if it fails
         return {"reflection": None}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PROFILE AGGREGATION — triggered when play-mode games end
+# ─────────────────────────────────────────────────────────────────────
+
+async def _trigger_profile_aggregation(db, user_id: str):
+    """
+    Trigger PWC profile aggregation for a user (background task).
+    Called after play-mode games complete to update player_profiles and player_identities.
+    """
+    try:
+        from services.pwc_profile_aggregation_service import aggregate_pwc_games_into_profile
+
+        result = await aggregate_pwc_games_into_profile(db, user_id, min_games=3)
+        if result:
+            logger.info(f"[PWC-Profile] Aggregated profile for {user_id}: {result['move_quality']}")
+        else:
+            logger.debug(f"[PWC-Profile] Not enough games to aggregate for {user_id}")
+    except Exception as e:
+        logger.error(f"[PWC-Profile] Error triggering aggregation for {user_id}: {e}", exc_info=True)
+
+
+@router.get("/player-profile")
+async def get_player_profile(user: User = Depends(get_current_user)):
+    """
+    Get aggregated player profile from PWC play-mode games.
+    Used on home page to show deep understanding after multiple play sessions.
+
+    Returns:
+    - move_quality: blunder/mistake rates
+    - tactical_patterns: pattern recognition rates
+    - opening_repertoire: openings played with accuracy
+    - endgame_conversion: endgame strength
+    - time_resilience: performance under time pressure
+    - tactical_style: derived strengths/weaknesses
+    """
+    global db
+    try:
+        profile = await db.player_profiles.find_one(
+            {"user_id": user.user_id, "source": "pwc_play_mode"},
+            {"_id": 0}
+        )
+
+        identity = await db.player_identities.find_one(
+            {"user_id": user.user_id},
+            {"_id": 0, "pwc_tactical_profile": 1}
+        )
+
+        if not profile:
+            return {
+                "has_profile": False,
+                "message": "Complete at least 5 play-mode games to see your profile",
+            }
+
+        return {
+            "has_profile": True,
+            "profile": profile,
+            "tactical_style": identity.get("pwc_tactical_profile") if identity else None,
+        }
+
+    except Exception as e:
+        logger.error(f"[Player-Profile] Error fetching profile for {user.user_id}: {e}")
+        return {"has_profile": False, "error": str(e)}
 
