@@ -104,6 +104,17 @@ class CoachGameSession:
     # {text, day_num, topic_key, dominant_subtype, referenced_last_session}
     session_greeting: Optional[Dict] = None
 
+    # 2026-07-19: session_focus was previously only populated by the
+    # conductor block in coach_play.py (gated on PWC_COACH_CONDUCTOR
+    # env flag, default false). That gate meant FocusCoachingBranch
+    # dispatch never reached real users — only 1 session in 30 days
+    # had session_focus set. Now written at session start from the
+    # same focus_bundle already loaded for mission_scoreboard, so
+    # focus dispatch works whether the conductor is on or off.
+    # Shape: full focus_bridge bundle (see focus_bridge.get_active_
+    # focus_bundle) — topic_key + subtype + narrative + histogram.
+    session_focus: Optional[Dict] = None
+
     # Async coaching state
     coach_move_pending: bool = False  # Whether coach is still thinking
     last_coach_move: Optional[Dict] = None  # Last move made by coach
@@ -363,6 +374,11 @@ async def start_coach_session(
         session_goal=session_goal,
         mission_scoreboard=initial_scoreboard,
         session_greeting=session_greeting,
+        # Populate session_focus at session start so FocusCoachingBranch
+        # dispatch (in coach_play.py move handler) can gate on
+        # session_focus.topic_key without depending on the conductor's
+        # lazy-load path. focus_bundle is already loaded above (line ~286).
+        session_focus=focus_bundle,
     )
     
     # Add practice mode metadata
