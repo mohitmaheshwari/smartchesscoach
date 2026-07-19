@@ -76,7 +76,10 @@ export default function HomePageNew({ user }) {
         const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
         if (diagRes.ok) {
           const diag = await diagRes.json();
+          console.log("🔍 [HomePage] Diagnostic status fetched:", diag);
           setDiagnosticStatus(diag);
+        } else {
+          console.log("🔍 [HomePage] Diagnostic status fetch failed:", diagRes.status);
         }
 
         // Check if user has games
@@ -164,7 +167,11 @@ export default function HomePageNew({ user }) {
             </div>
 
             {/* ─── DIAGNOSTIC CTA (ONBOARDING) ─── */}
-            {diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded" && (
+            {(() => {
+              const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
+              console.log("🔍 [Onboarding CTA] diagnosticStatus:", diagnosticStatus, "shouldShow:", shouldShow);
+              return shouldShow;
+            })() && (
               <section>
                 <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 rounded-lg p-6">
                   <div className="flex items-start justify-between">
@@ -255,7 +262,11 @@ export default function HomePageNew({ user }) {
           </motion.div>
 
           {/* ─── DIAGNOSTIC CTA ─── */}
-          {diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded" && (
+          {(() => {
+            const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
+            console.log("🔍 [Main CTA] diagnosticStatus:", diagnosticStatus, "shouldShow:", shouldShow);
+            return shouldShow;
+          })() && (
             <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
               <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 rounded-lg p-6">
                 <div className="flex items-start justify-between">
