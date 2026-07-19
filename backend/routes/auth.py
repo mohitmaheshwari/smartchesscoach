@@ -281,8 +281,12 @@ async def google_callback(code: str, response: Response, request: Request):
         print(f"[AUTH] FRONTEND_URL from env: {frontend_url}")
         print(f"[AUTH] Cookie settings: httponly=True, secure=True, samesite=lax, path=/, max_age={COOKIE_MAX_AGE_SECONDS}")
 
+        # Get the redirect_to parameter from query string (page user was trying to access)
+        redirect_to = request.query_params.get("redirect_to", "/home")
+        redirect_url = f"{frontend_url}{redirect_to}?auth=success"
+
         from fastapi.responses import RedirectResponse
-        redirect_response = RedirectResponse(url=f"{frontend_url}/dashboard?auth=success")
+        redirect_response = RedirectResponse(url=redirect_url)
         redirect_response.set_cookie(
             key="session_token",
             value=session_token,
@@ -293,7 +297,7 @@ async def google_callback(code: str, response: Response, request: Request):
             max_age=COOKIE_MAX_AGE_SECONDS
         )
 
-        print(f"[AUTH] Cookie set on redirect response, redirecting to {frontend_url}/dashboard?auth=success")
+        print(f"[AUTH] Cookie set on redirect response, redirecting to {redirect_url}")
         return redirect_response
         
     except HTTPException:

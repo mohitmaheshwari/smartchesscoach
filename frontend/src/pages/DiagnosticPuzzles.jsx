@@ -50,6 +50,11 @@ const DiagnosticPuzzles = () => {
           method: "POST",
           credentials: "include",
         });
+        if (res.status === 401) {
+          // Not authenticated - redirect to login with redirect_to parameter
+          navigate(`/login?redirect_to=${encodeURIComponent('/diagnostic')}`);
+          return;
+        }
         if (!res.ok) {
           setError(`Could not start diagnostic (${res.status}).`);
           setLoading(false);

@@ -54,7 +54,11 @@ export default function Login() {
 
   const handleGoogle = async () => {
     try {
-      const res = await fetch(`${API}/auth/google/login`);
+      // Get the page user was trying to access (from URL or default to home)
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect_to') || window.location.pathname;
+      const safeRedirect = ['/', '/home', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
+
+      const res = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}`);
       const data = await res.json();
       if (data.auth_url) window.location.href = data.auth_url;
     } catch {
