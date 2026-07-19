@@ -73,6 +73,7 @@ const CoachPlay = ({ user }) => {
   const [coachingLocked, setCoachingLocked] = useState(false); // board locked until student responds to coaching
 
   // Game settings
+  const [gameMode, setGameMode] = useState("coach"); // "coach" | "play" — coach has captions, play is just chess
   const [selectedColor, setSelectedColor] = useState("white");
   const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
   const [guidedMode, setGuidedMode] = useState(true); // true = Guide Me, false = I Know It
@@ -1182,6 +1183,7 @@ const CoachPlay = ({ user }) => {
       const requestBody = {
         user_color: selectedColor,
         time_control: timeControl,
+        game_mode: gameMode, // "coach" (with captions) or "play" (no coaching)
       };
 
       // If user selected a specific opening to practice, pass it
@@ -3078,6 +3080,8 @@ const CoachPlay = ({ user }) => {
         setSelectedOpening={setSelectedOpening}
         guidedMode={guidedMode}
         setGuidedMode={setGuidedMode}
+        gameMode={gameMode}
+        setGameMode={setGameMode}
         pastGamesHistory={pastGamesHistory}
         playerIdentityData={playerIdentityData}
         startGame={startGame}

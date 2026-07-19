@@ -132,6 +132,8 @@ const CoachPlaySetup = ({
   setSelectedOpening,
   guidedMode,
   setGuidedMode,
+  gameMode,
+  setGameMode,
   pastGamesHistory,
   playerIdentityData,
   startGame,
@@ -233,6 +235,39 @@ const CoachPlaySetup = ({
                 </p>
               )}
             </motion.div>
+
+            {/* Game Mode Selection */}
+            {!practiceMode && (
+              <motion.div variants={staggerItem}>
+                <label className="text-sm font-medium mb-3 block">
+                  Game Type
+                </label>
+                <div className="flex gap-3">
+                  <Button
+                    variant={gameMode === "coach" ? "default" : "outline"}
+                    onClick={() => setGameMode("coach")}
+                    className="flex-1 h-auto py-3"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Brain className="w-5 h-5" />
+                      <span className="text-sm font-medium">Coach Mode</span>
+                      <span className="text-[10px] text-inherit opacity-70">Real-time teaching</span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={gameMode === "play" ? "default" : "outline"}
+                    onClick={() => setGameMode("play")}
+                    className="flex-1 h-auto py-3"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Play className="w-5 h-5" />
+                      <span className="text-sm font-medium">Play Mode</span>
+                      <span className="text-[10px] text-inherit opacity-70">Pure chess, no coaching</span>
+                    </div>
+                  </Button>
+                </div>
+              </motion.div>
+            )}
 
             {/* Past Games Memory */}
             {!practiceMode && pastGamesHistory?.sessions?.length > 0 && (
