@@ -67,10 +67,18 @@ export default function HomePageNew({ user }) {
   const [queuedModules, setQueuedModules] = useState([]);
   const [dailyFix, setDailyFix] = useState(null);
   const [streak, setStreak] = useState(null);
+  const [diagnosticStatus, setDiagnosticStatus] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
+        // Check diagnostic status
+        const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
+        if (diagRes.ok) {
+          const diag = await diagRes.json();
+          setDiagnosticStatus(diag);
+        }
+
         // Check if user has games
         const dashRes = await fetch(`${API}/home/dashboard-v2`, { credentials: "include" });
         if (dashRes.ok) {
@@ -219,6 +227,32 @@ export default function HomePageNew({ user }) {
             </p>
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
+
+          {/* ─── DIAGNOSTIC CTA ─── */}
+          {diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded" && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 rounded-lg p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-foreground mb-2">Get your Chess DNA</h3>
+                    <p className="text-[13px] text-foreground/85 mb-4">
+                      {diagnosticStatus.status === "in_progress"
+                        ? `Continue your diagnostic — ${diagnosticStatus.attempts_so_far || 0} puzzles done`
+                        : "Take a 25-puzzle diagnostic to see your strengths and where to focus"}
+                    </p>
+                    <button
+                      onClick={() => navigate("/diagnostic")}
+                      className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                    >
+                      {diagnosticStatus.status === "in_progress" ? "Continue" : "Start"} diagnostic
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  </div>
+                  <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                </div>
+              </div>
+            </motion.section>
+          )}
 
           {/* ─── DAILY FIX ─── */}
           {dailyFix && (
