@@ -73,6 +73,7 @@ export default function HomePageNew({ user }) {
   useEffect(() => {
     (async () => {
       try {
+        console.error("🔴 [useEffect] About to fetch diagnostic/status from:", `${API}/diagnostic/status`);
         // Check diagnostic status
         const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
         if (diagRes.ok) {
