@@ -73,7 +73,7 @@ const DiagnosticPuzzles = () => {
         }
         if (data.status === "in_progress" && data.puzzle) {
           setPuzzle(data.puzzle);
-          setCurrentIndex(data.current_index || 1);
+          setPuzzleNumber(data.current_index || 1);
           setLoading(false);
           return;
         }
