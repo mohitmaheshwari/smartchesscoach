@@ -124,7 +124,7 @@ const DiagnosticPuzzles = () => {
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id,
-          move_san: san,
+          user_move_san: san,
         }),
       });
       if (!res.ok) {
