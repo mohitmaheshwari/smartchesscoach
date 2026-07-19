@@ -386,7 +386,13 @@ def cleanup_stuck_jobs(db):
     # NEVER retry permanent ones (too-few-moves / no-pgn — they'll always fail).
     retry_cutoff = datetime.now(timezone.utc) - timedelta(minutes=FAILED_RETRY_COOLDOWN_MINUTES)
     requeued = 0
-    for job in db.analysis_queue.find({"status": "failed", "retry_count": {"$lt": MAX_RETRIES}}).limit(FAILED_RETRY_BATCH):
+    # Cooldown is filtered in the Mongo query (Mongo compares datetimes tz-safely,
+    # avoiding naive-vs-aware errors); a missing failed_at counts as old enough.
+    for job in db.analysis_queue.find({
+        "status": "failed",
+        "retry_count": {"$lt": MAX_RETRIES},
+        "$or": [{"failed_at": {"$lt": retry_cutoff}}, {"failed_at": {"$exists": False}}],
+    }).limit(FAILED_RETRY_BATCH):
         game_id = job.get("game_id")
         if not game_id:
             continue
@@ -397,9 +403,6 @@ def cleanup_stuck_jobs(db):
         err_l = (str(g.get("analysis_error") or "") + " " + str(job.get("error") or job.get("failure_reason") or "")).lower()
         if any(m in err_l for m in PERMANENT_FAILURE_MARKERS):
             continue  # permanent failure — retrying is pointless
-        fa = job.get("failed_at")
-        if isinstance(fa, datetime) and fa > retry_cutoff:
-            continue  # too fresh — let a fix deploy first, avoid tight retry loops
         db.analysis_queue.update_one(
             {"game_id": game_id},
             {"$set": {"status": "pending", "started_at": None, "last_heartbeat": None,
