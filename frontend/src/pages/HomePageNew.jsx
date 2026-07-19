@@ -58,6 +58,7 @@ const NAV = [
 ];
 
 export default function HomePageNew({ user }) {
+  console.error("🔴 HomePageNew COMPONENT LOADED - user:", user?.email);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasGames, setHasGames] = useState(false);
