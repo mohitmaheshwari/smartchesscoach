@@ -487,7 +487,7 @@ const DiagnosticPuzzles = () => {
                   Position
                 </p>
                 <p className="text-sm text-foreground/85">
-                  {orientation === "white" ? "White" : "Black"} to move.
+                  {puzzle.side_to_move === "white" ? "White" : "Black"} to move.
                 </p>
                 <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
                   Pick the move you'd play. No timer — take as long as you like.
