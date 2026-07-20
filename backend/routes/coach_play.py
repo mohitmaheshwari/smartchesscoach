@@ -1057,6 +1057,10 @@ async def get_coach_play_move_feedback(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
+    # Play Mode: no coaching captions. Return empty feedback for pure chess.
+    if session_doc.get("game_mode") == "play":
+        return {"feedback": None}
+
     feedback = await get_last_move_feedback(db, session_id, user.user_id)
 
     # Route the visible coaching message through the same V5 caption
@@ -6955,7 +6959,7 @@ async def make_coach_play_move(
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
+
     # Store context - ensure FEN is never null
     fen_before = session_doc.get("current_fen")
     if not fen_before:
@@ -6966,9 +6970,12 @@ async def make_coach_play_move(
             fen_before = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     user_rating = session_doc.get("user_rating", 1200)
     user_color = session_doc.get("user_color", "white")
-    
+
+    # Play Mode: no coaching feedback. Set to None upfront so response returns empty.
+    is_play_mode = session_doc.get("game_mode") == "play"
+
     # CURRICULUM ENFORCEMENT: Check if move matches the curriculum's expected move
-    curriculum_active = session_doc.get("curriculum_active", False)
+    curriculum_active = session_doc.get("curriculum_active", False) and not is_play_mode
     curriculum_feedback = None
     if curriculum_active:
         teaching_opening = session_doc.get("teaching_opening")
@@ -7019,7 +7026,7 @@ async def make_coach_play_move(
         # (whether right or wrong); we just add a coaching feedback
         # layer. Clear the puzzle either way.
         puzzle_feedback = None
-        active_puzzle = session_doc.get("active_puzzle")
+        active_puzzle = session_doc.get("active_puzzle") if not is_play_mode else None
         if active_puzzle:
             try:
                 from coach_play.punishment_puzzle import evaluate_user_response
