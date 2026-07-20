@@ -15,7 +15,7 @@ import chess
 logger = logging.getLogger(__name__)
 
 
-async def aggregate_pwc_games_into_profile(db, user_id: str, min_games: int = 5):
+async def aggregate_pwc_games_into_profile(db, user_id: str, min_games: int = 3):
     """
     Aggregate last N play-mode PWC games into player_profiles and player_identities.
 
@@ -26,10 +26,12 @@ async def aggregate_pwc_games_into_profile(db, user_id: str, min_games: int = 5)
     - Endgame conversion (win %, hold %)
     - Time resilience (blunder rate under time pressure)
 
+    3 games minimum: ~100 total moves, enough for rating convergence.
+
     Args:
         db: MongoDB database
         user_id: User ID
-        min_games: Minimum play-mode games to aggregate (default 5)
+        min_games: Minimum play-mode games to aggregate (default 3)
     """
     try:
         # Fetch last N play-mode games with analysis
