@@ -385,6 +385,7 @@ async def start_coach_session(
     # Add practice mode and game mode metadata
     session_dict = session.to_dict()
     session_dict['game_mode'] = game_mode  # "coach" or "play"
+    logger.info(f"[start_coach_session] game_mode={game_mode} for session {session.session_id[:8]}")
     if practice_mode:
         session_dict['practice_mode'] = True
         session_dict['source_game_id'] = source_game_id
