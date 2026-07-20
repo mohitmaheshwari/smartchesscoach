@@ -6976,6 +6976,7 @@ async def make_coach_play_move(
 
     # Play Mode: no coaching feedback. Set to None upfront so response returns empty.
     is_play_mode = session_doc.get("game_mode") == "play"
+    logger.info(f"[/move] session {session_id[:8]} game_mode={session_doc.get('game_mode')} is_play_mode={is_play_mode}")
 
     # CURRICULUM ENFORCEMENT: Check if move matches the curriculum's expected move
     curriculum_active = session_doc.get("curriculum_active", False) and not is_play_mode
