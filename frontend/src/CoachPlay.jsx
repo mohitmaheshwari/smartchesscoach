@@ -1248,12 +1248,6 @@ const CoachPlay = ({ user }) => {
       setGameStarted(true);
       setMoveStartTime(Date.now());
 
-      // Add gameMode to URL so we can verify it without asking
-      console.log("[CoachPlay] URL update: gameMode=", gameMode, "sessionId=", data.session?.session_id);
-      const newUrl = `/play-with-coach?mode=${gameMode}&session=${data.session?.session_id || 'unknown'}`;
-      console.log("[CoachPlay] Setting URL to:", newUrl);
-      window.history.replaceState({ gameMode, sessionId: data.session?.session_id }, '', newUrl);
-
       // Clear all coaching state at game start (especially important for Play Mode)
       setCoachArrows([]);
       setV5Coaching(null);
@@ -3125,7 +3119,6 @@ const CoachPlay = ({ user }) => {
   }
 
   // Game screen
-  console.log("[CoachPlay] RENDERING - gameMode IS:", gameMode, "gameStarted:", gameStarted);
   return (
     <Layout user={user}>
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed

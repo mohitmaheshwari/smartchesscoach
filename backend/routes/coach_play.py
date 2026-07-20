@@ -25,6 +25,20 @@ import chess
 
 logger = logging.getLogger(__name__)
 
+async def _check_play_mode_gate(db, session_id: str, endpoint_name: str):
+    """
+    PLAY MODE GATE: Check if session is in play mode. If so, raise 403.
+    This prevents ALL coaching from being generated/returned for play mode games.
+    Call this at the START of every coaching endpoint.
+    """
+    session = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session:
+        return  # Let the endpoint handle missing session
+
+    if session.get("game_mode") == "play":
+        logger.info(f"[{endpoint_name}] PLAY MODE - blocking coaching for session {session_id[:8]}")
+        raise HTTPException(status_code=403, detail="Play mode - no coaching")
+
 def _detect_opening_from_moves(moves: list, user_color: str) -> tuple:
     """Detect which curriculum opening matches these moves.
 
@@ -2868,7 +2882,20 @@ async def get_interactive_coaching(
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
+
+    # Play Mode: no coaching feedback. Return empty response.
+    game_mode = session_doc.get("game_mode", "MISSING")
+    logger.info(f"[/v5/interactive-feedback] session {session_id[:8]} game_mode={game_mode}")
+    if game_mode == "play":
+        logger.info(f"[/v5/interactive-feedback] PLAY MODE DETECTED for session {session_id[:8]} — returning null coaching")
+        return {
+            "user_move_coaching": None,
+            "coach_move_coaching": None,
+            "behavioral_coaching": None,
+            "is_user_turn": True
+        }
+    logger.info(f"[/v5/interactive-feedback] COACH MODE for session {session_id[:8]} — generating coaching")
+
     user_color = session_doc.get("user_color", "white")
     move_history = session_doc.get("move_history", [])
     evaluations = session_doc.get("evaluations", [])
@@ -6525,6 +6552,7 @@ async def start_play_with_coach(
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
     game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
+    logger.info(f"[/coach/play/start] RECEIVED game_mode={game_mode} from client for user {user.user_id[:8]}")
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
     source_game_id = request.get("source_game_id", None)
@@ -6560,6 +6588,9 @@ async def start_play_with_coach(
                     "price_inr": gate.get("price_inr"),
                 },
             )
+
+    # DEBUG: Log that we received game_mode parameter
+    logger.info(f"[start_play_with_coach] START - received game_mode={game_mode}")
 
     try:
         # If no explicit teaching_focus provided, check for active training plans
@@ -6895,10 +6926,13 @@ async def start_play_with_coach(
             logger.warning(f"Coach memory greeting failed: {e}")
             welcome_message = message
         
+        session_dict = session.to_dict()
+        logger.info(f"[start_play_with_coach] session.to_dict() has game_mode: {'game_mode' in session_dict}")
+        logger.info(f"[start_play_with_coach] session.game_mode attribute: {session.game_mode}")
         return {
             "success": True,
             "session_id": session.session_id,
-            "session": session.to_dict(),
+            "session": session_dict,
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
             "message": welcome_message,
