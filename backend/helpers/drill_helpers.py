@@ -25,8 +25,18 @@ def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) 
         "critical_moment_drift": ["blunder", "mistake"],
         "structural_misjudgment": ["blunder", "mistake", "inaccuracy"],
     }
+    # Native cognitive_gap categories (see mission_generation_service.py
+    # PATTERN_FOCUS_MAP) match against the move's own cognitive_gap tag
+    # instead of a fixed eval-type list, so positions actually reflect the
+    # specific weakness the mission names — not just "any mistake."
+    COGNITIVE_GAP_PATTERNS = {
+        "piece_safety", "missed_tactic", "tactical_oversight", "calculation_depth",
+        "king_safety", "pawn_structure", "piece_activity", "opening_knowledge",
+        "endgame_technique", "time_pressure",
+    }
 
     target_evals = pattern_eval_map.get(focus_pattern, ["blunder", "mistake"])
+    filter_by_gap = focus_pattern in COGNITIVE_GAP_PATTERNS
 
     for move_eval in move_evals:
         if len(positions) >= limit:
@@ -34,6 +44,8 @@ def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) 
 
         eval_type = move_eval.get("evaluation")
         if eval_type not in target_evals:
+            continue
+        if filter_by_gap and move_eval.get("cognitive_gap") != focus_pattern:
             continue
 
         fen = move_eval.get("fen_before")

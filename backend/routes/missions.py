@@ -191,8 +191,7 @@ async def generate_fix_mission(data: dict, user: User = Depends(get_current_user
     Returns the mission that targets the main issue from the game.
     """
     global db, _generate_daily_mission, _PATTERN_FOCUS_MAP
-    from collections import Counter
-    
+
     game_id = data.get("game_id")
     if not game_id:
         raise HTTPException(status_code=400, detail="game_id required")
@@ -206,14 +205,15 @@ async def generate_fix_mission(data: dict, user: User = Depends(get_current_user
     user_doc = await db.users.find_one({"user_id": user.user_id})
     rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
     
-    # Find main issue pattern
-    blunders = analysis.get("blunders", [])
-    main_pattern = "critical_moment_drift"  # Default
-    
-    if blunders:
-        categories = [b.get("mistake_category") for b in blunders if b.get("mistake_category")]
-        if categories:
-            main_pattern = Counter(categories).most_common(1)[0][0]
+    # Find main issue pattern from real per-move cognitive_gap tags — the
+    # old logic here read analysis["blunders"], a field never populated on
+    # any real document, so this always fell back to the generic default
+    # regardless of what actually went wrong in the game.
+    from mission_generation_service import build_pattern_stats_from_analyses
+    main_pattern = "critical_moment_drift"  # Default when no gap-tagged mistake exists
+    pattern_stats = build_pattern_stats_from_analyses([analysis])
+    if pattern_stats:
+        main_pattern = max(pattern_stats.items(), key=lambda kv: kv[1]["repeat_count_14d"])[0]
     
     # Generate mission targeting this pattern
     mission = await _generate_daily_mission(

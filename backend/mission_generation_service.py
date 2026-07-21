@@ -92,7 +92,138 @@ PATTERN_FOCUS_MAP = {
             "Look for long-term consequences",
         ],
     },
+    # Mohit 2026-07-22: the six categories above depend on move.mistake_type,
+    # a field that has never been populated on any stored move (confirmed:
+    # 0 of 1189 moves for a real user) — every mission silently fell back to
+    # "critical_moment_drift" regardless of the user's actual weakness.
+    # These entries use the native cognitive_gap categories instead — the
+    # same field already backing coach_memory.weaknesses, home_intelligence,
+    # and opening progress, verified populated on real moves all session.
+    "piece_safety": {
+        "focus_label": "Piece Safety",
+        "micro_protocol": [
+            "Before moving, check what you're leaving undefended",
+            "Count attackers vs defenders on every piece you touch",
+            "Scan for hanging pieces before committing",
+        ],
+    },
+    "missed_tactic": {
+        "focus_label": "Tactical Awareness",
+        "micro_protocol": [
+            "Check every capture, check, and threat",
+            "Look for forks, pins, and skewers before moving on",
+            "Ask: what tactic am I missing here?",
+        ],
+    },
+    "tactical_oversight": {
+        "focus_label": "Follow-Through Calculation",
+        "micro_protocol": [
+            "Don't stop calculating after the first good move",
+            "Check the opponent's best reply before committing",
+            "Look one move deeper than feels necessary",
+        ],
+    },
+    "calculation_depth": {
+        "focus_label": "Calculation Depth",
+        "micro_protocol": [
+            "Force yourself to calculate one move further",
+            "Use checks, captures, threats as your checklist",
+            "Verify the final position before playing the move",
+        ],
+    },
+    "king_safety": {
+        "focus_label": "King Safety",
+        "micro_protocol": [
+            "Check your king's exposure before attacking",
+            "Don't ignore weakening moves near your own king",
+            "Ask: can my opponent open lines to my king?",
+        ],
+    },
+    "pawn_structure": {
+        "focus_label": "Pawn Structure",
+        "micro_protocol": [
+            "Think before creating a weak pawn",
+            "Consider what a pawn move commits you to",
+            "Look for the long-term structural cost",
+        ],
+    },
+    "piece_activity": {
+        "focus_label": "Piece Activity",
+        "micro_protocol": [
+            "Ask: is this my worst-placed piece?",
+            "Look for moves that activate passive pieces",
+            "Avoid moves that further passivate your position",
+        ],
+    },
+    "opening_knowledge": {
+        "focus_label": "Opening Principles",
+        "micro_protocol": [
+            "Develop pieces before moving them twice",
+            "Contest the center early",
+            "Castle before starting side attacks",
+        ],
+    },
+    "endgame_technique": {
+        "focus_label": "Endgame Technique",
+        "micro_protocol": [
+            "Activate your king in the endgame",
+            "Count moves precisely — endgames are exact",
+            "Know the winning technique before you need it",
+        ],
+    },
+    "time_pressure": {
+        "focus_label": "Time Management",
+        "micro_protocol": [
+            "Spend less time on obvious moves",
+            "Bank time early for critical moments later",
+            "Trust your preparation instead of re-checking",
+        ],
+    },
 }
+
+
+def build_pattern_stats_from_analyses(analyses: List[Dict]) -> Dict[str, Dict]:
+    """
+    Build the pattern_stats shape generate_daily_mission()/select_pattern()
+    expect, from the per-move cognitive_gap tags already present on
+    stockfish_analysis.move_evaluations — the same reliable source used by
+    compute_habit_violations_from_moves() and record_opening_exposure_from_game().
+    Replaces the old logic that read analysis["blunders"], a field that was
+    never populated on any real document.
+    """
+    pattern_stats: Dict[str, Dict] = {}
+    for analysis in analyses:
+        moves = (analysis.get("stockfish_analysis") or {}).get("move_evaluations", [])
+        analyzed_at = analysis.get("analyzed_at")
+        try:
+            if isinstance(analyzed_at, datetime):
+                at = analyzed_at if analyzed_at.tzinfo else analyzed_at.replace(tzinfo=timezone.utc)
+            elif analyzed_at:
+                at = datetime.fromisoformat(str(analyzed_at).replace("Z", "+00:00"))
+                if not at.tzinfo:
+                    at = at.replace(tzinfo=timezone.utc)
+            else:
+                at = None
+        except Exception:
+            at = None
+
+        for m in moves:
+            if m.get("is_opponent_move"):
+                continue
+            evaluation = (m.get("evaluation") or "").lower()
+            gap = m.get("cognitive_gap")
+            if not gap or evaluation not in ("mistake", "blunder"):
+                continue
+            if gap not in pattern_stats:
+                pattern_stats[gap] = {"pattern": gap, "repeat_count_14d": 0, "severities": [], "last_seen_at": None}
+            pattern_stats[gap]["repeat_count_14d"] += 1
+            pattern_stats[gap]["severities"].append(abs(m.get("cp_loss", 100)) / 500)
+            if at and (not pattern_stats[gap]["last_seen_at"] or at > pattern_stats[gap]["last_seen_at"]):
+                pattern_stats[gap]["last_seen_at"] = at
+
+    for cat, stats in pattern_stats.items():
+        stats["avg_severity"] = sum(stats["severities"]) / len(stats["severities"]) if stats["severities"] else 0.5
+    return pattern_stats
 
 
 # ============================================
@@ -348,41 +479,24 @@ async def generate_daily_mission(
         if existing:
             return existing
     
-    # Get recent patterns from game analyses
-    recent_analyses = await db.game_analyses.find({
-        "user_id": user_id,
-        "analyzed_at": {"$gte": (now - timedelta(days=14)).isoformat()},
-    }).to_list(50)
-    
-    # Aggregate patterns
-    pattern_stats = {}
-    for analysis in recent_analyses:
-        for blunder in analysis.get("blunders", []):
-            cat = blunder.get("mistake_category")
-            if cat:
-                if cat not in pattern_stats:
-                    pattern_stats[cat] = {
-                        "pattern": cat,
-                        "repeat_count_14d": 0,
-                        "severities": [],
-                        "last_seen_at": None,
-                    }
-                pattern_stats[cat]["repeat_count_14d"] += 1
-                pattern_stats[cat]["severities"].append(abs(blunder.get("cp_loss", 100)) / 500)
-                analyzed_at = analysis.get("analyzed_at")
-                if analyzed_at:
-                    try:
-                        at = datetime.fromisoformat(analyzed_at.replace("Z", "+00:00"))
-                        if not pattern_stats[cat]["last_seen_at"] or at > pattern_stats[cat]["last_seen_at"]:
-                            pattern_stats[cat]["last_seen_at"] = at
-                    except:
-                        pass
-    
-    # Calculate averages
-    patterns = []
-    for cat, stats in pattern_stats.items():
-        stats["avg_severity"] = sum(stats["severities"]) / len(stats["severities"]) if stats["severities"] else 0.5
-        patterns.append(stats)
+    # Get recent patterns from game analyses. analyzed_at is stored as a
+    # native datetime on some documents and an ISO string on others (same
+    # inconsistency handled in coach_memory.backfill_weaknesses_for_user) —
+    # a Mongo-side {"$gte": <iso string>} filter against a datetime field
+    # silently matches zero documents, which is why this always came back
+    # empty. Fetch the most recent 50 by sort instead and let
+    # build_pattern_stats_from_analyses handle either type per-document.
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user_id}
+    ).sort("analyzed_at", -1).to_list(50)
+
+    # Aggregate patterns from real per-move cognitive_gap tags (see
+    # build_pattern_stats_from_analyses docstring — the old logic here read
+    # analysis["blunders"], a field never populated on any real document,
+    # so this always came back empty and every mission fell back to the
+    # generic default regardless of the user's actual weakness).
+    pattern_stats = build_pattern_stats_from_analyses(recent_analyses)
+    patterns = list(pattern_stats.values())
     
     # Get recent missions for rotation check
     recent_missions = await db.behavioral_missions.find({
