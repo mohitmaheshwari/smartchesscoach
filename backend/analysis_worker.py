@@ -1901,6 +1901,23 @@ def process_job(db, job):
                         user_color=game.get("user_color"),
                         game_id=game.get("game_id"),
                     )
+
+                    # Mohit 2026-07-21: build user_opening_progress from real
+                    # game history too — see record_opening_exposure_from_game
+                    # docstring for why this was needed (1 of 61 real users
+                    # had any data; every existing writer required a PWC
+                    # lesson first, which imported-game users never take).
+                    try:
+                        from services.opening_mastery import record_opening_exposure_from_game
+                        opening_played_val = game.get("opening_name") or game.get("opening")
+                        if opening_played_val:
+                            await record_opening_exposure_from_game(
+                                async_db, user_id, opening_played_val,
+                                result_for_brain, accuracy or 0, blunders,
+                            )
+                    except Exception as _oe:
+                        logger.warning(f"[OPENING-PROGRESS] Failed (non-fatal): {_oe}")
+
                     # Bust the Lab cache so the new focus shows immediately
                     try:
                         await async_db.coaching_cache.delete_one({"user_id": user_id})

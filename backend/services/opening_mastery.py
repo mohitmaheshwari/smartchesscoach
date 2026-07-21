@@ -855,6 +855,82 @@ async def check_opening_in_real_game(db, user_id: str, game_moves: List[str]) ->
     }
 
 
+async def record_opening_exposure_from_game(
+    db, user_id: str, opening_played: str, game_result: str,
+    accuracy: float, blunders: int, played_at: Optional[str] = None,
+) -> Optional[Dict]:
+    """
+    Build user_opening_progress from real (imported) game history directly —
+    unlike check_opening_in_real_game(), which only updates an opening a user
+    was already "introduced" to via a Play-with-Coach lesson, and therefore
+    never creates a first record. Confirmed via production audit 2026-07-21:
+    user_opening_progress had exactly 1 populated user out of 61 with
+    analyzed games, because every write path (this collection's only writers
+    are in coach.py/coach_play.py) requires that PWC-lesson step first, and
+    almost no real user takes it — the vast majority of games arrive via
+    import, not PWC play.
+
+    Reuses the opening name + normalization + win/accuracy judgment already
+    used by update_memory_after_game()'s Engine-2 opening-skill tracking
+    (services.coach_memory._normalize_opening_key / _opening_outcome) rather
+    than the separate, cruder detect_opening_from_moves() prefix-matcher in
+    this file — single source for "was this opening played well," matching
+    the codebase's existing single-source-of-truth convention for openings.
+
+    Only acts when opening_played is truthy; silently no-ops otherwise
+    (most games have an opening label already resolved at import time).
+    """
+    if not opening_played:
+        return None
+
+    from services.coach_memory import _normalize_opening_key, _opening_outcome
+
+    key = _normalize_opening_key(opening_played)
+    if not key:
+        return None
+
+    now = played_at or datetime.now(timezone.utc).isoformat()
+    outcome = _opening_outcome(accuracy, blunders, game_result, tier=1)
+
+    progress = await get_user_opening_progress(db, user_id, key)
+    if progress is None:
+        progress = UserOpeningProgress(
+            user_id=user_id, opening_name=key, mastery_level=MasteryLevel.LEARNING,
+            introduced_at=None, last_practiced_at=None, times_practiced=0,
+            times_applied_in_games=0, correct_applications=0, traps_learned=[],
+            variations_learned=[], quiz_scores=[], notes="",
+        )
+
+    progress.times_applied_in_games += 1
+    progress.last_practiced_at = now
+    if outcome == "correct":
+        progress.correct_applications += 1
+
+    # Promote mastery from real-game exposure. Use the curated opening's own
+    # criteria when this key matches OPENING_DATABASE; otherwise a generic
+    # bar (most real opening names won't match the ~30 curated entries).
+    opening_data = OPENING_DATABASE.get(key)
+    criteria = opening_data.mastery_criteria if opening_data else \
+        {"applied_in_games": 5, "correct_applications": 3}
+
+    if progress.mastery_level != MasteryLevel.MASTERED:
+        if (progress.correct_applications >= criteria.get("correct_applications", 3)
+                and progress.times_applied_in_games >= criteria.get("applied_in_games", 5)):
+            progress.mastery_level = MasteryLevel.MASTERED
+        elif progress.correct_applications >= 1:
+            progress.mastery_level = MasteryLevel.APPLIED
+        elif progress.times_applied_in_games >= 3:
+            progress.mastery_level = MasteryLevel.PRACTICED
+
+    await update_user_opening_progress(db, progress)
+    return {
+        "opening_name": key,
+        "times_applied": progress.times_applied_in_games,
+        "correct_applications": progress.correct_applications,
+        "mastery_level": progress.mastery_level.value,
+    }
+
+
 # ============================================
 # CONVENIENCE FUNCTIONS
 # ============================================
