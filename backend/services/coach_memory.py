@@ -416,6 +416,64 @@ async def backfill_weaknesses_for_user(db, user_id: str, dry_run: bool = True) -
     return {"user_id": user_id, "games_scanned": len(analyses), "would_write": summary, "written": True}
 
 
+async def backfill_current_focus_for_user(db, user_id: str, dry_run: bool = True) -> Dict[str, Any]:
+    """
+    One-time correction for coach_memory.learning.current_focus. Found via
+    production audit 2026-07-21: 18 of 57 users with any current_focus set
+    were stuck on "time_management" as a stale/default value with ZERO
+    time_pressure occurrences anywhere in their actual games — this is the
+    focus resolve_daily_fix() falls back to (services/daily_fix_service.py
+    _resolve_focus) whenever user_active_focus has no active WEAKNESS-type
+    doc, so it drove the Daily Fix card (the primary home-page re-engagement
+    loop) to show every one of those users an irrelevant drill.
+
+    Root cause: current_focus is only updated by update_memory_after_game()
+    when _pick_prescription() returns a truthy value for THAT game's call
+    (services/postgame_analysis.py); before today's habits_violated fix,
+    persistent_weaknesses was always [] for imported-game users, so that
+    logic could never fire and current_focus stayed wherever it was first
+    seeded. Games analyzed from now on will self-correct via that fixed path
+    (using the freshly-backfilled weaknesses) — this backfill fixes it
+    immediately for users who won't have a new game analyzed soon.
+
+    Sets current_focus to the user's top ACTIVE pattern by decay-weighted
+    score (pattern_decay_service.refresh_user_pattern_decay) — the same
+    ranking already used by home_intelligence_service and
+    get_realtime_pattern_context, so the coach's "one thing to work on"
+    stays consistent across Home, Daily Fix, and live coaching.
+
+    Only overwrites when pattern data exists and disagrees with the stored
+    focus (skips users with no real pattern data rather than clearing a
+    focus that might be legitimately set from a source this function
+    doesn't know about, e.g. a manually-set diagnostic focus).
+    """
+    from services.pattern_decay_service import refresh_user_pattern_decay
+
+    scores = await refresh_user_pattern_decay(db, user_id)
+    active_scores = {k: v for k, v in scores.items() if v.get("state") == "active"}
+    candidates = active_scores or scores
+    if not candidates:
+        return {"user_id": user_id, "written": False, "reason": "no pattern data"}
+
+    top_pattern = max(candidates.items(), key=lambda kv: kv[1].get("weighted_score", 0))[0]
+
+    memory = await get_or_create_memory(db, user_id)
+    old_focus = memory.learning.current_focus
+    if old_focus == top_pattern:
+        return {"user_id": user_id, "written": False, "reason": "already correct", "focus": top_pattern}
+
+    if dry_run:
+        return {"user_id": user_id, "written": False, "old_focus": old_focus, "new_focus": top_pattern}
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.coach_memory.update_one(
+        {"user_id": user_id},
+        {"$set": {"learning.current_focus": top_pattern, "updated_at": now}},
+        upsert=True,
+    )
+    return {"user_id": user_id, "written": True, "old_focus": old_focus, "new_focus": top_pattern}
+
+
 async def get_or_create_memory(db, user_id: str) -> CoachMemory:
     """Get existing memory or create new one for user."""
     memory_doc = await db.coach_memory.find_one({"user_id": user_id})

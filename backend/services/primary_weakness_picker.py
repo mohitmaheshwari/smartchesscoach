@@ -637,8 +637,21 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             n_time_loss += 1
     timeout_loss_rate = n_time_loss / max(n_analyzed, 1)
 
+    # Mohit 2026-07-21: DISABLED pending fix. _compute_baseline_metric() and
+    # check_focus_outcome() both measure progress via
+    # move_observations.missed_pattern == topic — but time_management is
+    # scored here from time_flag_counts/timeout_loss_rate (see comment
+    # below), a field this topic's evidence was NEVER tagged under. Every
+    # user locked onto this topic gets baseline_rate=0 and current_rate=0
+    # forever (delta=0.0 exactly → "stuck"), so close_focus() can never
+    # promote them past status="active" — confirmed in production: 18 of 38
+    # active weakness-locks were permanently wedged on time_management,
+    # extending 7 more days on every 6-hourly outcome check with no way out.
+    # Re-enable once check_focus_outcome has a matching time_flag-based
+    # branch for this topic.
+    _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED = False
     # Score: severity-weighted flags PLUS a chronic-timeout bonus
-    if n_time_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10:
+    if _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED and (n_time_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10):
         # Build a synthetic subtype_severity dict for the narrative
         synth_hist: Dict[str, Dict[str, int]] = {}
         for flag, count in time_flag_counts.items():
@@ -832,3 +845,44 @@ async def close_focus(db, focus: Dict[str, Any], outcome: Dict[str, Any]) -> Non
         new_until = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         update["$set"]["locked_until"] = new_until
     await db[COLLECTION].update_one({"_id": focus["_id"]}, update)
+
+
+async def unstick_time_management_lock(db, user_id: str, dry_run: bool = True) -> Dict[str, Any]:
+    """
+    One-time fix for the time_management outcome-check gap (see the
+    disabled-candidate comment in pick_next_focus). Closes an active
+    weakness-lock stuck on topic_key='time_management' with an honest
+    status — NOT "completed" or "escalated" (that would fabricate an
+    outcome the metric gap made impossible to actually observe) — then
+    assigns a fresh, real focus from the user's current evidence via the
+    normal assign_focus() path.
+
+    Only acts on a user whose active lock is specifically time_management;
+    no-ops (written=False) for everyone else, including users correctly
+    locked on a real topic.
+    """
+    active = await _get_active_focus(db, user_id)
+    if not active or active.get("topic_key") != "time_management":
+        return {"user_id": user_id, "written": False, "reason": "not stuck on time_management"}
+
+    if dry_run:
+        return {"user_id": user_id, "written": False, "old_topic": "time_management", "dry_run": True}
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db[COLLECTION].update_one(
+        {"_id": active["_id"]},
+        {"$set": {
+            "status": "closed_unresolvable_metric",
+            "resolution": "metric_gap",
+            "next_action": "reassigned",
+            "closed_at": now,
+            "updated_at": now,
+        }},
+    )
+    new_focus = await assign_focus(db, user_id)
+    return {
+        "user_id": user_id,
+        "written": True,
+        "old_topic": "time_management",
+        "new_topic": (new_focus or {}).get("topic_key"),
+    }
