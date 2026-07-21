@@ -281,13 +281,22 @@ const CoachPlay = ({ user }) => {
   
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
+
+  // PLAY MODE: Master override - always clear arrows in play mode
+  useEffect(() => {
+    console.log("[ARROW-TRACE] gameMode changed to:", gameMode);
+    if (gameMode === "play") {
+      console.log("[ARROW-TRACE] MASTER OVERRIDE: Clearing arrows because gameMode=play");
+      setCoachArrows([]);
+    }
+  }, [gameMode]);
   // Coach geometry overlay (Phase 1) — living plan arrows for BOTH sides.
   // green = your plan, yellow = coach's plan, pale = latent line to watch.
   // Behind PWC_GEOMETRY_ARROWS: backend returns [] when off, so it's a no-op
   // by default. docs/coach_geometry_arrows_scope.md
   const [geometryPlans, setGeometryPlans] = useState([]);
   useEffect(() => {
-    if (!gameStarted || isInTeachingMode || gameOver || !currentFen) return;
+    if (!gameStarted || isInTeachingMode || gameOver || !currentFen || gameMode === "play") return;
     let cancelled = false;
     const brushFor = (p) =>
       p.color === "green"
@@ -306,6 +315,7 @@ const CoachPlay = ({ user }) => {
           const tuples = plans.flatMap((p) =>
             (p.arrows || []).map(([f, t]) => [f, t, brushFor(p)])
           );
+          console.log("[ARROW-TRACE] GEOMETRY ENDPOINT setting arrows:", tuples, "gameMode:", gameMode);
           setCoachArrows(tuples);
         }
       })
@@ -336,14 +346,14 @@ const CoachPlay = ({ user }) => {
 
   // Compute and show guidance arrow from local data
   useEffect(() => {
-    if (!openingIdeas.length || !isPlayerTurn || gameOver) return;
+    if (!openingIdeas.length || !isPlayerTurn || gameOver || gameMode === "play") return;
     // The user's next move is at the current gamePly
     const idea = openingIdeas[gamePly];
     // The coach's last move (just played) is at gamePly - 1
     const coachIdea = gamePly > 0 ? openingIdeas[gamePly - 1] : null;
 
     if (idea?.arrow) {
-      console.log("[CoachPlay] Client-side arrow for ply", gamePly, ":", idea.arrow, idea.move);
+      console.log("[ARROW-TRACE] OPENING IDEAS setting arrow for ply", gamePly, ":", idea.arrow, "gameMode:", gameMode);
       setCoachArrows([[idea.arrow[0], idea.arrow[1], "green"]]);
       // Update guidance for CommentaryPanel
       coachFlow.setOpeningGuidance({
@@ -369,7 +379,7 @@ const CoachPlay = ({ user }) => {
       setCoachArrows([]);
       coachFlow.setOpeningGuidance(null);
     }
-  }, [gamePly, openingIdeas, isPlayerTurn, gameOver]);
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode];
 
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
@@ -400,7 +410,7 @@ const CoachPlay = ({ user }) => {
   // User can still click a single candidate in the panel to override
   // (setCoachArrows fires from the click handler, replacing this set).
   useEffect(() => {
-    if (!v5Coaching || !currentFen) return;
+    if (!v5Coaching || !currentFen || gameMode === "play") return;
     const candidates = v5Coaching.candidate_moves || [];
     if (candidates.length === 0) return;
     // Don't overlay during opening-curriculum teaching — the
@@ -431,12 +441,13 @@ const CoachPlay = ({ user }) => {
         }
       });
       if (arrowTuples.length > 0) {
+        console.log("[ARROW-TRACE] V5COACHING CANDIDATES setting arrows:", arrowTuples, "gameMode:", gameMode);
         setCoachArrows(arrowTuples);
       }
     } catch (_e) {
       // Ignore — fall back to whatever arrows were there
     }
-  }, [v5Coaching, currentFen, openingIdeas.length, gamePly]);
+  }, [v5Coaching, currentFen, openingIdeas.length, gamePly, gameMode]);
 
   // Opening line completion summary
   const [openingComplete, setOpeningComplete] = useState(null);
@@ -1238,6 +1249,16 @@ const CoachPlay = ({ user }) => {
       setGameStarted(true);
       setMoveStartTime(Date.now());
 
+      // Add gameMode to URL so we can verify it without asking
+      console.log("[CoachPlay] URL update: gameMode=", gameMode, "sessionId=", data.session?.session_id);
+      const newUrl = `/play-with-coach?mode=${gameMode}&session=${data.session?.session_id || 'unknown'}`;
+      console.log("[CoachPlay] Setting URL to:", newUrl);
+      window.history.replaceState({ gameMode, sessionId: data.session?.session_id }, '', newUrl);
+
+      // Clear all coaching state at game start (especially important for Play Mode)
+      setCoachArrows([]);
+      setV5Coaching(null);
+
       // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
       if (data.openingGuidance) {
@@ -1246,6 +1267,10 @@ const CoachPlay = ({ user }) => {
         if (data.openingGuidance.all_ideas?.length) {
           console.log("[CoachPlay] Loaded", data.openingGuidance.all_ideas.length, "opening move ideas, branch:", data.openingGuidance.branch?.name || "default");
           setOpeningIdeas(data.openingGuidance.all_ideas);
+          // PLAY MODE: Immediately clear any arrows that might get set from opening ideas
+          if (gameMode === "play") {
+            setCoachArrows([]);
+          }
         }
         // Store branch info for variation awareness
         if (data.openingGuidance.branch) {
@@ -1352,17 +1377,19 @@ const CoachPlay = ({ user }) => {
   // Fetch feedback for a specific session ID (used for resume)
   const fetchMoveFeedbackForSession = async (sessionId) => {
     if (!sessionId) return;
-    
+
     setLoadingFeedback(true);
     setIsCoachThinking(true);
     try {
       const response = await fetch(`${API}/coach/play/feedback/${sessionId}`, {
         credentials: "include"
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        if (data.feedback) {
+
+        // PLAY MODE: Skip all coaching state updates
+        if (gameMode !== "play" && data.feedback) {
           setMoveFeedback(data.feedback);
 
           // ═══ BOARD ANNOTATIONS — Draw arrows via props (not ref) ═══
@@ -1483,9 +1510,9 @@ const CoachPlay = ({ user }) => {
   // Phase 1: Fetch V5 coaching for user's move (called RIGHT after user plays)
   const fetchUserMoveCoaching = async (sessionId) => {
     if (!sessionId) return;
-    
+
     setLoadingFeedback(true);
-    
+
     try {
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
         method: "POST",
@@ -1493,11 +1520,12 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({ session_id: sessionId, phase: "user_move" })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
-        if (data.user_move_coaching) {
+
+        // PLAY MODE: Skip all coaching state updates
+        if (gameMode !== "play" && data.user_move_coaching) {
           setV5Coaching(data.user_move_coaching);
           setInteractiveCoaching(prev => ({
             ...prev,
@@ -1513,6 +1541,7 @@ const CoachPlay = ({ user }) => {
               // Check if best_move_uci exists directly or in raw feedback
               const rawUci = data.best_move_uci || v5.best_move_uci || "";
               if (rawUci && rawUci.length >= 4) {
+                console.log("[ARROW-TRACE] BEST MOVE arrow:", rawUci, "gameMode:", gameMode);
                 setCoachArrows([[rawUci.slice(0, 2), rawUci.slice(2, 4), "green"]]);
                 setTimeout(() => setCoachArrows([]), 6000);
               }
@@ -1533,6 +1562,7 @@ const CoachPlay = ({ user }) => {
             // Red arrow pointing at the trapped piece (from nearest attacker if any)
             // For now just show the suggested move
             if (trapArrows.length > 0) {
+              console.log("[ARROW-TRACE] TRAP ARROWS:", trapArrows, "gameMode:", gameMode);
               setCoachArrows(trapArrows);
               setTimeout(() => setCoachArrows([]), 8000);
             }
@@ -1554,7 +1584,7 @@ const CoachPlay = ({ user }) => {
   // Phase 2: Fetch coach's move explanation (called AFTER coach responds)
   const fetchCoachMoveExplanation = async (sessionId) => {
     if (!sessionId) return;
-    
+
     try {
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
         method: "POST",
@@ -1562,10 +1592,18 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({ session_id: sessionId, phase: "coach_move" })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
+
+        // PLAY MODE: Skip all coaching state updates
+        if (gameMode === "play") return;
+        console.log("[COACH-MOVE-DEBUG] Full response:", JSON.stringify({
+          coach_move_coaching: data.coach_move_coaching ? "YES" : "NO",
+          pre_move_trap: data.pre_move_trap ? "YES" : "NO",
+          behavioral_coaching: data.behavioral_coaching ? "YES" : "NO"
+        }));
+
         if (data.coach_move_coaching) {
           console.log("[V2-DEBUG] Coach move coaching received:", JSON.stringify({
             v2_intent: data.coach_move_coaching.v2_intent,
@@ -1587,6 +1625,7 @@ const CoachPlay = ({ user }) => {
           if (data.pre_move_trap.reduction_moves?.length > 0) {
             const r = data.pre_move_trap.reduction_moves[0];
             if (r.from && r.to) {
+              console.log("[ARROW-TRACE] PRE_MOVE_TRAP arrow:", [r.from, r.to], "gameMode:", gameMode);
               setCoachArrows([[r.from, r.to, "green"]]);
               setTimeout(() => setCoachArrows([]), 10000);
             }
@@ -1648,6 +1687,7 @@ const CoachPlay = ({ user }) => {
 
         // Log EVERYTHING we received
         console.log("[V2-COACHING] === FULL RESPONSE ===");
+        console.log("[USER-MOVE-DEBUG] Play Mode Check - user_move_coaching is:", data.user_move_coaching === null ? "NULL" : (data.user_move_coaching ? "YES" : "NO"));
         console.log("[V2-COACHING] user_move_coaching:", data.user_move_coaching ? JSON.stringify({
           severity: data.user_move_coaching.severity,
           narrative: data.user_move_coaching.narrative?.substring(0, 80),
@@ -1697,6 +1737,9 @@ const CoachPlay = ({ user }) => {
           // player just keeps playing.
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
+          // Play Mode: clear coaching state and arrows
+          setV5Coaching(null);
+          setCoachArrows([]);
         }
 
         // Non-blocking: the coach's teaching-move explanation ("Coach played Bd7…")
@@ -2597,8 +2640,11 @@ const CoachPlay = ({ user }) => {
         fetchUserMoveCoaching(session.session_id);
         pollForCoachResponse();
       } else {
+        // PLAY MODE: No coach response expected — immediately ready for next move
+        setIsPlayerTurn(true);
         setIsCoachThinking(false);
         setLoadingFeedback(false);
+        setMoveStartTime(Date.now());
       }
     } catch (error) {
       console.error("Confirm move error:", error);
@@ -3093,6 +3139,7 @@ const CoachPlay = ({ user }) => {
   }
 
   // Game screen
+  console.log("[CoachPlay] RENDERING - gameMode IS:", gameMode, "gameStarted:", gameStarted);
   return (
     <Layout user={user}>
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
@@ -3258,7 +3305,8 @@ const CoachPlay = ({ user }) => {
           session={session}
           currentFen={currentFen}
           boardOrientation={boardOrientation}
-          lastMove={lastMove}
+          gameMode={gameMode}
+          lastMove={gameMode === "play" ? null : lastMove}
           isPlayerTurn={isPlayerTurn}
           gameOver={gameOver}
           evaluation={evaluation}
@@ -3297,6 +3345,8 @@ const CoachPlay = ({ user }) => {
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
           moveClassification={(() => {
+            // Play Mode: no move classification badges
+            if (gameMode === "play") return null;
             // Show classification on the USER's move square (persists after coach moves)
             const cls = v5Coaching?.severity && userLastMoveSquare
               ? { square: userLastMoveSquare, type: v5Coaching.theory_applied ? "book" : v5Coaching.severity }

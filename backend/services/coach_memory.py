@@ -1303,3 +1303,124 @@ async def get_user_rating_from_games(db, user_id: str) -> Dict:
         'lowest_rating': min(ratings),
         'most_recent_rating': ratings[0] if ratings else current_rating
     }
+
+
+async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
+    """
+    Backfill coach memory for a new user based on their imported/analyzed games.
+
+    This runs on first login to unlock coaching immediately, even before the user
+    has played games WITH the coach. Extracts:
+    - Recurring mistake patterns (from game analyses)
+    - Opening repertoire
+    - Performance trends
+    - Detected weaknesses
+
+    Returns: {
+        "success": bool,
+        "games_analyzed": int,
+        "patterns_detected": List[str],
+        "message": str
+    }
+    """
+    try:
+        # Get or create memory
+        memory = await get_or_create_memory(db, user_id)
+
+        # Get user's rating
+        rating_info = await get_user_rating_from_games(db, user_id)
+        user_rating = rating_info.get('rating', 1200)
+
+        # Fetch analyzed games (up to 30 recent ones)
+        games_analyzed = 0
+        patterns_detected = []
+        openings_seen = {}
+
+        analyses = await db.game_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0}
+        ).sort("analyzed_at", -1).limit(30).to_list(30)
+
+        if not analyses:
+            # No analyzed games yet - just set initialized flag
+            memory.performance.best_performance_rating = user_rating
+            await update_memory_after_game(
+                db, user_id,
+                game_result="unknown",
+                accuracy=0,
+                blunders=0,
+                mistakes=0,
+                habits_violated=[],
+                habits_improved=[],
+                opening_played=None,
+                endgame_reached=False,
+                performance_rating=user_rating,
+            )
+            return {
+                "success": True,
+                "games_analyzed": 0,
+                "patterns_detected": [],
+                "message": "No analyzed games found yet. Coach is ready to learn from your Play with Coach sessions!"
+            }
+
+        # Analyze each game to detect patterns
+        pattern_counts = {}
+        for analysis in analyses:
+            games_analyzed += 1
+            sf = analysis.get("stockfish_analysis", {})
+            moves = sf.get("move_evaluations", [])
+
+            # Extract cognitive gaps (patterns)
+            for move in moves:
+                if not move.get("is_opponent_move"):
+                    gap = move.get("cognitive_gap")
+                    if gap and gap != "unknown":
+                        pattern_counts[gap] = pattern_counts.get(gap, 0) + 1
+
+        # Get top 3-5 patterns
+        sorted_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)
+        for pattern, count in sorted_patterns[:5]:
+            if count >= 2:  # Only patterns that appear multiple times
+                patterns_detected.append(pattern)
+                # Add to memory's recurring patterns
+                if pattern not in memory.recurring_patterns:
+                    memory.recurring_patterns.append(pattern)
+
+        # Set performance baseline
+        memory.performance.best_performance_rating = user_rating
+        memory.performance.games_played = games_analyzed
+
+        # If patterns detected, set one as current focus for coaching
+        if patterns_detected:
+            memory.learning.current_focus = patterns_detected[0]
+
+        # Save updated memory
+        now = datetime.now(timezone.utc).isoformat()
+        memory.updated_at = now
+        await db.coach_memory.update_one(
+            {"user_id": user_id},
+            {"$set": _memory_to_doc(memory)},
+            upsert=True
+        )
+
+        # Also mark that backfill has been done by setting a flag in users collection
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"coach_memory_initialized": True}}
+        )
+
+        return {
+            "success": True,
+            "games_analyzed": games_analyzed,
+            "patterns_detected": patterns_detected,
+            "message": f"Coach memory ready! Detected {len(patterns_detected)} patterns from {games_analyzed} games."
+        }
+
+    except Exception as e:
+        logger.error(f"Backfill coach memory failed for {user_id}: {e}")
+        return {
+            "success": False,
+            "games_analyzed": 0,
+            "patterns_detected": [],
+            "message": "Coach memory backfill failed, but coaching is still available."
+        }

@@ -41,6 +41,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     gameOver,
     evaluation,
     selectedColor,
+    gameMode,
     /* teaching state */
     isInTeachingMode,
     activeLesson,
@@ -80,6 +81,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
   },
   boardRef
 ) {
+  console.log("[CoachPlayBoard] Rendering with gameMode=", gameMode, "showDests should be:", gameMode !== "play");
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-4 overflow-auto">
       {/* Board column width drives the (CSS-responsive) board size. Caps by the
@@ -140,7 +142,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 ) &&
                 (!isPlayerTurn || gameOver)
               }
-              showDests={true}
+              showDests={gameMode !== "play"}
               moveClassification={moveClassification}
             />
 

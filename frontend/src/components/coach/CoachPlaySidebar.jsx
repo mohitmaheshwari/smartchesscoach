@@ -29,6 +29,7 @@ import PostGameReflection from "@/components/coach/PostGameReflection";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
+import ActiveRecallContainer from "@/components/coach/ActiveRecallContainer";
 import LiveChecklist from "@/components/coach/LiveChecklist";
 import PunishmentPuzzleCard from "@/components/coach/PunishmentPuzzleCard";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
@@ -471,6 +472,20 @@ const LegacyChatMessages = ({
         onDismiss={() => setMoveFeedback(null)}
         sessionId={session?.session_id}
         gameId={session?.session_id}
+      />
+    )}
+
+    {/* Active Recall: Pedagogical Q&A after mistakes */}
+    {interactiveCoaching?.userMoveCoaching?.active_recall && !gameOver && (
+      <ActiveRecallContainer
+        sessionId={session?.session_id}
+        moveIndex={session?.move_history?.length || 0}
+        activeRecall={interactiveCoaching.userMoveCoaching.active_recall}
+        cognitiveGap={interactiveCoaching.userMoveCoaching.cognitive_gap}
+        onComplete={() => {
+          // Keep showing coaching text after Q&A completes
+          console.log("[AR] Active recall complete");
+        }}
       />
     )}
 

@@ -59,7 +59,10 @@ class CoachGameSession:
     user_time_remaining: float = 900.0  # 15 minutes in seconds
     coach_time_remaining: float = 900.0
     increment: float = 10.0
-    
+
+    # Game mode: "coach" (with captions) or "play" (pure chess)
+    game_mode: str = "coach"
+
     # Result
     result: Optional[GameResult] = None
     termination_reason: str = ""
@@ -380,7 +383,10 @@ async def start_coach_session(
         # session_focus.topic_key without depending on the conductor's
         # lazy-load path. focus_bundle is already loaded above (line ~286).
         session_focus=focus_bundle,
+        game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
     )
+
+    logger.info(f"[start_coach_session] Created session with game_mode={session.game_mode}")
     
     # Add practice mode and game mode metadata
     session_dict = session.to_dict()

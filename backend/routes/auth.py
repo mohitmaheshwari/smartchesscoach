@@ -11,7 +11,7 @@ Handles:
 - Demo login
 """
 
-from fastapi import APIRouter, HTTPException, Request, Response, Depends
+from fastapi import APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
@@ -189,7 +189,7 @@ async def google_login(request: Request):
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, response: Response, request: Request):
+async def google_callback(code: str, response: Response, request: Request, background_tasks: BackgroundTasks = None):
     """
     Handle Google OAuth callback.
     Exchange authorization code for tokens and create user session.
@@ -275,7 +275,13 @@ async def google_callback(code: str, response: Response, request: Request):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.user_sessions.insert_one(session_doc)
-        
+
+        # Backfill coach memory from imported games on first login (non-blocking)
+        is_first_login = not existing_user or not existing_user.get("coach_memory_initialized")
+        if is_first_login and background_tasks:
+            from services.coach_memory import backfill_coach_memory_from_imported_games
+            background_tasks.add_task(backfill_coach_memory_from_imported_games, db, user_id)
+
         frontend_url = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
         print(f"[AUTH] Setting session cookie for user {user_id}, token: {session_token[:20]}...")
         print(f"[AUTH] FRONTEND_URL from env: {frontend_url}")

@@ -307,15 +307,30 @@ async def get_pattern_training_puzzles(
     2. Community puzzles from other users with the same pattern
     Excludes puzzles the user has already solved.
 
+    Now includes decay state and score to help prioritize training.
+
     Returns:
     {
         "pattern": "piece_safety",
+        "pattern_label": "Piece Safety",
+        "decay_state": "active",
+        "decay_score": 3.2,
         "own_puzzles": [...],
         "community_puzzles": [...],
-        "total": N,
-        "solved_count": M,
+        "total_available": N,
+        "unsolved_count": M,
+        "solved_count": P,
     }
     """
+    # Get decay score for this pattern to add context to training
+    from services.pattern_decay_service import refresh_user_pattern_decay
+    pattern_scores = await refresh_user_pattern_decay(db, user_id)
+    decay_state = "active"
+    decay_score = 0.0
+    if pattern in pattern_scores:
+        decay_state = pattern_scores[pattern].get("state", "active")
+        decay_score = pattern_scores[pattern].get("weighted_score", 0.0)
+
     # Get puzzle IDs the user has already solved
     solved_cursor = db.puzzle_attempts.find(
         {"user_id": user_id, "correct": True},
@@ -350,6 +365,8 @@ async def get_pattern_training_puzzles(
             "description": p.get("description", ""),
             "already_solved": pid in solved_ids,
             "solve_rate": round(p.get("solve_rate", 0), 1),
+            "decay_state": decay_state,
+            "decay_score": decay_score,
         })
 
     # 2. Community puzzles (from other users, same pattern, not already solved)
@@ -384,6 +401,8 @@ async def get_pattern_training_puzzles(
             "description": p.get("description", ""),
             "already_solved": False,
             "solve_rate": round(p.get("solve_rate", 0), 1),
+            "decay_state": decay_state,
+            "decay_score": decay_score,
         })
 
     # 3. Play-with-Coach pool (community_training_positions) for the same gap.
@@ -413,6 +432,8 @@ async def get_pattern_training_puzzles(
                 "description": p.get("moment_tag") or "",
                 "already_solved": pid in solved_ids,
                 "solve_rate": round(float(p.get("solve_rate", 0) or 0), 1),
+                "decay_state": decay_state,
+                "decay_score": decay_score,
             }
 
         # IMPORTANT: on prod this collection reliably serves only EXACT-match
@@ -449,9 +470,21 @@ async def get_pattern_training_puzzles(
     total_community = len(community_puzzles)
     unsolved_own = len([p for p in own_puzzles if not p["already_solved"]])
 
+    # Calculate games to next state transition
+    games_to_next = 999
+    if decay_state == "active" and decay_score > 0:
+        # How many more clean games until DECLINING (score <= 2)?
+        games_to_next = max(0, int(decay_score - 2.0))
+    elif decay_state == "declining" and decay_score > 0:
+        # How many more clean games until FADING (score < 1)?
+        games_to_next = max(0, int(decay_score - 1.0))
+
     return {
         "pattern": pattern,
         "pattern_label": pattern.replace("_", " ").title(),
+        "decay_state": decay_state,
+        "decay_score": round(decay_score, 2),
+        "games_to_next_state": games_to_next,
         "own_puzzles": own_puzzles,
         "community_puzzles": community_puzzles,
         "total_available": total_own + total_community,

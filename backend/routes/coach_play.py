@@ -23,7 +23,24 @@ import logging
 import json
 import chess
 
+# Active Recall Integration (pedagogical Q&A enrichment)
+from services.active_recall_integration import enrich_coaching_with_active_recall
+
 logger = logging.getLogger(__name__)
+
+async def _check_play_mode_gate(db, session_id: str, endpoint_name: str):
+    """
+    PLAY MODE GATE: Check if session is in play mode. If so, raise 403.
+    This prevents ALL coaching from being generated/returned for play mode games.
+    Call this at the START of every coaching endpoint.
+    """
+    session = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session:
+        return  # Let the endpoint handle missing session
+
+    if session.get("game_mode") == "play":
+        logger.info(f"[{endpoint_name}] PLAY MODE - blocking coaching for session {session_id[:8]}")
+        raise HTTPException(status_code=403, detail="Play mode - no coaching")
 
 def _detect_opening_from_moves(moves: list, user_color: str) -> tuple:
     """Detect which curriculum opening matches these moves.
@@ -2868,7 +2885,20 @@ async def get_interactive_coaching(
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
+
+    # Play Mode: no coaching feedback. Return empty response.
+    game_mode = session_doc.get("game_mode", "MISSING")
+    logger.info(f"[/v5/interactive-feedback] session {session_id[:8]} game_mode={game_mode}")
+    if game_mode == "play":
+        logger.info(f"[/v5/interactive-feedback] PLAY MODE DETECTED for session {session_id[:8]} — returning null coaching")
+        return {
+            "user_move_coaching": None,
+            "coach_move_coaching": None,
+            "behavioral_coaching": None,
+            "is_user_turn": True
+        }
+    logger.info(f"[/v5/interactive-feedback] COACH MODE for session {session_id[:8]} — generating coaching")
+
     user_color = session_doc.get("user_color", "white")
     move_history = session_doc.get("move_history", [])
     evaluations = session_doc.get("evaluations", [])
@@ -3744,6 +3774,31 @@ async def get_interactive_coaching(
 
             result["user_move_coaching"] = coaching_dict
             result["best_move_uci"] = coaching_dict.get("best_move_uci", "")
+
+            # === ACTIVE RECALL ENRICHMENT (Pedagogical Q&A) ===
+            # Add ranking + concept MCQ to coaching response if verification passes.
+            # Gracefully skips if verification fails (active_recall = None).
+            try:
+                if phase in (None, "user_move") and coaching.severity in ("mistake", "blunder"):
+                    cognitive_gap = coaching.concept_id or coaching.severity
+                    user_rating = session_doc.get("user_rating", 1200)
+
+                    enriched = await enrich_coaching_with_active_recall(
+                        db=db,
+                        coaching_response=result["user_move_coaching"],
+                        fen_before=fen_before,
+                        user_move_san=move_san,
+                        best_move_san=best_move,
+                        cognitive_gap=cognitive_gap,
+                        user_rating=user_rating,
+                        cp_loss=cp_loss,
+                        user_id=user.user_id
+                    )
+                    result["user_move_coaching"] = enriched
+                    logger.info(f"[AR] Enriched coaching for {move_san} (gap={cognitive_gap})")
+            except Exception as ar_err:
+                logger.warning(f"[AR] Enrichment failed (non-critical): {ar_err}")
+                # Continue with unenriched coaching if active recall fails
 
             # === MOVE SNAPSHOT: Capture everything for testing/review ===
             # === MOVE SNAPSHOT: Dump EVERYTHING for review ===
@@ -6280,6 +6335,88 @@ def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dic
     return None
 
 
+# ============================================================================
+# ACTIVE RECALL RESPONSE RECORDING
+# ============================================================================
+
+@router.post("/active-recall-response")
+async def record_active_recall_response(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Record user's active recall responses (ranking + concept) for learning analytics.
+
+    Called from frontend after user submits their answers to active recall questions.
+
+    Request:
+    {
+      "session_id": "...",
+      "move_index": 5,
+      "cognitive_gap": "centralization",
+      "ranking_response": { "selected_index": 2, "correct_index": 0 },
+      "concept_response": { "selected_index": 1, "correct_index": 0 }
+    }
+
+    Response:
+    {
+      "recorded": true,
+      "score": "mastered" | "partial" | "not_learned"
+    }
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    try:
+        from services.active_recall_integration import record_active_recall_response as record_ar
+
+        session_id = request.get("session_id")
+        move_index = request.get("move_index")
+        cognitive_gap = request.get("cognitive_gap")
+        ranking_response = request.get("ranking_response") or {}
+        concept_response = request.get("concept_response") or {}
+
+        if not session_id or cognitive_gap is None:
+            raise HTTPException(status_code=400, detail="session_id and cognitive_gap required")
+
+        # Verify session ownership
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        if not session_doc:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if session_doc.get("user_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Not your session")
+
+        checkpoint = await record_ar(
+            db=db,
+            user_id=user.user_id,
+            session_id=session_id,
+            move_index=move_index,
+            cognitive_gap=cognitive_gap,
+            ranking_response=ranking_response,
+            concept_response=concept_response,
+        )
+
+        if checkpoint:
+            logger.info(f"[AR-Response] Recorded: session={session_id[:8]} gap={cognitive_gap} score={checkpoint.get('combined_score')}")
+            return {
+                "recorded": True,
+                "score": checkpoint.get("combined_score")
+            }
+        else:
+            logger.warning(f"[AR-Response] Failed to record: session={session_id[:8]} gap={cognitive_gap}")
+            return {
+                "recorded": False,
+                "score": None
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[AR-Response] Error recording response: {e}")
+        raise HTTPException(status_code=500, detail=f"Error recording response: {str(e)}")
+
+
 def _build_full_opening_line(opening_key: str) -> List[str]:
     """
     Build the full teaching line for an opening by combining:
@@ -6525,6 +6662,7 @@ async def start_play_with_coach(
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
     game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
+    logger.info(f"[/coach/play/start] RECEIVED game_mode={game_mode} from client for user {user.user_id[:8]}")
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
     source_game_id = request.get("source_game_id", None)
@@ -6560,6 +6698,9 @@ async def start_play_with_coach(
                     "price_inr": gate.get("price_inr"),
                 },
             )
+
+    # DEBUG: Log that we received game_mode parameter
+    logger.info(f"[start_play_with_coach] START - received game_mode={game_mode}")
 
     try:
         # If no explicit teaching_focus provided, check for active training plans
@@ -6895,10 +7036,13 @@ async def start_play_with_coach(
             logger.warning(f"Coach memory greeting failed: {e}")
             welcome_message = message
         
+        session_dict = session.to_dict()
+        logger.info(f"[start_play_with_coach] session.to_dict() has game_mode: {'game_mode' in session_dict}")
+        logger.info(f"[start_play_with_coach] session.game_mode attribute: {session.game_mode}")
         return {
             "success": True,
             "session_id": session.session_id,
-            "session": session.to_dict(),
+            "session": session_dict,
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
             "message": welcome_message,
@@ -7134,26 +7278,28 @@ async def make_coach_play_move(
                 asyncio.create_task(_trigger_profile_aggregation(db, user_id=user.user_id))
 
         # Fire background task: analyze → message → coach move
-        asyncio.create_task(
-            _process_move_and_respond(
-                session_id=session_id,
-                user_move=move,
-                fen_before=fen_before,
-                fen_after_user=fen_after_user,
-                user_rating=user_rating,
-                user_color=user_color,
-                move_number=move_number,
-                game_over=game_over,
-                expected_action_revision=action_revision
+        # PLAY MODE: Skip coaching analysis and coach move — player just plays
+        if not is_play_mode:
+            asyncio.create_task(
+                _process_move_and_respond(
+                    session_id=session_id,
+                    user_move=move,
+                    fen_before=fen_before,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                    user_color=user_color,
+                    move_number=move_number,
+                    game_over=game_over,
+                    expected_action_revision=action_revision
+                )
             )
-        )
-        
+
         return {
             "success": True,
             "user_move_recorded": True,
             "move": move,
             "current_fen": fen_after_user,
-            "awaiting_coach": not game_over,
+            "awaiting_coach": not game_over and not is_play_mode,
             "game_over": game_over,
             "result": result,
             "curriculum_feedback": curriculum_feedback,

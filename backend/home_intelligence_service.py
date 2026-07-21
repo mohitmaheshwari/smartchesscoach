@@ -517,19 +517,34 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     missed_tactics_rate = missed_tactics_games / total_games
     positional_errors_rate = positional_error_games / total_games
     
-    # Get recurring patterns from gap aggregates
+    # Get recurring patterns WITH decay weighting (instead of raw counts)
     recurring_patterns = []
+    pattern_scores = {}
+    try:
+        from services.pattern_decay_service import refresh_user_pattern_decay
+        pattern_scores = await refresh_user_pattern_decay(db, user_id)
+    except Exception:
+        pass
+
     if gap_aggregates:
         patterns = gap_aggregates.get("patterns", {})
         for pattern_key, pattern_data in patterns.items():
             count = pattern_data.get("total_count", 0)
-            if count >= 3:
+            # Use decay score if available, otherwise fall back to count
+            decay_info = pattern_scores.get(pattern_key, {})
+            decay_score = decay_info.get("weighted_score", count)
+            decay_state = decay_info.get("state", "active" if count >= 3 else "fading")
+
+            if decay_score >= 1.0:  # Include only patterns with meaningful decay score
                 recurring_patterns.append({
                     "pattern": pattern_key,
                     "count": count,
+                    "decay_score": round(decay_score, 2),
+                    "decay_state": decay_state,
                     "trend": pattern_data.get("trend", "stable"),
                 })
-        recurring_patterns.sort(key=lambda x: x["count"], reverse=True)
+        # Sort by decay_score (recency-weighted) instead of raw count
+        recurring_patterns.sort(key=lambda x: x.get("decay_score", x["count"]), reverse=True)
 
     # ── TIER 3 Pattern of the Day ──────────────────────────────────
     # Tally shape-pattern fires across the user's last 20 analysed games.
