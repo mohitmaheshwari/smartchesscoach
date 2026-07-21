@@ -240,8 +240,180 @@ DETECTABLE_WEAKNESSES = {
         "category": HabitCategory.PSYCHOLOGY,
         "description": "Resigning or playing carelessly in difficult positions",
         "detection": "Resigning in drawable positions"
-    }
+    },
+    # Mohit 2026-07-21: native cognitive_gap categories (see CLAUDE.md's
+    # "Cognitive Gap Types" table) added as first-class habit_ids so
+    # imported-game weaknesses can be driven directly from the per-move
+    # `cognitive_gap` tag already present in stockfish_analysis.move_evaluations
+    # — no lossy remapping to the older 7 habit ids above.
+    "piece_safety": {
+        "name": "Piece Safety",
+        "category": HabitCategory.TACTICS,
+        "description": "Hanging pieces or leaving them undefended",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "missed_tactic": {
+        "name": "Missed Tactics",
+        "category": HabitCategory.TACTICS,
+        "description": "Missing forks, pins, or skewers available on the board",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "tactical_oversight": {
+        "name": "Tactical Oversight",
+        "category": HabitCategory.TACTICS,
+        "description": "Seeing one move ahead but missing the follow-up",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "calculation_depth": {
+        "name": "Calculation Depth",
+        "category": HabitCategory.TACTICS,
+        "description": "Shallow calculation, missing deeper forcing lines",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "king_safety": {
+        "name": "King Safety",
+        "category": HabitCategory.POSITIONAL,
+        "description": "Weak king position or ignoring threats to it",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "pawn_structure": {
+        "name": "Pawn Structure",
+        "category": HabitCategory.POSITIONAL,
+        "description": "Creating weak pawns or bad pawn breaks",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "piece_activity": {
+        "name": "Piece Activity",
+        "category": HabitCategory.POSITIONAL,
+        "description": "Passive pieces or poor piece coordination",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "opening_knowledge": {
+        "name": "Opening Knowledge",
+        "category": HabitCategory.OPENING,
+        "description": "Deviating from sound opening principles early",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "endgame_technique": {
+        "name": "Endgame Technique",
+        "category": HabitCategory.ENDGAME,
+        "description": "Poor conversion or technique in the endgame",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
+    "time_pressure": {
+        "name": "Time Pressure",
+        "category": HabitCategory.TIME,
+        "description": "Blunders made while running low on time",
+        "detection": "cognitive_gap tag on mistake/blunder moves"
+    },
 }
+
+
+def compute_habit_violations_from_moves(move_evaluations: List[Dict]) -> List[str]:
+    """
+    Derive habits_violated for update_memory_after_game() directly from the
+    per-move `cognitive_gap` tags that stockfish analysis already writes to
+    game_analyses.stockfish_analysis.move_evaluations. This is the bridge
+    that was missing for imported games: analysis_worker.py used to pass a
+    hardcoded [] here because "imported games don't have HabitViolation
+    objects" — but the cognitive_gap tag on each mistake/blunder move IS
+    that signal, just under a different name.
+    """
+    gaps = set()
+    for m in move_evaluations or []:
+        if m.get("is_opponent_move"):
+            continue
+        evaluation = (m.get("evaluation") or "").lower()
+        gap = m.get("cognitive_gap")
+        if gap and evaluation in ("mistake", "blunder"):
+            gaps.add(gap)
+    return sorted(gaps)
+
+
+async def backfill_weaknesses_for_user(db, user_id: str, dry_run: bool = True) -> Dict:
+    """
+    One-time backfill for games analyzed BEFORE the analysis_worker.py fix
+    (which hardcoded habits_violated=[] for every imported game). Scans all
+    of a user's already-analyzed games directly and populates
+    coach_memory.weaknesses from the cognitive_gap tags already present in
+    stockfish_analysis.move_evaluations — no re-analysis needed, the tags
+    already exist.
+
+    Only touches `weaknesses`; deliberately leaves performance stats
+    (games_played, avg_accuracy, etc.) untouched since those are already
+    correctly maintained incrementally and replaying this per historical
+    game would double-count them.
+
+    dry_run=True (default) returns what WOULD be written without writing.
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user_id},
+        {"_id": 0, "game_id": 1, "analyzed_at": 1, "stockfish_analysis.move_evaluations": 1},
+    ).to_list(None)
+
+    gap_stats: Dict[str, Dict[str, Any]] = {}
+    for a in analyses:
+        moves = (a.get("stockfish_analysis") or {}).get("move_evaluations", [])
+        raw_analyzed_at = a.get("analyzed_at") or ""
+        # analyzed_at is a native datetime in some documents, an ISO string
+        # in others — normalize to a string so comparisons below never mix
+        # types (datetime > str raises TypeError).
+        analyzed_at = (
+            raw_analyzed_at.isoformat()
+            if isinstance(raw_analyzed_at, datetime)
+            else str(raw_analyzed_at)
+        )
+        game_id = a.get("game_id")
+        gaps_this_game = set()
+        for m in moves:
+            if m.get("is_opponent_move"):
+                continue
+            evaluation = (m.get("evaluation") or "").lower()
+            gap = m.get("cognitive_gap")
+            if gap and evaluation in ("mistake", "blunder"):
+                gaps_this_game.add(gap)
+        for gap in gaps_this_game:
+            st = gap_stats.setdefault(gap, {"count": 0, "games": set(), "last_at": ""})
+            st["count"] += 1
+            st["games"].add(game_id)
+            if analyzed_at and analyzed_at > st["last_at"]:
+                st["last_at"] = analyzed_at
+
+    summary = {
+        gap: {"detection_count": st["count"], "games_tracked": len(st["games"]), "last_detected": st["last_at"]}
+        for gap, st in gap_stats.items()
+    }
+
+    if dry_run or not gap_stats:
+        return {"user_id": user_id, "games_scanned": len(analyses), "would_write": summary, "written": False}
+
+    now = datetime.now(timezone.utc).isoformat()
+    memory = await get_or_create_memory(db, user_id)
+    for gap, st in gap_stats.items():
+        existing = next((w for w in memory.weaknesses if w.habit_id == gap), None)
+        if existing:
+            existing.detection_count = max(existing.detection_count, st["count"])
+            existing.games_tracked = max(existing.games_tracked, len(st["games"]))
+            existing.last_detected = st["last_at"] or existing.last_detected or now
+        else:
+            info = DETECTABLE_WEAKNESSES.get(gap, {})
+            memory.weaknesses.append(UserHabit(
+                habit_id=gap,
+                name=info.get("name", gap),
+                category=info.get("category", HabitCategory.TACTICS),
+                is_good=False,
+                description=info.get("description", ""),
+                detection_count=st["count"],
+                last_detected=st["last_at"] or now,
+                games_tracked=len(st["games"]),
+            ))
+    memory.updated_at = now
+    await db.coach_memory.update_one(
+        {"user_id": user_id},
+        {"$set": {"weaknesses": [asdict(w) for w in memory.weaknesses], "updated_at": now}},
+        upsert=True,
+    )
+    return {"user_id": user_id, "games_scanned": len(analyses), "would_write": summary, "written": True}
 
 
 async def get_or_create_memory(db, user_id: str) -> CoachMemory:
@@ -1061,41 +1233,62 @@ async def get_realtime_pattern_context(
         "improvement_note": None
     }
     
-    # Map mistake types to habit IDs
+    # Map legacy mistake-type labels to the older 7-habit vocabulary; any
+    # other value (including the native cognitive_gap categories added
+    # 2026-07-21 — piece_safety, missed_tactic, king_safety, etc.) is used
+    # directly as the habit_id, since those are now first-class entries in
+    # DETECTABLE_WEAKNESSES and in memory.weaknesses.
     mistake_to_habit = {
-        "hanging_piece": "one_move_blunder",
-        "missed_tactic": "one_move_blunder",
-        "tactical_miss": "one_move_blunder",
+        "hanging_piece": "piece_safety",
+        "tactical_miss": "tactical_oversight",
         "early_queen": "early_queen",
-        "king_safety": "no_castling",
-        "pawn_weakness": "pawn_weaknesses",
+        "pawn_weakness": "pawn_structure",
         "time_trouble": "time_trouble",
         "overconfidence": "overconfidence"
     }
-    
-    habit_id = mistake_to_habit.get(mistake_type)
+
+    habit_id = mistake_to_habit.get(mistake_type, mistake_type)
     
     if habit_id:
         # Check if this is a known weakness
         for weakness in memory.weaknesses:
             if weakness.habit_id == habit_id:
                 result["is_recurring"] = True
-                result["occurrence_count"] = weakness.detection_count
                 result["last_occurrence"] = weakness.last_detected
-                
+
+                # Mohit 2026-07-21: use the decay-weighted RECENT count for
+                # the live message, not weakness.detection_count (a lifetime
+                # cumulative total that can run into the hundreds for an
+                # established user — "this is the 803rd time" is not
+                # something a real coach would ever say; recency is the
+                # whole point of the decay model). Falls back to the
+                # lifetime count only if decay scoring is unavailable.
+                recent_count = weakness.detection_count
+                is_improving = weakness.improving
+                try:
+                    from services.pattern_decay_service import refresh_user_pattern_decay
+                    decay_scores = await refresh_user_pattern_decay(db, user_id)
+                    decay_info = decay_scores.get(habit_id)
+                    if decay_info:
+                        recent_count = decay_info.get("recent_raw", recent_count)
+                        is_improving = decay_info.get("clean_streak", 0) >= 2
+                except Exception:
+                    pass
+                result["occurrence_count"] = recent_count
+
                 # Generate pattern message
-                if weakness.detection_count >= 3:
+                if recent_count >= 3:
                     result["pattern_message"] = (
-                        f"This is the {weakness.detection_count}th time with {weakness.name}. "
+                        f"{weakness.name} — {recent_count} times in your recent games. "
                         f"This is the one to fix."
                     )
-                elif weakness.detection_count == 2:
+                elif recent_count == 2:
                     result["pattern_message"] = (
                         f"{weakness.name} happened last game too. Same kind of slip."
                     )
 
                 # Check if improving
-                if weakness.improving:
+                if is_improving:
                     result["improvement_note"] = (
                         f"You're getting better at {weakness.name} — the pattern is fading."
                     )
@@ -1103,7 +1296,7 @@ async def get_realtime_pattern_context(
     
     # Get recent game reference if available
     try:
-        if db:
+        if db is not None:
             # Find recent game with similar issue
             recent_game = await db.games.find_one(
                 {

@@ -1859,43 +1859,53 @@ def process_job(db, job):
                             f"[CURRICULUM] Imported game prescription: {prescription} "
                             f"({ptype}) — {preason}"
                         )
-                        # Engine 2: distill mistake_types + was_winning from the evals
-                        mt_list = [m.tactical_pattern for m in mistakes_for_prescription
-                                   if getattr(m, "tactical_pattern", None)]
-                        was_winning_flag = any(
-                            (mv.get("evaluation_score", 0) or 0) > 150
-                            for mv in move_evaluations
-                        )
-                        # Persist via update_memory_after_game.
-                        # Mohit 2026-05-29: thread move_evaluations +
-                        # user_color through so concept detectors can
-                        # grade in-game application of each registered
-                        # skill (see services/concept_detectors/).
-                        await update_memory_after_game(
-                            db=async_db,
-                            user_id=user_id,
-                            game_result=result_for_brain,
-                            accuracy=accuracy or 0,
-                            blunders=blunders,
-                            mistakes=mistakes,
-                            habits_violated=[],
-                            habits_improved=[],
-                            opening_played=game.get("opening_name") or game.get("opening"),
-                            endgame_reached=len(move_evaluations) > 80,
-                            performance_rating=user_rating,
-                            coach_prescription=prescription,
-                            prescription_type=ptype,
-                            mistake_types=mt_list,
-                            was_winning=was_winning_flag,
-                            move_evaluations=move_evaluations,
-                            user_color=game.get("user_color"),
-                            game_id=game.get("game_id"),
-                        )
-                        # Bust the Lab cache so the new focus shows immediately
-                        try:
-                            await async_db.coaching_cache.delete_one({"user_id": user_id})
-                        except Exception:
-                            pass
+
+                    # Mohit 2026-07-21: this used to live inside `if prescription:`,
+                    # which meant weaknesses/performance/opening-skill tracking in
+                    # coach_memory only updated on games where _pick_prescription
+                    # happened to return a value — silently skipping the rest.
+                    # Memory should update on every analyzed game; the prescription
+                    # fields are just optional extras on that same call.
+                    from services.coach_memory import compute_habit_violations_from_moves
+                    habits_violated = compute_habit_violations_from_moves(move_evaluations)
+
+                    # Engine 2: distill mistake_types + was_winning from the evals
+                    mt_list = [m.tactical_pattern for m in mistakes_for_prescription
+                               if getattr(m, "tactical_pattern", None)]
+                    was_winning_flag = any(
+                        (mv.get("evaluation_score", 0) or 0) > 150
+                        for mv in move_evaluations
+                    )
+                    # Persist via update_memory_after_game.
+                    # Mohit 2026-05-29: thread move_evaluations +
+                    # user_color through so concept detectors can
+                    # grade in-game application of each registered
+                    # skill (see services/concept_detectors/).
+                    await update_memory_after_game(
+                        db=async_db,
+                        user_id=user_id,
+                        game_result=result_for_brain,
+                        accuracy=accuracy or 0,
+                        blunders=blunders,
+                        mistakes=mistakes,
+                        habits_violated=habits_violated,
+                        habits_improved=[],
+                        opening_played=game.get("opening_name") or game.get("opening"),
+                        endgame_reached=len(move_evaluations) > 80,
+                        performance_rating=user_rating,
+                        coach_prescription=prescription,
+                        prescription_type=ptype,
+                        mistake_types=mt_list,
+                        was_winning=was_winning_flag,
+                        move_evaluations=move_evaluations,
+                        user_color=game.get("user_color"),
+                        game_id=game.get("game_id"),
+                    )
+                    # Bust the Lab cache so the new focus shows immediately
+                    try:
+                        await async_db.coaching_cache.delete_one({"user_id": user_id})
+                    except Exception:
+                        pass
                 finally:
                     async_client.close()
 

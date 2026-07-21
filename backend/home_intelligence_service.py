@@ -466,12 +466,6 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
             "message": "Analyze at least 3 games to unlock personalized coaching.",
         }
     
-    # Fetch cognitive gap patterns
-    gap_aggregates = await db.cognitive_gap_aggregates.find_one(
-        {"user_id": user_id},
-        {"_id": 0}
-    )
-    
     # Fetch recent reflections count
     one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     recent_reflections = await db.reflection_sessions.count_documents({
@@ -517,7 +511,13 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     missed_tactics_rate = missed_tactics_games / total_games
     positional_errors_rate = positional_error_games / total_games
     
-    # Get recurring patterns WITH decay weighting (instead of raw counts)
+    # Get recurring patterns WITH decay weighting (instead of raw counts).
+    # pattern_scores is the source of truth here — it's computed directly
+    # from game_analyses.stockfish_analysis.move_evaluations (see
+    # pattern_decay_service.build_decay_games), not from the separate
+    # cognitive_gap_aggregates collection, which is a dead write path
+    # (only ever populated by the manual /analyze-gap endpoint, so it's
+    # empty for virtually every real user regardless of games analyzed).
     recurring_patterns = []
     pattern_scores = {}
     try:
@@ -526,25 +526,27 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     except Exception:
         pass
 
-    if gap_aggregates:
-        patterns = gap_aggregates.get("patterns", {})
-        for pattern_key, pattern_data in patterns.items():
-            count = pattern_data.get("total_count", 0)
-            # Use decay score if available, otherwise fall back to count
-            decay_info = pattern_scores.get(pattern_key, {})
-            decay_score = decay_info.get("weighted_score", count)
-            decay_state = decay_info.get("state", "active" if count >= 3 else "fading")
-
-            if decay_score >= 1.0:  # Include only patterns with meaningful decay score
-                recurring_patterns.append({
-                    "pattern": pattern_key,
-                    "count": count,
-                    "decay_score": round(decay_score, 2),
-                    "decay_state": decay_state,
-                    "trend": pattern_data.get("trend", "stable"),
-                })
-        # Sort by decay_score (recency-weighted) instead of raw count
-        recurring_patterns.sort(key=lambda x: x.get("decay_score", x["count"]), reverse=True)
+    for pattern_key, decay_info in pattern_scores.items():
+        decay_score = decay_info.get("weighted_score", 0)
+        if decay_score < 1.0:  # Include only patterns with meaningful decay score
+            continue
+        clean_streak = decay_info.get("clean_streak", 0)
+        state = decay_info.get("state", "active")
+        if clean_streak >= 2:
+            trend = "improving"
+        elif state == "active" and clean_streak == 0:
+            trend = "worsening"
+        else:
+            trend = "stable"
+        recurring_patterns.append({
+            "pattern": pattern_key,
+            "count": decay_info.get("raw_count", 0),
+            "decay_score": round(decay_score, 2),
+            "decay_state": state,
+            "trend": trend,
+        })
+    # Sort by decay_score (recency-weighted) instead of raw count
+    recurring_patterns.sort(key=lambda x: x["decay_score"], reverse=True)
 
     # ── TIER 3 Pattern of the Day ──────────────────────────────────
     # Tally shape-pattern fires across the user's last 20 analysed games.

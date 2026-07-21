@@ -1233,14 +1233,19 @@ async def generate_move_feedback(
     if quality in ["mistake", "blunder"] and db is not None:
         try:
             from services.coach_memory import get_realtime_pattern_context, record_in_game_mistake
-            
-            # Determine mistake type from tactical analysis
-            mistake_type = "tactical_miss"
-            if tactical.get("best_move_captures"):
-                mistake_type = "missed_tactic"
-            elif tactical.get("threats_created"):
-                mistake_type = "hanging_piece"
-            
+
+            # Prefer the real cognitive_gap tag when this move already has one
+            # (same field read as move_cognitive_gap below) — the tactical-flag
+            # heuristic is a fallback for live-play moves that haven't been
+            # classified yet, not the primary signal.
+            mistake_type = user_move_data.get("cognitive_gap") if user_move_data else None
+            if not mistake_type:
+                mistake_type = "tactical_oversight"
+                if tactical.get("best_move_captures"):
+                    mistake_type = "missed_tactic"
+                elif tactical.get("threats_created"):
+                    mistake_type = "piece_safety"
+
             # Get pattern context
             pattern_ctx = await get_realtime_pattern_context(db, user_id, mistake_type)
             
