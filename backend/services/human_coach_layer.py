@@ -373,10 +373,25 @@ async def enrich_game_analysis(
     
     # Add behavioral analysis to turning point
     if turning_point:
+        # Mohit 2026-07-22: was `analysis.get("blunders", 0) - 1` — that
+        # top-level field has never been populated on any real document
+        # (confirmed: 0 of 1189 for a real user), so this was always -1,
+        # which never clears either "previous_blunders >= 1" branch below —
+        # the TILT behavioral tag could never fire regardless of how many
+        # times the user actually blundered earlier in the same game.
+        # Count real blunders from move_evaluations before this turning point.
+        tp_move_number = turning_point.get("move_number", 0)
+        moves = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+        previous_blunders_count = sum(
+            1 for m in moves
+            if not m.get("is_opponent_move")
+            and m.get("move_number", 0) < tp_move_number
+            and (m.get("evaluation") or "").lower() == "blunder"
+        )
         game_context = {
-            "move_number": turning_point.get("move_number", 0),
+            "move_number": tp_move_number,
             "game_phase": "middlegame",  # Could be inferred from move number
-            "previous_blunders_in_game": analysis.get("blunders", 0) - 1,
+            "previous_blunders_in_game": previous_blunders_count,
             "session_game_number": 1  # Would need session tracking
         }
         
