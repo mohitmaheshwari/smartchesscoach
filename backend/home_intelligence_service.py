@@ -951,27 +951,39 @@ async def get_progress_trend(db, user_id: str) -> Dict:
     - blunder_delta: Change in blunders per game
     - message: Human-readable progress message
     """
-    # Get last 10 games
-    games = await db.games.find(
-        {"user_id": user_id, **ACTIVE_GAMES_FILTER},
-        {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, "analyzed_at": 1}
+    # Get last 10 games. blunders/mistakes/accuracy live on game_analyses
+    # (nested under stockfish_analysis), never on the games collection —
+    # confirmed 2026-07-22: 0 of 1196 games for a real user had any of
+    # these fields, so this trend always computed 0 vs 0 and silently
+    # returned the generic "stable"/"Steady progress" message regardless
+    # of the user's actual improvement or decline. Still respects
+    # ACTIVE_GAMES_FILTER (2229 games are marked is_active:False across
+    # the DB — not negligible) via an active-game_id lookup first.
+    active_ids = await db.games.find(
+        {"user_id": user_id, **ACTIVE_GAMES_FILTER}, {"_id": 0, "game_id": 1}
+    ).to_list(None)
+    active_id_set = {g["game_id"] for g in active_ids}
+    games = await db.game_analyses.find(
+        {"user_id": user_id, "game_id": {"$in": list(active_id_set)}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1,
+         "stockfish_analysis.mistakes": 1, "stockfish_analysis.accuracy": 1, "analyzed_at": 1}
     ).sort("analyzed_at", -1).limit(10).to_list(10)
-    
+
     if len(games) < 4:
         return {"has_trend": False, "message": "Play a few more games to see your progress."}
-    
+
     # Split into recent (first 5) and previous (next 5)
     recent = games[:5]
     previous = games[5:10] if len(games) >= 10 else games[5:]
-    
+
     if len(previous) < 2:
         return {"has_trend": False, "message": "Keep playing to track your progress!"}
-    
-    recent_blunders = sum(g.get("blunders", 0) for g in recent) / len(recent)
-    previous_blunders = sum(g.get("blunders", 0) for g in previous) / len(previous)
-    
-    recent_accuracy = [g.get("accuracy") for g in recent if g.get("accuracy")]
-    previous_accuracy = [g.get("accuracy") for g in previous if g.get("accuracy")]
+
+    recent_blunders = sum(g.get("stockfish_analysis", {}).get("blunders", 0) for g in recent) / len(recent)
+    previous_blunders = sum(g.get("stockfish_analysis", {}).get("blunders", 0) for g in previous) / len(previous)
+
+    recent_accuracy = [g.get("stockfish_analysis", {}).get("accuracy") for g in recent if g.get("stockfish_analysis", {}).get("accuracy")]
+    previous_accuracy = [g.get("stockfish_analysis", {}).get("accuracy") for g in previous if g.get("stockfish_analysis", {}).get("accuracy")]
     
     avg_recent_acc = sum(recent_accuracy) / len(recent_accuracy) if recent_accuracy else None
     avg_previous_acc = sum(previous_accuracy) / len(previous_accuracy) if previous_accuracy else None
