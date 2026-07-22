@@ -462,18 +462,19 @@ async def get_data_driven_training(user: User = Depends(get_current_user)):
         {"user_id": user.user_id},
         {"_id": 0}
     ).sort("created_at", -1).limit(20).to_list(20)
-    
-    # Aggregate weakness patterns
-    weakness_counts = {}
-    for analysis in analyses:
-        for blunder in analysis.get("blunders", []):
-            category = blunder.get("mistake_category", "unknown")
-            weakness_counts[category] = weakness_counts.get(category, 0) + 1
-    
+
+    # Aggregate weakness patterns from real per-move cognitive_gap tags —
+    # the old logic here read analysis["blunders"], a top-level array field
+    # never populated on any real document (same bug fixed 2026-07-22 in
+    # mission_generation_service.py), so this always returned nothing.
+    from mission_generation_service import build_pattern_stats_from_analyses
+    pattern_stats = build_pattern_stats_from_analyses(analyses)
+    weakness_counts = {cat: stats["repeat_count_14d"] for cat, stats in pattern_stats.items()}
+
     # Sort by frequency
     sorted_weaknesses = sorted(
-        weakness_counts.items(), 
-        key=lambda x: x[1], 
+        weakness_counts.items(),
+        key=lambda x: x[1],
         reverse=True
     )
     
