@@ -379,7 +379,7 @@ const CoachPlay = ({ user }) => {
       setCoachArrows([]);
       coachFlow.setOpeningGuidance(null);
     }
-  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode];
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode]);
 
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
