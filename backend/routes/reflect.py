@@ -512,83 +512,79 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
     Shows after a loss to convert pain into training.
     """
     global db
-    from recurring_pattern_service import compute_recurring_pattern_context
-    
+    # Mohit 2026-07-22: this import was `from recurring_pattern_service
+    # import ...` — that module doesn't exist anywhere in the codebase
+    # (the function actually lives in helpers.analysis_helpers, per
+    # routes/analysis.py's correct import). This endpoint raised
+    # ModuleNotFoundError on every single call — confirmed live. Also below:
+    # blunders/mistakes are top-level array fields that have never been
+    # populated on any real document (same bug fixed elsewhere this
+    # session), and the stockfish_eval fallback read field names
+    # ("fen"/"san"/"eval_delta") that don't exist on real move_evaluations
+    # (real names: fen_before/move/cp_loss) — so even reaching that branch
+    # produced a mostly-None critical_moment.
+    from helpers.analysis_helpers import compute_recurring_pattern_context
+    from mission_generation_service import build_pattern_stats_from_analyses
+
     game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    
+
     analysis = await db.game_analyses.find_one({"game_id": game_id})
     if not analysis:
         raise HTTPException(status_code=404, detail="Game not analyzed yet")
-    
+
     user_doc = await db.users.find_one({"user_id": user.user_id})
     rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    blunders = analysis.get("blunders", [])
-    mistakes = analysis.get("mistakes", [])
+
     stockfish_eval = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
-    
+    user_mistakes = [
+        m for m in stockfish_eval
+        if not m.get("is_opponent_move") and (m.get("evaluation") or "").lower() in ("mistake", "blunder")
+    ]
+
     main_issue = "Critical position focus"
     critical_moment = None
     main_category = None
-    
-    # Compute recurring pattern context
+
+    # Compute recurring pattern context (still passes blunders=[] — that
+    # param only feeds the function's optional threat_blindness detector,
+    # which degrades gracefully; its other 3 patterns use stockfish_eval).
     recurring_pattern = await compute_recurring_pattern_context(
-        db, user.user_id, game_id, stockfish_eval, blunders
+        db, user.user_id, game_id, stockfish_eval, []
     )
-    
-    # Find main issue
-    if blunders:
-        categories = [b.get("mistake_category", "unknown") for b in blunders if b.get("mistake_category")]
-        if categories:
-            from collections import Counter
-            main_category = Counter(categories).most_common(1)[0][0]
-            main_issue = {
-                "ignored_opponent_forcing": "Opponent Threat Awareness",
-                "missed_forcing_move": "Forcing Move Awareness",
-                "phantom_threat": "Threat Prioritization",
-                "advantage_mismanagement": "Advantage Conversion",
-                "critical_moment_drift": "Critical Position Focus",
-                "structural_misjudgment": "Pawn Structure Judgment",
-            }.get(main_category, main_category.replace("_", " ").title())
-        
-        worst_blunder = max(blunders, key=lambda b: abs(b.get("eval_change", 0)))
+
+    # Find main issue from real per-move cognitive_gap tags
+    pattern_stats = build_pattern_stats_from_analyses([analysis])
+    if pattern_stats:
+        main_category = max(pattern_stats.items(), key=lambda kv: kv[1]["repeat_count_14d"])[0]
+        main_issue = {
+            "piece_safety": "Piece Safety",
+            "missed_tactic": "Tactical Awareness",
+            "tactical_oversight": "Follow-Through Calculation",
+            "calculation_depth": "Calculation Depth",
+            "king_safety": "King Safety",
+            "pawn_structure": "Pawn Structure",
+            "piece_activity": "Piece Activity",
+            "opening_knowledge": "Opening Principles",
+            "endgame_technique": "Endgame Technique",
+            "time_pressure": "Time Management",
+        }.get(main_category, main_category.replace("_", " ").title())
+
+    if user_mistakes:
+        worst = max(user_mistakes, key=lambda m: abs(m.get("cp_loss", 0)))
         critical_moment = {
-            "fen": worst_blunder.get("fen"),
-            "user_move": worst_blunder.get("user_move"),
-            "best_move": worst_blunder.get("best_move"),
-            "eval_change": worst_blunder.get("eval_change"),
-            "move_number": worst_blunder.get("move_number"),
+            "fen": worst.get("fen_before"),
+            "user_move": worst.get("move"),
+            "best_move": worst.get("best_move"),
+            "eval_change": worst.get("cp_loss"),
+            "move_number": worst.get("move_number"),
         }
-    elif mistakes:
-        worst_mistake = max(mistakes, key=lambda m: abs(m.get("eval_change", 0)))
-        critical_moment = {
-            "fen": worst_mistake.get("fen"),
-            "user_move": worst_mistake.get("user_move"),
-            "best_move": worst_mistake.get("best_move"),
-            "eval_change": worst_mistake.get("eval_change"),
-            "move_number": worst_mistake.get("move_number"),
-        }
-    elif stockfish_eval:
-        for move in stockfish_eval:
-            eval_type = move.get("evaluation")
-            if hasattr(eval_type, 'value'):
-                eval_type = eval_type.value
-            if eval_type in ["blunder", "mistake"]:
-                critical_moment = {
-                    "fen": move.get("fen"),
-                    "user_move": move.get("san"),
-                    "best_move": move.get("best_move"),
-                    "eval_change": move.get("eval_delta"),
-                    "move_number": move.get("move_number"),
-                }
-                break
-    
+
     profile = get_adaptive_profile_sync(rating)
     minutes = profile["mission_minutes_target"]
     message = get_post_loss_message(rating, main_issue, minutes)
-    
+
     return {
         "game_id": game_id,
         "result": game.get("result", "loss"),
@@ -598,8 +594,8 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
         "headline": message.get("headline", "Let's fix this moment."),
         "estimated_minutes": minutes,
         "critical_moment": critical_moment,
-        "has_pending_reflection": len(blunders) + len(mistakes) > 0,
-        "blunder_count": len(blunders),
-        "mistake_count": len(mistakes),
+        "has_pending_reflection": len(user_mistakes) > 0,
+        "blunder_count": sum(1 for m in user_mistakes if (m.get("evaluation") or "").lower() == "blunder"),
+        "mistake_count": sum(1 for m in user_mistakes if (m.get("evaluation") or "").lower() == "mistake"),
         "recurring_pattern": recurring_pattern,
     }
