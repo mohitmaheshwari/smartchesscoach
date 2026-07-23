@@ -1890,6 +1890,43 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 reverse=True,
             )
 
+            # Mohit 2026-07-23: the active card (weaknesses[0], from
+            # problem_lifecycle) only refreshes when Lab is visited
+            # (services/problem_lifecycle.py's writer lives in Lab's
+            # coaching build). Progress reads it independently, so it can
+            # show a superseded problem as the headline while this fresh
+            # 50-game gap aggregation already knows better. Promote the
+            # fresh top gap to the front ONLY when it unambiguously
+            # dominates (>=3x the primary's own fresh count) — anything
+            # softer than that stays exactly as it was (append-only,
+            # per the 2026-05-30 supplement above).
+            if weaknesses and ranked_gaps:
+                primary_cat = weaknesses[0]["category"]
+                primary_fresh_count = gap_data.get(primary_cat, {}).get("count", 0)
+                top_fresh_cat, top_fresh_data = ranked_gaps[0]
+                if (top_fresh_cat != primary_cat
+                        and top_fresh_data["count"] >= GAP_MIN_COUNT
+                        and top_fresh_data["count"] >= max(primary_fresh_count, 1) * 3):
+                    promoted_desc = PROBLEM_DESCRIPTIONS.get(
+                        top_fresh_cat, f"Your {top_fresh_cat.replace('_', ' ')} drops the score.",
+                    )
+                    promoted_desc += f" It's happened {top_fresh_data['count']} times in recent games."
+                    weaknesses.insert(0, {
+                        "category": top_fresh_cat,
+                        "description": promoted_desc,
+                        "count": top_fresh_data["count"],
+                        "days_since_last_seen": 0,
+                        "clean_games_since": 0,
+                        "anger": "recurring",
+                        "source": "cognitive_gap",
+                    })
+                    existing_categories.add(top_fresh_cat)
+                    logger.info(
+                        f"[narrative] promoted stale-card override: {top_fresh_cat} "
+                        f"({top_fresh_data['count']}) over {primary_cat} ({primary_fresh_count}) "
+                        f"for {user_id}"
+                    )
+
             for gap_cat, d in ranked_gaps:
                 if gap_cat in existing_categories:
                     continue
