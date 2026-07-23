@@ -30,7 +30,17 @@ import {
   TrendingUp,
   Zap,
   Flame,
+  Award,
 } from "lucide-react";
+
+const DOMAIN_LABELS = {
+  tactical_vision: "Tactical Vision",
+  calculation_depth: "Calculation Depth",
+  positional_sense: "Positional Sense",
+  endgame_technique: "Endgame Technique",
+  opening_knowledge: "Opening Knowledge",
+  pressure_handling: "Pressure Handling",
+};
 
 const timeOfDayGreeting = () => {
   const h = new Date().getHours();
@@ -69,6 +79,8 @@ export default function HomePageNew({ user }) {
   const [dailyFix, setDailyFix] = useState(null);
   const [streak, setStreak] = useState(null);
   const [diagnosticStatus, setDiagnosticStatus] = useState(null);
+  const [strengthProfile, setStrengthProfile] = useState(null);
+  const [showAllDomains, setShowAllDomains] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -89,6 +101,7 @@ export default function HomePageNew({ user }) {
         if (dashRes.ok) {
           const d = await dashRes.json();
           if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
+          if (d.strength_profile) setStrengthProfile(d.strength_profile);
         }
 
         // Fetch active prescription
@@ -414,6 +427,60 @@ export default function HomePageNew({ user }) {
                     </p>
                   </div>
                 </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── WHAT YOUR GAMES SHOW (strength profile) ─── */}
+          {strengthProfile?.strongest && strengthProfile?.weakest && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                What your games show
+              </div>
+              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <Award className="w-5 h-5 text-violet-500 dark:text-violet-400 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                  <div>
+                    <p className="text-[14px] font-medium text-foreground mb-1">
+                      Strongest: {DOMAIN_LABELS[strengthProfile.strongest] || strengthProfile.strongest}
+                    </p>
+                    <p className="text-[13px] text-muted-foreground">
+                      Rated around {strengthProfile.domains?.[strengthProfile.strongest]?.rating || strengthProfile.overall_rating} on this — {strengthProfile.domains?.[strengthProfile.strongest]?.label || "strong"} play across your games.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Target className="w-5 h-5 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                  <div>
+                    <p className="text-[14px] font-medium text-foreground mb-1">
+                      Needs work: {DOMAIN_LABELS[strengthProfile.weakest] || strengthProfile.weakest}
+                    </p>
+                    <p className="text-[13px] text-muted-foreground">
+                      This is closer to {strengthProfile.domains?.[strengthProfile.weakest]?.rating || strengthProfile.overall_rating} level — the real gap between your best and weakest area right now.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAllDomains(v => !v)}
+                  className="mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
+                >
+                  {showAllDomains ? "Hide" : "See all 6 areas"}
+                  <ChevronRight className={`h-3 w-3 transition-transform ${showAllDomains ? "rotate-90" : ""}`} strokeWidth={2} />
+                </button>
+
+                {showAllDomains && strengthProfile.domains && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 grid grid-cols-2 gap-3">
+                    {Object.entries(strengthProfile.domains)
+                      .sort((a, b) => (b[1]?.score || 0) - (a[1]?.score || 0))
+                      .map(([key, d]) => (
+                        <div key={key} className="text-[12.5px]">
+                          <span className="text-foreground font-medium">{DOMAIN_LABELS[key] || key}</span>
+                          <span className="text-muted-foreground"> — {Math.round(d?.score || 0)} ({d?.label || "emerging"})</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             </motion.section>
           )}
