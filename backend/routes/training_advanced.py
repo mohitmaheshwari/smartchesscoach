@@ -1623,7 +1623,9 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     throws = sum(1 for g in recent if g["result"] == "L" and g["was_winning"])
 
     insight = ""
-    if throws >= 2:
+    if not recent:
+        insight = "Still reading your games. Play a few more and this will start reflecting real patterns."
+    elif throws >= 2:
         insight = f"{throws} games thrown from winning positions. That's where your rating is leaking."
     elif blunder_losses >= 3:
         insight = f"{blunder_losses} losses from blunders — you're not being outplayed, you're beating yourself."

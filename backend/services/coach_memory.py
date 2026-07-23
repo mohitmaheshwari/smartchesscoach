@@ -1255,7 +1255,7 @@ async def get_personalized_greeting(db, user_id: str) -> str:
     context = _get_greeting_context(memory)
     
     greetings = {
-        "first_game": "First game together. Let's see how you play.",
+        "first_game": "First game together. I don't know your patterns yet, so today's teaching will be general — that gets sharper as we play more.",
         "after_win": "Welcome back. Good win last time — let's keep the momentum.",
         "after_loss": "Welcome back. Last game was tough; today's a fresh one.",
         "improving": f"You're playing well — {memory.performance.improvement_rate*100:.0f}% win rate recently.",

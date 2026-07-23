@@ -18,20 +18,22 @@ from typing import Any, Dict, Optional
 
 from services.rush_test_drill import build_rush_test_drill
 from services.mistake_streak_service import get_practice_streak_view
+from services.focus_bridge import get_active_focus_bundle
 
 TIME_FOCUS = "time_management"
 
 
 async def _resolve_focus(db, user_id: str) -> Optional[str]:
     """The locked weakness focus. Prefer the rating-aware picker
-    (user_active_focus); fall back to the curriculum-brain focus."""
-    af = await db.user_active_focus.find_one({
-        "user_id": user_id,
-        "status": "active",
-        "$or": [{"type": {"$exists": False}}, {"type": "weakness"}],
-    })
-    if af and af.get("topic_key"):
-        return af["topic_key"]
+    (user_active_focus, via the canonical focus_bridge reader); fall back
+    to the curriculum-brain focus. Was a standalone re-query of
+    user_active_focus with the same filter focus_bridge already uses —
+    consolidated so this and every other "what's the user's focus" surface
+    share one query (docs/coach_mirror_activation_scope.md follow-up audit,
+    2026-07-23)."""
+    bundle = await get_active_focus_bundle(db, user_id)
+    if bundle and bundle.get("topic_key"):
+        return bundle["topic_key"]
     cm = await db.coach_memory.find_one({"user_id": user_id}, {"learning.current_focus": 1})
     return (cm or {}).get("learning", {}).get("current_focus")
 
