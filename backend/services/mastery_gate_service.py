@@ -68,12 +68,17 @@ async def check_mastery_gate(
         if not thresholds:
             return None
 
-        # Get all PWC sessions for this user with this focus area
+        # Get all PWC sessions for this user with this focus area.
+        # 2026-07-24: was filtering on status=="ended", which is never
+        # actually set anywhere in the codebase (confirmed via repo-wide
+        # search — coach_game_session.py sets `ended_at` on completion but
+        # never writes a "status": "ended" field). A completed session is
+        # one with ended_at populated; that's the real signal.
         sessions_cursor = db.coach_sessions.find(
             {
                 "user_id": user_id,
                 "session_goal.focus_area": focus_area,
-                "status": "ended"
+                "ended_at": {"$exists": True, "$ne": None},
             },
             {"_id": 0, "session_id": 1, "ended_at": 1, "mission_scoreboard": 1}
         ).sort("ended_at", -1)
