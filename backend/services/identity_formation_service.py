@@ -671,6 +671,7 @@ async def get_identity_trajectory_summary(db, user_id: str) -> Dict:
     return {
         "has_data": True,
         "archetype": evolution.get("current_archetype", "Unknown"),
+        "summary": current_identity.get("collapsed_summary", ""),
         "stability": raw.get("stability", "mixed"),
         "style": style_readable,
         "primary_leak": raw.get("leak", "unknown"),

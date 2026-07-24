@@ -1719,6 +1719,51 @@ def process_job(db, job):
             logger.warning(f"[STRENGTH] Failed to update (non-fatal): {strength_err}")
 
         # =========================================================================
+        # PHASE 3.3c: IDENTITY SNAPSHOT (2026-07-25)
+        # services/identity_formation_service.py was fully built — periodic
+        # snapshots, trajectory comparison, "you used to be X, now Y" insight,
+        # milestone tracking, a live /identity/summary route — but nothing
+        # ever called create_identity_snapshot, so identity_snapshots has
+        # been empty for every user since the feature shipped. Wires the
+        # trigger using player_identity_engine.compute_player_identity,
+        # which is already live elsewhere (session_goal_service,
+        # coach_conductor) — no new computation, just the missing call.
+        # should_create_snapshot() already gates on time/game thresholds,
+        # so this is cheap on the common (no-op) path.
+        # =========================================================================
+        try:
+            import asyncio as _asyncio3
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor3
+            _mongo_url3 = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            _db_name3 = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _maybe_snapshot_identity():
+                _client = _AsyncMotor3(_mongo_url3)
+                _db = _client[_db_name3]
+                try:
+                    from services.identity_formation_service import (
+                        should_create_snapshot, create_identity_snapshot,
+                    )
+                    from player_identity_engine import compute_player_identity
+                    current_games = await _db.games.count_documents(
+                        {"user_id": user_id, "is_analyzed": True}
+                    )
+                    if await should_create_snapshot(_db, user_id, current_games):
+                        identity = await compute_player_identity(_db, user_id)
+                        if identity and identity.get("has_identity"):
+                            snap = await create_identity_snapshot(_db, user_id, identity)
+                            return snap.get("snapshot_id")
+                    return None
+                finally:
+                    _client.close()
+
+            _snap_id = _asyncio3.run(_maybe_snapshot_identity())
+            if _snap_id:
+                logger.info(f"[IDENTITY] Created snapshot {_snap_id} for {user_id}")
+        except Exception as identity_err:
+            logger.warning(f"[IDENTITY] Snapshot check failed (non-fatal): {identity_err}")
+
+        # =========================================================================
         # PHASE 3.4: CALCULATE AND STORE TURNING POINT
         # For blind spots tracking on home page
         # =========================================================================

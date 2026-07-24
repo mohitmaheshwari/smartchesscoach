@@ -80,6 +80,7 @@ export default function HomePageNew({ user }) {
   const [streak, setStreak] = useState(null);
   const [diagnosticStatus, setDiagnosticStatus] = useState(null);
   const [strengthProfile, setStrengthProfile] = useState(null);
+  const [identitySummary, setIdentitySummary] = useState(null);
   const [showAllDomains, setShowAllDomains] = useState(false);
   const [lastSession, setLastSession] = useState(null);
 
@@ -143,6 +144,13 @@ export default function HomePageNew({ user }) {
           const fixData = await fixRes.json();
           setDailyFix(fixData);
           if (fixData.streak) setStreak(fixData.streak);
+        }
+
+        // Fetch identity trajectory summary
+        const idRes = await fetch(`${API}/coach/identity/summary`, { credentials: "include" });
+        if (idRes.ok) {
+          const idData = await idRes.json();
+          if (idData.has_data) setIdentitySummary(idData);
         }
       } catch (e) {
         console.error("Error loading home data:", e);
@@ -504,6 +512,24 @@ export default function HomePageNew({ user }) {
                       ))}
                   </div>
                 )}
+              </div>
+            </motion.section>
+          )}
+
+          {/* ─── WHO YOU ARE AS A PLAYER (identity trajectory) ─── */}
+          {identitySummary && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                Who you are as a player
+              </div>
+              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+                <p className="text-[15px] font-medium text-foreground mb-2">{identitySummary.archetype}</p>
+                {identitySummary.summary && (
+                  <p className="text-[13px] text-muted-foreground leading-relaxed">{identitySummary.summary}</p>
+                )}
+                <p className="text-[12px] text-muted-foreground/70 mt-3">
+                  {identitySummary.comparative_insight || "Still building your trajectory — this becomes “you used to be X, now you're Y” as you play more."}
+                </p>
               </div>
             </motion.section>
           )}
