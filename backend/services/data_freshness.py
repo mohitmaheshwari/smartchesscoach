@@ -556,19 +556,41 @@ def refresh_player_profile(db, user_id: str) -> Dict[str, Any]:
         total_blunders += sf.get("blunders", 0)
         total_inaccuracies += sf.get("inaccuracies", 0)
         
-        # Count mistake types
+        # Count mistake types. Was move_eval.get("category", "other") — that
+        # field never existed on any real move_evaluations doc (0/24 keys on
+        # a live sample; the real field is cognitive_gap), so biggest_weakness
+        # was always exactly the string "other" for every user. Confirmed
+        # zero live readers of biggest_weakness/mistake_breakdown either way
+        # (docs/player_profiles_consolidation_scope.md), but fixing the
+        # field name while touching this function regardless.
         for move_eval in sf.get("move_evaluations", []):
             if move_eval.get("cp_loss", 0) >= 100:
-                category = move_eval.get("category", "other")
+                # cognitive_gap can be explicitly None (suppressed low-
+                # confidence categories, see analysis_interpreter.py's
+                # _precedence_adjust) — .get(key, default) only applies
+                # the default when the key is ABSENT, not when it's None.
+                category = move_eval.get("cognitive_gap") or "other"
                 mistake_types[category] = mistake_types.get(category, 0) + 1
-    
+
     game_count = len(recent_analyses)
     avg_accuracy = sum(accuracies) / game_count if game_count > 0 else 0
     errors_per_game = (total_mistakes + total_blunders + total_inaccuracies) / game_count if game_count > 0 else 0
-    
+
     # Find biggest weakness
     biggest_weakness = max(mistake_types, key=mistake_types.get) if mistake_types else None
-    
+
+    # 2026-07-25: total_blunders/total_mistakes/total_inaccuracies used to
+    # collide with analysis_worker.py's update_player_profile_sync, which
+    # writes the SAME field names as career-cumulative totals. This function
+    # runs immediately after that one on every analyzed game
+    # (refresh_all_user_data), so the career values were silently overwritten
+    # by this function's last-20-games sum every single time — the "total_"
+    # names implied career, the stored value was actually a 20-game window.
+    # Renamed to recent_20_* so both survive; nothing reads the plain
+    # total_blunders/total_mistakes names expecting THIS function's
+    # semantic (verified: only services/chess_understanding.py reads them,
+    # and it now correctly gets the stable career value analysis_worker.py
+    # owns, per docs/player_profiles_consolidation_scope.md Option B).
     profile = {
         "user_id": user_id,
         "games_analyzed": game_count,
@@ -576,9 +598,9 @@ def refresh_player_profile(db, user_id: str) -> Dict[str, Any]:
         "errors_per_game": round(errors_per_game, 1),
         "biggest_weakness": biggest_weakness,
         "mistake_breakdown": mistake_types,
-        "total_blunders": total_blunders,
-        "total_mistakes": total_mistakes,
-        "total_inaccuracies": total_inaccuracies,
+        "recent_20_total_blunders": total_blunders,
+        "recent_20_total_mistakes": total_mistakes,
+        "recent_20_total_inaccuracies": total_inaccuracies,
         "updated_at": current_time.isoformat()
     }
     
