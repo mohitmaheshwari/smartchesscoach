@@ -321,6 +321,60 @@ def update_scoreboard(
     return scoreboard
 
 
+def rebuild_scoreboard_from_history(
+    base_scoreboard: Optional[Dict[str, Any]],
+    move_history: list,
+    user_color: str,
+) -> Optional[Dict[str, Any]]:
+    """Rebuild a full scoreboard from a session's complete move_history.
+
+    Idempotent — starts fresh from base_scoreboard's focus_topic/subtype/
+    label each call, replays every player move through update_scoreboard().
+    Used both for the live in-request render (routes/coach_play.py's
+    /move-feedback path) and — as of 2026-07-24 — to persist a final
+    snapshot when a session actually ends, which nothing did before
+    (mission_scoreboard was computed live every request but only ever
+    attached to the outgoing response, never written back to
+    db.coach_sessions — so check_mastery_gate always read the
+    zeroed initial value regardless of how the game actually went).
+    """
+    if not base_scoreboard or not base_scoreboard.get("focus_topic"):
+        return base_scoreboard
+
+    rebuilt: Dict[str, Any] = {
+        "focus_topic": base_scoreboard["focus_topic"],
+        "focus_subtype": base_scoreboard.get("focus_subtype"),
+        "focus_label": base_scoreboard.get("focus_label"),
+        "matched_moments": 0,
+        "handled_correctly": 0,
+        "handled_incorrectly": 0,
+        "events": [],
+    }
+    for i, m in enumerate(move_history or []):
+        if not isinstance(m, dict) or m.get("by") != "player":
+            continue
+        eb = m.get("eval_before")
+        ea = m.get("eval_after")
+        if eb is None or ea is None:
+            continue
+        if user_color == "white":
+            cp_loss = max(0, (eb - ea) * 100)
+        else:
+            cp_loss = max(0, (ea - eb) * 100)
+        update_scoreboard(
+            rebuilt,
+            move_number=i // 2 + 1,
+            move_san=m.get("move", ""),
+            move_uci=m.get("uci", ""),
+            fen_before=m.get("fen_before", ""),
+            user_color=user_color,
+            cp_loss=cp_loss,
+            is_critical=bool(m.get("is_critical")),
+            time_spent_seconds=m.get("time_spent"),
+        )
+    return rebuilt
+
+
 async def compute_today_focus_count(db, user_id: str, focus_topic: str, dominant_subtype: Optional[str]) -> int:
     """Count how many focus-relevant events the user has already had TODAY
     across all their analyzed games. Used to inject 'this is your Nth
