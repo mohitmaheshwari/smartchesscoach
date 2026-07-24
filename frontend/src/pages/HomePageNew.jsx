@@ -81,6 +81,7 @@ export default function HomePageNew({ user }) {
   const [diagnosticStatus, setDiagnosticStatus] = useState(null);
   const [strengthProfile, setStrengthProfile] = useState(null);
   const [showAllDomains, setShowAllDomains] = useState(false);
+  const [lastSession, setLastSession] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -102,6 +103,7 @@ export default function HomePageNew({ user }) {
           const d = await dashRes.json();
           if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
           if (d.strength_profile) setStrengthProfile(d.strength_profile);
+          if (d.last_session) setLastSession(d.last_session);
         }
 
         // Fetch active prescription
@@ -275,6 +277,27 @@ export default function HomePageNew({ user }) {
             </p>
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
+
+          {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
+          {lastSession?.story && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+                Since you last played
+              </div>
+              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+                <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
+                {(lastSession.game_id || lastSession.game_ids?.[0]) && (
+                  <button
+                    onClick={() => navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`)}
+                    className="mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    Review this game
+                    <ChevronRight className="h-3 w-3" strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            </motion.section>
+          )}
 
           {/* ─── DIAGNOSTIC CTA ─── */}
           {(() => {

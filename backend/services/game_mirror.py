@@ -747,10 +747,18 @@ def _compose_verdict(
             headline = f"You {verb} again."
 
         parts: List[str] = []
-        # No move reference on the Home card — the card leads with the PATTERN,
-        # not SAN/move-numbers. Move-by-move detail lives in the Lab breakdown,
-        # the right surface for it. (Mohit 2026-06-11;
-        # feedback_users_remember_patterns_not_moves.)
+        # Headline stays pattern-first, never a bare move number (Mohit
+        # 2026-06-11; feedback_users_remember_patterns_not_moves). But the
+        # follow-up sentence can and should ground the pattern in what
+        # actually happened — "you hung a piece again" without any specifics
+        # is a category label, not a coaching observation. _find_concrete_anchor
+        # + _anchor_sentence were built for exactly this and were never wired
+        # in until now (2026-07-24).
+        anchor = _find_concrete_anchor([game], top)
+        if anchor:
+            anchor_line = _anchor_sentence(anchor, top, multi_game=False)
+            if anchor_line:
+                parts.append(anchor_line)
         if len(repeated) > 1:
             second_noun = _pattern_voice(repeated[1], form="noun")
             parts.append(f"{second_noun.capitalize()} showed up too.")
@@ -873,11 +881,17 @@ def _aggregate_verdict(
 
     detail_parts: List[str] = []
 
-    # NO move reference on the Home card. It leads with the PATTERN, not SAN or
-    # move-numbers — the 600-1500 audience remembers the idea ("my king got
-    # caught in the open"), not "Kg7". The concrete move detail lives in the Lab
-    # session breakdown (games_breakdown), the right surface for move-by-move
-    # evidence. (Mohit 2026-06-11; feedback_users_remember_patterns_not_moves.)
+    # Headline stays pattern-first, not SAN/move-numbers (Mohit 2026-06-11;
+    # feedback_users_remember_patterns_not_moves) — the 600-1500 audience
+    # remembers the idea ("my king got caught in the open"), not "Kg7". But
+    # the follow-up sentence grounds that idea in a real move from the
+    # window instead of stopping at the category name. _find_concrete_anchor
+    # + _anchor_sentence were built for this and wired in 2026-07-24.
+    anchor = _find_concrete_anchor(games_data, top_pattern)
+    if anchor:
+        anchor_line = _anchor_sentence(anchor, top_pattern, multi_game=True)
+        if anchor_line:
+            detail_parts.append(anchor_line)
 
     # Second pattern note — only when it actually shows up in the window
     # AND we have something to say about it. Anchor it too if we can.
