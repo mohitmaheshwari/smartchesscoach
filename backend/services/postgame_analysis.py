@@ -286,7 +286,6 @@ async def analyze_postgame(
     current_focus = None
     persistent_weaknesses = []  # [{habit_id, name, detection_count, improving}]
     try:
-        from services.coach_memory import get_or_create_memory
         memory = await get_or_create_memory(db, user_id)
         current_focus = memory.learning.current_focus
         # Extract habit weaknesses with at least 3 detections (persistent ones)

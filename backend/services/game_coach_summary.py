@@ -15,6 +15,10 @@ Everything is derived from Stockfish eval + existing analysis data.
 import logging
 from typing import Dict, List, Optional
 
+from services.player_identity import BlunderType
+
+_VALID_BLUNDER_TYPES = {t.value for t in BlunderType}
+
 logger = logging.getLogger(__name__)
 
 
@@ -906,8 +910,14 @@ async def compute_game_memory(
     Impact: What fixing your #1 weakness would do to your rating.
     """
 
-    # Pull player identity data
-    identity_doc = await db.player_identity.find_one(
+    # Pull player identity data. Deliberately the *plural* collection
+    # (player_identities, owned by PlayerIdentityService) — its schema is
+    # play_style/style_profile.primary_style/blunder_taxonomy, which is what
+    # this function reads below. db.player_identity (singular) is a
+    # different, unrelated system (identity_label/trait_snapshot, written
+    # by coach_play/coach_game_session.py) — reading it here always missed
+    # and silently fell back to "developing" for every user.
+    identity_doc = await db.player_identities.find_one(
         {"user_id": user_id},
         {"_id": 0}
     )
@@ -939,8 +949,16 @@ async def compute_game_memory(
         if isinstance(taxonomy, dict):
             by_type = taxonomy.get("by_type", taxonomy)
             if by_type and isinstance(by_type, dict):
-                worst_type = max(by_type.items(), key=lambda x: x[1], default=("general", 0))
-                weakest_area = _readable_blunder_type(worst_type[0])
+                # Some accounts carry a legacy "tactical_error" bucket from
+                # before the current BlunderType set existed (see
+                # services/player_identity.py::_safe_enum) — it isn't a
+                # real category and dominates by raw count, so it's
+                # excluded here rather than being laundered into "tactical
+                # error" as if it were real signal.
+                real_by_type = {k: v for k, v in by_type.items() if k in _VALID_BLUNDER_TYPES}
+                if real_by_type:
+                    worst_type = max(real_by_type.items(), key=lambda x: x[1])
+                    weakest_area = _readable_blunder_type(worst_type[0])
 
         # Find strength
         strengths = identity_doc.get("strengths", [])
@@ -1213,10 +1231,11 @@ def _build_chess_dna(diagnosis, pattern_counts, total_games, style, weakest_area
     # "Before this game" — who you were coming in
     if style and style != "developing":
         style_label = style.replace("_", " ").title()
+        article = "an" if style_label[:1].lower() in "aeiou" else "a"
         if weakest_area and weakest_area != "general play":
-            before_line = f"You were a {style_label.lower()} player who struggles with {weakest_area}"
+            before_line = f"You were {article} {style_label.lower()} player who struggles with {weakest_area}"
         else:
-            before_line = f"You were a {style_label.lower()} player with solid fundamentals"
+            before_line = f"You were {article} {style_label.lower()} player with solid fundamentals"
     else:
         if weakest_area and weakest_area != "general play":
             before_line = f"You were a developing player with a recurring leak in {weakest_area}"

@@ -687,8 +687,11 @@ async def generate_coach_review(
     summary = compute_game_summary(evals, result, user_color, opening_name, termination=game.get("termination", ""))
     diagnosis = summary.get("diagnosis", "UNKNOWN")
 
-    # Get player identity
-    identity_doc = await db.player_identity.find_one({"user_id": user_id}, {"_id": 0})
+    # Get player identity. Plural collection deliberately — see the same
+    # note in services/game_coach_summary.py::compute_game_memory. This
+    # function reads play_style/style_profile/blunder_taxonomy, which is
+    # player_identities' schema, not the singular player_identity collection's.
+    identity_doc = await db.player_identities.find_one({"user_id": user_id}, {"_id": 0})
 
     # Count patterns across recent games
     recent_analyses = []

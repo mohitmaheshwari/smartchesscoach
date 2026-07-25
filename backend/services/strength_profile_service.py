@@ -247,13 +247,20 @@ def aggregate_strength_scores(game_stats_list: List[Dict]) -> Dict:
     ))
 
     # ── POSITIONAL SENSE (0-100) ──
-    # Based on: quiet best moves, middlegame accuracy
+    # Based on: quiet best moves, middlegame accuracy.
+    # quiet_rate is already a 0-100 rate (share of ALL moves that were both
+    # quiet and best-or-excellent); the old *2.0 doubled it before adding
+    # mg_accuracy, so ~85% of real users pinned at the 100 ceiling with no
+    # gradation (confirmed 2026-07-25 against a 40-user sample). Weights
+    # below keep the same 80/20 emphasis on quiet_rate vs mg_accuracy, just
+    # normalized to sum to 1.0 so hitting 100 requires genuinely maxing
+    # both inputs instead of a moderate quiet_rate alone.
     quiet_rate = (totals.get("quiet_best_moves", 0) / total_moves) * 100
     mg_accuracy = _safe_pct(totals.get("middlegame_good_or_better", 0), totals.get("middlegame_moves", 0))
 
     positional_score = min(100, (
-        quiet_rate * 2.0 +           # Quiet position accuracy
-        mg_accuracy * 0.5            # Overall middlegame quality
+        quiet_rate * 0.8 +
+        mg_accuracy * 0.2
     ))
 
     # ── ENDGAME TECHNIQUE (0-100) ──

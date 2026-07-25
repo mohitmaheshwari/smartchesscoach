@@ -111,6 +111,20 @@ class GamePhase(str, Enum):
     ENDGAME = "endgame"
 
 
+def _safe_enum(enum_cls, value, default):
+    """Construct enum_cls(value), falling back to `default` for legacy/
+    unrecognized stored values instead of raising. Historical data can
+    carry labels from a since-renamed scheme (e.g. "tactical_error", which
+    predates the current BlunderType set) — one bad stored value must not
+    crash the whole PlayerIdentity load for every game after it.
+    """
+    try:
+        return enum_cls(value)
+    except ValueError:
+        logger.warning(f"Unrecognized {enum_cls.__name__} value {value!r}, falling back to {default!r}")
+        return default
+
+
 # =============================================================================
 # DATA STRUCTURES
 # =============================================================================
@@ -160,14 +174,14 @@ class BlunderRecord:
     @classmethod
     def from_dict(cls, d: Dict) -> 'BlunderRecord':
         return cls(
-            blunder_type=BlunderType(d.get("blunder_type", "unclear")),
+            blunder_type=_safe_enum(BlunderType, d.get("blunder_type", "unclear"), BlunderType.UNCLEAR),
             game_id=d["game_id"],
             move_number=d["move_number"],
             fen_before=d.get("fen_before", ""),
             move_played=d.get("move_played", ""),
             best_move=d.get("best_move", ""),
             cp_loss=d.get("cp_loss", 0),
-            phase=GamePhase(d.get("phase", "middlegame")),
+            phase=_safe_enum(GamePhase, d.get("phase", "middlegame"), GamePhase.MIDDLEGAME),
             time_spent=d.get("time_spent", 0),
             time_remaining=d.get("time_remaining", 0),
             eval_before=d.get("eval_before", 0),
@@ -246,9 +260,9 @@ class BlunderTaxonomy:
             recent_rate=d.get("recent_rate", 0.0),
             historical_rate=d.get("historical_rate", 0.0),
             trend=d.get("trend", "stable"),
-            most_common_type=BlunderType(d["most_common_type"]) if d.get("most_common_type") else None,
+            most_common_type=_safe_enum(BlunderType, d["most_common_type"], None) if d.get("most_common_type") else None,
             most_vulnerable_piece=d.get("most_vulnerable_piece"),
-            worst_phase=GamePhase(d["worst_phase"]) if d.get("worst_phase") else None
+            worst_phase=_safe_enum(GamePhase, d["worst_phase"], None) if d.get("worst_phase") else None
         )
 
 
@@ -1038,15 +1052,20 @@ class PlayerIdentityService:
             else:
                 tax.trend = "stable"
         
-        # Find most common
-        if tax.by_type:
-            tax.most_common_type = BlunderType(max(tax.by_type, key=tax.by_type.get))
-        
+        # Find most common. Some accounts carry a legacy "tactical_error"
+        # bucket from before the current BlunderType set existed — it isn't
+        # a real category, so it's excluded here rather than winning every
+        # max() on raw count and permanently masking the real signal.
+        valid_types = {t.value for t in BlunderType}
+        real_by_type = {k: v for k, v in tax.by_type.items() if k in valid_types}
+        if real_by_type:
+            tax.most_common_type = BlunderType(max(real_by_type, key=real_by_type.get))
+
         if tax.by_piece:
             tax.most_vulnerable_piece = max(tax.by_piece, key=tax.by_piece.get)
-        
+
         if tax.by_phase:
-            tax.worst_phase = GamePhase(max(tax.by_phase, key=tax.by_phase.get))
+            tax.worst_phase = _safe_enum(GamePhase, max(tax.by_phase, key=tax.by_phase.get), None)
     
     def _update_style_profile(
         self, 
