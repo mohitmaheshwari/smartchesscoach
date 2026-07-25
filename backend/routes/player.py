@@ -105,7 +105,6 @@ from blunder_intelligence_service import (
     get_mistake_heatmap,
     estimate_rating_impact,
     get_identity_profile,
-    get_mission,
     check_milestones,
     get_drill_positions
 )
@@ -1540,40 +1539,6 @@ async def get_player_profile_endpoint(user: User = Depends(get_current_user)):
 # ==================== PROGRESS EVOLUTION + KNOWLEDGE BASE ====================
 
 
-@router.get("/progress/evolution")
-async def get_progress_evolution(user: User = Depends(get_current_user)):
-    """
-    Get rolling window evolution data.
-
-    Replaces baseline-based progress with continuous improvement tracking:
-    - macro: 25 vs 25 games (monthly trend)
-    - medium: 10 vs 10 games (bi-weekly trend)
-    - micro: 5 vs 5 games (weekly trend)
-
-    Returns:
-    - Window metrics for each granularity
-    - Delta (change) between windows
-    - Trend assessment
-    """
-    from services.rolling_evolution_service import get_rolling_evolution
-    return await get_rolling_evolution(db, user.user_id)
-
-
-@router.get("/progress/openings")
-async def get_opening_evolution(user: User = Depends(get_current_user)):
-    """
-    Get opening performance evolution.
-
-    Shows:
-    - Openings you're improving in
-    - Openings not working for you
-    - Recommendations
-
-    Compares last 25 games vs previous 25 games.
-    """
-    from services.opening_evolution_service import get_user_opening_evolution
-    return await get_user_opening_evolution(db, user.user_id, window_size=25)
-
 
 @router.get("/progress/improvement-proof")
 async def get_improvement_proof(user: User = Depends(get_current_user)):
@@ -2607,45 +2572,6 @@ async def get_identity(user: User = Depends(get_current_user)):
 
     return get_identity_profile(analyses)
 
-
-@router.get("/mission")
-async def get_current_mission(user: User = Depends(get_current_user)):
-    """
-    Get current mission based on weakness + rating tier.
-
-    Mission Engine - 3 Layer Architecture:
-    Layer 1: Weakness Type → Determines THEME
-    Layer 2: Rating Tier → Adjusts DIFFICULTY
-    Layer 3: Mission Difficulty → Actual challenge
-    """
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        # PERF: drop the ~126KB decryption blobs (game-review only, unused here).
-        {"decryption_v5_data": 0, "decryption_data": 0, "decryption_block": 0}
-    ).sort("created_at", -1).limit(15).to_list(15)
-
-    # Get user's rating from recent games
-    user_rating = None
-    recent_games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True}
-    ).sort("imported_at", -1).limit(5).to_list(5)
-
-    for game in recent_games:
-        pgn = game.get("pgn", "")
-        user_color = game.get("user_color", "white")
-
-        # Extract user's rating from PGN
-        import re
-        if user_color == "white":
-            match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
-        else:
-            match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
-
-        if match:
-            user_rating = int(match.group(1))
-            break
-
-    return get_mission(analyses, user_rating=user_rating)
 
 
 @router.get("/milestones")

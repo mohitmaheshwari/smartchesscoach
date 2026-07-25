@@ -418,30 +418,6 @@ async def get_sync_status(user: User = Depends(get_current_user)):
     }
 
 
-@router.get("/journey/intelligence")
-async def get_journey_intelligence(user: User = Depends(get_current_user)):
-    """
-    Get comprehensive journey intelligence for the user.
-    
-    Returns all 8 sections:
-    1. Identity Snapshot
-    2. Growth Delta
-    3. Rating Ceiling Model
-    4. Pattern Engine
-    5. Phase Discipline
-    6. Fundamentals Snapshot
-    7. Opening Snapshot
-    8. Momentum Trend
-    
-    All computed deterministically from game data - no LLM required.
-    """
-    global db
-    from journey_intelligence_service import compute_journey_intelligence
-    
-    logger.info(f"Journey intelligence requested for user: {user.user_id}")
-    return await compute_journey_intelligence(db, user.user_id)
-
-
 @router.get("/journey/v2")
 async def get_journey_page_data(user: User = Depends(get_current_user)):
     """
