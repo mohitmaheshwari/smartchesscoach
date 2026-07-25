@@ -19,6 +19,7 @@ import { API } from "@/App";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import CoachRecommendationsGrid from "@/components/CoachRecommendationsGrid";
+import CoachWeeklySignalCard from "@/components/Home/CoachWeeklySignalCard";
 import {
   ChevronRight,
   Swords,
@@ -81,6 +82,7 @@ export default function HomePageNew({ user }) {
   const [diagnosticStatus, setDiagnosticStatus] = useState(null);
   const [strengthProfile, setStrengthProfile] = useState(null);
   const [identitySummary, setIdentitySummary] = useState(null);
+  const [breakthroughSignal, setBreakthroughSignal] = useState(null);
   const [showAllDomains, setShowAllDomains] = useState(false);
   const [lastSession, setLastSession] = useState(null);
 
@@ -151,6 +153,13 @@ export default function HomePageNew({ user }) {
         if (idRes.ok) {
           const idData = await idRes.json();
           if (idData.has_data) setIdentitySummary(idData);
+        }
+
+        // Fetch weekly breakthrough/plateau signal
+        const btRes = await fetch(`${API}/coach/breakthrough-signal`, { credentials: "include" });
+        if (btRes.ok) {
+          const btData = await btRes.json();
+          if (btData.show_card) setBreakthroughSignal(btData);
         }
       } catch (e) {
         console.error("Error loading home data:", e);
@@ -304,6 +313,16 @@ export default function HomePageNew({ user }) {
                   </button>
                 )}
               </div>
+            </motion.section>
+          )}
+
+          {/* ─── COACH WEEKLY SIGNAL (breakthrough/plateau detection) ─── */}
+          {breakthroughSignal && (
+            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+              <CoachWeeklySignalCard
+                signal={breakthroughSignal}
+                onCtaClick={() => navigate("/play-with-coach")}
+              />
             </motion.section>
           )}
 
