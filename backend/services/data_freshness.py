@@ -22,6 +22,12 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+# Shared cognitive_gap groupings for the tactical/positional axis — used by
+# both _compute_style_tendencies (tendency scores) and _determine_playing_style
+# (primary_style label), so the two stay consistent with each other.
+_TACTICAL_GAPS = {"missed_tactic", "tactical_oversight", "calculation_depth", "piece_safety"}
+_POSITIONAL_GAPS = {"pawn_structure", "piece_activity", "opening_knowledge", "endgame_technique"}
+
 
 def refresh_all_user_data(db, user_id: str) -> Dict[str, Any]:
     """
@@ -187,7 +193,12 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
             cp_loss = abs(move_eval.get("cp_loss", 0))
             if cp_loss >= 100:  # Significant mistake
                 move_num = move_eval.get("move_number", 0)
-                category = move_eval.get("category", "tactical_error")
+                # "category" was never a real field on move_eval dicts (the
+                # real field is "cognitive_gap") — this silently defaulted
+                # EVERY significant mistake, for every user, to the literal
+                # string "tactical_error", which is why blunder_taxonomy.by_type
+                # was always exactly {"tactical_error": N} with nothing else.
+                category = move_eval.get("cognitive_gap") or "tactical_error"
                 move_played = move_eval.get("move", "")
                 best_move = move_eval.get("best_move", "")
                 
@@ -237,30 +248,32 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
     if blunder_phases:
         identity["blunder_taxonomy"]["worst_phase"] = max(blunder_phases, key=blunder_phases.get)
     
-    # Calculate style profile with confidence based on games analyzed
+    # Compute the 4 style tendencies from the cognitive_gap distribution
+    # across this user's analyzed games. Previously these were hardcoded
+    # to 0.5/0.5/0.5/0.5 (literal placeholder for every user). Now they
+    # reflect what the user actually does well / badly. Only fills in if
+    # we have enough games to be meaningful (>=5).
     games_count = identity["games_analyzed"]
-    if games_count >= 20:
-        identity["style_profile"]["confidence"] = 0.9
-        identity["style_profile"]["primary_style"] = _determine_playing_style(identity, games_with_analysis)
-    elif games_count >= 10:
-        identity["style_profile"]["confidence"] = 0.6
-        identity["style_profile"]["primary_style"] = _determine_playing_style(identity, games_with_analysis)
+    if games_count >= 5:
+        identity["style_profile"].update(
+            _compute_style_tendencies(games_with_analysis)
+        )
+
+    # Calculate style profile with confidence based on games analyzed.
+    # primary_style is derived FROM the tendencies above (not a separate
+    # blunder-taxonomy computation) so the label can never contradict the
+    # numeric scores shown next to it — e.g. primary_style="positional"
+    # while aggressive_tendency=0.83, which is what the old two-computation
+    # version could and did produce.
+    if games_count >= 10:
+        identity["style_profile"]["confidence"] = 0.9 if games_count >= 20 else 0.6
+        identity["style_profile"]["primary_style"] = _determine_playing_style(identity["style_profile"])
     elif games_count >= 5:
         identity["style_profile"]["confidence"] = 0.3
         identity["style_profile"]["primary_style"] = "developing"
     else:
         identity["style_profile"]["confidence"] = 0.1
         identity["style_profile"]["primary_style"] = "developing"
-
-    # Compute the 4 style tendencies from the cognitive_gap distribution
-    # across this user's analyzed games. Previously these were hardcoded
-    # to 0.5/0.5/0.5/0.5 (literal placeholder for every user). Now they
-    # reflect what the user actually does well / badly. Only fills in if
-    # we have enough games to be meaningful (>=5).
-    if games_count >= 5:
-        identity["style_profile"].update(
-            _compute_style_tendencies(games_with_analysis)
-        )
     
     # Trim pattern_history to last 100 entries
     if len(identity["pattern_history"]) > 100:
@@ -316,9 +329,6 @@ def _compute_style_tendencies(games: List[Dict]) -> Dict[str, float]:
     defensive_signals = 0
     total_user_moves = 0
 
-    _TACTICAL_GAPS = {"missed_tactic", "tactical_oversight", "calculation_depth", "piece_safety"}
-    _POSITIONAL_GAPS = {"pawn_structure", "piece_activity", "opening_knowledge", "endgame_technique"}
-
     for g in games:
         sf = g.get("stockfish_analysis") or {}
         aggressive_count += (sf.get("brilliant_moves", 0) or 0)
@@ -367,49 +377,36 @@ def _compute_style_tendencies(games: List[Dict]) -> Dict[str, float]:
     }
 
 
-def _determine_playing_style(identity: Dict, games: List[Dict]) -> str:
+def _determine_playing_style(style_profile: Dict) -> str:
     """
-    Determine primary playing style based on game patterns.
+    Derive the single primary_style label FROM the tendency scores that
+    _compute_style_tendencies already computed for this refresh (call this
+    only after that ran). Two independent axes, each already 0..1 and
+    complementary by construction (positional = 1 - tactical, defensive =
+    1 - aggressive):
+      - tactical <-> positional (which kind of mistake dominates)
+      - aggressive <-> defensive (brilliants+sacrifices rate)
+
+    Deliberately NOT a separate recomputation from blunder_taxonomy/win-rate
+    (the old version) — that produced labels that could directly contradict
+    the tendency scores shown right next to them (e.g. primary_style=
+    "positional" while aggressive_tendency=0.83). Picks whichever axis has
+    the stronger (more-than-noise) signal for this player; "balanced" when
+    neither axis is differentiated enough to call.
     """
-    blunder_phases = identity.get("blunder_taxonomy", {}).get("by_phase", {})
-    blunder_types = identity.get("blunder_taxonomy", {}).get("by_type", {})
-    
-    opening_blunders = blunder_phases.get("opening", 0)
-    middlegame_blunders = blunder_phases.get("middlegame", 0)
-    endgame_blunders = blunder_phases.get("endgame", 0)
-    total_phase_blunders = opening_blunders + middlegame_blunders + endgame_blunders
-    
-    tactical_errors = blunder_types.get("tactical_error", 0) + blunder_types.get("missed_tactic", 0)
-    positional_errors = blunder_types.get("positional_error", 0) + blunder_types.get("strategic_error", 0)
-    total_type_errors = tactical_errors + positional_errors
-    
-    # Determine style based on where/how they make mistakes
-    if total_type_errors > 10:
-        if tactical_errors > positional_errors * 1.5:
-            return "positional"  # They avoid tactical errors, so they're positional
-        elif positional_errors > tactical_errors * 1.5:
-            return "tactical"  # They avoid positional errors, so they're tactical
-    
-    # Check phase strength
-    if total_phase_blunders > 10:
-        if opening_blunders < middlegame_blunders and opening_blunders < endgame_blunders:
-            return "solid"  # Good opening prep
-        elif endgame_blunders < opening_blunders and endgame_blunders < middlegame_blunders:
-            return "technical"  # Good endgame technique
-    
-    # Check win rate for aggressive vs defensive
-    wins = identity.get("total_wins", 0)
-    losses = identity.get("total_losses", 0)
-    total_decisive = wins + losses
-    
-    if total_decisive > 10:
-        win_rate = wins / total_decisive if total_decisive > 0 else 0.5
-        if win_rate > 0.6:
-            return "aggressive"
-        elif win_rate < 0.4:
-            return "defensive"
-    
-    return "balanced"
+    agg = style_profile.get("aggressive_tendency", 0.5)
+    tac = style_profile.get("tactical_tendency", 0.5)
+
+    agg_strength = abs(agg - 0.5)
+    tac_strength = abs(tac - 0.5)
+
+    # Neither axis has a real signal yet — don't force a label.
+    if max(agg_strength, tac_strength) < 0.1:
+        return "balanced"
+
+    if agg_strength >= tac_strength:
+        return "aggressive" if agg > 0.5 else "defensive"
+    return "tactical" if tac > 0.5 else "positional"
 
 
 def detect_behavioral_patterns(identity: Dict, games: List[Dict]) -> List[Dict]:
