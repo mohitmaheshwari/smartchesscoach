@@ -51,17 +51,24 @@ async def _motif_weaknesses(user_id: str) -> Dict:
 
         motif_profile = profile["motif_profile"]
 
+        # Real motif_profile schema (see player_identity motif detector) is
+        # {made_sound, made_tunnel, got, sound_rate, is_strength, is_weakness,
+        # got_positions}, not the {weakness_count, recent_count, recovery_pct,
+        # detection_accuracy} shape this used to assume — those keys never
+        # existed, so .get(..., 0) always returned 0 and no motif ever
+        # qualified. "got" (times the user was hit by this motif) is the real
+        # weakness-count signal; is_weakness is the detector's own gate.
         motifs = []
         for motif_type in ["fork", "pin", "skewer", "discovered", "loose"]:
             motif_data = motif_profile.get(motif_type, {})
 
-            if motif_data.get("weakness_count", 0) > 0:
+            if motif_data.get("is_weakness"):
                 motifs.append({
                     "motif": motif_type,
-                    "weakness_count": motif_data.get("weakness_count", 0),
-                    "recent_count": motif_data.get("recent_count", 0),
-                    "recovery_trend": motif_data.get("recovery_pct", 0.0),
-                    "accuracy": motif_data.get("detection_accuracy", 0.85)
+                    "weakness_count": motif_data.get("got", 0),
+                    "recent_count": min(motif_data.get("got", 0), len(motif_data.get("got_positions") or [])),
+                    "recovery_trend": motif_data.get("sound_rate", 0.0),
+                    "accuracy": motif_data.get("sound_rate", 0.0)
                 })
 
         return {"motifs": motifs}
