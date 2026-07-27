@@ -18,6 +18,14 @@ import { Sparkles, Swords, ArrowRight } from "lucide-react";
 const WINE = "#722F37";
 const GOLD_TEXT = "#8B6F1F";
 const BORDER = "hsl(35 10% 87%)";
+// This page is deliberately light-mode-only (fixed light background, wine/gold
+// accents) regardless of the user's global theme — Tailwind's theme-aware
+// text-foreground/text-muted-foreground resolve to near-white in dark mode
+// (see .dark in index.css), which is nearly invisible against this page's
+// always-light background. Pinned to the light-mode --foreground/--muted-foreground
+// values directly so the text stays readable no matter which theme is active.
+const INK = "hsl(222 47% 11%)";
+const INK_MUTED = "hsl(220 9% 46%)";
 
 const MOTIVATIONS = [
   { value: "compete", label: "Compete and climb the ratings" },
@@ -53,11 +61,11 @@ const ActivationHub = () => {
   return (
     <div className="min-h-screen bg-[hsl(40_30%_98%)] flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-[520px]">
-        <p className="text-[13px] text-muted-foreground mb-1">Welcome to ChessGuru 👋</p>
-        <h1 className="font-serif text-[28px] md:text-[32px] leading-tight text-foreground mb-2">
+        <p className="text-[13px] mb-1" style={{ color: INK_MUTED }}>Welcome to ChessGuru 👋</p>
+        <h1 className="font-serif text-[28px] md:text-[32px] leading-tight mb-2" style={{ color: INK }}>
           Let's see how you play.
         </h1>
-        <p className="text-[14px] text-muted-foreground mb-8 leading-relaxed">
+        <p className="text-[14px] mb-8 leading-relaxed" style={{ color: INK_MUTED }}>
           No account needed yet — start with a quick check or a game, and your coach
           gets to work right away.
         </p>
@@ -74,8 +82,8 @@ const ActivationHub = () => {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
               <div>
-                <div className="text-[15px] font-medium text-foreground">Get your free Chess DNA</div>
-                <div className="text-[12.5px] text-muted-foreground">A few quick puzzles — find your level and your weak spots.</div>
+                <div className="text-[15px] font-medium" style={{ color: INK }}>Get your free Chess DNA</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>A few quick puzzles — find your level and your weak spots.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
@@ -94,8 +102,8 @@ const ActivationHub = () => {
             <div className="flex items-center gap-3">
               <Swords className="w-5 h-5 shrink-0" style={{ color: GOLD_TEXT }} />
               <div>
-                <div className="text-[15px] font-medium text-foreground">Play a game with your coach</div>
-                <div className="text-[12.5px] text-muted-foreground">Guided game — your coach talks you through it.</div>
+                <div className="text-[15px] font-medium" style={{ color: INK }}>Play a game with your coach</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Guided game — your coach talks you through it.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />
@@ -111,10 +119,12 @@ const ActivationHub = () => {
             <button
               key={m.value}
               onClick={() => setMotivation(m.value)}
-              className="text-[12.5px] font-light px-3 py-2 rounded-sm border text-left text-foreground/85 transition-colors"
+              className="text-[12.5px] font-light px-3 py-2 rounded-sm border text-left transition-colors"
               style={{
                 borderColor: motivation === m.value ? WINE : BORDER,
                 background: motivation === m.value ? "rgba(114,47,55,0.04)" : "white",
+                color: INK,
+                opacity: 0.85,
               }}
               data-testid={`hub-motivation-${m.value}`}
             >
