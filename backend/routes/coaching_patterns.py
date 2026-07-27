@@ -12,7 +12,6 @@ Used by Lab page to render 5 pattern cards + coaching surfaces.
 
 from fastapi import APIRouter, Depends
 from routes.auth import get_current_user, User
-from services.player_profile_service import get_player_profile
 from typing import Optional, Dict, List
 import logging
 
@@ -33,18 +32,27 @@ def set_db(database):
     db = database
 
 
+async def _get_raw_profile(user_id: str) -> Optional[Dict]:
+    """Fetch the raw player_profiles document directly. NOT
+    services.player_profile_service.get_player_profile() — that's a
+    different, similarly-named function that generates a cached text
+    narrative ({"narrative": ..., "games_at_generation": ...}) and never
+    returns motif_profile/phase_accuracy/etc at all. Calling it here (as
+    the original version of this file did) meant "motif_profile" was
+    never once present in what it returned, regardless of the real data.
+    """
+    return await db.player_profiles.find_one({"user_id": user_id}, {"_id": 0})
+
+
 # ── Internal helpers ──────────────────────────────────────────────────
 # Plain (db, user_id) functions, not FastAPI route handlers — so
 # get_all_coaching_patterns can call them directly as normal Python calls.
 # The route handlers below are thin Depends(get_current_user) wrappers
-# around these. get_player_profile itself takes (db, user_id) — the old
-# version of this file called it as get_player_profile(user_id) with no
-# db at all, which raised a TypeError caught by the blanket except below
-# and silently fell back to empty data on every single call.
+# around these.
 
 async def _motif_weaknesses(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(db, user_id)
+        profile = await _get_raw_profile(user_id)
 
         if not profile or "motif_profile" not in profile:
             return {"motifs": []}
@@ -80,7 +88,7 @@ async def _motif_weaknesses(user_id: str) -> Dict:
 
 async def _phase_accuracy(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(db, user_id)
+        profile = await _get_raw_profile(user_id)
 
         if not profile:
             return {}
@@ -103,7 +111,7 @@ async def _phase_accuracy(user_id: str) -> Dict:
 
 async def _coordination_gap(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(db, user_id)
+        profile = await _get_raw_profile(user_id)
 
         if not profile:
             return {"has_gap": False}
@@ -124,7 +132,7 @@ async def _coordination_gap(user_id: str) -> Dict:
 
 async def _prophylaxis_gap(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(db, user_id)
+        profile = await _get_raw_profile(user_id)
 
         if not profile:
             return {"has_gap": False}
@@ -145,7 +153,7 @@ async def _prophylaxis_gap(user_id: str) -> Dict:
 
 async def _opening_deviations(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(db, user_id)
+        profile = await _get_raw_profile(user_id)
 
         if not profile:
             return {"has_significant_deviation": False}
