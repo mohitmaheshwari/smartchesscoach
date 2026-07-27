@@ -69,7 +69,6 @@ const NAV = [
 ];
 
 export default function HomePageNew({ user }) {
-  console.error("🔴 HomePageNew COMPONENT LOADED - user:", user?.email);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasGames, setHasGames] = useState(false);
@@ -89,15 +88,11 @@ export default function HomePageNew({ user }) {
   useEffect(() => {
     (async () => {
       try {
-        console.error("🔴 [useEffect] About to fetch diagnostic/status from:", `${API}/diagnostic/status`);
         // Check diagnostic status
         const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
         if (diagRes.ok) {
           const diag = await diagRes.json();
-          console.log("🔍 [HomePage] Diagnostic status fetched:", diag);
           setDiagnosticStatus(diag);
-        } else {
-          console.log("🔍 [HomePage] Diagnostic status fetch failed:", diagRes.status);
         }
 
         // Check if user has games
@@ -203,7 +198,6 @@ export default function HomePageNew({ user }) {
             {/* ─── DIAGNOSTIC CTA (ONBOARDING) ─── */}
             {(() => {
               const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
-              console.log("🔍 [Onboarding CTA] diagnosticStatus:", diagnosticStatus, "shouldShow:", shouldShow);
               return shouldShow;
             })() && (
               <section>
@@ -329,7 +323,6 @@ export default function HomePageNew({ user }) {
           {/* ─── DIAGNOSTIC CTA ─── */}
           {(() => {
             const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
-            console.log("🔍 [Main CTA] diagnosticStatus:", diagnosticStatus, "shouldShow:", shouldShow);
             return shouldShow;
           })() && (
             <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
