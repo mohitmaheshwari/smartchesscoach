@@ -11,38 +11,40 @@ Used by Lab page to render 5 pattern cards + coaching surfaces.
 """
 
 from fastapi import APIRouter, Depends
+from routes.auth import get_current_user, User
 from services.player_profile_service import get_player_profile
 from typing import Optional, Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/coaching-patterns", tags=["coaching-patterns"])
+# Prefix here is relative ONLY — server.py's include_router already adds
+# "/api" on top. This file previously duplicated it ("/api/coaching-patterns"),
+# which made every route resolve to /api/api/coaching-patterns/... — a 404
+# for every real request the frontend ever made to it.
+router = APIRouter(prefix="/coaching-patterns", tags=["coaching-patterns"])
+
+# Database reference - set by server.py via set_db()
+db = None
 
 
-@router.get("/motif-weaknesses")
-async def get_motif_weaknesses(
-    user_id: str = None  # In real code, extract from JWT
-) -> Dict:
-    """
-    Get user's motif weaknesses (fork/pin/skewer/discovered/loose).
+def set_db(database):
+    global db
+    db = database
 
-    Returns: {
-        "motifs": [
-            {
-                "motif": "fork",
-                "weakness_count": 47,
-                "recent_count": 2,
-                "recovery_trend": 0.92,  # 0-1, higher = improving
-                "accuracy": 0.85
-            },
-            ...
-        ]
-    }
-    """
+
+# ── Internal helpers ──────────────────────────────────────────────────
+# Plain (db, user_id) functions, not FastAPI route handlers — so
+# get_all_coaching_patterns can call them directly as normal Python calls.
+# The route handlers below are thin Depends(get_current_user) wrappers
+# around these. get_player_profile itself takes (db, user_id) — the old
+# version of this file called it as get_player_profile(user_id) with no
+# db at all, which raised a TypeError caught by the blanket except below
+# and silently fell back to empty data on every single call.
+
+async def _motif_weaknesses(user_id: str) -> Dict:
     try:
-        # Get player's motif profile
-        profile = await get_player_profile(user_id)
+        profile = await get_player_profile(db, user_id)
 
         if not profile or "motif_profile" not in profile:
             return {"motifs": []}
@@ -69,22 +71,9 @@ async def get_motif_weaknesses(
         return {"motifs": []}
 
 
-@router.get("/phase-accuracy")
-async def get_phase_accuracy(user_id: str = None) -> Dict:
-    """
-    Get user's phase accuracy (opening/middlegame/endgame).
-
-    Returns: {
-        "opening": 82,
-        "middlegame": 61,
-        "endgame": 75,
-        "weak_phase": "middlegame",
-        "divergence_pct": 21
-    }
-    """
+async def _phase_accuracy(user_id: str) -> Dict:
     try:
-        # Get player profile with phase data
-        profile = await get_player_profile(user_id)
+        profile = await get_player_profile(db, user_id)
 
         if not profile:
             return {}
@@ -105,20 +94,9 @@ async def get_phase_accuracy(user_id: str = None) -> Dict:
         return {}
 
 
-@router.get("/coordination-gap")
-async def get_coordination_gap(user_id: str = None) -> Dict:
-    """
-    Get user's coordination gap status.
-
-    Returns: {
-        "has_gap": bool,
-        "gap_type": "rook_isolation" | "piece_isolation" | None,
-        "confidence": 0.75,
-        "example_moves": 3
-    }
-    """
+async def _coordination_gap(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(user_id)
+        profile = await get_player_profile(db, user_id)
 
         if not profile:
             return {"has_gap": False}
@@ -137,20 +115,9 @@ async def get_coordination_gap(user_id: str = None) -> Dict:
         return {"has_gap": False}
 
 
-@router.get("/prophylaxis-gap")
-async def get_prophylaxis_gap(user_id: str = None) -> Dict:
-    """
-    Get user's prophylaxis gap (reactive vs proactive thinking).
-
-    Returns: {
-        "has_gap": bool,
-        "reactive_move_count": 12,
-        "confidence": 0.70,
-        "trend": "improving" | "stable" | "worsening"
-    }
-    """
+async def _prophylaxis_gap(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(user_id)
+        profile = await get_player_profile(db, user_id)
 
         if not profile:
             return {"has_gap": False}
@@ -169,21 +136,9 @@ async def get_prophylaxis_gap(user_id: str = None) -> Dict:
         return {"has_gap": False}
 
 
-@router.get("/opening-deviations")
-async def get_opening_deviations(user_id: str = None) -> Dict:
-    """
-    Get user's opening deviations (detection only, no sound/unsound judgment yet).
-
-    Returns: {
-        "has_significant_deviation": bool,
-        "deviation_openings": [
-            {"opening": "Sicilian", "deviation_count": 5, "recent": 2},
-            ...
-        ]
-    }
-    """
+async def _opening_deviations(user_id: str) -> Dict:
     try:
-        profile = await get_player_profile(user_id)
+        profile = await get_player_profile(db, user_id)
 
         if not profile:
             return {"has_significant_deviation": False}
@@ -209,8 +164,93 @@ async def get_opening_deviations(user_id: str = None) -> Dict:
         return {"has_significant_deviation": False}
 
 
+# ── Route handlers ───────────────────────────────────────────────────
+
+@router.get("/motif-weaknesses")
+async def get_motif_weaknesses(user: User = Depends(get_current_user)) -> Dict:
+    """
+    Get user's motif weaknesses (fork/pin/skewer/discovered/loose).
+
+    Returns: {
+        "motifs": [
+            {
+                "motif": "fork",
+                "weakness_count": 47,
+                "recent_count": 2,
+                "recovery_trend": 0.92,  # 0-1, higher = improving
+                "accuracy": 0.85
+            },
+            ...
+        ]
+    }
+    """
+    return await _motif_weaknesses(user.user_id)
+
+
+@router.get("/phase-accuracy")
+async def get_phase_accuracy(user: User = Depends(get_current_user)) -> Dict:
+    """
+    Get user's phase accuracy (opening/middlegame/endgame).
+
+    Returns: {
+        "opening": 82,
+        "middlegame": 61,
+        "endgame": 75,
+        "weak_phase": "middlegame",
+        "divergence_pct": 21
+    }
+    """
+    return await _phase_accuracy(user.user_id)
+
+
+@router.get("/coordination-gap")
+async def get_coordination_gap(user: User = Depends(get_current_user)) -> Dict:
+    """
+    Get user's coordination gap status.
+
+    Returns: {
+        "has_gap": bool,
+        "gap_type": "rook_isolation" | "piece_isolation" | None,
+        "confidence": 0.75,
+        "example_moves": 3
+    }
+    """
+    return await _coordination_gap(user.user_id)
+
+
+@router.get("/prophylaxis-gap")
+async def get_prophylaxis_gap(user: User = Depends(get_current_user)) -> Dict:
+    """
+    Get user's prophylaxis gap (reactive vs proactive thinking).
+
+    Returns: {
+        "has_gap": bool,
+        "reactive_move_count": 12,
+        "confidence": 0.70,
+        "trend": "improving" | "stable" | "worsening"
+    }
+    """
+    return await _prophylaxis_gap(user.user_id)
+
+
+@router.get("/opening-deviations")
+async def get_opening_deviations(user: User = Depends(get_current_user)) -> Dict:
+    """
+    Get user's opening deviations (detection only, no sound/unsound judgment yet).
+
+    Returns: {
+        "has_significant_deviation": bool,
+        "deviation_openings": [
+            {"opening": "Sicilian", "deviation_count": 5, "recent": 2},
+            ...
+        ]
+    }
+    """
+    return await _opening_deviations(user.user_id)
+
+
 @router.get("/all-patterns")
-async def get_all_coaching_patterns(user_id: str = None) -> Dict:
+async def get_all_coaching_patterns(user: User = Depends(get_current_user)) -> Dict:
     """
     Get all 5 coaching patterns in one call (used by Lab page).
 
@@ -222,10 +262,11 @@ async def get_all_coaching_patterns(user_id: str = None) -> Dict:
         "openings": {...}
     }
     """
+    user_id = user.user_id
     return {
-        "motifs": (await get_motif_weaknesses(user_id)).get("motifs", []),
-        "phase_accuracy": await get_phase_accuracy(user_id),
-        "coordination": await get_coordination_gap(user_id),
-        "prophylaxis": await get_prophylaxis_gap(user_id),
-        "openings": await get_opening_deviations(user_id)
+        "motifs": (await _motif_weaknesses(user_id)).get("motifs", []),
+        "phase_accuracy": await _phase_accuracy(user_id),
+        "coordination": await _coordination_gap(user_id),
+        "prophylaxis": await _prophylaxis_gap(user_id),
+        "openings": await _opening_deviations(user_id)
     }

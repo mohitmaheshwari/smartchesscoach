@@ -27,7 +27,7 @@ const CoachingPatternsPanel = ({ user }) => {
       try {
         setLoading(true);
         const res = await fetch(`${API}/coaching-patterns/all-patterns`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          credentials: 'include'
         });
 
         if (!res.ok) throw new Error('Failed to fetch patterns');
