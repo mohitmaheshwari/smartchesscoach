@@ -182,10 +182,10 @@ export default function CoachRecommendationsGrid() {
           {/* CTA */}
           <button
             onClick={() => handleStartPlan(topRecommendation.plan_id, topRecommendation.plan_name, topRecommendation.prescription_id)}
-            disabled={accepting === topRecommendation.plan_id || !topRecommendation.prescription_id}
+            disabled={(accepting !== null && accepting === topRecommendation.plan_id) || !topRecommendation.prescription_id}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            {accepting === topRecommendation.plan_id ? "Starting..." : "Start This Training Plan"}
+            {accepting !== null && accepting === topRecommendation.plan_id ? "Starting..." : "Start This Training Plan"}
           </button>
         </div>
       </div>
@@ -240,14 +240,14 @@ export default function CoachRecommendationsGrid() {
                   {/* Button */}
                   <button
                     onClick={() => handleStartPlan(plan.plan_id, plan.plan_name, plan.prescription_id)}
-                    disabled={accepting === plan.plan_id || isActive || !plan.prescription_id}
+                    disabled={(accepting !== null && accepting === plan.plan_id) || isActive || !plan.prescription_id}
                     className={`w-full py-2 rounded font-medium text-[13px] transition-colors ${
                       isActive
                         ? "bg-emerald-100 text-emerald-700 cursor-default"
                         : "bg-gray-100 hover:bg-gray-200 text-gray-900"
                     }`}
                   >
-                    {accepting === plan.plan_id
+                    {accepting !== null && accepting === plan.plan_id
                       ? "Starting..."
                       : isActive
                       ? "Already Training"

@@ -1199,11 +1199,19 @@ async def get_recommendations_with_accuracy(
             optimistic_elo = int(optimistic_cp_recovery / cp_per_elo)
 
             # Cap elo gains to realistic ranges (typical training yields 10-50 elo)
-            # Based on: fixing ONE cognitive gap won't yield 10k+ elo improvement
+            # Based on: fixing ONE cognitive gap won't yield 10k+ elo improvement.
+            # Scale all three proportionally when the cap bites, rather than
+            # clamping each independently — the old version flattened
+            # conservative/realistic/optimistic to the identical number for
+            # any user with real mistake volume (raw values regularly hit
+            # the thousands), which made the three-tier display show the
+            # same "+75" three times instead of an actual range.
             max_elo_gain = 75  # Realistic ceiling per training plan
-            conservative_elo = min(conservative_elo, max_elo_gain)
-            realistic_elo = min(realistic_elo, max_elo_gain)
-            optimistic_elo = min(optimistic_elo, max_elo_gain)
+            if realistic_elo > max_elo_gain:
+                scale = max_elo_gain / realistic_elo
+                conservative_elo = round(conservative_elo * scale)
+                optimistic_elo = round(optimistic_elo * scale)
+                realistic_elo = max_elo_gain
 
             # Get recency (days since last mistake in this gap)
             if data["game_dates"]:
