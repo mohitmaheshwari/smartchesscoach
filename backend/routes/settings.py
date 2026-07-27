@@ -171,35 +171,47 @@ async def send_test_email(user: User = Depends(get_current_user)):
 async def get_onboarding_status(user: User = Depends(get_current_user)):
     """
     Check if user needs onboarding.
-    Returns needs_onboarding=true if no linked accounts AND no analyzed games.
+    Returns needs_onboarding=true if the user has no linked account, no
+    analyzed (imported) games, AND no real Play-with-Coach history.
     """
     global db
-    
+
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
         {"_id": 0, "chess_com_username": 1, "chesscom_username": 1, "lichess_username": 1, "onboarding_completed": 1}
     )
-    
+
     if not user_doc:
         return {"needs_onboarding": True, "reason": "user_not_found"}
-    
+
     # Check if onboarding was explicitly completed
     if user_doc.get("onboarding_completed"):
         return {"needs_onboarding": False}
-    
+
+    # Check if user has analyzed (imported) games
+    game_count = await db.game_analyses.count_documents({"user_id": user.user_id})
+    if game_count > 0:
+        return {"needs_onboarding": False}
+
+    # Real Play-with-Coach engagement also counts as activated. Found via
+    # visual testing: a user with 33 real ended coach sessions and no
+    # linked account got sent to the brand-new-user onboarding hub on
+    # every single page load, because this endpoint only ever checked
+    # linked accounts + imported games — never coach_sessions.
+    coach_session_count = await db.coach_sessions.count_documents({
+        "user_id": user.user_id,
+        "ended_at": {"$exists": True, "$ne": None},
+    })
+    if coach_session_count > 0:
+        return {"needs_onboarding": False}
+
     # Check if user has linked accounts (support both field names)
     has_linked = user_doc.get("chess_com_username") or user_doc.get("chesscom_username") or user_doc.get("lichess_username")
-    
+
     if not has_linked:
         return {"needs_onboarding": True, "reason": "no_linked_accounts"}
-    
-    # Check if user has analyzed games
-    game_count = await db.game_analyses.count_documents({"user_id": user.user_id})
-    
-    if game_count == 0:
-        return {"needs_onboarding": True, "reason": "no_analyzed_games"}
-    
-    return {"needs_onboarding": False}
+
+    return {"needs_onboarding": True, "reason": "no_analyzed_games"}
 
 
 @router.post("/settings/profile")
