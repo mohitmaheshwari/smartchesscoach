@@ -7268,7 +7268,15 @@ async def make_coach_play_move(
                 asyncio.create_task(_trigger_profile_aggregation(db, user_id=user.user_id))
 
         # Fire background task: analyze → message → coach move
-        # PLAY MODE: Skip coaching analysis and coach move — player just plays
+        # PLAY MODE: skip the coaching analysis/commentary pipeline — but the
+        # engine opponent still has to reply. "Pure chess, no coaching" means
+        # no commentary, not no opponent. This used to skip
+        # _process_move_and_respond() entirely for Play Mode, which was also
+        # the ONLY code path that ever made the coach's engine move — so
+        # every Play Mode game froze forever after the player's first move
+        # (coach_move_pending stayed True in the DB, but nothing was ever
+        # queued to clear it, and awaiting_coach was hardcoded False so the
+        # frontend didn't even poll for a reply).
         if not is_play_mode:
             asyncio.create_task(
                 _process_move_and_respond(
@@ -7283,13 +7291,21 @@ async def make_coach_play_move(
                     expected_action_revision=action_revision
                 )
             )
+        elif not game_over:
+            asyncio.create_task(
+                _play_mode_coach_move(
+                    session_id=session_id,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                )
+            )
 
         return {
             "success": True,
             "user_move_recorded": True,
             "move": move,
             "current_fen": fen_after_user,
-            "awaiting_coach": not game_over and not is_play_mode,
+            "awaiting_coach": not game_over,
             "game_over": game_over,
             "result": result,
             "curriculum_feedback": curriculum_feedback,
@@ -7790,6 +7806,37 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         publish_session_event(session_id, {"type": "coach_turn_failed"})
         return False
 
+
+async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_rating: int):
+    """Play Mode's opponent reply. Same engine move as Coach Mode's
+    _process_move_and_respond, minus the coaching commentary/analysis
+    pipeline — Play Mode is "pure chess, no coaching", not "no opponent".
+
+    Re-fetches move_history fresh from the DB (rather than trusting an
+    in-memory list passed at task-creation time) to match
+    _process_move_and_respond's pattern and avoid any staleness.
+    """
+    from coach_play.coach_opponent import CoachOpponent
+
+    try:
+        coach = CoachOpponent(user_rating=user_rating)
+        coach_move_san = await coach.get_move(fen_after_user)
+        if not coach_move_san:
+            logger.error(f"[PLAY MODE] Coach found no move for session {session_id[:8]}")
+            await db.coach_sessions.update_one(
+                {"session_id": session_id}, {"$set": {"coach_move_pending": False}}
+            )
+            publish_session_event(session_id, {"type": "coach_turn_failed"})
+            return
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        move_history = session_doc.get("move_history", []) if session_doc else []
+        await _apply_coach_move(db, session_id, fen_after_user, coach_move_san, move_history)
+    except Exception as e:
+        logger.error(f"[PLAY MODE] Coach move failed for session {session_id[:8]}: {e}")
+        await db.coach_sessions.update_one(
+            {"session_id": session_id}, {"$set": {"coach_move_pending": False}}
+        )
+        publish_session_event(session_id, {"type": "coach_turn_failed"})
 
 
 async def _process_move_and_respond(
