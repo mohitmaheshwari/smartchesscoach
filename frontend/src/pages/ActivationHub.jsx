@@ -83,7 +83,7 @@ const ActivationHub = () => {
               <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
               <div>
                 <div className="text-[15px] font-medium" style={{ color: INK }}>Get your free Chess DNA</div>
-                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>A few quick puzzles — find your level and your weak spots.</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>About 25 puzzles, no timer — find your level and your weak spots.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />

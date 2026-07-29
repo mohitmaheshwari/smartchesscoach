@@ -40,6 +40,7 @@ const DiagnosticPuzzles = () => {
   const [diagnosis, setDiagnosis] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const boardRef = useRef(null);
 
   // ── Start the diagnostic on mount ──────────────────────────────
@@ -384,7 +385,7 @@ const DiagnosticPuzzles = () => {
             </h1>
           </div>
           <button
-            onClick={handleExit}
+            onClick={() => setShowExitConfirm(true)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             data-testid="diagnostic-skip-btn"
           >
@@ -498,6 +499,44 @@ const DiagnosticPuzzles = () => {
           </div>
         </div>
       </div>
+
+      {/* Exit-intent confirmation — explains the cost of stopping early
+          instead of silently discarding the rest of the read. No
+          gamification/guilt language, just what actually happens. */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-xl">
+            <h2 className="text-[15px] font-serif font-medium text-foreground mb-2">
+              Finish the diagnostic?
+            </h2>
+            <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
+              You've completed {Math.max(0, puzzleNumber - 1)} of about 25 puzzles.
+              Your coach uses the full set to work out what you actually
+              understand, not just what you don't — stopping now means a
+              partial read, and your first training plan will be based on
+              less evidence than it could be.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => setShowExitConfirm(false)}
+                data-testid="diagnostic-exit-cancel"
+              >
+                Continue diagnostic
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleExit}
+                data-testid="diagnostic-exit-confirm"
+              >
+                Exit anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
