@@ -135,6 +135,20 @@ const CoachPlay = ({ user }) => {
     };
   }, [session?.session_id]);
 
+  const [timeControl, setTimeControl] = useState("15+10");
+  const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
+  
+  // Timer state
+  const [moveStartTime, setMoveStartTime] = useState(null);
+  
+  // Game over state
+  const [gameOver, setGameOver] = useState(false);
+  const [gameResult, setGameResult] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [cprResult, setCprResult] = useState(null);
+  const [playerIdentity, setPlayerIdentity] = useState(null);
+  const [sessionReflection, setSessionReflection] = useState(null);
+
   // ─── Resync on tab becoming visible again ────────────────────────────
   // Long-running tabs can have their poll timers throttled or their SSE
   // connection silently die (backgrounded tab, network blip, mobile OS
@@ -154,20 +168,6 @@ const CoachPlay = ({ user }) => {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [session?.session_id, gameOver]);
 
-  const [timeControl, setTimeControl] = useState("15+10");
-  const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
-  
-  // Timer state
-  const [moveStartTime, setMoveStartTime] = useState(null);
-  
-  // Game over state
-  const [gameOver, setGameOver] = useState(false);
-  const [gameResult, setGameResult] = useState(null);
-  const [summary, setSummary] = useState(null);
-  const [cprResult, setCprResult] = useState(null);
-  const [playerIdentity, setPlayerIdentity] = useState(null);
-  const [sessionReflection, setSessionReflection] = useState(null);
-  
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
 
