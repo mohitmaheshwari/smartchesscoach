@@ -7266,6 +7266,14 @@ async def make_coach_play_move(
             session = await db.coach_sessions.find_one({"session_id": session_id})
             if session and session.get("game_mode") == "play":
                 asyncio.create_task(_trigger_profile_aggregation(db, user_id=user.user_id))
+                # Same gap as the coach-move-ends-game case: Play Mode never
+                # runs _process_move_and_respond, which is where Coach Mode
+                # promotes the finished game to games/game_analyses and runs
+                # postgame_analysis. Close it here for the case where the
+                # PLAYER's own move ends the game (checkmate/stalemate).
+                asyncio.create_task(
+                    _promote_and_analyze_completed_game(db, session_id, user.user_id)
+                )
 
         # Fire background task: analyze → message → coach move
         # PLAY MODE: skip the coaching analysis/commentary pipeline — but the
@@ -7807,6 +7815,48 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         return False
 
 
+async def _promote_and_analyze_completed_game(db, session_id: str, user_id: str):
+    """Play Mode's game-end analysis — the promote-to-Lab + full postgame
+    analysis that Coach Mode gets for free via _process_move_and_respond.
+    Play Mode skips that function entirely (it's built around the
+    coaching-commentary pipeline Play Mode doesn't want), which meant a
+    Play Mode game ending by actual checkmate/stalemate — from either
+    side's move — never got promoted to games/game_analyses and never ran
+    postgame_analysis, unlike a resigned game (which gets both from the
+    always-on /coach/play/end path). Call this whenever a Play Mode
+    session's status flips to "completed" via a move (not resign).
+    """
+    if not user_id:
+        return
+    try:
+        await _promote_session_to_game(db, session_id, user_id)
+    except Exception as e:
+        logger.warning(f"[PLAY MODE] Game promotion failed for {session_id[:8]}: {e}")
+
+    try:
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        if not session_doc:
+            return
+        move_history = session_doc.get("move_history", [])
+        if len(move_history) < 4:
+            return
+        from services.postgame_analysis import analyze_postgame
+        await analyze_postgame(
+            db=db,
+            session_id=session_id,
+            user_id=user_id,
+            move_history=move_history,
+            evaluations=session_doc.get("evaluations", []),
+            game_result=session_doc.get("result"),
+            user_rating=session_doc.get("user_rating", 1200),
+            user_color=session_doc.get("user_color", "white"),
+            time_controls=session_doc.get("time_controls"),
+        )
+        logger.info(f"[PLAY MODE] Postgame analysis completed for {session_id[:8]}")
+    except Exception as e:
+        logger.warning(f"[PLAY MODE] Postgame analysis failed for {session_id[:8]}: {e}")
+
+
 async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_rating: int):
     """Play Mode's opponent reply. Same engine move as Coach Mode's
     _process_move_and_respond, minus the coaching commentary/analysis
@@ -7831,6 +7881,17 @@ async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_ratin
         session_doc = await db.coach_sessions.find_one({"session_id": session_id})
         move_history = session_doc.get("move_history", []) if session_doc else []
         await _apply_coach_move(db, session_id, fen_after_user, coach_move_san, move_history)
+
+        # If the coach's own move just ended the game (checkmate/stalemate),
+        # Play Mode's /move handler never calls _process_move_and_respond —
+        # which is where this would normally happen. Close that gap here.
+        updated = await db.coach_sessions.find_one(
+            {"session_id": session_id}, {"_id": 0, "status": 1, "user_id": 1}
+        )
+        if updated and updated.get("status") == "completed":
+            await _promote_and_analyze_completed_game(
+                db, session_id, updated.get("user_id")
+            )
     except Exception as e:
         logger.error(f"[PLAY MODE] Coach move failed for session {session_id[:8]}: {e}")
         await db.coach_sessions.update_one(
