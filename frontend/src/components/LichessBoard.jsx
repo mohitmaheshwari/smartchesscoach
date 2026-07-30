@@ -45,6 +45,13 @@ const LichessBoard = forwardRef(({
   movableColor = null,
   moveClassification = null, // { square: "e4", type: "blunder" | "best" | "mistake" | ... }
   showCoordinates = true,    // file letters a-h + rank numbers 1-8 overlay (Parth req 2026-06-03)
+  // Hard kill-switch for arrows/circles — every caller (props, the imperative
+  // drawArrows/highlightSquares handle, the initial chessground config) is
+  // forced empty when true. This is the ONE place that guarantees no coaching
+  // shape can ever appear, regardless of which of the many call sites upstream
+  // (geometry overlay, candidate-move overlay, chat suggestions, prediction
+  // reveals, teaching arrows...) forgot to check the caller's own game mode.
+  disableArrows = false,
 }, ref) => {
   // Ensure fen is never null/undefined
   const fen = fenProp || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -71,6 +78,7 @@ const LichessBoard = forwardRef(({
       }
     },
     drawArrows: (arrowList) => {
+      if (disableArrows) return;
       if (groundRef.current) {
         // Convert to chessground format: [brush, orig, dest]
         const shapes = arrowList.map(([from, to, color]) => ({
@@ -87,6 +95,7 @@ const LichessBoard = forwardRef(({
       }
     },
     highlightSquares: (squares) => {
+      if (disableArrows) return;
       if (groundRef.current) {
         const shapes = squares.map(sq => ({
           orig: sq,
@@ -408,7 +417,7 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          autoShapes: arrows.length > 0 ? arrows.map(([from, to, color]) => {
+          autoShapes: (!disableArrows && arrows.length > 0) ? arrows.map(([from, to, color]) => {
             // Coach geometry overlay: green = your plan, yellow = coach's plan,
             // pale variants = latent "line to watch". docs/coach_geometry_arrows_scope.md
             let brush = "blue";
@@ -432,7 +441,7 @@ const LichessBoard = forwardRef(({
         groundRef.current = null;
       }
     };
-  }, [shouldBeInteractive, planMode, movableColor]);  // Re-create only when interactivity mode changes
+  }, [shouldBeInteractive, planMode, movableColor, disableArrows]);  // Re-create only when interactivity mode changes
 
   // Track the previous fen to detect if we need to update it
   const prevFenRef = useRef(fen);
@@ -552,6 +561,18 @@ const LichessBoard = forwardRef(({
 
   // Update arrows + circles — only when either changes
   useEffect(() => {
+    if (disableArrows) {
+      // Kill-switch: force-clear regardless of what the caller passed, and
+      // skip tracking prevArrows/prevCircles so a later re-enable (e.g. a
+      // mode switch mid-session) always re-applies from a clean slate.
+      const clear = () => {
+        if (!groundRef.current) { setTimeout(clear, 50); return; }
+        groundRef.current.setAutoShapes([]);
+      };
+      clear();
+      return;
+    }
+
     const arrowsKey = JSON.stringify(arrows);
     const circlesKey = JSON.stringify(circles);
     const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
@@ -582,7 +603,7 @@ const LichessBoard = forwardRef(({
     };
 
     applyShapes();
-  }, [arrows, circles]);
+  }, [arrows, circles, disableArrows]);
 
   // Compute icon position for move classification
   const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];
