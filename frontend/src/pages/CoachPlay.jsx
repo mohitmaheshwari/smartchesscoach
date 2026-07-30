@@ -282,11 +282,12 @@ const CoachPlay = ({ user }) => {
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
 
-  // PLAY MODE: Master override - always clear arrows in play mode
+  // PLAY MODE: Master override - always clear arrows in play mode.
+  // Belt-and-suspenders alongside the render-time gate below (CoachPlayBoard's
+  // coachArrows prop) — that gate is the authoritative fix; this just keeps
+  // internal state consistent so a later mode switch doesn't show stale arrows.
   useEffect(() => {
-    console.log("[ARROW-TRACE] gameMode changed to:", gameMode);
     if (gameMode === "play") {
-      console.log("[ARROW-TRACE] MASTER OVERRIDE: Clearing arrows because gameMode=play");
       setCoachArrows([]);
     }
   }, [gameMode]);
@@ -315,7 +316,6 @@ const CoachPlay = ({ user }) => {
           const tuples = plans.flatMap((p) =>
             (p.arrows || []).map(([f, t]) => [f, t, brushFor(p)])
           );
-          console.log("[ARROW-TRACE] GEOMETRY ENDPOINT setting arrows:", tuples, "gameMode:", gameMode);
           setCoachArrows(tuples);
         }
       })
@@ -323,7 +323,7 @@ const CoachPlay = ({ user }) => {
     return () => {
       cancelled = true;
     };
-  }, [currentFen, gameStarted, isInTeachingMode, gameOver, selectedColor]);
+  }, [currentFen, gameStarted, isInTeachingMode, gameOver, selectedColor, gameMode]);
   // Coach move explanation — shown after coach plays
   const [coachMoveExplanation, setCoachMoveExplanation] = useState(null);
   // Track last commentary observation titles to suppress repeats
@@ -353,7 +353,6 @@ const CoachPlay = ({ user }) => {
     const coachIdea = gamePly > 0 ? openingIdeas[gamePly - 1] : null;
 
     if (idea?.arrow) {
-      console.log("[ARROW-TRACE] OPENING IDEAS setting arrow for ply", gamePly, ":", idea.arrow, "gameMode:", gameMode);
       setCoachArrows([[idea.arrow[0], idea.arrow[1], "green"]]);
       // Update guidance for CommentaryPanel
       coachFlow.setOpeningGuidance({
@@ -441,7 +440,6 @@ const CoachPlay = ({ user }) => {
         }
       });
       if (arrowTuples.length > 0) {
-        console.log("[ARROW-TRACE] V5COACHING CANDIDATES setting arrows:", arrowTuples, "gameMode:", gameMode);
         setCoachArrows(arrowTuples);
       }
     } catch (_e) {
@@ -1541,7 +1539,6 @@ const CoachPlay = ({ user }) => {
               // Check if best_move_uci exists directly or in raw feedback
               const rawUci = data.best_move_uci || v5.best_move_uci || "";
               if (rawUci && rawUci.length >= 4) {
-                console.log("[ARROW-TRACE] BEST MOVE arrow:", rawUci, "gameMode:", gameMode);
                 setCoachArrows([[rawUci.slice(0, 2), rawUci.slice(2, 4), "green"]]);
                 setTimeout(() => setCoachArrows([]), 6000);
               }
@@ -1562,7 +1559,6 @@ const CoachPlay = ({ user }) => {
             // Red arrow pointing at the trapped piece (from nearest attacker if any)
             // For now just show the suggested move
             if (trapArrows.length > 0) {
-              console.log("[ARROW-TRACE] TRAP ARROWS:", trapArrows, "gameMode:", gameMode);
               setCoachArrows(trapArrows);
               setTimeout(() => setCoachArrows([]), 8000);
             }
@@ -1625,7 +1621,6 @@ const CoachPlay = ({ user }) => {
           if (data.pre_move_trap.reduction_moves?.length > 0) {
             const r = data.pre_move_trap.reduction_moves[0];
             if (r.from && r.to) {
-              console.log("[ARROW-TRACE] PRE_MOVE_TRAP arrow:", [r.from, r.to], "gameMode:", gameMode);
               setCoachArrows([[r.from, r.to, "green"]]);
               setTimeout(() => setCoachArrows([]), 10000);
             }
@@ -3324,7 +3319,7 @@ const CoachPlay = ({ user }) => {
           setOpeningCorrectionCount={setOpeningCorrectionCount}
           coachingLocked={coachingLocked}
           hideEvalBar={hideEvalBar}
-          coachArrows={coachArrows}
+          coachArrows={gameMode === "play" ? [] : coachArrows}
           coachThinking={coachThinking}
           undoLoading={undoLoading}
           hasCastled={hasCastled}
