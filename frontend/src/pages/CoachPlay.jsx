@@ -2725,6 +2725,24 @@ const CoachPlay = ({ user }) => {
 
     if (!moveObj) return false;
 
+    // PLAY MODE: pure chess, no coaching — skip the entire evaluate-pending /
+    // guardian / coaching-hold pipeline below and commit instantly. That
+    // pipeline can enter a "critical hold" (coachFlow) or a guardian
+    // "are you sure?" pause, both of which wait for an explicit clock-tap
+    // or confirm that Play Mode's UI never surfaces — leaving real moves
+    // stuck showing an uncommitted preview position forever ("coach's
+    // move, king in check... game is now frozen").
+    if (gameMode === "play") {
+      const timeSpentPlay = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+      setCurrentFen(chess.fen());
+      highlightMove(moveObj.from + moveObj.to);
+      setUserLastMoveSquare(moveObj.to);
+      setCoachLastMoveSquare(null);
+      await executeMove(moveObj.san, timeSpentPlay);
+      setIsPlayerTurn(false);
+      return true;
+    }
+
     // Kick off client-side eval (browser WASM, non-blocking) for this user move so
     // the caption call can use it and skip the ~2s server recompute. The eval (~800ms)
     // runs while the coach thinks; fetchInteractiveCoaching awaits the stashed promise.
