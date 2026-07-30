@@ -40,6 +40,7 @@ import {
   MOTION_TIMING,
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import CoachRecommendationsGrid from "@/components/CoachRecommendationsGrid";
 import {
   ChevronRight,
   Swords,
@@ -635,6 +636,19 @@ const UnifiedProgress = ({ user }) => {
             </div>
           </motion.section>
         )}
+
+        {/* ─── Choose your training plan ───
+            Relocated from Home (see docs/home_page_coach_conversation_scope.md,
+            open question 4) — Home now assigns one focus in the coach's own
+            voice with no picker; the full plan picker with its confidence/
+            elo-gain numbers lives here, where a page about the numbers is
+            the right context for them. */}
+        <motion.section variants={fadeInUp} className="mb-16">
+          <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+            Choose your training plan
+          </div>
+          <CoachRecommendationsGrid />
+        </motion.section>
 
         {/* ─── Active pattern ─── */}
         {derived.active && (

@@ -318,6 +318,26 @@ async def migrate_game_summaries(user: User = Depends(get_current_user)):
 
 # ==================== HOME DASHBOARD V2 ====================
 
+@router.get("/home/coach-conversation")
+async def get_home_coach_conversation(user: User = Depends(get_current_user)):
+    """
+    The Home page coach conversation — see docs/home_page_coach_conversation_scope.md.
+    Replaces the old dashboard stack with a single narrative: relationship-
+    stage opener, continuity callback, a hedged belief about why the
+    player's headline pattern exists, and one plain action for today.
+
+    Returns { has_conversation: False } when there isn't enough signal yet
+    (no analyzed games, or no active focus) — the frontend falls back to
+    the existing new-user Activation flow unchanged in that case.
+    """
+    from services.home_coach_conversation import build_home_conversation
+
+    conversation = await build_home_conversation(db, user.user_id)
+    if not conversation:
+        return {"has_conversation": False}
+    return {"has_conversation": True, **conversation}
+
+
 @router.get("/home/dashboard-v2")
 async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
     """
