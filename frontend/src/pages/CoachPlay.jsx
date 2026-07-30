@@ -168,6 +168,35 @@ const CoachPlay = ({ user }) => {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [session?.session_id, gameOver]);
 
+  // ─── Periodic staleness check, independent of poll/SSE ────────────────
+  // The move-triggered poll + SSE push can drift out of sync with the
+  // server WHILE the tab stays continuously focused, not just when
+  // backgrounded — reported live: a legal move kept getting rejected
+  // because the client's position no longer matched reality, with no
+  // tab-switch involved to trigger the visibility-resync above. This
+  // check doesn't depend on the poll/SSE machinery at all: every few
+  // seconds, cheaply compare the server's real move count to what's
+  // on screen, and only force a full resync if they've actually
+  // diverged — avoids disruptive re-renders during normal, in-sync play.
+  useEffect(() => {
+    const sessionId = session?.session_id;
+    if (!sessionId || gameOver) return;
+    const localMoveCount = session?.move_history?.length ?? null;
+    const interval = setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`${API}/coach/play/state/${sessionId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const realMoveCount = data.session?.move_history?.length;
+        if (typeof realMoveCount === "number" && realMoveCount !== localMoveCount) {
+          resumeSession(sessionId);
+        }
+      } catch { /* best-effort — never break the game */ }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [session?.session_id, gameOver, session?.move_history?.length]);
+
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
 
