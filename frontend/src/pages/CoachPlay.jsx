@@ -276,6 +276,7 @@ const CoachPlay = ({ user }) => {
   const coachFlow = useCoachFlow({
     session,
     userRating: session?.user_rating || 1200,
+    gameMode,
   });
 
   // Destructure for backwards compatibility with existing code

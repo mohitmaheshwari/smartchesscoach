@@ -21,7 +21,7 @@ import {
 } from "./types";
 import { getAdaptiveHoldMs, getCoachingPresentation } from "./adaptiveTiming";
 
-export default function useCoachFlow({ session, userRating = 1200 }) {
+export default function useCoachFlow({ session, userRating = 1200, gameMode = null }) {
   // ─── Core State ─────────────────────────────────────────────
   const [interactionState, setInteractionState] = useState(INTERACTION_STATES.IDLE);
   const [clockState, setClockState] = useState(CLOCK_STATES.NORMAL);
@@ -82,8 +82,15 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
 
     // Async eval — race with 400ms window
     const sessionId = session?.session_id;
-    if (!sessionId) {
-      // No session, auto-commit
+    // PLAY MODE: "pure chess, no coaching" — never enter a hold state here,
+    // no matter which of this hook's callers invoked handleUserMove (there
+    // are several: the main move path, the move-revision/isInHold path, the
+    // opening-deviation-branch path...). Gating each caller individually is
+    // exactly what already failed once (arrows leaked the same way) — this
+    // is the one place a hold can be created, so this is the one place that
+    // needs to refuse. Always auto-commit instantly, same as the no-session
+    // fallback above.
+    if (!sessionId || gameMode === "play") {
       await commitFn(pending.san, timeSpent);
       setInteractionState(INTERACTION_STATES.COACH_TURN);
       setPendingMove(null);
