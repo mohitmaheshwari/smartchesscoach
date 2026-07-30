@@ -135,6 +135,25 @@ const CoachPlay = ({ user }) => {
     };
   }, [session?.session_id]);
 
+  // ─── Resync on tab becoming visible again ────────────────────────────
+  // Long-running tabs can have their poll timers throttled or their SSE
+  // connection silently die (backgrounded tab, network blip, mobile OS
+  // suspending the page) with no visible error — the board then shows a
+  // stale position until the user manually reloads. Re-fetch the real
+  // state via the same resumeSession() path used on initial load
+  // whenever the tab regains focus, so a refresh is never required.
+  useEffect(() => {
+    const sessionId = session?.session_id;
+    if (!sessionId || gameOver) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        resumeSession(sessionId);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [session?.session_id, gameOver]);
+
   const [timeControl, setTimeControl] = useState("15+10");
   const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
