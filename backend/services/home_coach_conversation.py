@@ -50,9 +50,12 @@ _STAGE_OPENER = {
     "one_year": "I already know what will be hard for you, before it happens.",
 }
 
-# One identity frame + one hedged theory-of-why + one plain action per
-# confirmed-signal cognitive-gap category (the six categories with real
-# labeled instances in production data as of July 30, 2026).
+# One identity frame + one plain action per confirmed-signal cognitive-gap
+# category, plus threat_awareness — a real topic_key the focus-assignment
+# pipeline produces (a broad "noticing danger" label used when evidence is
+# thin/spread across subtypes) that was missing from this bank entirely
+# until the 2026-07-31 all-user audit caught 4 real accounts rendering an
+# empty belief + generic fallback action because of the gap.
 _IDENTITY_FRAME: Dict[str, str] = {
     "piece_safety": "We're making you a player who keeps pieces safe without thinking about it.",
     "king_safety": "We're making you a player who stays calm when the king is under attack.",
@@ -60,57 +63,210 @@ _IDENTITY_FRAME: Dict[str, str] = {
     "missed_tactic": "We're training you to check your opponent's plan, not just your own.",
     "opening_knowledge": "We're building your confidence in positions you don't know yet.",
     "endgame_technique": "We're teaching you to stay careful even when you are already winning.",
+    "threat_awareness": "We're training you to notice danger the moment it appears, not after.",
 }
 
 # Each entry follows one shape on purpose: a surface guess, a correction,
 # the real (hedged) theory, then one identity-affirming reassurance clause.
 # This is a deliberate copy pattern (Mohit, 2026-07-31 rewrite pass) — it
 # should read like the coach thinking out loud, not stating a fact.
-_THEORY_OF_WHY: Dict[str, str] = {
-    "piece_safety": (
-        "At first, I thought you moved too fast. I don't think that "
-        "anymore. I think when you find a plan you like, you stop checking "
-        "the rest of the board. You believe it still looks the same. But it "
-        "changes every move. You are not careless. You just believe in "
-        "your plan too much. That is why pieces disappear."
-    ),
-    "king_safety": (
-        "At first, I thought you did not know castling was important. I "
-        "don't think that anymore. I think making a threat feels more fun "
-        "than making your king safe. Castling can feel slow. But it is "
-        "often your best move. This is not a mistake in your skill. It is "
-        "just where your excitement goes first."
-    ),
-    "tactical_oversight": (
-        "At first, I thought you could not calculate deep enough. I don't "
-        "think that anymore. I think once a move looks good to you, your "
-        "mind relaxes. Finding a good move feels like the end of the work. "
-        "But the real danger is often one move later. This is a habit, not "
-        "a limit. Habits can change."
-    ),
-    "missed_tactic": (
-        "At first, I thought you could not see these ideas. I don't think "
-        "that anymore. I think you spend all your attention on your own "
-        "plan. You forget to ask what your opponent wants. You are not "
-        "blind to it. You just are not looking for it yet."
-    ),
-    "opening_knowledge": (
-        "At first, I thought you did not like studying openings. I don't "
-        "think that anymore. I think when a position feels new, you trust "
-        "your own idea more than what you already learned. That is not a "
-        "knowledge problem. It is confidence looking in the wrong place."
-    ),
-    "endgame_technique": (
-        "At first, I thought you got careless at the end of games. I don't "
-        "think that anymore. I think winning makes you relax, because it "
-        "feels like the hard part is over. That relief is normal. But "
-        "staying careful to the very end is the real hard part."
-    ),
+#
+# Each category now has THREE variants keyed by the user's real
+# player_identities.style_profile.primary_style ("aggressive" / "positional"
+# / anything else -> "default"). This directly answers the 2026-07-31
+# all-user audit: 43 of 49 users with a conversation were seeing the exact
+# same paragraph, because only topic + day-count were ever real per-user
+# data. primary_style was picked as the personalization axis (not
+# tilt_detected_count / consistency_score) because it's the only
+# behavioral_profile-adjacent field with full coverage — verified 63/63
+# users have a player_identities doc, and primary_style splits piece_safety's
+# 43 users into a real 30/12/1 split, whereas tilt_detected_count and
+# consistency_score are only populated for 11/63 users total (see
+# _get_tilt_overlay below for how those 11 still get a bonus layer).
+# "default" covers "developing" (the enum's own "not enough data yet" value)
+# and the rare balanced/defensive/universal outliers — honestly the same
+# uncertainty the original single variant represented, just for a smaller,
+# genuinely low-signal group instead of everyone.
+_THEORY_OF_WHY: Dict[str, Dict[str, str]] = {
+    "piece_safety": {
+        "default": (
+            "At first, I thought you moved too fast. I don't think that "
+            "anymore. I think when you find a plan you like, you stop checking "
+            "the rest of the board. You believe it still looks the same. But it "
+            "changes every move. You are not careless. You just believe in "
+            "your plan too much. That is why pieces disappear."
+        ),
+        "aggressive": (
+            "At first, I thought you moved too fast. I don't think that "
+            "anymore. I think when you find an attacking plan you like, you "
+            "stop checking the rest of the board. You believe it still looks "
+            "the same. But it changes every move. You are not careless. You "
+            "just believe in your attack too much. That is why pieces "
+            "disappear."
+        ),
+        "positional": (
+            "At first, I thought you were not paying attention. I don't "
+            "think that anymore. I think you build your position slowly, so "
+            "your mind expects the game to stay calm. Then a sudden capture "
+            "surprises you. You are not careless. You are used to a quieter "
+            "kind of chess. This game can turn fast, even when it feels slow."
+        ),
+    },
+    "king_safety": {
+        "default": (
+            "At first, I thought you did not know castling was important. I "
+            "don't think that anymore. I think making a threat feels more fun "
+            "than making your king safe. Castling can feel slow. But it is "
+            "often your best move. This is not a mistake in your skill. It is "
+            "just where your excitement goes first."
+        ),
+        "aggressive": (
+            "At first, I thought you did not know castling was important. I "
+            "don't think that anymore. I think making a threat feels more fun "
+            "to you than making your king safe. You would rather attack first "
+            "and defend later. That is a real strength in the right position. "
+            "But your own king still needs a safe house early."
+        ),
+        "positional": (
+            "At first, I thought you forgot about your king. I don't think "
+            "that anymore. I think you like to finish your plan first, and "
+            "castling waits its turn. Slow positions feel safe. But a slow "
+            "position can turn into an attack on your king fast. Castling "
+            "should come first, not last."
+        ),
+    },
+    "tactical_oversight": {
+        "default": (
+            "At first, I thought you could not calculate deep enough. I don't "
+            "think that anymore. I think once a move looks good to you, your "
+            "mind relaxes. Finding a good move feels like the end of the work. "
+            "But the real danger is often one move later. This is a habit, not "
+            "a limit. Habits can change."
+        ),
+        "aggressive": (
+            "At first, I thought you could not calculate deep enough. I "
+            "don't think that anymore. I think you find one attacking idea "
+            "and play it fast, before checking what comes after. Speed is "
+            "part of your game. But the danger is often one move past where "
+            "you stopped looking."
+        ),
+        "positional": (
+            "At first, I thought you could not calculate deep enough. I "
+            "don't think that anymore. I think once a quiet move looks safe "
+            "to you, your mind relaxes completely. Quiet positions feel like "
+            "nothing is happening. But something is always happening one "
+            "move further."
+        ),
+    },
+    "missed_tactic": {
+        "default": (
+            "At first, I thought you could not see these ideas. I don't think "
+            "that anymore. I think you spend all your attention on your own "
+            "plan. You forget to ask what your opponent wants. You are not "
+            "blind to it. You just are not looking for it yet."
+        ),
+        "aggressive": (
+            "At first, I thought you could not see these ideas. I don't "
+            "think that anymore. I think you are so focused on your own "
+            "attack that you forget to check what your opponent is building. "
+            "You are not blind to it. Your attention is just pointed at your "
+            "own plan."
+        ),
+        "positional": (
+            "At first, I thought you could not see these ideas. I don't "
+            "think that anymore. I think in slow positions, you stop "
+            "expecting a sudden tactic at all. Your opponent's plan can hide "
+            "inside a quiet-looking move. You are not blind to it. You just "
+            "are not looking for it yet in positions that feel calm."
+        ),
+    },
+    "opening_knowledge": {
+        "default": (
+            "At first, I thought you did not like studying openings. I don't "
+            "think that anymore. I think when a position feels new, you trust "
+            "your own idea more than what you already learned. That is not a "
+            "knowledge problem. It is confidence looking in the wrong place."
+        ),
+        "aggressive": (
+            "At first, I thought you did not like studying openings. I "
+            "don't think that anymore. I think you want to reach a sharp "
+            "position fast, even before you fully know the theory. That is "
+            "not a knowledge problem. It is confidence looking for a fight "
+            "too early."
+        ),
+        "positional": (
+            "At first, I thought you did not like studying openings. I "
+            "don't think that anymore. I think you trust your own "
+            "understanding of a position more than memorized lines. That is "
+            "not a knowledge problem. It is confidence looking in the wrong "
+            "place, early in the game."
+        ),
+    },
+    "endgame_technique": {
+        "default": (
+            "At first, I thought you got careless at the end of games. I don't "
+            "think that anymore. I think winning makes you relax, because it "
+            "feels like the hard part is over. That relief is normal. But "
+            "staying careful to the very end is the real hard part."
+        ),
+        "aggressive": (
+            "At first, I thought you got careless at the end of games. I "
+            "don't think that anymore. I think once the attack is over, your "
+            "focus drops with it. The exciting part feels finished. That "
+            "relief is normal. But the endgame needs the same sharp attention "
+            "the attack did."
+        ),
+        "positional": (
+            "At first, I thought you got careless at the end of games. I "
+            "don't think that anymore. I think winning slowly makes you "
+            "relax, because the position finally feels safe. That relief is "
+            "normal. But staying careful to the very end is the real hard "
+            "part."
+        ),
+    },
+    "threat_awareness": {
+        "default": (
+            "At first, I thought you only missed the big threats. I don't "
+            "think that anymore. I think you check your own plan first, and "
+            "the board's danger second — or sometimes not at all. You are "
+            "not careless. You just look at the board in the wrong order."
+        ),
+        "aggressive": (
+            "At first, I thought you only missed the big threats. I don't "
+            "think that anymore. I think when you are attacking, you stop "
+            "expecting your opponent to attack back. You are not careless. "
+            "Your attention is just pointed forward, not backward."
+        ),
+        "positional": (
+            "At first, I thought you only missed the big threats. I don't "
+            "think that anymore. I think in quiet positions, danger feels "
+            "far away, so you stop scanning for it. You are not careless. "
+            "Quiet positions can still turn dangerous fast."
+        ),
+    },
 }
+
+# A cross-cutting bonus layer, not a category-specific paragraph: appended
+# to the theory text only when the user has a REAL, populated
+# behavioral_profile.tilt_detected_count at or above the real p67 value
+# observed across all 63 users with analyzed games on 2026-07-31 (0, 0, 0
+# ... 7, 23 — most users have no signal at all here; only 11/63 have this
+# field populated). Kept as one shared sentence rather than 7 more
+# hand-written paragraphs because the coverage doesn't yet justify the
+# writing effort — expand this the same way the style variants were added
+# once more of the user base has real tilt data.
+_TILT_OVERLAY_THRESHOLD = 7
+_TILT_OVERLAY_TEXT = (
+    " I also think a tough loss can carry into your very next game. That "
+    "is worth watching too."
+)
 
 # Today's one mission per category — a single memorable question, not a
 # checklist. Mohit, 2026-07-31: "that's memorable — I can repeat it in my
-# head." Same shape for every category on purpose: "ask one question."
+# head." Same shape for every category on purpose: "ask one question." Not
+# style-varied like the theory bank — varying the one line meant to be
+# repeated verbatim would work against the "memorable" goal it was designed
+# for.
 _ONE_ACTION: Dict[str, str] = {
     "piece_safety": 'Today, don\'t try to play better chess. Just ask one question before every move: "What changed after their last move?"',
     "king_safety": 'Today, ask one question before every move: "Is my king really safe right now?"',
@@ -118,6 +274,7 @@ _ONE_ACTION: Dict[str, str] = {
     "missed_tactic": 'Today, ask one question before every move: "What is my opponent trying to do?"',
     "opening_knowledge": 'Today, ask one question before every move: "Am I following a plan I know, or just guessing?"',
     "endgame_technique": 'Today, ask one question before every move: "Have I checked this all the way to the end?"',
+    "threat_awareness": 'Today, ask one question before every move: "Is anything of mine in danger right now?"',
 }
 
 _FALLBACK_ACTION = "Play one game today. Let's see what it shows us."
@@ -133,6 +290,7 @@ _CLEAN_LABEL: Dict[str, str] = {
     "missed_tactic": "spotting your opponent's ideas",
     "opening_knowledge": "your openings",
     "endgame_technique": "endgame patience",
+    "threat_awareness": "noticing danger early",
 }
 
 
@@ -216,6 +374,28 @@ async def _update_topic_cycle(db, user_id: str, topic_key: str, started_at: Opti
         upsert=True,
     )
     return cycles[topic_key]["cycle_count"]
+
+
+async def _get_style_variant(db, user_id: str) -> str:
+    """Real per-user signal, not a guess: player_identities.style_profile
+    .primary_style, verified 2026-07-31 to have full coverage (63/63 users
+    with analyzed games) and to genuinely vary (34 positional / 14
+    aggressive / 12 developing / 3 other, across the full user base).
+    Anything other than aggressive/positional collapses to 'default' —
+    that includes 'developing', which the PlayStyle enum itself defines as
+    'not enough data yet', so folding it into the same bucket as unknown
+    is honest, not a shortcut."""
+    doc = await db.player_identities.find_one({"user_id": user_id}, {"_id": 0, "style_profile.primary_style": 1})
+    style = ((doc or {}).get("style_profile") or {}).get("primary_style")
+    return style if style in ("aggressive", "positional") else "default"
+
+
+async def _get_tilt_overlay(db, user_id: str) -> Optional[str]:
+    doc = await db.player_identities.find_one({"user_id": user_id}, {"_id": 0, "behavioral_profile.tilt_detected_count": 1})
+    tilt = ((doc or {}).get("behavioral_profile") or {}).get("tilt_detected_count")
+    if tilt is not None and tilt >= _TILT_OVERLAY_THRESHOLD:
+        return _TILT_OVERLAY_TEXT
+    return None
 
 
 async def _days_since_last_game(db, user_id: str) -> Optional[int]:
@@ -310,8 +490,14 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
     cycle_count = await _update_topic_cycle(db, user_id, topic_key, focus.get("started_at"))
 
     identity = _IDENTITY_FRAME.get(topic_key)
-    theory = _THEORY_OF_WHY.get(topic_key)
     action = _ONE_ACTION.get(topic_key, _FALLBACK_ACTION)
+
+    variants = _THEORY_OF_WHY.get(topic_key, {})
+    style_variant = await _get_style_variant(db, user_id)
+    theory = variants.get(style_variant) or variants.get("default")
+    tilt_overlay = await _get_tilt_overlay(db, user_id)
+    if theory and tilt_overlay:
+        theory = theory + tilt_overlay
 
     narrative = _compose_narrative(
         stage=stage,
