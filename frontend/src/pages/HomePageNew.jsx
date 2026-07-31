@@ -252,6 +252,11 @@ export default function HomePageNew({ user }) {
               to do today") with a single flow. No cards, no stats. */}
           {coachConversation?.has_conversation ? (
             <motion.section variants={fadeInUp} className="mb-16 md:mb-20 max-w-[620px]">
+              {coachConversation.thinking_signature && (
+                <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                  {coachConversation.thinking_signature}
+                </p>
+              )}
               <p className="text-[15px] leading-relaxed text-foreground mb-5">
                 {coachConversation.narrative.stage_opener}
               </p>
@@ -262,9 +267,14 @@ export default function HomePageNew({ user }) {
               <p className="text-[15px] leading-relaxed text-foreground font-medium mb-6">
                 {coachConversation.one_action}
               </p>
-              <p className="text-[13px] text-muted-foreground mb-8">
+              <p className="text-[13px] text-muted-foreground mb-2">
                 {coachConversation.encouragement}
               </p>
+              {coachConversation.closing_line && (
+                <p className="text-[13px] text-muted-foreground mb-8">
+                  {coachConversation.closing_line}
+                </p>
+              )}
               <button
                 onClick={() => navigate("/play-with-coach")}
                 className="h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
@@ -320,20 +330,26 @@ export default function HomePageNew({ user }) {
             </>
           )}
 
-          {/* ─── NAVIGATION TILES ─── */}
-          <motion.section variants={fadeInUp} className="mt-16 pt-12 border-t border-border/40">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* ─── NAVIGATION TILES ───
+              Deliberately faded — utilities, not today's mission. Mohit,
+              2026-07-31 §7: "Now I'm back inside software... I'd fade
+              those into the background." */}
+          <motion.section variants={fadeInUp} className="mt-20 pt-10 border-t border-border/30 opacity-70 hover:opacity-100 transition-opacity">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
+              Other ways to improve
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {NAV.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.id}
                     onClick={() => navigate(item.href)}
-                    className="group p-4 rounded-lg border border-border/60 hover:border-border bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-left"
+                    className="group p-3 rounded-lg border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
                   >
-                    <Icon className="w-5 h-5 text-foreground/70 group-hover:text-foreground mb-3 transition-colors" strokeWidth={1.5} />
-                    <p className="text-[12px] font-medium text-foreground">{item.label}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">{item.sub}</p>
+                    <Icon className="w-4 h-4 text-muted-foreground/70 group-hover:text-foreground mb-2 transition-colors" strokeWidth={1.5} />
+                    <p className="text-[11.5px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</p>
+                    <p className="text-[9.5px] text-muted-foreground/60 mt-0.5">{item.sub}</p>
                   </button>
                 );
               })}

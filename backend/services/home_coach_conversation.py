@@ -62,48 +62,62 @@ _IDENTITY_FRAME: Dict[str, str] = {
     "endgame_technique": "We're teaching you to stay careful even when you are already winning.",
 }
 
+# Each entry follows one shape on purpose: a surface guess, a correction,
+# the real (hedged) theory, then one identity-affirming reassurance clause.
+# This is a deliberate copy pattern (Mohit, 2026-07-31 rewrite pass) — it
+# should read like the coach thinking out loud, not stating a fact.
 _THEORY_OF_WHY: Dict[str, str] = {
     "piece_safety": (
-        "I don't think you are careless. I think when you find a plan, you "
-        "stop looking at the whole board again. You trust it looks the same "
-        "as before. But it changes every move."
+        "At first, I thought you moved too fast. I don't think that "
+        "anymore. I think when you find a plan you like, you stop checking "
+        "the rest of the board. You believe it still looks the same. But it "
+        "changes every move. You are not careless. You just believe in "
+        "your plan too much. That is why pieces disappear."
     ),
     "king_safety": (
-        "I think you like making threats more than staying safe. Castling can "
-        "feel like a slow move. But it is often the most important move you "
-        "can make."
+        "At first, I thought you did not know castling was important. I "
+        "don't think that anymore. I think making a threat feels more fun "
+        "than making your king safe. Castling can feel slow. But it is "
+        "often your best move. This is not a mistake in your skill. It is "
+        "just where your excitement goes first."
     ),
     "tactical_oversight": (
-        "I think you stop thinking as soon as you find a move that looks "
-        "good. Not because you cannot think further. Finding a good move "
-        "feels like the job is already done."
+        "At first, I thought you could not calculate deep enough. I don't "
+        "think that anymore. I think once a move looks good to you, your "
+        "mind relaxes. Finding a good move feels like the end of the work. "
+        "But the real danger is often one move later. This is a habit, not "
+        "a limit. Habits can change."
     ),
     "missed_tactic": (
-        "I don't think you cannot see the tactic. I think you look for your "
-        "own plan first. You check your opponent's plan second — or not at "
-        "all."
+        "At first, I thought you could not see these ideas. I don't think "
+        "that anymore. I think you spend all your attention on your own "
+        "plan. You forget to ask what your opponent wants. You are not "
+        "blind to it. You just are not looking for it yet."
     ),
     "opening_knowledge": (
-        "I don't think you dislike opening theory. I think when a position "
-        "looks new to you, you trust your own idea more than what you "
-        "learned before."
+        "At first, I thought you did not like studying openings. I don't "
+        "think that anymore. I think when a position feels new, you trust "
+        "your own idea more than what you already learned. That is not a "
+        "knowledge problem. It is confidence looking in the wrong place."
     ),
     "endgame_technique": (
-        "I think when you are clearly winning, you relax. It feels like the "
-        "hard part is over. But that is exactly when careful play matters "
-        "most."
+        "At first, I thought you got careless at the end of games. I don't "
+        "think that anymore. I think winning makes you relax, because it "
+        "feels like the hard part is over. That relief is normal. But "
+        "staying careful to the very end is the real hard part."
     ),
 }
 
-# Today's one mission per category — plain English, one instruction, the
-# thing the whole page ends on.
+# Today's one mission per category — a single memorable question, not a
+# checklist. Mohit, 2026-07-31: "that's memorable — I can repeat it in my
+# head." Same shape for every category on purpose: "ask one question."
 _ONE_ACTION: Dict[str, str] = {
-    "piece_safety": 'Before you move, look at the whole board one more time. Ask: "is anything of mine free to take?"',
-    "king_safety": "If your king is still in the middle after move 10, castle first. Do that before anything else.",
-    "tactical_oversight": "When you find a move you like, stop. Look one move further before you play it.",
-    "missed_tactic": 'Before you move, ask "what does their last move want?" Ask this before "is my move good?"',
-    "opening_knowledge": "Play the same opening as last time. Trust what you learned, even if the position feels new.",
-    "endgame_technique": "When you are ahead, slow down. Check every capture all the way to the end before you play it.",
+    "piece_safety": 'Today, don\'t try to play better chess. Just ask one question before every move: "What changed after their last move?"',
+    "king_safety": 'Today, ask one question before every move: "Is my king really safe right now?"',
+    "tactical_oversight": 'Today, ask one question before every move: "Is there something even better, one move further?"',
+    "missed_tactic": 'Today, ask one question before every move: "What is my opponent trying to do?"',
+    "opening_knowledge": 'Today, ask one question before every move: "Am I following a plan I know, or just guessing?"',
+    "endgame_technique": 'Today, ask one question before every move: "Have I checked this all the way to the end?"',
 }
 
 _FALLBACK_ACTION = "Play one game today. Let's see what it shows us."
@@ -170,6 +184,64 @@ async def _remember_headline(db, user_id: str, topic_key: str) -> None:
     )
 
 
+def _ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+async def _update_topic_cycle(db, user_id: str, topic_key: str, started_at: Optional[str]) -> int:
+    """Real, data-backed count of how many separate times this topic has
+    been the headline focus — a genuine 'this is the Nth time we've worked
+    on this' claim (Mohit, 2026-07-31 §9), not a decorative guess.
+
+    A 'cycle' is a distinct focus period: started_at changing for the same
+    topic_key means the user drifted away and it came back, not that the
+    same still-open focus period is being re-read on every page load."""
+    doc = await db.home_conversation_state.find_one({"user_id": user_id}, {"_id": 0, "topic_cycles": 1})
+    cycles = (doc or {}).get("topic_cycles") or {}
+    entry = cycles.get(topic_key)
+
+    if not entry:
+        cycles[topic_key] = {"last_started_at": started_at, "cycle_count": 1}
+    elif started_at and entry.get("last_started_at") != started_at:
+        cycles[topic_key] = {"last_started_at": started_at, "cycle_count": entry.get("cycle_count", 1) + 1}
+    # else: same open cycle, no change
+
+    await db.home_conversation_state.update_one(
+        {"user_id": user_id},
+        {"$set": {"topic_cycles": cycles}},
+        upsert=True,
+    )
+    return cycles[topic_key]["cycle_count"]
+
+
+async def _days_since_last_game(db, user_id: str) -> Optional[int]:
+    """Same date_played normalization pattern as pattern_decay_service's
+    build_decay_games — reused rather than re-invented. Used only to gate
+    the 'I've been thinking about your games' signature line on a real
+    absence, not a random draw (see scope discussion, Mohit 2026-07-31)."""
+    games = await db.games.find(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0, "date_played": 1},
+    ).to_list(None)
+
+    def norm(d):
+        s = str(d or "").replace(".", "-")[:10]
+        return s if len(s) == 10 else None
+
+    dates = sorted((norm(g.get("date_played")) for g in games if norm(g.get("date_played"))), reverse=True)
+    if not dates:
+        return None
+    try:
+        last = datetime.fromisoformat(dates[0]).replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+    return max(0, (datetime.now(timezone.utc) - last).days)
+
+
 def _compose_narrative(
     stage: str,
     topic_key: str,
@@ -177,6 +249,7 @@ def _compose_narrative(
     days_into_focus: int,
     theory: Optional[str],
     revision: Optional[Dict[str, str]],
+    cycle_count: int,
 ) -> Dict[str, str]:
     label = (topic_label or topic_key.replace("_", " ")).lower()
 
@@ -187,12 +260,18 @@ def _compose_narrative(
     else:
         continuity = f"We've worked on {label} for {days_into_focus} days now."
 
+    # A REAL recurrence claim — cycle_count comes from _update_topic_cycle,
+    # which only increments when the topic's started_at genuinely changed
+    # (they drifted away and it came back). Never shown on a first cycle.
+    if cycle_count >= 2 and not revision:
+        continuity += f" This is the {_ordinal(cycle_count)} time we've worked on this together."
+
     if revision and theory:
         prev_label = revision["previous_topic"].replace("_", " ")
         belief = (
-            f"I thought {prev_label} was your biggest problem. After "
-            f"watching your last games again, I don't think that's it "
-            f"anymore. {theory}"
+            f"For a while, {prev_label} was the biggest thing holding you "
+            f"back. You've been getting better there, so today I'm moving "
+            f"our attention. {theory}"
         )
     else:
         belief = theory or ""
@@ -228,6 +307,7 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
 
     revision = await _check_theory_revision(db, user_id, topic_key)
     await _remember_headline(db, user_id, topic_key)
+    cycle_count = await _update_topic_cycle(db, user_id, topic_key, focus.get("started_at"))
 
     identity = _IDENTITY_FRAME.get(topic_key)
     theory = _THEORY_OF_WHY.get(topic_key)
@@ -240,7 +320,14 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
         days_into_focus=days_into_focus,
         theory=theory,
         revision=revision,
+        cycle_count=cycle_count,
     )
+
+    # A real-absence-gated signature line, not a random draw (Mohit,
+    # 2026-07-31: "not every day — but often" — tied to a genuine gap
+    # since their last game rather than an arbitrary coin flip).
+    days_away = await _days_since_last_game(db, user_id)
+    thinking_signature = "I've been thinking about your games." if (days_away or 0) >= 1 else None
 
     return {
         "stage": stage,
@@ -252,4 +339,6 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
         "one_action": action,
         "narrative": narrative,
         "encouragement": "I'll tell you how it looks tomorrow.",
+        "closing_line": "Now go play. I want to see if my theory is right.",
+        "thinking_signature": thinking_signature,
     }
