@@ -37,6 +37,13 @@ from services.concept_detectors.registry import all_detectors
 # strict 3-arg contract from registry.py unchanged; we only pass the
 # extra kwargs to detectors that actually declare them, via
 # inspect.signature, rather than widening the contract for all 10.
+#
+# NOTE: this fix alone does NOT make trap_detection/opening_play fire —
+# both have separate, deeper bugs (wrong-argument-type call into
+# trap_recognition.detect_trap_setup, and an import of functions that
+# don't exist in opening_curriculum_engine.py) found during end-to-end
+# verification. See docs/caption_pipeline_architecture_reference.md
+# §11 item 1 — deliberately not fixed here, needs its own scoping.
 _EXTRA_KWARG_CACHE: dict = {}
 
 

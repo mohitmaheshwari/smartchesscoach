@@ -467,6 +467,34 @@ constructor passed an explicit `timeout=`, so a slow upstream response had
 no ceiling — both now pass `timeout=30.0`, generous for the ~50-200 token
 completions this codebase actually asks for.
 
+### 9.0.1 CRITICAL, found while spot-checking the timeout fix (2026-08-03):
+### both LLM providers are currently non-functional in production
+
+Verified directly against the running production container, not inferred:
+
+- `ANTHROPIC_API_KEY` **is not set anywhere** — not in the untracked
+  project-root `.env`, not in `docker-compose.yml`, not in the running
+  `chess-coach-backend` container's environment (`printenv` confirms it
+  absent). Every call to `call_llm()` with a `"claude*"` model — which is
+  the module's own stated default ("used by V5 caption pipeline + all
+  coach narrators") — fails immediately with `TypeError: Could not
+  resolve authentication method`, before any network call is attempted.
+- `OPENAI_API_KEY` **is set**, but the account has **zero credit
+  balance** — a live call returns `openai.RateLimitError: 429
+  insufficient_quota / credit_balance_exhausted`.
+- Net effect: **every LLM call in this codebase currently fails**, for
+  two independent reasons, and has very likely been failing for some
+  time (this is not something today's changes caused — the missing key
+  and the exhausted OpenAI balance both predate this session). Every
+  caller is presumably falling back to whatever degraded/deterministic
+  behavior its `except` clause provides, silently, in front of real
+  users — consistent with the "LLM calls can fail silently" known issue
+  already called out in `CLAUDE.md`.
+- **This needs Mohit's direct action** (issue/rotate an Anthropic API key,
+  add OpenAI billing credit, or both) — it is a credentials/billing
+  decision, not a code fix, and is explicitly out of scope for this
+  session's authorized bug-fix pass.
+
 ### 9.1 The "reproducible hang" — corrected finding
 
 An earlier pass through this audit (2026-08-01/02) found what looked like
@@ -565,7 +593,7 @@ a code bug).
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
-| 1 | `trap_detection` / `opening_play` concept detectors never fire (runner never passed `move_number`/`opening_name`, which both detectors require) | Medium — silent data loss, no crash | **FIXED 2026-08-03** — `_runner.py` now inspects each detector's signature and forwards the extra kwargs only to detectors that declare them |
+| 1 | `trap_detection` / `opening_play` concept detectors never fire | Medium — silent data loss, no crash | **PARTIALLY FIXED, still non-functional 2026-08-03** — `_runner.py` now correctly forwards `move_number`/`opening_name` to detectors that declare them (that part is genuinely fixed and verified). But end-to-end testing on real book-opening moves (`e4 e5 Nf3 Nc6 Bc4`, a resolved `opening_name`) showed both detectors STILL return `None`, for two separate, deeper, pre-existing bugs the arg-passing fix didn't touch: (a) `opening_play.py` imports `get_opening_for_game`/`is_in_book`/`is_known_bad_deviation` from `opening_curriculum_engine.py` — **none of the three exist in that file**, so the import always raises and the broad `except Exception` swallows it; (b) `trap_detection.py` calls `detect_trap_setup(board_before)`, but the real function signature is `detect_trap_setup(played_moves_san: List[str])` — passing a `chess.Board` raises `TypeError: 'Board' object is not iterable` every time (confirmed directly), again swallowed by the broad except. Additionally, even with the right input type, the detector reads `trap_hit.get("victim_move")` / `trap_hit.get("defense_moves")` — keys that don't exist on `detect_trap_setup`'s real return shape (`name`, `family`, `trap_line`, `trap_line_steps`, `trap_color`, ...). Fixing this for real requires redesigning the victim/defense grading against the actual trap_color + trap_line semantics, and building the missing opening-book matching functions — both are net-new logic, not "align a call signature." **Deliberately not attempted in this pass** — flagging for separate scoping rather than shipping an unvetted redesign under the "small fix" authorization this session actually had |
 | 2 | `socratic_coaching` never populated for game review (0/12,328) | Medium — orphaned feature, real UX upside if fixed | **FIXED 2026-08-03** — root cause was NOT a missing `socratic_context` wiring (that guess was wrong); it was the forced-recapture severity downgrade in `compute_severity_for_move` silently feeding "good" into `severity_override` regardless of real cp_loss. See §9.2. Frontend render updated to match (§10) |
 | 3 | `player_identities.pattern_history` — opponent always "unknown", description always empty | Low-Medium — degrades a "remember this" retrieval feature that isn't built yet anyway | **FIXED 2026-08-03** — `data_freshness.py`'s `$project` was dropping the `$lookup`-joined `white_player`/`black_player` fields before the per-game loop could read them; added to the projection, plus a real description built from the existing caption text |
 | 4 | `/coach/deep-memory/pattern-history` route referenced by frontend does not exist | Low — panel degrades to blank via `DeepMemoryPanel.jsx`'s `if (error \|\| !memory) return null`, not a visible crash | **Deferred, not in this pass** — building the route family requires matching an undocumented response shape across two endpoints; bigger and riskier than the other items here, needs its own scoping |
@@ -595,7 +623,14 @@ a code bug).
   .py`'s intentional warm-engine design (see §9.1). Don't re-open it
   without first checking whether a new repro actually differs from that
   known artifact.
-- `socratic_coaching` population, the concept-detector no-op, and the
-  `pattern_history` data-loss bug (§11, items 1-3, 5) were all root-
-  caused and fixed 2026-08-03. The `/coach/deep-memory` route gap (item
-  4) remains open and deliberately deferred.
+- `socratic_coaching` population and the `pattern_history` data-loss bug
+  (§11, items 2-3, 5) were root-caused and fixed 2026-08-03, and verified
+  against real, freshly-regenerated production data — not just code
+  review. The concept-detector fix (item 1) is only partial: the
+  arg-passing bug is genuinely fixed, but end-to-end testing surfaced two
+  separate, deeper pre-existing bugs (a nonexistent-function import in
+  `opening_play.py`, a wrong-argument-type call in `trap_detection.py`)
+  that keep both detectors non-functional. Fixing those requires net-new
+  design work, not a mechanical patch — deliberately left open rather
+  than shipped unvetted. The `/coach/deep-memory` route gap (item 4)
+  remains open and deliberately deferred.
