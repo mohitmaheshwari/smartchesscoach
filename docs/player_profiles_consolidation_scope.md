@@ -1,6 +1,17 @@
 # player_profiles consolidation — scope
 
-Status: DRAFT, awaiting Mohit's sign-off. No code changes made under this scope yet.
+Status: RESOLVED 2026-07-25 (commit `ec6fbf9f`), verified live in production
+2026-08-03. Option B was chosen: Writer 3 (`refresh_player_profile`) no longer
+writes `total_blunders`/`total_mistakes`/`total_inaccuracies` — renamed to
+`recent_20_total_blunders`/`recent_20_total_mistakes`/`recent_20_total_inaccuracies`
+so the two writers' distinct field names never collide again. Writer 2
+(`update_player_profile_sync`) remains the sole owner of the career-cumulative
+`total_blunders`/`total_mistakes`, which is what `services/chess_understanding.py`
+actually reads. `games_analyzed_count` (Writer 2, career) and `games_analyzed`
+(Writer 3, last-20) were already distinctly named and both have live readers —
+left as-is. Writer 1 (dead code, `player_profile_service.update_profile_after_analysis`)
+untouched — zero live callers, not part of this fix. This section below is the
+original pre-fix analysis, kept for context.
 
 ## Why this exists
 
@@ -128,5 +139,8 @@ elsewhere — deletion, not consolidation.
 
 ## Next step
 
-Mohit picks A / B / C (or a fourth option), then this scope doc gets a
-follow-up implementation section and only then does code change.
+~~Mohit picks A / B / C (or a fourth option), then this scope doc gets a
+follow-up implementation section and only then does code change.~~
+
+Resolved — see Status line at top. No further action needed unless a new
+writer is introduced.

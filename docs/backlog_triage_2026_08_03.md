@@ -111,10 +111,12 @@ whole initiative was built to answer is still unanswered.
 
 ## Genuinely open decisions needing your call
 
-- **`player_profiles` has 3 independent writers**, never consolidated to 1.
-  The specific bug this caused was patched as a side-effect of unrelated
-  work, but the actual A/B/C consolidation decision from
-  `player_profiles_consolidation_scope.md` was never made.
+- ~~`player_profiles` has 3 independent writers, never consolidated to 1~~ —
+  **this line was wrong.** The field-collision bug (Writer 3 silently
+  clobbering Writer 2's career totals every game) was already fixed via
+  Option B on 2026-07-25 (`ec6fbf9f`), verified live in production
+  2026-08-03. `player_profiles_consolidation_scope.md`'s status line was
+  just never updated after the fix shipped — corrected now.
 - **PWC Coach Conductor's "no-quiz purge" is half-done.** The
   memory/thread narrative engine (motif/concept/endgame/opening threads) is
   live. But the quiz-style surfaces it was meant to replace or reduce
