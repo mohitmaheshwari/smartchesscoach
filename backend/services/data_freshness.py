@@ -114,6 +114,7 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
             "white_player": "$game_info.white_player",
             "black_player": "$game_info.black_player",
             "stockfish_analysis": 1,
+            "decryption_v5_data": 1,
             "analyzed_at": 1
         }}
     ]))
@@ -169,7 +170,26 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         opponent_name = (
             game.get("black_player") if user_color == "white" else game.get("white_player")
         ) or "unknown"
-        
+
+        # 2026-08-03 second fix: the description below used to read
+        # move_eval.get("caption") on the RAW stockfish_analysis.
+        # move_evaluations records — that field never exists there
+        # (confirmed: 0/14,992 sampled moves across 500 games have it).
+        # Real per-move caption text lives on the separate
+        # decryption_v5_data array, which is NOT index-aligned with
+        # move_evaluations (different length — one entry per ply for
+        # BOTH colors, vs move_evaluations' user-only entries) and
+        # can have two entries sharing the same move_number (White's
+        # and Black's Nth move are both "move N" in standard notation).
+        # fen_before is a near-unique join key across the whole game,
+        # so build a lookup on it once per game instead of a fragile
+        # move_number/SAN match.
+        dv_by_fen = {
+            dv.get("fen_before"): dv
+            for dv in (game.get("decryption_v5_data") or [])
+            if dv.get("fen_before") and dv.get("caption")
+        }
+
         # Determine if user won/lost/drew
         user_won = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
         user_lost = (result == "0-1" and user_color == "white") or (result == "1-0" and user_color == "black")
@@ -230,11 +250,13 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
                 
                 # Add to pattern history (for clickable links in Memory tab)
                 # description reuses the real, already-verified caption text
-                # from analysis (not fabricated here) — falls back to a
-                # plain phase+pattern sentence only when a caption is
-                # genuinely absent (older analyses predating the caption
-                # pipeline).
-                description = move_eval.get("caption") or f"{category.replace('_', ' ').capitalize()} in the {phase}."
+                # from decryption_v5_data (matched by fen_before — see the
+                # dv_by_fen lookup built above) — falls back to a plain
+                # phase+pattern sentence only when the game has no V5 data
+                # for this exact position (game never V5-processed, or this
+                # move fell outside V5's teaching-signal criteria).
+                dv_match = dv_by_fen.get(move_eval.get("fen_before"))
+                description = (dv_match or {}).get("caption") or f"{category.replace('_', ' ').capitalize()} in the {phase}."
                 pattern_entry = {
                     "game_id": game_id,
                     "move_number": move_num,
