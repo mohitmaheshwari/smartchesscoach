@@ -19,17 +19,42 @@ integration points are kept small (two call sites total).
 """
 from __future__ import annotations
 
+import inspect
 from typing import Iterable, List, Optional, Tuple
 
 import chess
 
 from services.concept_detectors.registry import all_detectors
 
+# Detectors beyond the documented 3-arg contract (board_before, move,
+# user_color) declare extra optional kwargs — trap_detection and
+# opening_play both need `move_number` to even run (their own first
+# line is `if move_number is None: return None`), and opening_play also
+# needs `opening_name`. The runner used to call every detector with
+# exactly 3 positional args, so these two silently never fired in
+# production — no crash, since the extra params have defaults, just a
+# permanent no-op. Bug fixed 2026-08-03. Every OTHER detector keeps the
+# strict 3-arg contract from registry.py unchanged; we only pass the
+# extra kwargs to detectors that actually declare them, via
+# inspect.signature, rather than widening the contract for all 10.
+_EXTRA_KWARG_CACHE: dict = {}
+
+
+def _extra_kwargs_accepted(detector) -> set:
+    cached = _EXTRA_KWARG_CACHE.get(detector)
+    if cached is None:
+        params = inspect.signature(detector).parameters
+        cached = {name for name in ("move_number", "opening_name") if name in params}
+        _EXTRA_KWARG_CACHE[detector] = cached
+    return cached
+
 
 def run_detectors_for_move(
     board_before: chess.Board,
     move: chess.Move,
     user_color: chess.Color,
+    move_number: Optional[int] = None,
+    opening_name: Optional[str] = None,
 ) -> List[Tuple[str, str]]:
     """Run every registered detector against a move.
 
@@ -38,13 +63,23 @@ def run_detectors_for_move(
     the user passed and "wrong" when the user failed. Detectors that
     return None (not a clean test) are filtered out.
 
+    `move_number` / `opening_name` are optional and only forwarded to
+    detectors that declare them (trap_detection, opening_play) — every
+    other detector keeps its strict 3-positional-arg contract.
+
     Caller is responsible for persisting the outcomes via
     coach_memory.record_skill_attempt.
     """
     results: List[Tuple[str, str]] = []
     for skill_id, detector in all_detectors().items():
         try:
-            verdict = detector(board_before, move, user_color)
+            accepted = _extra_kwargs_accepted(detector)
+            kwargs = {}
+            if "move_number" in accepted:
+                kwargs["move_number"] = move_number
+            if "opening_name" in accepted:
+                kwargs["opening_name"] = opening_name
+            verdict = detector(board_before, move, user_color, **kwargs)
         except Exception:
             # Detector bugs must not poison the move pipeline.
             continue

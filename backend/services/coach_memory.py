@@ -689,6 +689,7 @@ async def update_memory_after_game(
                 user_color=user_color,
                 timestamp=now,
                 game_id=game_id,
+                opening_name=opening_played,
             )
         except Exception as e:
             logger.debug(f"[CONCEPT_DETECTORS] failed (non-fatal): {e}")
@@ -928,6 +929,7 @@ def record_concept_applications_from_game(
     user_color: str,
     timestamp: Optional[str] = None,
     game_id: Optional[str] = None,
+    opening_name: Optional[str] = None,
 ) -> List[tuple]:
     """Run every registered concept detector against this game's USER
     moves. Each `applied` / `missed` grade is persisted via
@@ -980,7 +982,11 @@ def record_concept_applications_from_game(
             if board.turn != uc:
                 continue
             move = board.parse_san(san)
-            for skill_id, outcome in run_detectors_for_move(board, move, uc):
+            for skill_id, outcome in run_detectors_for_move(
+                board, move, uc,
+                move_number=me.get("move_number"),
+                opening_name=opening_name,
+            ):
                 latest_grade[skill_id] = (
                     outcome,
                     {

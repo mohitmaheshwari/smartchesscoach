@@ -622,6 +622,19 @@ def compute_severity_for_move(
     # only one legal capture exists, the move was forced — caption
     # surfaces as R07_forced_recapture; severity is downgraded to
     # "good" so we don't tag it as a mistake.
+    #
+    # Bug fix (2026-08-03): "only one piece could recapture here" does
+    # NOT mean the recapture itself was safe — it can still hang the
+    # recapturing piece to a further capture (confirmed on a real game:
+    # black's Qxf3 recapturing White's queen on f3 was the only legal
+    # recapture, but immediately lost the queen to White's next capture,
+    # 431cp loss). The downgrade is only valid when the engine's own
+    # canonical classification agrees this wasn't a real mistake —
+    # otherwise a genuine blunder/mistake/serious tier silently became
+    # "good" here, which fed into `severity_override` for the Socratic-
+    # coaching gate downstream and suppressed it on every qualifying
+    # forced-recapture blunder in production (0/12,328 analyzed games
+    # had non-null socratic_coaching before this fix).
     is_forced_recapture = False
     if is_user and played_move is not None and prev_move is not None:
         if (board_before.is_capture(played_move)
@@ -631,7 +644,7 @@ def compute_severity_for_move(
                 if m.to_square == played_move.to_square
                 and board_before.is_capture(m)
             ]
-            if len(captures_on_sq) <= 1:
+            if len(captures_on_sq) <= 1 and severity_canonical not in ("blunder", "mistake", "serious"):
                 is_forced_recapture = True
                 severity = "good"
 
@@ -3908,7 +3921,11 @@ def build_move_teaching_decision(
         # canonical is a SeverityClassification — use its .tier string.
         _canonical_tier = getattr(canonical, "tier", None) or ""
         _eff_sev = (severity_override or _canonical_tier or "").lower()
-        if _eff_sev in ("mistake", "blunder"):
+        # "serious" is a real, distinct tier between "mistake" and
+        # "blunder" (services/severity.py) — it was missing here, so a
+        # genuine near-blunder silently never qualified for Socratic
+        # coaching even when severity_override correctly reported it.
+        if _eff_sev in ("mistake", "blunder", "serious"):
             # Derive fundamental_violated from facts already computed
             # by extract_facts (step 1). hanging > missed-tactic > none.
             _fundamental = None

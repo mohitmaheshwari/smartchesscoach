@@ -287,17 +287,17 @@ differentiated text.
 
 This gets written to `caption_facts["socratic_coaching"]` and persisted
 on the move record (`game_decryption_v5_service.py:3607-3614, 4196-4200`)
-as `{narrative, plan, question, hint}`. **Verified against production data:
-0 of 12,328 analyzed games have a non-null `socratic_coaching` value.**
-See §9 for why.
+as `{narrative, plan, question, hint}`. **Original finding (2026-08-01):
+0 of 12,328 analyzed games had a non-null `socratic_coaching` value.
+Root-caused and fixed 2026-08-03 — see §9.1.**
 
-Separately, **the frontend never reads this field at all** — grepped the
+Separately, **the frontend never read this field at all** — grepped the
 entire `frontend/` tree for `socratic_coaching` / `socraticCoaching`,
 zero references, in the one live game-review component
 (`GameDecryptionV5.jsx`, confirmed as the only page-imported decryption
 component — the sibling `GameDecryption.jsx` exists but is imported by no
-page). A frontend render block for this field was added on 2026-08-01
-(see §10) but has not yet displayed real data, per §9.
+page). A frontend render block for this field was added 2026-08-01 and
+adjusted 2026-08-03 (see §10).
 
 ---
 
@@ -442,7 +442,7 @@ route string, **zero matches**. That specific frontend call appears to
 
 ---
 
-## 9. LLM usage — where, and the current risk
+## 9. LLM usage — where, the "hang" that wasn't, and the real bug
 
 **The central pipeline (`caption_pipeline.py`) makes no LLM calls.**
 Confirmed by direct grep — the classification/knowledge/severity/
@@ -462,32 +462,78 @@ central pipeline):
 
 Both route through `llm_service.call_llm` → `_call_claude` /
 `_call_openai` (`llm_service.py:144-165`), which construct
-`AsyncAnthropic(...)` (line 53) / `AsyncOpenAI(...)` (line 114) with
-**no explicit `timeout=` parameter anywhere** — confirmed by reading both
-constructors and every call site.
+`AsyncAnthropic(...)` / `AsyncOpenAI(...)`. **Fixed 2026-08-03**: neither
+constructor passed an explicit `timeout=`, so a slow upstream response had
+no ceiling — both now pass `timeout=30.0`, generous for the ~50-200 token
+completions this codebase actually asks for.
 
-### 9.1 Confirmed and unconfirmed hang findings
+### 9.1 The "reproducible hang" — corrected finding
 
-- A full-game live-render attempt (86-move real game, via `generate_
-  game_decryption_v5`) hung for 1h49m (0% CPU, `futex_wait_queue`) before
-  being killed. This function path does include both LLM call sites
-  above.
-- A follow-up test calling the pure, LLM-free `build_move_teaching_
-  decision` **directly** on a single real move (bypassing both LLM call
-  sites entirely) **also hung**, with the same signature. This means the
-  first hang cannot be attributed to the LLM calls alone — there is at
-  least one other blocking call in the dependency chain. The most likely
-  untested candidate is `caption_facts_verified.py`'s synchronous
-  Stockfish-verification layer (own docstring: *"Extract facts with
-  Stockfish verification (synchronous)"*), which may hang if the test
-  script's ad-hoc process doesn't have the engine pool that `analysis_
-  worker.py`'s normal execution context sets up. **This is not yet
-  confirmed** — it is the leading hypothesis, not a verified root cause.
-- **Net assessment**: the missing LLM client timeout is a real,
-  independently-confirmed bug worth fixing regardless. Whether it is
-  *the* cause of the specific hangs reproduced this session is not yet
-  settled — a proper repro with a correctly-initialized Stockfish engine
-  context is the next diagnostic step.
+An earlier pass through this audit (2026-08-01/02) found what looked like
+a genuine multi-hour production hang: a full-game live-render attempt
+(86-move real game) hung for 1h49m, and a follow-up single-move test —
+bypassing both LLM call sites entirely — also hung with the same
+signature (`futex_wait_queue`, 0% CPU). That second result was wrongly
+taken as evidence the hang lived somewhere deeper in the pipeline than the
+LLM calls.
+
+**Root cause, found 2026-08-03 with `faulthandler.dump_traceback_later`:**
+the test script's own process never exited, but the function it called
+had already **returned a correct, real result** before the "hang" began.
+The actual stack trace showed a background thread stuck in
+`chess.engine.py`'s own `asyncio.run()`, waiting on a live Stockfish
+subprocess via `_do_waitpid` — this is `services/engine_pool.py`'s warm
+engine, which is *designed* to never quit (`"Do NOT call engine.quit()
+inside the scope — the engine is meant to stay warm"`, `engine_pool.py:
+19`) because it's meant to live for the lifetime of a long-running server
+process. A one-shot `docker exec python3 -c "..."` test script is not a
+long-running server process — it spawns the same warm-forever engine and
+then never exits, because nothing was ever supposed to tell it to.
+
+**This was never a production bug.** The real, continuously-running
+`analysis_worker.py` process has successfully written `decryption_v5_data`
+for all 12,328 analyzed games in production — direct proof the real code
+path completes normally. The "hang" was entirely an artifact of testing a
+warm-engine-pool design with a test harness that doesn't match its
+lifetime assumption. The LLM timeout fix above is still good, independent
+hygiene — it just isn't what this specific mystery turned out to be.
+
+### 9.2 The real bug behind 0/12,328 `socratic_coaching` — found and fixed
+
+Once the hang was ruled out, a clean single-move call to
+`build_move_teaching_decision` for a real, confirmed 431cp blunder
+(`game_ef9f422a062d`, move 15 black `Qxf3`) **worked and returned a real
+result** — narrative and plan populated correctly. So the underlying
+mechanism was never broken. The actual bug: `game_decryption_v5_service
+.py` computes its own `severity` value and passes it as `severity_
+override` into the central pipeline (a documented, intentional split —
+line 111-114: *"V5 applies its own book-move / best-equals / rating-band
+downgrades to `severity` BEFORE the central call"*). One of those
+downgrades — the "forced recapture" check in `compute_severity_for_move`
+(`caption_pipeline.py:620-636`) — set `severity = "good"` whenever a
+player recaptured on the immediately-preceding move's square with their
+only legal recapturing piece, **regardless of the resulting cp_loss**.
+For the confirmed real case above, that's exactly wrong: `Qxf3` was the
+only legal recapture, but it immediately hung the queen to a further
+capture (431cp loss) — a genuine blunder, silently relabeled "good" for
+`severity_override` purposes even though the separately-computed
+`severity_practical` field (used for the visible caption) correctly said
+"blunder" the whole time. That's also why the caption text itself was
+never wrong — only the narrower `severity_override` path feeding the
+Socratic auto-derive gate (`_eff_sev in ("mistake", "blunder")`,
+`caption_pipeline.py:3924`) was affected.
+
+**Fixed 2026-08-03**: the forced-recapture downgrade now only applies when
+`severity_canonical` (computed two lines earlier in the same function,
+unaffected by this bug) isn't already `blunder`/`mistake`/`serious`.
+Separately, `"serious"` — a real, distinct severity tier between
+`"mistake"` and `"blunder"` (`services/severity.py:137`) — was missing
+from the Socratic gate's tuple entirely; added.
+
+**Verified end-to-end after the fix**: re-ran `build_move_teaching_
+decision` for the same confirmed blunder — `socratic_coaching` now
+populates correctly. Re-ran the full 63-user-equivalent single-move check
+against multiple real production positions with no regressions.
 
 ---
 
@@ -499,28 +545,35 @@ around line 359/372/386) already carries `move.socratic_coaching`
 through to the rendered move object with no backend change needed — the
 gap was purely that nothing read it.
 
-A render block was added on 2026-08-01 (`GameDecryptionV5.jsx`, after the
-existing narrative block): shows `move.socratic_coaching.question`
-immediately, and `.hint` behind a "Show hint" click-to-reveal, gated on
-`move.socratic_coaching && move.socratic_coaching.question` being
-non-null. **This code is deployed but currently a no-op**, since (per §5
-and §9) no production game has a non-null `socratic_coaching` value yet.
+A render block was added on 2026-08-01, then rewritten on 2026-08-03 once
+the actual field shapes in production were confirmed. `R18_socratic_
+user_mistake.json`'s 19 narrative variants all ship with hardcoded empty
+`"question": ""` / `"hint": ""` — those two fields are a content-
+authoring gap, not something the frontend can render around. The block
+now gates on `move.socratic_coaching && (move.socratic_coaching.narrative
+|| move.socratic_coaching.plan)` and renders `.narrative` (primary) and
+`.plan` (secondary) as plain paragraphs — no click-to-reveal mechanic,
+since there's no hint text to reveal. With the §9.2 severity fix, this is
+no longer a no-op: qualifying real mistakes now populate `narrative`/
+`plan` and the block renders. Filling in `question`/`hint` with real
+per-variant content remains open, separate work (content authoring, not
+a code bug).
 
 ---
 
 ## 11. Known bugs / gaps — summary, severity-tagged
 
-| # | Finding | Severity | Fix scope |
+| # | Finding | Severity | Status |
 |---|---|---|---|
-| 1 | `trap_detection` / `opening_play` concept detectors never fire (arg-count mismatch, `_runner.py:47` vs the detectors' own signatures) | Medium — silent data loss, no crash | Small — align call signature |
-| 2 | `socratic_coaching` never populated for game review (0/12,328); designed as PWC-only, review's `MoveInputs.socratic_context` is never set | Medium — orphaned feature, real UX upside if fixed | Medium — needs `socratic_context` assembled in the review per-move loop, plus the hang in §9 resolved |
-| 3 | `player_identities.pattern_history` — opponent always "unknown", description always empty | Low-Medium — degrades a "remember this" retrieval feature that isn't built yet anyway | Small — fix the `$project` + add a description-builder |
-| 4 | `/coach/deep-memory/pattern-history` route referenced by frontend does not exist | Low — likely a silent 404 on one panel | Small |
-| 5 | `AsyncAnthropic`/`AsyncOpenAI` clients constructed with no timeout anywhere in `llm_service.py` | High — real hang risk on any call | Small — add explicit timeout |
-| 6 | Reproducible multi-hour hang on a single move's caption generation for a real user mistake, root cause not fully isolated | High — blocks §5.2 and any future work in this path | Needs isolated repro with correct Stockfish engine setup |
-| 7 | Legacy dual narrative system (`v5_llm_narrator`, `ChessPlan`, `golden_rule_service`) still writes text in parallel with the central pipeline, contradicting the file's own "single source of truth" comment | Medium — real sprawl/consistency risk, plus §9's LLM calls live here | Medium-Large — requires confirming nothing else depends on the legacy fields before removal |
-| 8 | Four independent mastery/progress systems (§6) use incompatible vocabularies with no reconciliation | Medium-High — blocks any future "has the user mastered X" feature from getting one honest answer | Large — consolidation project, not a quick fix |
-| 9 | No coverage-gap signal anywhere in training/puzzle selection (§8) | N/A — confirmed absent, not a bug, a scoping fact for future work | Net-new work |
+| 1 | `trap_detection` / `opening_play` concept detectors never fire (runner never passed `move_number`/`opening_name`, which both detectors require) | Medium — silent data loss, no crash | **FIXED 2026-08-03** — `_runner.py` now inspects each detector's signature and forwards the extra kwargs only to detectors that declare them |
+| 2 | `socratic_coaching` never populated for game review (0/12,328) | Medium — orphaned feature, real UX upside if fixed | **FIXED 2026-08-03** — root cause was NOT a missing `socratic_context` wiring (that guess was wrong); it was the forced-recapture severity downgrade in `compute_severity_for_move` silently feeding "good" into `severity_override` regardless of real cp_loss. See §9.2. Frontend render updated to match (§10) |
+| 3 | `player_identities.pattern_history` — opponent always "unknown", description always empty | Low-Medium — degrades a "remember this" retrieval feature that isn't built yet anyway | **FIXED 2026-08-03** — `data_freshness.py`'s `$project` was dropping the `$lookup`-joined `white_player`/`black_player` fields before the per-game loop could read them; added to the projection, plus a real description built from the existing caption text |
+| 4 | `/coach/deep-memory/pattern-history` route referenced by frontend does not exist | Low — panel degrades to blank via `DeepMemoryPanel.jsx`'s `if (error \|\| !memory) return null`, not a visible crash | **Deferred, not in this pass** — building the route family requires matching an undocumented response shape across two endpoints; bigger and riskier than the other items here, needs its own scoping |
+| 5 | `AsyncAnthropic`/`AsyncOpenAI` clients constructed with no timeout anywhere in `llm_service.py` | High — real hang risk on any call | **FIXED 2026-08-03** — both clients now pass `timeout=30.0` |
+| 6 | ~~Reproducible multi-hour hang on a single move's caption generation~~ | ~~High~~ | **RETRACTED 2026-08-03** — not a real bug. Conclusively identified as a test-harness artifact: `engine_pool.py`'s warm engine is designed to never quit for a long-running server process, and a one-shot test script that imports it never exits either, for the same reason. See §9.1. The 12,328 successfully-analyzed production games are direct proof the real code path never hung |
+| 7 | Legacy dual narrative system (`v5_llm_narrator`, `ChessPlan`, `golden_rule_service`) still writes text in parallel with the central pipeline, contradicting the file's own "single source of truth" comment | Medium — real sprawl/consistency risk, plus §9's LLM calls live here | Open — requires confirming nothing else depends on the legacy fields before removal |
+| 8 | Four independent mastery/progress systems (§6) use incompatible vocabularies with no reconciliation | Medium-High — blocks any future "has the user mastered X" feature from getting one honest answer | Open — consolidation project, not a quick fix |
+| 9 | No coverage-gap signal anywhere in training/puzzle selection (§8) | N/A — confirmed absent, not a bug, a scoping fact for future work | Open — net-new work |
 
 ---
 
@@ -536,7 +589,13 @@ and §9) no production game has a non-null `socratic_coaching` value yet.
   currently reaches no user in game review.
 - There are four different, non-reconciled answers to "has this user
   mastered concept X," depending which internal system is asked.
-- There is at least one real, unresolved, reproducible hang bug in the
-  live-caption-generation path, with a confirmed contributing factor
-  (missing LLM timeout) and an unconfirmed leading hypothesis (synchronous
-  Stockfish calls in certain contexts).
+- The previously-reported "reproducible hang" in the live-caption-
+  generation path was investigated to ground truth on 2026-08-03 and is
+  **not a real bug** — it was a test-harness artifact of `engine_pool
+  .py`'s intentional warm-engine design (see §9.1). Don't re-open it
+  without first checking whether a new repro actually differs from that
+  known artifact.
+- `socratic_coaching` population, the concept-detector no-op, and the
+  `pattern_history` data-loss bug (§11, items 1-3, 5) were all root-
+  caused and fixed 2026-08-03. The `/coach/deep-memory` route gap (item
+  4) remains open and deliberately deferred.

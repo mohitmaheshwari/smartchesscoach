@@ -1603,6 +1603,36 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
+        {/* ─── SOCRATIC COACHING (rating-aware, computed but never
+            rendered before 2026-08-01) ──────────────────────────
+            caption_pipeline writes this for qualifying user mistakes and
+            it flows onto `move` via the existing ...m spread above.
+            2026-08-03: gated on .narrative/.plan, not .question/.hint —
+            every variant in R18_socratic_user_mistake.json currently
+            ships question/hint as empty strings (never authored), so
+            gating on .question would never render. Renders whichever of
+            narrative/plan is actually populated; the click-to-reveal
+            question/hint UI can come back once that content exists. */}
+        {move.socratic_coaching && (move.socratic_coaching.narrative || move.socratic_coaching.plan) && (
+          <div className="mt-3 pt-3 border-t border-violet-200/60 dark:border-violet-800/40" data-testid="socratic-coaching">
+            <div className="flex items-start gap-2">
+              <Lightbulb className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+              <div>
+                {move.socratic_coaching.narrative && (
+                  <p className="text-sm text-violet-800 dark:text-violet-300 leading-relaxed">
+                    {move.socratic_coaching.narrative}
+                  </p>
+                )}
+                {move.socratic_coaching.plan && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5">
+                    {move.socratic_coaching.plan}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ─── CLAUDE GOLD (tester) ──────────────────────────── */}
         {/* Side-by-side gold benchmark for on-the-fly evaluation. Only
             renders on gold-baked moves (goldCaption empty otherwise). */}

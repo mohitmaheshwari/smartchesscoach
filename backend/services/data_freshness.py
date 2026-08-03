@@ -105,6 +105,14 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
             "game_id": 1,
             "result": "$game_info.result",
             "user_color": "$game_info.user_color",
+            # 2026-08-03 fix: white_player/black_player were already being
+            # joined in by the $lookup above and then discarded right here,
+            # before the per-game loop ever saw them — the reason every
+            # pattern_history entry's "opponent" defaulted to "unknown"
+            # despite the real name being one join away. See
+            # docs/caption_pipeline_architecture_reference.md §7.
+            "white_player": "$game_info.white_player",
+            "black_player": "$game_info.black_player",
             "stockfish_analysis": 1,
             "analyzed_at": 1
         }}
@@ -156,6 +164,11 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         user_color = game.get("user_color", "white")
         sf_analysis = game.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
+        # Real opponent name, now that white_player/black_player survive
+        # the $project above — same accessor pattern as routes/games.py.
+        opponent_name = (
+            game.get("black_player") if user_color == "white" else game.get("white_player")
+        ) or "unknown"
         
         # Determine if user won/lost/drew
         user_won = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
@@ -216,6 +229,12 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
                 identity["blunder_taxonomy"]["total_blunders"] = identity["blunder_taxonomy"].get("total_blunders", 0) + 1
                 
                 # Add to pattern history (for clickable links in Memory tab)
+                # description reuses the real, already-verified caption text
+                # from analysis (not fabricated here) — falls back to a
+                # plain phase+pattern sentence only when a caption is
+                # genuinely absent (older analyses predating the caption
+                # pipeline).
+                description = move_eval.get("caption") or f"{category.replace('_', ' ').capitalize()} in the {phase}."
                 pattern_entry = {
                     "game_id": game_id,
                     "move_number": move_num,
@@ -224,6 +243,8 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
                     "cp_loss": cp_loss,
                     "move_played": move_played,
                     "best_move": best_move,
+                    "opponent": opponent_name,
+                    "description": description,
                     "date": analyzed_at if isinstance(analyzed_at, str) else analyzed_at.isoformat() if analyzed_at else current_time.isoformat()
                 }
                 identity["pattern_history"].append(pattern_entry)

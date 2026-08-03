@@ -50,7 +50,17 @@ def _get_anthropic_client():
     global _anthropic_client
     if _anthropic_client is None:
         from anthropic import AsyncAnthropic
-        _anthropic_client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+        # 2026-08-03: explicit timeout — the SDK default is 10 minutes, and
+        # nothing in this codebase's caption/narrative callers (all short,
+        # ~50-200 token completions) needs anywhere close to that. A hung
+        # or slow-to-respond call was masking as a mysterious multi-hour
+        # process hang elsewhere; this bounds the worst case regardless of
+        # what turns out to be calling it. See
+        # docs/caption_pipeline_architecture_reference.md §9/§11.
+        _anthropic_client = AsyncAnthropic(
+            api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+            timeout=30.0,
+        )
     return _anthropic_client
 
 
@@ -111,7 +121,12 @@ def _get_openai_client():
     global _openai_client
     if _openai_client is None:
         from openai import AsyncOpenAI
-        _openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+        # 2026-08-03: same reasoning as _get_anthropic_client — no caller
+        # of this client needs the SDK's multi-minute default.
+        _openai_client = AsyncOpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY", ""),
+            timeout=30.0,
+        )
     return _openai_client
 
 
