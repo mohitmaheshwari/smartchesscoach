@@ -467,33 +467,24 @@ constructor passed an explicit `timeout=`, so a slow upstream response had
 no ceiling — both now pass `timeout=30.0`, generous for the ~50-200 token
 completions this codebase actually asks for.
 
-### 9.0.1 CRITICAL, found while spot-checking the timeout fix (2026-08-03):
-### both LLM providers are currently non-functional in production
+### 9.0.1 Both LLM providers are non-functional in production — not a bug to fix
 
-Verified directly against the running production container, not inferred:
+Found while spot-checking the timeout fix (2026-08-03), verified directly
+against the running production container: `ANTHROPIC_API_KEY` is unset
+everywhere (every `"claude*"` call fails immediately, before any network
+request), and `OPENAI_API_KEY` is set but has zero credit balance (fails
+with `insufficient_quota`). Every LLM call in this codebase currently
+fails, for two independent, pre-existing reasons.
 
-- `ANTHROPIC_API_KEY` **is not set anywhere** — not in the untracked
-  project-root `.env`, not in `docker-compose.yml`, not in the running
-  `chess-coach-backend` container's environment (`printenv` confirms it
-  absent). Every call to `call_llm()` with a `"claude*"` model — which is
-  the module's own stated default ("used by V5 caption pipeline + all
-  coach narrators") — fails immediately with `TypeError: Could not
-  resolve authentication method`, before any network call is attempted.
-- `OPENAI_API_KEY` **is set**, but the account has **zero credit
-  balance** — a live call returns `openai.RateLimitError: 429
-  insufficient_quota / credit_balance_exhausted`.
-- Net effect: **every LLM call in this codebase currently fails**, for
-  two independent reasons, and has very likely been failing for some
-  time (this is not something today's changes caused — the missing key
-  and the exhausted OpenAI balance both predate this session). Every
-  caller is presumably falling back to whatever degraded/deterministic
-  behavior its `except` clause provides, silently, in front of real
-  users — consistent with the "LLM calls can fail silently" known issue
-  already called out in `CLAUDE.md`.
-- **This needs Mohit's direct action** (issue/rotate an Anthropic API key,
-  add OpenAI billing credit, or both) — it is a credentials/billing
-  decision, not a code fix, and is explicitly out of scope for this
-  session's authorized bug-fix pass.
+**Explicitly not an action item.** Mohit has confirmed the product does
+not need LLM calls to function — the real, live coaching surfaces
+(severity classification, R08-R12 templates, the distilled/verified
+caption layers, the whole per-move caption pipeline) are deterministic,
+not LLM-dependent, and were verified end-to-end this session without
+touching either provider. The two LLM call sites that do exist
+(`v5_llm_polish.py`, `v5_llm_narrator.py`) are legacy/parallel paths, not
+load-bearing. Recorded here as an architectural fact, not a problem —
+don't re-flag this as urgent or in need of fixing.
 
 ### 9.1 The "reproducible hang" — corrected finding
 
