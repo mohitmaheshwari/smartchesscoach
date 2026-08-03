@@ -560,8 +560,34 @@ from the Socratic gate's tuple entirely; added.
 
 **Verified end-to-end after the fix**: re-ran `build_move_teaching_
 decision` for the same confirmed blunder — `socratic_coaching` now
-populates correctly. Re-ran the full 63-user-equivalent single-move check
-against multiple real production positions with no regressions.
+populates correctly, and the real production `/api/analysis/{id}/
+enriched` endpoint (the exact one `GameDecryptionV5.jsx` calls) was
+confirmed to return the populated `narrative`/`plan` fields for this
+move via a temporary, read-only, safely-cleaned-up verification session
+scoped to the game's real owner.
+
+**Corpus-wide, not just one hand-picked case** (2026-08-03, requested
+follow-up after "did you verify against all our users?"): a read-only
+scan of all 12,506 analyzed games / 384,342 user moves found 10,487
+moves matching the old bug's exact trigger condition, of which **733
+across 712 distinct games** were genuine blunder/mistake/serious moves
+previously mislabeled "good" — confirmed via the same canonical
+`classify_severity()` the app itself uses, not a re-derived guess. This
+was never a one-off (`Qxf3`) — it was a real, widespread pattern across
+many different real users.
+
+A stratified 15-case sample was then independently re-analysed with a
+**fresh, standalone Stockfish process** (not the stored cp_loss, not the
+app's engine pool) to check the classification itself, not just whether
+the field was populated. Initial depth-16 spot check disagreed with the
+stored cp_loss on 5/15 — investigating the two clearest disagreements at
+production's actual depth (18, per `config.py: STOCKFISH_DEPTH = 18`)
+and deeper (20/22) resolved both: the stored data was correct, and
+depth-16 was simply too shallow to see the tactics. A third case stayed
+genuinely unstable across depths (best-move kept changing), consistent
+with it being an already near-decided position where different lines
+are close to equally (ir)relevant — a property of the position, not a
+data-quality bug.
 
 ---
 
@@ -595,7 +621,7 @@ a code bug).
 |---|---|---|---|
 | 1 | `trap_detection` / `opening_play` concept detectors never fire | Medium — silent data loss, no crash | **PARTIALLY FIXED, still non-functional 2026-08-03** — `_runner.py` now correctly forwards `move_number`/`opening_name` to detectors that declare them (that part is genuinely fixed and verified). But end-to-end testing on real book-opening moves (`e4 e5 Nf3 Nc6 Bc4`, a resolved `opening_name`) showed both detectors STILL return `None`, for two separate, deeper, pre-existing bugs the arg-passing fix didn't touch: (a) `opening_play.py` imports `get_opening_for_game`/`is_in_book`/`is_known_bad_deviation` from `opening_curriculum_engine.py` — **none of the three exist in that file**, so the import always raises and the broad `except Exception` swallows it; (b) `trap_detection.py` calls `detect_trap_setup(board_before)`, but the real function signature is `detect_trap_setup(played_moves_san: List[str])` — passing a `chess.Board` raises `TypeError: 'Board' object is not iterable` every time (confirmed directly), again swallowed by the broad except. Additionally, even with the right input type, the detector reads `trap_hit.get("victim_move")` / `trap_hit.get("defense_moves")` — keys that don't exist on `detect_trap_setup`'s real return shape (`name`, `family`, `trap_line`, `trap_line_steps`, `trap_color`, ...). Fixing this for real requires redesigning the victim/defense grading against the actual trap_color + trap_line semantics, and building the missing opening-book matching functions — both are net-new logic, not "align a call signature." **Deliberately not attempted in this pass** — flagging for separate scoping rather than shipping an unvetted redesign under the "small fix" authorization this session actually had |
 | 2 | `socratic_coaching` never populated for game review (0/12,328) | Medium — orphaned feature, real UX upside if fixed | **FIXED 2026-08-03** — root cause was NOT a missing `socratic_context` wiring (that guess was wrong); it was the forced-recapture severity downgrade in `compute_severity_for_move` silently feeding "good" into `severity_override` regardless of real cp_loss. See §9.2. Frontend render updated to match (§10) |
-| 3 | `player_identities.pattern_history` — opponent always "unknown", description always empty | Low-Medium — degrades a "remember this" retrieval feature that isn't built yet anyway | **FIXED 2026-08-03** — `data_freshness.py`'s `$project` was dropping the `$lookup`-joined `white_player`/`black_player` fields before the per-game loop could read them; added to the projection, plus a real description built from the existing caption text |
+| 3 | `player_identities.pattern_history` — opponent always "unknown", description always empty | Low-Medium — degrades a "remember this" retrieval feature that isn't built yet anyway | **FIXED 2026-08-03, in two passes.** Pass 1: `data_freshness.py`'s `$project` was dropping the `$lookup`-joined `white_player`/`black_player` fields before the per-game loop could read them — added to the projection. Pass 2 (found during independent deep verification, not by inspection): the description fallback read `move_eval.get("caption")` off `stockfish_analysis.move_evaluations`, but that field **never exists there** (confirmed 0/14,992 sampled moves) — real captions live only on the separate `decryption_v5_data` array, which isn't index-aligned (different length, both colors vs user-only). My first-pass claim that it "reuses the real, already-verified caption text" was false; it was always the generic fallback sentence. Fixed by joining on `fen_before` (near-unique per position) into `decryption_v5_data`. **Re-verified across all 63 real users after the second fix**: 5,047 pattern_history entries, 0% "unknown" opponent, 0% empty description, 97.6% real position-specific captions (2.4% honest generic fallback for positions with no V5 data). Two sampled captions independently hand-verified against the raw FEN (piece placement, legal moves, tactical geometry) — both checked out as chess-accurate. |
 | 4 | `/coach/deep-memory/pattern-history` route referenced by frontend does not exist | Low — panel degrades to blank via `DeepMemoryPanel.jsx`'s `if (error \|\| !memory) return null`, not a visible crash | **Deferred, not in this pass** — building the route family requires matching an undocumented response shape across two endpoints; bigger and riskier than the other items here, needs its own scoping |
 | 5 | `AsyncAnthropic`/`AsyncOpenAI` clients constructed with no timeout anywhere in `llm_service.py` | High — real hang risk on any call | **FIXED 2026-08-03** — both clients now pass `timeout=30.0` |
 | 6 | ~~Reproducible multi-hour hang on a single move's caption generation~~ | ~~High~~ | **RETRACTED 2026-08-03** — not a real bug. Conclusively identified as a test-harness artifact: `engine_pool.py`'s warm engine is designed to never quit for a long-running server process, and a one-shot test script that imports it never exits either, for the same reason. See §9.1. The 12,328 successfully-analyzed production games are direct proof the real code path never hung |
