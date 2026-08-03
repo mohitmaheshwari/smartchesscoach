@@ -126,6 +126,24 @@ services:
       # .env + `docker compose up -d backend`.
       - VERIFIED_CAPTIONS=${VERIFIED_CAPTIONS:-false}
       - DISTILLED_CAPTIONS_ENABLED=${DISTILLED_CAPTIONS_ENABLED:-0}
+      # LIVE OPENING NUDGE (2026-06-02, docs/pwc_realtime_opening_guidance.md):
+      # per-move in-book curriculum coaching during live PWC play. Only fires
+      # when the session has a detected/taught opening AND the position is
+      # still in book; wrapped in a broad try/except that falls through
+      # silently on any error. Built, wired, never flipped — flipping 2026-08-03.
+      - PWC_LIVE_OPENING_NUDGE_ENABLED=true
+      # GAP ENRICHMENT (docs/pwc_live_analysis_reuse_scope.md): gives PWC-played
+      # games the same cognitive_gap enrichment imported games get, via the
+      # shared enrich_with_cognitive_gaps() function. Flipping 2026-08-03 — run
+      # scripts/regen_coach_game_gaps.py --apply afterward to backfill existing
+      # PWC games (new games get it automatically going forward regardless).
+      - PWC_GAP_ENRICHMENT=true
+      # MOVE QUALITY RATING (docs/move_quality_rating_scope.md): deterministic,
+      # EWMA-based move-quality rating for PWC, shown as a band rather than a
+      # point, meant to eventually replace/supplement imported chess.com/Lichess
+      # Elo for the 600-1500 audience. Falls back to imported rating on any
+      # error (coach_game_session.py try/except). Flipping 2026-08-03.
+      - PWC_MOVE_QUALITY_RATING=true
       # Post-game digest emails (docs/activation_scope.md): dry|pilot|live,
       # read at send time from .env — flip without rebuild.
       - DIGEST_EMAILS_MODE=${DIGEST_EMAILS_MODE:-dry}
