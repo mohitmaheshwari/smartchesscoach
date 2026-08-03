@@ -682,6 +682,86 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         except Exception as _motif_err:
             logger.warning(f"motif profile update failed for {user_id}: {_motif_err}")
 
+        # Coordination / prophylaxis gap rollup (docs/coaching_pattern_detectors_scope.md).
+        # The per-move tags above (coordination_gap/coordination_confidence,
+        # prophylaxis_gap/prophylaxis_confidence on each move_eval) were always
+        # being written -- but nothing ever rolled them up into the
+        # player_profiles.coordination_gap / .prophylaxis_gap summary shape
+        # routes/coaching_patterns.py actually reads, so those 2 of the Lab
+        # page's 5 pattern cards silently showed "no gap" for every user, every
+        # time. Fixed 2026-08-03. Incremental merge, same style as motif_profile
+        # above -- raw counts accumulate across games, confidence is a
+        # count-weighted running average so one game can't swing it wildly.
+        try:
+            from collections import Counter as _Counter
+
+            prior_coord = profile.get("coordination_gap") or {}
+            prior_proph = profile.get("prophylaxis_gap") or {}
+
+            game_coord = [
+                (m.get("coordination_confidence", 0.0), m.get("coordination_gap"))
+                for m in move_evaluations if m.get("coordination_gap")
+            ]
+            game_proph_confs = [
+                m.get("prophylaxis_confidence", 0.0) for m in move_evaluations if m.get("prophylaxis_gap")
+            ]
+
+            prior_coord_count = int(prior_coord.get("example_count", 0) or 0)
+            coord_count = prior_coord_count + len(game_coord)
+            if game_coord:
+                new_avg = sum(c for c, _ in game_coord) / len(game_coord)
+                prior_conf = float(prior_coord.get("confidence", 0.0) or 0.0)
+                blended = (
+                    (prior_conf * prior_coord_count + new_avg * len(game_coord)) / coord_count
+                    if prior_coord_count else new_avg
+                )
+                gap_type = _Counter(t for _, t in game_coord).most_common(1)[0][0]
+                coordination_gap = {
+                    "has_gap": coord_count >= 3,  # conservative floor, avoids single-instance noise
+                    "gap_type": gap_type,
+                    "confidence": round(blended, 2),
+                    "example_count": coord_count,
+                }
+            else:
+                coordination_gap = {**prior_coord, "example_count": coord_count} if prior_coord else {"has_gap": False}
+
+            prior_proph_count = int(prior_proph.get("reactive_count", 0) or 0)
+            proph_count = prior_proph_count + len(game_proph_confs)
+            if game_proph_confs:
+                new_avg = sum(game_proph_confs) / len(game_proph_confs)
+                prior_conf = float(prior_proph.get("confidence", 0.0) or 0.0)
+                blended = (
+                    (prior_conf * prior_proph_count + new_avg * len(game_proph_confs)) / proph_count
+                    if prior_proph_count else new_avg
+                )
+                # Simple 2-point trend (this game's rate vs the cumulative rate
+                # before it) -- only once there's enough prior data to compare
+                # against; thin data stays "unknown" rather than a fake signal.
+                trend = "unknown"
+                prior_games_with_data = int(prior_proph.get("_games_with_data", 0) or 0)
+                if prior_games_with_data >= 2:
+                    prior_rate = prior_proph_count / prior_games_with_data
+                    this_rate = len(game_proph_confs)
+                    if this_rate > prior_rate * 1.2:
+                        trend = "increasing"
+                    elif this_rate < prior_rate * 0.8:
+                        trend = "decreasing"
+                    else:
+                        trend = "stable"
+                prophylaxis_gap = {
+                    "has_gap": proph_count >= 3,
+                    "reactive_count": proph_count,
+                    "confidence": round(blended, 2),
+                    "trend": trend,
+                    "_games_with_data": prior_games_with_data + 1,
+                }
+            else:
+                prophylaxis_gap = {**prior_proph, "reactive_count": proph_count} if prior_proph else {"has_gap": False}
+        except Exception as _pattern_rollup_err:
+            logger.warning(f"coordination/prophylaxis gap rollup failed for {user_id}: {_pattern_rollup_err}")
+            coordination_gap = profile.get("coordination_gap") or {"has_gap": False}
+            prophylaxis_gap = profile.get("prophylaxis_gap") or {"has_gap": False}
+
         # Compute improvement_trend from blunders-per-game over last N games.
         # This was previously calculated only by an async path that the worker
         # didn't call — so 0/55 profiles had it. Now it's computed inline.
@@ -726,6 +806,8 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
             "motif_profile": motif_profile,
             "motif_recognition": motif_recognition,
             "motif_anticipation": motif_anticipation,
+            "coordination_gap": coordination_gap,
+            "prophylaxis_gap": prophylaxis_gap,
             "recent_performance": recent_perf,
             "historical_performance": historical_perf,
             "improvement_trend": improvement_trend,
