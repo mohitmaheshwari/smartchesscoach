@@ -106,16 +106,15 @@ REACT_APP_BACKEND_URL=https://coaching-board.preview.emergentagent.com
 │   │   ├── App.js                         # Router, all routes defined here
 │   │   ├── pages/
 │   │   │   ├── Landing.jsx                # Landing page (unauthenticated)
-│   │   │   ├── HomePage.jsx               # ★ Main dashboard after login (/home)
+│   │   │   ├── HomePageNew.jsx            # ★ Main dashboard after login (/home) — corrected 2026-08-03, was documented as HomePage.jsx
 │   │   │   ├── CoachHome.jsx              # Coaching-focused dashboard (not routed, imported but unused)
 │   │   │   ├── CoachPlay.jsx              # ★ Play with Coach orchestrator (/play-with-coach)
 │   │   │   ├── Dashboard.jsx              # ★ Lab page (/lab) — Coach's Pick with decay model
-│   │   │   ├── PatternTraining.jsx        # ★ Pattern-specific puzzle training (/training/pattern/:pattern)
+│   │   │   ├── PrescribedTraining.jsx     # ★ Canonical /training/* page, incl. /training/pattern/:pattern — corrected 2026-08-03, PatternTraining.jsx no longer exists (merged in)
 │   │   │   ├── Reflect.jsx                # Game reflection (/reflect)
 │   │   │   ├── GameAnalysis.jsx           # Single game analysis (/game/:gameId)
 │   │   │   ├── Progress.jsx               # Progress tracking
 │   │   │   ├── OpeningsOverview.jsx        # Openings page
-│   │   │   ├── PrescribedTraining.jsx     # Coached puzzles
 │   │   │   ├── Training.jsx / TrainingNew.jsx / ThinkingTraining.jsx
 │   │   │   └── ... (30+ page files)
 │   │   │
@@ -222,11 +221,11 @@ Lives in `services/pattern_decay_service.py`. Used by `GET /api/lab-coach-pick` 
 - `GET /api/training/pattern-puzzles/{pattern}` → Returns user's own puzzles first, then community puzzles
 - `POST /api/training/puzzle-attempt` → Records solve attempt
 - Solved puzzles never shown again (`puzzle_attempts` collection)
-- Frontend: `PatternTraining.jsx` at `/training/pattern/:pattern`
+- Frontend: `PrescribedTraining.jsx` at `/training/pattern/:pattern` (corrected 2026-08-03 — `PatternTraining.jsx` no longer exists)
 
 ### 6. Dashboard Intelligence
 
-**HomePage** (`/home`):
+**HomePageNew** (`/home`, corrected 2026-08-03):
 - Fetches from `GET /api/home/dashboard-v2` (main dashboard data) + `GET /api/coach/home-intelligence` (coaching intel)
 - Shows: Coach message, last game with board preview, Chess DNA, patterns, action grid
 - **Win streak banner**: If 3+ consecutive wins, shows positive momentum banner
@@ -333,11 +332,11 @@ GET  /api/journey/stats                       # Journey statistics
 | Path | Component | Description |
 |------|-----------|-------------|
 | `/` | Landing.jsx | Landing page |
-| `/home` | HomePage.jsx | Main dashboard (win streak, progress trend, coach message) |
+| `/home` | HomePageNew.jsx | Main dashboard (win streak, progress trend, coach message) — corrected 2026-08-03 |
 | `/play-with-coach` | CoachPlay.jsx | Interactive coaching board |
 | `/lab` | Dashboard.jsx | Lab page with Coach's Pick |
-| `/game/:gameId` | GameAnalysis.jsx | Single game analysis |
-| `/training/pattern/:pattern` | PatternTraining.jsx | Pattern-specific puzzle training |
+| `/game/:gameId` | LabV2.jsx → GameDecryptionV5.jsx | Single game review — corrected 2026-08-03; `GameAnalysis.jsx` is dead code, routed only at `/game-old` |
+| `/training/pattern/:pattern` | PrescribedTraining.jsx | Pattern-specific puzzle training — corrected 2026-08-03, `PatternTraining.jsx` no longer exists |
 | `/training/prescribed` | PrescribedTraining.jsx | Prescribed training |
 | `/training` | ThinkingTraining.jsx | Thinking training |
 | `/reflect` | Reflect.jsx | Game reflection |
@@ -481,7 +480,7 @@ Used for:
 
 ## Known Issues / Things to Watch
 
-1. **CoachHome.jsx** is imported in App.js but NOT routed. Contains good coaching intelligence UI (state-based REFLECT→TRAIN→PLAY flow). HomePage.jsx is the actual `/home` page.
+1. **CoachHome.jsx** is imported in App.js but NOT routed. Contains good coaching intelligence UI (state-based REFLECT→TRAIN→PLAY flow). HomePageNew.jsx is the actual `/home` page (corrected 2026-08-03 — this doc previously said HomePage.jsx, a different, no-longer-current file).
 
 2. **Game import** depends on Chess.com / Lichess API availability. Games sync in background.
 
