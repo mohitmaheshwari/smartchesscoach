@@ -5030,7 +5030,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             if see is not None and see >= 80:
                 return "wins a pawn" if cap_pt == chess.PAWN else "wins material"
             # equal-ish exchange — the value is removing the piece, not material
-            return f"trades off his {name}"
+            return f"trades his {name}"
 
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.

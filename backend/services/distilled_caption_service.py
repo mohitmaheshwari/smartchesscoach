@@ -163,11 +163,11 @@ def _mistake_caption(inp, lab):
                     lost = (san, c.piece_type, mv.to_square)
                 b2.push(mv)
             if lost:
-                slots["front"] = f"{inp.played_san} walks into {lost[0]}, losing your {P[lost[1]]} on {chess.square_name(lost[2])}"
+                slots["front"] = f"{inp.played_san} runs into {lost[0]}, losing your {P[lost[1]]} on {chess.square_name(lost[2])}"
                 bp, _ = _best_purpose(fb, best, mover, lost[2]); slots["best_purpose"] = bp
             elif pvp:
                 # net material is lost (classify confirmed) but no single clean piece-drop -> generic, true
-                slots["front"] = f"{inp.played_san} walks into {pvp[0]}, and the line costs you material"
+                slots["front"] = f"{inp.played_san} runs into {pvp[0]}, and the line costs you material"
                 bp, _ = _best_purpose(fb, best, mover, None); slots["best_purpose"] = bp
             else:
                 return None
@@ -175,7 +175,7 @@ def _mistake_caption(inp, lab):
             b = chess.Board(fb); bm = b.parse_san(best); cap = b.piece_at(bm.to_square)
             if not (cap and cap.color != mover and len(b.attackers(cap.color, bm.to_square)) == 0):
                 return None
-            slots["win"] = f"wins the {P[cap.piece_type]} on {chess.square_name(bm.to_square)} for free — it is undefended"
+            slots["win"] = f"wins the {P[cap.piece_type]} on {chess.square_name(bm.to_square)} for nothing — it is undefended"
         elif lab == "missed_mate":
             ueb = _upov(inp.eval_before_cp, inp.user_color)
             if not (ueb is not None and ueb >= 9000):
@@ -223,13 +223,13 @@ def _mistake_caption(inp, lab):
 
 
 _OPP_MISTAKE = {
-    "one_move_blunder": "{played_san} leaves the {hung_piece} on {hung_square} hanging — you can win it with {opp_reply_san}. When your opponent drops a piece, take the free material.",
+    "one_move_blunder": "{played_san} leaves the {hung_piece} on {hung_square} hanging — you can win it with {opp_reply_san}. When your opponent leaves a piece undefended, take it.",
 }
 
 _SEED_MISTAKE = {
-    "one_move_blunder": "{played_san} hangs your {hung_piece} on {hung_square} to {opp_reply_san}; instead play {best_san} — {best_purpose}. Before any capture or move, check what can recapture and count the material first.",
+    "one_move_blunder": "{played_san} leaves your {hung_piece} on {hung_square} undefended to {opp_reply_san}; instead play {best_san} — {best_purpose}. Before any capture or move, check what can recapture and count the material first.",
     "walked_into_tactic": "{front}; {best_san} was stronger. Before a quiet move, check that none of your pieces can be won by a tactic.",
-    "missed_free_material": "{played_san} missed {best_san} — it {win}. When an enemy piece sits undefended, grab the free material first.",
+    "missed_free_material": "{played_san} missed {best_san} — it {win}. When an enemy piece sits undefended, take the material first.",
     "missed_mate": "{played_san} missed a forced mate — {win}. Always scan for forcing checks first; a mate ends the game.",
     "allowed_mate": "{played_san} allows a forced mate; {best_san} was needed. Check your king's safety before every move.",
     "opening_knowledge": "{played_san} brings the queen out too early — develop a knight or bishop like {best_san} first, before the queen can be chased.",
@@ -303,7 +303,7 @@ def _good_caption(inp):
             return ("good_trade", f"{san} takes the {tgt}. A trade is fine when it keeps your material even — just count what comes off each side.")
         # opponent capturing the student's piece
         if free:
-            return ("opp_capture_free", f"{san} grabs your undefended {tgt} — before each move, check which of your pieces are unguarded so you don't give material away.")
+            return ("opp_capture_free", f"{san} takes your undefended {tgt} — before each move, check which of your pieces are unguarded so you don't lose material.")
         return ("opp_trade", f"{san} takes your {tgt}. If you can, take back to keep the material even.")
     else:
         # don't PRAISE a sub-par move (31-99cp inaccuracy) as "active" / "a safer
@@ -403,12 +403,12 @@ def _facts_caption(inp):
                 (f"{san} takes your {cap} to level the material — an even trade.", "facts:opp_recapture"))
     if is_user:
         if not defs:
-            return (f"{san} wins the {cap} for free — nothing of theirs guards it. When an enemy piece sits with no defender, take it.", "facts:capture_free")
+            return (f"{san} wins the {cap} for nothing — nothing of theirs guards it. When an enemy piece sits with no defender, take it.", "facts:capture_free")
         dn = " and ".join(f"their {p}" for _, p in defs[:2])
         return (f"{san} takes the {cap}, but {dn} can take back — so it is an even trade. Count attackers and defenders before you swap.", "facts:trade")
     # opponent captured the student's piece
     if not defs:
-        return (f"{san} grabs your {cap} and nothing takes back. Before each move, check that your pieces are guarded.", "facts:opp_capture_free")
+        return (f"{san} takes your {cap} and nothing takes back. Before each move, check that your pieces are guarded.", "facts:opp_capture_free")
     dn = " and ".join(f"your {p}" for _, p in defs[:2])
     return (f"{san} takes your {cap}, but {dn} can take back — an even trade. Recapture to keep material level.", "facts:opp_trade")
 

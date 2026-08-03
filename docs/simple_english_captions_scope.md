@@ -171,6 +171,40 @@ and backfill so real users' already-analyzed games pick up the fix
   (`caption_pipeline.py:2162-2187`'s post-mistake recovery phrasing).
   This is a separate initiative — needs its own scope doc — see
   [[project_teaching_depth_by_rating_band]] once written.
+- **The caption-generating surface is much bigger than this doc's file
+  list (found 2026-08-03, verified via actual regenerated production
+  output, not static grep).** Regenerating 3 real games surfaced live
+  banned phrases ("grabs your X and nothing takes back", "walks into X,
+  and the line costs you material", "wins the X for free", "trades off
+  his X") coming from `distilled_caption_service.py`,
+  `caption_fallback_tiers.py`, and `caption_facts.py` — three files that
+  were never in this doc's surface list at all, despite being part of
+  the CORE, every-game caption pipeline (all three now fixed and
+  re-verified at 0 remaining hits on the 3 sample games).
+  A subsequent repo-wide scan for the same hit-list across
+  `backend/services/*.py` (not just the files already known about)
+  turned up **~20 more files with real hits**, none of which have been
+  triaged or fixed: `coaching_library.py`, `explanation_templates.py`,
+  `game_reason_classifier.py`, `move_comparison.py`,
+  `move_intent_analyzer.py`, `coaching_puzzle_service.py`,
+  `focus_area_badges.py`, `focus_recall_stats.py`, `game_tagging_service.py`,
+  `opening_library_service.py` (**a third, separate opening-caption data
+  source** — distinct from `opening_book.py` and
+  `opening_curriculum.json`/`opening_theory_tree.json` — matching the
+  documented "~22 opening_* services" sprawl), `opening_teaching_db.py`,
+  `opening_walkthrough_service.py`, `active_recall_service.py`,
+  `behavioral_coaching_layer.py`, `coaching_answer.py`,
+  `coaching_templates.py`, `human_coach_integration.py`,
+  `game_summary_service.py`, `meta_patterns.py`, `game_coach_review.py`,
+  `game_coach_summary.py`, `motif_profile_service.py`,
+  `game_tagging_service.py`. **None of these have been confirmed live
+  in a real production render path yet** — before fixing any of them,
+  the next session should verify which are actually reachable (vs.
+  legacy/orphaned, a recurring pattern in this codebase) and prioritize
+  by real traffic, not just file count. Deliberately not attempted in
+  this pass — the scope had already grown from "finish 3 known files"
+  to "the entire per-move caption pipeline" to this; drawing the line
+  here rather than let it expand indefinitely without a checkpoint.
 
 ## Needs Mohit (judgment calls parked here, not guessed)
 - **"the exchange" / "wins the exchange" (traps.json:178, 2040;

@@ -151,7 +151,7 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
 
     if facts.get("is_castling"):
         return (f"{sub} castle{'' if sub=='You' else 's'} — the king tucks away safely "
-                f"and the rook joins the game.", "R_TIER2_castle")
+                f"and the rook becomes active.", "R_TIER2_castle")
 
     if facts.get("is_check"):
         return (f"{sub} give{'' if sub=='You' else 's'} a check, forcing a reply.",
