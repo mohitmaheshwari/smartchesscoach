@@ -193,7 +193,7 @@ def diagnose_player_behavior(player_identity: Dict) -> BehavioralCoachingProfile
             process_checklist=[
                 "MANDATORY: Before EVERY move, verify:",
                 "  1. Is this piece protected? YES / NO",
-                "  2. Can opponent take it for free? YES / NO",
+                "  2. Can opponent take it for nothing? YES / NO",
                 "  3. Did I check opponent's threats? YES / NO",
                 "All three = YES? → Move",
                 "Any NO? → Think again"

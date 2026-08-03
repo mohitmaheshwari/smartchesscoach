@@ -50,7 +50,7 @@ class OpeningEntry:
     # Move-by-move teaching
     move_teachings: Dict[int, Dict[str, MoveTeaching]]  # {move_num: {"e4": MoveTeaching}}
     
-    # Strategic guidance
+    # Long-term guidance
     typical_plans_white: List[str]
     typical_plans_black: List[str]
     critical_moments: List[str]
@@ -248,7 +248,7 @@ class OpeningTeachingDatabase:
                 name="Ruy Lopez (Spanish Game)",
                 eco_code="C60-C99",
                 key_moves=["e4", "e5", "Nf3", "Nc6", "Bb5"],
-                overview="The 'Spanish Torture' - a strategic masterpiece used at all levels.",
+                overview="The 'Spanish Torture' - a long-term masterpiece used at all levels.",
                 main_idea_white="Put pressure on Black's center by threatening the knight that defends e5.",
                 main_idea_black="Maintain the center and seek counterplay.",
                 move_teachings={
@@ -262,7 +262,7 @@ class OpeningTeachingDatabase:
                         "a6": MoveTeaching(
                             move="a6",
                             explanation="The Morphy Defense - asking the bishop its intentions.",
-                            concept="Gaining space with tempo",
+                            concept="Gaining space while gaining time",
                             what_to_watch="The bishop must decide: retreat or exchange?"
                         )
                     },
@@ -378,7 +378,7 @@ class OpeningTeachingDatabase:
                 name="French Defense",
                 eco_code="C00-C19",
                 key_moves=["e4", "e6"],
-                overview="Solid and strategic - Black fights for d5.",
+                overview="Solid and long-term - Black fights for d5.",
                 main_idea_white="Maintain the pawn chain and attack on the kingside.",
                 main_idea_black="Attack the base of White's pawn chain with ...c5.",
                 move_teachings={
@@ -522,7 +522,7 @@ class OpeningTeachingDatabase:
                     1: {
                         "d4": MoveTeaching(
                             move="d4",
-                            explanation="The Queen's Pawn Game - solid and strategic.",
+                            explanation="The Queen's Pawn Game - solid and long-term.",
                             concept="Central control",
                             what_to_watch="c4 will follow to create pressure."
                         ),
@@ -543,7 +543,7 @@ class OpeningTeachingDatabase:
                         "dxc4": MoveTeaching(
                             move="dxc4",
                             explanation="The Queen's Gambit Accepted - taking the pawn.",
-                            concept="Material grab",
+                            concept="Material take",
                             what_to_watch="White will recover it with Qa4+ or e4."
                         ),
                         "e6": MoveTeaching(
@@ -578,7 +578,7 @@ class OpeningTeachingDatabase:
                 common_mistakes=[
                     "Black: Holding c4 pawn too long (QGA)",
                     "White: Mindless development",
-                    "Both: Forgetting strategic plans"
+                    "Both: Forgetting long-term plans"
                 ],
                 difficulty="intermediate",
                 famous_games=["Kasparov-Karpov WC", "Capablanca's QGD"]
@@ -705,7 +705,7 @@ class OpeningTeachingDatabase:
                 name="Nimzo-Indian Defense",
                 eco_code="E20-E59",
                 key_moves=["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"],
-                overview="Strategic masterpiece - Black pins the knight.",
+                overview="Long-term masterpiece - Black pins the knight.",
                 main_idea_white="Develop while dealing with the pin, get the bishop pair.",
                 main_idea_black="Double White's pawns with ...Bxc3 and play solidly.",
                 move_teachings={
@@ -750,7 +750,7 @@ class OpeningTeachingDatabase:
                 common_mistakes=[
                     "Black: Opening the position after ...Bxc3",
                     "White: Not using the bishops",
-                    "Both: Forgetting strategic goals"
+                    "Both: Forgetting long-term goals"
                 ],
                 difficulty="advanced",
                 famous_games=["Nimzowitsch's games", "Kasparov's Nimzo"]
@@ -771,13 +771,13 @@ class OpeningTeachingDatabase:
                     1: {
                         "c4": MoveTeaching(
                             move="c4",
-                            explanation="The English Opening - flexible and positional.",
+                            explanation="The English Opening - flexible and long-term.",
                             concept="Flexibility",
                             what_to_watch="White keeps options open - d4 may or may not come."
                         ),
                         "e5": MoveTeaching(
                             move="e5",
-                            explanation="Reversed Sicilian - Black grabs the center.",
+                            explanation="Reversed Sicilian - Black takes the center.",
                             concept="Central control",
                             what_to_watch="Black has an extra tempo vs the Sicilian!"
                         ),
@@ -785,7 +785,7 @@ class OpeningTeachingDatabase:
                             move="c5",
                             explanation="Symmetrical English - fighting for d4.",
                             concept="Symmetry",
-                            what_to_watch="Mirror structure - very strategic."
+                            what_to_watch="Mirror structure - very long-term."
                         )
                     }
                 },

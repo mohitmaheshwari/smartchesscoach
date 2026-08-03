@@ -40,7 +40,7 @@ AMBIENT = {
         "texts": [
             "Black is challenging your center now.",
             "The center tension is starting to matter.",
-            "Black is trying to undermine your center.",
+            "Black is trying to weaken your center.",
             "Your opponent has more influence in the center.",
         ],
     },
@@ -244,7 +244,7 @@ CRITICAL = {
         ],
         "questions": [
             "Did you check for captures first?",
-            "Did you scan for free pieces?",
+            "Did you scan for nothing pieces?",
         ],
         "needs": ["piece", "square"],
     },

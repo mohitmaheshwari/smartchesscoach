@@ -15,7 +15,7 @@ Key principle:
 25 composition rules, grouped:
   Time & tempo (5)
   Sacrifice & tactics (5)
-  Positional / strategic (4)
+  Long-term (4)
   Opening knowledge (3)
   Psychology (4)
   Conversion / endgame (2)
@@ -389,7 +389,7 @@ def rule_missed_counterattack(ctx: MetaContext) -> Optional[MetaPatternMatch]:
 
 
 def rule_walked_into_known_tactic(ctx: MetaContext) -> Optional[MetaPatternMatch]:
-    """User walked into a fork/pin/skewer/discovered attack."""
+    """User ran into a fork/pin/skewer/discovered attack."""
     tactic = None
     if ctx.walked_into_fork:
         tactic = "fork"
@@ -414,7 +414,7 @@ def rule_walked_into_known_tactic(ctx: MetaContext) -> Optional[MetaPatternMatch
     )
 
 
-# ─── Group 3: Positional / strategic (4) ─────────────────────────────
+# ─── Group 3: Long-term (4) ─────────────────────────────
 
 
 def rule_retreated_developed_piece(ctx: MetaContext) -> Optional[MetaPatternMatch]:
@@ -472,7 +472,7 @@ def rule_retreated_developed_piece(ctx: MetaContext) -> Optional[MetaPatternMatc
 
 
 def rule_traded_while_attacking(ctx: MetaContext) -> Optional[MetaPatternMatch]:
-    """Initiated a trade (capture) during own attack, losing initiative."""
+    """Initiated a trade (capture) during own attack, losing the attack."""
     if not ctx.user_move or ctx.cp_loss < 80:
         return None
     try:
@@ -506,7 +506,7 @@ def rule_traded_while_attacking(ctx: MetaContext) -> Optional[MetaPatternMatch]:
                 "cp_loss": ctx.cp_loss,
             },
             fallback_rule="When attacking, don't trade pieces. Fewer pieces = weaker attack.",
-            fallback_message=f"{ctx.user_move} traded off your attacker. You were winning — keep your pieces on the board when you have the initiative.",
+            fallback_message=f"{ctx.user_move} traded away your attacker. You were winning — keep your pieces on the board when you have the attack.",
         )
     except Exception:
         return None
@@ -922,7 +922,7 @@ META_RULES: List[Callable[[MetaContext], Optional[MetaPatternMatch]]] = [
     rule_panic_sacrifice,
     rule_missed_counterattack,
     rule_walked_into_known_tactic,
-    # Positional
+    # Long-term
     rule_retreated_developed_piece,
     rule_traded_while_attacking,
     rule_king_stuck_in_center,

@@ -172,7 +172,7 @@ _SUBJECT_MAP = {
     "ignored_king_attack":    "ignored king attacks",
     "weakened_shelter":       "shelter weakenings",
     "king_in_center":         "moments with your king in the center",
-    "king_walked_into_attack": "king walks into attack",
+    "king_walked_into_attack": "king runs into attack",
     "missed_fork":            "missed forks",
     "missed_pin":             "missed pins",
     "missed_skewer":          "missed skewers",

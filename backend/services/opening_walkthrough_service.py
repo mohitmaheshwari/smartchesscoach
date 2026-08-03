@@ -262,7 +262,7 @@ def _get_good_move_idea(move_san: str, phase: str, index: int) -> str:
             "Bc4": "Points at f7 — the weakest square. Classic attacking setup.",
             "Bb5": "Pins the knight or pressures the center. Solid choice.",
             "c4": "English-style. Fights for d5 control.",
-            "e5": "Grabs your share of the center. Equal game.",
+            "e5": "Takes your share of the center. Equal game.",
             "d5": "Takes the center back. Aggressive response.",
             "Nf6": "Develops and attacks e4. Good defense.",
             "Nc6": "Develops and defends e5. Textbook.",

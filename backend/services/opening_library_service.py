@@ -31,7 +31,7 @@ OPENING_DATABASE = {
         "main_line": [
             {"move": "e4", "explanation": "Control the center and open lines for your bishop and queen."},
             {"move": "e5", "explanation": "Black mirrors, fighting for the center."},
-            {"move": "Nf3", "explanation": "Develop with tempo, attacking the e5 pawn."},
+            {"move": "Nf3", "explanation": "Develop while gaining time, attacking the e5 pawn."},
             {"move": "Nc6", "explanation": "Black defends the pawn and develops."},
             {"move": "Bc4", "explanation": "The Italian! Targeting the weak f7 square."},
             {"move": "Bc5", "explanation": "The Giuoco Piano - Black develops actively."},
@@ -66,7 +66,7 @@ OPENING_DATABASE = {
                     {"move": "Kxf7", "explanation": "Black must capture."},
                     {"move": "Qf3+", "explanation": "Check! Double attack on king and knight on d5."},
                     {"move": "Ke6", "explanation": "The king is forced forward into danger."},
-                    {"move": "Nc3", "explanation": "Develop with tempo. White wins the knight and has a crushing attack."}
+                    {"move": "Nc3", "explanation": "Develop while gaining time. White wins the knight and has a crushing attack."}
                 ],
                 "success_message": "The Fried Liver Attack! Black's king is exposed and you win material."
             },
@@ -157,7 +157,7 @@ OPENING_DATABASE = {
     "queens-gambit": {
         "name": "Queen's Gambit",
         "eco": "D00-D69",
-        "description": "A solid, strategic opening. White offers a pawn to gain central control. Not a real gambit - the pawn can be recovered.",
+        "description": "A solid, long-term opening. White offers a pawn to gain central control. Not a real gambit - the pawn can be recovered.",
         "color": "white",
         "first_moves": ["d4", "d5", "c4"],
         "main_line": [
@@ -247,7 +247,7 @@ OPENING_DATABASE = {
                 "setup_moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+"],
                 "trap_line": [
                     {"move": "Bd2", "explanation": "Block the check with the bishop."},
-                    {"move": "Qxb2", "explanation": "Black grabs the pawn greedily, but..."},
+                    {"move": "Qxb2", "explanation": "Black takes the pawn greedily, but..."},
                     {"move": "Bc3", "explanation": "The queen is trapped! No safe squares."},
                     {"move": "Qb4", "explanation": "Black tries to escape, but..."},
                     {"move": "Bxb4", "explanation": "Take the queen! She has nowhere to run."}
@@ -423,7 +423,7 @@ OPENING_DATABASE = {
             {
                 "deviation": "Nf3 instead of d4",
                 "name": "Quiet Line",
-                "response": "Play e5 grabbing central space, then d6 and normal development.",
+                "response": "Play e5 taking central space, then d6 and normal development.",
                 "recommendation": "e5 is strong here since White can't play d4 immediately."
             }
         ]
@@ -452,7 +452,7 @@ OPENING_DATABASE = {
         ],
         "key_ideas": [
             "The bishop on b5 indirectly pressures the e5 pawn through the knight",
-            "White aims for a slow strategic squeeze",
+            "White aims for a slow long-term squeeze",
             "Central control with pawns on e4 and d4 is the goal",
             "The Marshall Attack is a dangerous gambit Black can play"
         ],
@@ -588,7 +588,7 @@ OPENING_DATABASE = {
     "french-defense": {
         "name": "French Defense",
         "eco": "C00-C19",
-        "description": "A solid defense where Black locks the center with e6. Leads to strategic battles.",
+        "description": "A solid defense where Black locks the center with e6. Leads to long-term battles.",
         "color": "black",
         "first_moves": ["e4", "e6"],
         "main_line": [
@@ -732,7 +732,7 @@ OPENING_DATABASE = {
             "Bb7 controls the long diagonal",
             "Very flexible - can transpose to other systems",
             "Black often plays d5 or c5",
-            "Strategic and positional"
+            "A slow, long-term game — not sharp tactics"
         ],
         "common_mistakes": [],
         "traps": [],

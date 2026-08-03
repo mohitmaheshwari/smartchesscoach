@@ -29,7 +29,7 @@ class MistakeSummary:
     
     # The rich description
     short_description: str  # e.g., "Missed knight fork"
-    concept_type: str  # tactical/opening/endgame/positional
+    concept_type: str  # tactical/opening/endgame/long-term
     concept_id: Optional[str]  # For tracking patterns
     
     # Optional deeper context
@@ -72,7 +72,7 @@ def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
     1. Blunders with specific tactical patterns (fork, pin, back-rank)
     2. Opening theory violations
     3. Endgame technique failures
-    4. Positional mistakes with clear lessons
+    4. Long-term mistakes with clear lessons
     5. Opponent blunders (opportunities missed or taken)
     """
     if not v5_data:
@@ -191,7 +191,7 @@ def _extract_mistake_summary(move_data: Dict) -> Optional[MistakeSummary]:
     """
     Extract a human-readable summary from a single move's V5 data.
     
-    Prioritizes specific tactical/strategic descriptions over generic ones.
+    Prioritizes specific tactical/long-term descriptions over generic ones.
     """
     move_number = move_data.get("move_number", 0)
     move_san = move_data.get("move_san", "?")
@@ -199,7 +199,7 @@ def _extract_mistake_summary(move_data: Dict) -> Optional[MistakeSummary]:
     severity = move_data.get("severity", "mistake")
     
     plan = move_data.get("plan") or {}
-    concept_type = plan.get("concept_type", "positional")
+    concept_type = plan.get("concept_type", "long-term")
     concept_id = plan.get("concept_id")
     
     # Try to get a specific description

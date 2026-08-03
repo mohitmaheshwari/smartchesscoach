@@ -11,7 +11,7 @@ Categories (losses):
   - tactical_miss:       "Missed a simple tactic"
   - one_move_blunder:    "Left a piece hanging"
   - calculation_error:   "Saw the idea but miscalculated"
-  - positional:          "Outplayed positionally"
+  - positional:          "Outplayed in the long run"
   - endgame_collapse:    "Couldn't convert the endgame"
   - opening_disaster:    "Went wrong in the opening"
   - time_collapse:       "Collapsed under time pressure"
@@ -43,14 +43,14 @@ LOSS_CATEGORIES = {
     },
     "one_move_blunder": {
         "label": "Left a piece hanging",
-        "description": "You put a piece where it could be taken for free. One careless move cost the game.",
+        "description": "You put a piece where it could be taken for nothing. One careless move cost the game.",
     },
     "calculation_error": {
         "label": "Miscalculated a sequence",
         "description": "You saw the right idea but got the move order wrong or missed a defensive resource.",
     },
     "positional": {
-        "label": "Outplayed positionally",
+        "label": "Outplayed in the long run",
         "description": "Your pieces ended up on bad squares. Your opponent had a better plan.",
     },
     "endgame_collapse": {

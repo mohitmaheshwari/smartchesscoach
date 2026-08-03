@@ -532,10 +532,10 @@ class CoachingPuzzleService:
                     "themes": [motif],
                     "motif": motif,
                     "context": (
-                        f"From your own game — move {move_number}: you walked into a {motif}. "
+                        f"From your own game — move {move_number}: you ran into a {motif}. "
                         f"Find the move that avoids it."
                         if move_number else
-                        f"From your own game: you walked into a {motif}. Find the move that avoids it."
+                        f"From your own game: you ran into a {motif}. Find the move that avoids it."
                     ),
                 })
                 if len(puzzles) >= limit:
@@ -570,7 +570,7 @@ class CoachingPuzzleService:
                 "puzzle_id": pid, "source": "community", "from_user_game": False,
                 "fen": fen, "solution": [uci] if uci else [san], "solution_san": san,
                 "rating": None, "themes": [motif], "motif": motif,
-                "context": f"Another player walked into a {motif} here. Find the move that avoids it.",
+                "context": f"Another player ran into a {motif} here. Find the move that avoids it.",
             })
             if len(out) >= limit:
                 break

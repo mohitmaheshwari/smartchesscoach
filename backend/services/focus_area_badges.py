@@ -48,7 +48,7 @@ _SUBTYPE_SHORT = {
     "ignored_king_attack":      "ignored king attack",
     "weakened_shelter":         "weakened shelter",
     "king_in_center":           "king in center",
-    "king_walked_into_attack":  "king walked into attack",
+    "king_walked_into_attack":  "king ran into attack",
     "missed_fork":              "missed fork",
     "missed_pin":               "missed pin",
     "missed_skewer":            "missed skewer",

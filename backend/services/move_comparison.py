@@ -420,7 +420,7 @@ def _find_opponent_threats(
             )
             return threats
 
-        # Check for free captures of high-value pieces
+        # Check for nothing captures of high-value pieces
         if board.is_capture(move):
             captured = board.piece_at(move.to_square)
             if captured and captured.color == user_color:
@@ -453,7 +453,7 @@ def _find_opponent_threats(
                     if claim_credible:
                         threats.append(
                             f"After your move, your {chess.piece_name(captured.piece_type)} on "
-                            f"{chess.square_name(move.to_square)} can be taken for free"
+                            f"{chess.square_name(move.to_square)} can be taken for nothing"
                         )
                 elif cap_val > attacker_val + 1:
                     threats.append(

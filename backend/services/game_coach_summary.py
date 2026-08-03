@@ -1195,7 +1195,7 @@ def _readable_diagnosis(diagnosis: str) -> str:
     return {
         GameDiagnosis.THROW: "Throwing winning positions",
         GameDiagnosis.MATE_BLIND: "Missing checkmate threats",
-        GameDiagnosis.SLOW_BLEED: "Gradual positional loss",
+        GameDiagnosis.SLOW_BLEED: "Small mistakes adding up",
         GameDiagnosis.OPENING_COLLAPSE: "Opening preparation failure",
         GameDiagnosis.PIECE_GIVEAWAY: "Leaving pieces hanging",
         GameDiagnosis.TACTICAL_MISS: "Missing tactics",

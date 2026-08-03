@@ -45,7 +45,7 @@ COACH_MOVE = {
     "opening_pawn_flank": [
         # Coach voice rewrite (2026-04-27): plain words, short sentences,
         # the way a friend who plays chess would actually say it.
-        # No jargon ("flank", "initiative"). Pivot to concrete user move.
+        # No jargon ("flank", "the attack"). Pivot to concrete user move.
         {"explanation": "{move}. Just a small move on the side.", "question": "What can you do in the middle?", "hint": "A center pawn, or get a knight or bishop out."},
         {"explanation": "I played {move} — staying on the edge. The middle is yours.", "question": "What's your best move in the center?", "hint": "When I'm playing on the side, answer in the middle."},
     ],
@@ -144,7 +144,7 @@ COACH_MOVE = {
 
     "trap_fell_for": [
         {"explanation": "That's the {trap_name}. {trap_explanation}", "question": "See why that move was a mistake now?", "hint": "Look at what I can do next."},
-        {"explanation": "You walked into the {trap_name}. No worries — now you'll remember it. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was anything except {trap_move}."},
+        {"explanation": "You ran into the {trap_name}. No worries — now you'll remember it. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was anything except {trap_move}."},
     ],
 
     "trap_avoided": [
@@ -249,7 +249,7 @@ USER_FEEDBACK = {
         {"narrative": "{move} — you gave up your {piece} for something bigger. Incredible."},
     ],
 
-    # ─── CCT discipline (held the initiative after a miss) ─────────
+    # ─── CCT discipline (kept the attack going after a miss) ─────────
     # Phase 4 strings tied to detected cct_held_initiative_segments.
     # These fire when the system saw a real "missed THE killer but
     # kept giving checks until one landed" pattern in the game.

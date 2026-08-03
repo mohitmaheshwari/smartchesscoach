@@ -5,7 +5,7 @@ Game Tagging Service
 Comprehensive tagging system for game analysis.
 Tags each critical moment with patterns that help the coach understand:
 1. What kind of mistake was made
-2. What tactical/strategic pattern was involved
+2. What tactical/long-term pattern was involved
 3. What theory could have helped
 
 Tags are rating-appropriate - different tags for different skill levels.
@@ -259,7 +259,7 @@ GAME_TAGS = {
     # === MIDDLEGAME ===
     "wrong_plan": {
         "label": "Wrong Plan",
-        "description": "Chose incorrect strategic direction",
+        "description": "Chose the wrong long-term direction",
         "category": "strategic",
         "min_rating": 1400,
         "max_rating": 2500,

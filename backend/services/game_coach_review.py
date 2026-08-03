@@ -161,7 +161,7 @@ _PRINCIPLE_TABLE: Dict[tuple, Dict[str, str]] = {
     ("opening_knowledge", "opening"): {
         "title": "Know your opening 2 moves deeper",
         "principle": "Pick one opening for each color and learn the first 10 moves cold. Most plateau players stop at move 5.",
-        "diagnosis": "{played} stopped following the main opening line. {best} was the principled continuation.",
+        "diagnosis": "{played} stopped following the main opening line. {best} was the best-known continuation.",
         "homework": "Spend 10 minutes reviewing your main opening's first 10 moves before your next session.",
     },
 
@@ -268,12 +268,12 @@ def _format_cp(cp: int) -> str:
 # Map caption first-verb to a short card title. Keeps the principle
 # card header consistent with the failure-mode diagnosis instead of
 # leaving the (gap, phase) header ("Castle early") attached to a
-# different-shaped body ("walks into Nd4 attacking the queen").
+# different-shaped body ("runs into Nd4 attacking the queen").
 _CAPTION_VERB_TO_TITLE = [
-    ("walks into",        "Walks into the reply"),
+    ("runs into",        "Runs into the reply"),
     ("allows",            "Allows a tactic"),
     ("hangs to",          "Hanging piece"),
-    ("loses to",          "Walks into check"),
+    ("loses to",          "Runs into check"),
     ("drops the exchange","Losing exchange"),
     ("leaves your",       "Undefended piece"),
 ]
@@ -406,7 +406,7 @@ def compose_story(
         # Mohit 2026-06-02 — wire the R12_blunder failure-mode captions
         # (Phase 1/2 shipped earlier today) into Coach Review. When the
         # eval has a stored caption from R12 (which now diagnoses the
-        # played move with concrete failure-mode wording — "walks into
+        # played move with concrete failure-mode wording — "runs into
         # Nd4 attacking the queen on f3" instead of generic templating),
         # prefer it over the (gap, phase) principle template.
         #

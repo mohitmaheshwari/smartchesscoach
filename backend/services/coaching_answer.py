@@ -179,7 +179,7 @@ def detect_thinking_pattern(
                 if abs_diff > 200:
                     pattern = {
                         "id": "pawn_grabbing",
-                        "label": "Pawn Grabbing",
+                        "label": "Pawn Taking",
                         "description": "You see a free pawn and want to take it. But is it really free? Check what happens AFTER the capture.",
                         "coaching_signal": "concerning",
                     }
@@ -227,14 +227,14 @@ def detect_thinking_pattern(
             if abs_diff < 50:
                 pattern = {
                     "id": "positional_sense",
-                    "label": "Positional Sense",
-                    "description": "You're thinking about improving your pieces. That shows good positional understanding.",
+                    "label": "Long-term Sense",
+                    "description": "You're thinking about improving your pieces. That shows good long-term understanding.",
                     "coaching_signal": "positive",
                 }
             else:
                 pattern = {
                     "id": "positional_misread",
-                    "label": "Positional Misread",
+                    "label": "Long-term Misread",
                     "description": "This looks natural but misses something concrete. Always check for tactics before playing a quiet move.",
                     "coaching_signal": "concerning",
                 }
@@ -393,7 +393,7 @@ def generate_coaching_answer(
                 f"{better_move} is better — it wins material cleanly."
             )
         elif better_char.get("gives_check"):
-            parts.append(f"{better_move} gives check and gains initiative.")
+            parts.append(f"{better_move} gives check and gains the attack.")
         elif better_char.get("attacks_after"):
             targets = better_char["attacks_after"]
             high_value = [t for t in targets if t in ("queen", "rook", "bishop", "knight")]
