@@ -972,11 +972,19 @@ def record_concept_applications_from_game(
     # grade wins (matches the original aggregation semantics) and its
     # evidence is the one we keep.
     latest_grade = {}   # skill_id -> (outcome, evidence_dict)
+    # Full SAN history across BOTH colors, in order — trap_detection needs
+    # this to match against traps.json's setup_moves (which alternate
+    # colors); board_before is built fresh from a stored FEN below and has
+    # no move_stack, so this has to be threaded in explicitly. Built from
+    # every move regardless of whose turn it is; only forwarded to the
+    # detector runner on the user's own moves (the `continue` below).
+    history_san: list = []
     for me in move_evaluations:
         fen_before = me.get("fen_before")
         san = me.get("move") or me.get("move_san")
         if not fen_before or not san:
             continue
+        history_san.append(san)
         try:
             board = chess.Board(fen_before)
             if board.turn != uc:
@@ -986,6 +994,7 @@ def record_concept_applications_from_game(
                 board, move, uc,
                 move_number=me.get("move_number"),
                 opening_name=opening_name,
+                move_history_san=list(history_san),
             ):
                 latest_grade[skill_id] = (
                     outcome,

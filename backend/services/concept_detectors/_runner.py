@@ -38,20 +38,23 @@ from services.concept_detectors.registry import all_detectors
 # extra kwargs to detectors that actually declare them, via
 # inspect.signature, rather than widening the contract for all 10.
 #
-# NOTE: this fix alone does NOT make trap_detection/opening_play fire —
-# both have separate, deeper bugs (wrong-argument-type call into
-# trap_recognition.detect_trap_setup, and an import of functions that
-# don't exist in opening_curriculum_engine.py) found during end-to-end
-# verification. See docs/caption_pipeline_architecture_reference.md
-# §11 item 1 — deliberately not fixed here, needs its own scoping.
+# 2026-08-03: both trap_detection and opening_play have been rewritten
+# to work with the real, available data (see each module's own
+# docstring for what changed and why). trap_detection now also declares
+# `move_history_san`, needed because its caller (coach_memory.py)
+# builds `board_before` fresh from a stored FEN on every move — the
+# board has no move_stack to derive history from, so the full SAN
+# history has to be threaded in explicitly, the same way move_number
+# and opening_name already are.
 _EXTRA_KWARG_CACHE: dict = {}
+_EXTRA_KWARGS = ("move_number", "opening_name", "move_history_san")
 
 
 def _extra_kwargs_accepted(detector) -> set:
     cached = _EXTRA_KWARG_CACHE.get(detector)
     if cached is None:
         params = inspect.signature(detector).parameters
-        cached = {name for name in ("move_number", "opening_name") if name in params}
+        cached = {name for name in _EXTRA_KWARGS if name in params}
         _EXTRA_KWARG_CACHE[detector] = cached
     return cached
 
@@ -62,6 +65,7 @@ def run_detectors_for_move(
     user_color: chess.Color,
     move_number: Optional[int] = None,
     opening_name: Optional[str] = None,
+    move_history_san: Optional[List[str]] = None,
 ) -> List[Tuple[str, str]]:
     """Run every registered detector against a move.
 
@@ -70,9 +74,10 @@ def run_detectors_for_move(
     the user passed and "wrong" when the user failed. Detectors that
     return None (not a clean test) are filtered out.
 
-    `move_number` / `opening_name` are optional and only forwarded to
-    detectors that declare them (trap_detection, opening_play) — every
-    other detector keeps its strict 3-positional-arg contract.
+    `move_number` / `opening_name` / `move_history_san` are optional and
+    only forwarded to detectors that declare them (trap_detection,
+    opening_play) — every other detector keeps its strict
+    3-positional-arg contract.
 
     Caller is responsible for persisting the outcomes via
     coach_memory.record_skill_attempt.
@@ -86,6 +91,8 @@ def run_detectors_for_move(
                 kwargs["move_number"] = move_number
             if "opening_name" in accepted:
                 kwargs["opening_name"] = opening_name
+            if "move_history_san" in accepted:
+                kwargs["move_history_san"] = move_history_san
             verdict = detector(board_before, move, user_color, **kwargs)
         except Exception:
             # Detector bugs must not poison the move pipeline.
