@@ -30,11 +30,19 @@ it silently reverted). Each is a go/no-go decision, not a build task.
 | `REACT_APP_CLIENT_EVAL` | Client-side (WASM) Stockfish for PWC, zero server compute cost | `useStockfishEval.js`, fully wired `CoachPlay.jsx` → `coach_play.py` | End-to-end wired, just never set `true` in `.env.production` |
 | `PWC_MOVE_QUALITY_RATING` | Deterministic, EWMA move-quality rating for 600-1500 users, replaces imported Elo | `move_quality_rating.py`, called from `coach_game_session.py` with graceful fallback | Code-complete, never flipped anywhere |
 
-**Recommendation: flip `DISTILLED_CAPTIONS_ENABLED` and `VERIFIED_CAPTIONS`
-first** — these two directly improve caption quality/truth, which is the
-closest existing lever to the "captions are hard to understand" complaint
-that started this whole thread. The other four are real wins but orthogonal
-to that complaint.
+**Status as of 2026-08-03, later the same day: all 6 resolved.**
+`DISTILLED_CAPTIONS_ENABLED` and `VERIFIED_CAPTIONS` turned out to already
+be live — this table's own "off in prod" verdict for those two was wrong;
+it checked `docker-compose.yml`'s default without checking that the
+untracked `.env` already overrides both to on. Caught by checking the
+*running container's* actual environment directly rather than trusting
+either file. The other four (`PWC_LIVE_OPENING_NUDGE_ENABLED`,
+`PWC_GAP_ENRICHMENT`, `REACT_APP_CLIENT_EVAL`, `PWC_MOVE_QUALITY_RATING`)
+were genuinely off — re-verified each has graceful degradation, flipped
+all four, rebuilt backend + frontend, and ran the `PWC_GAP_ENRICHMENT`
+backfill (`regen_coach_game_gaps.py --apply`: 379→531 gaps recovered
+across 70 existing coach-play games). All 6 confirmed live in the running
+containers post-deploy.
 
 ## Real, currently-broken bug (not previously known)
 
