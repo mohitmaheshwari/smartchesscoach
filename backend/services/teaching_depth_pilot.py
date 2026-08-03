@@ -122,6 +122,93 @@ PIECE_SAFETY_POSITIONS = {
             ),
         },
     },
+    "nxg4_queen_covered": {
+        "game_id": "0069d81a-506f-4d41-bf53-f8a48642d2d6",
+        "pattern": "direct_hang",
+        "played_san": "Nxg4",
+        "tiers": {
+            "beginner_low": (
+                "Nxg4 takes a pawn, but White's queen on d1 already covers "
+                "that square — Qxg4 wins your knight next. Before any "
+                "capture, check what's already watching the square you're "
+                "capturing on."
+            ),
+            "beginner_high": (
+                "Nxg4 grabs a pawn, but the queen on d1 was already aimed "
+                "at g4 down that diagonal, so nothing protects your knight "
+                "there — Qxg4 just wins it back for free."
+            ),
+            "intermediate": (
+                "Nxg4 wins a pawn, but the g4 square was already covered by "
+                "White's queen on d1, so this isn't really winning "
+                "material — it's trading your knight for one pawn. d5 was "
+                "the calmer choice: it fights for the center without "
+                "handing over a piece."
+            ),
+            "advanced": (
+                "Nxg4?? Qxg4 just costs the knight for a pawn — the queen "
+                "on d1 already had g4 covered. d5 was correct instead."
+            ),
+        },
+    },
+    "oo_hangs_queen": {
+        "game_id": "b9b5fc63-ae8f-4632-ac31-b38207d742ed",
+        "pattern": "ignored_existing_threat",
+        "played_san": "O-O",
+        "tiers": {
+            "beginner_low": (
+                "O-O doesn't save your queen — Black can already play "
+                "Nxf3+, winning it with check, and castling doesn't stop "
+                "that. Before you castle, always check: is anything of "
+                "mine hanging right now?"
+            ),
+            "beginner_high": (
+                "O-O looks like a normal, safe move, but it ignores that "
+                "your queen on f3 can already be captured by Nxf3+ — "
+                "castling doesn't defend the queen or move it away."
+            ),
+            "intermediate": (
+                "O-O is a completely normal move in general, but here it "
+                "walks right past the fact that Nxf3+ wins your queen with "
+                "check — the king move doesn't change what's happening on "
+                "f3 at all. Qg3 moved the queen to safety first, keeping "
+                "it in the game instead of losing it outright."
+            ),
+            "advanced": (
+                "O-O ignores Nxf3+ winning the queen with check — Qg3 was "
+                "needed first, saving the queen before anything else."
+            ),
+        },
+    },
+    "rxf1_check_sac": {
+        "game_id": "aef99109-9f2d-45a8-98f1-0cb97db825ee",
+        "pattern": "direct_hang",
+        "played_san": "Rxf1+",
+        "tiers": {
+            "beginner_low": (
+                "Rxf1+ gives check, but nothing defends your rook on f1 — "
+                "White's king just takes it back with Kxf1. Before you "
+                "capture with check, make sure the square is actually safe "
+                "afterward."
+            ),
+            "beginner_high": (
+                "Rxf1+ wins the bishop and forces the king to move, but "
+                "only your rook attacks f1 — the king on g1 already covers "
+                "that square, so Kxf1 just wins your rook back."
+            ),
+            "intermediate": (
+                "Rxf1+ trades your rook for a bishop and a forced king "
+                "move, but the check alone isn't worth a whole rook here — "
+                "White's king isn't in real danger afterward. Qe4 kept the "
+                "pressure on without giving up material for a check that "
+                "doesn't lead anywhere."
+            ),
+            "advanced": (
+                "Rxf1+?? Kxf1 just loses the exchange for nothing real — "
+                "Qe4 kept the initiative without the cost."
+            ),
+        },
+    },
 }
 
 
@@ -155,6 +242,13 @@ def render_piece_safety_tier(
         if last_period > 0:
             tier_text = truncated[: last_period + 1]
         else:
-            tier_text = truncated.rstrip() + "…"
+            # First sentence itself exceeds the cap (seen on the
+            # intermediate tier, which is deliberately the richest) —
+            # never cut mid-word. Back off to the last word boundary.
+            last_space = truncated.rfind(" ")
+            if last_space > 0:
+                tier_text = truncated[:last_space].rstrip() + "…"
+            else:
+                tier_text = truncated.rstrip() + "…"
 
     return tier_text

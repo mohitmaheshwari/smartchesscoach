@@ -73,17 +73,86 @@ not a defense of c4).
 | intermediate | "Qd2 leaves the c4 bishop hanging to Bxc4 — and since the queen move doesn't create a big enough threat of its own, Black just wins the piece next move with nothing to show for it. Bxe6 was the right idea: instead of trying to save the bishop, it grabs Black's own loose piece on e6 first, so even after Bxc4, the trade comes out even or ahead." |
 | advanced | "Qd2 ignores Bxc4 hanging — Bxe6 first was correct, since it wins material of your own before Black gets to collect on c4." |
 
+## Position 4 — Direct hang (capture into a queen-covered square)
+
+`0069d81a-506f-4d41-bf53-f8a48642d2d6`, move 4, Black plays **Nxg4**
+FEN before: `rnbqk2r/pppp1ppp/5n2/2b1p3/6P1/2N1P3/PPPP1PBP/R1BQK1NR b KQkq - 2 4`
+Verified: White's queen on d1 already attacks g4 before the move; Black
+has zero defenders there after capturing. `eval_before=+11 (White) →
+eval_after=+392 (White)`. `best_move=d5`. A useful variant of Position 2
+(Qxh3) — here the piece already covering the square is the queen itself,
+not a pawn, and the capturing piece is a knight, not the queen.
+
+| Tier | Text |
+|---|---|
+| beginner_low | "Nxg4 takes a pawn, but White's queen on d1 already covers that square — Qxg4 wins your knight next. Before any capture, check what's already watching the square you're capturing on." |
+| beginner_high | "Nxg4 grabs a pawn, but the queen on d1 was already aimed at g4 down that diagonal, so nothing protects your knight there — Qxg4 just wins it back for free." |
+| intermediate | "Nxg4 wins a pawn, but the g4 square was already covered by White's queen on d1, so this isn't really winning material — it's trading your knight for one pawn. d5 was the calmer choice: it fights for the center without handing over a piece." |
+| advanced | "Nxg4?? Qxg4 just costs the knight for a pawn — the queen on d1 already had g4 covered. d5 was correct instead." |
+
+## Position 5 — Ignored existing threat (castling hangs the queen)
+
+`b9b5fc63-ae8f-4632-ac31-b38207d742ed`, move 11, White plays **O-O**
+FEN before: `r1bqk2r/pp4bp/3p2pn/2pNp1p1/2BnP3/3P1Q1P/PPP2PP1/1RB1K2R w Kkq - 2 11`
+Verified: `Nxf3+` (capturing White's queen with check) is legal for Black
+both before and after White's castling move — castling neither addresses
+nor is affected by it. `eval_before=-335 → eval_after=-680`. `best_move
+=Qg3`. The most severe example in this set (the queen itself, not a minor
+piece) and the first not built around a capturing move — castling is a
+completely ordinary, usually-safe move that here simply ignores what's
+actually happening on the board.
+
+| Tier | Text |
+|---|---|
+| beginner_low | "O-O doesn't save your queen — Black can already play Nxf3+, winning it with check, and castling doesn't stop that. Before you castle, always check: is anything of mine hanging right now?" |
+| beginner_high | "O-O looks like a normal, safe move, but it ignores that your queen on f3 can already be captured by Nxf3+ — castling doesn't defend the queen or move it away." |
+| intermediate | "O-O is a completely normal move in general, but here it walks right past the fact that Nxf3+ wins your queen with check — the king move doesn't change what's happening on f3 at all. Qg3 moved the queen to safety first, keeping it in the game instead of losing it outright." |
+| advanced | "O-O ignores Nxf3+ winning the queen with check — Qg3 was needed first, saving the queen before anything else." |
+
+## Position 6 — Direct hang (check-with-capture achieves nothing, rook version)
+
+`aef99109-9f2d-45a8-98f1-0cb97db825ee`, move 37, Black plays **Rxf1+**
+FEN before: `5k2/1q3r1p/1R2Q1p1/5p2/1P6/2P3P1/5P1P/3r1BK1 b - - 2 37`
+Verified: White's king on g1 already covers f1 before the move; Black has
+zero defenders after capturing, so `Kxf1` recaptures for free.
+`eval_before=-50 → eval_after=+362`. `best_move=Qe4`. A second, confirming
+example of the same "check-with-capture achieves nothing" shape as
+Position 1 (Bxf7+) — here the advanced tier correctly uses "loses the
+exchange" (rook for bishop, the precise traditional sense of the term,
+same judgment call as the "wins the exchange" keeps in
+`traps.json`/`opening_book.py` from the earlier jargon sweep), not the
+banned generic usage.
+
+| Tier | Text |
+|---|---|
+| beginner_low | "Rxf1+ gives check, but nothing defends your rook on f1 — White's king just takes it back with Kxf1. Before you capture with check, make sure the square is actually safe afterward." |
+| beginner_high | "Rxf1+ wins the bishop and forces the king to move, but only your rook attacks f1 — the king on g1 already covers that square, so Kxf1 just wins your rook back." |
+| intermediate | "Rxf1+ trades your rook for a bishop and a forced king move, but the check alone isn't worth a whole rook here — White's king isn't in real danger afterward. Qe4 kept the pressure on without giving up material for a check that doesn't lead anywhere." |
+| advanced | "Rxf1+?? Kxf1 just loses the exchange for nothing real — Qe4 kept the initiative without the cost." |
+
 ---
 
 ## What this authoring pass confirms about the pattern
 
-- The 4-tier shape holds across two structurally different piece_safety
-  sub-patterns without forcing awkward phrasing — beginner_low always
-  stays to one fact + one rule; advanced always compresses to the shortest
-  possible statement of cause + correct alternative.
+- The 4-tier shape holds across six real positions and two structurally
+  different piece_safety sub-patterns without forcing awkward phrasing —
+  beginner_low always stays to one fact + one rule; advanced always
+  compresses to the shortest possible statement of cause + correct
+  alternative.
 - **Not every stored `cognitive_gap: piece_safety` mistake is a clean
   teaching case.** 2 of the first 4 pulled from the corpus turned out
   misleading on direct engine verification and were correctly dropped
   rather than authored around. Any production wiring of this feature must
   keep this same verify-before-render discipline per-position, not assume
   every tagged mistake is tier-authorable as-is.
+- **Deliberately not generalized into parameterized templates.** With
+  only 6 authored positions (3 `direct_hang`, 2 `ignored_existing_threat`,
+  plus the `check_achieves_nothing` variant shared by Positions 1 and 6),
+  forcing a one-size-fits-all template risks exactly what this project's
+  own caption-distillation history already found: over-generalizing too
+  early produces vaguer text that diverges from what a specific real
+  position actually needs. The established, working pattern in this
+  codebase (`R12_blunder.json`'s dozens of hand-authored variants) is the
+  right model — grow this as a library of specific, verified situations,
+  not a generic template, until a genuinely large authored set reveals
+  where real generalization is safe.
