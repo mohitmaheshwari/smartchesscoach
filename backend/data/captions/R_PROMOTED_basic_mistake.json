@@ -52,7 +52,7 @@
     "with_blocked_pawn_prepares": "{move_san} {severity_phrase}. {best_move} (the pawn push) was preparing your {blocked_pawn_would_prepare} break — the central pawn break in this structure. With {move_san}, the {blocked_pawn_file}-pawn is locked in and you can no longer push to {blocked_pawn_would_prepare}.",
     "with_blocked_pawn": "{move_san} {severity_phrase} — it blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}. {best_move} was better.",
     "with_curriculum_deviation": "{move_san} {severity_phrase}. {curriculum_deviation_clause}",
-    "with_winning_position": "{move_san} is fine — you're still winning. {best_move} would have kept the pressure on.",
+    "with_winning_position": "{move_san} is fine — you're still winning. {best_move} would have made things harder for your opponent.",
     "with_losing_position": "{move_san} doesn't change much here. {best_move} would have made things harder for your opponent."
   }
 }

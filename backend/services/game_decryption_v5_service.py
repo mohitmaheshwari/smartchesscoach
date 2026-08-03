@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 135  # v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). Bump forces stored review captions to re-render through the flagged-on pipeline. v133 (2026-07-08): jargon + defeatist-phrase sweep.
+V5_COACHING_VERSION = 136  # v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -370,7 +370,7 @@ def get_opening_introduction(
         "Nf3": {
             "name": "Réti Opening",
             "idea": "White develops a piece without moving pawns yet. It can turn into many other openings.",
-            "black_response_hint": "d5 is the most principled. Nf6 copies White's plan."
+            "black_response_hint": "d5 is the strongest choice. Nf6 copies White's plan."
         },
 
         # Common Black responses to e4
@@ -405,7 +405,7 @@ def get_opening_introduction(
             "idea": "Passive bishop development. Safe but doesn't create pressure — Bc5 or Bb4 are usually more active.",
         },
         "g6": {
-            "idea": "Fianchetto setup — the bishop will go to g7 to control the long diagonal.",
+            "idea": "The bishop will go to g7 to control the long diagonal.",
         },
         "Nbd2": {
             "idea": "Quiet development. Reroutes via f1-g3 in some structures; keeps the c-pawn free.",
@@ -436,7 +436,7 @@ def get_opening_introduction(
         # the black queen with Nc3, gaining tempo.
         ("d5", "e4", 1): {
             "name": "Scandinavian Defense",
-            "idea": "Black challenges the centre immediately. After 2.exd5 Qxd5, Black's queen comes out early to recapture — and White develops with tempo by Nc3.",
+            "idea": "Black challenges the centre immediately. After 2.exd5 Qxd5, Black's queen comes out early to recapture — and White plays Nc3, developing while attacking the queen and forcing it to move again.",
         },
         # Parth fb_d7de4f963f39 (2026-06-07): 1.d4 e5 is the Englund
         # Gambit, NOT the "Open Game" (that's 1.e4 e5). The move-keyed
@@ -2221,8 +2221,8 @@ def _explain_response_idea(
                 # Check if recapture is problematic
                 defenders = list(sim.attackers(not user_is_white, to_sq))
                 if not defenders:
-                    return f"{response_san} takes the {captured_name} for free — no recapture!"
-                return f"{response_san} trades off the {captured_name}."
+                    return f"{response_san} takes the {captured_name} for nothing — no recapture!"
+                return f"{response_san} trades the {captured_name}."
             else:
                 return f"{response_san} wins the {captured_name}."
     
@@ -2287,7 +2287,7 @@ def _explain_response_idea(
                             break
         
         if not can_be_attacked:
-            return f"{response_san} establishes a permanent outpost — no pawns can challenge it!"
+            return f"{response_san} lands on a strong safe square — no pawns can challenge it!"
     
     # ─── BISHOP MOVES ───
     if piece.piece_type == chess.BISHOP:
@@ -2632,7 +2632,7 @@ def recognize_good_move(
         concept_applied = "king_safety_castling"
         move_num = len(list(board.move_stack)) // 2 + 1
         if move_num <= 10:
-            narrative = "Castled. King's in the corner, rook joins the game."
+            narrative = "Castled. King's in the corner, rook becomes active."
         else:
             narrative = "Castled. Should have come sooner — but the king is safe now."
         return narrative, concept_applied, is_best
@@ -2671,7 +2671,7 @@ def recognize_good_move(
                 to_rank = chess.square_rank(move.to_square)
                 if (piece.color == chess.WHITE and to_rank == 3) or (piece.color == chess.BLACK and to_rank == 4):
                     concept_applied = "center_control"
-                    narrative = f"{move_san}. Grabs space in the center."
+                    narrative = f"{move_san}. Takes space in the center."
                     return narrative, concept_applied, is_best
 
         elif piece.piece_type == chess.ROOK:
@@ -3966,7 +3966,7 @@ async def generate_game_decryption_v5(
                         _ph = _pp.get(_missed_opp.get("principle"), "the strong move")
                         caption_payload["caption"] = (
                             f"You finally play {move_san} — {_ph}, the plan you had been "
-                            f"passing up. Good.")
+                            f"missing. Good.")
                         caption_payload["rule_name"] = (
                             (caption_payload.get("rule_name") or "") + "→XMOVE_FINALLY")
                         _missed_opp = None

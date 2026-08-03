@@ -26,7 +26,7 @@
         "best_moves": {
           "Bc5": {
             "name": "Giuoco Piano",
-            "idea": "Symmetric development, solid and principled",
+            "idea": "Symmetric development, solid and best-known",
             "leads_to": "giuoco_piano"
           },
           "Nf6": {
@@ -465,7 +465,7 @@
       "d5"
     ],
     "white_plan": "Space advantage with e5, attack kingside, target the weak light squares",
-    "black_plan": "Undermine White's center with c5 and f6, solve the light-squared bishop problem",
+    "black_plan": "Weaken White's center with c5 and f6, solve the light-squared bishop problem",
     "critical_positions": {
       "after_d5": {
         "fen_pattern": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq -",
@@ -574,7 +574,7 @@
             "best_moves": {
               "c5": {
                 "idea": "Attack the BASE of the pawn chain!",
-                "why_good": "The fundamental French principle - attack d4 to undermine e5"
+                "why_good": "The fundamental French principle - attack d4 to weaken e5"
               }
             },
             "mistake_moves": {
@@ -1104,7 +1104,7 @@
             ]
           },
           "dxc4": {
-            "idea": "Opponent captures — but your bishop recaptures with tempo"
+            "idea": "Opponent captures — but your bishop recaptures while gaining time"
           },
           "Bxc4": {
             "idea": "Recapture — your bishop is now perfectly placed",
@@ -1215,7 +1215,7 @@
             ]
           },
           "exd4": {
-            "idea": "Opponent grabs another pawn"
+            "idea": "Opponent takes another pawn"
           },
           "Bxc4": {
             "idea": "Take your pawn back! Now you have a great center",
@@ -1413,7 +1413,7 @@
             }
           },
           "ne5_outpost": {
-            "key_decision": "White's knight reaches the powerful e5 outpost",
+            "key_decision": "White's knight reaches the powerful e5 safe square",
             "best_moves_white": {
               "Ne5": {
                 "idea": "The dream square for the London knight!",
@@ -1554,10 +1554,10 @@
         ]
       },
       "b6": {
-        "idea": "Opponent prepares to fianchetto"
+        "idea": "Opponent prepares to tuck the bishop to the side"
       },
       "Ne5": {
-        "idea": "Knight to the outpost! This is the dream square in the London",
+        "idea": "Knight to the safe square! This is the dream square in the London",
         "arrow": [
           "f3",
           "e5"
@@ -2832,7 +2832,7 @@
         "black_plan": "The Breyer/Chigorin maneuver: Nb8-d7, Bb7, Re8, Bf8",
         "critical_positions": {
           "after_O-O_Be7": {
-            "key_decision": "Black prepares to castle - the long strategic battle begins",
+            "key_decision": "Black prepares to castle - the long, drawn-out battle begins",
             "best_moves": {
               "b5": {
                 "idea": "Push the bishop back and gain space",
@@ -2850,7 +2850,7 @@
     "common_learnings": [
       "Bb5 doesn't actually threaten to win e5 (Bxc6 dxc6, Nxe5? Qd4 wins it back)",
       "a6 challenges the bishop and is almost always the right response",
-      "The Ruy Lopez is a long strategic battle - don't expect quick tactics",
+      "The Ruy Lopez is a long, drawn-out battle - don't expect quick tactics",
       "Black's Breyer maneuver (Nb8-d7) is one of the deepest ideas in chess"
     ],
     "move_ideas": {
@@ -3072,7 +3072,7 @@
               "d6": {
                 "why_bad": "Too passive - lets White build a big center with d4",
                 "consequence": "White gets a comfortable space advantage",
-                "learning": "In the Alapin, always play d5 immediately - don't let White have the center for free"
+                "learning": "In the Alapin, always play d5 immediately - don't let White have the center for nothing"
               }
             }
           }
@@ -3197,7 +3197,7 @@
       "Nf3",
       "d6"
     ],
-    "white_plan": "Control the center with d4, develop actively, exploit Black's cramped position",
+    "white_plan": "Control the center with d4, develop actively, exploit Black's tight position",
     "black_plan": "Maintain a solid but flexible structure, prepare f5 or Nf6-d7 setups",
     "critical_positions": {
       "after_d6": {
@@ -3376,7 +3376,7 @@
         "black_plan": "Solid setup with Nbd7, Be7, O-O - prepare c6 and later b5 or d5 break",
         "critical_positions": {
           "after_Nbd7": {
-            "key_decision": "The Hanham setup - Black keeps things solid but cramped",
+            "key_decision": "The Hanham setup - Black keeps things solid but tight",
             "best_moves": {
               "Bc4": {
                 "idea": "Develop with pressure on f7",
@@ -3506,7 +3506,7 @@
               "exf4": {
                 "why_bad": "Accepting passively gives White a strong center",
                 "consequence": "After e5, White has a powerful center and open f-file",
-                "learning": "Against gambits, counter in the CENTER (d5) rather than just grabbing pawns"
+                "learning": "Against gambits, counter in the CENTER (d5) rather than just taking pawns"
               }
             }
           }
@@ -3544,7 +3544,7 @@
                 "why_good": "Prepares Bc5 and keeps options open"
               },
               "Nxe4": {
-                "idea": "Grab the pawn!",
+                "idea": "Take the pawn!",
                 "why_good": "Tactical shot - after Nxe4, Qh5! forks"
               }
             }
@@ -3554,7 +3554,7 @@
     },
     "common_learnings": [
       "The Vienna delays Nf3 to keep f4 options open",
-      "Against f4, counter with d5 in the center - don't just grab the pawn",
+      "Against f4, counter with d5 in the center - don't just take the pawn",
       "Bc4 systems combine Italian themes with Vienna flexibility",
       "White aims for quick piece activity; Black should counter-punch in the center"
     ]
@@ -3922,7 +3922,7 @@
         ]
       },
       "Qxe4": {
-        "idea": "Opponent grabs a pawn — but you have compensation with development"
+        "idea": "Opponent takes a pawn — but you get something back with faster development"
       }
     }
   },
@@ -3938,7 +3938,7 @@
       "Nf3",
       "Nf6"
     ],
-    "white_plan": "Capture on e5 or play d4 to maintain central initiative, exploit Black's symmetry",
+    "white_plan": "Capture on e5 or play d4 to maintain central the attack, exploit Black's symmetry",
     "black_plan": "Mirror White's play, equalize with precise moves, reach a solid middlegame",
     "critical_positions": {
       "after_Nf6": {
@@ -4296,7 +4296,7 @@
       "g6"
     ],
     "white_plan": "Build a big center with e4, control space, choose between Classical, Samisch, or Four Pawns",
-    "black_plan": "Fianchetto the bishop, let White build a center, then SMASH it with e5 or c5",
+    "black_plan": "Tuck the bishop to the side, let White build a center, then SMASH it with e5 or c5",
     "critical_positions": {
       "after_g6": {
         "key_decision": "Black announces the King's Indian! The bishop goes to g7.",
@@ -4462,7 +4462,7 @@
           "Bd3",
           "Ndf6"
         ],
-        "white_plan": "f3 supports e4, Be3 develops, castle queenside, push g4 or play positionally",
+        "white_plan": "f3 supports e4, Be3 develops, castle queenside, push g4 or play in a long-term way",
         "black_plan": "Castle, play e5 and f5, attack the kingside with Nh5 and f4",
         "critical_positions": {
           "after_f3": {
@@ -4829,7 +4829,7 @@
     "common_learnings": [
       "The Grunfeld is a COUNTER-ATTACKING opening - let White build, then destroy",
       "The Bg7 on the long diagonal is the key piece - it pressures d4 from afar",
-      "c5 is the key break to undermine White's center",
+      "c5 is the key break to weaken White's center",
       "White's center looks impressive but is actually a liability if Black plays accurately",
       "Don't be afraid to give up material to smash the center"
     ]
@@ -5128,7 +5128,7 @@
             "best_moves": {
               "d5": {
                 "idea": "Challenge the center immediately",
-                "why_good": "The most principled - fights for central control"
+                "why_good": "The most best-known - fights for central control"
               },
               "c5": {
                 "idea": "Hit d4 from the side",
@@ -5161,7 +5161,7 @@
           "Nce4"
         ],
         "white_plan": "Qc2 prevents doubled pawns, develop normally, use the bishop pair",
-        "black_plan": "Trade on c3 when forced, play d5 and c5, use the knight outposts",
+        "black_plan": "Trade on c3 when forced, play d5 and c5, use the knight safe squares",
         "critical_positions": {
           "after_Qc2": {
             "key_decision": "White prevents doubled c-pawns - the classical approach",
@@ -5179,8 +5179,8 @@
       "The Nimzo-Indian is one of the most respected defenses in chess",
       "Bb4 pins the knight and fights for control of e4",
       "If White plays a3, Black should usually trade Bxc3 and aim for the doubled c-pawns",
-      "Black's dark-square control is the key strategic theme",
-      "The bishop pair vs knight pair is the central positional battle"
+      "Black's dark-square control is the key long-term theme",
+      "The bishop pair vs knight pair is the central long-term battle"
     ]
   },
   "queens_indian": {
@@ -5422,7 +5422,7 @@
                 "why_good": "Keeps all options open - can play d5 or d6"
               },
               "Bb4+": {
-                "idea": "Check and develop with tempo",
+                "idea": "Check and develop while gaining time",
                 "why_good": "Forces a decision from White - Bd2 or Nbd2"
               }
             }
@@ -5471,7 +5471,7 @@
       "Bb7 on the long diagonal is the key piece - it controls e4 and pressures the center",
       "b6 + Bb7 is the alternative to the Nimzo-Indian when White avoids Nc3",
       "Black should play d5 when ready to equalize in the center",
-      "The position is typically quiet and strategic - suited for patient players"
+      "The position is typically quiet and long-term - suited for patient players"
     ]
   },
   "slav_defense": {
@@ -5970,7 +5970,7 @@
       "The QGD is one of the most classical and tested openings in chess",
       "Black's light bishop on c8 is the 'problem piece' - solving it is key",
       "c5 and e5 are the two key breaks for Black in the middlegame",
-      "White's b4-b5 queenside pawn break is the main strategic plan — it cracks Black's pawns and creates weak squares",
+      "White's b4-b5 queenside pawn break is the main long-term plan — it cracks Black's pawns and creates weak squares",
       "The Lasker Defense (h6/Ne4) is a great simplification tool for Black"
     ]
   },
@@ -6301,7 +6301,7 @@
         "black_plan": "Lock the center with e5, maneuver pieces to the kingside, break with f5 when ready",
         "critical_positions": {
           "after_e5": {
-            "key_decision": "The Czech Benoni - a closed, strategic battle",
+            "key_decision": "The Czech Benoni - a closed, long-term battle",
             "best_moves_white": {
               "Nc3": {
                 "idea": "Develop naturally",
@@ -6340,7 +6340,7 @@
         "key_decision": "Black gambits the e5 pawn! White almost always takes.",
         "best_moves_white": {
           "dxe5": {
-            "idea": "Accept - the principled choice",
+            "idea": "Accept - the best-known choice",
             "why_good": "An extra pawn if White can hold it"
           }
         }
@@ -6507,7 +6507,7 @@
             "mistake_moves": {
               "Qd5": {
                 "why_bad": "The queen is exposed",
-                "consequence": "Black gets rapid development with tempo against the queen",
+                "consequence": "Black gets rapid development while gaining time against the queen",
                 "learning": "Don't bring the queen out early to protect pawns - develop pieces instead"
               }
             }
@@ -6624,7 +6624,7 @@
             "best_moves": {
               "Nf3": {
                 "idea": "Develop and aim for Ne5",
-                "why_good": "The Ne5 outpost is White's dream square in the Stonewall"
+                "why_good": "The Ne5 safe square is White's dream square in the Stonewall"
               }
             },
             "mistake_moves": {
@@ -6691,7 +6691,7 @@
       "e4",
       "d5"
     ],
-    "white_plan": "Capture on d5, develop with tempo against the Black queen, build a central advantage",
+    "white_plan": "Capture on d5, develop while gaining time against the Black queen, build a central advantage",
     "black_plan": "Challenge e4 immediately, develop the queen early or recapture with Nf6, solid but slightly behind",
     "critical_positions": {
       "after_d5": {
@@ -6699,7 +6699,7 @@
         "key_decision": "White should capture on d5",
         "best_moves_white": {
           "exd5": {
-            "idea": "Take the pawn - the only principled response",
+            "idea": "Take the pawn - the only best-known response",
             "why_good": "Forces Black to make a concession"
           }
         }
@@ -6728,7 +6728,7 @@
           "O-O-O",
           "Nbd7"
         ],
-        "white_plan": "Develop with tempo (Nc3 gains time), build a strong center, pressure Black's queen",
+        "white_plan": "Develop while gaining time (Nc3 gains time), build a strong center, pressure Black's queen",
         "black_plan": "Develop Qa5 (safe square), Nf6, Bf5 early (before e6!), castle and equalize",
         "critical_positions": {
           "after_Nc3": {
@@ -6812,10 +6812,10 @@
     "critical_positions": {
       "after_Nc6": {
         "fen_pattern": "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
-        "key_decision": "White should grab the center with d4",
+        "key_decision": "White should take the center with d4",
         "best_moves_white": {
           "d4": {
-            "idea": "Occupy the center - the most principled",
+            "idea": "Occupy the center - the most best-known",
             "why_good": "Takes advantage of Black's unusual move order"
           },
           "Nf3": {
@@ -6862,7 +6862,7 @@
             "mistake_moves": {
               "e6": {
                 "why_bad": "Locks in the light bishop",
-                "consequence": "Black is cramped with no active piece play",
+                "consequence": "Black is tight with no active piece play",
                 "learning": "Always develop bishops before playing e6 in closed positions"
               }
             }
@@ -6891,7 +6891,7 @@
           "O-O-O",
           "Bd6"
         ],
-        "white_plan": "Develop with tempo against the queen, build a solid center",
+        "white_plan": "Develop while gaining time against the queen, build a solid center",
         "black_plan": "Transpose to Scandinavian-like positions, develop actively",
         "critical_positions": {
           "after_Qxd5": {
@@ -6959,7 +6959,7 @@
           "Nc3"
         ],
         "white_plan": "Take the free pawn with dxe5, then develop normally — Nf3 to hold the e5 pawn, Nc3 to cover the b4 square. Keep the extra pawn and steer toward a better endgame.",
-        "black_plan": "Try to win back e5 with tricks (Qe7 hits the pawn) and hope White walks into the famous Qb4+ trap.",
+        "black_plan": "Try to win back e5 with tricks (Qe7 hits the pawn) and hope White runs into the famous Qb4+ trap.",
         "critical_positions": {
           "after_qe7": {
             "fen_pattern": "r1b1kbnr/ppppqppp/2n5/4P3/8/5N2/PPP1PPPP/RNBQKB1R w KQkq -",

@@ -55,7 +55,7 @@
     "user_allows_p1": "{played_san} allows mate next move.",
     "user_allows_pN": "{played_san} allows mate in {ply}.",
     "user_allows_pawns_pv": "{played_san} lets {threat_move} in — the opponent now has a winning attack.",
-    "user_allows_pawns": "{played_san} — the position now turns against you. Opponent has a winning attack here.",
-    "user_allows_bare": "{played_san} — the position is turning against you."
+    "user_allows_pawns": "{played_san} — now you are worse. Opponent has a winning attack here.",
+    "user_allows_bare": "{played_san} — now you are worse."
   }
 }

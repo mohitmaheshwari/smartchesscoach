@@ -121,7 +121,7 @@ ANCHOR_PHRASES_BY_SCENARIO: Dict[str, List[str]] = {
     SCENARIO_BLUNDERED: [
         "you played {san} without checking their reply",
         "you went after {san} and missed their threat",
-        "{san} walked into their answer",
+        "{san} ran straight into their answer",
     ],
     SCENARIO_THREW: [
         "you traded thinking the game was over",
@@ -157,8 +157,8 @@ CATASTROPHIC_CP_LOSS = 1000
 
 CATASTROPHIC_ANCHOR_PHRASES: List[str] = [
     "{san} ended the game on the spot",
-    "{san} walked into a forced sequence",
-    "{san} gave away the game",
+    "{san} ran into a forced sequence",
+    "{san} lost the game",
 ]
 
 

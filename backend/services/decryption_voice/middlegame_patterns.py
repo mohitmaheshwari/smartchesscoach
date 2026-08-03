@@ -465,11 +465,11 @@ def _detect_fianchetto_complete(
     diag = "a1-h8 diagonal" if to_sq_name in ("g2", "b7") else "a8-h1 diagonal"
     if is_user_move:
         return (
-            f"Fianchetto — bishop to {to_sq_name}. "
+            f"Bishop tucked to the side on {to_sq_name}. "
             f"Sweeps the {diag} from corner to corner."
         )
     return (
-        f"They fianchetto the bishop to {to_sq_name} — "
+        f"They tuck the bishop to the side on {to_sq_name} — "
         f"sweeps the {diag} corner to corner."
     )
 

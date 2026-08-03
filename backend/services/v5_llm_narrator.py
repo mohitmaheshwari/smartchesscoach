@@ -146,7 +146,7 @@ def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: L
     Observational, concrete.
     """
     if eval_swing > 150:
-        narrative = f"Opponent's {move_san} drops material."
+        narrative = f"Opponent's {move_san} loses material."
         plan = f"Target the weakness{': ' + ', '.join(weak_squares[:2]) if weak_squares else ''}."
     elif eval_swing > 50:
         narrative = f"Opponent's {move_san} is slightly inaccurate."

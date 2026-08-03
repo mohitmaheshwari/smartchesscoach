@@ -27,7 +27,7 @@
     "user_uncontested": "{played_san}. Free {captured_piece_type} — nothing recaptures.",
     "user_capture": "{played_san} — takes the {captured_piece_type}.",
     "user_no_capture": "{played_san}. Wins material in the resulting line.",
-    "opp_uncontested": "{played_san}. Opponent grabs the {captured_piece_type} — nothing was defending it.",
+    "opp_uncontested": "{played_san}. Opponent takes the {captured_piece_type} — nothing was defending it.",
     "opp_capture": "{played_san}. Opponent takes the {captured_piece_type}.",
     "opp_no_capture": "{played_san}. Opponent improves."
   }

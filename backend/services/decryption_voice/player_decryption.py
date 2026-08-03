@@ -63,7 +63,7 @@ STORY_BY_SCENARIO: Dict[str, List[str]] = {
         "It was even again. You let it slip.",
     ],
     SCENARIO_SQUEEZED: [
-        "You started solid. By the middlegame you'd lost the initiative without noticing. By move {move_n}, you were just answering their questions.",
+        "You started solid. By the middlegame you'd stopped attacking without noticing. By move {move_n}, you were just answering their questions.",
         "There was no single mistake. You slowly stopped having a plan.",
         "You held early. Then you stopped pushing — and they kept pushing.",
     ],

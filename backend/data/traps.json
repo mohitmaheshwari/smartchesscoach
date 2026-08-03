@@ -43,7 +43,7 @@
         },
         {
           "move": "Nc3",
-          "explanation": "Develop with tempo. White wins the knight and has a crushing attack."
+          "explanation": "Develops and attacks at the same time. White wins the knight and has a crushing attack."
         }
       ],
       "success_message": "The Fried Liver Attack! Black's king is exposed and you win material.",
@@ -106,7 +106,7 @@
       "trap_line": [
         {
           "move": "Nxe5",
-          "explanation": "White grabs the pawn - a natural but losing move!"
+          "explanation": "White takes the pawn - a natural but losing move!"
         },
         {
           "move": "Qg5",
@@ -126,7 +126,7 @@
         },
         {
           "move": "Qxe4+",
-          "explanation": "Check! Picking up the e4 pawn with tempo."
+          "explanation": "Check! Picks up the e4 pawn while forcing an answer."
         },
         {
           "move": "Be2",
@@ -159,7 +159,7 @@
       "trap_line": [
         {
           "move": "Nd4",
-          "explanation": "The knight jumps to a powerful outpost!"
+          "explanation": "The knight jumps to a powerful, safe square!"
         },
         {
           "move": "Qb3",
@@ -221,7 +221,7 @@
           "explanation": "Queen joins — white's king has no safe squares."
         }
       ],
-      "success_message": "The Traxler! White's greedy Nxf7 walks into a king-hunt.",
+      "success_message": "The Traxler! White's greedy Nxf7 runs straight into a king-hunt.",
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "king_safety",
@@ -394,11 +394,11 @@
         },
         {
           "move": "bxa3",
-          "explanation": "If Black takes, White's d4 and rapid development give big initiative."
+          "explanation": "If Black takes, White's d4 and rapid development give a big attack."
         },
         {
           "move": "Nxa3",
-          "explanation": "Knight develops with tempo, eyeing b5 and c4."
+          "explanation": "Knight develops while attacking, eyeing b5 and c4."
         },
         {
           "move": "d6",
@@ -712,7 +712,7 @@
         },
         {
           "move": "Qxb2",
-          "explanation": "Black grabs the pawn greedily, but..."
+          "explanation": "Black takes the pawn greedily, but..."
         },
         {
           "move": "Bc3",
@@ -850,7 +850,7 @@
         },
         {
           "move": "f3",
-          "explanation": "Solid prophylaxis."
+          "explanation": "A solid, careful move."
         },
         {
           "move": "c6",
@@ -944,7 +944,7 @@
     },
     {
       "name": "Scandinavian Queen Danger",
-      "description": "Nd5 attacks the queen and threatens Nxf6+ discovering an attack. Black's queen is overworked and must give up material. Black should castle quickly and not leave the queen exposed on a5 for too long.",
+      "description": "Nd5 attacks the queen and threatens Nxf6+ discovering an attack. Black's queen is overworked and must lose material. Black should castle quickly and not leave the queen exposed on a5 for too long.",
       "setup_moves": [
         "e4",
         "d5",
@@ -1347,7 +1347,7 @@
     },
     {
       "name": "Petroff Marshall Trap",
-      "description": "The most famous beginner trap in the Petroff — copying white's moves walks into a discovered-check queen grab.",
+      "description": "The most famous beginner trap in the Petroff — copying white's moves runs into a discovered-check queen win.",
       "setup_moves": [
         "e4",
         "e5",
@@ -1366,7 +1366,7 @@
         },
         {
           "move": "Nf6",
-          "explanation": "Black's knight retreats — walking into the discovered check."
+          "explanation": "Black's knight retreats — running straight into the discovered check."
         },
         {
           "move": "Nc6+",
@@ -1725,7 +1725,7 @@
   "french-defense": [
     {
       "name": "French Winawer Poisoned Pawn",
-      "description": "White wins material by grabbing pawns while Black's pieces are tangled.",
+      "description": "White wins material by taking pawns while Black's pieces are tangled.",
       "setup_moves": [
         "e4",
         "e6",
@@ -1745,7 +1745,7 @@
       "trap_line": [
         {
           "move": "Qxg7",
-          "explanation": "White grabs the g-pawn!"
+          "explanation": "White takes the g-pawn!"
         },
         {
           "move": "Rg8",
@@ -1809,11 +1809,11 @@
         },
         {
           "move": "Nc3",
-          "explanation": "Develop with tempo."
+          "explanation": "Develops while attacking the queen."
         },
         {
           "move": "Qxe5",
-          "explanation": "Black grabs the pawn."
+          "explanation": "Black takes the pawn."
         },
         {
           "move": "Re1",
@@ -1949,7 +1949,7 @@
         },
         {
           "move": "d5",
-          "explanation": "Advance with tempo."
+          "explanation": "Advances while attacking."
         },
         {
           "move": "Ne7",
@@ -2147,7 +2147,7 @@
         },
         {
           "move": "Bh6",
-          "explanation": "Trade the fianchettoed bishop!"
+          "explanation": "Trade the tucked-away bishop!"
         },
         {
           "move": "Bh8",
@@ -2241,7 +2241,7 @@
   "blackmar-diemer-gambit": [
     {
       "name": "Halosar Trap",
-      "description": "Classic Blackmar-Diemer Gambit trap — black grabs the d4 pawn and gets punished by rapid development.",
+      "description": "Classic Blackmar-Diemer Gambit trap — black takes the d4 pawn and gets punished by rapid development.",
       "setup_moves": [
         "d4",
         "d5",
@@ -2289,7 +2289,7 @@
   "tennison-gambit": [
     {
       "name": "Tennison Gambit Trap",
-      "description": "A sharp trap where black's natural h6 walks into a queen sacrifice on f7.",
+      "description": "A sharp trap where black's natural h6 runs into a queen sacrifice on f7.",
       "setup_moves": [
         "e4",
         "d5",
@@ -2327,7 +2327,7 @@
           "explanation": "White wins the queen."
         }
       ],
-      "success_message": "Tennison Trap — h6 looked safe but walked into the Bg6+ queen snatch.",
+      "success_message": "Tennison Trap — h6 looked safe but ran straight into the Bg6+ queen snatch.",
       "result_type": "wins_material",
       "difficulty": "intermediate",
       "training_weakness": "tactical_oversight",
@@ -2365,7 +2365,7 @@
         },
         {
           "move": "Nxe2",
-          "explanation": "Black grabs the knight — but now the long diagonal explodes."
+          "explanation": "Black takes the knight — but now the long diagonal explodes."
         },
         {
           "move": "Bxb7",
@@ -2413,10 +2413,10 @@
         },
         {
           "move": "Nxe4",
-          "explanation": "Black grabs the pawn — but loses to Bxf4 and a strong attack."
+          "explanation": "Black takes the pawn — but loses to Bxf4 and a strong attack."
         }
       ],
-      "success_message": "Kieseritzky Gambit — White sacs a pawn for huge central control and king-side initiative.",
+      "success_message": "Kieseritzky Gambit — White sacs a pawn for huge central control and a strong king-side attack.",
       "result_type": "wins_material",
       "difficulty": "advanced",
       "trap_color": "white"
@@ -2484,7 +2484,7 @@
         },
         {
           "move": "Bxg2",
-          "explanation": "Black grabs the g2 pawn, ignoring the threat on the kingside."
+          "explanation": "Black takes the g2 pawn, ignoring the threat on the kingside."
         },
         {
           "move": "Qh5+",
@@ -2500,7 +2500,7 @@
         },
         {
           "move": "Nf6",
-          "explanation": "Black develops with tempo on the queen, but mate is already coming."
+          "explanation": "Black develops while attacking the queen, but mate is already coming."
         },
         {
           "move": "gxh7+",
@@ -2546,7 +2546,7 @@
         },
         {
           "move": "Qxb2",
-          "explanation": "Black grabs b2, threatening the bishop on d2 AND the rook on a1."
+          "explanation": "Black takes b2, threatening the bishop on d2 AND the rook on a1."
         },
         {
           "move": "Bc3",

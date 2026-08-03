@@ -11,7 +11,7 @@
     {"variant": "user"}
   ],
   "variants": {
-    "user": "{played_san}. King is safe; rook joins the game.",
+    "user": "{played_san}. King is safe; rook becomes active.",
     "opp": "{played_san}. Opponent tucks their king away."
   }
 }

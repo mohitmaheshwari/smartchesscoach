@@ -231,7 +231,7 @@ _ANCHOR_PHRASE_BY_GAP = {
     "calculation_depth":  "{played} was right for one move but missed what came next; {best} saw further",
     "opening_knowledge":  "{played} stepped away from the standard opening; {best} was the main line",
     "pawn_structure":     "{played} weakened your pawns; {best} would have kept them solid",
-    "endgame_technique":  "{played} gave up the advantage; {best} would have won the endgame",
+    "endgame_technique":  "{played} lost the advantage; {best} would have won the endgame",
     "time_pressure":      "{played} was a rush; {best} was there if you'd had another second",
     "ignore_threat":      "{played} ignored the threat; {best} would have stopped it",
     "conversion":         "{played} let the advantage slip; {best} would have ended the game",
@@ -357,7 +357,7 @@ _CARD_LOSS_PHRASE_BY_GAP = {
     "opening_knowledge":  "drifted from the opening",
     "time_pressure":      "rushed under the clock",
     "ignore_threat":      "missed their threat",
-    "conversion":         "gave up a winning position",
+    "conversion":         "lost a winning position",
 }
 
 
@@ -664,7 +664,7 @@ def _cct_discipline_line(games_data: List[Dict]) -> str:
     if total_held >= 2:
         # Multi-game held-initiative pattern — the high-value signal
         return (
-            f"You held the initiative after a miss in {total_held} different "
+            f"You kept the attack going after a miss in {total_held} different "
             f"moments across these {n} games — real CCT discipline."
         )
 

@@ -459,8 +459,8 @@ def _render_walked_into_fork(details: Dict) -> Optional[str]:
     if not attacker:
         return None
     if len(targets) >= 2:
-        return f"You walked into a fork: their {attacker} hits the {targets[0]} and the {targets[1]}."
-    return f"You walked into a fork from their {attacker}."
+        return f"You ran into a fork: their {attacker} hits the {targets[0]} and the {targets[1]}."
+    return f"You ran into a fork from their {attacker}."
 
 
 def _render_walked_into_pin(details: Dict) -> Optional[str]:

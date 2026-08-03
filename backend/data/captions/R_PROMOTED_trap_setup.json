@@ -25,9 +25,9 @@
     "by_opp_with_desc": "{move_san} — {trap_name} setup. {trap_description}",
     "by_user": "{move_san} — you set up the {trap_name}.",
     "by_user_with_desc": "{move_san} — you set up the {trap_name}. {trap_description}",
-    "victim_warning": "{move_san} — watch out, you've walked into {trap_name} territory. The punisher will play {trap_next_expected_move} next.",
-    "victim_warning_with_desc": "{move_san} — watch out, you've walked into {trap_name} territory. {trap_description} The punisher will play {trap_next_expected_move} next.",
-    "victim_warning_no_punish": "{move_san} — watch out, you've walked into {trap_name} territory.",
-    "victim_warning_no_punish_with_desc": "{move_san} — watch out, you've walked into {trap_name} territory. {trap_description}"
+    "victim_warning": "{move_san} — watch out, you're now in {trap_name} territory. The punisher will play {trap_next_expected_move} next.",
+    "victim_warning_with_desc": "{move_san} — watch out, you're now in {trap_name} territory. {trap_description} The punisher will play {trap_next_expected_move} next.",
+    "victim_warning_no_punish": "{move_san} — watch out, you're now in {trap_name} territory.",
+    "victim_warning_no_punish_with_desc": "{move_san} — watch out, you're now in {trap_name} territory. {trap_description}"
   }
 }

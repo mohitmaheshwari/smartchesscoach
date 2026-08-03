@@ -118,7 +118,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "d5"],
         "name": "queens_pawn",
-        "caption": "Queen's Pawn Game. Both sides claim central pawns and prepare slow positional play.",
+        "caption": "Queen's Pawn Game. Both sides claim central pawns and prepare a slow, careful game.",
     },
     {
         "moves": ["d4", "d5", "c4"],
@@ -128,7 +128,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "d5", "c4", "dxc4"],
         "name": "queens_gambit_accepted",
-        "caption": "Queen's Gambit Accepted. Black grabs the pawn but White will recover it with active development.",
+        "caption": "Queen's Gambit Accepted. Black takes the pawn but White will win it back with active development.",
     },
     {
         "moves": ["d4", "d5", "c4", "e6"],
@@ -149,7 +149,7 @@ _OPENINGS = [
     {
         "moves": ["c4"],
         "name": "english_opening",
-        "caption": "English Opening. White controls d5 and e5 from the side — a flexible, positional start.",
+        "caption": "English Opening. White controls d5 and e5 from the side — a flexible, slow start.",
     },
     {
         "moves": ["Nf3"],
@@ -181,7 +181,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6"],
         "name": "sicilian_dragon",
-        "caption": "Sicilian Dragon. Black fianchettos the bishop on g7, eyeing the long diagonal. Both sides race for kingside attacks in opposite directions.",
+        "caption": "Sicilian Dragon. Black tucks the bishop to g7, eyeing the long diagonal. Both sides race for kingside attacks in opposite directions.",
     },
     {
         "moves": ["e4", "c5", "c3"],
@@ -191,7 +191,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "c5", "Nc3"],
         "name": "closed_sicilian",
-        "caption": "Closed Sicilian. White avoids early piece exchanges and prepares slow positional play.",
+        "caption": "Closed Sicilian. White avoids early piece exchanges and prepares a slow, careful game.",
     },
     # === Caro-Kann variations ===
     {
@@ -202,7 +202,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "c6", "d4", "d5", "exd5", "cxd5"],
         "name": "caro_kann_exchange",
-        "caption": "Caro-Kann Exchange. Symmetric pawn structure, slow positional play favouring whoever activates pieces first.",
+        "caption": "Caro-Kann Exchange. Symmetric pawn structure, a slow game favouring whoever activates pieces first.",
     },
     {
         "moves": ["e4", "c6", "d4", "d5", "e5"],
@@ -239,7 +239,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "g6"],
         "name": "modern_defense",
-        "caption": "Modern Defense. Black fianchettos right away, conceding the centre to attack it from a distance.",
+        "caption": "Modern Defense. Black tucks the bishop to the side right away, conceding the centre to attack it from a distance.",
     },
     {
         "moves": ["e4", "Nf6"],
@@ -311,7 +311,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "Nf6", "c4", "e6", "Nf3", "b6"],
         "name": "queens_indian",
-        "caption": "Queen's Indian Defense. Black fianchettos the queen's bishop to fight for the long diagonal.",
+        "caption": "Queen's Indian Defense. Black tucks the queen's bishop to the side to fight for the long diagonal.",
     },
     {
         "moves": ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7"],
@@ -331,7 +331,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "Nf6", "Nf3", "e6", "g3"],
         "name": "catalan",
-        "caption": "Catalan Opening. White fianchettos the king's bishop, combining queen's pawn play with hypermodern long-diagonal pressure.",
+        "caption": "Catalan Opening. White tucks the king's bishop to the side, combining queen's pawn play with long-diagonal pressure.",
     },
     # === e4 e5 deeper ===
     {
@@ -358,7 +358,7 @@ _OPENINGS = [
     {
         "moves": ["b3"],
         "name": "larsens_opening",
-        "caption": "Larsen's Opening. White fianchettos the queen's bishop — flexible, can transpose to many setups.",
+        "caption": "Larsen's Opening. White tucks the queen's bishop to the side — flexible, can transpose to many setups.",
     },
     {
         "moves": ["g3"],
