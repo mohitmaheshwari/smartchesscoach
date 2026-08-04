@@ -1,12 +1,15 @@
 """
-Subscription/Plan Service - Mock Implementation
+Subscription/Plan Service
 
 Handles:
 - User plan status (Free/Pro)
 - Game analysis limits
 - Feature access control
 
-NOTE: This is a mock implementation. Replace with actual payment integration later.
+Payment itself is real, not mocked — see routes/billing.py for the live
+Razorpay order-creation and HMAC-verified upgrade flow, and
+frontend/src/pages/Pricing.jsx (routed at /pricing) for the checkout UI.
+This module owns plan *state and limits*, not payment processing.
 """
 
 import logging
@@ -114,7 +117,7 @@ async def can_analyze_game(db, user_id: str) -> Dict:
         "allowed": False,
         "reason": "monthly_limit_reached",
         "message": f"You've reached your monthly limit of {plan_info['limits']['monthly_analysis_limit']} analyses. Upgrade to Pro for more!",
-        "upgrade_url": "/upgrade"
+        "upgrade_url": "/pricing"
     }
 
 
@@ -191,7 +194,7 @@ async def can_start_pwc_session(db, user_id: str) -> Dict:
             f"Upgrade to ChessGuru Premium for unlimited live coaching, "
             f"opening theory notes, and Engine 2 pattern detection."
         ),
-        "upgrade_url": "/upgrade",
+        "upgrade_url": "/pricing",
         "price_inr": 149,
     }
 
