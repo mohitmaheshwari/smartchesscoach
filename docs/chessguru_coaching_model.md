@@ -78,6 +78,37 @@ telling them a tactic is present. Everything ChessGuru does ultimately
 exists to increase the probability of that moment happening, for one
 specific idea, for one specific player.
 
+### 2.1 The theory, stated as one falsifiable sentence
+
+§2 defines improvement in the abstract. Real production evidence — not
+intuition — points to a specific, testable mechanism behind it, at least
+for the single largest failure mode in the data:
+
+> A player becomes stronger when their move-safety check becomes
+> automatic enough to survive both their own plan and their own last
+> mistake — not when they know more, but when the check stops being
+> optional.
+
+This isn't a guess dressed up as a theory. Three independent signals
+converge on it: `piece_safety` is the single largest cognitive-gap
+category by a wide margin, while `calculation_depth` — the category a
+"they just can't calculate deep enough" theory would predict should
+dominate — is one of three categories the product has given up detecting
+reliably, under 50% classification accuracy. A controlled measurement
+(excluding positions that were already decided, so the effect can't be
+explained away as "harder position, naturally bigger swings") found a
+real 4-6x quality collapse on the move immediately after a player's own
+mistake, even in games that were still fully playable. And the product's
+own real captions independently describe the failure the same way,
+unprompted: *"Your queen on d3 is out alone — your other pieces haven't
+joined the fight."* That's not a missing skill. That's a check that
+stopped running the moment a plan felt found.
+
+This is offered as the theory for the dominant case, not a claim that
+every concept works this way — §5 and §6 exist precisely because
+different concepts may need different mechanisms, and this section
+should be revised the moment evidence contradicts it, per §9.
+
 ---
 
 ## 3. Coaching Principles
@@ -110,6 +141,103 @@ The ChessGuru coach:
 
 Any feature that violates one of these principles is a defect, even if
 it is otherwise well-built.
+
+### 3.1 When we ask, when we state — resolved, not just claimed
+
+§3 says "prefers questions over answers." That's true as a principle and
+false as a description of what the live product currently does — the
+Play-with-Coach conductor law states outright, in production, "STATE,
+never ASK. No quizzes." Both are real, both are shipped, and until now
+neither document admitted the other existed. That gap gets closed here,
+not smoothed over.
+
+The resolution is not "pick one" — it's noticing the two documents were
+answering different questions. §3's "prefers questions" is a claim about
+a player encountering a concept for the first time, or one where the
+evidence is still thin. The conductor's "state, never ask" is a claim
+about live, real-time play, where a wrong or slow question costs a move
+and breaks the game's pace. These aren't in tension once separated by
+context:
+
+> **Ask when the player's own move can settle the question** — a
+> Socratic question is only honest coaching when the player's answer
+> would actually change what's said next. Reserve it for review contexts
+> (Game Review, post-game) and for intermediate-or-above players
+> encountering a genuinely open case, where "what did you see here?" has
+> real diagnostic value.
+>
+> **State when time pressure, repetition, or rating make a question
+> dishonest rather than Socratic.** Live play (a question costs a move
+> and breaks pace), a pattern already confirmed 3+ times (asking again
+> isn't discovery, it's testing), and sub-1000 players (who benefit more
+> from a direct, confident reveal than a stall) are all real cases where
+> a question would be performing "Socratic" rather than teaching.
+
+This already matches the one part of the codebase that got this right on
+its own: `realtime_coaching_feedback.py`'s rating gate (question for
+1000+, direct reveal below). The fix this section actually calls for is
+narrow and concrete — the conductor's blanket "never ask" should defer to
+that same rating-and-repetition gate instead of overriding it for every
+player, everywhere, unconditionally. Not a new mechanism. Extending one
+that already exists and is already correct, to the surface that
+currently ignores it.
+
+### 3.2 What every explanation must achieve, and what a player should feel leaving it
+
+Two standards exist today, in two different documents, for two different
+surfaces — never stated once, together, as a product-wide bar. They
+belong here.
+
+The content bar, from the caption authoring rules (`caption_principles.py`,
+`memory/project_coach_voice.md`): every explanation names the specific
+thing (the move, the square, the piece, the pattern — never "this move is
+risky"), never uses engine language a player doesn't feel (no raw cp/eval,
+translated into what it actually costs), and ends on one concrete action
+or observation, never a platitude. The working test: *would the smartest
+friend who plays chess actually say this? If no, rewrite.*
+
+The emotional bar, from the Home page's signed-off spec, generalized here
+to every surface, not just Home: a player should leave understood,
+encouraged, personally coached, and confident about one next thing — never
+merely informed, impressed, or overloaded. An explanation can be factually
+perfect and still fail this test; when it does, that's the defect to fix,
+not the facts.
+
+### 3.3 What ChessGuru believes that traditional coaching doesn't
+
+A constitution earns its name by taking real positions, not just
+describing itself. These are stated plainly, each grounded in real
+production evidence rather than asserted as taste:
+
+- **Calculating deeper is probably not the highest-leverage thing to
+  drill.** The dominant real failure mode (§2.1) looks like a missing
+  habit, not a missing skill — and `calculation_depth` is a category this
+  product has given up trying to detect reliably. Most traditional
+  coaching leans hard on "calculate deeper" as the default prescription.
+  The data doesn't support that being the first thing to fix for most
+  players in this product's range.
+- **Opening theory earns less coaching time than it's traditionally
+  given.** `opening_knowledge` is real but roughly a third the size of
+  `piece_safety` in the actual mistake distribution. Time spent memorizing
+  lines is lower-leverage than the emphasis it usually receives.
+- **Generic praise is a defect, not a kindness.** Most human coaching
+  praises more than §3's own voice standard allows — "nice move!" with no
+  stated reason is explicitly treated here as patronizing, not
+  encouraging.
+- **A fixed syllabus is the wrong shape.** Traditional coaching typically
+  runs a preset curriculum — openings, then tactics, then endgames, in a
+  set order. This product's actual model is reactive: driven by what a
+  specific player's own games surface, not a syllabus everyone walks
+  through in the same sequence.
+- **The position a mistake happens in is not the whole coaching problem —
+  the player's history up to that position is.** Two players making an
+  identical blunder, with an identical engine evaluation, can be failing
+  for entirely different reasons: one tunnel-visioned on their own plan,
+  one still inside the post-mistake collapse window from three moves ago,
+  one seeing a pattern for the fifteenth time, one seeing it for the
+  first. A pure position-evaluator — an engine, or a report that only
+  reads the board — cannot make this distinction. This is the one
+  disagreement every other item on this list is downstream of.
 
 ---
 
@@ -313,6 +441,37 @@ exist yet. The model should be built to use them once they do, and
 should be honest that, until then, it's working with weaker evidence
 than it eventually will.
 
+### 9.1 The atomic unit is the claim, not the intervention
+
+An intervention (a prompt version, a message template, a rule ID) is
+implementation — it will be rewritten, replaced, and deprecated as the
+product evolves. A **claim about a player** ("this player compounds
+mistakes after blunders") is the thing actually worth being right about,
+and it should outlive whatever intervention was used to test it. Track
+belief evolution, not tool version history:
+
+```
+Claim:                "This player compounds mistakes after a blunder."
+Confidence:            0.82
+Evidence:               178 games
+Intervention tested:  "Root Cause Coaching v3"
+Observed again after:  Yes
+Player improved:       Yes
+Confidence after:      0.91
+```
+
+The question this answers is not "did intervention #18 work" — it's
+"was our understanding of this player correct, and did acting on it make
+things better." Confidence here must be able to **fall**, not just rise
+— a claim contradicted by later evidence should lose confidence exactly
+as readily as a confirmed one gains it, or this becomes the kind of
+unfalsifiable tracking §6 already warns against. Nothing in the
+codebase computes this today (§9's existing confidence signals — the
+per-rule `gap_confidence`, the volume-only `style_profile.confidence` —
+answer "how much data do we have," not "how much do we still believe
+this, after everything since"). This is new work, not a relabeling of
+something that already exists.
+
 **A player disagreeing with a claim is one signal, not the truth.**
 Players often don't consciously notice their own behavior changing — a
 "no, that's not true" on a genuine, well-evidenced Transformation claim
@@ -361,6 +520,28 @@ product can actually be held to, is:
 > The purpose of ChessGuru is to change what players will do next. If
 > thinking has genuinely changed, that's how it will show up — and it's
 > the only version of the claim we can ever really prove.
+
+### 11.1 What success looks like at 500 games
+
+Not a rating number. Per §10 and the Home relationship-voice ladder
+(Appendix A), 400+ analyzed games is already this product's own
+threshold for its most confident coaching voice — so 500 games in, the
+honest bar is not "are they rated higher" but:
+
+- Has at least one real Transformation claim (§4.1.3) been *earned*, not
+  just asserted — sustained Behavior-layer evidence, not a hunch off one
+  good game?
+- Has the player's move-safety check (§2.1) survived contact with a
+  tilted position at least once, measurably — a shrinking post-mistake
+  collapse ratio, not just a lower average cp_loss?
+- Is the player asking ChessGuru's own question about their own games
+  before opening the app — the §11 test for the whole product, now
+  checkable for one player specifically?
+
+If none of these are true at 500 games, the product has produced a lot of
+correct captions and no real improvement — which, per §8, is exactly the
+failure mode this document exists to prevent, regardless of how good any
+individual explanation was along the way.
 
 ---
 ---
@@ -437,3 +618,35 @@ belief?**
 By generalizing the existing "one reader" pattern (Appendix A) from a
 single current-focus value to the full player model in §4 — proven
 already to work in this codebase, not a new architectural risk.
+
+## Appendix C — Real evidence log, 2026-08-04
+
+Per §9's own discipline, evidence belongs in a dated log, not folded
+silently into the body as if it were always known. A full production
+audit (coaching pipeline, memory usage, 20 real captions across the
+quality range, and real behavioral data) surfaced the following, each
+tagged by the confidence tiers §9 defines:
+
+- **Strongest tier**: the post-mistake collapse ratio (§2.1) — a
+  controlled measurement, confound-checked against "the position was
+  just objectively harder," on real users with 600-1,300+ games each.
+- **Strongest tier**: `meta_patterns.py`'s 25 composition rules (the
+  most literal existing implementation of §4.1.2's "coachable pattern,
+  not a label" standard) are real, well-built, and currently unreachable
+  from any live product surface — confirmed by tracing every call site.
+  This document's model is more built than it is wired.
+- **Medium tier**: real caption audit across 217 games / 56 users found
+  the deterministic pipeline mostly honors §3's voice standard when it
+  fires correctly, but three specific, named template families
+  systematically violate it at real scale — most notably 34 instances of
+  a self-contradictory "you're still winning" caption attached to a move
+  the system's own severity field calls a mistake. Concrete evidence this
+  constitution's principles are not yet self-enforcing in the pipeline
+  that renders them.
+- **Weakest tier, flagged as unvalidated rather than hidden**: this
+  document's own §2.1 theory is the best-supported explanation available
+  today, not a proven one — it should be revised the moment a genuine
+  counter-example accumulates, per §9.
+
+This entry exists so the next person reading this document inherits the
+evidence, not just the conclusions.
