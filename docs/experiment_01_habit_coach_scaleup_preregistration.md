@@ -27,42 +27,40 @@ compute `games_with_focus`, `clean_games`, and `targeted_mistakes` per
 user, live, on every analyzed game. This experiment scales who's
 enrolled — it does not touch the mechanism itself.
 
-## 1. Eligibility — the real decision, surfaced honestly
+## 1. Eligibility — decided 2026-08-04, three cohorts, not a binary choice
 
-Checked directly against production before writing this: **only 8 of the
-62 currently-focused users actually carry `habit == "threat_scan"` (the
-universal habit this experiment measures) — the exact 4-vs-4 already
-running.** The other 54 have a real, active focus assignment, but it's a
-*personalized* weakness (whatever their own games surfaced), not the
-universal habit.
+Checked directly against production before this doc first drafted: only
+8 of 62 focused users actually carry `habit == "threat_scan"` (the
+universal habit this experiment measures); the other 54 are on real,
+active *personalized* focus assignments. Reassigning all 54 to test one
+question would simultaneously change coaching focus, priority, and
+intervention frequency for every one of them — any outcome would be
+unattributable to the reminder specifically. Rejected for exactly that
+reason.
 
-This means "expand to the eligible population" has two genuinely
-different meanings, and picking the wrong one either produces a
-much smaller experiment than intended or silently overrides 54 real
-users' current coaching without them being told anything changed:
+**Decided design — gradual, not full-population:**
 
-- **Option A — reassign the 54.** Replace their current personalized
-  focus with the universal `threat_scan` habit, randomly split into
-  treatment/control. This is what the original Universal Habit Coach
-  scope actually specifies (*"set every focused user's focus to the
-  fixed universal habit"*) and produces the statistically meaningful N
-  this experiment needs. Real cost: for 90 days, these 54 users stop
-  being coached on their own surfaced weakness and start being coached
-  on threat-scanning instead, whether or not that's their actual
-  biggest leak.
-- **Option B — grow only from new assignments.** Only newly-onboarded
-  users (or users about to get their first focus assigned) get enrolled
-  in the universal-habit holdout; the 54 already on a personalized focus
-  keep it. Gentler, no disruption to existing users, but the eligible
-  pool grows slowly — at recent signup rates, reaching a statistically
-  useful N could take months, defeating the point of picking this as
-  the fast, cheap Experiment #1.
+- **Cohort A — the existing 8.** Untouched. Preserves continuity;
+  remains the only source of the original 68%/48% signal until Cohort B
+  produces new data.
+- **Cohort B — the next 12–15 users who reach the point of getting a
+  focus assigned for the first time** (not existing users being
+  reassigned). Randomized into the same `reminder_enabled` True/False
+  split. This is the actual growth of the experiment.
+- **Cohort C — everyone else.** Business as usual, untouched, not part
+  of this experiment.
 
-**This document does not pick one.** That's a product call, not an
-engineering one, and it's the single most consequential fact this
-pre-registration surfaced that wasn't visible before checking. Recommend
-Option A given the explicit 90-day window and Low cost-if-wrong, but
-flagging rather than deciding unilaterally.
+This is deliberately slower than full-population expansion. Accepted
+tradeoff, explicit: trustworthy over fast. Affects at most ~15 users if
+something goes wrong, not 54.
+
+**Standing policy, effective immediately**: ChessGuru runs exactly ONE
+active product-learning experiment at a time, unless two experiments are
+proven orthogonal. Experiment #2 (Root-Cause vs. Move-Specific coaching)
+is formally **blocked** until this experiment reaches a Success, Failure,
+or Inconclusive verdict per §10 below — not because it's less important,
+but because overlapping experiments on a 16-user-at-200+-games
+population would make either result unattributable.
 
 ## 2. Primary outcome
 
@@ -137,12 +135,14 @@ before data comes in:
   treatment and control arm — both are equally exposed to this, so a
   *differential* improvement (treatment beating control, not just both
   improving) is the real signal, not either arm's raw improvement alone.
-- **Non-random confound in who reaches `threat_scan` focus.** If Option A
-  (§1) is chosen, the 54 users being reassigned already have an existing
-  personalized focus — some may be actively engaged with and responding
-  well to that focus already. Randomizing *which* of them get the
-  reminder controls for this only if reassignment itself is applied
-  uniformly, not selectively.
+- **Non-random confound in who lands in Cohort B.** Cohort B is defined
+  as "the next 12-15 users who reach first-focus-assignment" — a
+  time-window sample, not a random draw from the whole user base. If
+  users onboarding in this specific window differ systematically from
+  the general population (e.g. skew toward a recent signup cohort,
+  a particular acquisition channel, or a rating band), the result may
+  not generalize even though the treatment/control split within Cohort
+  B is genuinely randomized.
 - **Reminder fatigue.** If the same reminder text repeats identically
   across many games, its effect may decay over the outcome window
   rather than stay constant — the ledger already flags "reminder cards
@@ -160,13 +160,41 @@ before data comes in:
   original 4-vs-4 was chosen), the promising signal itself could be a
   selection artifact this larger run would correct.
 
-## 9. What ships after this
+## 9. Exit Criteria
 
-If confidence rises, this becomes the first real causal-intervention
-data point feeding the Evidence Board's decision column for Universal
-Habit Coach. **Whether Experiment #2 (Root-Cause vs. Move-Specific
-coaching) launches regardless of this result, or waits on it, was
-flagged as an open decision earlier and has not actually been answered
-yet** — noting that plainly here rather than assuming an answer, since
-this is exactly the kind of gap this discipline exists to catch before
-it becomes an improvised call three weeks from now.
+Decided in advance, including what "done" means for a result that isn't
+success:
+
+```
+Launch           → Cohort B enrollment begins (12-15 new first-assignment users)
+Minimum sample   → 12 users in Cohort B with both baseline and outcome
+                    windows complete (10+10 games, per §4)
+Minimum duration → whatever real calendar time it takes Cohort B to
+                    reach that sample — not fixed, since it depends on
+                    real signup + play rate, not a calendar deadline
+Success          → §7's "increases confidence" bar met
+Failure          → §7's "reduces confidence" bar met
+Inconclusive     → §7's "inconclusive" bar met
+```
+
+**Next action per outcome:**
+- **Success** → ledger row moves to Medium-High; Experiment #2 unblocks.
+- **Failure** → ledger row moves to Low; the reminder mechanism itself
+  is reconsidered (not immediately deleted — a Low-confidence, Low-cost
+  belief can still be worth a second design before abandoning), and
+  Experiment #2 unblocks regardless, since the queue isn't gated on this
+  one succeeding, only completing.
+- **Inconclusive** → do not launch the reminder to more users on the
+  strength of a shrug. Either extend Cohort B's sample (same design, more
+  users) or accept the null result and move to Experiment #2 — the two
+  named acceptable next actions are stated here, precisely to close off
+  the failure mode this whole section exists to prevent: quietly
+  launching anyway because "well, it didn't clearly not-work."
+
+## 10. What ships after this
+
+**Resolved 2026-08-04**: Experiment #2 (Root-Cause vs. Move-Specific
+coaching) is formally blocked until this experiment reaches Success,
+Failure, or Inconclusive per §9 — company policy as of today, not
+specific to this pair of experiments: ChessGuru runs exactly one active
+product-learning experiment at a time unless two are proven orthogonal.

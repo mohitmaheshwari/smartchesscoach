@@ -13,9 +13,20 @@ updates. Confidence moves up on confirming evidence, down on
 disconfirming evidence, and a claim with no real evidence stays at Low
 no matter how design-obvious it feels.
 
-**Cadence:** reviewed monthly. Every row needs a real "next experiment,"
-not just a hope one exists. A row that's sat at the same confidence for
-3+ reviews with no new evidence is a flag, not a stable fact.
+**Cadence:** reviewed monthly at the Friday research review. Every row
+needs a real "next experiment," not just a hope one exists. A row that's
+sat at the same confidence for 3+ reviews with no new evidence is a
+flag, not a stable fact.
+
+**One experiment at a time.** ChessGuru runs exactly one active
+product-learning experiment at any given time, unless two are proven
+orthogonal (different users, different mechanisms, genuinely
+non-interacting). Decided 2026-08-04, after nearly running the Habit
+Coach holdout and Root-Cause Coaching test concurrently on a population
+where only 16 users have 200+ games. With that little data, an
+overlapping second experiment doesn't add a second data point — it
+poisons the first one, since neither outcome can be attributed to
+either intervention. This is standing policy, not a one-time call.
 
 **Threats to Validity, required for every experiment, no exceptions.**
 No experiment starts until its analysis document exists, and no analysis
@@ -23,6 +34,22 @@ document is complete without this section, answered before data comes
 in: What could fool us? What confounds exist? What assumptions are we
 making? How could this result be wrong? A good experiment deserves its
 own skeptic — this is that skeptic, on paper, in advance.
+
+**Exit Criteria, required for every experiment, no exceptions.** Not
+just what success looks like — what failure and "inconclusive" look
+like too, and what happens next in each case, decided before data comes
+in. The "next action" for an inconclusive result matters most: without
+one written down in advance, an inconclusive result quietly becomes a
+launch decision after the fact, which is exactly the failure mode this
+rule exists to prevent. See
+`docs/experiment_01_habit_coach_scaleup_preregistration.md` §9 for the
+template this follows.
+
+**Monthly ritual, separate from the weekly research review: "What did
+we stop believing?"** Not what did we learn — what belief actually
+died this month. Learning is easy to claim; a killed belief is the real
+signal that the ledger is doing its job rather than just accumulating
+rows that never move.
 
 **Cost of being wrong.** A belief's confidence alone doesn't say how
 carefully to treat it. A Medium-confidence belief that's cheap to be
