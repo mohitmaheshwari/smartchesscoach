@@ -103,13 +103,24 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
 
 def _enforce_word_cap(caption: str) -> str:
     """Truncate to MAX_CAPTION_WORDS words. Hard cap — rules should
-    self-limit but this is the safety net."""
+    self-limit but this is the safety net.
+
+    Defect fix (2026-08-04): a raw word-count cut lands mid-sentence
+    whenever a real sentence boundary doesn't happen to fall exactly on
+    the Nth word — confirmed in production on curriculum deviation text
+    ("...d3…", cut mid-clause before the alternative-move explanation
+    even started). Prefer the last '. ' within the capped window; only
+    fall back to a bare word cut if no sentence boundary exists there."""
     if not caption:
         return ""
     words = caption.split()
     if len(words) <= MAX_CAPTION_WORDS:
         return caption
-    return " ".join(words[:MAX_CAPTION_WORDS]) + "…"
+    capped = " ".join(words[:MAX_CAPTION_WORDS])
+    last_period = capped.rfind(". ")
+    if last_period > 0:
+        return capped[: last_period + 1]
+    return capped + "…"
 
 
 def render_caption_dict(facts: Dict[str, Any]) -> Dict[str, Any]:

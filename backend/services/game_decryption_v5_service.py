@@ -3988,6 +3988,29 @@ async def generate_game_decryption_v5(
 
             # v100 FINAL: _caption_tier set inside central call above
             # from _decision.teaching_meta.caption_tier.
+
+            # Defect fix (2026-08-04, audit found 34 real instances): the
+            # R12_blunder "user_winning_position" variant deliberately
+            # softens the CAPTION TEXT to "X is fine — you're still
+            # winning" when the user is clearly winning (cp_loss < 250,
+            # per Mohit 2026-05-21 — scolding a still-crushing position as
+            # "a mistake" is misleading). But is_mistake/priority were
+            # never downgraded to match, so the same move could show a
+            # "fine" caption alongside an "essential priority mistake"
+            # flag — an internally contradictory record. Reuse the exact
+            # same boolean the caption pipeline used to render that text
+            # (caption_facts["user_is_winning"], not a re-derived
+            # threshold, so this can never drift out of sync with the
+            # caption itself). severity stays untouched — the move still
+            # counts correctly for cognitive_gap/stats purposes; only the
+            # user-facing "is this an alarm" flags change.
+            _winning_position_reframe = bool(
+                is_user
+                and severity in ("mistake", "blunder")
+                and (cp_loss or 0) < 250
+                and (caption_facts or {}).get("user_is_winning")
+            )
+
             move_output = {
                 "move_number": full_move_number,
                 "move_san": move_san,
@@ -4034,7 +4057,10 @@ async def generate_game_decryption_v5(
                 # feedback fb_eb1d11ba227f.
                 "pv_after_played": pv_after_played,
                 "severity": severity,
-                "is_mistake": severity in ("mistake", "blunder", "opp_blunder", "opp_mistake"),
+                "is_mistake": (
+                    severity in ("mistake", "blunder", "opp_blunder", "opp_mistake")
+                    and not _winning_position_reframe
+                ),
 
                 # v96 (2026-05-25) — Tier B Q1: practical severity from
                 # win-probability delta + decisiveness-change overlay.
@@ -4054,7 +4080,7 @@ async def generate_game_decryption_v5(
                 "stayed_winning": _practical.stayed_winning,
                 
                 # Adaptive priority
-                "priority": move_priority,
+                "priority": ("context" if _winning_position_reframe else move_priority),
                 "weakness_match": weakness_match,
                 "weakness_count": weakness_count if weakness_match else None,
                 
