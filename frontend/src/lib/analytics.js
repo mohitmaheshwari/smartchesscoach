@@ -48,6 +48,19 @@
 //                                 early exit; props: { exited_early, puzzle_count }
 //   diagnostic_training_started — "Start training" clicked from the
 //                                 results screen; props: { headline_gap }
+//
+//   insight_shown (2026-08-05, added per Mohit's activation-timeline
+//   review — the timeline had no server-side event for "a personal
+//   insight was delivered" at all; Signal A had been PostHog-only by
+//   default). Deliberately minimal, source-agnostic: props:
+//   { insight_id, source, version }. Wired ONLY into the diagnostic
+//   results screen for now (source: "diagnostic") — Home and Game
+//   Review are NOT wired yet. Not an oversight: which surface actually
+//   delivers "the first undeniable proof ChessGuru understands me" is
+//   an open question per the 5-user watch, and hardcoding "home"/
+//   "review" as sources before that answer exists would smuggle an
+//   unverified assumption into the instrumentation itself. Add those
+//   once the qualitative study says where the real moment is.
 
 export function track(event, props = {}) {
   try {

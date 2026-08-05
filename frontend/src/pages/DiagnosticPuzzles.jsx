@@ -120,6 +120,22 @@ const DiagnosticPuzzles = () => {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [puzzle, verdict, puzzleNumber]);
 
+  // The diagnosis screen is the current candidate for "a personal insight
+  // was delivered" -- fire once when it first renders. source is fixed at
+  // "diagnostic" on purpose; see the vocabulary note in analytics.js for
+  // why Home/Review aren't wired in yet.
+  const insightShownFiredRef = useRef(false);
+  useEffect(() => {
+    if (diagnosis && !insightShownFiredRef.current) {
+      insightShownFiredRef.current = true;
+      track("insight_shown", {
+        insight_id: "diagnostic_headline_gap",
+        source: "diagnostic",
+        version: 1,
+      });
+    }
+  }, [diagnosis]);
+
   const loadResult = async () => {
     try {
       const res = await fetch(`${API}/diagnostic/result`, {

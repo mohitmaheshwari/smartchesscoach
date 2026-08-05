@@ -212,12 +212,39 @@ resolved — either by adding a real "insight shown" server event, or by
 pairing the next batch of signups with an actual live watch to fill the
 Observer's Trust Moment column, per the plan below.
 
-**Next step, not yet done:** watch the *next* 5 real signups live
-(session recording or side-by-side), fill the Observer's Trust Moment
-column from direct observation, then ask which instrumented signal (B/C/D/E
-above, or a new one) best predicts that observed moment — that's the
-actual promotion criterion from "candidate trust signal" to "activation
-metric," not a target chosen in advance.
+**Next step, revised 2026-08-05 after two checks that change the
+logistics:**
+
+1. **PostHog session recording has been live since 2026-04-21**
+   (`frontend/public/index.html`'s `posthog.init(...)` call), long
+   before any of the 5 users above signed up. Recordings for these
+   *exact* 5 sessions likely already exist, unwatched — this may not
+   require waiting for new signups at all. Check the PostHog dashboard
+   for these 5 `user_id`s before scheduling anything.
+2. **Passive recordings will not fill the "User Says" column.** They
+   show behavior (hesitation, dead clicks, rage clicks, backtracking)
+   but carry no verbal reasoning — that column needs either a
+   moderated think-aloud session or a follow-up interview. Since real
+   emails exist for all 5 users above, a short, specific follow-up
+   question ("what were you hoping ChessGuru would do when you signed
+   up?") is a cheap way to test the "job to be done" hypothesis without
+   waiting for new traffic — proposed, not sent; contacting real users
+   needs an explicit go-ahead.
+3. **The "next 5 real signups" framing undersells the real pace.**
+   Excluding demo/test accounts, the last 45 days produced ~25 real
+   signups (~1 every 1.8 days) — a Day-1–2 window for 5 *organic*
+   signups isn't realistic. If the 2-day timeline matters, that
+   requires recruiting dedicated study participants, which is a
+   different population from "the next real signup."
+4. **No acquisition-channel signal exists** (checked `routes/auth.py` —
+   no UTM/referrer/signup-source capture) — so the "job to be done"
+   hypothesis (analyze-my-games vs. teach-me-chess) currently has no
+   cheap, larger-N proxy. It can only be tested qualitatively for now.
+
+`insight_shown` is now live (shipped 2026-08-05) — wired only into the
+diagnostic results screen (`source: "diagnostic"`). Home and Game
+Review are deliberately not wired yet; see the vocabulary note in
+`analytics.js` for why.
 
 ---
 
