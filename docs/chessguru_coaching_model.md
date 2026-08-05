@@ -12,6 +12,15 @@
 > is where that understanding is meant to accumulate, verifiably,
 > for as long as this company exists.
 
+> ChessGuru treats every belief as provisional. A belief becomes
+> stronger by surviving contact with evidence, not by surviving
+> disagreement. Added 2026-08-05. The real test of this sentence isn't
+> whether it's true when there's time for careful analysis — it's
+> whether it's still true under a deadline. Mean Time to Belief
+> Revision (`docs/chessguru_research_ledger.md`), measured honestly and
+> only ever counted once the evidence bar was actually met, is how this
+> gets checked rather than just claimed.
+
 **What this document is:** the constitution of the product. Every future
 feature — in Home, Review, Puzzles, Training, Coach, or anything not yet
 imagined — should be measured against it before a line of code is

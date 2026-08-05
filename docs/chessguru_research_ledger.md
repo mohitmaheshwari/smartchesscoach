@@ -18,6 +18,20 @@ needs a real "next experiment," not just a hope one exists. A row that's
 sat at the same confidence for 3+ reviews with no new evidence is a
 flag, not a stable fact.
 
+**Mean Time to Belief Revision (MTBR) — an internal question, not a
+dashboard KPI, added 2026-08-05.** Not "how many experiments do we
+run" — for any given belief, how long between evidence first
+contradicting it and the company actually changing what it does. The
+shorter that gap, the healthier the research organization. **One
+qualifier that matters as much as the metric itself: MTBR only means
+something if the evidence bar (sample size, Threats to Validity, the
+Exit Criteria's own minimums) was actually met before the belief
+changed.** A fast flip on one noisy data point isn't low-latency
+revision — it's the same regression-to-the-mean failure mode this
+ledger already exists to catch, just measured as a virtue instead of a
+mistake. Low MTBR *and* a met evidence bar, together, is the actual
+target — either alone is a false signal.
+
 **One experiment at a time.** ChessGuru runs exactly one active
 product-learning experiment at any given time, unless two are proven
 orthogonal (different users, different mechanisms, genuinely
