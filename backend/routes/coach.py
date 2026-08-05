@@ -1087,8 +1087,18 @@ async def get_game_gold_captions(
     game-review UI. Reads pre-baked gold from the SEPARATE gold_tester_captions
     store (kept apart from authored_caption_overrides so it never masks the served
     caption). Returns a map keyed by "{move_number}:{move_san}" so the frontend can
-    show the gold next to the served caption. Empty for un-gold-baked games."""
+    show the gold next to the served caption. Empty for un-gold-baked games.
+
+    Defect fix (2026-08-05 residency review): this had zero access control
+    beyond being logged in -- any authenticated user opening a game that
+    happened to be gold-baked would see internal tester-comparison UI.
+    Confirmed live, not hypothetical: one real, non-admin user's game
+    already had gold_tester_captions data attached. Gated to
+    reviewer/admin now, same check subscription_service.py already uses."""
     global db
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "role": 1, "is_reviewer": 1})
+    if not (user_doc and (user_doc.get("role") == "super_admin" or user_doc.get("is_reviewer") is True)):
+        return {"gold": {}, "prefs": {}, "count": 0}
     try:
         # gold_tester_captions is a SEPARATE store (not authored_caption_overrides) so the gold
         # is shown only in the tester panel and does NOT mask the served (distilled/R12) caption.
@@ -1126,6 +1136,9 @@ async def set_caption_preference(req: CaptionPreferenceRequest, user: User = Dep
     for side-by-side evaluation. Upserts into caption_preference; read back by the GET
     above + by the dev when discussing feedback."""
     global db
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "role": 1, "is_reviewer": 1})
+    if not (user_doc and (user_doc.get("role") == "super_admin" or user_doc.get("is_reviewer") is True)):
+        return {"ok": False, "error": "not authorized"}
     if req.preference not in ("system", "gold", "neither"):
         return {"ok": False, "error": "preference must be system|gold|neither"}
     await db.caption_preference.update_one(
