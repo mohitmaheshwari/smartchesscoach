@@ -37,6 +37,26 @@ research meeting — did any row's Decision change this week?
 
 ---
 
+## Home page — `dashboard-v2` orphaned fields (Session 1 residency, 2026-08-05)
+
+The frontend reads exactly 3 fields (`games_analyzed`, `games_imported`,
+`last_session`) from a backend payload that computes 8 more, every page
+load. Per the "ownership before deletion" rule agreed this session:
+each field needs a named target surface within 90 days or a Retire
+decision — no field stays in limbo. Recommendations below, not final
+calls — flagging for confirmation, not deciding unilaterally.
+
+| Field | Intended surface | Recommendation |
+|---|---|---|
+| `chess_dna` (archetype, before/after lines) | None yet — but this is the one field that could directly answer this session's open "episodic vs. identity" question | **Keep, earmark** — the most likely real candidate for a future Identity/Progress surface, not dead weight |
+| `patterns` (top-3 with trend) | Possibly Lab's existing pattern cards (coordination/prophylaxis/motifs) | **Check for redundancy first** — may already be superseded by a live surface, not a field needing a new home |
+| `streak` (win/loss/draw count) | None | **Retire as a displayed field** — the constitution's own §3 explicitly bans exposing raw streak counts in the coach's voice; nothing currently reads this as a backend-only signal either |
+| `training_ready` (live puzzle count for top pattern) | Training page | **Keep** — cleanest fit of the eight, real live query already computes exactly what a "puzzles ready" prompt needs |
+| `one_thing_to_fix` | None — likely superseded | **Strong retire candidate** — functionally the same job the Coach Conversation's `one_action` now does; confirm before deleting that this isn't two systems solving one problem in parallel (same disease shape as the earlier `meta_patterns`/`realtime_coaching_feedback` split) |
+| `last_battle` (critical position + moves) | Game Review already covers this in more depth | **Likely redundant** — retire pending confirmation |
+| `accuracy` (raw %) | Progress page | **Keep for Progress** — matches the constitution's own §4.1.4 distinction (raw Skill-layer numbers belong on a quieter surface, not Home) |
+| `context_action` (review-loss vs. play-again) | Could feed which CTA text the Coach Conversation shows (currently static "Play with Coach" regardless of last result) | **Real open question, not obviously redundant** — flagging as a genuine gap worth a real look, not a retire candidate |
+
 ## What's deliberately not on this board yet
 
 Systems investigated today but not yet evidenced enough to force a real
