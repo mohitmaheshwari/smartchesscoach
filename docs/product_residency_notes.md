@@ -13,6 +13,21 @@ We redesign nothing until we understand everything. Every session ends
 in something concrete — a decision, a document, an experiment, or a
 shipped change — never an abstract discussion.
 
+**Standing rule, added 2026-08-05: "Is it already built?"** Whenever
+either of us says "the next big thing is X," the mandatory next
+sentence is "is it already built?" — before any scope doc, any design
+discussion, any estimate. Not a suggestion; a gate, same weight as the
+five questions above. Earned its place by catching four real, separate
+mistakes in one session: Coaching Prescriptions and the Universal Habit
+Coach's live holdout were both nearly written off as dead when they
+were real and running; the Razorpay payment system was nearly rebuilt
+from scratch when it was live with real production credentials the
+whole time; and a proposed "world's first learning graph" turned out to
+have ~2,600 lines of prior art already sitting in `skill_tree.json`,
+`engine2_skill_builder.py`, and `coaching_engine.py`. Answer with a real
+grep/read, not a recollection — "I don't think so" is not the same
+check as "I looked and it isn't there."
+
 ---
 
 ## Session 1 — Home (2026-08-05)
@@ -161,6 +176,48 @@ impression. The pairing with Diagnostic ("today's baseline") is real and
 worth keeping, but it's not as symmetrically clean as it sounds until
 that ordering question from Session 1 gets resolved one way or another.
 Flagging the connection, not re-opening the decision.
+
+---
+
+## Activation Timeline — Five User Watch (2026-08-05)
+
+Run before locking any Mountain-1 target, per the "instrument before
+inventing a target" discipline — `backend/scripts/activation_timeline.py`
+against the 5 most recent real signups (`--recent 5` first returned a
+demo account, `demo_guru_guest_chessguru_ai`, swapped for the next real
+signup before reading the result as data).
+
+| User | First Insight Reached? | Time | Action After Insight | Returned? | Observer's Trust Moment | Notes |
+|---|---|---|---|---|---|---|
+| Meghanshu (…7875f2) | Unmeasurable — no signal | — | — | No | *not yet observed* | Zero events after signup. Never started the diagnostic. |
+| Meghanshu (…0b381e) | Unmeasurable — no signal | — | — | No | *not yet observed* | Same — signup, then nothing. |
+| Sergei Kryvosheya | Unmeasurable | — | — | No | *not yet observed* | Diagnostic started at +18s, no `diagnostic_completed` — abandoned mid-way. |
+| Partha Sarathi Bhattacharyya | Unmeasurable | — | Started PWC (+56s) | No | *not yet observed* | Skipped the diagnostic entirely, went straight to Play-with-Coach. |
+| Scareinz | Unmeasurable | — | Started PWC (+42s), imported a game (+28m) | No | *not yet observed* | Most active of the five. Still no next-day return. |
+
+**Aggregate over these 5:** 0/5 `diagnostic_completed`, 0/5 returned a
+later day, 2/5 started Play-with-Coach, 2/5 generated zero events after
+signup.
+
+**Finding, and it changes Mountain 1's framing:** every "First Insight
+Reached?" cell is Unmeasurable, not ambiguous — none of the 5 have a
+`diagnostic_completed` event in the database, and the script itself has
+no server-side event meaning "insight delivered" (its own comment: that
+signal is UI-only, lives in PostHog, "not server-derivable"). Mountain
+1 assumed the failure mode was *the insight lands but doesn't feel
+personal*. This data points somewhere further upstream: most recent real
+signups aren't reaching diagnostic completion at all, so there's no
+insight yet to land. The 70/40/50 targets stay unset until this is
+resolved — either by adding a real "insight shown" server event, or by
+pairing the next batch of signups with an actual live watch to fill the
+Observer's Trust Moment column, per the plan below.
+
+**Next step, not yet done:** watch the *next* 5 real signups live
+(session recording or side-by-side), fill the Observer's Trust Moment
+column from direct observation, then ask which instrumented signal (B/C/D/E
+above, or a new one) best predicts that observed moment — that's the
+actual promotion criterion from "candidate trust signal" to "activation
+metric," not a target chosen in advance.
 
 ---
 
