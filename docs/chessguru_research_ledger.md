@@ -42,6 +42,22 @@ overlapping second experiment doesn't add a second data point — it
 poisons the first one, since neither outcome can be attributed to
 either intervention. This is standing policy, not a one-time call.
 
+**No user-facing longitudinal feature may be enabled for users
+participating in an active coaching experiment, unless the experiment
+explicitly includes that feature as a controlled variable.** Added
+2026-08-05, not hypothetically — checked and found real: `user_614cc832fc89`
+(560 analyzed games) is simultaneously eligible for the Longitudinal
+Evidence Pilot (`docs/rfc_longitudinal_evidence_pilot.md`) and enrolled
+in Experiment #1's Cohort A (the Habit Coach reminder holdout). Shipping
+a longitudinal feature to that user while the holdout is active makes
+any behavior change unattributable to either intervention — the same
+contamination the one-experiment-at-a-time policy below exists to
+prevent, just arriving through a different door (a shipped feature
+rather than a second experiment). Every new longitudinal or coaching-
+narrative feature must check its eligible population against every
+currently-running experiment's cohorts before rollout, not assume
+"different team, different feature" means "safe to run alongside."
+
 **Threats to Validity, required for every experiment, no exceptions.**
 No experiment starts until its analysis document exists, and no analysis
 document is complete without this section, answered before data comes
