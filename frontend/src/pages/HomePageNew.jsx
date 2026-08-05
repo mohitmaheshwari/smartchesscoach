@@ -8,10 +8,11 @@
  * no percentages, no confidence scores, no elo predictions.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
+import { track } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import {
@@ -62,6 +63,14 @@ export default function HomePageNew({ user }) {
   // hedged belief about why the headline pattern exists, and one action.
   const [coachConversation, setCoachConversation] = useState(null);
 
+  // Experiment 0 (2026-08-05) — Home had zero analytics; this is pure
+  // observation before any redesign, per the product-residency agreement.
+  // Refs, not state, so mounting/observing doesn't trigger re-renders.
+  const mirrorRef = useRef(null);
+  const conversationEndRef = useRef(null);
+  const mirrorSeenRef = useRef(false);
+  const conversationSeenRef = useRef(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -90,9 +99,41 @@ export default function HomePageNew({ user }) {
         console.error("Error loading home data:", e);
       } finally {
         setLoading(false);
+        // Fired once per page load regardless of which branch (onboarding
+        // / no-focus-yet / full conversation) renders — "home_viewed" is
+        // the denominator every other Home event is a rate against.
+        // "Return within 24h" is deliberately NOT a client event here —
+        // it's computed downstream from repeat home_viewed timestamps,
+        // not something a single page load can observe about itself.
+        track("funnel_home_viewed");
       }
     })();
   }, []);
+
+  // Mirror / Coach Conversation "seen" — IntersectionObserver, not mount,
+  // since both can render off-screen below the fold on a short viewport.
+  // Fires once each, ever, per page load.
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (entry.target === mirrorRef.current && !mirrorSeenRef.current) {
+            mirrorSeenRef.current = true;
+            track("funnel_home_mirror_read");
+          }
+          if (entry.target === conversationEndRef.current && !conversationSeenRef.current) {
+            conversationSeenRef.current = true;
+            track("funnel_home_conversation_scrolled");
+          }
+        }
+      },
+      { threshold: 0.6 }
+    );
+    if (mirrorRef.current) observer.observe(mirrorRef.current);
+    if (conversationEndRef.current) observer.observe(conversationEndRef.current);
+    return () => observer.disconnect();
+  }, [lastSession, coachConversation]);
 
 
   // ─── Pretty name ───────────────────────────────────────────────────
@@ -222,7 +263,7 @@ export default function HomePageNew({ user }) {
 
           {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
           {lastSession?.story && (
-            <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
+            <motion.section ref={mirrorRef} variants={fadeInUp} className="mb-12 md:mb-16">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
                 Since you last played
               </div>
@@ -230,7 +271,10 @@ export default function HomePageNew({ user }) {
                 <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
                   <button
-                    onClick={() => navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`)}
+                    onClick={() => {
+                      track("funnel_home_cta_clicked", { cta: "review_this_game" });
+                      navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
+                    }}
                     className="mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
                   >
                     Review this game
@@ -276,7 +320,11 @@ export default function HomePageNew({ user }) {
                 </p>
               )}
               <button
-                onClick={() => navigate("/play-with-coach")}
+                ref={conversationEndRef}
+                onClick={() => {
+                  track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: true });
+                  navigate("/play-with-coach");
+                }}
                 className="h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
               >
                 Play with Coach
@@ -320,7 +368,10 @@ export default function HomePageNew({ user }) {
                   I'm still learning how you play. Play a game or two and I'll start noticing your habits.
                 </p>
                 <button
-                  onClick={() => navigate("/play-with-coach")}
+                  onClick={() => {
+                    track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: false });
+                    navigate("/play-with-coach");
+                  }}
                   className="h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                 >
                   Play with Coach
@@ -344,7 +395,10 @@ export default function HomePageNew({ user }) {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => navigate(item.href)}
+                    onClick={() => {
+                      track("funnel_home_nav_tile_clicked", { tile: item.id });
+                      navigate(item.href);
+                    }}
                     className="group p-3 rounded-lg border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
                   >
                     <Icon className="w-4 h-4 text-muted-foreground/70 group-hover:text-foreground mb-2 transition-colors" strokeWidth={1.5} />

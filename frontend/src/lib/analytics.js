@@ -13,6 +13,18 @@
 //   funnel_pwc_started         — a Play-with-Coach session started
 //   funnel_paywall_viewed      — pricing/paywall seen
 //   funnel_payment_success     — Razorpay payment verified
+//   funnel_home_viewed         — Home page load, any branch (onboarding /
+//                                no-focus-yet / full conversation)
+//   funnel_home_mirror_read    — "Since you last played" scrolled into view
+//   funnel_home_conversation_scrolled — reached the end of the coach
+//                                conversation (its main CTA button)
+//   funnel_home_cta_clicked    — any primary Home CTA clicked; props:
+//                                { cta: "play_with_coach"|"review_this_game",
+//                                  has_conversation?: bool }
+//   funnel_home_nav_tile_clicked — a faded nav tile clicked; props: { tile }
+//   (Experiment 0, 2026-08-05 — Home had zero instrumentation before this.
+//   "Return within 24h" is deliberately NOT its own event — compute it
+//   downstream from repeat funnel_home_viewed timestamps.)
 
 export function track(event, props = {}) {
   try {
