@@ -88,6 +88,17 @@ things that are simply true:
   attached to a flagged mistake) occurs at least 34 times across 15+
   users — a known defect, not a hypothesis.
 
+## The recall metric (added 2026-08-05, Session 3b — Game Review)
+
+Game Review shouldn't optimize for information delivered — it should
+optimize for information retained. Standing metric, not a one-off
+survey: one hour after finishing a review, ask *"Without opening
+ChessGuru, what is the one lesson you remember from your last review?"*
+A real answer (even paraphrased) is success. "I don't remember" or a
+move number instead of a lesson is the failure mode this exists to
+catch — the same shape as the constitution's own §2 definition of
+improvement, applied to a single review instead of a whole game.
+
 ---
 
 *Next review: add a row before deciding, not after. If a product
