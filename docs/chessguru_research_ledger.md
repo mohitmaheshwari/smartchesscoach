@@ -87,6 +87,12 @@ things that are simply true:
 - A real, reproducible caption bug ("X is fine — you're still winning"
   attached to a flagged mistake) occurs at least 34 times across 15+
   users — a known defect, not a hypothesis.
+- **Measured, 2026-08-05, n=140 real captions across 49 users/76 games**:
+  35% explain what happened, 50.7% explain why, 12.9% teach a
+  transferable principle (from a narrow, ~dozen-line fixed bank, not
+  freshly composed), **0% give any next-game/cross-game action framing.**
+  Not a hypothesis anymore — the true, confirmed gap for the next Game
+  Review design effort.
 
 ## The recall metric (added 2026-08-05, Session 3b — Game Review)
 
