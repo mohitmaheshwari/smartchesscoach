@@ -25,6 +25,29 @@
 //   (Experiment 0, 2026-08-05 — Home had zero instrumentation before this.
 //   "Return within 24h" is deliberately NOT its own event — compute it
 //   downstream from repeat funnel_home_viewed timestamps.)
+//
+//   Diagnostic (Session 2 residency, 2026-08-05 — also had zero events
+//   despite funnel_diagnostic_done being documented above and never
+//   fired; superseded by this list, built around "where does commitment
+//   break," not grading every answer):
+//   diagnostic_started          — a genuinely new session (puzzle 1)
+//   diagnostic_resumed          — returned to an already-in-progress
+//                                 session; props: { puzzle_number }
+//   diagnostic_first_answer     — first attempt submitted this session
+//   diagnostic_puzzle_completed — any attempt submitted; props:
+//                                 { puzzle_number } only — no verdict/
+//                                 correctness, this is a funnel-position
+//                                 signal, not a grading log
+//   diagnostic_pause            — tab backgrounded mid-puzzle (unanswered
+//                                 puzzle on screen); props: { puzzle_number }
+//   diagnostic_exit_intent_shown — the exit-confirm modal opened; props:
+//                                 { puzzle_number }
+//   diagnostic_abandoned        — "Exit anyway" actually clicked; props:
+//                                 { puzzle_number }
+//   diagnostic_completed        — a diagnosis was produced, full run or
+//                                 early exit; props: { exited_early, puzzle_count }
+//   diagnostic_training_started — "Start training" clicked from the
+//                                 results screen; props: { headline_gap }
 
 export function track(event, props = {}) {
   try {

@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import { API } from "@/App";
+import { track } from "@/lib/analytics";
 import LichessBoard from "@/components/LichessBoard";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,10 @@ const DiagnosticPuzzles = () => {
   const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const boardRef = useRef(null);
+  // Analytics (2026-08-05 residency, revised event list -- "where does
+  // commitment break," not every answer). Refs, not state: firing must
+  // never trigger a re-render.
+  const firstAnswerFiredRef = useRef(false);
 
   // ── Start the diagnostic on mount ──────────────────────────────
   useEffect(() => {
@@ -73,6 +78,14 @@ const DiagnosticPuzzles = () => {
           return;
         }
         if (data.status === "in_progress" && data.puzzle) {
+          // Fresh (puzzle 1) vs. a real return to an already-started
+          // session are different user stories -- don't conflate them
+          // into one "started" event.
+          if ((data.current_index || 1) <= 1) {
+            track("diagnostic_started");
+          } else {
+            track("diagnostic_resumed", { puzzle_number: data.current_index });
+          }
           setPuzzle(data.puzzle);
           setPuzzleNumber(data.current_index || 1);
           setLoading(false);
@@ -93,6 +106,19 @@ const DiagnosticPuzzles = () => {
       }
     })();
   }, []);
+
+  // A tab backgrounded mid-puzzle is a different user story from a
+  // session resumed days later -- "interrupted" vs. "came back." Only
+  // fires while an unanswered puzzle is actually on screen.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden && puzzle && !verdict) {
+        track("diagnostic_pause", { puzzle_number: puzzleNumber });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [puzzle, verdict, puzzleNumber]);
 
   const loadResult = async () => {
     try {
@@ -141,6 +167,16 @@ const DiagnosticPuzzles = () => {
       }
       const data = await res.json();
 
+      if (!firstAnswerFiredRef.current) {
+        firstAnswerFiredRef.current = true;
+        track("diagnostic_first_answer");
+      }
+      // Deliberately no verdict/correctness in the props -- per the
+      // residency review, the funnel question is "where does commitment
+      // break," not "grade every answer." puzzle_number is enough to
+      // plot the drop-off curve.
+      track("diagnostic_puzzle_completed", { puzzle_number: puzzleNumber });
+
       // Show the verdict card so the user gets feedback.
       setVerdict({
         verdict: data.verdict,
@@ -154,6 +190,7 @@ const DiagnosticPuzzles = () => {
       }
 
       if (data.status === "complete") {
+        track("diagnostic_completed", { exited_early: false, puzzle_count: puzzleNumber });
         // Hold the verdict briefly, then reveal the diagnosis.
         setTimeout(() => {
           setDiagnosis(data.diagnosis);
@@ -179,6 +216,7 @@ const DiagnosticPuzzles = () => {
 
   // ── Finish early — score whatever's solved and STILL build the profile ──
   const handleExit = async () => {
+    track("diagnostic_abandoned", { puzzle_number: puzzleNumber });
     try {
       const res = await fetch(`${API}/diagnostic/exit`, {
         method: "POST",
@@ -186,7 +224,11 @@ const DiagnosticPuzzles = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.diagnosis) { setDiagnosis(data.diagnosis); return; }
+        if (data.diagnosis) {
+          track("diagnostic_completed", { exited_early: true, puzzle_count: puzzleNumber - 1 });
+          setDiagnosis(data.diagnosis);
+          return;
+        }
       }
     } catch { /* non-fatal */ }
     navigate("/home");
@@ -336,7 +378,10 @@ const DiagnosticPuzzles = () => {
             <Button
               variant="default"
               className="flex-1"
-              onClick={() => headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training")}
+              onClick={() => {
+                track("diagnostic_training_started", { headline_gap: headline_gap || null });
+                headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training");
+              }}
               data-testid="diagnostic-start-training"
             >
               Start training
@@ -385,7 +430,10 @@ const DiagnosticPuzzles = () => {
             </h1>
           </div>
           <button
-            onClick={() => setShowExitConfirm(true)}
+            onClick={() => {
+              track("diagnostic_exit_intent_shown", { puzzle_number: puzzleNumber });
+              setShowExitConfirm(true);
+            }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             data-testid="diagnostic-skip-btn"
           >

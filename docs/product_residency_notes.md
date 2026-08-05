@@ -85,6 +85,83 @@ prescribing a fix before more screens are reviewed.
 - ❌ Did not trim `dashboard-v2` — correctly deferred pending ownership
   decisions above.
 
+**Standing question, added after Session 2:** every screen review now
+also ends with — *what promise is this screen making to the player?*
+The highest-level product lens, above the original five.
+
 ---
 
-## Session 2 — Diagnostic (not yet started)
+## Session 2 — Diagnostic (2026-08-05)
+
+**Scores:** Pedagogy 10/10, Psychology 10/10, Product clarity 8.5/10,
+Observability 2/10. Unlike Home, this screen doesn't have a product
+problem — it has an observability problem.
+
+**The promise this screen makes:** *"I'll understand how you think."*
+Complementary to Home's *"I remember who you are"* — see the pushback
+below before treating that pairing as fully settled.
+
+### Findings
+
+- **Zero analytics, same gap as Home** — `funnel_diagnostic_done` was
+  documented in the vocabulary comment and never once fired; the
+  existing 8.3%-completion number came from querying `diagnostic_sessions`
+  directly, not from any instrumentation.
+- **18 of 24 sessions (75%) sit in `in_progress` indefinitely** — not a
+  metric, an absence of one. "In progress" today can't distinguish
+  thinking / interrupted / confused / device-switched / genuinely gone.
+- **Two diagnostic systems exist** (curated V2, consequence-graded;
+  legacy `community_puzzles`-based fallback), selected by whether
+  `diagnostic_pool` has 20+ docs. Confirmed 60 in production — comfortably
+  above threshold, so legacy is currently dormant, not live. Real latent
+  risk if the pool ever shrinks: the current frontend only handles V2's
+  response shape.
+- **The 60-puzzle pool is not a hard ceiling** — `build_diagnostic_pool.py`
+  draws from a 4.1M-row Lichess puzzle set and is manually re-run,
+  wiping and rebuilding each time. Predictability-over-time is a real,
+  forward-looking concern, but the fix (re-curate a larger/rotating set)
+  is cheap whenever it matters — not a structural constraint today.
+
+### Decisions
+
+- ✅ **Ship analytics now** — unlike Home's `dashboard-v2` trim, this is
+  pure observation, doesn't change behavior, doesn't lock in a direction.
+  Implemented: `diagnostic_started`, `diagnostic_resumed`,
+  `diagnostic_first_answer`, `diagnostic_puzzle_completed` (funnel
+  position only — no verdict/correctness in the props, a deliberate
+  interpretation of "don't grade every answer"), `diagnostic_pause`
+  (tab backgrounded mid-puzzle, via `visibilitychange`), `diagnostic_exit_intent_shown`,
+  `diagnostic_abandoned`, `diagnostic_completed` (one event, `exited_early`
+  as a prop, not two parallel events for full-vs-partial), `diagnostic_training_started`.
+- ✅ **Derive dormancy, don't mutate status** — correct principle, but it
+  required one addition first: `diagnostic_sessions` had no per-session
+  "last activity" timestamp anywhere (`started_at` and `completed_at`
+  only). Added `last_activity_at`, set on every attempt, alongside the
+  existing per-attempt fields — a raw fact, not an interpretation.
+  Dormancy itself (whatever cutoff — 24h, 72h, 7d) gets computed at
+  reporting time from this field, never stored as a status.
+- ✅ **Pool health check shipped** — `daily_digest_loop` now logs an
+  ERROR-level alert if `diagnostic_pool` drops below `V2_POOL_MIN`,
+  instead of waiting for a user to hit a broken "undefined" screen.
+- ⏸ **Legacy fallback untouched**, per agreement.
+- **Interview question** ("at what point did you become convinced this
+  wasn't just another puzzle trainer?") — folding into the existing
+  10-user interview plan from the earlier roadmap rather than spinning up
+  a separate qualitative study; same method, one more question on the list.
+
+### Pushback: Home = "becoming," Diagnostic = "today" — real, but not fully clean
+
+The framing is genuinely good and I don't think it's an accident. But
+it deserves the same scrutiny as everything else this week: Session 1
+already found that Home's *first* daily read is the Mirror — 100%
+episodic ("here's what happened last game"), rendered unconditionally
+before the identity-framed Coach Conversation. So "Home = who you're
+becoming" is true of the page's strongest content, not its first
+impression. The pairing with Diagnostic ("today's baseline") is real and
+worth keeping, but it's not as symmetrically clean as it sounds until
+that ordering question from Session 1 gets resolved one way or another.
+Flagging the connection, not re-opening the decision.
+
+---
+
+## Session 3 — Game Review (not yet started)

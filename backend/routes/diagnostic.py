@@ -508,6 +508,12 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
     base_update = {
         "concept_progress": progress,
         "concept_index": concept_index,
+        # Raw fact, not an interpretation (2026-08-05 residency review):
+        # a bare timestamp of the last recorded attempt. Dormancy itself
+        # is derived from this at reporting time with whatever cutoff is
+        # current -- never stored as a status, so changing the cutoff
+        # later costs nothing and loses no information.
+        "last_activity_at": datetime.now(timezone.utc).isoformat(),
     }
 
     # ── session complete ─────────────────────────────────────────────
@@ -639,7 +645,7 @@ async def record_attempt(
 
     await db.diagnostic_sessions.update_one(
         {"user_id": user.user_id, "status": "in_progress"},
-        {"$push": {"attempts": attempt_doc}},
+        {"$push": {"attempts": attempt_doc}, "$set": {"last_activity_at": attempt_doc["attempted_at"]}},
     )
 
     # Done?

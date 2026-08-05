@@ -238,6 +238,25 @@ async def daily_digest_loop():
                 from services.digest_email_service import run_daily_digest
                 result = await run_daily_digest(db)
                 logger.info(f"[digest] daily run: {result}")
+
+                # Diagnostic pool health check (2026-08-05 residency review):
+                # the diagnostic silently degrades to a lower-quality legacy
+                # fallback if this ever drops below routes/diagnostic.py's
+                # V2_POOL_MIN -- don't wait for a user to notice a broken
+                # "Find the best move in undefined" screen.
+                try:
+                    from routes.diagnostic import V2_POOL_MIN
+                    pool_count = await db.diagnostic_pool.count_documents({})
+                    if pool_count < V2_POOL_MIN:
+                        logger.error(
+                            f"[HEALTH-CHECK] diagnostic_pool has {pool_count} docs, "
+                            f"below V2_POOL_MIN={V2_POOL_MIN} -- diagnostic will "
+                            f"silently fall back to the legacy, non-concept-aware "
+                            f"flow. Re-run scripts/build_diagnostic_pool.py."
+                        )
+                except Exception as _pool_check_err:
+                    logger.warning(f"[HEALTH-CHECK] diagnostic_pool check failed: {_pool_check_err}")
+
                 last_sent_date = now.date()
         except Exception as e:
             logger.error(f"daily_digest_loop error: {e}")
