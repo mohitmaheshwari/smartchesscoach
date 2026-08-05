@@ -159,8 +159,11 @@ accounts, not just read from source.
 
 ---
 
-*Promote a Ledger row here once it's confirmed (or disproven — a
-disproven belief is still knowledge, log it as Verified-False with the
-evidence, don't delete it). Add a new Unknown the moment someone
-notices an assumption nobody's actually tested, per Observation #006 —
-naming an unknown early is itself valuable, not just resolving one.*
+*Promote a Ledger row here once it's confirmed. Add a new Unknown the
+moment someone notices an assumption nobody's actually tested, per
+Observation #006 — naming an unknown early is itself valuable, not just
+resolving one. When a belief here is disproven, it doesn't stay as a
+"Verified-False" entry in this document — this is a repository of
+current best models, and a dead one clutters exactly the thing this
+doc is supposed to keep clean. Move it to
+`docs/chessguru_graveyard.md` instead.*
