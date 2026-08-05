@@ -4,6 +4,14 @@
 > their own — by understanding not just what they know, but how they
 > think, how they learn, and what they need next.
 
+> ChessGuru does not seek to be the company with the most coaching
+> features. It seeks to become the company that understands chess
+> improvement more deeply than anyone else, and lets every product
+> decision emerge from that understanding. Added 2026-08-05 — not
+> aspirational when it was written. `docs/chessguru_knowledge_base.md`
+> is where that understanding is meant to accumulate, verifiably,
+> for as long as this company exists.
+
 **What this document is:** the constitution of the product. Every future
 feature — in Home, Review, Puzzles, Training, Coach, or anything not yet
 imagined — should be measured against it before a line of code is
