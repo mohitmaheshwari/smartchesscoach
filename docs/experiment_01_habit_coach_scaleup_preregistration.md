@@ -1,9 +1,15 @@
 # Experiment #1 — Universal Habit Coach Holdout, Scaled
 
-**Status:** DRAFT — pre-registered before any new assignment happens, per
-the rule agreed 2026-08-04: *no experiment starts until this document
-exists.* Requires an explicit decision on §1 (eligibility) before
-implementation begins — flagged there, not assumed.
+**Status:** Mechanism implemented, 2026-08-06 (`services/focus_engine.py`,
+`maybe_enroll_cohort_b`) — **not yet activated on real data.** The code
+exists in the repo, syntax-checked, logically reviewed, and committed;
+it has not been deployed to any environment that touches real users, and
+no real user has been enrolled. Activating it (deploying so it actually
+fires on the next real first-focus-assignment) is a distinct, separate
+decision from writing it — enrollment is a one-way randomization per
+user, so this waits for an explicit go-ahead rather than happening as a
+side effect of the code existing. `l4_pilot_monitor.py` was extended to
+report both cohorts once it's live.
 
 **Belief under test** (Research Ledger row): *the in-game habit reminder
 (Universal Habit Coach) causally reduces the targeted mistake.* Current

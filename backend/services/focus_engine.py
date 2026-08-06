@@ -284,6 +284,74 @@ async def set_universal_focus(db, user_id: str, reminder_enabled: bool = True,
     return focus
 
 
+COHORT_B_CAP = 15  # pre-registration §1: "the next 12-15 users"
+
+
+async def maybe_enroll_cohort_b(db, user_id: str) -> Optional[Dict]:
+    """
+    Experiment #1, Cohort B enrollment gate
+    (docs/experiment_01_habit_coach_scaleup_preregistration.md §1).
+
+    Fires only at a genuine first-ever focus assignment: no prior
+    `focus_history` (never graduated out of anything) and not already
+    enrolled anywhere. Extends the SAME `db.l4_pilot` collection Cohort
+    A already uses (`cohort="cohort_b"` instead of `"pilot_48h"`), same
+    schema (user_id/arm/assigned_at/r_base), so `l4_pilot_monitor.py` and
+    any future analysis script work across both cohorts unchanged.
+
+    Randomizes `reminder_enabled` 50/50 via `set_universal_focus` instead
+    of letting personalized detection (`set_user_focus`) run — that
+    substitution IS the experiment. Stops enrolling once `COHORT_B_CAP`
+    is reached; callers fall through to normal personalized detection
+    after that (Cohort C, unaffected).
+
+    Baseline (`r_base`) is computed best-effort from whatever real
+    analyzed games exist before this moment (up to the last 10, per §3) —
+    not gated on having 10 yet. The pre-registration's "10 analyzed games
+    before assigned_at" bar (§4) is an ANALYSIS-time inclusion filter, not
+    an enrollment precondition; a user enrolled with fewer than 10 simply
+    won't clear that bar later and is naturally excluded then.
+    """
+    if await db.l4_pilot.find_one({"user_id": user_id}, {"_id": 1}):
+        return None
+    if await db.focus_history.find_one({"user_id": user_id}, {"_id": 1}):
+        return None
+
+    enrolled_so_far = await db.l4_pilot.count_documents({"cohort": "cohort_b"})
+    if enrolled_so_far >= COHORT_B_CAP:
+        return None
+
+    from services import core_habit
+    import random
+
+    tm = um = 0
+    async for a in db.game_analyses.find(
+        {"user_id": user_id}, {"_id": 0, "stockfish_analysis.move_evaluations": 1}
+    ).sort("analyzed_at", -1).limit(10):
+        me = (a.get("stockfish_analysis") or {}).get("move_evaluations") or []
+        if not me or not core_habit.is_real_game(me):
+            continue
+        tm += core_habit.targeted_mistakes(me)
+        um += core_habit.user_moves(me)
+    r_base = round(tm / um, 4) if um else None
+
+    arm = "treatment" if random.random() < 0.5 else "control"
+    focus = await set_universal_focus(db, user_id, reminder_enabled=(arm == "treatment"), habit="threat_scan")
+
+    await db.l4_pilot.insert_one({
+        "user_id": user_id,
+        "cohort": "cohort_b",
+        "arm": arm,
+        "assigned_at": focus["set_at"],
+        "r_base": r_base,
+    })
+    logger.info(
+        f"[EXPERIMENT-1][COHORT-B] Enrolled {user_id}: arm={arm} r_base={r_base} "
+        f"({enrolled_so_far + 1}/{COHORT_B_CAP})"
+    )
+    return focus
+
+
 async def update_focus_after_game(
     db, user_id: str, behavior_summary: Dict, root_problem: Dict,
     game_id: str = None, session_id: str = None,
@@ -297,7 +365,16 @@ async def update_focus_after_game(
 
     # No focus yet -> SET one. Setting a focus requires a detected primary; this is the
     # DETECTION system's job, kept separate from measurement below.
+    #
+    # Experiment #1 Cohort B check comes first: a genuine first-ever
+    # assignment gets randomized into the habit-reminder holdout instead
+    # of personalized detection, until COHORT_B_CAP is reached (see
+    # maybe_enroll_cohort_b). Falls through to normal detection once the
+    # cap is hit or the user doesn't qualify (already had a focus before).
     if not current_focus:
+        cohort_b_focus = await maybe_enroll_cohort_b(db, user_id)
+        if cohort_b_focus:
+            return cohort_b_focus
         return await set_user_focus(db, user_id, root_problem)
 
     # ─── MEASUREMENT (decoupled system — services/focus_measurement.py) ───
