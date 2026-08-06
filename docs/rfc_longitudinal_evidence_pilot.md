@@ -1,13 +1,29 @@
 # RFC: Longitudinal Evidence Pilot
 
-**Status:** **APPROVED, 2026-08-06**, as an R&D pilot — approved by
-Mohit with one standing condition: *this remains an R&D pilot until it
-proves it should become a product capability.* Approval of the RFC is
-not approval of Monthly MRI as a shipped feature; that decision waits
-for the pilot's own result (§8/§9). Signoff on this document authorizes
-writing `docs/longitudinal_evidence_pilot_scope.md` (Phase 0's actual
-pre-code scope doc, per `/scope-driven-development`) — not code
-directly.
+**Status:** **APPROVED — WAITING FOR CAPACITY**, 2026-08-06. Approved in
+principle by Mohit with one standing condition: *this remains an R&D
+pilot until it proves it should become a product capability.*
+Deliberately not "Active" — this RFC's own §4 Opportunity Cost section
+named real competitors for the same engineering time (Experiment #1's
+Cohort B, the Activation Timeline / Trust Sprint work, onboarding), and
+per the Research Priority by Decision Dependency policy (Research
+Ledger), those currently block more of the next quarter's decisions
+than this pilot does. Approval does not imply immediate execution — no
+further artifact (starting with `docs/longitudinal_evidence_pilot_scope.md`)
+gets written until the trigger below fires.
+
+**Trigger to begin scope drafting — all three, not any one:**
+1. Experiment #1's Cohort B enrollment is complete.
+2. The first five observed real signup sessions have been analyzed
+   (see `docs/product_residency_notes.md`, Activation Timeline — Five
+   User Watch).
+3. Trust Sprint P0 decisions have been made.
+
+This RFC's value doesn't meaningfully decay while it waits — the data
+it depends on (`thinking_scores`) keeps accumulating regardless. The
+Activation work does decay: real signups observed now are gone forever
+if not watched now. That asymmetry, not a judgment about the pilot's
+worth, is the entire reason for the ordering.
 
 ## Research Question
 

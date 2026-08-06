@@ -88,6 +88,26 @@ would distort the whole curriculum if wrong needs far more scrutiny
 before anything is built on top of it — same confidence, very different
 risk.
 
+**Research Priority by Decision Dependency, added 2026-08-06.** When two
+approved pieces of work compete for the same engineering time, don't
+rank them by how good the idea is — ask *what future decisions are
+blocked waiting for this evidence?* Work that blocks many near-term
+decisions goes first, even over a genuinely good idea that blocks few.
+First real use: the Longitudinal Evidence Pilot RFC was approved but
+deliberately marked "Waiting for Capacity" rather than started, because
+Activation-watch/Cohort-B/Trust-Sprint work blocks essentially the whole
+next quarter's decisions while the pilot blocks only future
+longitudinal-coaching decisions. A useful secondary signal, not always
+present: does the work's value decay if delayed? Real signups observed
+now are gone forever if not watched now; `thinking_scores` keeps
+accumulating regardless of when the pilot starts — that asymmetry
+reinforced the ordering here but isn't the test itself. **Approving a
+good idea and then deliberately not working on it is the harder,
+better-calibrated discipline** — rejecting bad ideas is easy by
+comparison; this policy exists to make sure a good approved idea doesn't
+create implicit pressure to progress it before the evidence says it's
+the highest-leverage use of the next unit of engineering time.
+
 ---
 
 ## Active beliefs
@@ -101,7 +121,7 @@ risk.
 | **Socratic questioning ("what did you see here?") produces better learning than direct statement, for players 1000+** | **Low** | Design rationale only — the rating gate is real and live in code, but no outcome data exists comparing the two. This is currently a belief encoded as a feature, not a tested claim. | None collected either way. | Medium — affects voice for a large share of users, but reversible per-message, not structural | Randomized: for matched 1000+ players hitting the same mistake type, alternate Socratic vs. direct delivery, measure recurrence rate of that specific mistake over the next N games. |
 | **Generic, unspecific praise reduces coaching trust/effectiveness** | **Low** | Stated as design conviction in the voice rules (`coach_voice_prompt.py`, `memory/project_coach_voice.md` — praise without a stated reason is explicitly called "patronizing"). No player-facing test of this claim exists. | None collected. | Low — a voice-rule tweak, not structural | Genuinely hard to test cleanly without risking real user trust during the trial — flagging as a belief worth holding but not yet worth actively disproving with live users. |
 | **The "STATE, never ASK" conductor law is correct for live play but was applied too broadly, overriding the rating/repetition gate that should govern it** (`chessguru_coaching_model.md` §3.1) | **Medium** | The rating-gated ask/state split in `realtime_coaching_feedback.py` was independently built and is internally coherent; the conductor's blanket override wasn't a deliberate decision to supersede it — no doc argues for the override on its own merits. | None found supporting the blanket override as intentional rather than incidental. | Medium — affects every live PWC message, but a config-level fix, not a rebuild | Not really an experiment — a design decision to make. Flagged here because "we assumed this was decided when it wasn't" is itself worth tracking. |
-| **Longitudinal coaching insights (comparing time windows ≥60 days apart) can be computed from data ChessGuru already has, and can be made actionable** (`docs/rfc_longitudinal_evidence_pilot.md`) | **Low** | `thinking_scores` has 12,751 real per-game, timestamped, per-concept records — a genuinely strong raw ingredient. No aggregation or comparison code exists yet, so the claim is entirely untested, not just unconfirmed. | None yet — this is Untested, not Low-confidence-from-mixed-evidence; the RFC's whole purpose is to produce the first evidence either way. | Low-Medium — a bounded 13-user pilot, not a broad rollout; contained by design (§3/§7 of the RFC) | The RFC's own Phase 0 (build the aggregation layer) + Phase 1 (produce one insight per pilot user, graded against the RFC's §6 acceptance criteria). Approved 2026-08-06 as an R&D pilot, not a product commitment. |
+| **Longitudinal coaching insights (comparing time windows ≥60 days apart) can be computed from data ChessGuru already has, and can be made actionable** (`docs/rfc_longitudinal_evidence_pilot.md`) | **Low** | `thinking_scores` has 12,751 real per-game, timestamped, per-concept records — a genuinely strong raw ingredient. No aggregation or comparison code exists yet, so the claim is entirely untested, not just unconfirmed. | None yet — this is Untested, not Low-confidence-from-mixed-evidence; the RFC's whole purpose is to produce the first evidence either way. | Low-Medium — a bounded 13-user pilot, not a broad rollout; contained by design (§3/§7 of the RFC) | Deferred, not started — **Approved, Waiting for Capacity** per the Research Priority by Decision Dependency policy above. Resumes (Phase 0, the aggregation layer) once all three: Cohort B enrollment complete, the first 5 observed real signups analyzed, Trust Sprint P0 decisions made. |
 
 ## Known, not belief (structural facts, included for contrast)
 

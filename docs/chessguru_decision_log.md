@@ -289,6 +289,21 @@ capability is real — or it doesn't, in which case it's logged to
 **When we'll revisit:** When the pilot reaches a result against its own
 Kill Criteria (§7) or Graduation Criteria (§8) — whichever comes first.
 
+**Update, same day — deferred pending capacity, not reopened:**
+Reason for deferment: *deferred because higher-priority evidence
+currently blocks more product decisions than this pilot does. Approval
+does not imply immediate execution.* Status changed to "Approved —
+Waiting for Capacity" rather than "Active." Applied the Research
+Priority by Decision Dependency test (new standing policy, Research
+Ledger): the Activation watch, Cohort B, and Trust Sprint work all block
+decisions covering essentially the whole next quarter (onboarding,
+diagnostic, first session, trust, activation); this pilot blocks only
+Monthly MRI / longitudinal-coaching decisions, which aren't on the
+launch-critical path. Trigger to resume drafting `docs/longitudinal_evidence_pilot_scope.md`
+is explicit and three-part (RFC §Status) — this is not an indefinite
+shelving, and no one should feel pressure to progress it before the
+trigger fires.
+
 ---
 
 *Add a new entry above whenever a major decision is made — not after
