@@ -246,6 +246,49 @@ diagnostic results screen (`source: "diagnostic"`). Home and Game
 Review are deliberately not wired yet; see the vocabulary note in
 `analytics.js` for why.
 
+## Full-population check (2026-08-06) — the 5-user sample generalizes, and reframes the question
+
+Requested directly: don't wait on new organic signups to trickle in,
+use the existing-user data that's already sitting there. Pulled all 105
+real (non-demo/test/admin) users, lifetime, not just the 5 recently
+watched:
+
+| Metric | Full population (n=105) |
+|---|---|
+| Ever imported a game | 55% |
+| Ever started the diagnostic | 12% |
+| Ever *completed* the diagnostic | **4% (5 people, lifetime)** |
+| Ever started a Play-with-Coach session | **59%** |
+| Returned on some later calendar day, ever | 50% |
+| Zero activity of any kind, forever | 31% |
+| Active in the last 30 days of data | 38% |
+
+**The diagnostic-abandonment finding generalizes** — 4% lifetime
+completion across the whole history, not a fluke of the last 5 signups.
+
+**New finding that reframes Mountain 1 and Priority 1: PWC, not the
+diagnostic, is already the de facto front door.** 59% of all real users
+have started Play-with-Coach; only 12% have even started the
+diagnostic. This matches what 2 of the 5 watched users actually did
+(Partha and Scareinz both skipped the diagnostic and went straight to
+PWC) — at n=105 it stops being anecdote. Open question worth carrying
+into whatever comes after the deferred trigger resolves: not just "why
+do people abandon the diagnostic" but "should the diagnostic be the
+front door at all, given real user behavior already votes for PWC by a
+5-to-1 margin."
+
+**Correction to the small sample's pessimism, not a contradiction of
+it:** 50% of all real users return on *some* later day, ever — much
+better than "0 of 5." But this answers a different question (do they
+ever come back) than the one that mattered for activation (do they come
+back *fast*). Both can be true at once.
+
+**Surprising, evidence against "the diagnostic is necessary for
+engagement":** diagnostic completers average *fewer* total games than
+non-completers (22 vs. 117) — the deepest, most engaged real users
+mostly never touched the diagnostic. They came in through game import
+or PWC directly.
+
 ---
 
 ## Session 3 — Game Review (not yet started)
