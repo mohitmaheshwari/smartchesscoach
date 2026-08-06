@@ -38,10 +38,14 @@ TTS_MODEL = "tts-1"
 TTS_VOICE = "alloy"
 
 # =============================================================================
-# STOCKFISH CONFIGURATION
-# =============================================================================
+import shutil
 
-STOCKFISH_PATH = "/usr/games/stockfish"
+_env_sf_path = os.getenv("STOCKFISH_PATH")
+if _env_sf_path and os.path.exists(_env_sf_path):
+    STOCKFISH_PATH = _env_sf_path
+else:
+    STOCKFISH_PATH = shutil.which("stockfish") or shutil.which("stockfish.exe") or "/usr/games/stockfish"
+
 STOCKFISH_DEPTH = 18              # Main analysis depth (15-20 recommended)
 STOCKFISH_QUICK_DEPTH = 12        # Quick analysis depth
 STOCKFISH_PV_DEPTH = 12           # Depth for principal variation

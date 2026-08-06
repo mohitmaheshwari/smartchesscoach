@@ -192,7 +192,7 @@ def _run_analysis_queue_fallback_cycle():
     from analysis_worker import claim_next_job, cleanup_stuck_jobs, ensure_stockfish_installed, get_database, process_job
 
     if not ensure_stockfish_installed():
-        logger.error("Analysis queue fallback: Stockfish unavailable")
+        logger.debug("Analysis queue fallback: Stockfish unavailable locally (skipping background game analysis loop).")
         return
 
     sync_db = get_database()
