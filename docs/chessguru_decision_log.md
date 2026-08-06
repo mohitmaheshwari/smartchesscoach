@@ -246,6 +246,51 @@ once the Conductor's code is actually changed to match.
 
 ---
 
+---
+
+### 2026-08-06 — Approve the Longitudinal Evidence Pilot RFC as an R&D pilot
+
+**Decision:** Approve `docs/rfc_longitudinal_evidence_pilot.md` — not as
+a commitment to ship Monthly MRI, but as authorization to write Phase
+0's scope doc (the aggregation layer) and run a bounded pilot. Condition:
+remains an R&D pilot until it proves it should become a product
+capability.
+
+**Why:** The RFC reframed "existing users deserve more engineering" from
+a retention argument (weak — only 5-14 users have enough history to
+matter today) into an R&D argument (strong — this generates evidence
+about whether longitudinal coaching is buildable at all, which the
+company doesn't currently have).
+
+**Evidence available then:** `thinking_scores` (12,751 real per-game
+docs, correcting CLAUDE.md's stale 31); zero month-over-month
+aggregation code anywhere in the backend; the eligible population
+sharply tiered (1 user at 1300+ games, 5 at 700+, 14 at 300+); one
+confirmed experiment-contamination case (`user_614cc832fc89`, in both
+the pilot's eligible pool and Experiment #1's Cohort A).
+
+**Alternatives rejected:** Treating this as a feature spec ("build
+Monthly MRI") rather than a research question — rejected because it
+would have skipped the actual open question (can this be demonstrated
+at all) in favor of assuming the answer. Expanding scope to all
+"existing users" — rejected given the real population numbers above.
+
+**Who decided:** Mohit, reviewing the RFC as an approver — added
+Opportunity Cost, Kill Criteria, and Graduation Criteria sections before
+approving, plus the top-level Research Question framing.
+
+**Expected outcome:** Phase 0's scope doc gets written next
+(`docs/longitudinal_evidence_pilot_scope.md`), not code directly. The
+pilot either produces at least one insight passing the ≥60-day/
+can't-derive-from-30-days acceptance test (§6 of the RFC) — evidence the
+capability is real — or it doesn't, in which case it's logged to
+`docs/chessguru_graveyard.md`, not quietly retried.
+
+**When we'll revisit:** When the pilot reaches a result against its own
+Kill Criteria (§7) or Graduation Criteria (§8) — whichever comes first.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*

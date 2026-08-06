@@ -159,6 +159,32 @@ accounts, not just read from source.
 
 ---
 
+### Observation #008 — Longitudinal coaching (comparing time windows ≥60 days apart) may be a provable capability, not just a nice idea
+
+**Status:** Testing, Low confidence — [Research Ledger row]
+
+**Evidence so far:** `thinking_scores` has 12,751 real per-game,
+timestamped, per-concept records — strong raw material. No aggregation
+or comparison code exists anywhere in the backend today, so this is
+genuinely untested rather than weakly confirmed. The eligible population
+is small and tiered (1 user at 1300+ games, 5 at 700+, 14 at 300+),
+which reframes this from a retention bet to an R&D bet — the goal is
+proving the capability exists, not improving today's experience at
+scale.
+
+**Influence:** None yet, by design — `docs/rfc_longitudinal_evidence_pilot.md`
+was approved 2026-08-06 as a bounded R&D pilot specifically so this
+entry doesn't get treated as more settled than it is before Phase 0 (the
+aggregation layer) even exists.
+
+**Experiment:** The Longitudinal Evidence Pilot itself — Phase 0
+(aggregation layer) then Phase 1 (one insight per pilot user), graded
+against the RFC's own acceptance criteria (§6) and Kill Criteria (§7).
+A result either promotes this entry to Verified or sends it to
+`docs/chessguru_graveyard.md` — no third outcome.
+
+---
+
 *Promote a Ledger row here once it's confirmed. Add a new Unknown the
 moment someone notices an assumption nobody's actually tested, per
 Observation #006 — naming an unknown early is itself valuable, not just

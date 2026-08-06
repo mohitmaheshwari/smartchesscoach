@@ -1,15 +1,25 @@
 # RFC: Longitudinal Evidence Pilot
 
-**Status:** RFC — a research question, not an implementation spec. No
-code should be written against this document until it's explicitly
-signed off, per `/scope-driven-development`. If signed off, Phase 0
-(the aggregation layer, §4) gets its own scope doc before anything
-else is built.
+**Status:** **APPROVED, 2026-08-06**, as an R&D pilot — approved by
+Mohit with one standing condition: *this remains an R&D pilot until it
+proves it should become a product capability.* Approval of the RFC is
+not approval of Monthly MRI as a shipped feature; that decision waits
+for the pilot's own result (§8/§9). Signoff on this document authorizes
+writing `docs/longitudinal_evidence_pilot_scope.md` (Phase 0's actual
+pre-code scope doc, per `/scope-driven-development`) — not code
+directly.
 
-**The question this RFC exists to answer:** do we have enough evidence
-to justify building longitudinal coaching as a distinct capability? Not
-"should we build Monthly MRI" — that's the user-facing artifact, and a
-downstream question. This is upstream of it.
+## Research Question
+
+**Can historical coaching data be transformed into longitudinal
+insights that are both (1) impossible to compute from any single time
+window, and (2) actionable enough to change player behavior?**
+
+Everything below is subordinate to this question. Not "should we build
+Monthly MRI" — that's the user-facing artifact, a downstream question.
+Not "does the data exist" — that's necessary but not sufficient. The
+RFC exists to answer this one question with evidence, not to specify a
+feature.
 
 ---
 
@@ -71,7 +81,24 @@ Pilot only. Eligible users:
 At today's numbers, that's roughly 13 of the 14 users with 300+ analyzed
 games (14 minus the 1 contaminated by Experiment #1).
 
-## 4. Deliverable
+## 4. Opportunity Cost
+
+Building this pilot means *not* spending approximately one engineering
+sprint on the alternatives actually competing for the same time right
+now: Experiment #1's Cohort B enrollment (still pending), the
+Activation/Trust sprint's 5-user watch and its follow-on work, or
+onboarding-funnel fixes.
+
+**Justification for spending it here anyway:** this pilot is expected
+to generate longitudinal evidence that can materially improve both
+coaching quality and the activation story itself (per Mountain 1's own
+later argument — a proven "impossible six months ago" insight becomes
+the evidence that makes acquisition easier). If Phase 0 (the
+aggregation layer) turns out to be larger than a sprint, that's a
+reason to re-open this tradeoff explicitly, not to let it quietly
+expand.
+
+## 5. Deliverable
 
 **Phase 0 — the aggregation layer.** Without this, the pilot cannot
 exist regardless of narrative quality:
@@ -103,7 +130,7 @@ point to an action is graded the same as a caption with no why — not
 acceptable, per `docs/chessguru_knowledge_base.md` Observation #005's
 own finding.
 
-## 5. Vision and success — kept deliberately separate
+## 6. Vision and Acceptance Criteria — kept deliberately separate
 
 **Vision (inspirational, not testable on purpose):** *Deliver coaching
 that would have been impossible six months earlier, because it depends
@@ -125,7 +152,35 @@ graded against):**
   the 30-day test and names an action?** If yes, longitudinal coaching
   is proven as a capability, even before it's proven as a growth lever.
 
-## 6. Risks
+## 7. Kill Criteria — distinct from Failure
+
+Failure (§9) means *we learned something* — a real, valuable result,
+even a negative one. Kill means *stop spending time immediately,
+before the pilot even reaches a result*. Any of the following is a kill
+signal, checked as soon as it's suspected, not at the pilot's end:
+
+- The aggregation requires data that doesn't actually exist in
+  production at the volume/quality assumed in §2.
+- Fewer than 5 users remain eligible once the experiment-contamination
+  exclusion (§3) is applied (today: 13 — well above this line, but
+  re-check at pilot-run time, since Experiment #1's cohort can change).
+- Experiment contamination cannot be avoided — e.g., a future experiment
+  is proposed whose cohort can't be cleanly separated from the pilot's
+  eligible population.
+- No meaningful longitudinal comparison can be computed at all (not
+  "the comparison isn't flattering" — "the aggregation layer produces
+  nothing coherent regardless of window size or concept").
+
+## 8. Graduation Criteria
+
+The capability graduates from R&D pilot to product capability when it
+produces **at least one accepted longitudinal coaching insight that
+survives review and demonstrates value in user observation** — evidence,
+not implementation completeness. Shipping Phase 0 and Phase 1 cleanly is
+not graduation by itself; a technically-correct aggregation layer that
+never produces a real accepted insight has not graduated.
+
+## 9. Risks
 
 - **Experiment contamination** — addressed in §3 and the new Ledger
   policy; must be re-checked at pilot-run time, not just at design time,
@@ -143,13 +198,13 @@ graded against):**
   comparison), not paper over it.
 - **Narrative quality** — a correct number ("27 percentage points") is
   not automatically a good caption. This pilot inherits every lesson
-  already logged about caption tone, the action requirement (§4), and
+  already logged about caption tone, the action requirement (§5), and
   verifying every claim per-position before it ships — the same
   discipline as every other coaching surface, not a new set of rules.
 
-## 7. Future — conditional, not committed
+## 10. Future — conditional, not committed
 
-If the pilot produces at least one insight that passes §5's acceptance
+If the pilot produces at least one insight that passes §6's acceptance
 criteria: consider expanding eligibility to 100-game and then 50-game
 users, **only if** the aggregation layer still produces meaningful
 signal at that lower game count (sparser history could mean the 60-day
@@ -164,6 +219,6 @@ retrying.
 ---
 
 *This RFC does not authorize writing the Phase 0 aggregation layer.
-Signoff on this document authorizes writing `docs/longitudinal_evidence_pilot_scope.md`
-(the actual pre-code scope doc, per `/scope-driven-development`) — not
-code directly.*
+Signoff on this document authorizes writing
+`docs/longitudinal_evidence_pilot_scope.md` (the actual pre-code scope
+doc, per `/scope-driven-development`) — not code directly.*
