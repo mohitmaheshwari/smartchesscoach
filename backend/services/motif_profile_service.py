@@ -217,7 +217,12 @@ def _verdict(m: Dict[str, Any], games: int, motif: str) -> Dict[str, Any]:
                         and (sound_rate is None or sound_rate >= 0.7)),
         # weakness: you walk into it MORE than most players (top ~30%), real & recurring
         "is_weakness": m["got"] >= 3 and got_rate >= WEAKNESS_RATE.get(motif, 0.2),
-        "drill_positions": m["got_positions"][:20],
+        # .get(), not m["got_positions"] -- 2026-08-07: 13 real users (41
+        # motif entries, including schema versions that predate this key
+        # entirely) don't have it, and this crashed instead of defaulting.
+        # Same defensive fix needed nowhere else in this function -- the
+        # other keys read here are present on every real profile checked.
+        "drill_positions": m.get("got_positions", [])[:20],
     }
 
 
