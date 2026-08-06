@@ -1,15 +1,18 @@
 # Experiment #1 — Universal Habit Coach Holdout, Scaled
 
-**Status:** Mechanism implemented, 2026-08-06 (`services/focus_engine.py`,
-`maybe_enroll_cohort_b`) — **not yet activated on real data.** The code
-exists in the repo, syntax-checked, logically reviewed, and committed;
-it has not been deployed to any environment that touches real users, and
-no real user has been enrolled. Activating it (deploying so it actually
-fires on the next real first-focus-assignment) is a distinct, separate
-decision from writing it — enrollment is a one-way randomization per
-user, so this waits for an explicit go-ahead rather than happening as a
-side effect of the code existing. `l4_pilot_monitor.py` was extended to
-report both cohorts once it's live.
+**Status:** **ACTIVE, 2026-08-06.** Mechanism implemented
+(`services/focus_engine.py`, `maybe_enroll_cohort_b`), deployed to the
+local backend container (which runs against real production data;
+`chess-coach-backend` restarted to load it), confirmed healthy, 0
+Cohort B enrollments so far (expected — fires only on the next genuine
+first-focus-assignment, none has occurred since restart). Explicit
+go-ahead given 2026-08-06 after the code-vs-activation distinction was
+raised: activation is a one-way per-user randomization, deliberately not
+treated as automatic once the code existed. `l4_pilot_monitor.py`
+(extended to report both cohorts) is the way to check enrollment
+progress going forward — run it periodically, not on a fixed schedule,
+until it reaches `COHORT_B_CAP` (15) or the pre-registered Exit Criteria
+(§9) are reached.
 
 **Belief under test** (Research Ledger row): *the in-game habit reminder
 (Universal Habit Coach) causally reduces the targeted mistake.* Current

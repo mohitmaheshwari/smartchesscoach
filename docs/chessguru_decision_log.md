@@ -306,6 +306,48 @@ trigger fires.
 
 ---
 
+---
+
+### 2026-08-06 — Activate Experiment #1 Cohort B enrollment
+
+**Decision:** Deploy the Cohort B enrollment mechanism to the local
+backend container (real production data, restarted to load it) so it
+actually starts randomizing real users. Not treated as automatic once
+the code was written — flagged explicitly as a distinct decision from
+implementation, given upfront to Mohit before proceeding.
+
+**Why:** Unlike the Longitudinal Evidence Pilot's deferred evidence
+(which doesn't decay while waiting), Cohort B's enrollment opportunity
+does — it only fires at a user's genuine first-ever focus assignment;
+every real user who reaches that moment while inactive is permanently
+missed, and activating costs no ongoing engineering time, so it doesn't
+compete with Priority 1/3 for capacity under the Research Priority by
+Decision Dependency policy.
+
+**Evidence available then:** Code syntax-checked and logic-reviewed;
+`l4_pilot_monitor.py` extended to report both cohorts; mechanism reuses
+the existing `db.l4_pilot` schema Cohort A already uses, no new data
+model introduced.
+
+**Alternatives rejected:** Leaving it implemented-but-inactive until
+Priority 1/3 resolve, by direct analogy to the RFC deferral — rejected
+specifically because the analogy doesn't hold: the RFC's evidence
+doesn't decay with time, Cohort B's enrollment opportunity does.
+
+**Who decided:** Mohit, via explicit confirmation after the
+irreversibility and the decay-asymmetry argument were raised directly
+(not inferred from a general "do what you recommend").
+
+**Expected outcome:** Cohort B accumulates toward its 12-15 target as
+real users naturally reach first-focus-assignment; `l4_pilot_monitor.py`
+is the way to check progress.
+
+**When we'll revisit:** When Experiment #1 reaches Success, Failure, or
+Inconclusive per its pre-registered Exit Criteria (§9), same trigger as
+already defined — this decision doesn't add a new one.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*
