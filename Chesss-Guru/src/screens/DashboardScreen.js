@@ -173,7 +173,11 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Recurring Blunder Habits */}
         <Text style={styles.sectionHeader}>RECURRING BLUNDER HABITS</Text>
-        <View style={styles.patternsCard}>
+        <TouchableOpacity
+          style={styles.patternsCard}
+          onPress={() => navigation.navigate('Reflect')}
+          activeOpacity={0.85}
+        >
           <View style={styles.patternItem}>
             <Text style={styles.patternIcon}>⚠️</Text>
             <View style={styles.patternInfo}>
@@ -193,7 +197,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
             <Text style={styles.patternCount}>Medium</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Real Analyzed Games Archive */}
         <View style={styles.sectionHeaderRow}>

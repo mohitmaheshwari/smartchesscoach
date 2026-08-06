@@ -135,6 +135,19 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Progress Ledger Link */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Coaching & Progress</Text>
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => navigation.navigate('Reflect')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.settingLabel}>📈 View Progress Ledger</Text>
+            <Text style={styles.settingValue}>➔</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* App Version Info */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>About Chesss-Guru</Text>
