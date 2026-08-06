@@ -447,3 +447,35 @@ export async function getGameAnalysis(gameId) {
   return await fetchAPI(`/analysis/${gameId}/enriched`);
 }
 
+// Coaching & Progress (The Ledger) Endpoints
+export async function getCoachingCurrentPrescriptions() {
+  try {
+    return await fetchAPI('/coaching/current-prescriptions');
+  } catch (e) {
+    return { prescriptions: [], total_active: 0 };
+  }
+}
+
+export async function getCoachingNextPrescription() {
+  try {
+    return await fetchAPI('/coaching/next-prescription');
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function acceptCoachingPrescription(prescriptionId) {
+  return await fetchAPI('/coaching/accept-prescription', {
+    method: 'POST',
+    body: JSON.stringify({ prescription_id: prescriptionId, start_immediately: true }),
+  });
+}
+
+export async function chooseAlternativeCoachingPlan(planId, reason = '') {
+  return await fetchAPI('/coaching/choose-alternative', {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: planId, reason }),
+  });
+}
+
+

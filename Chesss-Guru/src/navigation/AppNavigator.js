@@ -175,7 +175,7 @@ function NavigationStack() {
         name="Reflect"
         component={ReflectScreen}
         options={{
-          title: '🪞 Reflect & Growth',
+          title: '📈 Progress & The Ledger',
         }}
       />
 
