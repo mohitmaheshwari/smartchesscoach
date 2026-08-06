@@ -28,6 +28,20 @@ Storage shape (added to db.games doc as `move_time_stats`):
     "critical_move_number": int | None,
     "rushed_critical": bool,                # critical < 0.5 * median user pace
     "took_time_critical": bool,             # critical > 2.0 * median user pace
+    "opening_recognition": {                # 2026-08-06 -- Knowledge Base
+                                             # Observation #010, Verified
+      "avg_move_time_s": float,             # first OPENING_WINDOW_PLIES of
+      "min_move_time_s": float,             # the user's own clean move times
+      "max_move_time_s": float,             # -- fast & consistent = likely
+      "move_count": int,                    # recognized/memorized theory,
+    } | None,                               # slow/erratic = calculating cold.
+                                             # A primitive, not a verdict --
+                                             # no "score" or label computed
+                                             # here on purpose; keep the raw
+                                             # measurement reusable for
+                                             # whatever downstream question
+                                             # asks it (see the Knowledge
+                                             # Base entry for why).
   }
 """
 
@@ -38,6 +52,12 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# How many of the user's own opening plies to average over. Matches the
+# window `scripts/mine_opening_signals.py` validated (300-game sample,
+# 2026-08-06): median 3.8s, 10th pct 2.0s, 90th pct 9.0s -- a real,
+# well-separated spread at this window size.
+OPENING_WINDOW_PLIES = 10
 
 _CLK_RE = re.compile(r"\[%clk\s+([0-9]+):([0-9]+):([0-9]+(?:\.[0-9]+)?)\]")
 # Time-control fields we expect: "300+3" / "180+0" / "60" etc.
@@ -202,7 +222,17 @@ def compute_move_time_stats(
         "critical_move_number": None,
         "rushed_critical": False,
         "took_time_critical": False,
+        "opening_recognition": None,
     }
+
+    opening_window = user_clean_times[:OPENING_WINDOW_PLIES]
+    if len(opening_window) >= 4:
+        stats["opening_recognition"] = {
+            "avg_move_time_s": round(sum(opening_window) / len(opening_window), 2),
+            "min_move_time_s": round(min(opening_window), 2),
+            "max_move_time_s": round(max(opening_window), 2),
+            "move_count": len(opening_window),
+        }
 
     # Critical move detection. `move_evaluations` from stockfish_service
     # contains ONE entry per USER ply (not both sides). So we need a

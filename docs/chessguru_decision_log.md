@@ -348,6 +348,59 @@ already defined — this decision doesn't add a new one.
 
 ---
 
+### 2026-08-06 — Stage the opening-recognition signal: persist and mine before proposing a diagnostic
+
+**Decision:** Persist `opening_recognition` as a raw per-game primitive
+(`move_time_stats.opening_recognition`) now. Explicitly do NOT jump to
+designing the Flash Recognition Diagnostic yet — mine correlations
+against existing analyzed games first, and only write that RFC if the
+mining actually shows recognition predicts a coaching-relevant outcome.
+
+**Why:** Two different claims were being conflated. Validated: *we can
+detect known vs. unknown from timing data.* Not validated: *knowing that
+changes coaching outcomes.* The first justifies persisting the signal.
+Only the second justifies a new diagnostic — and it hasn't been checked
+yet. Building the diagnostic (the consumer) before the primitive is
+mined risks a rebuild once other places turn out to want the same
+signal; persisting the primitive first makes every future consumer
+cheaper, not just the first one anyone thinks of.
+
+**Evidence available then:** 300-game validation
+(`scripts/mine_opening_signals.py`, Knowledge Base Observation #010) —
+median 3.8s, 10th/90th percentile spread 2.0s-9.0s, increment-corrected.
+Real infrastructure already existed to extend rather than duplicate
+(`services/move_time_analyzer.py`, already wired into every game
+analysis via `journey_service.py`, plus an existing backfill script) —
+found before writing anything new.
+
+**Alternatives rejected:** Jump straight to the Flash Recognition
+Diagnostic RFC on the strength of the validation alone (rejected — the
+validation proves detection, not that detection changes outcomes).
+Build a standalone new pipeline for the signal instead of extending
+`move_time_analyzer.py` (rejected — `move_time_stats` already existed
+for this exact game doc, extending it keeps one source of truth for
+per-game timing data instead of two).
+
+**Who decided:** Mohit — explicitly framed this as "Step 0," a missing
+step between validation and either persisting or building, that neither
+of the two options originally on the table (persist-and-build-captions,
+or write-the-diagnostic-RFC) would have surfaced on its own.
+
+**Expected outcome:** `opening_recognition` accumulates automatically on
+every new analyzed game with no UI or coaching change. Next real step is
+mining it against the ~12k existing analyzed games for correlation with
+accuracy, blunders, learning rate, and tilt — genuinely free analysis,
+already-collected data, no new user cost.
+
+**When we'll revisit:** After that mining pass. If recognition predicts
+outcomes, the Flash Recognition Diagnostic RFC gets written next. If it
+doesn't, that's a real, logged result too — likely a Knowledge Base
+status change on Observation #010 rather than a Graveyard entry, since
+the timing-as-recognition-proxy claim itself would still stand; only the
+"and therefore build a diagnostic on it" inference would be what failed.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*
