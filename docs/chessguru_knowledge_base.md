@@ -185,6 +185,33 @@ A result either promotes this entry to Verified or sends it to
 
 ---
 
+### Observation #009 — Puzzle "captions" are fixed templates, not real explanations — one layer worse than Game Review's gap
+
+**Status:** Verified (measured, not inferred)
+
+**Evidence:** Checked 2026-08-06 against production data. 8,991
+`community_puzzles`, growing ~149/day. 100% have a non-empty
+`description` field — but a 3,000-doc sample found the actual text is
+one of a small handful of fixed strings repeated verbatim, keyed only
+by `issue_type`/theme (*"From a real game — find the best move (was a
+missed tactic mistake)"*, *"Pawn race. Can the king catch it? Find the
+right move."*). Zero position-specific content. This never touches
+`caption_pipeline.py`'s `build_move_teaching_decision` — the single
+source of truth Game Review and PWC both route through
+([[project_caption_pipeline_central_layer]]) — it's a separate, older,
+purely-templated path. Worse than Observation #005's gap: Game Review
+clears "explains what/why" and is missing only the next-game action
+layer; puzzles don't clear "explains why" at all.
+
+**Influence:** None yet — a diagnostic finding, surfaced while checking
+overall product health, not yet acted on. Directly relevant evidence for
+the future Coaching Actions RFC and for `caption_pipeline.py`
+consolidation — puzzles are a real, growing, high-volume Teaching
+surface (~150 solves/day of new puzzles alone) currently outside the
+one-source-of-truth discipline entirely.
+
+---
+
 *Promote a Ledger row here once it's confirmed. Add a new Unknown the
 moment someone notices an assumption nobody's actually tested, per
 Observation #006 — naming an unknown early is itself valuable, not just
