@@ -101,176 +101,197 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Coach's Pick / Promoted Hero Game */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>COACH'S PICK & HERO REVIEW</Text>
-          <Text style={styles.sectionSubHeader}>LIVE DATA</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.heroGameCard}
-          onPress={() => navigation.navigate('GameAnalysis', { gameId: coachPick?.game_id || 'latest' })}
-          activeOpacity={0.85}
-        >
-          <View style={styles.heroGameHeader}>
-            <View style={styles.heroGameBadge}>
-              <Text style={styles.heroGameBadgeText}>🎯 KEY VERDICT</Text>
-            </View>
-            <Text style={styles.heroGameResultText}>
-              {typeof coachPick?.result === 'string' ? coachPick.result : 'WIN'} ({typeof coachPick?.rating_change === 'number' || typeof coachPick?.rating_change === 'string' ? coachPick.rating_change : '+12'} ELO)
+        {games.length === 0 ? (
+          /* Empty Sync State */
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateIcon}>📡</Text>
+            <Text style={styles.emptyStateTitle}>No Data Available</Text>
+            <Text style={styles.emptyStateDesc}>
+              You haven't linked your Chess.com or LiChess accounts yet. We need your game history to estimate your rating, accuracy, and blunder habits.
             </Text>
-          </View>
-
-          <Text style={styles.heroVerdictText}>
-            "{typeof coachPick?.verdict === 'string' ? coachPick.verdict : (coachPick?.verdict?.insight || coachPick?.headline || coachPick?.title || coachPick?.summary || 'Tactical mastery in the middlegame created decisive winning advantages.')}"
-          </Text>
-
-          <View style={styles.heroGameFooter}>
-            <Text style={styles.heroGameMeta}>
-              vs. {typeof coachPick?.opponent === 'string' ? coachPick.opponent : (coachPick?.black_username || 'Opponent')} • {coachPick?.moves_count || 34} Moves
-            </Text>
-            <Text style={styles.heroGameAccuracy}>
-              {typeof coachPick?.accuracy === 'number' || typeof coachPick?.accuracy === 'string' ? coachPick.accuracy : (stats?.accuracy || '88.4')}% Accuracy ➔
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Real Performance Metrics */}
-        <Text style={styles.sectionHeader}>PERFORMANCE METRICS</Text>
-        <View style={styles.statsRow}>
-          <StatCard
-            title="Tactical Rating"
-            value={stats?.tacticalRating || stats?.rating || stats?.overall_rating || user?.rating || '1450'}
-            subtitle="Engine estimated ELO"
-            icon="⚡"
-            accentColor={COLORS.primary}
-          />
-          <StatCard
-            title="Daily Streak"
-            value={`${stats?.streakDays || stats?.streak || 5} Days`}
-            subtitle="Training streak"
-            icon="🔥"
-            accentColor={COLORS.warning}
-          />
-        </View>
-
-        <View style={styles.statsRow}>
-          <StatCard
-            title="Win Rate"
-            value={stats?.winRate || stats?.win_rate || stats?.win_percentage || '58%'}
-            subtitle="Synced games"
-            icon="🏆"
-            accentColor={COLORS.success}
-          />
-          <StatCard
-            title="Accuracy"
-            value={`${stats?.accuracy || stats?.avg_accuracy || '84.2'}%`}
-            subtitle="Stockfish evaluation"
-            icon="🎯"
-            accentColor={COLORS.secondary}
-          />
-        </View>
-
-        {/* Recurring Blunder Habits */}
-        <Text style={styles.sectionHeader}>RECURRING BLUNDER HABITS</Text>
-        <TouchableOpacity
-          style={styles.patternsCard}
-          onPress={() => navigation.navigate('Reflect')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.patternItem}>
-            <Text style={styles.patternIcon}>⚠️</Text>
-            <View style={styles.patternInfo}>
-              <Text style={styles.patternTitle}>{stats?.top_weakness || 'Tactical Calculation Loss'}</Text>
-              <Text style={styles.patternDesc}>Overlooking tactic checks before executing key moves.</Text>
-            </View>
-            <Text style={styles.patternCount}>High</Text>
-          </View>
-
-          <View style={styles.patternDivider} />
-
-          <View style={styles.patternItem}>
-            <Text style={styles.patternIcon}>🧩</Text>
-            <View style={styles.patternInfo}>
-              <Text style={styles.patternTitle}>Pawn Structure Weakness</Text>
-              <Text style={styles.patternDesc}>Isolated pawn creation in early endgame phase.</Text>
-            </View>
-            <Text style={styles.patternCount}>Medium</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Real Analyzed Games Archive */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>RECENT ANALYZED GAMES</Text>
-          <View style={styles.filterPillsRow}>
             <TouchableOpacity
-              style={[styles.filterPill, gameFilter === 'all' && styles.activeFilterPill]}
-              onPress={() => setGameFilter('all')}
+              style={styles.emptyStateBtn}
+              onPress={() => navigation.navigate('SettingsTab')}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.filterPillText, gameFilter === 'all' && styles.activeFilterPillText]}>All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterPill, gameFilter === 'wins' && styles.activeFilterPill]}
-              onPress={() => setGameFilter('wins')}
-            >
-              <Text style={[styles.filterPillText, gameFilter === 'wins' && styles.activeFilterPillText]}>Wins</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterPill, gameFilter === 'losses' && styles.activeFilterPill]}
-              onPress={() => setGameFilter('losses')}
-            >
-              <Text style={[styles.filterPillText, gameFilter === 'losses' && styles.activeFilterPillText]}>Losses</Text>
+              <Text style={styles.emptyStateBtnText}>Connect & Sync Games ➔</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          /* Normal Dashboard Flow when games are present */
+          <>
+            {/* Coach's Pick / Promoted Hero Game */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>COACH'S PICK & HERO REVIEW</Text>
+              <Text style={styles.sectionSubHeader}>LIVE DATA</Text>
+            </View>
 
-        {filteredGames.length > 0 ? (
-          filteredGames.slice(0, 5).map((g, idx) => {
-            const isWin = g.result === 'W' || g.result === '1-0' || String(g.result || '').toLowerCase().includes('win');
-            return (
+            <TouchableOpacity
+              style={styles.heroGameCard}
+              onPress={() => navigation.navigate('GameAnalysis', { gameId: coachPick?.game_id || 'latest' })}
+              activeOpacity={0.85}
+            >
+              <View style={styles.heroGameHeader}>
+                <View style={styles.heroGameBadge}>
+                  <Text style={styles.heroGameBadgeText}>🎯 KEY VERDICT</Text>
+                </View>
+                <Text style={styles.heroGameResultText}>
+                  {typeof coachPick?.result === 'string' ? coachPick.result : 'WIN'} ({typeof coachPick?.rating_change === 'number' || typeof coachPick?.rating_change === 'string' ? coachPick.rating_change : '+12'} ELO)
+                </Text>
+              </View>
+
+              <Text style={styles.heroVerdictText}>
+                "{typeof coachPick?.verdict === 'string' ? coachPick.verdict : (coachPick?.verdict?.insight || coachPick?.headline || coachPick?.title || coachPick?.summary || 'Tactical mastery in the middlegame created decisive winning advantages.')}"
+              </Text>
+
+              <View style={styles.heroGameFooter}>
+                <Text style={styles.heroGameMeta}>
+                  vs. {typeof coachPick?.opponent === 'string' ? coachPick.opponent : (coachPick?.black_username || 'Opponent')} • {coachPick?.moves_count || 34} Moves
+                </Text>
+                <Text style={styles.heroGameAccuracy}>
+                  {typeof coachPick?.accuracy === 'number' || typeof coachPick?.accuracy === 'string' ? coachPick.accuracy : (stats?.accuracy || '88.4')}% Accuracy ➔
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Real Performance Metrics */}
+            <Text style={styles.sectionHeader}>PERFORMANCE METRICS</Text>
+            <View style={styles.statsRow}>
+              <StatCard
+                title="Tactical Rating"
+                value={stats?.tacticalRating || stats?.rating || stats?.overall_rating || user?.rating || '—'}
+                subtitle="Engine estimated ELO"
+                icon="⚡"
+                accentColor={COLORS.primary}
+              />
+              <StatCard
+                title="Daily Streak"
+                value={stats?.streakDays || stats?.streak ? `${stats.streakDays || stats.streak} Days` : '—'}
+                subtitle="Training streak"
+                icon="🔥"
+                accentColor={COLORS.warning}
+              />
+            </View>
+
+            <View style={styles.statsRow}>
+              <StatCard
+                title="Win Rate"
+                value={stats?.winRate || stats?.win_rate || stats?.win_percentage ? `${stats.winRate || stats.win_rate || stats.win_percentage}%` : '—'}
+                subtitle="Synced games"
+                icon="🏆"
+                accentColor={COLORS.success}
+              />
+              <StatCard
+                title="Accuracy"
+                value={stats?.accuracy || stats?.avg_accuracy ? `${stats.accuracy || stats.avg_accuracy}%` : '—'}
+                subtitle="Stockfish evaluation"
+                icon="🎯"
+                accentColor={COLORS.secondary}
+              />
+            </View>
+
+            {/* Recurring Blunder Habits */}
+            <Text style={styles.sectionHeader}>RECURRING BLUNDER HABITS</Text>
+            <TouchableOpacity
+              style={styles.patternsCard}
+              onPress={() => navigation.navigate('Reflect')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.patternItem}>
+                <Text style={styles.patternIcon}>⚠️</Text>
+                <View style={styles.patternInfo}>
+                  <Text style={styles.patternTitle}>{stats?.top_weakness || 'Tactical Calculation Loss'}</Text>
+                  <Text style={styles.patternDesc}>Overlooking tactic checks before executing key moves.</Text>
+                </View>
+                <Text style={styles.patternCount}>High</Text>
+              </View>
+
+              <View style={styles.patternDivider} />
+
+              <View style={styles.patternItem}>
+                <Text style={styles.patternIcon}>🧩</Text>
+                <View style={styles.patternInfo}>
+                  <Text style={styles.patternTitle}>Pawn Structure Weakness</Text>
+                  <Text style={styles.patternDesc}>Isolated pawn creation in early endgame phase.</Text>
+                </View>
+                <Text style={styles.patternCount}>Medium</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Real Analyzed Games Archive */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>RECENT ANALYZED GAMES</Text>
+              <View style={styles.filterPillsRow}>
+                <TouchableOpacity
+                  style={[styles.filterPill, gameFilter === 'all' && styles.activeFilterPill]}
+                  onPress={() => setGameFilter('all')}
+                >
+                  <Text style={[styles.filterPillText, gameFilter === 'all' && styles.activeFilterPillText]}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterPill, gameFilter === 'wins' && styles.activeFilterPill]}
+                  onPress={() => setGameFilter('wins')}
+                >
+                  <Text style={[styles.filterPillText, gameFilter === 'wins' && styles.activeFilterPillText]}>Wins</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterPill, gameFilter === 'losses' && styles.activeFilterPill]}
+                  onPress={() => setGameFilter('losses')}
+                >
+                  <Text style={[styles.filterPillText, gameFilter === 'losses' && styles.activeFilterPillText]}>Losses</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {filteredGames.length > 0 ? (
+              filteredGames.slice(0, 5).map((g, idx) => {
+                const isWin = g.result === 'W' || g.result === '1-0' || String(g.result || '').toLowerCase().includes('win');
+                return (
+                  <TouchableOpacity
+                    key={g.id || g.game_id || idx}
+                    style={styles.gameListItem}
+                    onPress={() => navigation.navigate('GameAnalysis', { gameId: g.id || g.game_id || `demo_${idx}` })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.gameItemLeft}>
+                      <View style={[styles.resultBadge, isWin ? styles.winBadge : styles.lossBadge]}>
+                        <Text style={styles.resultBadgeText}>{isWin ? 'W' : 'L'}</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.gameItemOpponent}>vs. {g.opponent || g.black_username || g.white_username || 'Opponent'}</Text>
+                        <Text style={styles.gameItemMeta}>{g.opening_name || g.eco_code || 'Chess Game'} • {g.moves_count || g.move_count || 30} moves</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.gameItemRight}>
+                      <Text style={styles.gameItemAccuracy}>{g.accuracy || g.user_accuracy || '85.0'}%</Text>
+                      <Text style={styles.gameItemArrow}>➔</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
               <TouchableOpacity
-                key={g.id || g.game_id || idx}
                 style={styles.gameListItem}
-                onPress={() => navigation.navigate('GameAnalysis', { gameId: g.id || g.game_id || `demo_${idx}` })}
+                onPress={() => navigation.navigate('GameAnalysis')}
                 activeOpacity={0.8}
               >
                 <View style={styles.gameItemLeft}>
-                  <View style={[styles.resultBadge, isWin ? styles.winBadge : styles.lossBadge]}>
-                    <Text style={styles.resultBadgeText}>{isWin ? 'W' : 'L'}</Text>
+                  <View style={[styles.resultBadge, styles.winBadge]}>
+                    <Text style={styles.resultBadgeText}>W</Text>
                   </View>
                   <View>
-                    <Text style={styles.gameItemOpponent}>vs. {g.opponent || g.black_username || g.white_username || 'Opponent'}</Text>
-                    <Text style={styles.gameItemMeta}>{g.opening_name || g.eco_code || 'Chess Game'} • {g.moves_count || g.move_count || 30} moves</Text>
+                    <Text style={styles.gameItemOpponent}>vs. Grandmaster_AI</Text>
+                    <Text style={styles.gameItemMeta}>Sicilian Defense • 34 moves</Text>
                   </View>
                 </View>
-
                 <View style={styles.gameItemRight}>
-                  <Text style={styles.gameItemAccuracy}>{g.accuracy || g.user_accuracy || '85.0'}%</Text>
+                  <Text style={styles.gameItemAccuracy}>88.4%</Text>
                   <Text style={styles.gameItemArrow}>➔</Text>
                 </View>
               </TouchableOpacity>
-            );
-          })
-        ) : (
-          <TouchableOpacity
-            style={styles.gameListItem}
-            onPress={() => navigation.navigate('GameAnalysis')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.gameItemLeft}>
-              <View style={[styles.resultBadge, styles.winBadge]}>
-                <Text style={styles.resultBadgeText}>W</Text>
-              </View>
-              <View>
-                <Text style={styles.gameItemOpponent}>vs. Grandmaster_AI</Text>
-                <Text style={styles.gameItemMeta}>Sicilian Defense • 34 moves</Text>
-              </View>
-            </View>
-            <View style={styles.gameItemRight}>
-              <Text style={styles.gameItemAccuracy}>88.4%</Text>
-              <Text style={styles.gameItemArrow}>➔</Text>
-            </View>
-          </TouchableOpacity>
+            )}
+          </>
         )}
 
         {/* Specialized Coaching Tools */}
