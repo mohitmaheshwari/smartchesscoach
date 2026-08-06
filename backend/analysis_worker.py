@@ -236,22 +236,20 @@ def ensure_stockfish_installed():
     Returns True if Stockfish is available, False otherwise.
     """
     from config import STOCKFISH_PATH
+    import shutil
     
-    # Check if stockfish exists at configured path
-    if os.path.exists(STOCKFISH_PATH):
+    # Check if stockfish exists at configured path or system PATH
+    if STOCKFISH_PATH and os.path.exists(STOCKFISH_PATH):
         logger.info(f"Stockfish found at {STOCKFISH_PATH}")
         return True
     
-    # Also check via 'which' command
-    try:
-        import subprocess
-        result = subprocess.run(['which', 'stockfish'], capture_output=True, text=True)
-        if result.returncode == 0:
-            found_path = result.stdout.strip()
-            logger.info(f"Stockfish found at {found_path}")
-            return True
-    except Exception as e:
-        logger.warning(f"Could not run 'which stockfish': {e}")
+    found_bin = shutil.which("stockfish") or shutil.which("stockfish.exe")
+    if found_bin:
+        logger.info(f"Stockfish found at {found_bin}")
+        return True
+
+    if os.name == 'nt':
+        return False
     
     # Stockfish not found - try to install it
     logger.warning("Stockfish not found. Attempting to install...")

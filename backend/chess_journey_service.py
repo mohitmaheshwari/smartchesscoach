@@ -452,13 +452,21 @@ def calculate_habit_journey(profile: Dict, cards: List[Dict], analyses: List[Dic
     in_progress.sort(key=lambda x: x["mastery_pct"], reverse=True)
     needs_attention.sort(key=lambda x: x["recent_occurrences"], reverse=True)
     
+    active_habit = None
+    if profile and isinstance(profile, dict):
+        top_weaknesses = profile.get("top_weaknesses", [])
+        if isinstance(top_weaknesses, list) and len(top_weaknesses) > 0:
+            first_w = top_weaknesses[0]
+            if isinstance(first_w, dict):
+                active_habit = first_w.get("subcategory")
+
     return {
         "conquered": conquered,
         "in_progress": in_progress,
         "needs_attention": needs_attention,
         "total_cards": len(cards),
         "total_mastered": sum(1 for c in cards if c.get("is_mastered")),
-        "active_habit": profile.get("top_weaknesses", [{}])[0].get("subcategory") if profile else None
+        "active_habit": active_habit
     }
 
 
@@ -666,16 +674,18 @@ def generate_insights(analyses: List[Dict], profile: Dict, cards: List[Dict]) ->
         })
     
     # Insight 2: Area needing work
-    if profile:
-        top_weakness = profile.get("top_weaknesses", [{}])[0]
-        if top_weakness.get("subcategory"):
-            weakness_name = top_weakness.get("subcategory", "").replace("_", " ").title()
-            insights.append({
-                "type": "warning",
-                "title": "Focus Area",
-                "message": f"'{weakness_name}' appears frequently in your games. The Mistake Mastery training will help.",
-                "priority": 2
-            })
+    if profile and isinstance(profile, dict):
+        top_weaknesses = profile.get("top_weaknesses", [])
+        if isinstance(top_weaknesses, list) and len(top_weaknesses) > 0:
+            top_weakness = top_weaknesses[0]
+            if isinstance(top_weakness, dict) and top_weakness.get("subcategory"):
+                weakness_name = top_weakness.get("subcategory", "").replace("_", " ").title()
+                insights.append({
+                    "type": "warning",
+                    "title": "Focus Area",
+                    "message": f"'{weakness_name}' appears frequently in your games. The Mistake Mastery training will help.",
+                    "priority": 2
+                })
     
     # Insight 3: Training progress
     mastered_cards = sum(1 for c in cards if c.get("is_mastered"))

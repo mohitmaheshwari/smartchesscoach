@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Chesss-Guru",
+    "slug": "chesss-guru",
+    "scheme": "chesssguru",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.chessguru.app"
+    },
+    "android": {
+      "package": "ai.chessguru.app",
+      "googleServicesFile": "./google-services.json",
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      }
+    },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e6b48adb-f23f-40c0-b159-a4b8a6ddf699"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/60d1aae8-292b-4e3f-83e9-37949213bba2"
+    },
+    "owner": "miiscoorg"
+  }
+}

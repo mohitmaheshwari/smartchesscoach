@@ -20,6 +20,10 @@ import uuid
 import httpx
 import logging
 
+import bcrypt
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type("about", (), {"__version__": getattr(bcrypt, "__version__", "4.0.0")})
+
 from passlib.context import CryptContext
 
 # Config imports
@@ -511,6 +515,7 @@ async def register(req: RegisterRequest, response: Response):
     session_token = await _create_session(user_id)
     _issue_session_cookie(response, session_token)
 
+    user_doc.pop("_id", None)
     user_doc.pop("password_hash", None)
     return {"user": user_doc, "session_token": session_token}
 

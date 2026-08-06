@@ -66,8 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     serve = subparsers.add_parser("serve", help="Start the Uvicorn server.")
     serve.add_argument("--app", default="server:app", help="ASGI app path.")
-    serve.add_argument("--host", default="127.0.0.1", help="Bind host.")
-    serve.add_argument("--port", type=int, default=8002, help="Bind port.")
+    serve.add_argument("--host", default="0.0.0.0", help="Bind host.")
+    serve.add_argument("--port", type=int, default=8000, help="Bind port.")
     serve.add_argument(
         "--reload",
         action="store_true",

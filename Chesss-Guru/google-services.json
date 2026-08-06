@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "889695197064",
+    "project_id": "chess-guru-4bc55",
+    "storage_bucket": "chess-guru-4bc55.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:889695197064:android:9d3da461fdf7482e334c3d",
+        "android_client_info": {
+          "package_name": "ai.chessguru.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "889695197064-kh9vpllo8p31895gvlnn8n5cj2ilpti5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ai.chessguru.app",
+            "certificate_hash": "1c626ff529ea9d77ba42654877b3c0a2e82fc2dd"
+          }
+        },
+        {
+          "client_id": "889695197064-jdtos42bki52t70l5h21164mbnd3dv21.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANeD-fwrf8Kcu6z2PSjLZd1XSAszGb9a8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "889695197064-jdtos42bki52t70l5h21164mbnd3dv21.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
