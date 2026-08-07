@@ -52,7 +52,10 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
       pattern: pv.pattern,
       occurrences: pv.occurrences ?? null,
       move_number: pv.move_number ?? null,
-      is_first_pwc_game: (data.games_together ?? 1) <= 1,
+      // Missing games_together must stay unknown, not collapse to "first
+      // game" — reviewer-caught bug, 2026-08-07: `(x ?? 1) <= 1` turned
+      // absent data into a false positive.
+      is_first_pwc_game: data.games_together == null ? null : data.games_together <= 1,
       games_together: data.games_together ?? null,
     });
   }, [data]);

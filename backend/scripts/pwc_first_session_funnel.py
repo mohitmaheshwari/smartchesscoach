@@ -12,8 +12,23 @@ from "never started PWC at all."
 Stages traced, per real user, first PWC session only:
   signup -> first PWC session created -> first evaluated move ->
   first mistake (severity != good) -> session resolved (has a result)
-  vs abandoned (still "active", no result, no ended_at) ->
-  postgame_analyses exists -> returned for a second coach_sessions doc
+  vs unresolved (still "active", no result, no ended_at, age-bucketed)
+  -> postgame_analyses exists -> returned for a second coach_sessions doc
+
+Correction, 2026-08-07 (external review): the original version classified
+ANY session with status=="active" and no result/ended_at as "abandoned,"
+with no minimum age. That's a real latent bug -- a session started 30
+seconds ago and still being genuinely played would have been misclassified
+identically to one dead for 3 months. Checked the actual age distribution
+of the 18 flagged sessions in the first real run: minimum age was 244
+hours (10.2 days), so nothing in that specific run was a false positive --
+but the query itself had no age gate, so a different population could have
+produced one. Buckets below are informed by that real distribution (a
+typical PWC game takes well under 2 hours per the residency's traced
+examples) rather than picked from round-number intuition alone.
+`unresolved_stale` (>24h old) is the age-gated replacement for the old
+unconditional `session_abandoned_active` -- use that field going forward,
+not the old name.
 
 Usage:
   docker exec -i chess-coach-backend python3 scripts/pwc_first_session_funnel.py --recent 50
@@ -52,6 +67,46 @@ def _is_real(user_id: str, email: str) -> bool:
     return True
 
 
+def is_unresolved(session: dict) -> bool:
+    """A first PWC session with no result and no ended_at, still 'active'.
+
+    Pulled out as its own function (2026-08-07) so it's directly unit
+    testable -- see backend/tests/test_pwc_first_session_funnel.py.
+    """
+    return (
+        session.get("status") == "active"
+        and not session.get("result")
+        and not session.get("ended_at")
+    )
+
+
+def classify_unresolved_age(age_hours: float | None) -> str:
+    """Bucket an unresolved session's age in hours.
+
+    Buckets informed by the real age distribution found in production
+    (2026-08-07): the first live run's minimum "abandoned" age was 244h
+    (10.2 days) -- nothing was ever close to the 2h boundary. The 2h
+    threshold itself comes from this residency's traced real game
+    durations (well under 2 hours), not a round-number guess.
+    `age_hours=None` (no parseable created_at) is treated conservatively
+    as the stalest bucket rather than silently dropped.
+    """
+    if age_hours is None:
+        return "unresolved_over_7d"
+    if age_hours < 2:
+        return "unresolved_recent_under_2h"
+    if age_hours < 24:
+        return "unresolved_2h_to_24h"
+    if age_hours < 24 * 7:
+        return "unresolved_1d_to_7d"
+    return "unresolved_over_7d"
+
+
+def is_stale_bucket(bucket: str) -> bool:
+    """Everything except the youngest bucket counts as the real leak."""
+    return bucket != "unresolved_recent_under_2h"
+
+
 async def main():
     p = argparse.ArgumentParser()
     p.add_argument("--recent", type=int, default=50, help="most recent real signups to trace")
@@ -78,11 +133,18 @@ async def main():
         "first_move_evaluated": 0,
         "reached_first_mistake": 0,
         "session_resolved": 0,
-        "session_abandoned_active": 0,
+        # Age-bucketed replacement for the old unconditional "abandoned"
+        # field. unresolved_recent (<2h) is NOT counted as a leak -- a
+        # session that young could still be genuinely in progress.
+        "unresolved_recent_under_2h": 0,
+        "unresolved_2h_to_24h": 0,
+        "unresolved_1d_to_7d": 0,
+        "unresolved_over_7d": 0,
+        "unresolved_stale": 0,  # sum of the three >2h buckets -- the real leak
         "has_postgame": 0,
         "returned_second_session": 0,
     }
-    abandoned_examples = []
+    stale_examples = []
 
     for u in real_users:
         uid = u["user_id"]
@@ -109,21 +171,21 @@ async def main():
             counts["reached_first_mistake"] += 1
 
         resolved = bool(first_session.get("result"))
-        abandoned = (
-            first_session.get("status") == "active"
-            and not first_session.get("result")
-            and not first_session.get("ended_at")
-        )
         if resolved:
             counts["session_resolved"] += 1
-        if abandoned:
-            counts["session_abandoned_active"] += 1
-            if len(abandoned_examples) < 5:
-                age_days = (datetime.now(timezone.utc) - _dt(first_session.get("created_at"))).days
-                abandoned_examples.append(
-                    f"  {uid}: session {first_session.get('session_id')}, "
-                    f"created {first_session.get('created_at')}, still active {age_days}d later"
-                )
+        if is_unresolved(first_session):
+            created = _dt(first_session.get("created_at"))
+            age_hours = (datetime.now(timezone.utc) - created).total_seconds() / 3600 if created else None
+            bucket = classify_unresolved_age(age_hours)
+            counts[bucket] += 1
+            if is_stale_bucket(bucket):
+                counts["unresolved_stale"] += 1
+                if len(stale_examples) < 5:
+                    age_days = round((age_hours or 0) / 24, 1)
+                    stale_examples.append(
+                        f"  {uid}: session {first_session.get('session_id')}, "
+                        f"created {first_session.get('created_at')}, unresolved {age_days}d later ({bucket})"
+                    )
 
         pg = await db.postgame_analyses.find_one({"session_id": first_session.get("session_id")})
         if pg:
@@ -139,11 +201,19 @@ async def main():
         pct = round(100 * v / base)
         print(f"  {k:28s}: {v:4d} / {base}  ({pct}%)")
 
-    print("\n=== ABANDONED SESSIONS (status=active, no result, no ended_at) -- real examples ===")
-    for line in abandoned_examples:
+    print("\n=== STALE UNRESOLVED SESSIONS (>2h old, status=active, no result, no ended_at) -- real examples ===")
+    for line in stale_examples:
         print(line)
-    if counts["session_abandoned_active"] > len(abandoned_examples):
-        print(f"  ... and {counts['session_abandoned_active'] - len(abandoned_examples)} more")
+    if counts["unresolved_stale"] > len(stale_examples):
+        print(f"  ... and {counts['unresolved_stale'] - len(stale_examples)} more")
+    if counts["unresolved_recent_under_2h"]:
+        print(f"\n  (+{counts['unresolved_recent_under_2h']} more unresolved but under 2h old -- "
+              f"NOT counted as stale, could still be genuinely in progress)")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    # 2026-08-07: guarded (was module-level, unconditional) so the pure
+    # classification functions above can be imported for unit tests
+    # (backend/tests/test_pwc_first_session_funnel.py) without triggering
+    # a live DB connection attempt on import.
+    asyncio.run(main())

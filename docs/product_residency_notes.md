@@ -449,16 +449,33 @@ production data, same night:
 | First move evaluated | 18 | 30% |
 | Reached a real mistake | 9 | 15% |
 | Session resolved (has a result) | 7 | 12% |
-| **Session stuck `active`, no result, no `ended_at`** | **18** | **30%** |
+| Unresolved, still active, **under 2h old** (not a leak — could be genuinely in progress) | 0 | 0% |
+| Unresolved, active, **2h–7d old** | 0 | 0% |
+| **Unresolved, active, over 7 days old (`unresolved_stale`)** | **18** | **30%** |
 | Reached postgame | 6 | 10% |
 | Returned for a 2nd session | 7 | 12% |
 
+**Correction, same night, after external review**: the first version of
+this script had no minimum age before calling a session "abandoned" — a
+session started 30 seconds ago and still being genuinely played would
+have been counted identically to one dead for months. Real fix, not a
+wording change: the script now buckets by age
+(`backend/scripts/pwc_first_session_funnel.py`) and only counts a
+session as a leak once it's been sitting unresolved for over 2 hours
+(chosen from this dataset's own resolved-game durations, not a round
+number — see the script's own comment). Rerun for real: **the number
+is unchanged, 18/60 (30%)**, and every one of the 18 falls in the
+`unresolved_over_7d` bucket — minimum age 10.2 days, oldest 108.9 days,
+zero sessions in the 2h–7d range. The original finding was correct; the
+query just didn't have a safety margin proving it wasn't a fluke.
+
 **18 of 60 real recent signups — 30% — have a PWC session sitting
-permanently unresolved**, several over a month old (46 days, in one
-case). Of the 28 who started PWC at all, that's roughly two-thirds
-never resolving one way or the other. This is a bigger, more precise
-number than "PWC is the front door, diagnostic isn't" — it says the
-front door itself has a real leak nobody had quantified before tonight.
+unresolved for at least 10 days**, several over a month old (46 days,
+in one case; oldest 108.9 days). Of the 28 who started PWC at all,
+that's roughly two-thirds never resolving one way or the other. This is
+a bigger, more precise number than "PWC is the front door, diagnostic
+isn't" — it says the front door itself has a real leak nobody had
+quantified before tonight.
 
 ### Concrete outputs, this session
 

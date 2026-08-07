@@ -41,8 +41,23 @@ Usage:
   docker exec -it chess-coach-backend python3 scripts/verify_deployment.py --auth-token <token>
 
 Exit code: 0 only if every check that actually RAN passed. Non-zero
-if any check FAILED. SKIPPED checks do not affect the exit code, but
-are always printed.
+if any check FAILED. SKIPPED checks do not affect the exit code by
+default, but are always printed loudly (see the module docstring
+above) so a clean exit code is never misread as "fully verified."
+
+Strict mode (2026-08-07, added per external review): the default
+behavior above is right for an exploratory/diagnostic run, but wrong
+for a release gate — a deploy could return exit 0 with 3 checks passed
+and 4 skipped, verifying nothing about commit identity, auth, the
+canonical coaching contract, or worker health. Pass --require-checks to
+turn specific SKIPs into hard failures for CI/release use:
+
+  python backend/scripts/verify_deployment.py \\
+      --auth-token <token> --mongo-url ... \\
+      --require-checks commit,bundle,health,auth,contract,queue,failures
+
+  # or require every check that ran-or-should-have-run:
+  python backend/scripts/verify_deployment.py --require-all ...
 
 Reads only — no writes, safe to run anytime.
 """
@@ -76,6 +91,37 @@ import requests
 PASS = "PASS"
 FAIL = "FAIL"
 SKIP = "SKIPPED"
+
+# Stable short keys for --require-checks, mapped from each check's number
+# prefix in its `name` (e.g. "1. Git commit match" -> "commit"). Keeps the
+# CLI flag readable without depending on RESULTS list order, which follows
+# execution order (health, commit, bundle, auth, contract, queue, failures),
+# not numeric order.
+CHECK_KEYS = {
+    "1": "commit",
+    "2": "bundle",
+    "3": "health",
+    "4": "auth",
+    "5": "contract",
+    "6": "queue",
+    "7": "failures",
+}
+
+
+def _check_key(name: str) -> str | None:
+    prefix = name.split(".", 1)[0].strip()
+    return CHECK_KEYS.get(prefix)
+
+
+def spike_threshold(baseline_failed_count: int, baseline_days: float, floor: int) -> int:
+    """Data-derived failed-job spike threshold: 3x the trailing daily
+    average, floored so a near-zero baseline doesn't make check 7
+    hair-trigger. Pulled out as a pure function (2026-08-07, external
+    review) so it's directly unit testable -- see
+    backend/tests/test_verify_deployment.py.
+    """
+    baseline_per_day = baseline_failed_count / baseline_days
+    return max(floor, round(baseline_per_day * 3))
 
 DEFAULT_BASE_URL = "https://chessguru.ai"
 # 2026-08-07: data-testid on the motif blind-spot card shipped tonight
@@ -138,6 +184,19 @@ def check_commit_match(health_json: dict | None) -> None:
 
     if commit_keys:
         exposed = {k: health_json[k] for k in commit_keys}
+        # "unknown" is the Dockerfile's own documented default when the
+        # image was built without --build-arg GIT_COMMIT=... — a real,
+        # distinct state from "wrong commit," not a FAIL. Otherwise a
+        # dev container built via `docker cp` (never gets a build arg)
+        # would falsely report a commit mismatch every time.
+        if all(str(v).strip().lower() in ("unknown", "", "none") for v in exposed.values()):
+            record(name, SKIP, [
+                f"Health endpoint exposes: {exposed}",
+                "The endpoint is plumbed but this build never received --build-arg GIT_COMMIT.",
+                "Not a mismatch -- deploy with: "
+                "GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
+            ])
+            return
         local_head = _local_git_head()
         detail = [f"Health endpoint exposes: {exposed}"]
         if local_head:
@@ -461,7 +520,7 @@ async def check_queue_and_failures(mongo_url: str | None, db_name: str, db_timeo
         # A real, data-derived threshold: 3x the trailing 7-day daily
         # average, floored at --max-recent-failures so a near-zero
         # baseline doesn't make the check hair-trigger.
-        threshold = max(max_recent_failures, round(baseline_per_day * 3))
+        threshold = spike_threshold(baseline_failed, 7.0, max_recent_failures)
 
         detail7 = [
             f"failed in last 24h: {recent_failed}",
@@ -562,6 +621,20 @@ async def run(args: argparse.Namespace) -> int:
                 print(f"    - {r.name}")
     print()
 
+    required = set(args.required_checks or [])
+    if required:
+        unmet = [r for r in RESULTS if _check_key(r.name) in required and r.status != PASS]
+        print(f"  REQUIRED CHECKS: {sorted(required)}")
+        if unmet:
+            print(f"  {len(unmet)} required check(s) did NOT pass (SKIPPED counts as not-passed in this mode):")
+            for r in unmet:
+                print(f"    - [{r.status}] {r.name}")
+            print()
+            return 1
+        print("  All required checks passed.")
+        print()
+        return 1 if n_fail else 0
+
     return 1 if n_fail else 0
 
 
@@ -591,7 +664,26 @@ def main() -> int:
                               "zero (default: 5)")
     parser.add_argument("--timeout", type=float, default=15.0,
                          help="HTTP request timeout in seconds (default: 15)")
+    parser.add_argument("--require-checks", default=None,
+                         help="Comma-separated check keys that must PASS (not just run) or the script "
+                              f"exits non-zero, even with zero FAILs. Valid keys: {sorted(set(CHECK_KEYS.values()))}. "
+                              "Use this for CI/release gating; omit for exploratory/diagnostic runs.")
+    parser.add_argument("--require-all", action="store_true",
+                         help="Shorthand for --require-checks with every valid key (commit,bundle,health,"
+                              "auth,contract,queue,failures).")
     args = parser.parse_args()
+
+    if args.require_all:
+        args.required_checks = sorted(set(CHECK_KEYS.values()))
+    elif args.require_checks:
+        requested = [k.strip() for k in args.require_checks.split(",") if k.strip()]
+        valid = set(CHECK_KEYS.values())
+        bad = [k for k in requested if k not in valid]
+        if bad:
+            parser.error(f"--require-checks: unknown key(s) {bad}. Valid keys: {sorted(valid)}")
+        args.required_checks = requested
+    else:
+        args.required_checks = None
 
     return asyncio.run(run(args))
 

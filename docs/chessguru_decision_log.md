@@ -506,6 +506,77 @@ which point this triage is the evidence for whether that's safe yet
 
 ---
 
+**Date:** 2026-08-07
+
+**Decision:** Sprint 1 was independently reviewed (external review,
+8.2/10) and rated as acceptable-but-not-fully-closed, with 8 concrete
+gaps. Every one held up under checking — two were real bugs, not just
+polish. All 8 were actioned same night:
+
+1. **Real bug, fixed:** `pwc_insight_shown`'s `is_first_pwc_game` used
+   `(data.games_together ?? 1) <= 1`, which silently turned *missing*
+   data into a *positive* "yes, first game" classification. Now
+   `null` when `games_together` is genuinely unknown.
+2. **Real bug, fixed:** the funnel's "abandoned" classification had no
+   minimum age — a session started 30 seconds ago and still being
+   played would count identically to one dead for months. Rebuilt with
+   age buckets (`classify_unresolved_age`, pure + unit tested).
+   Rerun for real: the number is unchanged, 18/60 (30%) — every
+   flagged session is >7 days old (min 10.2d, max 108.9d) — but the
+   query now has an actual safety margin proving that wasn't luck.
+3. **Gap closed:** `verify_deployment.py` returned exit 0 on 2 passed /
+   5 skipped, which is fine for exploratory use but not for a release
+   gate. Added `--require-checks`/`--require-all`, verified both the
+   unchanged default behavior and the new strict-mode failure path
+   against a live run.
+4. **Gap closed:** git-commit identity was diagnosed but not
+   implemented. Added the actual plumbing (Dockerfile + Dockerfile.backend
+   `ARG`/`ENV GIT_COMMIT`, docker-compose.yml build arg, `/api/health`
+   now returns it) and fixed a false-negative the plumbing itself
+   exposed — the verifier was about to report a hard FAIL for the
+   literal placeholder value `"unknown"` (a build that never received
+   the arg) instead of distinguishing that from a real mismatch.
+5. **Filed, not fixed:** the empty-session postgame-praise defect
+   (Evidence Board, new row) — explicitly NOT given a guessed
+   threshold. The reviewer's own suggested fix ("minimum evaluated
+   moves") needs the real distribution pulled first, same discipline
+   as every other threshold on this board.
+6. **Test coverage added:** 34 new unit tests across
+   `test_pwc_first_session_funnel.py` and `test_verify_deployment.py`,
+   covering the classification/threshold logic directly (not just via
+   a live DB run) — required extracting several inline blocks into
+   pure functions first. Full `test_all_flows.py` (33/33) reconfirmed
+   passing after all of the above.
+
+**Why:** the reviewer's core point was fair — several Sprint 1
+deliverables were measured and diagnosed but not yet enforced. Treating
+a well-grounded external review as free QA rather than something to
+argue with is consistent with how this whole sprint was run.
+
+**Evidence available then:** the review itself (file-path-accurate,
+numerically correct against real output), plus direct verification of
+each of its 8 claims against the actual code before acting on any of
+them — none were taken at face value.
+
+**Alternatives rejected:** guessing the empty-session containment
+threshold to "close" that item too — rejected explicitly, matches
+standing project discipline (thresholds come from data, not
+intuition).
+
+**Who decided:** Executed directly; nothing here required a product
+call, only correctness fixes and test coverage.
+
+**Expected outcome:** Sprint 1's 8.2/10 gaps are now closed except the
+one item that's deliberately still open (the empty-session defect,
+correctly left as "filed" not "fixed" until real data exists) and the
+one item that was never fixable here at all (the 5 watched PostHog
+sessions).
+
+**When we'll revisit:** when the empty-session defect gets a real
+evaluated-move-count distribution pulled and a data-backed floor set.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*

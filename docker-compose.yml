@@ -42,6 +42,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        # 2026-08-07: set at deploy time with
+        # `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build`.
+        # Defaults to "unknown" if omitted -- verify_deployment.py's
+        # commit-match check will SKIP (not fail) rather than false-pass.
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: chess-coach-backend
     restart: unless-stopped
     ports:
