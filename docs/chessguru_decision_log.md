@@ -401,6 +401,54 @@ the timing-as-recognition-proxy claim itself would still stand; only the
 
 ---
 
+### 2026-08-07 — Corrected: the caption-source guard is not a 3-character fix
+
+**Decision:** Do NOT flip `check_caption_sources.py` to blocking (remove
+`|| true` in `.github/workflows/ci.yml`) yet. Leave it warn-only.
+
+**Why:** Proposed as a trivial, zero-risk Sprint 1 item by an external
+review, and I repeated that characterization without checking first.
+Ran it in `--strict` mode before touching anything: **66 distinct files**
+still hand-assemble caption prose outside the central pipeline, exit
+code 1. The script's own docstring already says this is deliberately
+staged ("warn-only during the migration grace period... flip once
+surfaces are migrated") — it was never an oversight to begin with, just
+one I almost undid on a bad assumption. Flipping it now would break CI
+for every future PR on unrelated work, the opposite of what a
+"reliability" sprint is for.
+
+**Evidence available then:** Direct run of the guard script in strict
+mode against the current codebase — real output, not assumed.
+
+**Alternatives rejected:** Doing the "trivial" fix as originally
+recommended — rejected the moment the real scope was checked, before
+any change was made.
+
+**Who decided:** Corrected in real time, mid-execution, before
+committing anything — the mistake was in what I said two turns earlier
+("three characters and zero risk"), not in what got shipped.
+
+**Expected outcome:** This becomes its own scoped piece of work (triage
+the 66 files — migrate, or explicitly allowlist with
+`# allow-noncentral-caption` where legitimately exempt) rather than a
+Sprint 1 checkbox item.
+
+**When we'll revisit:** When someone actually starts that triage.
+
+**Also logged here, two smaller items from the same conversation,
+deliberately deferred rather than silently dropped:**
+1. The puzzle-solving collapse (near-zero real solves despite ~150 new
+   puzzles/day, `docs/chessguru_knowledge_base.md` Observation #009) is
+   intentionally out of scope for the PWC-first-session plan — narrow
+   focus was the explicit point — but it's a real, still-open finding,
+   not a forgotten one.
+2. The PWC product residency implicitly reorders the residency queue —
+   Session 3 was slotted as Game Review; PWC goes first instead, given
+   tonight's activation evidence. Correct call, now on record as a
+   decision rather than a silent skip.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*
