@@ -144,6 +144,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [playerDecryption, setPlayerDecryption] = useState(null);
   const [decryptionBlock, setDecryptionBlock] = useState(null);
   const [patternEvidence, setPatternEvidence] = useState(null);
+  const [motifBlindspot, setMotifBlindspot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -442,6 +443,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       // strong CCT streak.
       if (data.cct_narrative) {
         setCctNarrative(data.cct_narrative);
+      }
+
+      // Motif blind-spot — deterministic (no LLM), the player's top
+      // recurring tactical pattern, anchored to this game when it
+      // applies. Null means no weakness clears the bar; show nothing.
+      if (data.motif_blindspot) {
+        setMotifBlindspot(data.motif_blindspot);
       }
 
       // Voice layer (3 surfaces). All null when the user won.
@@ -1129,6 +1137,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             decryptionData={decryptionData}
             habitsReport={habitsReport}
             cctNarrative={cctNarrative}
+            motifBlindspot={motifBlindspot}
             coachSummary={coachSummary}
             coreLesson={coreLesson}
             gameResult={gameResult}
@@ -1306,7 +1315,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
+const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlindspot, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
   if (!decryptionData?.length) return null;
 
   // Calculate stats
@@ -1346,6 +1355,25 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, coachSummar
               {takeaway}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Motif blind-spot — deterministic, memory-carrying line: the
+          player's top recurring tactical pattern, anchored to this game
+          when it applies. Leads before opening/stats on purpose (2026-08-07)
+          -- "the coach remembers you" is the first thing shown, not a
+          footnote. Null means no weakness clears the bar; render nothing. */}
+      {motifBlindspot && (
+        <div
+          className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4"
+          data-testid="motif-blindspot"
+        >
+          <p className="text-[10px] uppercase tracking-wider text-violet-500 dark:text-violet-400 font-semibold mb-1.5">
+            What I've noticed
+          </p>
+          <p className="text-sm text-violet-800 dark:text-violet-300 leading-relaxed">
+            {motifBlindspot}
+          </p>
         </div>
       )}
 

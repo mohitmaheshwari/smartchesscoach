@@ -806,7 +806,7 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1, "motif_blindspot": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -902,6 +902,11 @@ async def get_game_decryption_v5(
                 # (king square + exposed zone + threat arrows + caption)
                 # for the visual evidence surface on the post-game page.
                 "pattern_evidence": analysis.get("pattern_evidence"),
+                # motif_blindspot: one deterministic, memory-carrying line --
+                # the player's top recurring tactical pattern (fork/pin/
+                # skewer/discovered/loose), anchored to this game when it
+                # applies. Null when no weakness clears the bar (2026-08-07).
+                "motif_blindspot": analysis.get("motif_blindspot"),
             }
         
         # Check if generation is in progress
