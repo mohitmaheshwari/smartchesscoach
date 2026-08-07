@@ -228,7 +228,7 @@ _OPP_MISTAKE = {
 
 _SEED_MISTAKE = {
     "one_move_blunder": "{played_san} leaves your {hung_piece} on {hung_square} undefended to {opp_reply_san}; instead play {best_san} — {best_purpose}. Before any capture or move, check what can recapture and count the material first.",
-    "walked_into_tactic": "{front}; {best_san} was stronger. Before a quiet move, check that none of your pieces can be won by a tactic.",
+    "walked_into_tactic": "{front}; {best_san} was stronger. Before a quiet move, check that none of your pieces can be won by a tactic.",  # allow-noncentral-caption
     "missed_free_material": "{played_san} missed {best_san} — it {win}. When an enemy piece sits undefended, take the material first.",
     "missed_mate": "{played_san} missed a forced mate — {win}. Always scan for forcing checks first; a mate ends the game.",
     "allowed_mate": "{played_san} allows a forced mate; {best_san} was needed. Check your king's safety before every move.",

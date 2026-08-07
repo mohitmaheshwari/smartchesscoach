@@ -3,8 +3,8 @@ Opening-deviation detection for Lab game review.
 
 Phase-3 Component 2 (locked 2026-05-19). For each analyzed game,
 detects the FIRST user-move where the user left book theory.
-Surfaces in Lab game review as "you played the Italian Game through
-move 6; at move 7 you played Bg5 (the book move was Be3)."
+Surfaces in Lab game review as "you played the Italian Game through  # allow-noncentral-caption
+move 6; at move 7 you played Bg5 (the book move was Be3)."  # allow-noncentral-caption
 
 Across multiple games, the aggregator surfaces RECURRING deviation
 patterns — "you've deviated to Bg5 in the Italian 4 times now."

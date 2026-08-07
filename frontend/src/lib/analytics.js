@@ -61,6 +61,26 @@
 //   "review" as sources before that answer exists would smuggle an
 //   unverified assumption into the instrumentation itself. Add those
 //   once the qualitative study says where the real moment is.
+//
+//   pwc_insight_shown (Sprint 1, 2026-08-07 — PWC's own first-insight
+//   funnel, distinct from the diagnostic's `insight_shown` above).
+//   Fired from PostGameReflection.jsx when the postgame screen renders
+//   a real `pattern_verdict` (Case A/B/C from pattern_memory_service's
+//   decay model) — the signal a PWC player actually sees on the
+//   in-session postgame card. Props: { session_id, type [failed/
+//   partial/success], pattern, occurrences, move_number, is_first_pwc_
+//   game, games_together }. Deliberately ONE event covering what the
+//   original Sprint 1 spec listed as 4 separate events (shown/seconds/
+//   move_number/type) — they're all just props on one occurrence.
+//   `pwc_completed_after_insight` and `pwc_returned_after_insight` from
+//   that same spec are NOT separate emitted events: join this event's
+//   (session_id, timestamp) against coach_sessions/postgame_analyses
+//   downstream, same as the established "don't emit a return event,
+//   compute it from repeat views" pattern used for Home's 24h-return
+//   signal above. See docs/product_residency_notes.md Session 3 for
+//   why `pattern_verdict`, not `coach_prescription`, is the real
+//   signal here — the latter is written to postgame_analyses but only
+//   ever read by Home's next-session narrative, never by this screen.
 
 export function track(event, props = {}) {
   try {

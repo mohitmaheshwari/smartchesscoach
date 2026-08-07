@@ -4,7 +4,7 @@ opp_quiet_threat_detector.py — opp ignored a piece you were already winning.
 Built 2026-06-07 (overnight, opp-failure V4 "quiet_when_threatened"). The
 opponent had a piece you could already win (winnable: attacked + undefended
 or by a cheaper attacker), and their move did NOT save it — so on your turn
-you just take it. The bare caption was "Opponent's X is a mistake."; this
+you just take it. The bare caption was "Opponent's X is a mistake."; this  # allow-noncentral-caption
 names the free piece.
 
 Reuses played_hangs_detector._winnable_squares (the SEE-lite primitive,

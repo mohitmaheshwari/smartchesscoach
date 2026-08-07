@@ -449,6 +449,63 @@ deliberately deferred rather than silently dropped:**
 
 ---
 
+**Date:** 2026-08-07
+
+**Decision:** The 66-file caption-source guard backlog (deferred from
+the entry above) is now fully triaged — every file individually read,
+every flagged function traced to its actual caller chain and, where
+live, to the frontend component that renders (or doesn't render) the
+string. Result: 21 confirmed HIGH_RISK, 16 LOW_RISK, 28
+LEGITIMATE_EXEMPTION, 1 UNCERTAIN. Full evidence in
+`docs/caption_guard_triage_batch[A-E].md`; roll-up in
+`docs/caption_guard_triage_summary.md`. 11 confirmed data-supplier/
+docstring-false-positive files (21 lines) got `# allow-noncentral-caption`,
+plus `caption_claim_verifier.py` was added to the guard's `ALLOWLIST`
+(a same-shape sibling of the already-allowlisted `narrator_claim_verifier.py`
+— looked like an accidental omission, not a real gap). The guard
+**stays warn-only** (`|| true` in CI) — this was scoping, not fixing.
+
+**Why:** Sprint 1 explicitly called for triage + allowlisting real
+exemptions, and explicitly NOT flipping to blocking until scoped. 37
+files (21+16) are real, live, player-facing violations today —
+flipping now would break CI on the next PR touching any of them.
+
+**Evidence available then:** Direct per-file investigation (5 parallel
+batches, ~13 files each), each finding backed by a concrete caller
+chain (file:line → route → frontend component), not inference. Two of
+the five batch agents' own summary-line arithmetic was internally
+inconsistent with their own per-file tables (batch D's header said "7
+high-risk," its table showed 6; batch E's header double-counted one
+file) — the totals in the roll-up were recomputed directly from all 66
+individual verdicts, not trusted from any batch's self-reported count.
+That correction is itself logged in the roll-up doc, not silently fixed.
+
+**Alternatives rejected:** Flipping `--strict` on immediately after
+triage, since "the backlog is now scoped" — rejected because scoped
+still means 37 real violations exist; blocking CI on them today would
+stop unrelated work, not fix the architecture.
+
+**Who decided:** Executed as directed ("triage the backlog... do NOT
+flip to blocking until scoped").
+
+**Expected outcome:** Play with Coach is the worst-affected surface (14
+of 21 HIGH_RISK files) — more than Game Review (4) and Reflect (3)
+combined, despite PWC being the surface CLAUDE.md documents as having
+the most "single source of truth" discipline already. The two
+highest-leverage single fixes, if this becomes a real migration
+project: `shared_coaching_v5.py`'s opponent-move commentary (100%
+bypass, every opponent move) and `pedagogical_opportunity_service.py`
+(default-on for every new session). `opening_curriculum_engine.py` is
+the cleanest first migration target — literally the same function,
+gated in one call path and not the other.
+
+**When we'll revisit:** When migration work on any HIGH_RISK file
+actually starts, or when someone proposes flipping `--strict` on — at
+which point this triage is the evidence for whether that's safe yet
+(it isn't, today).
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*

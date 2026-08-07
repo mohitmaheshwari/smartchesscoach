@@ -9957,6 +9957,7 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
                         "pattern": active_pattern,
                         "label": pattern_label,
                         "occurrences": pattern_occurrences,
+                        "move_number": worst_move.move_number if worst_move else None,
                         "message": detail,
                         "detail": diag.get("detail", ""),
                         "rule": rule.get("rule", ""),

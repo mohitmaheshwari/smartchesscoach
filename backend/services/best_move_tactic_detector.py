@@ -2,7 +2,7 @@
 `pv_after_best` with python-chess.
 
 Closes Mohit-flagged gap (2026-05-20): captions said
-"{best_move} was better" without explaining WHY. The user is left
+"{best_move} was better" without explaining WHY. The user is left  # allow-noncentral-caption
 guessing what tactic the engine saw. The detector walks the PV from
 the position after best_move and identifies the climax:
 
@@ -55,7 +55,7 @@ def detect_missed_tactic(
         from white's POV). Used to GUARD piece_capture claims — a PV
         capture only counts as "winning a piece" if the engine's eval
         truly reflects piece-up territory for the user. Without this
-        check the detector over-claims (e.g. user "wins the queen"
+        check the detector over-claims (e.g. user "wins the queen"  # allow-noncentral-caption
         when the engine just sees +250cp because of an implicit
         recapture past the PV horizon).
 

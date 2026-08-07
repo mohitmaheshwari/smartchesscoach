@@ -611,7 +611,7 @@ def _derive_engine_preference_why(
     pv_after_best: Optional[list], is_user_move: bool,
 ) -> Optional[str]:
     """Try each WHY-derivation in priority order. Returns a half-sentence
-    fragment ('attacks the bishop on c5') that the caller stitches into
+    fragment ('attacks the bishop on c5') that the caller stitches into  # allow-noncentral-caption
     a full caption. Returns None when no high-confidence signal exists."""
     try:
         board = chess.Board(fen_before)
