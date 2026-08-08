@@ -241,12 +241,28 @@ def is_focus_moment(
     user_color: str,
     is_critical: bool = False,
     time_spent_seconds: Optional[float] = None,
+    focus_subtype: Optional[str] = None,
 ) -> bool:
-    """Dispatch to the topic-specific rule."""
+    """Dispatch to the topic-specific rule.
+
+    Sprint 2 (docs/one_surviving_instruction_scope.md): when
+    focus_subtype == "simple_hang", also require board-verified
+    confirmation via _piece_is_hanging_after_move (real SEE, reused
+    from move_observation_deriver, not a new detector) -- not just
+    "this was a piece-safety-relevant moment" in general. Every other
+    subtype value (including None) keeps the unchanged topic-level
+    behavior -- deliberately not attempted here, see the scope doc for
+    why (needs opponent-threat context this call path doesn't have).
+    """
     if focus_topic == "king_safety":
         return _is_king_safety_moment(fen_before, user_color)
     if focus_topic == "piece_safety":
-        return _is_piece_safety_moment(fen_before, move_uci)
+        if not _is_piece_safety_moment(fen_before, move_uci):
+            return False
+        if focus_subtype == "simple_hang":
+            from services.move_observation_deriver import _piece_is_hanging_after_move
+            return _piece_is_hanging_after_move(fen_before, move_uci) is True
+        return True
     if focus_topic == "time_management":
         return _is_time_management_moment(is_critical, time_spent_seconds)
     if focus_topic in ("missed_tactic", "tactical_oversight", "calculation_depth"):
@@ -284,6 +300,7 @@ def update_scoreboard(
     matched = is_focus_moment(
         focus_topic, fen_before, move_uci, user_color,
         is_critical=is_critical, time_spent_seconds=time_spent_seconds,
+        focus_subtype=scoreboard.get("focus_subtype"),
     )
     if not matched:
         return scoreboard
@@ -349,6 +366,14 @@ def rebuild_scoreboard_from_history(
         "handled_correctly": 0,
         "handled_incorrectly": 0,
         "events": [],
+        # Sprint 2 (docs/one_surviving_instruction_scope.md, Correction #3):
+        # this rebuild used to silently drop any key not in this dict --
+        # confirmed the exact regression that would erase instruction_id/
+        # text/version if they weren't explicitly carried through here.
+        # Snapshot values only -- copied forward, never regenerated.
+        "instruction_id": base_scoreboard.get("instruction_id"),
+        "instruction_text": base_scoreboard.get("instruction_text"),
+        "instruction_version": base_scoreboard.get("instruction_version"),
     }
     for i, m in enumerate(move_history or []):
         if not isinstance(m, dict) or m.get("by") != "player":

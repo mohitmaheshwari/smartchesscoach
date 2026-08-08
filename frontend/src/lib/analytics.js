@@ -69,7 +69,14 @@
 //   decay model) — the signal a PWC player actually sees on the
 //   in-session postgame card. Props: { session_id, type [failed/
 //   partial/success], pattern, occurrences, move_number, is_first_pwc_
-//   game, games_together }. Deliberately ONE event covering what the
+//   game, games_together, instruction_id, is_carried_forward }. The
+//   last two (Sprint 2, docs/one_surviving_instruction_scope.md)
+//   are non-null/true ONLY for rollout-gate-eligible users
+//   (admin/super_admin, PWC_SURVIVING_INSTRUCTION_ENABLED) with a real
+//   active user_active_focus — null/false for everyone else, which is
+//   the right audit granularity (ineligible vs. no-active-focus both
+//   mean "no canonical instruction this session"). Deliberately ONE
+//   event covering what the
 //   original Sprint 1 spec listed as 4 separate events (shown/seconds/
 //   move_number/type) — they're all just props on one occurrence.
 //   `pwc_completed_after_insight` and `pwc_returned_after_insight` from

@@ -57,6 +57,14 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
       // absent data into a false positive.
       is_first_pwc_game: data.games_together == null ? null : data.games_together <= 1,
       games_together: data.games_together ?? null,
+      // Sprint 2 (docs/one_surviving_instruction_scope.md). instruction_id
+      // is non-null ONLY for rollout-gate-eligible users with an active
+      // focus (backend strips it to null for everyone else -- an
+      // ineligible real user and "no active focus yet" both read as null
+      // here, which is the right audit granularity: either way, this
+      // session didn't carry a canonical instruction).
+      instruction_id: data.instruction_id ?? null,
+      is_carried_forward: data.is_carried_forward ?? false,
     });
   }, [data]);
 

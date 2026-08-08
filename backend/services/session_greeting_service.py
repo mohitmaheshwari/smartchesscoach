@@ -40,7 +40,19 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
     dominant = focus.get("dominant_subtype")
 
     # Look up the user's LAST coach session for continuity
-    last_session_summary = await _last_session_summary(db, user_id)
+    last_session_summary, last_instruction_id = await _last_session_summary(db, user_id)
+
+    # Sprint 2 (docs/one_surviving_instruction_scope.md, Correction #6):
+    # the canonical instruction, read fresh from focus_bridge every time
+    # -- never from the prior session. `None` for anyone not eligible
+    # under the rollout gate (focus_bridge.py) or predating this change;
+    # _subtype_prompt's older, locally-drifted dict is the fallback for
+    # exactly those cases, unchanged from before.
+    instruction_id = focus.get("instruction_id")
+    instruction_text = focus.get("instruction_text")
+    is_carried_forward = bool(
+        instruction_id and last_instruction_id and instruction_id == last_instruction_id
+    )
 
     # Compute recall stats — this is what makes the coach feel present.
     # "You've had 88 X across 178 games — 12 in the last 7 days,
@@ -70,9 +82,18 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
     if last_session_summary:
         parts.append(last_session_summary)
 
-    # Line 4: focus reminder if there's a specific subtype closing available
-    if dominant:
-        parts.append(_subtype_prompt(dominant))
+    # Line 4: the instruction itself. Canonical instruction_text first
+    # (Correction #6 -- read fresh from focus_bridge, never regenerated);
+    # falls back to the older per-file _SUBTYPE_PROMPTS lookup only when
+    # instruction_text isn't available (gate-ineligible or pre-Sprint-2
+    # focus doc). is_carried_forward changes the framing, not the words
+    # -- the instruction text itself never changes mid-focus either way.
+    instruction_line = instruction_text or (_subtype_prompt(dominant) if dominant else None)
+    if instruction_line:
+        if is_carried_forward:
+            parts.append(f"Same instruction as last time: {instruction_line}")
+        else:
+            parts.append(instruction_line)
 
     return {
         "text": " ".join(p for p in parts if p),
@@ -82,32 +103,49 @@ async def build_session_greeting(db, user_id: str) -> Optional[Dict[str, Any]]:
         "referenced_last_session": bool(last_session_summary),
         "recall_stats": recall_stats,
         "recall_sentence": recall_sentence,
+        # Sprint 2 fields -- None/False for anyone not eligible under the
+        # rollout gate, same as instruction_id/text above.
+        "instruction_id": instruction_id,
+        "instruction_text": instruction_text,
+        "is_carried_forward": is_carried_forward,
     }
 
 
-async def _last_session_summary(db, user_id: str) -> Optional[str]:
-    """Return a one-sentence recap of the user's most recent coach session,
-    or None if they don't have one."""
+async def _last_session_summary(db, user_id: str) -> tuple[Optional[str], Optional[str]]:
+    """Return (one-sentence recap, prior session's instruction_id) for the
+    user's most recent coach session. Either element is None if there's no
+    prior session, no scoreboard, or no instruction_id (pre-Sprint-2 /
+    gate-ineligible) to compare against.
+
+    Sprint 2 (Correction #6): the instruction_id here is consulted ONLY
+    for outcome-context framing ("same instruction as last time") -- never
+    as the source of the current instruction's identity or wording. If
+    the prior session is missing or malformed, this degrades to (None,
+    None) and the greeting simply omits the carried-forward framing,
+    rather than failing.
+    """
     try:
         last = await db.coach_sessions.find_one(
             {"user_id": user_id, "status": {"$in": ["completed", "abandoned", "resigned"]}},
             sort=[("ended_at", -1)],
         )
     except Exception:
-        return None
+        return None, None
     if not last:
-        return None
+        return None, None
 
     sb = last.get("mission_scoreboard") or {}
+    prior_instruction_id = sb.get("instruction_id")
     matched = sb.get("matched_moments", 0)
     handled = sb.get("handled_correctly", 0)
     if matched > 0:
         if handled == matched:
-            return f"Last game you handled all {matched} focus moments cleanly — let's keep it going."
+            return f"Last game you handled all {matched} focus moments cleanly — let's keep it going.", prior_instruction_id
         elif handled >= matched * 0.7:
-            return f"Last game you handled {handled}/{matched} focus moments cleanly."
+            return f"Last game you handled {handled}/{matched} focus moments cleanly.", prior_instruction_id
         else:
-            return f"Last game you handled only {handled}/{matched} focus moments cleanly — let's watch for the pattern today."
+            return (f"Last game you handled only {handled}/{matched} focus moments cleanly — "
+                    f"let's watch for the pattern today."), prior_instruction_id
 
     # No scoreboard hits — use game outcome instead
     result = last.get("result")
@@ -115,8 +153,8 @@ async def _last_session_summary(db, user_id: str) -> Optional[str]:
     when = _relative_time(ended_at)
     if result and when:
         outcome = {"user_won": "you won", "coach_won": "you lost", "draw": "you drew"}.get(result, "game ended")
-        return f"Last time ({when}), {outcome}."
-    return None
+        return f"Last time ({when}), {outcome}.", prior_instruction_id
+    return None, prior_instruction_id
 
 
 def _relative_time(t) -> Optional[str]:
