@@ -124,6 +124,7 @@ export default function CoachPlayScreen({ navigation, route }) {
   // Active game state
   const [fen, setFen] = useState(START_FEN);
   const [serverFen, setServerFen] = useState(START_FEN);
+  const [initialGameFen, setInitialGameFen] = useState(START_FEN);
   const [lastMoveSan, setLastMoveSan] = useState('Start');
   const [lastMoveSquares, setLastMoveSquares] = useState(null);
   const [moveQuality, setMoveQuality] = useState('Game Started');
@@ -552,7 +553,7 @@ export default function CoachPlayScreen({ navigation, route }) {
 
     setSessionId(newSid);
     sessionIdRef.current = newSid;
-    setFen(useFen); setServerFen(useFen);
+    setFen(useFen); setServerFen(useFen); setInitialGameFen(useFen);
     setLastMoveSan('Start'); setLastMoveSquares(null); setMoveQuality('Game Started'); setGameStarted(true);
 
     const g = new Chess(useFen);
@@ -653,7 +654,7 @@ export default function CoachPlayScreen({ navigation, route }) {
         date: new Date().toISOString(),
         game_mode: gameMode,
         player_color: selectedColor,
-        starting_fen: START_FEN,
+        starting_fen: initialGameFen || START_FEN,
         moves: newHist,
         accuracy: 92.5
       })).catch(() => { });
@@ -732,7 +733,7 @@ export default function CoachPlayScreen({ navigation, route }) {
             date: new Date().toISOString(),
             game_mode: gameMode,
             player_color: selectedColor,
-            starting_fen: START_FEN,
+            starting_fen: initialGameFen || START_FEN,
             moves: newHist,
             accuracy: 92.5
           })).catch(() => { });

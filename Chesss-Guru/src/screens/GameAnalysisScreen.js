@@ -116,6 +116,10 @@ export default function GameAnalysisScreen({ route, navigation }) {
           result = chess.move(mv);
         } else if (mv && mv.from && mv.to) {
           result = chess.move({ from: mv.from, to: mv.to, promotion: mv.promotion || 'q' });
+        } else if (mv && (mv.san || mv.move)) {
+          result = chess.move(mv.san || mv.move);
+        } else if (mv && mv.uci && mv.uci.length >= 4) {
+          result = chess.move({ from: mv.uci.slice(0, 2), to: mv.uci.slice(2, 4), promotion: mv.uci[4] || 'q' });
         }
 
         if (result) {
