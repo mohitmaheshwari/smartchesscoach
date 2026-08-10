@@ -505,12 +505,14 @@ ALLOWED_ORIGINS = [
     "https://www.chessguru.ai",
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
