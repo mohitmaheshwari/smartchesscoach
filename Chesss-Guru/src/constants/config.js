@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
 
 // Machine local Wi-Fi IP for physical phone testing via Expo Go
-const LOCAL_HOST_IP = '10.140.51.154';
+const LOCAL_HOST_IP = '10.140.51.139';
 
 const getDefaultApiUrl = () => {
-  // Use local backend in dev (phone must be on same WiFi as PC)
-  if (__DEV__) return `https://chessguru.ai/api`;
+  // Use local Wi-Fi IP in dev so physical phones via Expo Go & emulators can connect
+  if (__DEV__) {
+    return `http://${LOCAL_HOST_IP}:8000/api`;
+  }
   return 'https://chessguru.ai/api';
 };
 

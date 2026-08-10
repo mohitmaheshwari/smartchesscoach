@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chess } from 'chess.js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,6 +40,77 @@ const ENDGAME_FENS = {
   philidor_position: '4k3/1r6/8/4P3/4K3/8/8/8 w - - 0 1',
 };
 
+const COURSE_MAP = {
+  // Openings
+  italian: { name: 'Italian Game', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3', desc: 'Control the center with 1.e4 e5 and target f7 weakness.' },
+  italian_game: { name: 'Italian Game', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3', desc: 'Control the center with 1.e4 e5 and target f7 weakness.' },
+  ruy: { name: 'Ruy Lopez', fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3', desc: 'Press Black\'s c6 knight to exert pressure on e5 center.' },
+  ruy_lopez: { name: 'Ruy Lopez', fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3', desc: 'Press Black\'s c6 knight to exert pressure on e5 center.' },
+  sicilian: { name: 'Sicilian Defense', fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2', desc: 'Asymmetrical 1.e4 c5 counter-attack for central dominance.' },
+  sicilian_defense: { name: 'Sicilian Defense', fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2', desc: 'Asymmetrical 1.e4 c5 counter-attack for central dominance.' },
+  french_defense: { name: 'French Defense', fen: 'rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', desc: 'Solid 1.e4 e6 structure preparing d5 strike.' },
+  caro_kann: { name: 'Caro-Kann Defense', fen: 'rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', desc: 'Pawn structure 1.e4 c6 supporting central d5.' },
+  queens_gambit: { name: 'Queen\'s Gambit', fen: 'rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2', desc: 'Classic 1.d4 d5 2.c4 offering pawn for center control.' },
+  london_system: { name: 'London System', fen: 'rnbqkbnr/ppp1pppp/8/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq - 1 2', desc: 'Solid 1.d4 2.Bf4 setup with strong pawn pyramid.' },
+  fried_liver: { name: 'Fried Liver Defense', fen: 'r1bqkb1r/pppp1ppp/2n5/4p3/2B1n3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4', desc: 'Defend against sharp 4.Ng5 tactics on f7.' },
+  fried_liver_defense: { name: 'Fried Liver Defense', fen: 'r1bqkb1r/pppp1ppp/2n5/4p3/2B1n3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4', desc: 'Defend against sharp 4.Ng5 tactics on f7.' },
+  vienna_game: { name: 'Vienna Game', fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2', desc: 'Develop 2.Nc3 keeping options open for f4 attack.' },
+  scandinavian: { name: 'Scandinavian Defense', fen: 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2', desc: 'Direct 1...d5 challenge to White\'s center.' },
+  stafford_gambit: { name: 'Stafford Gambit', fen: 'r1bqkb1r/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', desc: 'Aggressive 1.e4 e5 2.Nf3 Nf6 3.Nxe5 Nc6 piece activity.' },
+  scotch_game: { name: 'Scotch Game', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQK2R b KQkq d3 0 3', desc: 'Break open the center immediately with 3.d4.' },
+  four_knights: { name: 'Four Knights Game', fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4', desc: 'Balanced 4 knights development in the center.' },
+  evans_gambit: { name: 'Evans Gambit', fen: 'r1bqk1nr/pppp1ppp/2n5/2b1p3/1PB1P3/5N2/P1PP1PPP/RNBQK2R b KQkq b3 0 4', desc: 'Sacrifice b-pawn for rapid central dominance.' },
+  
+  // Endgame & Checkmates
+  queen_checkmate: { name: 'Queen & King Checkmate', fen: 'k7/8/8/8/8/8/1Q6/K7 w - - 0 1', desc: 'Corner the enemy King using Queen & King coordination.' },
+  rook_checkmate: { name: 'Rook & King Checkmate', fen: 'k7/8/8/8/8/8/1R6/K7 w - - 0 1', desc: 'Box enemy King to the edge with Rook & King.' },
+  rk_mate: { name: 'Rook & King Checkmate', fen: 'k7/8/8/8/8/8/1R6/K7 w - - 0 1', desc: 'Box enemy King to the edge with Rook & King.' },
+  rook_endgame_principles: { name: 'Rook Endgame Principles', fen: '4k3/1r6/8/4P3/4K3/8/8/8 w - - 0 1', desc: 'Activate Rook behind passed pawns (Tarrasch rule).' },
+  opposition: { name: 'King Opposition', fen: '4k3/8/8/4P3/4K3/8/8/8 w - - 0 1', desc: 'Use King opposition to push your passed pawn to promotion.' },
+  rule_of_square: { name: 'Rule of the Square', fen: '8/8/p7/k7/8/8/8/K7 w - - 0 1', desc: 'Calculate if your King can enter the square of opponent\'s passed pawn.' },
+  lucena_position: { name: 'Lucena Position', fen: '2K5/4P3/8/5r2/8/8/1r6/4k3 w - - 0 1', desc: 'Build the bridge with your Rook to promote your 7th rank pawn.' },
+  philidor_position: { name: 'Philidor Position', fen: '4k3/1r6/8/4P3/4K3/8/8/8 w - - 0 1', desc: 'Hold 3rd rank defense then check enemy King from behind.' },
+
+  // Concepts & Tactics
+  forks: { name: 'Knight & Piece Forks', fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 1 5', desc: 'Look for tactical double attacks targeting undefended pieces.' },
+  pins: { name: 'Pins & Absolute Pins', fen: 'r1bqk1nr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3', desc: 'Pin enemy pieces against their King or higher-value pieces.' },
+  discovered_attack: { name: 'Discovered Attack', fen: 'r1bqk2r/pppp1ppp/2n5/4p3/1bB1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 5 4', desc: 'Move one piece to unleash a hidden attack from behind.' },
+};
+
+const findCourseMatch = (rawKey, labelName) => {
+  if (rawKey && COURSE_MAP[rawKey]) return COURSE_MAP[rawKey];
+  const cleanKey = rawKey ? String(rawKey).toLowerCase().replace(/^(opening_|endgame_|concept_|mate_pattern_|lesson_)/, '') : '';
+  if (cleanKey && COURSE_MAP[cleanKey]) return COURSE_MAP[cleanKey];
+
+  const searchStr = `${rawKey || ''} ${cleanKey} ${labelName || ''}`.toLowerCase();
+  
+  if (searchStr.includes('fried liver')) return COURSE_MAP.fried_liver;
+  if (searchStr.includes('london')) return COURSE_MAP.london_system;
+  if (searchStr.includes('vienna')) return COURSE_MAP.vienna_game;
+  if (searchStr.includes('scandinavian')) return COURSE_MAP.scandinavian;
+  if (searchStr.includes('stafford')) return COURSE_MAP.stafford_gambit;
+  if (searchStr.includes('scotch')) return COURSE_MAP.scotch_game;
+  if (searchStr.includes('four knights')) return COURSE_MAP.four_knights;
+  if (searchStr.includes('evans')) return COURSE_MAP.evans_gambit;
+  if (searchStr.includes('french')) return COURSE_MAP.french_defense;
+  if (searchStr.includes('caro')) return COURSE_MAP.caro_kann;
+  if (searchStr.includes('sicilian')) return COURSE_MAP.sicilian;
+  if (searchStr.includes('italian')) return COURSE_MAP.italian;
+  if (searchStr.includes('ruy') || searchStr.includes('spanish')) return COURSE_MAP.ruy;
+  if (searchStr.includes('queen\'s gambit') || searchStr.includes('queens gambit')) return COURSE_MAP.queens_gambit;
+  if (searchStr.includes('opposition')) return COURSE_MAP.opposition;
+  if (searchStr.includes('square')) return COURSE_MAP.rule_of_square;
+  if (searchStr.includes('lucena')) return COURSE_MAP.lucena_position;
+  if (searchStr.includes('philidor')) return COURSE_MAP.philidor_position;
+  if (searchStr.includes('rook mate') || searchStr.includes('rook & king')) return COURSE_MAP.rook_checkmate;
+  if (searchStr.includes('queen mate') || searchStr.includes('queen & king')) return COURSE_MAP.queen_checkmate;
+  if (searchStr.includes('fork')) return COURSE_MAP.forks;
+  if (searchStr.includes('pin')) return COURSE_MAP.pins;
+  if (searchStr.includes('discovered')) return COURSE_MAP.discovered_attack;
+
+  return null;
+};
+
 export default function CoachPlayScreen({ navigation, route }) {
   // Pre-game state
   const [gameStarted, setGameStarted] = useState(false);
@@ -63,6 +134,9 @@ export default function CoachPlayScreen({ navigation, route }) {
   const [gameOver, setGameOver] = useState(false);
   const [coachThinking, setCoachThinking] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [isBubbleMinimized, setIsBubbleMinimized] = useState(false);
+  const [showNotationGuide, setShowNotationGuide] = useState(false);
+  const [showHintInTurnBar, setShowHintInTurnBar] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({ wins: 0, draws: 0, losses: 1, style: 'The Improviser' });
@@ -70,6 +144,7 @@ export default function CoachPlayScreen({ navigation, route }) {
   // Poll ref — so we can cancel on unmount / restart
   const pollRef = useRef(null);
   const sessionIdRef = useRef(null);
+  const boardViewRef = useRef(null);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
 
@@ -104,49 +179,155 @@ export default function CoachPlayScreen({ navigation, route }) {
     })();
   }, []);
 
-  // Monitor navigation parameters to auto-start lessons
+  // Monitor navigation parameters to auto-start lessons or specific game modes
   useEffect(() => {
-    if (route?.params?.startSkillId) {
-      const { startLabel, startKind, startContentRef, startColor } = route.params;
+    if (route?.params) {
+      const {
+        startSkillId,
+        startLabel,
+        startContentRef,
+        startColor,
+        gameMode: pGameMode,
+        mode: pMode,
+        opening: pOpening,
+        opening_name: pOpeningName,
+        courseId
+      } = route.params;
 
-      const config = {
-        user_color: startColor || 'white',
-        game_mode: 'coach',
-      };
+      const hasParam = startSkillId || startContentRef || courseId || pOpening || pGameMode || pMode;
 
-      if (startKind === 'opening') {
-        config.opening_name = startLabel;
-        config.opening_key = startContentRef;
-      } else if (startKind === 'concept') {
-        config.training_focus_cognitive_gap = startContentRef;
-      } else if (startKind === 'endgame' || startKind === 'mate_pattern') {
-        const fenSetup = ENDGAME_FENS[startContentRef];
-        if (fenSetup) {
-          config.starting_fen = fenSetup;
-        }
+      if (hasParam) {
+        const rawKey = startContentRef || startSkillId || courseId || pOpening;
+        const matched = findCourseMatch(rawKey, startLabel || pOpeningName || pOpening);
+
+        const selectedMode = pGameMode || pMode || 'coach';
+        const selectedColorChoice = startColor || 'white';
+
+        if (pGameMode || pMode) setGameMode(selectedMode);
+        if (startColor) setSelectedColor(selectedColorChoice);
+
+        const config = {
+          startSkillId: rawKey,
+          user_color: selectedColorChoice,
+          game_mode: selectedMode,
+          opening_name: matched?.name || pOpeningName || pOpening || startLabel,
+          starting_fen: matched?.fen || START_FEN,
+          course_desc: matched?.desc
+        };
+
+        handleStartGame(config);
+
+        navigation.setParams({
+          startSkillId: null,
+          startContentRef: null,
+          courseId: null,
+          opening: null,
+          gameMode: null,
+          mode: null
+        });
       }
-
-      // Trigger start with these settings
-      handleStartGame(config);
-
-      // Reset navigation parameters to avoid loops
-      navigation.setParams({ startSkillId: null });
     }
   }, [route?.params]);
 
-  // Simple move explanation
+  // Persist updated player rating, wins, accuracy, and stats to AsyncStorage
+  const updateLocalUserStats = async (outcome, accuracy = 92.5) => {
+    try {
+      const stored = await AsyncStorage.getItem('@user_local_stats');
+      let currentStats = {
+        rating: stats.rating || 1200,
+        wins: stats.wins || 0,
+        losses: stats.losses || 0,
+        draws: stats.draws || 0,
+        accuracy: 92.5,
+        total_games: 0,
+        style: stats.style || 'The Improviser'
+      };
+      if (stored) {
+        try { currentStats = { ...currentStats, ...JSON.parse(stored) }; } catch (_) { }
+      }
+
+      if (outcome === 'win') {
+        currentStats.rating = (currentStats.rating || 1200) + 15;
+        currentStats.wins = (currentStats.wins || 0) + 1;
+      } else if (outcome === 'loss') {
+        currentStats.rating = Math.max(800, (currentStats.rating || 1200) - 10);
+        currentStats.losses = (currentStats.losses || 0) + 1;
+      } else if (outcome === 'draw') {
+        currentStats.rating = (currentStats.rating || 1200) + 2;
+        currentStats.draws = (currentStats.draws || 0) + 1;
+      }
+
+      currentStats.total_games = currentStats.wins + currentStats.losses + currentStats.draws;
+      currentStats.accuracy = Math.round((((currentStats.accuracy || 92.5) * (currentStats.total_games - 1) + accuracy) / currentStats.total_games) * 10) / 10;
+
+      setStats(currentStats);
+      await AsyncStorage.setItem('@user_local_stats', JSON.stringify(currentStats));
+      console.log('[Stats] Persisted local user stats:', currentStats);
+    } catch (e) {
+      console.warn('[Stats] Failed to update local stats:', e);
+    }
+  };
+
+  // Translate SAN notation (e.g. "Bxg5") into plain English for beginners
+  const sanToPlainEnglish = (san) => {
+    if (!san || san === 'Start' || san === '—') return 'Starting position';
+    if (san === 'O-O') return 'Kingside Castling (King Safety)';
+    if (san === 'O-O-O') return 'Queenside Castling (King Safety)';
+
+    let text = san;
+    const isCheck = text.includes('+');
+    const isCheckmate = text.includes('#');
+    text = text.replace(/[+#]/g, '');
+
+    let promotionText = '';
+    if (text.includes('=')) {
+      const parts = text.split('=');
+      text = parts[0];
+      const pCode = parts[1]?.[0]?.toUpperCase();
+      const pNames = { Q: 'Queen', R: 'Rook', B: 'Bishop', N: 'Knight' };
+      promotionText = ` (Promotes to ${pNames[pCode] || 'Queen'})`;
+    }
+
+    const pieceCode = text[0];
+    let pieceName = 'Pawn';
+    let rest = text;
+
+    if (['K', 'Q', 'R', 'B', 'N'].includes(pieceCode)) {
+      const pieceMap = { K: 'King ♚', Q: 'Queen 👑', R: 'Rook 🏰', B: 'Bishop 🐘', N: 'Knight 🐴' };
+      pieceName = pieceMap[pieceCode];
+      rest = text.slice(1);
+    }
+
+    const isCapture = rest.includes('x');
+    const square = rest.replace('x', '').slice(-2);
+
+    let explanation = '';
+    if (isCapture) {
+      explanation = `${pieceName} captures on ${square.toUpperCase()}`;
+    } else {
+      explanation = `${pieceName} to ${square.toUpperCase()}`;
+    }
+
+    if (promotionText) explanation += promotionText;
+    if (isCheckmate) explanation += ' — CHECKMATE!';
+    else if (isCheck) explanation += ' (Check!)';
+
+    return explanation;
+  };
+
+  // Move explanation with rich emojis
   const moveExplanation = (m) => {
-    if (!m) return 'Moving pieces into action.';
+    if (!m) return '✨ Moving pieces into action.';
     const p = m.piece?.toUpperCase();
-    if (m.flags?.includes('k') || m.flags?.includes('q')) return 'Castled! King is safe, Rook is active.';
-    if (m.flags?.includes('c')) return 'Captured an opponent piece!';
-    if (p === 'P' && ['d4', 'e4', 'd5', 'e5'].includes(m.to)) return 'Center pawn push! Fighting for the center.';
-    if (p === 'P') return 'Pawn push! Clearing space for your pieces.';
-    if (p === 'N') return 'Knight out! Heading toward an active square.';
-    if (p === 'B') return 'Bishop active! Aiming down a diagonal.';
-    if (p === 'R') return 'Rook on an open file!';
-    if (p === 'Q') return 'Queen joins the game!';
-    return 'Good development move!';
+    if (m.flags?.includes('k') || m.flags?.includes('q')) return '🏰 Castled! King is safe, Rook is active.';
+    if (m.flags?.includes('c')) return '⚔️ Captured an opponent piece!';
+    if (p === 'P' && ['d4', 'e4', 'd5', 'e5'].includes(m.to)) return '♟️ Center pawn push! Controlling the middle.';
+    if (p === 'P') return '♟️ Pawn push! Clearing space for your pieces.';
+    if (p === 'N') return '🐴 Knight out! Heading toward an active square.';
+    if (p === 'B') return '🐘 Bishop active! Aiming down an open diagonal.';
+    if (p === 'R') return '🏰 Rook active on an open file!';
+    if (p === 'Q') return '👑 Queen joins the battle!';
+    return '🎯 Good development move!';
   };
 
   const nextMoveHint = (g) => {
@@ -155,36 +336,36 @@ export default function CoachPlayScreen({ navigation, route }) {
       const isStale = typeof g.isStalemate === 'function' ? g.isStalemate() : (typeof g.in_stalemate === 'function' ? g.in_stalemate() : false);
       const isDrawn = typeof g.isDraw === 'function' ? g.isDraw() : (typeof g.in_draw === 'function' ? g.in_draw() : false);
 
-      if (isMated) return '💡 Suggestion: CHECKMATE! The game is already over.';
-      if (isStale || isDrawn) return '💡 Suggestion: The game is a draw.';
+      if (isMated) return '🏆 CHECKMATE! The game is over.';
+      if (isStale || isDrawn) return '🤝 The game is a draw.';
 
       const mvs = g.moves({ verbose: true });
-      if (!mvs || !mvs.length) return '💡 Suggestion: No legal moves left. Game Over!';
+      if (!mvs || !mvs.length) return '🚫 No legal moves left.';
 
       // Look for check moves
       const checkMove = mvs.find(m => m.san && m.san.includes('+'));
-      if (checkMove) return `💡 Suggestion: Try checking the opponent with ${checkMove.san}!`;
+      if (checkMove) return `⚡ Suggestion: Check with ${checkMove.san} (${sanToPlainEnglish(checkMove.san)})!`;
 
       // Look for captures
       const captureMove = mvs.find(m => m.flags?.includes('c') || m.captured);
-      if (captureMove) return `💡 Suggestion: You can capture a piece! Try playing ${captureMove.san}.`;
+      if (captureMove) return `⚔️ Suggestion: Capture piece with ${captureMove.san} (${sanToPlainEnglish(captureMove.san)})!`;
 
       // Look for castling
       const castle = mvs.find(m => m.flags?.includes('k') || m.flags?.includes('q'));
-      if (castle) return `💡 Suggestion: Castle (${castle.san}) to secure your King safety.`;
+      if (castle) return `🏰 Suggestion: Castle (${castle.san}) for King safety!`;
 
       // Knight or Bishop developments
       const minorPiece = mvs.find(m => m.piece === 'n' || m.piece === 'b');
-      if (minorPiece) return `💡 Suggestion: Develop your minor piece with ${minorPiece.san}.`;
+      if (minorPiece) return `${minorPiece.piece === 'n' ? '🐴' : '🐘'} Suggestion: Play ${minorPiece.san} (${sanToPlainEnglish(minorPiece.san)})!`;
 
       // Central pawn push
       const centerPawn = mvs.find(m => m.piece === 'p' && ['d4', 'e4', 'd5', 'e5'].includes(m.to));
-      if (centerPawn) return `💡 Suggestion: Push your pawn to the center with ${centerPawn.san}.`;
+      if (centerPawn) return `♟️ Suggestion: Push center pawn with ${centerPawn.san} (${sanToPlainEnglish(centerPawn.san)})!`;
 
-      return `💡 Suggestion: Try playing ${mvs[0].san} to improve your position.`;
+      return `🎯 Suggestion: Play ${mvs[0].san} (${sanToPlainEnglish(mvs[0].san)}) to advance.`;
     } catch (e) {
       console.log('[CoachPlay] nextMoveHint error:', e);
-      return '💡 Suggestion: Develop your Knights and Bishops, then castle to protect your King.';
+      return '💡 Suggestion: Develop your Knights 🐴 and Bishops 🐘, then castle 🏰 to protect your King ♚.';
     }
   };
 
@@ -233,14 +414,17 @@ export default function CoachPlayScreen({ navigation, route }) {
               });
               console.log('[InteractiveFeedback] Response:', JSON.stringify(fb));
 
-              const userAdvice = fb?.user_move_coaching?.narrative || fb?.user_move_coaching?.coaching_message || '';
+              const rawUserAdvice = fb?.user_move_coaching?.narrative || fb?.user_move_coaching?.coaching_message || '';
               const coachAdviceText = fb?.coach_move_coaching?.explanation || fb?.coach_move_coaching?.narrative || '';
               const hintText = fb?.coach_move_coaching?.hint_for_user || '';
 
+              // Clean up redundant "User Move: xx." prefix if present
+              const cleanUserAdvice = rawUserAdvice.replace(/^User Move:\s*[\w\d#+=-]+\.\s*/i, '').trim();
+
               const parts = [];
-              if (userAdvice) parts.push(`User Move: ${userAdvice}`);
-              if (coachAdviceText) parts.push(`Coach Move: ${coachAdviceText}`);
-              if (hintText) parts.push(`Hint: ${hintText}`);
+              if (cleanUserAdvice) parts.push(`💡 Feedback on your move:\n${cleanUserAdvice}`);
+              if (coachAdviceText) parts.push(`🎯 Opponent move note:\n${coachAdviceText}`);
+              if (hintText) parts.push(`⭐ Hint: ${hintText}`);
 
               advice = parts.join('\n\n');
             } catch (err) {
@@ -251,9 +435,10 @@ export default function CoachPlayScreen({ navigation, route }) {
           const g = new Chess(newFen);
           const hint = nextMoveHint(g);
           if (mode === 'coach') {
-            setCoachAdvice(`Opponent played: ${coachSan}\n${advice ? `Coach says: "${advice}"\n\n` : ''}${hint}`);
+            const bodyText = cleanUserAdvice ? `💡 Your move: ${cleanUserAdvice}` : (coachAdviceText ? `🎯 Note: ${coachAdviceText}` : '');
+            setCoachAdvice(`♟️ Opponent played: ${coachSan} (${sanToPlainEnglish(coachSan)})${bodyText ? `\n\n${bodyText}` : ''}`);
           } else {
-            setCoachAdvice(`Opponent played: ${coachSan}. Your turn!`);
+            setCoachAdvice(`♟️ Opponent played: ${coachSan} (${sanToPlainEnglish(coachSan)}). Your turn!`);
           }
           setMoveQuality('Your Turn');
           setIsPlayerTurn(true);
@@ -316,10 +501,16 @@ export default function CoachPlayScreen({ navigation, route }) {
     // Configurable parameters based on direct selections or learn redirections
     const color = overrideParams?.user_color || selectedColor;
     const mode = overrideParams?.game_mode || gameMode;
+    if (overrideParams?.game_mode) setGameMode(overrideParams.game_mode);
+    if (overrideParams?.user_color) setSelectedColor(overrideParams.user_color);
     const op = overrideParams ? null : OPENINGS.find(o => o.id === selectedOpening);
 
-    let startFen = overrideParams?.starting_fen || op?.fen || START_FEN;
-    let openingName = overrideParams?.opening_name || (op?.id !== 'free' ? op?.name : undefined);
+    const courseKey = overrideParams?.startContentRef || overrideParams?.startSkillId;
+    const matchedCourse = COURSE_MAP[courseKey] || COURSE_MAP[overrideParams?.startSkillId];
+
+    let startFen = overrideParams?.starting_fen || matchedCourse?.fen || op?.fen || START_FEN;
+    let openingName = overrideParams?.opening_name || matchedCourse?.name || (op?.id !== 'free' ? op?.name : undefined);
+    let courseDesc = overrideParams?.course_desc || matchedCourse?.desc;
 
     setLoading(true); setGameOver(false); setIsPlayerTurn(true);
     setMoveHistory([]); setCoachThinking(false); setStartError(null);
@@ -350,18 +541,13 @@ export default function CoachPlayScreen({ navigation, route }) {
       const res = await fetchAPI('/coach/play/start', { method: 'POST', body: JSON.stringify(body) });
       if (res?.session_id || res?.session?.session_id) {
         newSid = res.session_id || res.session?.session_id;
-        useFen = res.current_fen || startFen;
+        useFen = (startFen && startFen !== START_FEN) ? startFen : (res.current_fen || startFen);
         playerFirst = res.is_player_turn !== false;
       }
     } catch (e) {
-      console.log('[CoachPlay] start fallback:', e?.message);
-      setStartError(e?.message || 'Failed to start coach session');
-      Alert.alert(
-        'Play Limit Reached',
-        e?.message || 'You have reached your daily coach session limit. Game is starting in offline fallback mode.',
-        [{ text: 'Play Offline', style: 'cancel' }]
-      );
+      console.log('[CoachPlay] start fallback mode activated:', e?.message);
       newSid = 'local_' + Date.now();
+      useFen = startFen;
     }
 
     setSessionId(newSid);
@@ -371,6 +557,12 @@ export default function CoachPlayScreen({ navigation, route }) {
 
     const g = new Chess(useFen);
     const userChar = color === 'white' ? 'w' : 'b';
+
+    if (openingName || courseDesc) {
+      const lessonTitle = openingName || 'Custom Chess Lesson';
+      const detailMsg = courseDesc || 'Practice your moves and tactical principles.';
+      setCoachAdvice(`🎓 LESSON: ${lessonTitle}\n💡 Goal: ${detailMsg}\n\nMake your move to practice!`);
+    }
 
     if (!playerFirst || g.turn() !== userChar) {
       setIsPlayerTurn(false); setCoachThinking(true);
@@ -398,7 +590,7 @@ export default function CoachPlayScreen({ navigation, route }) {
                 starting_fen: START_FEN,
                 moves: initHist,
                 accuracy: 92.5
-              })).catch(() => {});
+              })).catch(() => { });
               const hint = nextMoveHint(ai);
               setCoachAdvice(
                 mode === 'coach'
@@ -464,15 +656,15 @@ export default function CoachPlayScreen({ navigation, route }) {
         starting_fen: START_FEN,
         moves: newHist,
         accuracy: 92.5
-      })).catch(() => {});
-    } catch (_) {}
+      })).catch(() => { });
+    } catch (_) { }
     const exp = moveExplanation(moveResult);
 
     // Check local game-over (checkmate/stalemate by user's move)
     if (g.isCheckmate()) {
       setMoveQuality('CHECKMATE!');
       setCoachAdvice(`YOU WON BY CHECKMATE WITH ${moveSan}!`);
-      setStats(p => ({ ...p, wins: p.wins + 1 }));
+      updateLocalUserStats('win');
       setGameOver(true);
       setShowVictoryModal(true);
       if (sessionId) endCoachSession(sessionId).catch(() => { });
@@ -480,7 +672,8 @@ export default function CoachPlayScreen({ navigation, route }) {
     }
     if (g.isStalemate() || g.isDraw()) {
       setMoveQuality('STALEMATE'); setCoachAdvice('Game drawn by stalemate!');
-      setStats(p => ({ ...p, draws: p.draws + 1 })); setGameOver(true);
+      updateLocalUserStats('draw');
+      setGameOver(true);
       if (sessionId) endCoachSession(sessionId).catch(() => { });
       return;
     }
@@ -542,14 +735,14 @@ export default function CoachPlayScreen({ navigation, route }) {
             starting_fen: START_FEN,
             moves: newHist,
             accuracy: 92.5
-          })).catch(() => {});
-        } catch (_) {}
+          })).catch(() => { });
+        } catch (_) { }
         if (ai.isCheckmate()) { localGameOver(ai, selectedColor); return; }
         const hint = nextMoveHint(ai);
         setCoachAdvice(
           gameMode === 'coach'
-            ? `You played ${moveSan}: ${exp}\nOpponent: ${pick.san}\n\n${hint}`
-            : `You played ${moveSan}. Opponent: ${pick.san}.`
+            ? `♟️ Opponent played: ${pick.san} (${sanToPlainEnglish(pick.san)})\n\n💡 Your move (${moveSan} - ${sanToPlainEnglish(moveSan)}): ${exp}`
+            : `♟️ Opponent played: ${pick.san} (${sanToPlainEnglish(pick.san)}). Your turn!`
         );
         setMoveQuality('Your Turn');
         setCoachThinking(false); setIsPlayerTurn(true);
@@ -564,11 +757,11 @@ export default function CoachPlayScreen({ navigation, route }) {
       const w = (data?.winner || 'White').toLowerCase();
       if (w === selectedColor) {
         setMoveQuality('VICTORY!'); setCoachAdvice('YOU WON BY CHECKMATE!');
-        setStats(p => ({ ...p, wins: p.wins + 1 }));
+        updateLocalUserStats('win');
         setShowVictoryModal(true);
       } else {
         setMoveQuality('CHECKMATED'); setCoachAdvice('Opponent won.');
-        setStats(p => ({ ...p, losses: p.losses + 1 }));
+        updateLocalUserStats('loss');
       }
       setGameOver(true);
     }
@@ -664,74 +857,148 @@ export default function CoachPlayScreen({ navigation, route }) {
         ) : (
           /* ── ACTIVE GAME: fixed full-screen, NO ScrollView ── */
           <View style={st.gameScreen}>
-            {startError && (
-              showFullStartError ? (
+            {/* Top Row: Left-aligned Offline Warning + Right-aligned Settings Button */}
+            <View style={st.topHeaderRow}>
+              {startError ? (
                 <TouchableOpacity
-                  style={[st.errCard, { marginBottom: 8, marginTop: 10 }]}
-                  onPress={() => setShowFullStartError(false)}
-                  activeOpacity={0.9}
+                  style={st.leftOfflineBadge}
+                  onPress={() => setShowFullStartError(!showFullStartError)}
+                  activeOpacity={0.8}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={st.errTitle}>⚠️ Offline Fallback Active</Text>
-                    <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>Tap to minimize</Text>
+                  <Text style={st.leftOfflineText}>⚠️ Offline Mode</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+
+              <TouchableOpacity
+                style={st.topSettingsBtn}
+                onPress={() => boardViewRef.current?.openSettings?.()}
+                activeOpacity={0.8}
+              >
+                <Text style={st.topSettingsBtnText}>⚙️ Settings</Text>
+              </TouchableOpacity>
+            </View>
+
+            {startError && showFullStartError && (
+              <TouchableOpacity
+                style={[st.errCard, { marginBottom: 8, marginTop: 4 }]}
+                onPress={() => setShowFullStartError(false)}
+                activeOpacity={0.9}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={st.errTitle}>⚠️ Offline Fallback Active</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>Tap to minimize</Text>
+                </View>
+                <Text style={st.errText}>{startError}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Premium Glassmorphic Coach Speech Bubble */}
+            {gameMode === 'coach' && (
+              isBubbleMinimized ? (
+                <TouchableOpacity
+                  style={st.minimizedBubbleBadge}
+                  onPress={() => setIsBubbleMinimized(false)}
+                  activeOpacity={0.85}
+                >
+                  <View style={st.minimizedBubbleRow}>
+                    <View style={st.glowingDot} />
+                    <Text style={st.minimizedBubbleText}>🧙‍♂️ AI Coach Advice available</Text>
+                    <Text style={st.minimizedExpandText}>Tap to expand ▾</Text>
                   </View>
-                  <Text style={st.errText}>{startError}</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={st.compactOfflineBadge}
-                  onPress={() => setShowFullStartError(true)}
-                  activeOpacity={0.8}
+                  style={st.bubbleCardContainer}
+                  onPress={() => setIsBubbleMinimized(true)}
+                  activeOpacity={0.96}
                 >
-                  <Text style={st.compactOfflineText}>⚠️ Offline Mode</Text>
+                  <View style={st.bubbleCardHeader}>
+                    <View style={st.coachHeaderBadge}>
+                      <Text style={st.coachHeaderBadgeIcon}>🧙‍♂️</Text>
+                      <Text style={st.coachHeaderBadgeText}>AI COACH GURU</Text>
+                    </View>
+                    <View style={st.minimizeBtnPill}>
+                      <Text style={st.minimizeBtnPillText}>Minimize ▴</Text>
+                    </View>
+                  </View>
+
+                  {coachThinking ? (
+                    <View style={st.thinkingContainer}>
+                      <ActivityIndicator size="small" color="#eab308" />
+                      <Text style={st.thinkingText}>Coach is analyzing board position...</Text>
+                    </View>
+                  ) : (
+                    <ScrollView style={{ maxHeight: 110 }} nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                      <Text style={st.bubbleTxt}>{coachAdvice}</Text>
+                    </ScrollView>
+                  )}
                 </TouchableOpacity>
               )
-            )}
-
-            {/* Last move + quality at the top */}
-            <View style={[st.qualityBar, startError && { marginTop: 0 }]}>
-              <View style={st.sanBadge}><Text style={st.sanTxt}>LAST: {lastMoveSan}</Text></View>
-              <Text style={[st.qualityTxt, gameOver && { color: '#ef4444' }]}>{moveQuality}</Text>
-            </View>
-
-            {/* Coach speech bubble — compact, max 2 lines visible (hidden in Play Mode for pure chess) */}
-            {gameMode === 'coach' && (
-              <View style={st.bubble}>
-                {coachThinking
-                  ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <ActivityIndicator size="small" color="#eab308" />
-                    <Text style={st.bubbleTxt}>Coach is thinking...</Text>
-                  </View>
-                  : <Text style={st.bubbleTxt} numberOfLines={3} ellipsizeMode="tail">{coachAdvice}</Text>
-                }
-              </View>
             )}
 
             {/* Chess board — centered, takes available space */}
             <View style={st.board}>
               <ChessBoardView
+                ref={boardViewRef}
                 fen={fen}
                 orientation={selectedColor}
                 lastMove={lastMoveSquares}
                 onMove={handleUserMove}
                 onNoMoves={handleNoMoves}
                 onGameOver={handleGameOver}
+                showControls={false}
               />
             </View>
 
-            {/* Turn indicator */}
+            {/* Premium 2-Row Turn & Stockfish Suggestion Card */}
             {!gameOver && (
-              <View style={[st.turnBar, { borderColor: isPlayerTurn ? '#22c55e' : '#eab308' }]}>
-                <Text style={[st.turnTxt, { color: isPlayerTurn ? '#22c55e' : '#eab308' }]}>
-                  {isPlayerTurn ? '✅ YOUR TURN' : '⏳ Coach thinking...'}
-                </Text>
-              </View>
+              <TouchableOpacity
+                style={[
+                  st.turnSuggestionCard,
+                  {
+                    borderColor: showHintInTurnBar
+                      ? '#eab308'
+                      : (isPlayerTurn ? 'rgba(34, 197, 94, 0.6)' : 'rgba(234, 179, 8, 0.6)')
+                  }
+                ]}
+                onPress={() => setShowHintInTurnBar(prev => !prev)}
+                activeOpacity={0.9}
+              >
+                <View style={st.turnCardHeaderRow}>
+                  <View style={[st.turnStatusBadge, { backgroundColor: isPlayerTurn ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)' }]}>
+                    <View style={[st.statusPulseDot, { backgroundColor: isPlayerTurn ? '#22c55e' : '#eab308' }]} />
+                    <Text style={[st.turnStatusText, { color: isPlayerTurn ? '#4ade80' : '#fef08a' }]}>
+                      {isPlayerTurn ? 'YOUR TURN' : 'COACH THINKING'}
+                    </Text>
+                  </View>
+                  {isPlayerTurn && (
+                    <View style={[st.hintTagBadge, showHintInTurnBar && { backgroundColor: 'rgba(234, 179, 8, 0.25)' }]}>
+                      <Text style={[st.hintTagText, showHintInTurnBar && { color: '#fef08a', fontWeight: '900' }]}>
+                        {showHintInTurnBar ? '💡 Hint Active' : '💡 Move Hint'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={st.turnCardBodyRow}>
+                  <Text style={st.turnSuggestionText}>
+                    {isPlayerTurn
+                      ? (showHintInTurnBar ? nextMoveHint(new Chess(fen)) : '✨ Make your move or tap 💡 Hint for advice')
+                      : '⏳ Opponent is calculating countermove...'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
 
             {/* Action buttons */}
             <View style={st.controls}>
               {gameMode === 'coach' && isPlayerTurn && !gameOver && (
-                <TouchableOpacity style={st.hintBtn} onPress={() => setCoachAdvice(nextMoveHint(new Chess(fen)))}>
+                <TouchableOpacity
+                  style={[st.hintBtn, showHintInTurnBar && { backgroundColor: '#fef08a' }]}
+                  onPress={() => setShowHintInTurnBar(prev => !prev)}
+                >
                   <Text style={st.hintBtnTxt}>💡 Hint</Text>
                 </TouchableOpacity>
               )}
@@ -743,20 +1010,8 @@ export default function CoachPlayScreen({ navigation, route }) {
             {/* AI Coach Status indicator card at the bottom */}
             <View style={st.bottomCoachCard}>
               <Text style={st.bottomCoachText}>
-                🧙‍♂️ AI Coach Guru • {gameMode === 'coach' ? 'Coach Mode' : 'Play Mode'}{coachThinking ? ' (Thinking...)' : ''}
+                🧙‍♂️ Coach Guru • {gameMode === 'coach' ? 'Coach Mode' : 'Play Mode'}{coachThinking ? ' (Thinking...)' : ''}
               </Text>
-            </View>
-
-            {/* Move log strip */}
-            <View style={st.logCard}>
-              <Text style={st.logTitle}>📜 Moves:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <Text style={st.logTxt}>
-                  {moveHistory.length > 0
-                    ? moveHistory.map((s, i) => (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ${s}` : s)).join('  ')
-                    : 'Awaiting first move...'}
-                </Text>
-              </ScrollView>
             </View>
           </View>
         )}
@@ -772,6 +1027,46 @@ export default function CoachPlayScreen({ navigation, route }) {
           }}
           onClose={() => setShowVictoryModal(false)}
         />
+
+        {/* Interactive Chess Notation Guide Modal */}
+        <Modal
+          visible={showNotationGuide}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowNotationGuide(false)}
+        >
+          <View style={st.guideModalOverlay}>
+            <View style={st.guideModalContent}>
+              <View style={st.guideHeader}>
+                <Text style={st.guideTitle}>📖 Chess Notation Guide</Text>
+                <TouchableOpacity style={st.guideCloseBtn} onPress={() => setShowNotationGuide(false)}>
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={true}>
+                <Text style={st.guideSectionHeading}>Piece Letters:</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>B</Text> = Bishop 🐘 (e.g. <Text style={{ color: '#38bdf8' }}>Bxg5</Text> = Bishop captures on g5)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>N</Text> = Knight 🐴 (e.g. <Text style={{ color: '#38bdf8' }}>Nf3</Text> = Knight moves to f3)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>R</Text> = Rook / Elephant 🏰 (e.g. <Text style={{ color: '#38bdf8' }}>Re1</Text> = Rook to e1)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>Q</Text> = Queen 👑 (e.g. <Text style={{ color: '#38bdf8' }}>Qxd4</Text> = Queen captures on d4)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>K</Text> = King ♚ (e.g. <Text style={{ color: '#38bdf8' }}>Kg1</Text> = King to g1)</Text>
+                <Text style={st.guideItem}>• No Letter (e.g. <Text style={{ color: '#38bdf8' }}>e4</Text>) = Pawn move to e4</Text>
+
+                <Text style={[st.guideSectionHeading, { marginTop: 14 }]}>Action Symbols:</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#ef4444', fontWeight: '800' }}>x</Text> = Captures / Kills piece (e.g. <Text style={{ color: '#38bdf8' }}>Bxg5</Text>)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>+</Text> = Check (Opponent King under attack)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#22c55e', fontWeight: '800' }}>#</Text> = Checkmate (Game Won! 🎉)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#38bdf8', fontWeight: '800' }}>O-O</Text> = Kingside Castling (King Safety)</Text>
+                <Text style={st.guideItem}>• <Text style={{ color: '#eab308', fontWeight: '800' }}>=Q</Text> = Pawn Promotion to Queen</Text>
+              </ScrollView>
+
+              <TouchableOpacity style={st.guideDoneBtn} onPress={() => setShowNotationGuide(false)}>
+                <Text style={st.guideDoneBtnText}>Got it!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ImageBackground>
   );
@@ -881,5 +1176,207 @@ const st = StyleSheet.create({
     color: '#fca5a5',
     fontSize: 11,
     fontWeight: '700',
+  },
+
+  topHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 2,
+  },
+  leftOfflineBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  leftOfflineText: {
+    color: '#fca5a5',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  topSettingsBtn: {
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1.2,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  topSettingsBtnText: {
+    color: '#fef08a',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  guideModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  guideModalContent: { backgroundColor: '#0f172a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  guideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+  guideTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
+  guideCloseBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
+  guideSectionHeading: { color: '#94a3b8', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginBottom: 6 },
+  guideItem: { color: '#cbd5e1', fontSize: 13, lineHeight: 22, marginBottom: 4 },
+  guideDoneBtn: { backgroundColor: '#eab308', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 14 },
+  guideDoneBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 15 },
+
+  // Minimized Coach Speech Bubble
+  minimizedBubbleBadge: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderColor: 'rgba(234, 179, 8, 0.5)',
+    borderWidth: 1.2,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginVertical: 4,
+  },
+  minimizedBubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  glowingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#eab308',
+  },
+  minimizedBubbleText: {
+    color: '#fef08a',
+    fontSize: 12,
+    fontWeight: '800',
+    flex: 1,
+    marginLeft: 8,
+  },
+  minimizedExpandText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Expanded Coach Speech Bubble Card
+  bubbleCardContainer: {
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(234, 179, 8, 0.5)',
+    shadowColor: '#eab308',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    marginVertical: 4,
+  },
+  bubbleCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  coachHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.3)',
+  },
+  coachHeaderBadgeIcon: {
+    fontSize: 12,
+  },
+  coachHeaderBadgeText: {
+    color: '#fef08a',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  minimizeBtnPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  minimizeBtnPillText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  thinkingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  thinkingText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Turn & Best Move Suggestion Card
+  turnSuggestionCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    marginVertical: 4,
+  },
+  turnCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  turnStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  statusPulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  turnStatusText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  hintTagBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  hintTagText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  turnCardBodyRow: {
+    marginTop: 2,
+  },
+  turnSuggestionText: {
+    color: '#f0fdf4',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
   },
 });

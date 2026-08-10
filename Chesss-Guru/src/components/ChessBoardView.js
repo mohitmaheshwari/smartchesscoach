@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import Chessboard from 'react-native-chessboard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -29,62 +29,36 @@ export const BOARD_THEMES = {
   },
   cyber: {
     id: 'cyber',
-    name: 'Dark Slate',
-    colors: { white: '#94a3b8', black: '#334155' }
+    name: 'Cyberpunk Neon',
+    colors: { white: '#2a3a54', black: '#0f172a' }
   },
-  purple: {
-    id: 'purple',
-    name: 'Royal Purple',
-    colors: { white: '#e9d5ff', black: '#7c3aed' }
+  marble: {
+    id: 'marble',
+    name: 'Royal Marble',
+    colors: { white: '#e2e8f0', black: '#64748b' }
   },
-  bronze: {
-    id: 'bronze',
-    name: 'Warm Bronze',
-    colors: { white: '#e2d6b5', black: '#8b5a2b' }
+  midnight: {
+    id: 'midnight',
+    name: 'Midnight Gold',
+    colors: { white: '#334155', black: '#1e293b' }
   }
 };
 
 export const HIGHLIGHT_COLORS = {
-  gold: {
-    id: 'gold',
-    name: 'Gold',
-    color: 'rgba(234, 179, 8, 0.65)',
-    dotColor: '#eab308'
-  },
-  green: {
-    id: 'green',
-    name: 'Emerald',
-    color: 'rgba(34, 197, 94, 0.65)',
-    dotColor: '#22c55e'
-  },
-  blue: {
-    id: 'blue',
-    name: 'Sky Blue',
-    color: 'rgba(56, 189, 248, 0.65)',
-    dotColor: '#38bdf8'
-  },
-  purple: {
-    id: 'purple',
-    name: 'Purple',
-    color: 'rgba(168, 85, 247, 0.65)',
-    dotColor: '#a855f7'
-  },
-  red: {
-    id: 'red',
-    name: 'Crimson',
-    color: 'rgba(239, 68, 68, 0.65)',
-    dotColor: '#ef4444'
-  }
+  sky: { id: 'sky', name: 'Sky Blue', color: '#0ea5e9', dotColor: '#38bdf8' },
+  gold: { id: 'gold', name: 'Gold', color: '#eab308', dotColor: '#fef08a' },
+  emerald: { id: 'emerald', name: 'Emerald', color: '#10b981', dotColor: '#34d399' },
+  purple: { id: 'purple', name: 'Purple Neon', color: '#a855f7', dotColor: '#c084fc' },
 };
 
-export const ChessBoardView = ({
+export const ChessBoardView = forwardRef(({
   fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   orientation = 'white',
   lastMove = null,
   onMove,
   onGameOver,
-  showControls = true
-}) => {
+  showControls = false
+}, ref) => {
   const boardRef = useRef(null);
 
   // Customization state
@@ -93,6 +67,10 @@ export const ChessBoardView = ({
   const [isFlipped, setIsFlipped] = useState(orientation === 'black');
   const [showNotation, setShowNotation] = useState(true);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    openSettings: () => setIsSettingsModalOpen(true)
+  }));
 
   // Sync orientation prop updates
   useEffect(() => {
@@ -424,7 +402,7 @@ export const ChessBoardView = ({
       </Modal>
     </GestureHandlerRootView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
