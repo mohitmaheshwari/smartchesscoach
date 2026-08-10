@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chess } from 'chess.js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChessBoardView } from '../components/ChessBoardView';
+import { VictoryCelebrationModal } from '../components/VictoryCelebrationModal';
 import {
   fetchAPI,
   getCoachPlayerIdentity,
@@ -12,17 +14,17 @@ import {
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 const OPENINGS = [
-  { id: 'italian',  name: 'Italian Game',      desc: 'Classic 1.e4 e5 (Center Control)',    fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
-  { id: 'ruy',      name: 'Ruy Lopez',          desc: 'Spanish Opening (Pressure on Knight)', fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
-  { id: 'sicilian', name: 'Sicilian Defense',   desc: 'Sharp 1.e4 c5 Counter-Attack',        fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2' },
-  { id: 'free',     name: 'Standard Free Play', desc: 'Standard Starting Board',             fen: START_FEN },
+  { id: 'italian', name: 'Italian Game', desc: 'Classic 1.e4 e5 (Center Control)', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
+  { id: 'ruy', name: 'Ruy Lopez', desc: 'Spanish Opening (Pressure on Knight)', fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
+  { id: 'sicilian', name: 'Sicilian Defense', desc: 'Sharp 1.e4 c5 Counter-Attack', fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2' },
+  { id: 'free', name: 'Standard Free Play', desc: 'Standard Starting Board', fen: START_FEN },
 ];
 
 // Helper: convert UCI move (e.g. "e2e4") -> SAN (e.g. "e4") for a given FEN
-function uciToSan(fen, from, to) {
+function uciToSan(fen, from, to, promotion = 'q') {
   try {
     const g = new Chess(fen);
-    const result = g.move({ from, to, promotion: 'q' });
+    const result = g.move({ from, to, promotion: promotion || 'q' });
     return result ? result.san : null;
   } catch (e) {
     return null;
@@ -40,33 +42,57 @@ const ENDGAME_FENS = {
 
 export default function CoachPlayScreen({ navigation, route }) {
   // Pre-game state
-  const [gameStarted,     setGameStarted]     = useState(false);
-  const [selectedColor,   setSelectedColor]   = useState('white');
-  const [gameMode,        setGameMode]        = useState('coach');
+  const [gameStarted, setGameStarted] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('white');
+  const [gameMode, setGameMode] = useState('coach');
   const [selectedOpening, setSelectedOpening] = useState('free');
-  const [sessionId,       setSessionId]       = useState(null);
-  const [startError,      setStartError]      = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [startError, setStartError] = useState(null);
+  const [showFullStartError, setShowFullStartError] = useState(true);
 
   // Active game state
-  const [fen,           setFen]           = useState(START_FEN);
-  const [serverFen,     setServerFen]     = useState(START_FEN);
-  const [lastMoveSan,   setLastMoveSan]   = useState('Start');
-  const [moveQuality,   setMoveQuality]   = useState('Game Started');
-  const [coachAdvice,   setCoachAdvice]   = useState('Welcome! Make your move to start playing.');
-  const [loading,       setLoading]       = useState(false);
-  const [moveHistory,   setMoveHistory]   = useState([]);
-  const [isPlayerTurn,  setIsPlayerTurn]  = useState(true);
-  const [gameOver,      setGameOver]      = useState(false);
+  const [fen, setFen] = useState(START_FEN);
+  const [serverFen, setServerFen] = useState(START_FEN);
+  const [lastMoveSan, setLastMoveSan] = useState('Start');
+  const [lastMoveSquares, setLastMoveSquares] = useState(null);
+  const [moveQuality, setMoveQuality] = useState('Game Started');
+  const [coachAdvice, setCoachAdvice] = useState('Welcome! Make your move to start playing.');
+  const [loading, setLoading] = useState(false);
+  const [moveHistory, setMoveHistory] = useState([]);
+  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  const [gameOver, setGameOver] = useState(false);
   const [coachThinking, setCoachThinking] = useState(false);
+  const [showVictoryModal, setShowVictoryModal] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({ wins: 0, draws: 0, losses: 1, style: 'The Improviser' });
 
   // Poll ref — so we can cancel on unmount / restart
-  const pollRef      = useRef(null);
+  const pollRef = useRef(null);
   const sessionIdRef = useRef(null);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+
+  // Auto-collapse offline error banner after 10 seconds into a small sign
+  useEffect(() => {
+    if (startError) {
+      setShowFullStartError(true);
+      const timer = setTimeout(() => {
+        setShowFullStartError(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [startError]);
+
+  // Reset to setup screen when navigating away / switching tabs
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener('blur', () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+      setGameStarted(false);
+      setGameOver(false);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Load player identity
   useEffect(() => {
@@ -74,7 +100,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       try {
         const d = await getCoachPlayerIdentity();
         if (d) setStats({ wins: d.wins || 0, draws: d.draws || 0, losses: d.losses || 1, style: d.style || 'The Improviser' });
-      } catch (_) {}
+      } catch (_) { }
     })();
   }, []);
 
@@ -82,7 +108,7 @@ export default function CoachPlayScreen({ navigation, route }) {
   useEffect(() => {
     if (route?.params?.startSkillId) {
       const { startLabel, startKind, startContentRef, startColor } = route.params;
-      
+
       const config = {
         user_color: startColor || 'white',
         game_mode: 'coach',
@@ -114,7 +140,7 @@ export default function CoachPlayScreen({ navigation, route }) {
     const p = m.piece?.toUpperCase();
     if (m.flags?.includes('k') || m.flags?.includes('q')) return 'Castled! King is safe, Rook is active.';
     if (m.flags?.includes('c')) return 'Captured an opponent piece!';
-    if (p === 'P' && ['d4','e4','d5','e5'].includes(m.to)) return 'Center pawn push! Fighting for the center.';
+    if (p === 'P' && ['d4', 'e4', 'd5', 'e5'].includes(m.to)) return 'Center pawn push! Fighting for the center.';
     if (p === 'P') return 'Pawn push! Clearing space for your pieces.';
     if (p === 'N') return 'Knight out! Heading toward an active square.';
     if (p === 'B') return 'Bishop active! Aiming down a diagonal.';
@@ -128,7 +154,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       const isMated = typeof g.isCheckmate === 'function' ? g.isCheckmate() : (typeof g.in_checkmate === 'function' ? g.in_checkmate() : false);
       const isStale = typeof g.isStalemate === 'function' ? g.isStalemate() : (typeof g.in_stalemate === 'function' ? g.in_stalemate() : false);
       const isDrawn = typeof g.isDraw === 'function' ? g.isDraw() : (typeof g.in_draw === 'function' ? g.in_draw() : false);
-      
+
       if (isMated) return '💡 Suggestion: CHECKMATE! The game is already over.';
       if (isStale || isDrawn) return '💡 Suggestion: The game is a draw.';
 
@@ -152,7 +178,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       if (minorPiece) return `💡 Suggestion: Develop your minor piece with ${minorPiece.san}.`;
 
       // Central pawn push
-      const centerPawn = mvs.find(m => m.piece === 'p' && ['d4','e4','d5','e5'].includes(m.to));
+      const centerPawn = mvs.find(m => m.piece === 'p' && ['d4', 'e4', 'd5', 'e5'].includes(m.to));
       if (centerPawn) return `💡 Suggestion: Push your pawn to the center with ${centerPawn.san}.`;
 
       return `💡 Suggestion: Try playing ${mvs[0].san} to improve your position.`;
@@ -175,6 +201,10 @@ export default function CoachPlayScreen({ navigation, route }) {
 
     const poll = async () => {
       if (!sessionIdRef.current) return;
+      if (sid.startsWith('local_')) {
+        stopPoll();
+        return;
+      }
       attempts++;
       try {
         const state = await fetchAPI(`/coach/play/state/${sid}`);
@@ -202,7 +232,7 @@ export default function CoachPlayScreen({ navigation, route }) {
                 body: JSON.stringify({ session_id: sid }),
               });
               console.log('[InteractiveFeedback] Response:', JSON.stringify(fb));
-              
+
               const userAdvice = fb?.user_move_coaching?.narrative || fb?.user_move_coaching?.coaching_message || '';
               const coachAdviceText = fb?.coach_move_coaching?.explanation || fb?.coach_move_coaching?.narrative || '';
               const hintText = fb?.coach_move_coaching?.hint_for_user || '';
@@ -211,7 +241,7 @@ export default function CoachPlayScreen({ navigation, route }) {
               if (userAdvice) parts.push(`User Move: ${userAdvice}`);
               if (coachAdviceText) parts.push(`Coach Move: ${coachAdviceText}`);
               if (hintText) parts.push(`Hint: ${hintText}`);
-              
+
               advice = parts.join('\n\n');
             } catch (err) {
               console.log('[InteractiveFeedback] Error:', err);
@@ -244,7 +274,7 @@ export default function CoachPlayScreen({ navigation, route }) {
           setGameOver(true); setCoachThinking(false);
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (attempts >= MAX) {
         stopPoll(); setCoachThinking(false); setIsPlayerTurn(true);
@@ -263,6 +293,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       if (winner === color) {
         setMoveQuality('VICTORY!'); setCoachAdvice('YOU WON BY CHECKMATE!');
         setStats(p => ({ ...p, wins: p.wins + 1 }));
+        setShowVictoryModal(true);
       } else {
         setMoveQuality('CHECKMATED'); setCoachAdvice('Opponent won. Tap Restart!');
         setStats(p => ({ ...p, losses: p.losses + 1 }));
@@ -272,7 +303,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       setStats(p => ({ ...p, draws: p.draws + 1 }));
     }
     setGameOver(true); setCoachThinking(false);
-    if (sessionIdRef.current) endCoachSession(sessionIdRef.current).catch(() => {});
+    if (sessionIdRef.current) endCoachSession(sessionIdRef.current).catch(() => { });
   };
 
   // =========================================================================
@@ -281,17 +312,18 @@ export default function CoachPlayScreen({ navigation, route }) {
   // =========================================================================
   const handleStartGame = async (overrideParams = null) => {
     stopPoll();
-    
+
     // Configurable parameters based on direct selections or learn redirections
     const color = overrideParams?.user_color || selectedColor;
     const mode = overrideParams?.game_mode || gameMode;
     const op = overrideParams ? null : OPENINGS.find(o => o.id === selectedOpening);
-    
+
     let startFen = overrideParams?.starting_fen || op?.fen || START_FEN;
     let openingName = overrideParams?.opening_name || (op?.id !== 'free' ? op?.name : undefined);
-    
+
     setLoading(true); setGameOver(false); setIsPlayerTurn(true);
     setMoveHistory([]); setCoachThinking(false); setStartError(null);
+    setShowVictoryModal(false);
 
     let newSid = null;
     let useFen = startFen;
@@ -300,7 +332,7 @@ export default function CoachPlayScreen({ navigation, route }) {
     try {
       const body = {
         user_color: color,
-        game_mode:  mode,
+        game_mode: mode,
       };
       if (openingName) {
         body.opening_name = openingName;
@@ -317,9 +349,9 @@ export default function CoachPlayScreen({ navigation, route }) {
 
       const res = await fetchAPI('/coach/play/start', { method: 'POST', body: JSON.stringify(body) });
       if (res?.session_id || res?.session?.session_id) {
-        newSid       = res.session_id || res.session?.session_id;
-        useFen       = res.current_fen || startFen;
-        playerFirst  = res.is_player_turn !== false;
+        newSid = res.session_id || res.session?.session_id;
+        useFen = res.current_fen || startFen;
+        playerFirst = res.is_player_turn !== false;
       }
     } catch (e) {
       console.log('[CoachPlay] start fallback:', e?.message);
@@ -335,7 +367,7 @@ export default function CoachPlayScreen({ navigation, route }) {
     setSessionId(newSid);
     sessionIdRef.current = newSid;
     setFen(useFen); setServerFen(useFen);
-    setLastMoveSan('Start'); setMoveQuality('Game Started'); setGameStarted(true);
+    setLastMoveSan('Start'); setLastMoveSquares(null); setMoveQuality('Game Started'); setGameStarted(true);
 
     const g = new Chess(useFen);
     const userChar = color === 'white' ? 'w' : 'b';
@@ -343,7 +375,45 @@ export default function CoachPlayScreen({ navigation, route }) {
     if (!playerFirst || g.turn() !== userChar) {
       setIsPlayerTurn(false); setCoachThinking(true);
       setCoachAdvice(`Game started! Opponent is making their opening move...`);
-      startPollForCoachMove(newSid, mode, color);
+      if (newSid && !newSid.startsWith('local_')) {
+        startPollForCoachMove(newSid, mode, color);
+      } else {
+        // Offline / Local AI opening move when playing as Black
+        setTimeout(() => {
+          try {
+            const ai = new Chess(useFen);
+            const aiMvs = ai.moves({ verbose: true });
+            if (aiMvs.length > 0) {
+              const pref = aiMvs.find(m => (m.from === 'e2' && m.to === 'e4') || (m.from === 'd2' && m.to === 'd4')) || aiMvs[Math.floor(Math.random() * aiMvs.length)];
+              ai.move(pref);
+              const aiFen = ai.fen();
+              setFen(aiFen); setServerFen(aiFen);
+              setLastMoveSan(pref.san); setLastMoveSquares({ from: pref.from, to: pref.to });
+              const initHist = [pref.san];
+              setMoveHistory(initHist);
+              AsyncStorage.setItem('@last_played_game', JSON.stringify({
+                date: new Date().toISOString(),
+                game_mode: mode,
+                player_color: color,
+                starting_fen: START_FEN,
+                moves: initHist,
+                accuracy: 92.5
+              })).catch(() => {});
+              const hint = nextMoveHint(ai);
+              setCoachAdvice(
+                mode === 'coach'
+                  ? `Opponent played: ${pref.san}. Playing as ${color.toUpperCase()} — ${openingName || 'Standard'}.\n\n${hint}`
+                  : `Opponent played: ${pref.san}. Your turn!`
+              );
+              setMoveQuality('Your Turn');
+            }
+          } catch (e) {
+            console.log('[CoachPlay] local opening move error:', e);
+          }
+          setCoachThinking(false);
+          setIsPlayerTurn(true);
+        }, 600);
+      }
     } else {
       setIsPlayerTurn(true);
       setCoachAdvice(
@@ -362,22 +432,40 @@ export default function CoachPlayScreen({ navigation, route }) {
     if (!moveData?.from || !moveData?.to) return;
     if (!isPlayerTurn || coachThinking || gameOver) return;
 
+    let promo = moveData?.promotion;
+    if (!promo && moveData?.san && typeof moveData.san === 'string' && moveData.san.includes('=')) {
+      const parts = moveData.san.split('=');
+      if (parts[1]) promo = parts[1][0].toLowerCase();
+    }
+    if (!promo) promo = 'q';
+
     const curFen = serverFen || fen;
 
     // Convert board move to SAN (backend needs SAN, not UCI)
-    const moveSan = uciToSan(curFen, moveData.from, moveData.to);
+    const moveSan = moveData?.san || uciToSan(curFen, moveData.from, moveData.to, promo);
     if (!moveSan) { setCoachAdvice('Illegal move!'); return; }
 
     // Apply locally for instant feedback
     let g;
     try { g = new Chess(curFen); } catch (_) { g = new Chess(START_FEN); }
-    const moveResult = g.move({ from: moveData.from, to: moveData.to, promotion: 'q' });
+    const moveResult = g.move({ from: moveData.from, to: moveData.to, promotion: promo });
     if (!moveResult) { setCoachAdvice('Illegal move!'); return; }
 
     const userFen = g.fen();
     setFen(userFen);
-    setLastMoveSan(moveSan);
-    setMoveHistory(prev => [...prev, moveSan]);
+    setLastMoveSan(moveSan); setLastMoveSquares({ from: moveData.from, to: moveData.to });
+    const newHist = [...moveHistory, moveSan];
+    setMoveHistory(newHist);
+    try {
+      AsyncStorage.setItem('@last_played_game', JSON.stringify({
+        date: new Date().toISOString(),
+        game_mode: gameMode,
+        player_color: selectedColor,
+        starting_fen: START_FEN,
+        moves: newHist,
+        accuracy: 92.5
+      })).catch(() => {});
+    } catch (_) {}
     const exp = moveExplanation(moveResult);
 
     // Check local game-over (checkmate/stalemate by user's move)
@@ -386,13 +474,14 @@ export default function CoachPlayScreen({ navigation, route }) {
       setCoachAdvice(`YOU WON BY CHECKMATE WITH ${moveSan}!`);
       setStats(p => ({ ...p, wins: p.wins + 1 }));
       setGameOver(true);
-      if (sessionId) endCoachSession(sessionId).catch(() => {});
+      setShowVictoryModal(true);
+      if (sessionId) endCoachSession(sessionId).catch(() => { });
       return;
     }
     if (g.isStalemate() || g.isDraw()) {
       setMoveQuality('STALEMATE'); setCoachAdvice('Game drawn by stalemate!');
       setStats(p => ({ ...p, draws: p.draws + 1 })); setGameOver(true);
-      if (sessionId) endCoachSession(sessionId).catch(() => {});
+      if (sessionId) endCoachSession(sessionId).catch(() => { });
       return;
     }
 
@@ -411,10 +500,15 @@ export default function CoachPlayScreen({ navigation, route }) {
         if (res?.game_over) {
           stopPoll();
           const r = res.result;
-          if (r === 'win') { setMoveQuality('CHECKMATE!'); setCoachAdvice(`You won! ${moveSan} was checkmate!`); setStats(p => ({ ...p, wins: p.wins + 1 })); }
+          if (r === 'win') {
+            setMoveQuality('CHECKMATE!');
+            setCoachAdvice(`You won! ${moveSan} was checkmate!`);
+            setStats(p => ({ ...p, wins: p.wins + 1 }));
+            setShowVictoryModal(true);
+          }
           else if (r === 'draw') { setMoveQuality('DRAW'); setCoachAdvice('Game ended in a draw!'); setStats(p => ({ ...p, draws: p.draws + 1 })); }
           setGameOver(true); setCoachThinking(false);
-          if (sessionId) endCoachSession(sessionId).catch(() => {});
+          if (sessionId) endCoachSession(sessionId).catch(() => { });
           return;
         }
         if (res?.current_fen) { setServerFen(res.current_fen); setFen(res.current_fen); }
@@ -437,8 +531,19 @@ export default function CoachPlayScreen({ navigation, route }) {
         ai.move(pick);
         const aiFen = ai.fen();
         setFen(aiFen); setServerFen(aiFen);
-        setLastMoveSan(pick.san);
-        setMoveHistory(prev => [...prev, pick.san]);
+        setLastMoveSan(pick.san); setLastMoveSquares({ from: pick.from, to: pick.to });
+        const newHist = [...moveHistory, moveSan, pick.san];
+        setMoveHistory(newHist);
+        try {
+          AsyncStorage.setItem('@last_played_game', JSON.stringify({
+            date: new Date().toISOString(),
+            game_mode: gameMode,
+            player_color: selectedColor,
+            starting_fen: START_FEN,
+            moves: newHist,
+            accuracy: 92.5
+          })).catch(() => {});
+        } catch (_) {}
         if (ai.isCheckmate()) { localGameOver(ai, selectedColor); return; }
         const hint = nextMoveHint(ai);
         setCoachAdvice(
@@ -460,6 +565,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       if (w === selectedColor) {
         setMoveQuality('VICTORY!'); setCoachAdvice('YOU WON BY CHECKMATE!');
         setStats(p => ({ ...p, wins: p.wins + 1 }));
+        setShowVictoryModal(true);
       } else {
         setMoveQuality('CHECKMATED'); setCoachAdvice('Opponent won.');
         setStats(p => ({ ...p, losses: p.losses + 1 }));
@@ -497,7 +603,7 @@ export default function CoachPlayScreen({ navigation, route }) {
 
               <Text style={st.label}>Choose Your Color</Text>
               <View style={st.row}>
-                {['white','black'].map(c => (
+                {['white', 'black'].map(c => (
                   <TouchableOpacity key={c} style={[st.colorBtn, selectedColor === c && st.colorBtnOn]} onPress={() => setSelectedColor(c)}>
                     <Text style={st.colorDot}>{c === 'white' ? '⚪' : '🖤'}</Text>
                     <Text style={[st.colorTxt, selectedColor === c && st.colorTxtOn]}>{c === 'white' ? 'White' : 'Black'}</Text>
@@ -509,7 +615,7 @@ export default function CoachPlayScreen({ navigation, route }) {
               <View style={st.row}>
                 {[
                   { id: 'coach', icon: '🧠', title: 'Coach Mode', sub: 'Real-time teaching & feedback', rec: true },
-                  { id: 'play',  icon: '♟️', title: 'Play Mode',  sub: 'Pure chess, no hints' },
+                  { id: 'play', icon: '♟️', title: 'Play Mode', sub: 'Pure chess, no hints' },
                 ].map(m => (
                   <TouchableOpacity key={m.id} style={[st.modeCard, gameMode === m.id && st.modeCardOn]} onPress={() => setGameMode(m.id)}>
                     {m.rec && gameMode === m.id && <View style={st.recTag}><Text style={st.recTxt}>RECOMMENDED</Text></View>}
@@ -523,7 +629,7 @@ export default function CoachPlayScreen({ navigation, route }) {
               <View style={st.statsCard}>
                 <Text style={st.statsTitle}>📜 Coach Remembers</Text>
                 <View style={st.statsRow}>
-                  {[['Wins', stats.wins, '#22c55e'],['Draws', stats.draws, '#cbd5e1'],['Losses', stats.losses, '#ef4444']].map(([l, v, c]) => (
+                  {[['Wins', stats.wins, '#22c55e'], ['Draws', stats.draws, '#cbd5e1'], ['Losses', stats.losses, '#ef4444']].map(([l, v, c]) => (
                     <View key={l} style={st.statBox}>
                       <Text style={[st.statVal, { color: c }]}>{v}</Text>
                       <Text style={st.statLbl}>{l}</Text>
@@ -559,10 +665,27 @@ export default function CoachPlayScreen({ navigation, route }) {
           /* ── ACTIVE GAME: fixed full-screen, NO ScrollView ── */
           <View style={st.gameScreen}>
             {startError && (
-              <View style={[st.errCard, { marginBottom: 8, marginTop: 10 }]}>
-                <Text style={st.errTitle}>⚠️ Offline Fallback Active</Text>
-                <Text style={st.errText}>{startError}</Text>
-              </View>
+              showFullStartError ? (
+                <TouchableOpacity
+                  style={[st.errCard, { marginBottom: 8, marginTop: 10 }]}
+                  onPress={() => setShowFullStartError(false)}
+                  activeOpacity={0.9}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={st.errTitle}>⚠️ Offline Fallback Active</Text>
+                    <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>Tap to minimize</Text>
+                  </View>
+                  <Text style={st.errText}>{startError}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={st.compactOfflineBadge}
+                  onPress={() => setShowFullStartError(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={st.compactOfflineText}>⚠️ Offline Mode</Text>
+                </TouchableOpacity>
+              )
             )}
 
             {/* Last move + quality at the top */}
@@ -576,9 +699,9 @@ export default function CoachPlayScreen({ navigation, route }) {
               <View style={st.bubble}>
                 {coachThinking
                   ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <ActivityIndicator size="small" color="#eab308" />
-                      <Text style={st.bubbleTxt}>Coach is thinking...</Text>
-                    </View>
+                    <ActivityIndicator size="small" color="#eab308" />
+                    <Text style={st.bubbleTxt}>Coach is thinking...</Text>
+                  </View>
                   : <Text style={st.bubbleTxt} numberOfLines={3} ellipsizeMode="tail">{coachAdvice}</Text>
                 }
               </View>
@@ -589,6 +712,7 @@ export default function CoachPlayScreen({ navigation, route }) {
               <ChessBoardView
                 fen={fen}
                 orientation={selectedColor}
+                lastMove={lastMoveSquares}
                 onMove={handleUserMove}
                 onNoMoves={handleNoMoves}
                 onGameOver={handleGameOver}
@@ -604,7 +728,7 @@ export default function CoachPlayScreen({ navigation, route }) {
               </View>
             )}
 
-            {/* Action buttons including Setup and Restart */}
+            {/* Action buttons */}
             <View style={st.controls}>
               {gameMode === 'coach' && isPlayerTurn && !gameOver && (
                 <TouchableOpacity style={st.hintBtn} onPress={() => setCoachAdvice(nextMoveHint(new Chess(fen)))}>
@@ -613,9 +737,6 @@ export default function CoachPlayScreen({ navigation, route }) {
               )}
               <TouchableOpacity style={st.restartBtn} onPress={handleStartGame}>
                 <Text style={st.restartBtnTxt}>🔄 Restart</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={st.setupBtn} onPress={() => { stopPoll(); setGameStarted(false); setGameOver(false); }}>
-                <Text style={st.setupBtnTxt}>⚙️ Setup</Text>
               </TouchableOpacity>
             </View>
 
@@ -632,105 +753,133 @@ export default function CoachPlayScreen({ navigation, route }) {
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <Text style={st.logTxt}>
                   {moveHistory.length > 0
-                    ? moveHistory.map((s, i) => (i % 2 === 0 ? `${Math.floor(i/2)+1}. ${s}` : s)).join('  ')
+                    ? moveHistory.map((s, i) => (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ${s}` : s)).join('  ')
                     : 'Awaiting first move...'}
                 </Text>
               </ScrollView>
             </View>
           </View>
         )}
+
+        {/* Victory Party Popper Celebration Modal */}
+        <VictoryCelebrationModal
+          visible={showVictoryModal}
+          winningMove={lastMoveSan}
+          totalMoves={moveHistory.length}
+          onPlayAgain={() => {
+            setShowVictoryModal(false);
+            handleStartGame();
+          }}
+          onClose={() => setShowVictoryModal(false)}
+        />
       </SafeAreaView>
     </ImageBackground>
   );
 }
 
 const st = StyleSheet.create({
-  bg:        { flex: 1, width: '100%', height: '100%' },
-  overlay:   { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,8,16,0.45)' },
-  safe:      { flex: 1 },
-  scroll:    { flex: 1 },
-  content:   { padding: 16, paddingBottom: 40 },
+  bg: { flex: 1, width: '100%', height: '100%' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,8,16,0.45)' },
+  safe: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingBottom: 40 },
 
   // Active game — fixed full screen, no scrolling
-  gameScreen:{ flex: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, justifyContent: 'space-between' },
+  gameScreen: { flex: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, justifyContent: 'space-between' },
 
   // Setup
   setupCard: { backgroundColor: 'rgba(15,23,42,0.94)', borderRadius: 26, padding: 22, borderWidth: 1.5, borderColor: 'rgba(234,179,8,0.4)', elevation: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  iconCircle:{ width:52, height:52, borderRadius:26, backgroundColor:'rgba(234,179,8,0.2)', justifyContent:'center', alignItems:'center', borderWidth:1.5, borderColor:'#eab308' },
-  iconTxt:   { fontSize: 26 },
-  setupTitle:{ color:'#fff', fontSize:24, fontWeight:'900' },
-  setupSub:  { color:'#cbd5e1', fontSize:13, marginTop:2 },
-  label:     { color:'#fff', fontSize:14, fontWeight:'800', marginTop:16, marginBottom:10 },
-  row:       { flexDirection:'row', gap:12, marginBottom:14 },
+  iconCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(234,179,8,0.2)', justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: '#eab308' },
+  iconTxt: { fontSize: 26 },
+  setupTitle: { color: '#fff', fontSize: 24, fontWeight: '900' },
+  setupSub: { color: '#cbd5e1', fontSize: 13, marginTop: 2 },
+  label: { color: '#fff', fontSize: 14, fontWeight: '800', marginTop: 16, marginBottom: 10 },
+  row: { flexDirection: 'row', gap: 12, marginBottom: 14 },
 
-  colorBtn:  { flex:1, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, backgroundColor:'rgba(30,41,59,0.85)', borderRadius:18, paddingVertical:14, borderWidth:1.5, borderColor:'rgba(255,255,255,0.18)' },
-  colorBtnOn:{ backgroundColor:'rgba(234,179,8,0.25)', borderColor:'#eab308' },
-  colorDot:  { fontSize:18 },
-  colorTxt:  { color:'#cbd5e1', fontWeight:'800', fontSize:15 },
-  colorTxtOn:{ color:'#fef08a', fontWeight:'900' },
+  colorBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(30,41,59,0.85)', borderRadius: 18, paddingVertical: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },
+  colorBtnOn: { backgroundColor: 'rgba(234,179,8,0.25)', borderColor: '#eab308' },
+  colorDot: { fontSize: 18 },
+  colorTxt: { color: '#cbd5e1', fontWeight: '800', fontSize: 15 },
+  colorTxtOn: { color: '#fef08a', fontWeight: '900' },
 
-  modeCard:  { flex:1, backgroundColor:'rgba(30,41,59,0.85)', borderRadius:20, padding:16, borderWidth:1.5, borderColor:'rgba(255,255,255,0.18)', alignItems:'center', position:'relative' },
-  modeCardOn:{ backgroundColor:'rgba(234,179,8,0.25)', borderColor:'#eab308' },
-  recTag:    { position:'absolute', top:-10, backgroundColor:'#eab308', paddingHorizontal:8, paddingVertical:3, borderRadius:8 },
-  recTxt:    { color:'#000', fontSize:9, fontWeight:'900' },
-  modeIcon:  { fontSize:26, marginBottom:6, marginTop:4 },
-  modeTitle: { color:'#fff', fontWeight:'900', fontSize:15, marginBottom:3 },
-  modeSub:   { color:'#cbd5e1', fontSize:11, textAlign:'center' },
+  modeCard: { flex: 1, backgroundColor: 'rgba(30,41,59,0.85)', borderRadius: 20, padding: 16, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', position: 'relative' },
+  modeCardOn: { backgroundColor: 'rgba(234,179,8,0.25)', borderColor: '#eab308' },
+  recTag: { position: 'absolute', top: -10, backgroundColor: '#eab308', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  recTxt: { color: '#000', fontSize: 9, fontWeight: '900' },
+  modeIcon: { fontSize: 26, marginBottom: 6, marginTop: 4 },
+  modeTitle: { color: '#fff', fontWeight: '900', fontSize: 15, marginBottom: 3 },
+  modeSub: { color: '#cbd5e1', fontSize: 11, textAlign: 'center' },
 
-  statsCard: { backgroundColor:'rgba(30,41,59,0.65)', borderRadius:20, padding:16, borderWidth:1, borderColor:'rgba(255,255,255,0.2)', marginVertical:12 },
-  statsTitle:{ color:'#fff', fontWeight:'800', fontSize:14, marginBottom:12 },
-  statsRow:  { flexDirection:'row', justifyContent:'space-around', marginBottom:12 },
-  statBox:   { alignItems:'center' },
-  statVal:   { fontSize:22, fontWeight:'900' },
-  statLbl:   { color:'#94a3b8', fontSize:12, fontWeight:'700' },
-  badgeRow:  { flexDirection:'row', alignItems:'center', gap:8, marginTop:4 },
-  badgeLbl:  { color:'#cbd5e1', fontSize:12 },
-  badge:     { backgroundColor:'rgba(234,179,8,0.25)', paddingHorizontal:10, paddingVertical:4, borderRadius:10, borderWidth:1, borderColor:'#eab308' },
-  badgeTxt:  { color:'#fef08a', fontWeight:'800', fontSize:12 },
+  statsCard: { backgroundColor: 'rgba(30,41,59,0.65)', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginVertical: 12 },
+  statsTitle: { color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 12 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 },
+  statBox: { alignItems: 'center' },
+  statVal: { fontSize: 22, fontWeight: '900' },
+  statLbl: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  badgeLbl: { color: '#cbd5e1', fontSize: 12 },
+  badge: { backgroundColor: 'rgba(234,179,8,0.25)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: '#eab308' },
+  badgeTxt: { color: '#fef08a', fontWeight: '800', fontSize: 12 },
 
-  openingGrid:{ gap:10, marginBottom:24 },
-  chip:      { flexDirection:'row', alignItems:'center', justifyContent:'space-between', backgroundColor:'rgba(30,41,59,0.85)', borderRadius:16, paddingVertical:14, paddingHorizontal:16, borderWidth:1.5, borderColor:'rgba(255,255,255,0.18)' },
-  chipOn:    { backgroundColor:'rgba(234,179,8,0.25)', borderColor:'#eab308' },
-  chipTxt:   { color:'#cbd5e1', fontWeight:'800', fontSize:14 },
-  chipTxtOn: { color:'#fef08a', fontWeight:'900' },
-  chipSub:   { color:'#94a3b8', fontSize:11, marginTop:2 },
-  checkMark: { color:'#eab308', fontWeight:'900', fontSize:18 },
+  openingGrid: { gap: 10, marginBottom: 24 },
+  chip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(30,41,59,0.85)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },
+  chipOn: { backgroundColor: 'rgba(234,179,8,0.25)', borderColor: '#eab308' },
+  chipTxt: { color: '#cbd5e1', fontWeight: '800', fontSize: 14 },
+  chipTxtOn: { color: '#fef08a', fontWeight: '900' },
+  chipSub: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
+  checkMark: { color: '#eab308', fontWeight: '900', fontSize: 18 },
 
-  startBtn:  { backgroundColor:'#eab308', borderRadius:20, paddingVertical:18, alignItems:'center', elevation:8 },
-  startBtnTxt:{ color:'#090d16', fontWeight:'900', fontSize:18 },
+  startBtn: { backgroundColor: '#eab308', borderRadius: 20, paddingVertical: 18, alignItems: 'center', elevation: 8 },
+  startBtnTxt: { color: '#090d16', fontWeight: '900', fontSize: 18 },
 
   // Active game bottom coach status
   bottomCoachCard: { backgroundColor: 'rgba(15,23,42,0.8)', borderRadius: 12, paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   bottomCoachText: { color: '#cbd5e1', fontSize: 11, fontWeight: '700' },
 
-  qualityBar:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', backgroundColor:'rgba(15,23,42,0.85)', borderRadius:16, paddingHorizontal:14, paddingVertical:10, borderWidth:1.2, borderColor:'rgba(255,255,255,0.25)', marginBottom:10, marginTop:24 },
-  sanBadge:  { backgroundColor:'rgba(234,179,8,0.25)', paddingHorizontal:10, paddingVertical:4, borderRadius:10 },
-  sanTxt:    { color:'#fef08a', fontWeight:'900', fontSize:12 },
-  qualityTxt:{ color:'#22c55e', fontWeight:'900' },
+  qualityBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.85)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.2, borderColor: 'rgba(255,255,255,0.25)', marginBottom: 10, marginTop: 24 },
+  sanBadge: { backgroundColor: 'rgba(234,179,8,0.25)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  sanTxt: { color: '#fef08a', fontWeight: '900', fontSize: 12 },
+  qualityTxt: { color: '#22c55e', fontWeight: '900' },
 
-  bubble:    { backgroundColor:'rgba(15,23,42,0.9)', borderRadius:20, paddingHorizontal:14, paddingVertical:10, borderWidth:1.5, borderColor:'rgba(234,179,8,0.6)', justifyContent:'center' },
-  bubbleTxt: { color:'#fff', fontSize:12, fontWeight:'700', lineHeight:17 },
+  bubble: { backgroundColor: 'rgba(15,23,42,0.9)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: 'rgba(234,179,8,0.6)', justifyContent: 'center' },
+  bubbleTxt: { color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 17 },
 
-  board:     { alignItems:'center' },
+  board: { alignItems: 'center' },
 
-  turnBar:   { borderRadius:10, borderWidth:1.5, paddingVertical:6, paddingHorizontal:14, alignItems:'center', backgroundColor:'rgba(15,23,42,0.75)' },
-  turnTxt:   { fontWeight:'800', fontSize:13 },
+  turnBar: { borderRadius: 10, borderWidth: 1.5, paddingVertical: 6, paddingHorizontal: 14, alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.75)' },
+  turnTxt: { fontWeight: '800', fontSize: 13 },
 
-  controls:  { flexDirection:'row', gap:8 },
-  hintBtn:   { flex:1, backgroundColor:'#eab308', borderRadius:14, paddingVertical:12, alignItems:'center' },
-  hintBtnTxt:{ color:'#000', fontWeight:'900', fontSize:13 },
-  restartBtn:{ flex:1, backgroundColor:'rgba(239, 68, 68, 0.1)', borderRadius:14, paddingVertical:12, alignItems:'center', borderWidth:1.2, borderColor:'#ef4444' },
-  restartBtnTxt:{ color:'#ef4444', fontWeight:'900', fontSize:13 },
-  setupBtn:  { flex:1, backgroundColor:'rgba(255,255,255,0.1)', borderRadius:14, paddingVertical:12, alignItems:'center', borderWidth:1, borderColor:'rgba(255,255,255,0.3)' },
-  setupBtnTxt:{ color:'#fff', fontWeight:'900', fontSize:13 },
+  controls: { flexDirection: 'row', gap: 8 },
+  hintBtn: { flex: 1, backgroundColor: '#eab308', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  hintBtnTxt: { color: '#000', fontWeight: '900', fontSize: 13 },
+  restartBtn: { flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 14, paddingVertical: 12, alignItems: 'center', borderWidth: 1.2, borderColor: '#ef4444' },
+  restartBtnTxt: { color: '#ef4444', fontWeight: '900', fontSize: 13 },
+  setupBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 14, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  setupBtnTxt: { color: '#fff', fontWeight: '900', fontSize: 13 },
 
-  logCard:   { backgroundColor:'rgba(15,23,42,0.85)', borderRadius:16, paddingHorizontal:14, paddingVertical:10, borderWidth:1, borderColor:'rgba(255,255,255,0.2)', flexDirection:'row', alignItems:'center', gap:8 },
-  logTitle:  { color:'#94a3b8', fontSize:11, fontWeight:'800' },
-  logTxt:    { color:'#fef08a', fontSize:12, fontWeight:'700' },
+  logCard: { backgroundColor: 'rgba(15,23,42,0.85)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logTitle: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
+  logTxt: { color: '#fef08a', fontSize: 12, fontWeight: '700' },
 
-  errCard:   { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderRadius: 16, padding: 14, borderWidth: 1.2, borderColor: '#ef4444', marginBottom: 16 },
-  errTitle:  { color: '#fca5a5', fontWeight: '900', fontSize: 13, marginBottom: 4 },
-  errText:   { color: '#fff', fontSize: 12, fontWeight: '600', lineHeight: 17 },
-  errSubtext:{ color: '#94a3b8', fontSize: 10, fontWeight: '700', marginTop: 6 },
+  errCard: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderRadius: 16, padding: 14, borderWidth: 1.2, borderColor: '#ef4444', marginBottom: 16 },
+  errTitle: { color: '#fca5a5', fontWeight: '900', fontSize: 13, marginBottom: 4 },
+  errText: { color: '#fff', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  errSubtext: { color: '#94a3b8', fontSize: 10, fontWeight: '700', marginTop: 6 },
+
+  compactOfflineBadge: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginVertical: 4,
+  },
+  compactOfflineText: {
+    color: '#fca5a5',
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });

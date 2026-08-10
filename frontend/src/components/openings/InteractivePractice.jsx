@@ -239,7 +239,8 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           // Correct move - update FEN to show user's move immediately
           // Calculate the intermediate FEN (after user's move, before coach's move)
           const tempChess = new Chess(fenRef.current);
-          const userMove = tempChess.move({ from: orig, to: dest, promotion: 'q' });
+          const promoPiece = (orig[1] === '7' && dest[1] === '8') || (orig[1] === '2' && dest[1] === '1') ? (moveUci.length === 5 ? moveUci[4] : 'q') : undefined;
+          const userMove = tempChess.move({ from: orig, to: dest, promotion: promoPiece || 'q' });
           if (userMove) {
             // Update to show user's move on the board (prevents flicker)
             const userMoveFen = tempChess.fen();
