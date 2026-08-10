@@ -63,3 +63,20 @@ jobs:
               print("\n".join(bad)); sys.exit(1)
           print("all data JSONs valid")
           EOF
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deps
+        working-directory: frontend
+        run: npm ci
+      - name: Production build (fails the job on a broken build)
+        working-directory: frontend
+        run: npm run build

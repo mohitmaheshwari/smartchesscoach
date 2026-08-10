@@ -21,6 +21,7 @@ Indexes:
 """
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
+from bson import ObjectId
 
 COLLECTION = "user_active_focus"
 
@@ -257,6 +258,14 @@ _PS_SUBTYPE_PLURAL = {
 }
 
 
+# Sprint 2 (docs/one_surviving_instruction_scope.md): bump this whenever
+# _CLOSING_BY_SUBTYPE's TEXT is edited, so an already-assigned focus's
+# instruction_version stays a true record of which wording it was given,
+# even after the template changes. Editing text without bumping this is
+# the one way this contract can silently break -- new assignments keep
+# citing the old version number for wording they never actually showed.
+INSTRUCTION_TEMPLATE_VERSION = 1
+
 _CLOSING_BY_SUBTYPE = {
     # time_management
     "impulsive_critical":     "On any critical moment, force yourself to spend at least 10 seconds before you move. The best move is worth the clock.",
@@ -366,6 +375,9 @@ def build_narrative_from_evidence(
                           f"Detailed subtype breakdown will populate as more games get analyzed."),
             "subtype_histogram": {},
             "total_events": 0,
+            # No subtype evidence yet -- no instruction to give until there is.
+            "instruction_text": None,
+            "dominant_subtype": None,
         }
 
     ordered = sorted(flat.items(), key=lambda kv: -kv[1]["count"])
@@ -416,6 +428,13 @@ def build_narrative_from_evidence(
         "narrative": " ".join(parts),
         "subtype_histogram": flat,
         "total_events": total,
+        # Sprint 2 (2026-08-08, docs/one_surviving_instruction_scope.md):
+        # the closing line IS the actionable instruction, already computed
+        # above (_tier_closing) but previously only baked into `narrative`
+        # as prose. Exposed as its own field so assign_focus() can store
+        # it as a standalone, addressable instruction_text.
+        "instruction_text": _tier_closing(band, dominant_subtype, rating),
+        "dominant_subtype": dominant_subtype,
     }
 
 
@@ -730,6 +749,10 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     winner["coaching_label"] = narrative_pack["label"]
     winner["coaching_narrative"] = narrative_pack["narrative"]
     winner["subtype_histogram"] = narrative_pack["subtype_histogram"]
+    # Sprint 2: the standalone actionable instruction, distinct from the
+    # full diagnosis+instruction coaching_narrative paragraph above.
+    winner["instruction_text"] = narrative_pack["instruction_text"]
+    winner["dominant_subtype_at_assignment"] = narrative_pack["dominant_subtype"]
 
     winner["runners_up"] = [
         {
@@ -752,7 +775,14 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         return None
     now = datetime.now(timezone.utc)
     baseline = await _compute_baseline_metric(db, user_id, picked["topic"])
+    # Sprint 2 (docs/one_surviving_instruction_scope.md): pre-generate the
+    # _id so instruction_id can be set in the SAME document, atomically --
+    # no follow-up write needed. instruction_id is a plain string field
+    # (not literally _id) so callers never have to know/care it originated
+    # from an ObjectId.
+    new_id = ObjectId()
     focus = {
+        "_id": new_id,
         "user_id": user_id,
         "type": "weakness",
         "status": "active",
@@ -779,6 +809,15 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "next_action": None,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
+        # Sprint 2 canonical instruction fields -- the ONE source of truth
+        # for "what is the player being asked to do," captured once here
+        # and never regenerated for the life of this focus. instruction_id
+        # is a plain string (not the raw ObjectId) so JSON serialization
+        # downstream never needs special handling.
+        "instruction_id": str(new_id),
+        "instruction_text": picked.get("instruction_text"),
+        "instruction_version": INSTRUCTION_TEMPLATE_VERSION,
+        "instruction_subtype": picked.get("dominant_subtype_at_assignment"),
     }
     await db[COLLECTION].insert_one(focus)
     return focus

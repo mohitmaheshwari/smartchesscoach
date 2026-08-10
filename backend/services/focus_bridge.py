@@ -14,11 +14,27 @@ The bundle shape is deliberately rich so consumers don't need to reach
 back into MongoDB — session goal derivation, coach greetings, and mission
 scoreboards all read the same struct.
 """
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
 COLLECTION = "user_active_focus"
+
+# Sprint 2 (docs/one_surviving_instruction_scope.md, Correction #7):
+# instruction_id/instruction_text/instruction_version may ONLY reach
+# admin/super_admin accounts while Experiment #1 (Universal Habit Coach,
+# docs/experiment_01_habit_coach_scaleup_preregistration.md) is active --
+# not any real-user cohort, including Cohort C. Gated HERE, the single
+# reader every consumer goes through, so no call site can accidentally
+# see these fields for an ineligible user -- there's nothing downstream
+# to forget to check.
+_INSTRUCTION_ROLLOUT_ROLES = ("admin", "super_admin")
+
+
+def _instruction_fields_eligible(user_role: Optional[str]) -> bool:
+    flag_on = os.environ.get("PWC_SURVIVING_INSTRUCTION_ENABLED", "false").lower() == "true"
+    return flag_on and user_role in _INSTRUCTION_ROLLOUT_ROLES
 
 
 async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
@@ -46,6 +62,13 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
           "locked_until": str,                 # ISO
           "moments_page_topic": str,           # → /coach/moments/<key>
           "runners_up": [...],
+          # Sprint 2 (docs/one_surviving_instruction_scope.md) -- the
+          # canonical instruction identity, set once at assign_focus() and
+          # never regenerated. Consumers must read these fresh from here
+          # every time, never from a prior session's own stored snapshot.
+          "instruction_id": Optional[str],
+          "instruction_text": Optional[str],
+          "instruction_version": Optional[int],
         }
     """
     focus = await db[COLLECTION].find_one(
@@ -61,6 +84,15 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
 
     dominant_subtype = _pick_dominant_subtype(focus.get("subtype_histogram") or {})
 
+    # Sprint 2 rollout gate (Correction #7) -- checked here, once, for
+    # every consumer. A cheap, targeted lookup; role is small enough on
+    # the users collection that this doesn't need caching.
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    eligible = _instruction_fields_eligible((user_doc or {}).get("role"))
+    instruction_id = focus.get("instruction_id") if eligible else None
+    instruction_text = focus.get("instruction_text") if eligible else None
+    instruction_version = focus.get("instruction_version") if eligible else None
+
     return {
         "topic_key": focus.get("topic_key"),
         "topic_label": focus.get("coaching_label") or (focus.get("topic_key") or "").replace("_", " ").title(),
@@ -75,6 +107,9 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
         "moments_page_topic": focus.get("moments_page_topic") or "piece_safety",
         "runners_up": focus.get("runners_up") or [],
         "rating_band": focus.get("rating_band"),
+        "instruction_id": instruction_id,
+        "instruction_text": instruction_text,
+        "instruction_version": instruction_version,
     }
 
 

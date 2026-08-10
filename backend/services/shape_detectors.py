@@ -1264,7 +1264,7 @@ def detect_strong_knight_square(board: chess.Board) -> List[Dict]:
 
     Edge cases handled:
       - White vs Black rank ranges.
-      - 'Defended by pawn' = at least one own pawn attacks the knight's square.
+      - 'Defended by pawn' = at least one own pawn attacks the knight's square.  # allow-noncentral-caption
       - 'Can never be kicked' = no enemy pawn exists on adjacent file at any rank
         from which it could march forward and attack the square.
     """

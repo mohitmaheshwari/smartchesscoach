@@ -291,4 +291,227 @@ or PWC directly.
 
 ---
 
-## Session 3 — Game Review (not yet started)
+## Session 3 — Play with Coach (2026-08-07)
+
+**Queue reorder, on record (see Decision Log 2026-08-07):** Game Review
+was slotted as Session 3. PWC goes first instead — 59% of real users
+start it vs. 12% who even start the diagnostic (full-population check,
+2026-08-06). Game Review becomes Session 4.
+
+**The promise this flow makes:** *"I'm coaching you, right now, in real
+time — and I'll remember this game when we talk about the next one."*
+
+**Method:** not read-only code tracing. Two real, distinct users' actual
+`coach_sessions` / `coach_messages` / `postgame_analyses` documents were
+pulled directly, end to end — one whose first-ever session never
+finished, one who played two full sessions back to back — then
+cross-referenced against the serving code (`routes/coach_play.py`,
+60+ endpoints, `/start` at line 6607, `/move` at 7034, `/postgame` at
+9817). Real data first, code second, matching tonight's own repeated
+lesson about which order actually catches the truth.
+
+### Traced journey 1 — a real first-ever session that never finished
+
+User `user_00b3f69b42d6` (Partha, real signup, 2026-07-28). Signed up,
+started Play with Coach **56 seconds later**.
+
+| Step | What actually happened | Source |
+|---|---|---|
+| Session created | `session_goal`: *"Today we're working on spotting your opponent's threats before you move."* — `source: "band_default"`, `band: "beginner_high"`, `confidence: "getting_to_know_you"` | `coach_game_session.py` |
+| First coach message | An `opening_teaching_offer` — *"Let's learn the King's Pawn Opening!... Can lead to Italian Game, Ruy Lopez, Scotch, or many others."* Generic, keyed off the opening name, not the player. Shown ~2 minutes in. | `coach_messages` |
+| Per-move coaching | Real, substantive, correct — e.g. *"You moved your pawn with e4. This helps guard your other pieces and opens a path so more of your friends can come out and join the game."* | `move_snapshots[].coaching` |
+| Ambient reinforcement | *"Good. You chose stability over aggression here."* / *"Your pieces are not fully coordinated yet."* — real per-move quality read, not cross-game personalization (nothing to personalize against yet — a genuine first game) | `coaching_decisions[]` |
+| First mistake | **Never reached.** All captured moves this session are `severity: "good"`. | — |
+| Personalized observation | **Never reached**, for the same reason. | — |
+| Game completion | **Never happened.** `status: "active"`, `result: null`, `ended_at: null` — still open, 10 days later, as of this check. | `coach_sessions` |
+| Postgame / return | N/A — there was no postgame, and this is this user's *only* `coach_sessions` document. | — |
+
+**This is the single most important finding in this residency.** The
+question wasn't "does the diagnostic lose people" — that was already
+known. It's that PWC, the surface we just re-ordered the whole queue
+around, loses people too, mid-session, with no resolution — not a
+clean loss, not a clean win, just an open session with no coach message
+in the last 10 days. Also worth naming precisely: this player never got
+far enough for the coach to say anything specific about *them* — every
+message shown was correct, well-written, and completely generic.
+
+### Traced journey 2 — a real user who played two full sessions back to back
+
+User `user_2d219f0b2815` (real signup, 2026-07-28, non-admin). Signed up
+09:16:43, started PWC at 09:16:58 — **15 seconds** after signup.
+
+**Session 1** (09:16:58 → 10:37:34, ~80 minutes, ended by resignation,
+loss): 51.9% accuracy, 2 blunders, 3 mistakes, 8 inaccuracies.
+
+**Postgame 1 — correction, 2026-08-07.** The stored `postgame_analyses`
+document for this session has `coach_prescription: "hanging_piece"`,
+`prescription_reason: "Cost you 6 centipawns across 5 occurrences."`
+That's a real, specific, evidence-cited observation. But traced through
+the actual live code tonight (not just the DB doc): **neither field is
+ever returned to the PWC postgame screen.** `coach_prescription`/
+`prescription_reason` are written by `postgame_analysis.py` and read
+only by `home_intelligence_service.py`/`today_composer.py`/
+`focus_resolver.py`/`coach_memory.py` — i.e. they shape the *next*
+session's Home narrative, not this one's in-session card. What the
+player actually sees post-game is one of two mutually-exclusive
+components (`CoachPlaySidebar.jsx`): `PostGameReflection` when
+`GET /coach/play/postgame/{id}` returns `has_data`, driven by a
+*different* real mechanism — `pattern_verdict` (Case A: failed /
+B: partial / C: success), computed live in `routes/coach_play.py`
+from `pattern_memory_service.get_top_patterns` (the same decay model
+behind Lab's Coach's Pick) — or `PostGameLesson` as a fallback when
+`has_data` is false, which is what actually renders `performance_rating`.
+So `estimated_rating: 750 ... rating_change_suggested: -400` genuinely
+was shown to this user (via `PostGameLesson`, confirmed by grepping
+its render code) — that part of the original finding stands. The
+"real personalization starts at postgame via `coach_prescription`"
+claim was wrong; the real immediate signal is `pattern_verdict`, and
+it requires an already-established top pattern (from the decay model)
+to exist at all — meaning it typically can't fire on a brand-new
+user's very first PWC game, which is consistent with this user's
+session 1 falling through to the `PostGameLesson` fallback.
+
+**Session 2 started 75 seconds after session 1 ended** — a real,
+fast, voluntary return, no prompting needed. `coach_prescription`
+being carried forward as `"hanging_piece"` in the stored doc is real
+continuity in the *data*, but per the correction above, nothing on
+either live postgame surface actually shows the player that phrase —
+the continuity a real user would perceive, if any, would have to come
+from Home on their next visit there, not from this screen.
+
+**Session 2 lasted 52 seconds. `evaluations: []`, 0 coach_messages.**
+The user resigned before making a real move that got evaluated.
+
+**Postgame 2**, generated from that empty session anyway: *"Clean game
+for this pattern! Keep it up."* — `accuracy: 100.0`, `blunders: 0`,
+`performance_rating: {estimated_rating: 1250, confidence: "low",
+comparison_to_actual: "at", rating_change_suggested: +100}`.
+
+**This is a second, distinct, important finding.** The postgame system
+computed a technically-true statistic (0 blunders out of 0 evaluated
+moves = 100%) and phrased it as personalized praise — *"keep it up"* —
+for a session with no real engagement. This isn't the same bug as the
+dead-behavioral-fields finding (that was fields never computed at all);
+this is a *real* computation producing a *misleading* result, because
+nothing gated it on "did anything actually happen this game." The
+rating estimate also swung 750 → 1250, a 500-point move, across two
+games totaling under a minute and a half of real play combined.
+
+Also confirmed on session 2's own stored state: `session_goal` is the
+*exact same* band-default text as journey 1's completely different
+user — *"Today we're working on spotting your opponent's threats
+before you move,"* still `source: "band_default"`, still
+`confidence: "getting_to_know_you"` — **on this user's second session,
+not just their first.**
+
+### What this residency actually found
+
+1. **PWC has a real, uninvestigated mid-session abandonment problem.**
+   Not "12% complete the diagnostic" — a parallel, distinct leak inside
+   the surface we just decided is the front door. No instrumentation
+   currently distinguishes "resigned deliberately" from "left the tab
+   open and never came back."
+2. **The first thing every new player sees is generic, and it says so
+   honestly** (`band_default`, `getting_to_know_you`) — this is a
+   defensible, honest design choice, not a bug. But per-move coaching
+   quality is real and good from move one, which the generic session
+   goal undersells.
+3. **Real personalization at postgame is real, but not the field this
+   residency first pointed to — correction below.** The actual
+   in-session postgame signal is `pattern_verdict` (Case A/B/C, backed
+   by the pattern-decay model), which genuinely can say "again, you
+   hung a piece" with a real move number — but it only exists once a
+   top pattern is already established, so it typically cannot fire on
+   a brand-new user's first game. `coach_prescription` + its
+   evidence-cited reason is real and specific, but lands on Home next
+   session, not here. The "minute-two trust moment" candidate is
+   `pattern_verdict`'s first non-null appearance, which is instrumented
+   now (`pwc_insight_shown`, see `frontend/src/lib/analytics.js`) —
+   this funnel wasn't measurable at all until tonight.
+4. **A confidence-labeled system can still show a harsh or hollow
+   number.** Honest confidence labels (`medium`, `low`) don't prevent a
+   large, blunt claim (`-400`, `+100`) from landing badly, and don't
+   prevent a real computation from being trivially, misleadingly
+   positive when the underlying sample is empty.
+5. **`getting_to_know_you` can persist past session 1.** Confirmed on a
+   real user's second session. Whatever the graduation trigger is meant
+   to be, it didn't fire between a real user's first and second games.
+
+### Population-scale confirmation (`scripts/pwc_first_session_funnel.py`, 60 real recent signups)
+
+The abandonment finding above wasn't an edge case. Traced on real
+production data, same night:
+
+| Stage | Count / 60 | % |
+|---|---|---|
+| Signed up | 60 | 100% |
+| Started PWC | 28 | 47% |
+| First move evaluated | 18 | 30% |
+| Reached a real mistake | 9 | 15% |
+| Session resolved (has a result) | 7 | 12% |
+| Unresolved, still active, **under 2h old** (not a leak — could be genuinely in progress) | 0 | 0% |
+| Unresolved, active, **2h–7d old** | 0 | 0% |
+| **Unresolved, active, over 7 days old (`unresolved_stale`)** | **18** | **30%** |
+| Reached postgame | 6 | 10% |
+| Returned for a 2nd session | 7 | 12% |
+
+**Correction, same night, after external review**: the first version of
+this script had no minimum age before calling a session "abandoned" — a
+session started 30 seconds ago and still being genuinely played would
+have been counted identically to one dead for months. Real fix, not a
+wording change: the script now buckets by age
+(`backend/scripts/pwc_first_session_funnel.py`) and only counts a
+session as a leak once it's been sitting unresolved for over 2 hours
+(chosen from this dataset's own resolved-game durations, not a round
+number — see the script's own comment). Rerun for real: **the number
+is unchanged, 18/60 (30%)**, and every one of the 18 falls in the
+`unresolved_over_7d` bucket — minimum age 10.2 days, oldest 108.9 days,
+zero sessions in the 2h–7d range. The original finding was correct; the
+query just didn't have a safety margin proving it wasn't a fluke.
+
+**18 of 60 real recent signups — 30% — have a PWC session sitting
+unresolved for at least 10 days**, several over a month old (46 days,
+in one case; oldest 108.9 days). Of the 28 who started PWC at all,
+that's roughly two-thirds never resolving one way or the other. This is
+a bigger, more precise number than "PWC is the front door, diagnostic
+isn't" — it says the front door itself has a real leak nobody had
+quantified before tonight.
+
+### Concrete outputs, this session
+
+- Extends the Surface Matrix / residency format — no new audit
+  framework, as decided.
+- Five real findings above, each grounded in two actual users' actual
+  stored documents, not inference from code alone — then confirmed at
+  30-signup population scale via a new script,
+  `backend/scripts/pwc_first_session_funnel.py`.
+- Feeds directly into Sprint 1/2 planning: the "first insight" concept
+  now has a real, instrumented candidate location — `pattern_verdict`
+  (Case A/B/C, backed by the pattern-decay model), the actual signal a
+  PWC player sees on the in-session postgame card (correction above:
+  earlier in this doc this was misattributed to `coach_prescription`,
+  which is real but never reaches this screen). Now fired as
+  `pwc_insight_shown` (`frontend/src/lib/analytics.js`,
+  `PostGameReflection.jsx`), with a real `move_number` field added
+  server-side. The mid-session abandonment finding is a genuinely new
+  item, quantified at 30% of real signups, not previously tracked
+  anywhere in the Evidence Board or Surface Matrix.
+
+### What this residency could not do
+
+Sprint 1 also asked for five real-session observations (watching actual
+user sessions, not database traces). **Blocked, flagged explicitly
+rather than fabricated**: this requires live PostHog session-replay
+access or equivalent, which I don't have. PostHog session recording has
+been live since 2026-04-21 (confirmed earlier this governance cycle),
+so the capability exists — it just needs a human with dashboard access
+to either watch 5 real sessions directly, or grant/share that access.
+Everything in this residency that *could* be done without it — the two
+full journeys traced from raw stored documents, the 60-signup funnel,
+the `pattern_verdict`/`coach_prescription` architecture correction, and
+the new instrumentation — was done. This one item is a genuine capability
+gap, not a shortcut taken.
+
+---
+
+## Session 4 — Game Review (not yet started)

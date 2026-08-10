@@ -217,7 +217,12 @@ def _verdict(m: Dict[str, Any], games: int, motif: str) -> Dict[str, Any]:
                         and (sound_rate is None or sound_rate >= 0.7)),
         # weakness: you walk into it MORE than most players (top ~30%), real & recurring
         "is_weakness": m["got"] >= 3 and got_rate >= WEAKNESS_RATE.get(motif, 0.2),
-        "drill_positions": m["got_positions"][:20],
+        # .get(), not m["got_positions"] -- 2026-08-07: 13 real users (41
+        # motif entries, including schema versions that predate this key
+        # entirely) don't have it, and this crashed instead of defaulting.
+        # Same defensive fix needed nowhere else in this function -- the
+        # other keys read here are present on every real profile checked.
+        "drill_positions": m.get("got_positions", [])[:20],
     }
 
 
@@ -312,6 +317,99 @@ def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List
         if isinstance(p, dict) and p.get("fen"):
             out.append({"fen": p["fen"], "solution": p.get("solution"), "source": "own"})
     return out
+
+
+# Identity-level opener per motif, paired with the existing MOTIF_LESSON
+# instructional line. Deterministic, no LLM (2026-08-07 — see Decision
+# Log / Knowledge Base for why): states the recurring pattern as a fact
+# about the player, not a count. "You keep..." not "you did X N times."
+MOTIF_WEAKNESS_OPENER = {
+    "fork": "You keep getting forked.",
+    "pin": "You keep getting pinned.",
+    "skewer": "You keep getting skewered.",
+    "discovered": "Discovered attacks keep hitting you.",
+    "loose": "You keep leaving pieces hanging.",
+}
+
+# Asymmetry case: same motif is BOTH a strength on offense (made_sound)
+# and a weakness on defense (got) -- the player spots it against their
+# opponent but doesn't spot it against themselves. Real, specific,
+# checkable from the two-sided profile that already exists -- not a
+# generic template, a real comparison of two numbers for this one motif.
+MOTIF_ASYMMETRY_OPENER = {
+    "fork": "You're sharp at spotting forks against your opponent — you don't see them coming your own way.",
+    "pin": "You use pins well yourself — you don't see them coming when they're used on you.",
+    "skewer": "You find skewers against your opponent — you don't see them coming your own way.",
+    "discovered": "You use discovered attacks well yourself — you don't see them coming when your opponent plays one.",
+    "loose": "Your loose pieces are the problem, not theirs — you spot when they leave something hanging, but you keep leaving your own open.",
+}
+
+
+def build_motif_blindspot_callout(
+    motif_profile_raw: Optional[Dict[str, Dict]],
+    games_analyzed_count: int,
+    current_game_move_evaluations: Optional[List[Dict]] = None,
+) -> Optional[str]:
+    """One deterministic, memory-carrying line for Game Review: the
+    player's single top recurring tactical blind spot (or strength/
+    weakness asymmetry), anchored to a real moment in the game being
+    reviewed right now when one exists.
+
+    Deliberately NOT the old shape ("piece_safety, 15 times recently")
+    -- see docs/chessguru_decision_log.md 2026-08-07. No LLM: every
+    clause is a template selected by a real, checkable data pattern
+    (which motif, which side, which move), not generated text.
+
+    Returns None when there's nothing real to say (no weakness clears
+    the population-normalized bar) -- frontend treats None as "don't
+    render," same convention as cct_narrative.
+    """
+    card = render_motif_card(motif_profile_raw, games_analyzed_count)
+    weaknesses = card.get("weaknesses") or []
+    if not weaknesses:
+        return None
+
+    # Top weakness = highest raw got-count among those that already
+    # cleared the population-normalized WEAKNESS_RATE bar (render_motif_card
+    # only includes real, rate-confirmed weaknesses here already).
+    top = max(weaknesses, key=lambda w: w.get("got", 0))
+    motif = top["motif"]
+
+    strength_motifs = {s["motif"] for s in (card.get("strengths") or [])}
+    is_asymmetry = motif in strength_motifs
+
+    if is_asymmetry:
+        opener = MOTIF_ASYMMETRY_OPENER.get(motif, MOTIF_WEAKNESS_OPENER.get(motif, ""))
+    else:
+        opener = MOTIF_WEAKNESS_OPENER.get(motif, "")
+
+    # Deliberately NOT appending MOTIF_LESSON's instructional line here --
+    # that's generic chess advice ("before every move, scan...") and
+    # stacking it onto the identity opener re-creates the over-explaining
+    # problem this was built to avoid. Opener + anchor only, matching the
+    # approved shape exactly (2026-08-06 conversation). MOTIF_LESSON stays
+    # in use elsewhere (the Lab motif card) where that instructional voice
+    # is the right fit.
+    parts = [p for p in (opener,) if p]
+
+    # Anchor to THIS game, if it actually shows the same motif -- only
+    # cite "just now" when it's real for the game being reviewed, never
+    # a stale example from a different game passed off as current.
+    anchor = None
+    for ev in (current_game_move_evaluations or []):
+        if ev.get("is_opponent_move"):
+            continue
+        if position_allows_motif(ev) == motif:
+            move_san = ev.get("move")
+            move_number = ev.get("move_number")
+            if move_san and move_number:
+                anchor = f"That {move_san} just now, move {move_number} — same thing again."
+            break
+
+    if anchor:
+        parts.append(anchor)
+
+    return " ".join(parts) if parts else None
 
 
 def aggregate_user_motif_profile(db, user_id: str) -> Dict[str, Any]:

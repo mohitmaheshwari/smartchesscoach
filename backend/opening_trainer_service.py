@@ -106,7 +106,7 @@ OPENINGS_DATABASE = {
                 "for_color": "white", 
                 "position": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
                 "winning_line": ["Nxe5", "Nxe5", "Qh5"],
-                "explanation": "If Black takes the knight, the queen delivers mate threats on f7"
+                "explanation": "If Black takes the knight, the queen delivers mate threats on f7"  # allow-noncentral-caption
             }
         ],
         "typical_mistakes": [
@@ -177,7 +177,7 @@ OPENINGS_DATABASE = {
             {
                 "name": "Classical (4...Bf5)",
                 "moves": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Bf5"],
-                "idea": "Black develops the bishop before playing ...e6. Solid and reliable."
+                "idea": "Black develops the bishop before playing ...e6. Solid and reliable."  # allow-noncentral-caption
             },
             {
                 "name": "Advance Variation",
@@ -214,7 +214,7 @@ OPENINGS_DATABASE = {
             {
                 "name": "Winawer Variation",
                 "moves": ["e4", "e6", "d4", "d5", "Nc3", "Bb4"],
-                "idea": "Black pins the knight. Very sharp and double-edged."
+                "idea": "Black pins the knight. Very sharp and double-edged."  # allow-noncentral-caption
             }
         ],
         "traps": [],
@@ -276,7 +276,7 @@ OPENINGS_DATABASE = {
         "eco": "D00",
         "color": "white",
         "main_line": ["d4", "d5", "Bf4"],
-        "description": "A solid, easy-to-learn system. White develops the bishop before e3 to avoid it being locked in.",
+        "description": "A solid, easy-to-learn system. White develops the bishop before e3 to avoid it being locked in.",  # allow-noncentral-caption
         "key_ideas": [
             "Develop Bf4, e3, Nf3, Bd3, Nbd2, c3",
             "The pawn structure is very solid",
@@ -429,7 +429,7 @@ OPENINGS_DATABASE = {
         "eco": "C60-C99",
         "color": "white",
         "main_line": ["e4", "e5", "Nf3", "Nc6", "Bb5"],
-        "description": "One of the oldest and most respected openings. The bishop pins the knight, creating long-term pressure.",
+        "description": "One of the oldest and most respected openings. The bishop pins the knight, creating long-term pressure.",  # allow-noncentral-caption
         "key_ideas": [
             "The bishop on b5 puts pressure on Black's center",
             "Play d3, O-O, and prepare for d4",

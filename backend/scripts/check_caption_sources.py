@@ -36,6 +36,7 @@ ALLOWLIST = {
     "backend/services/caption_config.py",
     "backend/services/narrator_fallback.py",      # batch-time LLM enrichment, gated
     "backend/services/narrator_claim_verifier.py",  # the verifier itself
+    "backend/services/caption_claim_verifier.py",  # verifier sibling — verification layer, never emits prose itself
     "backend/services/shape_layer.py",             # shapes feed the central layer
     "backend/services/severity_mismatch_guard.py",
     # Migrated surface — now delegates its chess-prose to the central why

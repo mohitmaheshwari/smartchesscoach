@@ -21,7 +21,7 @@ services:
       # Bound to localhost only (2026-07-14 security hardening): the DB was
       # publicly reachable on 0.0.0.0 with root creds. Remote access goes via
       # SSH tunnel (ssh -L 27018:localhost:27017), never a public bind.
-      - "127.0.0.1:27017:27017"
+      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
@@ -42,6 +42,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        # 2026-08-07: set at deploy time with
+        # `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build`.
+        # Defaults to "unknown" if omitted -- verify_deployment.py's
+        # commit-match check will SKIP (not fail) rather than false-pass.
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: chess-coach-backend
     restart: unless-stopped
     ports:

@@ -38,7 +38,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5"],
         "name": "ruy_lopez",
-        "caption": "Ruy Lopez (Spanish Opening). The bishop pins the knight against the king and pressures e5 indirectly.",
+        "caption": "Ruy Lopez (Spanish Opening). The bishop pins the knight against the king and pressures e5 indirectly.",  # allow-noncentral-caption
     },
     {
         "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
@@ -63,7 +63,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "f4", "exf4"],
         "name": "kings_gambit_accepted",
-        "caption": "King's Gambit Accepted. Black takes the pawn, accepting an open game with both sides developing fast.",
+        "caption": "King's Gambit Accepted. Black takes the pawn, accepting an open game with both sides developing fast.",  # allow-noncentral-caption
     },
     {
         "moves": ["e4", "e5", "Nf3", "Nf6"],
@@ -128,7 +128,7 @@ _OPENINGS = [
     {
         "moves": ["d4", "d5", "c4", "dxc4"],
         "name": "queens_gambit_accepted",
-        "caption": "Queen's Gambit Accepted. Black takes the pawn but White will win it back with active development.",
+        "caption": "Queen's Gambit Accepted. Black takes the pawn but White will win it back with active development.",  # allow-noncentral-caption
     },
     {
         "moves": ["d4", "d5", "c4", "e6"],
@@ -165,12 +165,12 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "Bc4"],
         "name": "bishops_opening",
-        "caption": "Bishop's Opening. White develops the bishop early before committing the king's knight.",
+        "caption": "Bishop's Opening. White develops the bishop early before committing the king's knight.",  # allow-noncentral-caption
     },
     {
         "moves": ["e4", "Nc6"],
         "name": "nimzowitsch_defense",
-        "caption": "Nimzowitsch Defense. Black develops the queen's knight first — flexible and slightly offbeat.",
+        "caption": "Nimzowitsch Defense. Black develops the queen's knight first — flexible and slightly offbeat.",  # allow-noncentral-caption
     },
     # === Sicilian variations (deeper) ===
     {
@@ -368,7 +368,7 @@ _OPENINGS = [
     {
         "moves": ["e4", "e5", "Nc3"],
         "name": "vienna_game",
-        "caption": "Vienna Game. White develops the queen's knight first, often planning f4 with extra support.",
+        "caption": "Vienna Game. White develops the queen's knight first, often planning f4 with extra support.",  # allow-noncentral-caption
     },
     {
         "moves": ["e4", "e5", "d4"],

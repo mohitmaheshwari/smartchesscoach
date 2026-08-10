@@ -46,6 +46,14 @@ COPY backend/ ./backend/
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/build ./frontend/build
 
+# Bake the commit that produced this image into /api/health, so
+# verify_deployment.py's commit-match check can confirm a deploy
+# actually reached prod (2026-08-07). .dockerignore excludes .git, so
+# this has to be passed in at build time -- `git rev-parse HEAD`
+# doesn't work inside the container itself.
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf

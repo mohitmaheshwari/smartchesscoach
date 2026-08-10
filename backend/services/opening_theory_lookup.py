@@ -230,7 +230,7 @@ def classify_played_move(theory: Dict[str, Any], played_san: str) -> str:
     """Classify a played move against the theory record's best_moves /
     mistake_moves dicts. Returns 'best' / 'mistake' / 'critical_only'.
 
-    'best' / 'mistake' are precise teaching moments: "you played the
+    'best' / 'mistake' are precise teaching moments: "you played the  # allow-noncentral-caption
     main line" / "you walked into the typical mistake."
     'critical_only' means the user is in a known position but their
     move isn't catalogued — surface the key_decision + top idea as

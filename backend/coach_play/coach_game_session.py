@@ -358,6 +358,16 @@ async def start_coach_session(
             "handled_correctly": 0,
             "handled_incorrectly": 0,
             "events": [],
+            # Sprint 2 (docs/one_surviving_instruction_scope.md): an
+            # IMMUTABLE SNAPSHOT for historical evidence only -- this
+            # session showed this exact wording. The next session does
+            # NOT read this back; it re-reads focus_bridge fresh
+            # (Correction #6). Already None here for any user not
+            # eligible under the rollout gate (focus_bridge.py) --
+            # nothing further to check at this call site.
+            "instruction_id": focus_bundle.get("instruction_id"),
+            "instruction_text": focus_bundle.get("instruction_text"),
+            "instruction_version": focus_bundle.get("instruction_version"),
         }
 
     session = CoachGameSession(

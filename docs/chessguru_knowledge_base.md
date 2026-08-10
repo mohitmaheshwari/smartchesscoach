@@ -185,6 +185,84 @@ A result either promotes this entry to Verified or sends it to
 
 ---
 
+### Observation #009 — Puzzle "captions" are fixed templates, not real explanations — one layer worse than Game Review's gap
+
+**Status:** Verified (measured, not inferred)
+
+**Evidence:** Checked 2026-08-06 against production data. 8,991
+`community_puzzles`, growing ~149/day. 100% have a non-empty
+`description` field — but a 3,000-doc sample found the actual text is
+one of a small handful of fixed strings repeated verbatim, keyed only
+by `issue_type`/theme (*"From a real game — find the best move (was a
+missed tactic mistake)"*, *"Pawn race. Can the king catch it? Find the
+right move."*). Zero position-specific content. This never touches
+`caption_pipeline.py`'s `build_move_teaching_decision` — the single
+source of truth Game Review and PWC both route through
+([[project_caption_pipeline_central_layer]]) — it's a separate, older,
+purely-templated path. Worse than Observation #005's gap: Game Review
+clears "explains what/why" and is missing only the next-game action
+layer; puzzles don't clear "explains why" at all.
+
+**Influence:** None yet — a diagnostic finding, surfaced while checking
+overall product health, not yet acted on. Directly relevant evidence for
+the future Coaching Actions RFC and for `caption_pipeline.py`
+consolidation — puzzles are a real, growing, high-volume Teaching
+surface (~150 solves/day of new puzzles alone) currently outside the
+one-source-of-truth discipline entirely.
+
+---
+
+### Observation #010 — Opening move timing is a reliable proxy for recognition vs. calculation, in games with clock data
+
+**Status:** Verified (measured, not inferred)
+
+**Evidence:** 300-game sample, 2026-08-06 (`scripts/mine_opening_signals.py`).
+Time spent per move across the user's own first 10 opening plies, parsed
+from PGN `%clk` annotations already present in every chess.com/lichess
+import: median 3.8s, 10th percentile 2.0s, 90th percentile 9.0s — a
+real, well-separated spread, with the fastest games averaging under 1s/
+move (consistent, likely-memorized theory) and the slowest averaging
+20-86s/move (genuinely calculating, unfamiliar territory). Correctly
+increment-adjusted (a real bug — raw clock deltas go negative for fast
+players once increment exceeds time spent — was caught and fixed before
+trusting the numbers, not after). A companion signal (cross-referencing
+`trap_library.py` against each game's actual moves) was checked in the
+same pass and found real but sparse — 8/300 games (2.7%) reached a known
+trap's setup, none walked the full trap line — worth keeping, not
+primary.
+
+**What this is NOT yet:** a claim that recognition (fast/consistent
+timing) predicts anything about coaching outcomes — accuracy, blunder
+rate, learning rate, tilt. That's a separate, still-open question the
+persisted signal (below) is meant to make cheap to answer, not something
+this observation asserts.
+
+**Influence:** `move_time_stats.opening_recognition` — persisted per
+game as of 2026-08-06 (`services/move_time_analyzer.py`,
+`OPENING_WINDOW_PLIES = 10`), computed automatically on every future
+game analysis via the existing `journey_service.py` call site, backfilled
+across historical analyzed games via the existing
+`scripts/backfill_move_time_stats.py`. Stored as a raw primitive
+(avg/min/max/count, no derived score or label) specifically so it stays
+reusable for whatever downstream question asks it — Home, Game Review,
+Diagnostic, future longitudinal coaching, or pure research — rather than
+being pre-interpreted for one consumer.
+
+**Possible broader shape, not yet tested:** this may be one instance of
+a more general "recognition vs. calculation" cognitive dimension —
+tactical recognition, endgame recognition, strategic recognition could
+plausibly be measured the same way. Naming this here so it doesn't get
+lost, not claiming it's proven.
+
+**Experiment:** None run yet. Next step per the staged plan: mine
+correlations against the ~12k already-analyzed games (do familiar
+openings correlate with fewer blunders? does recognition predict
+improvement or tilt susceptibility?) before any UI or coaching change —
+a Flash Recognition Diagnostic only gets an RFC if that mining actually
+shows recognition predicts outcomes, not just that it's measurable.
+
+---
+
 *Promote a Ledger row here once it's confirmed. Add a new Unknown the
 moment someone notices an assumption nobody's actually tested, per
 Observation #006 — naming an unknown early is itself valuable, not just

@@ -806,7 +806,7 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1, "motif_blindspot": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -902,6 +902,11 @@ async def get_game_decryption_v5(
                 # (king square + exposed zone + threat arrows + caption)
                 # for the visual evidence surface on the post-game page.
                 "pattern_evidence": analysis.get("pattern_evidence"),
+                # motif_blindspot: one deterministic, memory-carrying line --
+                # the player's top recurring tactical pattern (fork/pin/
+                # skewer/discovered/loose), anchored to this game when it
+                # applies. Null when no weakness clears the bar (2026-08-07).
+                "motif_blindspot": analysis.get("motif_blindspot"),
             }
         
         # Check if generation is in progress
@@ -967,6 +972,28 @@ async def get_game_decryption_v5(
                         except Exception as cct_voice_err:
                             logger.warning(f"CCT narrative failed (non-fatal): {cct_voice_err}")
 
+                        # Motif blind-spot callout (2026-08-07) -- the
+                        # player's top recurring tactical pattern (fork/
+                        # pin/skewer/discovered/loose), from the existing
+                        # two-sided motif_profile, anchored to this game
+                        # when it applies. Same null-safe convention as
+                        # cct_narrative: None means "don't render."
+                        motif_blindspot = None
+                        try:
+                            from services.motif_profile_service import build_motif_blindspot_callout
+                            _mp_doc = await db.player_profiles.find_one(
+                                {"user_id": user.user_id},
+                                {"_id": 0, "motif_profile": 1, "games_analyzed_count": 1},
+                            )
+                            if _mp_doc:
+                                motif_blindspot = build_motif_blindspot_callout(
+                                    _mp_doc.get("motif_profile"),
+                                    _mp_doc.get("games_analyzed_count") or 0,
+                                    move_evaluations,
+                                )
+                        except Exception as motif_err:
+                            logger.warning(f"Motif blind-spot callout failed (non-fatal): {motif_err}")
+
                         # Generate habits analysis for the game
                         habits_report = None
                         try:
@@ -1030,6 +1057,7 @@ async def get_game_decryption_v5(
                                 "decryption_v5_version": V5_COACHING_VERSION,
                                 "habits_report": habits_report,
                                 "cct_narrative": cct_narrative,
+                                "motif_blindspot": motif_blindspot,
                                 "truth_line": truth_line,
                                 "player_decryption": player_decryption,
                                 "decryption_block": decryption_block,

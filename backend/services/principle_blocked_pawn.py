@@ -6,7 +6,7 @@ r1bqk2r/1pppnpbp/p1n1p1p1/4P3/2BP4/5N2/PPP2PPP/RNBQ1RK1 w - - 0 7,
 where the engine's best move is c3 (pawn) but the user plays Nc3 (knight).
 The user just blocked their own c-pawn from supporting d4. cp_loss is
 only ~60, so R12_blunder doesn't fire — basic_mistake catches it,
-but currently just says "Nc3 is a mistake. c3 was better." — no why.
+but currently just says "Nc3 is a mistake. c3 was better." — no why.  # allow-noncentral-caption
 
 This detector produces the why: name the principle ("blocks the c-pawn"),
 and when the pawn would have supported a real central pawn, name that

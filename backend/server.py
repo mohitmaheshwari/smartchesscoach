@@ -324,7 +324,15 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    return {"status": "healthy", "database": "connected"}
+    return {
+        "status": "healthy",
+        "database": "connected",
+        # 2026-08-07: plumbed so verify_deployment.py's commit-match check
+        # can confirm the deployed container is actually the commit we
+        # think we shipped. "unknown" until the image is built with
+        # --build-arg GIT_COMMIT=$(git rev-parse HEAD) — see Dockerfile.
+        "git_commit": os.environ.get("GIT_COMMIT", "unknown"),
+    }
 
 
 app.include_router(api_router)
@@ -490,6 +498,16 @@ app.include_router(coaching_patterns_routes.router, prefix="/api")
 # ==================== CORS ====================
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
+
+ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "https://chessguru.ai",
+    "https://www.chessguru.ai",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
 
 app.add_middleware(
     CORSMiddleware,

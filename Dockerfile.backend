@@ -18,6 +18,13 @@ RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://d33
 # Copy backend source code
 COPY backend/ ./backend/
 
+# Bake the commit that produced this image into /api/health (2026-08-07,
+# see server.py health()) so verify_deployment.py can confirm a deploy
+# actually reached prod. .dockerignore excludes .git, so this must be
+# passed in at build time, not read from inside the container.
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+
 # Set working directory to backend
 WORKDIR /app/backend
 

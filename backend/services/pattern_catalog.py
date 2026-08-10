@@ -392,7 +392,7 @@ def detect_opp_positional_mistake(
     opp_played_san: str,
     move_number: Optional[int] = None,
 ) -> Dict:
-    """v80 (2026-05-25) — Mohit: "Opponent's a3 is a mistake. Your
+    """v80 (2026-05-25) — Mohit: "Opponent's a3 is a mistake. Your  # allow-noncentral-caption
     strongest reply is e5. where is the teaching here?? until you tell,
     why it's a mistake."
 

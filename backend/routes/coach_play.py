@@ -9814,6 +9814,31 @@ async def _process_move_and_respond(
 # POST-GAME REFLECTION
 # =============================================================================
 
+async def _instruction_carried_forward(db, user_id: str, current_session_id: str,
+                                        current_instruction_id: Optional[str]) -> bool:
+    """Sprint 2 (docs/one_surviving_instruction_scope.md): was this
+    session's instruction ALSO the instruction in the user's most recent
+    PRIOR session? Consulted only for this yes/no framing signal -- never
+    as a source of the current instruction's identity (Correction #6).
+    False (not None) on any missing/malformed prior session -- this is a
+    "was it the same" question, and "unknown" is honestly "no" here.
+    """
+    if not current_instruction_id:
+        return False
+    try:
+        prior = await db.coach_sessions.find_one(
+            {"user_id": user_id, "session_id": {"$ne": current_session_id},
+             "status": {"$in": ["completed", "abandoned", "resigned"]}},
+            sort=[("created_at", -1)],
+        )
+    except Exception:
+        return False
+    if not prior:
+        return False
+    prior_instruction_id = (prior.get("mission_scoreboard") or {}).get("instruction_id")
+    return bool(prior_instruction_id and prior_instruction_id == current_instruction_id)
+
+
 @router.get("/postgame/{session_id}")
 async def get_postgame_reflection(session_id: str, user: User = Depends(get_current_user)):
     """
@@ -9957,6 +9982,7 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
                         "pattern": active_pattern,
                         "label": pattern_label,
                         "occurrences": pattern_occurrences,
+                        "move_number": worst_move.move_number if worst_move else None,
                         "message": detail,
                         "detail": diag.get("detail", ""),
                         "rule": rule.get("rule", ""),
@@ -9995,6 +10021,17 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
 
             # Active pattern verdict (Case A/B/C)
             "pattern_verdict": pattern_verdict,
+
+            # Sprint 2 (docs/one_surviving_instruction_scope.md): the
+            # session's own immutable snapshot -- None for anyone not
+            # eligible under the rollout gate (focus_bridge.py) or on a
+            # pre-Sprint-2 session, same as everywhere else this appears.
+            "instruction_id": (session.get("mission_scoreboard") or {}).get("instruction_id"),
+            "instruction_text": (session.get("mission_scoreboard") or {}).get("instruction_text"),
+            "is_carried_forward": await _instruction_carried_forward(
+                db, user.user_id, session_id,
+                (session.get("mission_scoreboard") or {}).get("instruction_id"),
+            ),
 
             # Legacy memory insights
             "memory_insights": [

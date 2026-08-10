@@ -13,15 +13,60 @@
  * Success → Play Again
  */
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Trophy, AlertTriangle, Target, ChevronRight, Swords,
   Minus, Brain, CheckCircle2, XCircle
 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
   const navigate = useNavigate();
+  const trackedSessionRef = useRef(null);
+
+  // pwc_insight_shown (Sprint 1, 2026-08-07 — product residency found PWC's
+  // real postgame personalization is `pattern_verdict` [Case A/B/C, backed by
+  // pattern_memory_service's decay model], NOT `coach_prescription` — that
+  // field is written to postgame_analyses but only ever read by Home's
+  // next-session narrative (home_intelligence_service/today_composer), never
+  // returned to this screen. pattern_verdict is what a PWC player actually
+  // sees here, so it's the real "does the coach remember me" signal to time.
+  // Deliberately ONE event, not six: `pwc_first_insight_shown`/`_seconds`/
+  // `_move_number`/`_type` collapse into one event's props (type, move_number
+  // in the payload below); `pwc_completed_after_insight` and
+  // `pwc_returned_after_insight` are NOT separate emitted events — compute
+  // them downstream by joining this event's timestamps against
+  // coach_sessions/postgame_analyses (same "compute downstream" pattern this
+  // file already uses for Home's 24h-return signal). See
+  // docs/product_residency_notes.md Session 3 for the full reasoning.
+  useEffect(() => {
+    if (!data?.has_data || !data?.pattern_verdict) return;
+    if (trackedSessionRef.current === data.session_id) return;
+    trackedSessionRef.current = data.session_id;
+    const pv = data.pattern_verdict;
+    track("pwc_insight_shown", {
+      session_id: data.session_id,
+      type: pv.case,
+      pattern: pv.pattern,
+      occurrences: pv.occurrences ?? null,
+      move_number: pv.move_number ?? null,
+      // Missing games_together must stay unknown, not collapse to "first
+      // game" — reviewer-caught bug, 2026-08-07: `(x ?? 1) <= 1` turned
+      // absent data into a false positive.
+      is_first_pwc_game: data.games_together == null ? null : data.games_together <= 1,
+      games_together: data.games_together ?? null,
+      // Sprint 2 (docs/one_surviving_instruction_scope.md). instruction_id
+      // is non-null ONLY for rollout-gate-eligible users with an active
+      // focus (backend strips it to null for everyone else -- an
+      // ineligible real user and "no active focus yet" both read as null
+      // here, which is the right audit granularity: either way, this
+      // session didn't carry a canonical instruction).
+      instruction_id: data.instruction_id ?? null,
+      is_carried_forward: data.is_carried_forward ?? false,
+    });
+  }, [data]);
 
   if (!data || !data.has_data) return null;
 
