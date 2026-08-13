@@ -666,7 +666,8 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
                 compute_game_recognition, merge_recognition,
                 compute_game_anticipation, merge_anticipation,
             )
-            motif_profile = merge_motifs(motif_profile, compute_game_motifs(move_evaluations))
+            motif_profile = merge_motifs(
+                motif_profile, compute_game_motifs(move_evaluations, game_id=game_id))
             # Per-opportunity recognition (offense), stored per-game with the game date so
             # the read endpoint can window to last-N-days. docs/motif_recognition_card_scope.md
             game_doc = db.games.find_one({"game_id": game_id}, {"_id": 0, "date_played": 1}) or {}

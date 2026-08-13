@@ -128,12 +128,20 @@ export default function PrescribedTraining() {
           );
           if (response.ok) {
             const motifData = await response.json();
-            // Transform motif drills to match PrescribedTraining format
-            const puzzles = (motifData.drills || []).map(drill => ({
-              ...drill,
-              solution_san: drill.solution, // Motif drills use 'solution' as the SAN
-              source: drill.source || "your_game"
-            }));
+            // Transform motif drills to match PrescribedTraining format.
+            // 2026-08-13 contract fix: the endpoint now returns position_fen +
+            // solution_san as a matched pair. Previously this mapped drill.solution
+            // (the best move in the position BEFORE the blunder) onto drill.fen (the
+            // position AFTER it) and graded the user against it — asking them to play
+            // a move that was illegal in the displayed position 92% of the time.
+            const puzzles = (motifData.drills || [])
+              .filter(drill => drill.position_fen && drill.solution_san)
+              .map(drill => ({
+                ...drill,
+                fen: drill.position_fen,
+                solution_san: drill.solution_san,
+                source: drill.source || "your_game"
+              }));
             data = {
               puzzles,
               weakness: weakness,

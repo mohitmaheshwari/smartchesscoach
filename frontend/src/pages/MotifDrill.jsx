@@ -5,24 +5,30 @@
  * /api/player/motif-drill/:motif which returns the user's own positions
  * where they walked into the motif + community positions (motif-tagged).
  *
- * Each position carries:
- *   fen: position before the user's blunder
- *   solution: best move user should have played
- *   opp_creates_motif: opponent's move that creates the trap
+ * Each position carries (normalized contract, 2026-08-13):
+ *   position_fen:      the board to DISPLAY — before the user's blunder, user to move
+ *   solution_san:      best move, LEGAL IN position_fen
+ *   user_blunder_move: what the user actually played, legal in position_fen
+ *   opp_creates_motif: opponent's reply — legal only AFTER user_blunder_move
+ *
+ * This header previously documented `fen` as "position before the user's blunder".
+ * It was not: the service stored fen_AFTER, so the printed solution was illegal in the
+ * displayed position for 92% of own-game rows, and the trap panel could never render.
+ * Fixed together with services/motif_profile_service.py get_drills().
  *
  * Teaching flow: Shows the position → best move → what happens if user
- * plays wrong (opponent creates the motif). Non-interactive (no move grading).
+ * plays wrong (replay blunder, then opponent creates the motif). Non-interactive.
  *
  * Built 2026-06-24 as UI wiring for motif_drill backend (stores both
  * the decision point and the opponent's creating move).
  */
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Chess } from "chess.js";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
 import { ArrowLeft, ChevronRight, Loader2, BookOpen, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDrillBoards, usableDrills } from "@/lib/motifDrill";
 
 const MOTIF_COPY = {
   fork: {
@@ -77,7 +83,9 @@ const MotifDrill = ({ user }) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
-        setDrills(data.drills || []);
+        // Defence in depth: the endpoint already drops unresolved rows, but never
+        // render a drill whose advertised solution is not playable on its own board.
+        setDrills(usableDrills(data.drills));
         setIdx(0);
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load drill positions");
@@ -92,32 +100,15 @@ const MotifDrill = ({ user }) => {
   }, [motif]);
 
   useEffect(() => {
-    const d = drills[idx];
-    if (!d?.fen) {
-      setChess(null);
-      setChessAfterOpp(null);
-      return;
-    }
-    try {
-      const c = new Chess(d.fen);
-      setChess(c);
-
-      // Build the position after opponent creates the motif
-      if (d.opp_creates_motif) {
-        const c2 = new Chess(d.fen);
-        c2.move(d.opp_creates_motif);
-        setChessAfterOpp(c2);
-      } else {
-        setChessAfterOpp(null);
-      }
-
-      // Orient by side to move
-      setOrientation(c.turn() === "w" ? "white" : "black");
-      setShowTrap(false);
-    } catch {
-      setChess(null);
-      setChessAfterOpp(null);
-    }
+    // 2026-08-13 contract fix — see lib/motifDrill.js. `position_fen` is the board to
+    // show (user to move, solution_san legal here); the trap board replays the blunder
+    // before the opponent's motif move. Logic lives in the lib so the legality
+    // invariant is covered by lib/motifDrill.test.js.
+    const { board, trapBoard, orientation: o } = buildDrillBoards(drills[idx]);
+    setChess(board);
+    setChessAfterOpp(trapBoard);
+    setOrientation(o);
+    setShowTrap(false);
   }, [drills, idx]);
 
   const current = drills[idx];
@@ -223,7 +214,7 @@ const MotifDrill = ({ user }) => {
                 <div className="space-y-3 bg-slate-50 dark:bg-slate-900 p-4 rounded border border-slate-200 dark:border-slate-700">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase">Best move:</p>
-                    <p className="text-lg font-bold font-mono">{current?.solution || "—"}</p>
+                    <p className="text-lg font-bold font-mono" data-testid="motif-solution">{current?.solution_san || "—"}</p>
                   </div>
                   <p className="text-xs text-muted-foreground italic">
                     This move avoids the {motif} your opponent creates.
@@ -248,6 +239,7 @@ const MotifDrill = ({ user }) => {
                   {showTrap && (
                     <>
                       <p className="text-sm text-amber-700 dark:text-amber-300 mb-4 bg-amber-100 dark:bg-amber-900/40 p-3 rounded">
+                        You played <span className="font-bold font-mono">{current?.user_blunder_move}</span>.
                         Opponent plays <span className="font-bold font-mono">{current?.opp_creates_motif}</span> — creating a {motif}!
                       </p>
                       <div className="flex justify-center mb-6">

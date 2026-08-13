@@ -869,7 +869,7 @@ async def get_motif_recognition(user: User = Depends(get_current_user)):
 async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
     """Drill positions for a motif weakness — the user's OWN games first, then community
     (motif-tagged community puzzles). Each: find the move that avoids the motif."""
-    from services.motif_profile_service import get_drills
+    from services.motif_profile_service import get_drills, count_unresolved_drills
 
     # Motif-specific coaching lessons
     MOTIF_LESSONS = {
@@ -895,14 +895,30 @@ async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
     prof = await db.player_profiles.find_one(
         {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
     drills = get_drills(prof.get("motif_profile"), motif)
-    # then community (motif-tagged) — appended own-first; tag backfill is the next step
+    unresolved = count_unresolved_drills(prof.get("motif_profile"), motif)
+    # then community (motif-tagged) — appended own-first; tag backfill is the next step.
+    # Community rows have always been self-consistent (best_move_san IS legal in fen);
+    # they are re-keyed to the normalized names so every row in `drills` has the same
+    # shape and a consumer can never pair the wrong fen with the wrong move.
     async for p in db.community_puzzles.find(
             {"motif": motif}, {"_id": 0, "fen": 1, "best_move_san": 1}).limit(20):
-        drills.append({"fen": p.get("fen"), "solution": p.get("best_move_san"), "source": "community"})
+        if not p.get("fen") or not p.get("best_move_san"):
+            continue
+        drills.append({
+            "position_fen": p.get("fen"),
+            "solution_san": p.get("best_move_san"),
+            "fen_after": None,
+            "user_blunder_move": None,
+            "opp_creates_motif": None,
+            "game_id": None,
+            "move_number": None,
+            "source": "community",
+        })
 
     return {
         "motif": motif,
         "count": len(drills),
+        "unresolved_own_positions": unresolved,
         "drills": drills,
         "coaching_intro": {
             "lesson": coaching["lesson"],

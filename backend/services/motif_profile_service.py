@@ -111,10 +111,15 @@ def merge_motifs(stored: Optional[Dict[str, Dict]], game: Dict[str, Dict],
     return out
 
 
-def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] = None) -> Dict[str, Dict]:
+def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] = None,
+                        game_id: Optional[str] = None) -> Dict[str, Dict]:
     """Tally a single game's motif signals from the USER's moves, using the verified
     geometry detector on both sides. Pure fn over stored move_evaluations (user moves
-    identified by is_opponent_move, so user_color is unused — kept for call-site compat)."""
+    identified by is_opponent_move, so user_color is unused — kept for call-site compat).
+
+    `game_id` is provenance only — it is echoed into got_positions so a drill row can be
+    traced back to its game without re-deriving the (fen_after, move) join. Optional so
+    existing call sites keep working."""
     from services.caption_facts import extract_facts
     out = {m: _empty_motif() for m in MOTIFS}
     for ev in move_evaluations or []:
@@ -173,13 +178,29 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                 got.add("loose")
             for mt in got:
                 out[mt]["got"] += 1
-                # Store position AFTER user's blunder but BEFORE opponent replies
-                # This way opp_creates_motif move is playable in this FEN
+                # 2026-08-13 contract fix. The record carries TWO positions and each
+                # move is only legal in one of them — conflating them was a live bug
+                # (92% of stored `solution` values were illegal in the stored `fen`,
+                # and PrescribedTraining was grading against them). Explicitly:
+                #
+                #   fen_before  — user to move. `solution` and `user_blunder_move`
+                #                 are legal HERE. This is the position to DISPLAY.
+                #   fen_after   — opponent to move, after user_blunder_move.
+                #                 `opp_creates_motif` is legal HERE.
+                #
+                # `fen` is retained, unchanged, as the legacy alias of fen_after so
+                # no existing reader silently changes meaning. New readers must use
+                # the explicit names. See docs/pattern_learning_system_evidence.md.
                 out[mt]["got_positions"].append({
-                    "fen": fen_after,  # position after user's blunder, ready for opponent's move
-                    "solution": best,  # what user should have played instead
-                    "user_blunder_move": played,  # the blunder move that led here
-                    "opp_creates_motif": pv[0]  # opponent's reply that creates the motif (NOW LEGAL)
+                    "fen": fen_after,               # LEGACY alias of fen_after — do not use in new code
+                    "fen_before": fen,              # user to move; `solution` is legal here
+                    "fen_after": fen_after,         # opponent to move; `opp_creates_motif` is legal here
+                    "solution": best,               # best move in fen_before
+                    "user_blunder_move": played,    # the move played in fen_before
+                    "opp_creates_motif": pv[0],     # opponent's reply, legal in fen_after
+                    "game_id": game_id,             # provenance
+                    "move_number": ev.get("move_number"),
+                    "contract_version": 2,
                 })
     return out
 
@@ -310,13 +331,43 @@ def position_allows_motif(ev: Dict) -> Optional[str]:
 
 def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List[Dict[str, str]]:
     """The user's OWN positions for a motif (drill = find the move that avoids it).
-    Community positions (motif-tagged) are appended by the route, own-first."""
+    Community positions (motif-tagged) are appended by the route, own-first.
+
+    Normalized output contract (2026-08-13): `position_fen` is the board to DISPLAY and
+    `solution_san` is legal in it — the two always belong together, for every source.
+    Rows that predate the contract fix and could not be backfilled have no `fen_before`,
+    so their solution is unplayable; they are DROPPED rather than served, and counted in
+    `unresolved` so the drop is visible instead of silent.
+    """
     m = (motif_profile_raw or {}).get(motif) or {}
-    out = []
+    out: List[Dict[str, Any]] = []
     for p in m.get("got_positions", []):
-        if isinstance(p, dict) and p.get("fen"):
-            out.append({"fen": p["fen"], "solution": p.get("solution"), "source": "own"})
+        if not isinstance(p, dict):
+            continue
+        fen_before = p.get("fen_before")
+        if not fen_before or not p.get("solution"):
+            continue  # unresolved legacy row — never serve it
+        out.append({
+            "position_fen": fen_before,          # the board the user sees; user to move
+            "solution_san": p.get("solution"),   # legal in position_fen
+            "fen_after": p.get("fen_after") or p.get("fen"),
+            "user_blunder_move": p.get("user_blunder_move"),
+            "opp_creates_motif": p.get("opp_creates_motif"),
+            "game_id": p.get("game_id"),
+            "move_number": p.get("move_number"),
+            "source": "own",
+        })
     return out
+
+
+def count_unresolved_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> int:
+    """How many stored rows for this motif get_drills() had to drop. Surfaced on the
+    route so a user silently seeing fewer drills is diagnosable."""
+    m = (motif_profile_raw or {}).get(motif) or {}
+    return sum(
+        1 for p in m.get("got_positions", [])
+        if isinstance(p, dict) and (not p.get("fen_before") or not p.get("solution"))
+    )
 
 
 # Identity-level opener per motif, paired with the existing MOTIF_LESSON
