@@ -347,14 +347,21 @@ def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List
         fen_before = p.get("fen_before")
         if not fen_before or not p.get("solution"):
             continue  # unresolved legacy row — never serve it
+        # `provenance` distinguishes "we know which game this was" from "this
+        # position+move recurs across several of their games, so we do not".
+        # 11% of stored rows are ambiguous (373/3395, one matching 32 games).
+        # Legality is identical either way; only the attribution differs. Any
+        # surface that names a game or a date MUST require provenance == "exact".
+        provenance = p.get("provenance") or "unstamped"
         out.append({
             "position_fen": fen_before,          # the board the user sees; user to move
             "solution_san": p.get("solution"),   # legal in position_fen
             "fen_after": p.get("fen_after") or p.get("fen"),
             "user_blunder_move": p.get("user_blunder_move"),
             "opp_creates_motif": p.get("opp_creates_motif"),
-            "game_id": p.get("game_id"),
-            "move_number": p.get("move_number"),
+            "game_id": p.get("game_id") if provenance == "exact" else None,
+            "move_number": p.get("move_number") if provenance == "exact" else None,
+            "provenance": provenance,
             "source": "own",
         })
     return out
