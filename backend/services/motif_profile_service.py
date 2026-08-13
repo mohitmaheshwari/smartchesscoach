@@ -230,6 +230,16 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                     "game_id": game_id,             # provenance
                     "move_number": ev.get("move_number"),
                     "contract_version": 2,
+                    # A row derived here comes straight from ONE game's
+                    # move_evaluations, so its attribution is known by
+                    # construction — there is no (fen_after, move) join to be
+                    # ambiguous about. Stamp "exact" so get_drills() will emit
+                    # game_id/move_number for it. When the caller did not pass a
+                    # game_id we leave provenance unset rather than claiming
+                    # knowledge we don't have; get_drills() then withholds the
+                    # attribution. See docs/pattern_learning_system_evidence.md
+                    # E1.4 for why 11% of backfilled rows can't do this.
+                    **({"provenance": "exact"} if game_id else {}),
                 })
     return out
 

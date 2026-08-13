@@ -111,6 +111,25 @@ def test_provenance_is_carried():
         assert p["game_id"] == "game_abc"
         assert p["move_number"] == 17
         assert p["contract_version"] == 2
+        # A row derived straight from one game's move_evaluations has no
+        # (fen_after, move) join to be ambiguous about, so it is "exact" by
+        # construction and get_drills() may name its game.
+        assert p["provenance"] == "exact"
+
+
+def test_no_game_id_means_no_provenance_claim():
+    """Legacy call sites pass no game_id. Such a row must NOT claim "exact" --
+    it has no attribution to offer, and get_drills() must withhold it rather
+    than invent one."""
+    out = compute_game_motifs([_mk_eval()])          # no game_id
+    for p in _fork_positions(out):
+        assert p.get("game_id") is None
+        assert "provenance" not in p, "must not claim provenance without a game_id"
+
+    prof = _profile(list(_fork_positions(out)))
+    for d in get_drills(prof, "fork"):
+        assert d["provenance"] == "unstamped"
+        assert d["game_id"] is None and d["move_number"] is None
 
 
 # ─── get_drills(): the normalized read contract ───────────────────────────────
