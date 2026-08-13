@@ -306,8 +306,9 @@ requirement, not a literal instruction, and it has a cost worth stating:
 | Royal forks kept in evidence, not named | — | 39 |
 | Captions shifting `check_extra` → `tactic_played` | — | 27 |
 
-The `89` baseline is the honest one: **32 normal pawn-only shapes that are named as forks today
-would stop being named** under the uniform rule (0.5% of moves). They fall back to other rules, not
+The `89` baseline is the honest one: **32 moves that carry a fork caption today would stop carrying
+one** under the uniform rule (0.5% of moves). Counted as moves, not shapes — a single move can
+carry several shapes, which is why an earlier draft said "20". They fall back to other rules, not
 to silence, and the existing principle path `_p_tac_fork_pattern` already applied this same ≥300
 bar — so this aligns `extract_primary_reason` with a rule the codebase already held elsewhere.
 Reverting to royal-only is a one-line change if that trade is unwanted.
@@ -339,11 +340,45 @@ changed three times; each is stated with its predicate so the movement is audita
 - **64** — hand-rolled bar: ≥2 targets worth ≥300, king counted, `cp_loss < 1000` mate proxy.
 - **97** — same shape bar, but explicit `mate_info` and canonical SEE evidence. The hand bar had
   been wrongly rejecting 41 defended-but-winnable targets that SEE correctly accepts.
-- **183** — the shared predicate: ≥1 *winnable* target ≥300. Looser than "two valuable targets"
-  because a knight forking a queen and a pawn genuinely wins the queen and is worth teaching.
+- **183** — the shared predicate: ≥1 *winnable* target ≥300. Looser than "two valuable targets".
+  A knight hitting a queen and a pawn qualifies because the queen is a winnable target under SEE —
+  **not** because the fork "wins the queen". It usually does not: the queen moves and the pawn may
+  or may not fall. What the shape guarantees is a real threat against something valuable, which is
+  what makes it worth teaching; the material outcome depends on the reply.
 
 Separately: **no gold position has more than one fork-creating knight move**, so the grading rule
 prevents a regression rather than fixing a live defect.
+
+### E3.4a Stored motif profiles must be recomputed
+
+Fork claims now read the promoted view, so the stored `player_profiles.motif_profile` rows were
+computed under a different rule. Replaying 150 analysed games through `compute_game_motifs` under
+the stored-era behaviour vs today's:
+
+| fork metric | stored-era | raw+royal (never shipped) | promoted (now) | stored → now |
+|---|---|---|---|---|
+| `made_sound` | 62 | 97 | 62 | **±0** |
+| `made_tunnel` | 26 | 39 | 22 | −15% |
+| `got` | 26 | 46 | 30 | +15% |
+
+The totals look almost unchanged — adding royal forks and removing pawn-only ones nearly cancel.
+**The composition does not.** Comparing the actual drill-position sets:
+
+| | positions |
+|---|---|
+| stored-era set | 26 |
+| current set | 30 |
+| in both | 22 |
+| dropped (no longer credited) | 4 |
+| newly credited | 8 |
+| **credit changed** | **12 of 34 = 35%** |
+
+A third of fork drill positions differ, and those positions are exactly what MotifDrill and Stage 8
+serve. **Recomputation is required** — a matching count is not a matching profile.
+
+Two consequences: the recompute must run before any fork drill or Stage 8 content is served, and
+the `_verdict` mastery boundaries (locked at p70 of the got/made-per-game distribution across 53
+users) must be refitted afterwards, because the `got` distribution shifts.
 
 ### E3.5 Regression safety
 

@@ -770,10 +770,13 @@ def is_named_fork(shape: Dict[str, Any]) -> bool:
     exact drift this function exists to prevent — Gold-eligible candidates
     inflated from 97 to 193 by admitting pawn+pawn forks nobody would teach.
 
-    Measured cost of uniformity, 6,000-move corpus: 20 normal pawn-only shapes
-    stop being named (20% of normal shapes, 0.3% of all moves). The existing
-    principle path `_p_tac_fork_pattern` already applied this same >=300 bar, so
-    this aligns `extract_primary_reason` with a rule the codebase already held.
+    Measured cost of uniformity, 6,000-move corpus: **32 moves (0.5%)** lose a
+    fork caption and fall back to another rule rather than to silence. (An
+    earlier note said "20 / 0.3%" — that was counting pawn-only normal *shapes*,
+    not moves; one move can carry several shapes. 32 moves is the user-visible
+    figure and the one the evidence doc uses.) The existing principle path
+    `_p_tac_fork_pattern` already applied this same >=300 bar, so this aligns
+    `extract_primary_reason` with a rule the codebase already held.
     """
     winnable = [
         t for t in (shape.get("attacked_targets") or []) if not t.get("is_forced")
@@ -1662,7 +1665,7 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if _tactic_ok and named_fork_shapes(facts.get("multi_target_attack_evidence")):
         return {
             "category": "tactic_played",
-            "ref_field": "multi_target_attack_evidence",
+            "ref_field": "named_fork_evidence",
             "priority_level": 2,
         }
     if _tactic_ok and facts.get("aligned_pieces_evidence"):
@@ -2151,13 +2154,16 @@ def _p_tac_fork_pattern(
 ) -> Optional[Dict[str, Any]]:
     """Fires when the played move creates a multi-target attack with at
     least one target valued ≥ knight, AND the engine endorses the move."""
-    shapes = facts.get("multi_target_attack_evidence") or []
+    # Promotion policy comes from the shared predicate — this used to inline its
+    # own `any(value_cp >= 300)`, a second copy of the threshold that could drift
+    # from is_named_fork(). Falls back to filtering the raw list so the helper
+    # still works when handed a facts dict built before the view existed.
+    shapes = facts.get("named_fork_evidence")
+    if shapes is None:
+        shapes = named_fork_shapes(facts.get("multi_target_attack_evidence"))
     if not shapes:
         return None
     shape = shapes[0]
-    targets = shape.get("attacked_targets") or []
-    if not any(t.get("value_cp", 0) >= 300 for t in targets):
-        return None
     # endorsement_required: only fire when engine endorses the move
     # itself. Since the played move IS what created the fork, the
     # engine's #1 should match played_san for the principle to apply.
@@ -6147,7 +6153,15 @@ def extract_facts(
         # Renderer rules read these and decide whether to say "fork" /
         # "pin" / "skewer" / "x-ray" / "double attack" / "pressure" —
         # the extractor never commits to a coaching word.
+        # Raw geometry — complete chess truth, including shapes we do not name.
+        # For geometry audits, detector research and regression work ONLY.
         "multi_target_attack_evidence": multi_target_attack_evidence,
+        # The PROMOTED view: the subset ChessGuru is willing to call a fork.
+        # Every user-facing surface — captions, profile claims, drills — must
+        # read this, never the raw list, or one surface will say "check, and it
+        # attacks a pawn" while another says "you keep getting forked" about the
+        # same move. Derived solely by is_named_fork().
+        "named_fork_evidence": named_fork_shapes(multi_target_attack_evidence),
         "aligned_pieces_evidence": aligned_pieces_evidence,
         "discovered_attack_evidence": discovered_attack_evidence,
 

@@ -120,12 +120,28 @@ def _r01_render(f):
 
 
 # R02 — Multi-target attack (rendered as "fork" or "double attack")
+#
+# Reads named_fork_evidence, NOT the raw geometry. The raw list deliberately
+# includes shapes we decline to call a fork -- e.g. a queen that checks the king
+# while attacking a pawn. Rendering the raw list would caption that as a fork
+# while extract_primary_reason routes it to check_extra, so the same move would
+# be described two different ways depending on which surface asked.
+def _named_forks(f):
+    """The promoted shapes. Falls back to filtering raw evidence for callers
+    holding a facts dict built before the view existed."""
+    shapes = f.get("named_fork_evidence")
+    if shapes is None:
+        from services.caption_facts import named_fork_shapes
+        shapes = named_fork_shapes(f.get("multi_target_attack_evidence"))
+    return shapes or []
+
+
 def _r02_trigger(f):
-    return bool(f.get("multi_target_attack_evidence"))
+    return bool(_named_forks(f))
 
 
 def _r02_render(f):
-    shape = f["multi_target_attack_evidence"][0]
+    shape = _named_forks(f)[0]
     targets = shape["attacked_targets"]
     t0 = targets[0]
     t1 = targets[1] if len(targets) > 1 else None

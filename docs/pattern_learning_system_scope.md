@@ -297,9 +297,17 @@ toward rung progression**. Endless retry is how people quit.
    > **`is_named_fork(shape)` — at least one WINNABLE target worth a minor piece or more.**
    > The king never counts toward it. `FORK_MIN_NAMED_TARGET_CP = 300`.
 
-   Captions, Gold-content selection and the Stage 8 grader all call that same function, so the
-   caption system and the lesson system cannot drift into different definitions of "fork". A
-   pawn-only royal fork is not silenced — it routes to the existing check explanation.
+   **Enforced by a derived view, not by convention.** `extract_facts` emits
+   `named_fork_evidence` — the promoted subset, produced solely by `is_named_fork()`. Every
+   user-facing surface reads that view: the R02 caption rule, the `_p_tac_fork_pattern` principle,
+   `motif_profile_service` fork claims and drill positions, and `player_identity`. Raw
+   `multi_target_attack_evidence` is retained for geometry audits and detector research only. The
+   one deliberate exception is `caption_facts_verified`'s "does this move have any coaching reason"
+   check, which correctly stays on raw — a pawn-only royal fork does give the move content.
+
+   Without this, one surface could say *"check, and it attacks a pawn"* while another says
+   *"you keep getting forked"* and serves the same move as a fork drill. A pawn-only royal fork is
+   not silenced — it routes to the existing check explanation.
 
    Three gates protect the evidence itself: the other target already passed SEE, the check comes
    from the piece that just moved, and the checking piece survives SEE on its own square. That last
@@ -421,7 +429,8 @@ experiment (**E6**).
 | 2 | **Independent chess reviewer.** §3.8 and §3.9 both require a human who is not the author. Who? | **Mohit to assign** | Name the reviewer before authoring starts, so review is not retrofitted; Parth is the obvious candidate given prior caption-review history |
 | 3 | **Recruitment channel.** 20–25 players rated 600–1200, ≥15 completers. | **Mohit to assign** | Decide channel (existing 64-user base has only ~26 in band and 4 weekly actives, so this likely needs outside recruitment); draft the invite and the consent line before Track B ships |
 | 4 | ~~Royal-fork floor~~ — **CLOSED.** 300 cp confirmed by Mohit 2026-08-13 as the minimum for a *named/teaching-grade* fork, not as the definition of whether a fork exists. Moved out of the detector into the shared `is_named_fork()` promotion predicate. | — | Closed |
-| 5 | **Uniform vs royal-only naming floor.** Applying the floor to normal shapes too is an *inference* from the one-shared-function requirement, not a literal instruction. It costs 32 normal pawn-only shapes their fork caption (0.5% of moves); royal-only would force Gold selection to a stricter predicate and reintroduce drift. | **Mohit to ratify** | Non-blocking. One-line revert if the trade is unwanted (**E3.3b**) |
+| 5 | ~~Uniform vs royal-only naming floor~~ — **CLOSED.** Ratified by Mohit 2026-08-13: 300 cp applies uniformly to normal and royal shapes. Royal-only rejected (leaves pawn+pawn named while equivalent royal shapes are suppressed); 500 rejected (loses valid minor-piece forks); no floor rejected (demonstrated caption noise). | — | Closed |
+| 6 | **Recompute scope.** The fork recompute (§7 item 14) shifts the `got` distribution, so the p70-locked `_verdict` mastery boundaries need refitting. Refit against the post-recompute distribution, or hold the old boundaries and accept drift? | **Claude to measure, Mohit to decide** | Blocking for fork drills only. Run the recompute on a sample first, then `/lock-via-data` on the new distribution |
 
 *Resolved and removed: whether Stage 8 stays in V1 (yes — Mohit, §7).*
 
@@ -443,6 +452,9 @@ experiment (**E6**).
 | 10 | Optimise the pre-commit hook (one `grep` per file, not per line) | ✅ **Discharged** — `6e094a87`. 469,113 ms → 85 ms on `coach_play.py` |
 | 11 | Royal-fork support in the canonical detector; retire `pattern_confidence/fork.py` | ✅ **Discharged** — `de9f6d11` |
 | 12 | Move the 300 floor out of the detector into a shared promotion predicate; behavioural tests | ✅ **Discharged** — `is_named_fork()`, 10 behavioural tests, no new regression |
+| 13 | Wire every user-facing fork consumer to the derived `named_fork_evidence` view; de-duplicate `_p_tac_fork_pattern`'s threshold | ✅ **Discharged** — R02, principle path, motif profile (4 sites), player identity |
+| 14 | **Recompute stored `motif_profile` fork rows, then refit the `_verdict` mastery boundaries** | ⬜ **Open — blocking for any fork drill or Stage 8 content.** 35% of drill positions change credit even though totals barely move (**E3.4a**) |
+| 15 | Correct the stale audit-status block at `motif_profile_service.py:15` | ✅ **Discharged** — replaced with the per-motif geometry/attribution table |
 
 **Decisions recorded (Mohit, 2026-08-13):**
 

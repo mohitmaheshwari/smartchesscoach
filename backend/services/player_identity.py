@@ -920,7 +920,9 @@ class PlayerIdentityService:
                 fen_before=board.fen(), played_san=best_move,
                 cp_loss=0, mover_is_user=True,
             )
-            return bool(facts.get("multi_target_attack_evidence"))
+            # Promoted view, not raw geometry — an identity claim ("you spot
+            # forks") must match what the captions actually call a fork.
+            return bool(facts.get("named_fork_evidence"))
         except Exception:
             return False
     
