@@ -113,8 +113,11 @@ and holds for every user who has any gold position:
 This wording stays true when provenance is ambiguous — it claims a saved position, not a date or an
 opponent, and 11% of stored rows cannot name their game (**E1.4**).
 
-Gate: **≥1 gold knight-fork position** (26 users today). The specifics move to Stage 8, where the
-actual position is on screen and the claim is self-evidencing. Fallback for everyone else:
+Gate: **≥1 reviewed Gold knight-fork position.** At most 32 users have a Gold-*eligible* candidate;
+how many have a reviewed one is unknown until authoring runs, so this gate must read reviewed
+positions, never the candidate pool — otherwise the copy promises a saved personal lesson backed by
+unaudited material. The specifics move to Stage 8, where the position is on screen and the claim is
+self-evidencing. Fallback for everyone else:
 
 ```
   Knight forks are the first tactic most players learn to fear.
@@ -212,9 +215,9 @@ We do **not** then ask for the preventing move; there is no single right answer.
 ```
 
 Discriminating, legal (3,395/3,395 verified post-hotfix), personal, and it teaches the scan rather
-than a move. Reaches **26 users, median 3.5 positions, max 8** — better than the v4 estimate of
-41%/median 2, because Gold is now defined by the canonical SEE-gated evidence rather than a
-hand-rolled bar that wrongly rejected defended-but-winnable targets (**E3.4**). **Skipped silently when unavailable, never
+than a move. Candidate pool: **≤32 users, median 4 positions, max 18** — but these are
+Gold-*eligible*, not reviewed. Real coverage is determined after authoring (**E3.4**), and Stage 8
+stays optional regardless. **Skipped silently when unavailable, never
 faked, excluded from every rung, and never gates completion.**
 
 Only rows with `provenance == "exact"` may print a game or date; 11% of stored rows match several
@@ -280,43 +283,49 @@ toward rung progression**. Endless retry is how people quit.
    | 7 | Retains after a delay | Stage 10, ≥24h, unannounced |
    | 8 | Applies it in real games | *gated on Track A* |
 
-6. **Move grading reads the canonical evidence. No lesson-local recognizer.**
-   A Stage 8 answer is **correct** if the move is legal and either:
-
-   - it is the stored `opp_creates_motif`; **or**
-   - `caption_facts.multi_target_attack_evidence` reports a shape with
-     `attacker_piece_type == "knight"`, `via_moving_piece`, and ≥2 targets — where the enemy king
-     counts as a target when the move gives check.
-
+6. **Move grading reads the canonical evidence through the shared promotion predicate.**
+   A Stage 8 answer is **correct** if the move is legal and either it is the stored
+   `opp_creates_motif`, or `caption_facts.multi_target_attack_evidence` reports a shape with
+   `attacker_piece_type == "knight"` and `via_moving_piece` that passes `is_named_fork()`.
    Exact-move grading is banned: it reintroduces false negatives the moment two moves both fork.
 
-   Royal forks are handled **in the canonical detector**, not here. `_threats_created` skips the
-   king because a king is not winnable material, so a check-plus-piece fork used to arrive with one
-   target and be discarded — it rejected the historically-correct move on **16 of 63** gold
-   positions. `_forced_king_target` now folds the king in as a **forced target** (`value_cp = 0`,
-   `is_forced = true`, so it can never enter material arithmetic) behind three gates: the other
-   target already passed SEE, the check comes from the piece that just moved, and the checking piece
-   survives SEE on its own square. A value floor requires the winnable target to be worth a minor
-   piece or more — without it, 57% of newly-recognised royal forks were "check, and I also hit a
-   pawn" (**E3.3**).
+   **Two layers, deliberately separate.** The evidence records chess truth: a piece that checks the
+   king while attacking a pawn *is* a fork, and the canonical detector says so — the enemy king is
+   folded in as a **forced target** (`value_cp = 0`, `is_forced = true`) so it can never enter
+   material arithmetic. Product policy lives in one shared predicate:
 
-   This is **piece-agnostic**: it keys off "the checking piece", never off knights. The lesson
-   filters to knights; the detector does not.
+   > **`is_named_fork(shape)` — at least one WINNABLE target worth a minor piece or more.**
+   > The king never counts toward it. `FORK_MIN_NAMED_TARGET_CP = 300`.
+
+   Captions, Gold-content selection and the Stage 8 grader all call that same function, so the
+   caption system and the lesson system cannot drift into different definitions of "fork". A
+   pawn-only royal fork is not silenced — it routes to the existing check explanation.
+
+   Three gates protect the evidence itself: the other target already passed SEE, the check comes
+   from the piece that just moved, and the checking piece survives SEE on its own square. That last
+   one is where `pattern_confidence/fork.py:120` was too lenient (**E3.3**).
+
+   **Piece-agnostic**: it keys off "the checking piece", never off knights. The lesson filters to
+   knights; the detector and the predicate do not.
 
 7. **Position confidence classes.** No position teaches without one.
 
    | Class | Bar | Used for |
    |---|---|---|
-   | **Gold** | **Canonical `multi_target_attack_evidence` reports a normal OR royal fork** with `attacker_piece_type = knight` and `via_moving_piece = True` · ≥1 target genuinely winnable · **not a mate line by explicit `mate_info`** · **and a human has looked at it** | Stages 1, 3, 4, 5, 6, 8 |
+   | **Gold-eligible** | Canonical `multi_target_attack_evidence` passes `is_named_fork()` with `attacker_piece_type = knight` and `via_moving_piece = True` · not a mate line by explicit `mate_info`. **183 candidates today** | the pool review draws from |
+   | **Gold** | A Gold-eligible candidate **that a human has reviewed and accepted** | Stages 1, 3, 4, 5, 6, 8 |
    | **Verified** | Detector + engine agree, no human pass | Stages 7, 10 |
    | **Inferred** | Broad tag only (`missed_tactic`, `tactical`) | Never used here |
    | **Rejected** | Ambiguous, competing ideas, tag mismatch, unclear solution | Discarded, reason recorded |
 
-   The v4 bar was self-contradictory: it required "detector fires" while admitting 16 positions
-   where the detector did not fire. Gold is now defined **as** the canonical evidence, so the two
-   cannot diverge. Re-run on the mate-corrected set this yields **97 gold (27 royal, 70 normal)**,
-   up from 64 — the old hand-rolled bar was wrongly rejecting 41 defended-but-winnable targets that
-   SEE correctly accepts (**E3.4**).
+   **Gold-eligible is not Gold.** Eligibility is machine-decidable; Gold requires human review.
+   The 183 figure is the size of the *pool*, not the amount of teaching content we have — the
+   entry-copy gate and Stage 8 coverage must be recomputed from reviewed positions only, never from
+   the candidate count (**E3.4**).
+
+   The v4 bar was also self-contradictory: it required "detector fires" while admitting 16 positions
+   where the detector did not. Eligibility is now defined **as** the shared predicate, so the two
+   cannot diverge.
 
    `via_moving_piece` is asserted **per asset during authoring**, not via a blocking global sample.
 
@@ -411,7 +420,8 @@ experiment (**E6**).
 | 1 | **Content authoring capacity.** 40 Gold positions + 12 counterexamples + 3 distractors per Gold is the largest cost in V1 and it scales with the Gold count. Is it one person or split? | **Mohit to assign** | Author 5 Gold + 2 counterexamples as a timed pilot batch, measure minutes-per-asset, then size the rest from the real rate rather than an estimate |
 | 2 | **Independent chess reviewer.** §3.8 and §3.9 both require a human who is not the author. Who? | **Mohit to assign** | Name the reviewer before authoring starts, so review is not retrofitted; Parth is the obvious candidate given prior caption-review history |
 | 3 | **Recruitment channel.** 20–25 players rated 600–1200, ≥15 completers. | **Mohit to assign** | Decide channel (existing 64-user base has only ~26 in band and 4 weekly actives, so this likely needs outside recruitment); draft the invite and the consent line before Track B ships |
-| 4 | **Royal-fork floor.** `_ROYAL_FORK_MIN_TARGET_CP = 300` decides whether "check + pawn" is a fork. Locked against the corpus (57% of newly-recognised royal forks were pawn-only), but it is still a threshold on a caption surface used product-wide. | **Mohit to confirm** | **Blocker before Stage 8 implementation only — NOT before the rating-resolution work begins.** Confirm 300, or re-run `/lock-via-data` on a larger corpus. The Gold/detector contradiction that used to sit here is resolved: Gold *is* the canonical evidence now |
+| 4 | ~~Royal-fork floor~~ — **CLOSED.** 300 cp confirmed by Mohit 2026-08-13 as the minimum for a *named/teaching-grade* fork, not as the definition of whether a fork exists. Moved out of the detector into the shared `is_named_fork()` promotion predicate. | — | Closed |
+| 5 | **Uniform vs royal-only naming floor.** Applying the floor to normal shapes too is an *inference* from the one-shared-function requirement, not a literal instruction. It costs 32 normal pawn-only shapes their fork caption (0.5% of moves); royal-only would force Gold selection to a stricter predicate and reintroduce drift. | **Mohit to ratify** | Non-blocking. One-line revert if the trade is unwanted (**E3.3b**) |
 
 *Resolved and removed: whether Stage 8 stays in V1 (yes — Mohit, §7).*
 
@@ -431,7 +441,8 @@ experiment (**E6**).
 | 8 | Author 40 Gold + 12 counterexamples + 3 distractors per Gold, through the §3.7–3.9 gates | ⬜ Open — the main content cost; see §6 Q1 |
 | 9 | Recruit 20–25 players rated 600–1200 | ⬜ Open — see §6 Q3 |
 | 10 | Optimise the pre-commit hook (one `grep` per file, not per line) | ✅ **Discharged** — `6e094a87`. 469,113 ms → 85 ms on `coach_play.py` |
-| 11 | Royal-fork support in the canonical detector; retire `pattern_confidence/fork.py` | ✅ **Discharged** — `_forced_king_target`, 8 tests, no regression on the caption suite |
+| 11 | Royal-fork support in the canonical detector; retire `pattern_confidence/fork.py` | ✅ **Discharged** — `de9f6d11` |
+| 12 | Move the 300 floor out of the detector into a shared promotion predicate; behavioural tests | ✅ **Discharged** — `is_named_fork()`, 10 behavioural tests, no new regression |
 
 **Decisions recorded (Mohit, 2026-08-13):**
 

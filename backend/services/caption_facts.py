@@ -726,19 +726,66 @@ def _pieces_now_undefended(
 # evidence of the line."
 # ────────────────────────────────────────────────────────────────────
 
-# Minimum value of the NON-king target before a check counts as a royal fork.
+# ── Promotion policy, NOT geometry ───────────────────────────────────────────
 #
-# Asymmetric with the normal fork path on purpose. In an ordinary two-target
-# fork both targets are winnable material, so a pawn+pawn fork still wins a pawn.
-# In a royal fork the king contributes ZERO material — so if the only winnable
-# target is a pawn, the shape is really "check, and I also hit a pawn," which is
-# usually just tempo, not a fork worth teaching a 600-1500 player.
+# Minimum value of a WINNABLE target before ChessGuru will NAME a shape as a
+# fork and use it as training material. The enemy king never counts toward it.
+#
+# This is deliberately NOT a gate inside the detector. A knight that checks the
+# king while attacking a pawn IS a fork — saying otherwise would make the
+# canonical evidence assert something chessically false, and would let the
+# caption layer and the lesson layer drift into different definitions of the
+# word. So: the evidence records the complete geometry, and this one shared
+# predicate decides what gets promoted into named teaching.
 #
 # Locked against the distribution, not picked by feel (2026-08-13, 6k-move
-# corpus): of 82 newly-recognised royal forks, 47 (57%) had a pawn as their only
-# winnable target and 35 (43%) had a minor piece or better. Without this floor the
-# extension raises total fork detections by +57%; with it, by +29%.
-_ROYAL_FORK_MIN_TARGET_CP = 300
+# corpus): of 82 royal forks, 47 (57%) had a pawn as their only winnable target
+# and 35 (43%) had a minor piece or better. 300 keeps the 35 meaningful ones
+# across queens, knights, rooks and bishops; 500 would wrongly discard valid
+# check-plus-minor forks such as Qb5+ (king + knight). Pawn-only royal forks are
+# not silenced — they fall through to the existing "check, and it attacks a
+# pawn" explanation. Confirmed by Mohit 2026-08-13.
+FORK_MIN_NAMED_TARGET_CP = 300
+
+
+def is_named_fork(shape: Dict[str, Any]) -> bool:
+    """Should ChessGuru NAME this multi-target shape as a fork and teach from it?
+
+    THE one promotion predicate. Captions, Gold-content selection and the
+    Stage 8 grader all call this, so "what counts as a teachable fork" cannot
+    diverge between the caption system and the lesson system.
+
+    Chess truth (is it a fork?) lives in the evidence. Product policy (do we
+    name it?) lives here. Piece-agnostic — a bishop, rook or queen fork is
+    judged exactly like a knight's.
+
+    THE RULE: at least one target we can actually WIN must be worth a minor
+    piece or more. The enemy king never counts toward that — it is a forced
+    target, not winnable material — so a royal fork is named on the strength of
+    its other target alone.
+
+    Applied uniformly to royal and normal shapes. The asymmetric version (floor
+    on royal only) was tried first and rejected: it forced Gold-content
+    selection to use a STRICTER predicate than the caption layer, which is the
+    exact drift this function exists to prevent — Gold-eligible candidates
+    inflated from 97 to 193 by admitting pawn+pawn forks nobody would teach.
+
+    Measured cost of uniformity, 6,000-move corpus: 20 normal pawn-only shapes
+    stop being named (20% of normal shapes, 0.3% of all moves). The existing
+    principle path `_p_tac_fork_pattern` already applied this same >=300 bar, so
+    this aligns `extract_primary_reason` with a rule the codebase already held.
+    """
+    winnable = [
+        t for t in (shape.get("attacked_targets") or []) if not t.get("is_forced")
+    ]
+    return any(
+        (t.get("value_cp") or 0) >= FORK_MIN_NAMED_TARGET_CP for t in winnable
+    )
+
+
+def named_fork_shapes(evidence: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """The subset of multi_target_attack_evidence eligible to be named/taught."""
+    return [s for s in (evidence or []) if is_named_fork(s)]
 
 
 def _forced_king_target(
@@ -801,14 +848,13 @@ def _forced_king_target(
     if played_move is not None and checker_sq != played_move.to_square:
         return None
 
-    # Gate 1 — that same attacker must already hold a winnable target worth at
-    # least _ROYAL_FORK_MIN_TARGET_CP. See the constant for why the floor exists
-    # here but not on the normal two-target path.
+    # Gate 1 — that same attacker must already hold a winnable target.
+    # NO value floor here on purpose: check + pawn is still geometrically a fork,
+    # and the evidence layer must say so. Whether we NAME it is decided later by
+    # is_named_fork(). Keeping the floor here would make the canonical evidence
+    # claim a real fork does not exist.
     checker_name = chess.square_name(checker_sq)
-    own_targets = [t for t in threats if t.get("attacker_square") == checker_name]
-    if not own_targets:
-        return None
-    if max((t.get("target_value_cp") or 0) for t in own_targets) < _ROYAL_FORK_MIN_TARGET_CP:
+    if not any(t.get("attacker_square") == checker_name for t in threats):
         return None
 
     # Gate 3 — the checking piece must survive.
@@ -1609,7 +1655,11 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     _tactic_ok = _move_cpl < MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
 
     # Priority 2: own tactic shape on the played move (gated)
-    if _tactic_ok and facts.get("multi_target_attack_evidence"):
+    # Routed through is_named_fork() — the shared promotion policy. A royal fork
+    # whose only winnable target is a pawn is a real fork geometrically, but it
+    # is not worth NAMING as one; it falls through to the check_extra rule
+    # below, which explains the check and the pawn honestly.
+    if _tactic_ok and named_fork_shapes(facts.get("multi_target_attack_evidence")):
         return {
             "category": "tactic_played",
             "ref_field": "multi_target_attack_evidence",

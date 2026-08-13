@@ -269,39 +269,78 @@ Real examples: *"Be6+ forks the queen on f5 and the king on c8"* (bishop),
 *"Nxf2+ forks the rook on h1 and the king on d1"* (knight),
 *"Rh1+ forks the pawn on h3 and the king on f1"* (rook).
 
-### E3.3b The royal-fork value floor
+### E3.3b The naming policy — geometry vs promotion
 
-Blast radius matters: this detector powers every caption surface. Without a floor the change raises
-total fork detections by **+57%** (121 → 190 on 6,000 moves). Inspecting the rendered output showed
-why — 47 of 82 newly-recognised royal forks (**57%**) had a pawn as their only winnable target, e.g.
+Blast radius matters: this detector powers every caption surface. Rendering the newly-firing set
+showed 47 of 82 royal forks (**57%**) had a pawn as their only winnable target — e.g.
 *"Qa4+ forks the pawn on b4 and the king on d7"* at cp_loss 0. That is tempo, not a teachable fork.
 
-`_ROYAL_FORK_MIN_TARGET_CP = 300` requires the winnable target to be a minor piece or better. The
-floor is asymmetric with the normal path on purpose: in an ordinary pawn+pawn fork you still win a
-pawn, but in a royal fork the king contributes zero material, so a pawn-only royal fork is just a
-check. With the floor, blast radius is **+29%** and 100% of newly-firing royal forks have a
-minor-or-better target.
+**The floor does NOT live in the detector.** A knight that checks while attacking a pawn *is* a
+fork; a gate inside `_forced_king_target` would make the canonical evidence assert something
+chessically false, and would let the caption layer and the lesson layer drift into different
+definitions of the word. So:
 
-Locked against the distribution, not chosen by feel — but it remains a threshold on a product-wide
-surface and is flagged for confirmation (scope §6 Q4).
+- **`multi_target_attack_evidence` records the complete geometry** — every royal fork, pawn-only
+  included.
+- **`is_named_fork(shape)` is the one shared promotion predicate** — captions
+  (`extract_primary_reason`), Gold-content selection and the Stage 8 grader all call it.
 
-### E3.4 Gold, redefined as the canonical evidence
+Rule: **at least one WINNABLE target worth a minor piece or more.** The king never counts toward
+it — it is forced, not winnable. `FORK_MIN_NAMED_TARGET_CP = 300`; 500 would wrongly discard valid
+check-plus-minor forks such as Qb5+ (king + knight). Confirmed by Mohit 2026-08-13.
 
-The v4 Gold bar was self-contradictory — it required "detector fires" while admitting 16 positions
-where the detector did not. Gold is now defined **as** canonical evidence (normal or royal), so the
-two cannot diverge. Re-run over the 203 reconstructed knight candidates with the explicit mate gate:
+Pawn-only royal forks are **not silenced** — they route to the existing `check_extra` explanation.
+Verified behaviourally on a real position (Qf5+, king + pawn): raw royal evidence present,
+`is_named_fork` false, primary reason `check_extra`.
 
-| | v4 hand-rolled bar | v4.2 canonical |
+**Applied uniformly to royal and normal shapes.** The asymmetric version (floor on royal only) was
+implemented first and rejected: it forced Gold-content selection to use a *stricter* predicate than
+the caption layer — the exact drift the shared function exists to prevent — inflating candidates
+from 97 to 193 by admitting pawn+pawn forks. Uniformity is an inference from the one-shared-function
+requirement, not a literal instruction, and it has a cost worth stating:
+
+| On a 6,000-move corpus | Before | After |
 |---|---|---|
-| gold | 64 | **97** (27 royal, 70 normal) |
-| rejected | 139 | 106 (97 no evidence, 9 mate line) |
-| users with ≥1 gold | 24 | **26** |
-| users with ≥3 gold | 11 | **16** |
-| median per covered user | 2 | **3.5** (max 8) |
+| Evidence fires (chess truth) | 121 | **190** (+57%) |
+| Named as a fork (what the user sees) | 89 | **119** (+34%) |
+| Royal forks kept in evidence, not named | — | 39 |
+| Captions shifting `check_extra` → `tactic_played` | — | 27 |
 
-The increase is a correction, not inflation: the hand bar rejected 41 positions for "every valuable
-target is defended", but SEE correctly treats a defended rook attacked by a knight as winnable
-(+500 −300 = +200). The canonical detector was right and my simpler heuristic was wrong.
+The `89` baseline is the honest one: **32 normal pawn-only shapes that are named as forks today
+would stop being named** under the uniform rule (0.5% of moves). They fall back to other rules, not
+to silence, and the existing principle path `_p_tac_fork_pattern` already applied this same ≥300
+bar — so this aligns `extract_primary_reason` with a rule the codebase already held elsewhere.
+Reverting to royal-only is a one-line change if that trade is unwanted.
+
+### E3.4 Gold-ELIGIBLE candidates, defined by the shared predicate
+
+**Terminology, corrected.** These are **Gold-eligible candidates**, not Gold. The scope's own Gold
+definition requires a human to have looked at the position; none of these have been reviewed.
+Actual Gold coverage — and therefore how many users the Stage 8 entry gate can honestly promise a
+saved personal position to — is only known after review.
+
+The v4 bar was also self-contradictory: it required "detector fires" while admitting 16 positions
+where the detector did not. Eligibility is now defined **as** `is_named_fork()` over canonical
+evidence, so the caption layer and the content layer cannot diverge.
+
+Re-run over the 203 reconstructed knight candidates with the explicit mate gate:
+
+| | v4 hand-rolled bar | v4.2 shared predicate |
+|---|---|---|
+| Gold-**eligible** candidates | 64 | **183** (27 royal, 156 normal) |
+| rejected | 139 | 20 (9 mate line, 11 no evidence) |
+| users with ≥1 candidate | 24 | **≤32** |
+| users with ≥3 candidates | 11 | ≤19 |
+| median per covered user | 2 | 4 (max 18) |
+
+Three different counts have been reported during this work (64 → 97 → 183) because the predicate
+changed three times; each is stated with its predicate so the movement is auditable:
+
+- **64** — hand-rolled bar: ≥2 targets worth ≥300, king counted, `cp_loss < 1000` mate proxy.
+- **97** — same shape bar, but explicit `mate_info` and canonical SEE evidence. The hand bar had
+  been wrongly rejecting 41 defended-but-winnable targets that SEE correctly accepts.
+- **183** — the shared predicate: ≥1 *winnable* target ≥300. Looser than "two valuable targets"
+  because a knight forking a queen and a pawn genuinely wins the queen and is worth teaching.
 
 Separately: **no gold position has more than one fork-creating knight move**, so the grading rule
 prevents a regression rather than fixing a live defect.

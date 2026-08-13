@@ -27,7 +27,12 @@ import chess
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.caption_facts import extract_facts  # noqa: E402
+from services.caption_facts import (  # noqa: E402
+    extract_facts,
+    extract_primary_reason,
+    is_named_fork,
+    named_fork_shapes,
+)
 
 
 def _shapes(fen_before, played_san):
@@ -57,6 +62,10 @@ ROYAL_QUEEN = ("r3k2r/ppp2ppp/3p1q1n/n1b1p2b/2B1P3/1QPP1N1P/PP1N1PP1/R1B2RK1 w k
 NORMAL_FORK = ("r1b3k1/ppq3pp/5r2/8/5b2/P1N2B2/1P3PP1/R2QRK2 w - - 2 21", "Nd5")
 # A real check that is NOT a fork -- it must stay silent.
 BARE_CHECK = ("r2qkbnr/ppp2pp1/3p3p/4p3/2BnP1b1/P1NP1N2/1PP2PPP/R1BQK2R w KQkq - 1 7", "Bxf7+")
+# Check + PAWN. Geometrically a fork, but not worth naming as one.
+PAWN_ONLY_ROYAL = ("r2q1bnr/ppp2kp1/7p/4p3/4P1Q1/P1NP4/1P3PPP/n1B2K1R w - - 0 11", "Qf5+")
+# The checking knight is capturable at a profit -- the "fork" resolves by taking it.
+UNSAFE_CHECKER = ("r2q1bnr/ppp2kp1/3p3p/4p3/3nP1b1/P1NP1N2/1PP2PPP/R1BQK2R w KQ - 0 8", "Nxe5+")
 
 
 # ─── the shape is recognised, for more than one attacker type ────────────────
@@ -98,21 +107,83 @@ def test_a_plain_check_is_not_a_fork():
     assert _royal(*BARE_CHECK) is None, "bare check registered as a fork"
 
 
-def test_pawn_only_target_is_below_the_floor():
-    """Check + pawn is tempo, not a teachable fork. Before the floor, 47 of 82
-    newly-recognised royal forks (57%) were exactly this shape."""
-    from services.caption_facts import _ROYAL_FORK_MIN_TARGET_CP
-    assert _ROYAL_FORK_MIN_TARGET_CP >= 300
+def test_pawn_only_royal_fork_keeps_its_geometry_but_is_not_named():
+    """Chess truth and product policy are separate layers.
+
+    Qf5+ checks the king and attacks a pawn. That IS a fork -- the canonical
+    evidence must say so. But ChessGuru does not NAME it, because the king wins
+    no material and a pawn is not worth a fork lesson. It falls through to the
+    ordinary check explanation instead of being silenced.
+    """
+    facts = extract_facts(fen_before=PAWN_ONLY_ROYAL[0], played_san=PAWN_ONLY_ROYAL[1],
+                          cp_loss=0, mover_is_user=True)
+    royal = [s for s in (facts.get("multi_target_attack_evidence") or [])
+             if s.get("includes_forced_king")]
+
+    # 1. the geometry is recorded -- the detector does not lie about chess
+    assert royal, "check+pawn is still a fork; the evidence must record it"
+    kinds = {t["piece_type"] for t in royal[0]["attacked_targets"]}
+    assert "king" in kinds and "pawn" in kinds
+
+    # 2. but it is not promoted into named teaching
+    assert is_named_fork(royal[0]) is False
+    assert named_fork_shapes(facts["multi_target_attack_evidence"]) == []
+
+    # 3. and the caption routes to the honest check explanation, not silence
+    reason = extract_primary_reason(facts)
+    assert reason is not None, "must not go silent"
+    assert reason["category"] == "check_extra",         f"expected fallback to check_extra, got {reason['category']}"
 
 
-def test_forker_must_survive_see():
-    """The checking piece must not simply hang. This is where
-    pattern_confidence/fork.py:120 was too lenient -- it treated `gives_check`
-    as making the forker safe outright, accepting a knight the king just takes."""
-    import inspect
-    from services import caption_facts
-    src = inspect.getsource(caption_facts._forced_king_target)
-    assert "static_exchange_eval" in src, "forker-safety gate missing"
+def test_check_plus_minor_piece_is_named():
+    """The counterpart: 300 must not be so high that real forks are discarded.
+    Qb5+ hits the king and a knight -- a 500 floor would wrongly reject it."""
+    facts = extract_facts(fen_before=ROYAL_QUEEN[0], played_san=ROYAL_QUEEN[1],
+                          cp_loss=0, mover_is_user=True)
+    royal = [s for s in (facts.get("multi_target_attack_evidence") or [])
+             if s.get("includes_forced_king")]
+    assert royal, "queen royal fork not recognised"
+    assert is_named_fork(royal[0]) is True,         "check + knight must stay eligible -- this is why the floor is 300, not 500"
+    reason = extract_primary_reason(facts)
+    assert reason and reason["category"] == "tactic_played"
+
+
+def test_naming_rule_is_uniform_across_royal_and_normal():
+    """One predicate, one rule: at least one WINNABLE target worth a minor piece
+    or more. Applied to royal and normal shapes alike, so Gold-content selection
+    cannot drift to a stricter bar than the caption layer.
+
+    The asymmetric version (floor on royal only) inflated Gold-eligible
+    candidates from 97 to 193 by admitting pawn+pawn forks."""
+    facts = extract_facts(fen_before=NORMAL_FORK[0], played_san=NORMAL_FORK[1],
+                          cp_loss=0, mover_is_user=True)
+    normal = [s for s in (facts.get("multi_target_attack_evidence") or [])
+              if not s.get("includes_forced_king")]
+    assert normal, "fixture no longer produces a normal fork"
+    # Nd5 hits a queen and a rook -- comfortably named.
+    assert is_named_fork(normal[0]) is True
+
+    # And the rule is stated once, not per-shape-type: a shape whose only
+    # winnable targets are pawns is not named, royal or not.
+    pawn_only_normal = {"includes_forced_king": False, "attacked_targets": [
+        {"piece_type": "pawn", "value_cp": 100, "is_forced": False},
+        {"piece_type": "pawn", "value_cp": 100, "is_forced": False}]}
+    assert is_named_fork(pawn_only_normal) is False
+
+
+def test_capturable_checker_is_rejected():
+    """Nxe5+ checks and attacks a bishop, but the knight is capturable at a
+    profit -- the opponent answers the check by taking it, and there is nothing
+    to win. Must NOT register as a royal fork.
+
+    This is exactly where pattern_confidence/fork.py:120 was too lenient: it
+    treats `gives_check` as making the forker safe outright.
+    """
+    facts = extract_facts(fen_before=UNSAFE_CHECKER[0], played_san=UNSAFE_CHECKER[1],
+                          cp_loss=0, mover_is_user=True)
+    royal = [s for s in (facts.get("multi_target_attack_evidence") or [])
+             if s.get("includes_forced_king")]
+    assert royal == [], "a checker the opponent simply captures is not a fork"
 
 
 # ─── the normal path is untouched ────────────────────────────────────────────
