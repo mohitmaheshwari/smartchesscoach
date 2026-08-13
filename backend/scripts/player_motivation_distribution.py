@@ -6,7 +6,7 @@ question (self-declared). This is the strategic probe: are signups serious
 improvers or casual players?
 
 Usage (direct prod, no tunnel — see memory project_stable_prod_db_connection):
-  MONGO_URL='mongodb://admin_user_mii_s_c:<pwd>@72.60.204.176:27017/?authSource=admin' \
+  MONGO_URL=os.environ.get("MONGO_URL", "mongodb://localhost:27017") \
   DB_NAME=chess_coach python3 scripts/player_motivation_distribution.py
 """
 

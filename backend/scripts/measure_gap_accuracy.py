@@ -14,13 +14,14 @@ shippable at ~100% truth (verifiable) vs which must abstain (positional residue)
 
 Run:  python -m scripts.measure_gap_accuracy   (from backend/)
 """
+import os
 import asyncio
 from collections import Counter, defaultdict
 
 import chess
 from motor.motor_asyncio import AsyncIOMotorClient
 
-PROD = "mongodb://admin_user_mii_s_c:Mii123$44$@72.60.204.176:27017/?authSource=admin"
+PROD = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
 # A material swing this large (pawns) over the engine's forced line counts as a real,

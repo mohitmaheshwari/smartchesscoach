@@ -7,7 +7,7 @@ import sys; sys.path.insert(0, "/app/backend")
 import chess, asyncio, os
 from motor.motor_asyncio import AsyncIOMotorClient
 
-MONGO = os.environ.get("MONGO_URL", "mongodb://admin_user_mii_s_c:Mii123$44$@72.60.204.176:27017/?authSource=admin")
+MONGO = os.environ.get("MONGO_URL", os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
 N = 150
 TRUTH = 18
 
