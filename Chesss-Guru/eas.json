@@ -4,14 +4,12 @@
   },
   "build": {
     "development": {
-      "cache": {
-        "disabled": true
-      },
       "distribution": "internal",
       "developmentClient": true,
       "channel": "development",
       "env": {
-        "EXPO_ENV": "development"
+        "EXPO_ENV": "development",
+        "NODE_ENV": "development"
       },
       "android": {
         "buildType": "apk"
@@ -21,14 +19,12 @@
       }
     },
     "preview": {
-      "cache": {
-        "disabled": true
-      },
       "distribution": "internal",
       "developmentClient": false,
       "channel": "preview",
       "env": {
-        "EXPO_ENV": "preview"
+        "EXPO_ENV": "preview",
+        "NODE_ENV": "production"
       },
       "android": {
         "buildType": "apk"
@@ -38,15 +34,13 @@
       }
     },
     "production": {
-      "cache": {
-        "disabled": true
-      },
       "distribution": "store",
       "developmentClient": false,
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_ENV": "production"
+        "EXPO_ENV": "production",
+        "NODE_ENV": "production"
       },
       "android": {
         "buildType": "app-bundle"

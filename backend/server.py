@@ -50,9 +50,10 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://admin_user_mii_s_c:N8lXqNfJsxQSTUZ9Hpu43eXq928K@72.60.204.176:27017/chess_coach?authSource=admin&directConnection=true')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db_name = os.environ.get('DB_NAME', 'chess_coach')
+db = client[db_name]
 
 # LLM Key
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
@@ -273,22 +274,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error initializing coaching system: {e}")
 
-    _background_sync_task = asyncio.create_task(background_sync_loop())
-    logger.info("Background sync scheduler started (6 hour interval)")
+    ENABLE_BACKGROUND_SYNC = os.environ.get("ENABLE_BACKGROUND_SYNC", "false").lower() == "true"
+    if ENABLE_BACKGROUND_SYNC:
+        _background_sync_task = asyncio.create_task(background_sync_loop())
+        logger.info("Background sync scheduler started (6 hour interval)")
 
-    asyncio.create_task(daily_digest_loop())
-    logger.info("Daily digest scheduler started (mode=%s)" % os.environ.get("DIGEST_EMAILS_MODE", "dry"))
+        asyncio.create_task(daily_digest_loop())
+        logger.info("Daily digest scheduler started (mode=%s)" % os.environ.get("DIGEST_EMAILS_MODE", "dry"))
 
-    _quick_sync_task = asyncio.create_task(quick_sync_loop())
-    logger.info("Quick sync started (5 minute interval)")
+        _quick_sync_task = asyncio.create_task(quick_sync_loop())
+        logger.info("Quick sync started (5 minute interval)")
 
-    _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
-    logger.info("Analysis queue fallback processor started")
+        _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
+        logger.info("Analysis queue fallback processor started")
 
-    # 2026-07-03: Focus-outcome check runs every 6h to fire improved/regressed
-    # resolutions so HomePage banners have live source of truth.
-    _focus_outcome_task = asyncio.create_task(focus_outcome_loop())
-    logger.info("Focus-outcome scheduler started (6 hour interval)")
+        _focus_outcome_task = asyncio.create_task(focus_outcome_loop())
+        logger.info("Focus-outcome scheduler started (6 hour interval)")
+    else:
+        logger.info("Background sync disabled in dev mode (set ENABLE_BACKGROUND_SYNC=true to enable).")
 
     yield
 

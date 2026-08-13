@@ -17,6 +17,8 @@ from typing import Dict, Optional
 from datetime import datetime, timezone
 from enum import Enum
 
+import os
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,8 +33,8 @@ class UserPlan(str, Enum):
 # `coach_sessions.created_at` from UTC midnight today.
 PLAN_LIMITS = {
     UserPlan.FREE: {
-        "monthly_analysis_limit": 5,
-        "daily_pwc_session_limit": 1,
+        "monthly_analysis_limit": 50,
+        "daily_pwc_session_limit": int(os.environ.get("DAILY_PWC_LIMIT", 10)),
         "auto_sync": False,
         "immediate_feedback": False,
         "llm_commentary": False,
