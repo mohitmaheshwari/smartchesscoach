@@ -14,7 +14,6 @@ import os
 import sys
 
 import chess
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -187,8 +186,13 @@ def test_replaying_blunder_then_opponent_move_is_legal():
     board.push_san(BLUNDER)
     board.push_san(OPP_FORK)          # must not raise
 
-    with pytest.raises(Exception):
+    try:
         chess.Board(FEN_BEFORE).push_san(OPP_FORK)   # the old, broken path
+    except Exception:
+        pass
+    else:
+        raise AssertionError(
+            "fixture too weak: the opponent's move is legal without the blunder")
 
 
 def test_the_fork_actually_forks_two_pieces():
@@ -221,4 +225,17 @@ def test_merge_motifs_preserves_the_new_contract_fields():
 
 
 if __name__ == "__main__":
-    sys.exit(pytest.main([__file__, "-v"]))
+    # Runnable as a plain script so CI can execute it without pytest installed —
+    # same pattern as tests/test_opening_name_alignment.py.
+    fns = [v for k, v in sorted(globals().items())
+           if k.startswith("test_") and callable(v)]
+    failed = 0
+    for fn in fns:
+        try:
+            fn()
+            print(f"PASS {fn.__name__}")
+        except AssertionError as e:
+            failed += 1
+            print(f"FAIL {fn.__name__}: {e}")
+    print(f"\n{len(fns) - failed}/{len(fns)} passed")
+    sys.exit(1 if failed else 0)

@@ -44,6 +44,7 @@ jobs:
           python tests/test_predict_rate.py
           python tests/test_prescription_tracking.py
           python tests/test_opening_name_alignment.py
+          python tests/test_motif_drill_contract.py
       - name: Caption-source guard (no new parallel caption paths)
         run: |
           if [ -f backend/scripts/check_caption_sources.py ]; then
@@ -77,6 +78,11 @@ jobs:
       - name: Install deps
         working-directory: frontend
         run: npm ci
+      - name: Unit tests (pure logic — no component rendering, no network)
+        working-directory: frontend
+        env:
+          CI: true
+        run: npx craco test --watchAll=false --testPathPattern="src/lib/.*\.test\.js$"
       - name: Production build (fails the job on a broken build)
         working-directory: frontend
         run: npm run build
