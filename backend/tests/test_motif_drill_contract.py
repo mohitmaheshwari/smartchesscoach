@@ -170,6 +170,43 @@ def test_get_drills_returns_the_replay_fields_motifdrill_needs():
     assert d["fen_after"]
 
 
+def test_ambiguous_provenance_never_leaks_a_game_or_move_number():
+    """373 of 3,395 production rows match more than one game on (fen_after, move) —
+    one matches 32. Those rows are still legally playable, but they cannot name a
+    game or a date. The reader must not hand a caller an attribution to print."""
+    base = {
+        "fen": FEN_AFTER, "fen_before": FEN_BEFORE, "fen_after": FEN_AFTER,
+        "solution": BEST, "user_blunder_move": BLUNDER, "opp_creates_motif": OPP_FORK,
+    }
+    prof = _profile([
+        {**base, "provenance": "ambiguous", "candidate_game_count": 32,
+         "game_id": None, "move_number": None},
+        {**base, "provenance": "exact", "game_id": "g_known", "move_number": 21},
+    ])
+    drills = get_drills(prof, "fork")
+    assert len(drills) == 2, "ambiguous rows are still playable — do not drop them"
+
+    ambiguous = [d for d in drills if d["provenance"] == "ambiguous"][0]
+    exact = [d for d in drills if d["provenance"] == "exact"][0]
+
+    assert ambiguous["game_id"] is None and ambiguous["move_number"] is None
+    assert _legal(ambiguous["position_fen"], ambiguous["solution_san"])
+    assert exact["game_id"] == "g_known" and exact["move_number"] == 21
+
+
+def test_unstamped_legacy_rows_are_not_treated_as_exact():
+    """A row backfilled before the ambiguity check has no provenance stamp. It must
+    not be allowed to masquerade as a known attribution."""
+    prof = _profile([{
+        "fen": FEN_AFTER, "fen_before": FEN_BEFORE, "fen_after": FEN_AFTER,
+        "solution": BEST, "user_blunder_move": BLUNDER, "opp_creates_motif": OPP_FORK,
+        "game_id": "g_maybe_wrong", "move_number": 21,
+    }])
+    d = get_drills(prof, "fork")[0]
+    assert d["provenance"] == "unstamped"
+    assert d["game_id"] is None and d["move_number"] is None
+
+
 def test_get_drills_handles_empty_and_malformed_input():
     assert get_drills(None, "fork") == []
     assert get_drills({}, "fork") == []

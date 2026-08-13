@@ -65,7 +65,19 @@ def _legal(fen, san):
 
 
 def build_index(db, user_id):
-    """(fen_after, move) -> (game_id, move_number, fen_before) for one user's games."""
+    """(fen_after, move) -> list of every (game_id, move_number, fen_before) match.
+
+    ALL matches are kept, not the first. The same (position, move) pair genuinely
+    recurs across a player's games -- measured 2026-08-13: 373 of 3,395 stored rows
+    (11%) match more than one game, one matches 32. Taking the first silently
+    attributes the moment to an arbitrary game, so "you played this 6 days ago in
+    your game against X" could name the wrong game entirely.
+
+    `fen_before` is safe either way: across every ambiguous key in production, all
+    candidates agreed on the position (the single exception differed only in the
+    halfmove clock, which is positionally identical). So legality is unaffected --
+    only provenance is, and it is quarantined rather than guessed.
+    """
     idx = {}
     game_ids = [g["game_id"] for g in db.games.find(
         {"user_id": user_id, "is_analyzed": True}, {"game_id": 1})]
@@ -77,8 +89,10 @@ def build_index(db, user_id):
     ):
         for ev in (a.get("stockfish_analysis") or {}).get("move_evaluations") or []:
             key = (ev.get("fen_after"), ev.get("move"))
-            if key[0] and key[1] and key not in idx:
-                idx[key] = (a.get("game_id"), ev.get("move_number"), ev.get("fen_before"))
+            if key[0] and key[1]:
+                idx.setdefault(key, []).append(
+                    (a.get("game_id"), ev.get("move_number"), ev.get("fen_before"))
+                )
     return idx
 
 
@@ -107,10 +121,13 @@ def main():
         user_id = prof["user_id"]
         mp = prof.get("motif_profile") or {}
 
+        # A row needs work if it has no fen_before OR has not yet been stamped with
+        # a provenance verdict (rows written before the ambiguity check existed).
         pending = [
             p for mt in MOTIFS
             for p in ((mp.get(mt) or {}).get("got_positions") or [])
-            if isinstance(p, dict) and not p.get("fen_before") and not p.get("unresolved")
+            if isinstance(p, dict) and not p.get("unresolved")
+            and (not p.get("fen_before") or not p.get("provenance"))
         ]
         if not pending:
             stats["users already clean"] += 1
@@ -124,18 +141,18 @@ def main():
             for p in bucket.get("got_positions") or []:
                 if not isinstance(p, dict):
                     continue
-                if p.get("fen_before"):
+                if p.get("fen_before") and p.get("provenance"):
                     stats["skipped (already backfilled)"] += 1
                     continue
 
-                hit = idx.get((p.get("fen"), p.get("user_blunder_move")))
-                if not hit:
+                matches = idx.get((p.get("fen"), p.get("user_blunder_move"))) or []
+                if not matches:
                     p["unresolved"] = True
                     stats["UNRESOLVED (no join match)"] += 1
                     changed = True
                     continue
 
-                game_id, move_number, fen_before = hit
+                game_id, move_number, fen_before = matches[0]
                 if not _legal(fen_before, p.get("solution")):
                     # The join matched but the recovered position still does not accept
                     # the stored solution. Do not guess — mark and drop.
@@ -144,12 +161,33 @@ def main():
                     changed = True
                     continue
 
+                # Legality data — safe regardless of how many games matched.
                 p["fen_before"] = fen_before
                 p["fen_after"] = p.get("fen")
-                p["game_id"] = p.get("game_id") or game_id
-                p["move_number"] = p.get("move_number") if p.get("move_number") is not None else move_number
                 p["contract_version"] = CONTRACT_VERSION
                 p.pop("unresolved", None)
+
+                # Provenance — only claimed when the join is unambiguous. A row that
+                # matches several games cannot honestly say WHICH game or WHEN, so the
+                # attribution is cleared rather than guessed. Surfaces that print
+                # "6 days ago, move 23" must require provenance == "exact".
+                distinct_games = {m[0] for m in matches}
+                if len(distinct_games) == 1:
+                    p["provenance"] = "exact"
+                    p["game_id"] = p.get("game_id") or game_id
+                    p["move_number"] = (
+                        p.get("move_number") if p.get("move_number") is not None else move_number
+                    )
+                    p.pop("candidate_game_count", None)
+                    stats["provenance exact"] += 1
+                else:
+                    p["provenance"] = "ambiguous"
+                    p["candidate_game_count"] = len(distinct_games)
+                    p["game_id"] = None
+                    p["move_number"] = None
+                    stats["provenance AMBIGUOUS (game/date cleared)"] += 1
+                    stats[f"ambiguous:{mt}"] += 1
+
                 stats["backfilled"] += 1
                 stats[f"backfilled:{mt}"] += 1
                 changed = True
