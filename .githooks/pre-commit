@@ -94,29 +94,39 @@ for f in "${STAGED[@]}"; do
     [[ -f "$f" ]] || continue
     # Scan the STAGED content of the file (not the working tree), so a
     # post-staging local edit doesn't fool the hook.
-    while IFS= read -r line; do
-        # Strip ANSI color codes (git show output is clean already, but
-        # be defensive).
-        clean="${line//$'\033'\[*([0-9;])m/}"
+    #
+    # ONE grep per file — not one grep subprocess per LINE. The previous
+    # version piped every line through its own `echo | grep`, which on
+    # Windows/Git-Bash cost ~469 SECONDS for backend/routes/coach_play.py
+    # alone (10,470 lines). Measured 2026-08-13: same file, same regex,
+    # single grep = 85ms. That is a 5,500x difference, and it was making
+    # ordinary commits take ten minutes — the reliable way to get a hook
+    # bypassed with --no-verify.
+    #
+    # The loop body now runs only over actual MATCHES (normally none), so
+    # the allow-cp-loss-phrase opt-out and the reporting are unchanged.
+    # `|| true` is required: grep exits 1 on no match and `set -e` is on.
+    while IFS= read -r hit; do
+        [[ -n "$hit" ]] || continue
+        # `hit` is "LINENO:content" from grep -n.
+        clean="${hit#*:}"
         # Allow opt-out marker for the rare quote-in-comment case.
         if [[ "$clean" == *"allow-cp-loss-phrase"* ]]; then
             continue
         fi
-        if echo "$clean" | grep -qiE "$FORBIDDEN_REGEX"; then
-            if [[ $violations -eq 0 ]]; then
-                printf '\n\033[31m✗ Caption voice violation:\033[0m forbidden "X pawns" framing detected.\n\n' >&2
-                printf 'Rule: centipawn loss is the eval shift, not material lost.\n' >&2
-                printf 'Use severity tier instead:\n' >&2
-                printf '  cp < 250  -> "is a mistake"\n' >&2
-                printf '  250-399   -> "is a serious mistake"\n' >&2
-                printf '  cp >= 400 -> "is a major blunder"\n\n' >&2
-                printf 'See: memory/feedback_cp_loss_is_not_material.md\n\n' >&2
-                printf 'Offending lines:\n' >&2
-            fi
-            printf '  %s: %s\n' "$f" "$clean" >&2
-            violations=$((violations + 1))
+        if [[ $violations -eq 0 ]]; then
+            printf '\n\033[31m✗ Caption voice violation:\033[0m forbidden "X pawns" framing detected.\n\n' >&2
+            printf 'Rule: centipawn loss is the eval shift, not material lost.\n' >&2
+            printf 'Use severity tier instead:\n' >&2
+            printf '  cp < 250  -> "is a mistake"\n' >&2
+            printf '  250-399   -> "is a serious mistake"\n' >&2
+            printf '  cp >= 400 -> "is a major blunder"\n\n' >&2
+            printf 'See: memory/feedback_cp_loss_is_not_material.md\n\n' >&2
+            printf 'Offending lines:\n' >&2
         fi
-    done < <(git show ":$f")
+        printf '  %s:%s\n' "$f" "$hit" >&2
+        violations=$((violations + 1))
+    done < <(git show ":$f" | grep -niE "$FORBIDDEN_REGEX" || true)
 done
 
 if [[ $violations -gt 0 ]]; then
