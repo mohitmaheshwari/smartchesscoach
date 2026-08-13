@@ -726,9 +726,118 @@ def _pieces_now_undefended(
 # evidence of the line."
 # ────────────────────────────────────────────────────────────────────
 
+# Minimum value of the NON-king target before a check counts as a royal fork.
+#
+# Asymmetric with the normal fork path on purpose. In an ordinary two-target
+# fork both targets are winnable material, so a pawn+pawn fork still wins a pawn.
+# In a royal fork the king contributes ZERO material — so if the only winnable
+# target is a pawn, the shape is really "check, and I also hit a pawn," which is
+# usually just tempo, not a fork worth teaching a 600-1500 player.
+#
+# Locked against the distribution, not picked by feel (2026-08-13, 6k-move
+# corpus): of 82 newly-recognised royal forks, 47 (57%) had a pawn as their only
+# winnable target and 35 (43%) had a minor piece or better. Without this floor the
+# extension raises total fork detections by +57%; with it, by +29%.
+_ROYAL_FORK_MIN_TARGET_CP = 300
+
+
+def _forced_king_target(
+    threats: List[Dict[str, Any]],
+    board_after: chess.Board,
+    played_move: Optional[chess.Move] = None,
+) -> Optional[Dict[str, Any]]:
+    """The royal-fork gap: one attacker giving CHECK while also attacking a
+    winnable piece is a fork, but `_threats_created` can never see it.
+
+    `_threats_created` skips the king outright ("checks are handled by is_check,
+    not threats") because a king is not winnable material and every SEE on it is
+    meaningless. Correct for material accounting — but it means a check-plus-piece
+    fork reaches the grouper with only ONE target and is discarded.
+
+    Measured 2026-08-13: this rejected the historically-correct fork move on 16 of
+    63 gold knight-fork positions, every one a check-plus-piece shape
+    (`Nxc2+` -> targets seen `['rook','pawn']`). Royal forks are the most
+    instructive forks there are, and the canonical detector could not express one.
+
+    This is PIECE-AGNOSTIC by construction: it keys off "the checking piece" and
+    "the attacker already has a winnable target", never off knights. A bishop
+    checking while hitting a rook, or a pawn checking while hitting a knight, is
+    the same shape and is treated identically.
+
+    Returns a synthetic target entry to append to that attacker's group, or None.
+    Three gates, all required — a checking move is NOT automatically a fork:
+
+      1. SEE on the other target — inherited. Every entry in `threats` already
+         passed `see_cp > 0` in _threats_created, so the second target is
+         genuinely winnable, not merely attacked.
+      2. Moving piece — the CHECK must come from the piece that just moved.
+         A pre-existing check, or a discovered check from another piece, is a
+         different shape and is not folded in here.
+      3. Material safety — the checking piece must not simply hang. If the
+         opponent profits by capturing it (SEE > 0 on the forker's own square),
+         the "fork" resolves by taking the forker and there is nothing to win.
+
+    Gate 3 is where `pattern_confidence/fork.py:120` was too lenient: it treated
+    `gives_check` as making the forker safe outright, which accepts a knight that
+    checks and is captured by the king for free.
+
+    Known approximation: SEE ignores check legality, so a recapture by a pinned
+    defender is still counted. Same approximation used throughout this module.
+    """
+    if not board_after.is_check():
+        return None
+
+    king_sq = board_after.king(board_after.turn)
+    if king_sq is None:
+        return None
+
+    checkers = board_after.checkers()
+    if len(checkers) != 1:
+        return None  # double check is a different (stronger) shape — not folded in
+
+    checker_sq = next(iter(checkers))
+
+    # Gate 2 — the check must come from the piece that just moved.
+    if played_move is not None and checker_sq != played_move.to_square:
+        return None
+
+    # Gate 1 — that same attacker must already hold a winnable target worth at
+    # least _ROYAL_FORK_MIN_TARGET_CP. See the constant for why the floor exists
+    # here but not on the normal two-target path.
+    checker_name = chess.square_name(checker_sq)
+    own_targets = [t for t in threats if t.get("attacker_square") == checker_name]
+    if not own_targets:
+        return None
+    if max((t.get("target_value_cp") or 0) for t in own_targets) < _ROYAL_FORK_MIN_TARGET_CP:
+        return None
+
+    # Gate 3 — the checking piece must survive.
+    opp_color = board_after.turn
+    if static_exchange_eval(board_after, checker_sq, opp_color) > 0:
+        return None
+
+    return {
+        "attacker_square": checker_name,
+        "attacker_piece_type": chess.piece_name(
+            board_after.piece_at(checker_sq).piece_type
+        ),
+        "target_square": chess.square_name(king_sq),
+        "target_piece_type": "king",
+        # A king is never won. Value 0 keeps it out of every material
+        # calculation while still counting as a target that must be answered.
+        "target_value_cp": 0,
+        "see_cp": 0,
+        "is_forced": True,
+        "is_immediate": True,
+        "via_moving_piece": played_move is None or checker_sq == played_move.to_square,
+        "via_discovered": False,
+    }
+
+
 def _multi_target_attack_evidence(
     threats: List[Dict[str, Any]],
     board_after: Optional[chess.Board] = None,
+    played_move: Optional[chess.Move] = None,
 ) -> List[Dict[str, Any]]:
     """Group `threats_created` entries by attacker_square. Any attacker
     with ≥2 separately-winning threats forms a multi-target-attack shape.
@@ -750,10 +859,25 @@ def _multi_target_attack_evidence(
     for t in threats:
         by_attacker.setdefault(t["attacker_square"], []).append(t)
 
+    # Royal forks: fold in the enemy king as a forced target when the checking
+    # piece is also holding a winnable target. Appended AFTER grouping by
+    # attacker so it can only ever join an attacker that already has a real
+    # threat — it can never create a group on its own. See _forced_king_target.
+    if board_after is not None:
+        _king_t = _forced_king_target(threats, board_after, played_move)
+        if _king_t is not None:
+            by_attacker.setdefault(_king_t["attacker_square"], []).append(_king_t)
+
     out: List[Dict[str, Any]] = []
     for attacker_sq, ts in by_attacker.items():
         if board_after is not None:
-            ts = _filter_king_defended_overvalue_targets(ts, board_after)
+            # The king entry is exempt from the king-defended-overvalue filter:
+            # that filter drops targets whose only defender is the enemy king,
+            # which is meaningless for the king itself.
+            _forced = [t for t in ts if t.get("is_forced")]
+            ts = _filter_king_defended_overvalue_targets(
+                [t for t in ts if not t.get("is_forced")], board_after
+            ) + _forced
         if len(ts) < 2:
             continue
         # Sort targets by value descending so renderer sees the most valuable first
@@ -767,9 +891,16 @@ def _multi_target_attack_evidence(
                     "piece_type": t["target_piece_type"],
                     "value_cp": t["target_value_cp"],
                     "see_cp": t["see_cp"],
+                    # True only for the enemy king in a royal fork: a target that
+                    # must be answered but can never be won. Consumers doing
+                    # material maths must skip it; consumers counting "how many
+                    # things are attacked" must not.
+                    "is_forced": bool(t.get("is_forced")),
                 }
                 for t in targets_sorted
             ],
+            # Lets a consumer branch on royal-vs-normal without re-scanning targets.
+            "includes_forced_king": any(t.get("is_forced") for t in ts),
             "via_moving_piece": all(t.get("via_moving_piece", False) for t in ts),
         })
     # Sort fork shapes by the highest-value target descending
@@ -5545,7 +5676,9 @@ def extract_facts(
     #   aligned_pieces     — "three pieces on a line" (renderer picks
     #                        pin/skewer/x-ray via front_value_vs_rear)
     #   discovered_attack  — "uncovered attacker via played move"
-    multi_target_attack_evidence = _multi_target_attack_evidence(threats_created, board_after)
+    multi_target_attack_evidence = _multi_target_attack_evidence(
+        threats_created, board_after, played_move
+    )
     # User-flagged bug 2026-05-13 (fb_69b32c5fdcbf): R03 fired
     # "Nf3. Pins the knight on f6 against the queen on d8" — knight Nf3
     # can't pin (knights aren't sliders), so the pin must have been
