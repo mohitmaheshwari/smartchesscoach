@@ -128,6 +128,13 @@ export default function PrescribedTraining() {
           );
           if (response.ok) {
             const motifData = await response.json();
+            // Server-side gate (2026-08-23): the motif drill is paused until
+            // every served row is proven to avoid the named motif. Show the
+            // reason rather than an empty board.
+            if (motifData.gated) {
+              setError(motifData.gated_reason || "This drill is paused.");
+              return;
+            }
             // Transform motif drills to match PrescribedTraining format.
             // 2026-08-13 contract fix: the endpoint now returns position_fen +
             // solution_san as a matched pair. Previously this mapped drill.solution

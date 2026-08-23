@@ -43,6 +43,7 @@ Endpoints:
 - GET /milestones - Achievement milestones
 """
 
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -870,6 +871,43 @@ async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
     """Drill positions for a motif weakness — the user's OWN games first, then community
     (motif-tagged community puzzles). Each: find the move that avoids the motif."""
     from services.motif_profile_service import get_drills, count_unresolved_drills
+
+    # ── GATE (2026-08-23) ────────────────────────────────────────────────
+    # The legacy motif drill tells the user, verbatim:
+    #     "This move avoids the {motif} your opponent creates."
+    # That sentence is NOT proven by anything we serve. `solution` is the
+    # ENGINE'S BEST MOVE, and measurement showed the engine's best move
+    # sometimes ACCEPTS the motif because it is best overall -- 2 of 18
+    # stratified fork positions. Legality was fixed in 25e0114c; legality is
+    # not the same claim as avoidance.
+    #
+    # Gated until either (a) the pattern-learning flow replaces this surface,
+    # or (b) every served row is automatically proven to avoid the named motif
+    # and failing rows are dropped. See docs/pattern_learning_system_scope.md.
+    #
+    # Granular by motif so a proven one can be re-enabled alone. Default: all
+    # gated. Set MOTIF_DRILL_ENABLED_MOTIFS="fork,pin" to allow specific ones.
+    #
+    # Gating server-side covers BOTH consumers -- this route and
+    # PrescribedTraining's motif branch -- without a frontend rebuild.
+    _enabled = {
+        m.strip().lower()
+        for m in os.environ.get("MOTIF_DRILL_ENABLED_MOTIFS", "").split(",")
+        if m.strip()
+    }
+    if motif.lower() not in _enabled:
+        return {
+            "motif": motif,
+            "count": 0,
+            "unresolved_own_positions": 0,
+            "drills": [],
+            "gated": True,
+            "gated_reason": (
+                "This drill is paused. It claimed the engine's best move avoids "
+                "the motif, which we have not verified for every position."
+            ),
+            "coaching_intro": None,
+        }
 
     # Motif-specific coaching lessons
     MOTIF_LESSONS = {

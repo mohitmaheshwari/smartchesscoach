@@ -81,7 +81,11 @@ import chess  # noqa: E402
 from pymongo import MongoClient  # noqa: E402
 
 from services.motif_profile_service import (  # noqa: E402
+    MIN_OPPS_TO_SHOW,
     MOTIFS,
+    TIER_NAMES,
+    _defense_tier,
+    anticipation_rates,
     MASTERY_EDGES,
     STRENGTH_RATE,
     WEAKNESS_RATE,
@@ -178,23 +182,103 @@ def lifetime_recognition(rec, motif):
     return av, fo
 
 
+def fork_only(new_store, old_store, key="fork"):
+    """Return `old_store` with ONLY the fork slice replaced.
+
+    The canonical compute_ functions must run over every motif -- they are
+    all-or-nothing -- but pin/skewer ATTRIBUTION is known unreliable (29% and
+    14% of their events pre-existed the move), so this migration must not
+    quietly restate them as freshly verified. Non-fork values stay
+    byte-for-byte identical to what is already stored.
+    """
+    out = dict(old_store or {})
+    if new_store and key in new_store:
+        out[key] = new_store[key]
+    return out
+
+
+def fork_only_by_game(new_bg, old_bg, key="fork"):
+    """Same idea for the per-game stores: replace ONLY the fork counter inside
+    each game entry, preserving every other motif's stored value and any game
+    entries the recompute did not produce."""
+    out = {"by_game": dict((old_bg or {}).get("by_game") or {})}
+    for gid, entry in ((new_bg or {}).get("by_game") or {}).items():
+        merged = dict(out["by_game"].get(gid) or {})
+        merged["date"] = entry.get("date", merged.get("date"))
+        for bucket in ("av", "fo", "faced", "allowed"):
+            if bucket in entry:
+                cur = dict(merged.get(bucket) or {})
+                cur[key] = (entry.get(bucket) or {}).get(key, 0)
+                merged[bucket] = cur
+        out["by_game"][gid] = merged
+    return out
+
+
 def labels(mp, motif, games):
-    """Reproduce _verdict's label logic against a given cutoff pair."""
+    """Reproduce _verdict's label logic EXACTLY, including the sound_rate gate.
+
+    An earlier version omitted `sound_rate >= 0.7`, so its "strength" churn was
+    not the user-visible result -- it counted users who clear the rate bar but
+    fail the clean-execution bar and are therefore never shown a strength."""
     m = (mp or {}).get(motif) or {}
     g = max(games, 1)
+    made_total = m.get("made_sound", 0) + m.get("made_tunnel", 0)
+    sound_rate = (m.get("made_sound", 0) / made_total) if made_total else None
     got_rate = m.get("got", 0) / g
     made_rate = m.get("made_sound", 0) / g
-    return (
-        bool(m.get("made_sound", 0) >= 3 and made_rate >= STRENGTH_RATE.get(motif, 0.3)),
-        bool(m.get("got", 0) >= 3 and got_rate >= WEAKNESS_RATE.get(motif, 0.2)),
+    is_strength = (
+        m.get("made_sound", 0) >= 3
+        and made_rate >= STRENGTH_RATE.get(motif, 0.3)
+        and (sound_rate is None or sound_rate >= 0.7)
     )
+    is_weakness = m.get("got", 0) >= 3 and got_rate >= WEAKNESS_RATE.get(motif, 0.2)
+    return bool(is_strength), bool(is_weakness)
 
 
-def legality(mp):
-    """Every served drill row must have a solution legal in the position shown."""
+def displayed_tier(rec, ant, motif="fork", edges=None):
+    """The tier the USER actually sees: the WEAKER of attack and defense, and
+    only when lifetime opportunities clear MIN_OPPS_TO_SHOW.
+
+    An earlier version reported the attack tier alone and ignored the
+    visibility gate, so it both mis-stated the level and missed users crossing
+    into (or out of) being shown a row at all.
+
+    Returns None when the row is not displayed.
+    """
+    av, fo = lifetime_recognition(rec, motif)
+    if av < MIN_OPPS_TO_SHOW:
+        return None
+    rate = fo / av
+    off_idx = _tier_for_edges(rate, motif, edges)
+    def_rate = (anticipation_rates(ant).get(motif) or {}).get("rate")
+    def_idx = _defense_tier(def_rate)[0] if def_rate is not None else None
+    return def_idx if (def_idx is not None and def_idx < off_idx) else off_idx
+
+
+def _tier_for_edges(rate, motif, edges=None):
+    """_tier_for with substitutable edges, so a CANDIDATE boundary set can be
+    scored without mutating the module constant."""
+    if edges is None:
+        return _tier_for(rate, motif)[0]
+    p25, med, p75, p90 = edges
+    e = [0.0, p25, med, p75, p90, p90 + 0.15]
+    for i in range(5):
+        if rate < e[i + 1]:
+            return i
+    return 4
+
+
+def legality(mp, only=None):
+    """Every served drill row must have a solution legal in the position shown.
+
+    `only` restricts to one motif so the report can distinguish FORK rows (the
+    ones this migration actually rewrites) from all-motif rows (which it leaves
+    byte-for-byte alone). Reporting them together would let a clean fork result
+    hide behind untouched pin/skewer rows, or vice versa.
+    """
     ok = bad = 0
     prov = Counter()
-    for motif in MOTIFS:
+    for motif in ([only] if only else MOTIFS):
         for p in ((mp or {}).get(motif) or {}).get("got_positions") or []:
             if not isinstance(p, dict):
                 continue
@@ -292,6 +376,8 @@ def main():
 
     _dup_users = {u for u, c in Counter(r["user_id"] for r in rows).items() if c > 1}
     churn = defaultdict(list)
+    store_changed = Counter()
+    tier_inputs = []
     got_rates, made_rates, mastery_rates = [], [], []
     old_got_rates, old_made_rates, old_mastery = [], [], []
     label_moves = Counter()
@@ -299,6 +385,8 @@ def main():
     pos_added = pos_dropped = 0
     legal_ok = legal_bad = 0
     prov_total = Counter()
+    all_ok = all_bad = 0
+    all_prov = Counter()
     changed_docs = []
     count_delta = Counter()
 
@@ -306,15 +394,38 @@ def main():
     # (twice per user move: made-side and got-side), i.e. roughly 800k detector
     # calls across the cohort's ~13k games. Expect HOURS, not minutes. Run it
     # detached. Progress is printed per user so a stall is visible.
+    # ANALYTICS ONCE PER UNIQUE USER. player_profiles holds 69 docs for 67
+    # user_ids, so iterating documents let duplicated users influence every
+    # percentile twice. Persistence still targets EVERY matching _id.
+    by_user = defaultdict(list)
+    for r in rows:
+        by_user[r["user_id"]].append(r)
+    _dups = sum(1 for v in by_user.values() if len(v) > 1)
+    print(f"documents: {len(rows)}   unique users: {len(by_user)}   duplicated: {_dups}")
+    print()
+
     t_start = datetime.now(timezone.utc)
-    for i, r in enumerate(rows, 1):
-        uid = r["user_id"]
+    # ETA must be GAMES-weighted, not per-user. Users differ by ~700x (median ~50
+    # games, max 1442) and the biggest ones tend to sort first, so a per-user
+    # linear ETA over-predicts wildly then collapses -- it read "196m" at user 1
+    # and "82m" at user 4 on a run that actually takes ~51m.
+    total_games = db.games.count_documents({"is_analyzed": True})
+    games_done = 0
+    for i, (uid, docs) in enumerate(by_user.items(), 1):
+        r = docs[0]                      # analytics use ONE doc per user
         old_mp = r.get("motif_profile")
-        mp, rec, ant, n = recompute_user(db, uid)
+        mp_all, rec_all, ant_all, n = recompute_user(db, uid)
+        # FORK-ONLY projection. Everything else stays exactly as stored.
+        mp = fork_only(mp_all, old_mp)
+        rec = fork_only_by_game(rec_all, r.get("motif_recognition"))
+        ant = fork_only_by_game(ant_all, r.get("motif_anticipation"))
+        games_done += n
         elapsed = (datetime.now(timezone.utc) - t_start).total_seconds()
-        eta = (elapsed / i) * (len(rows) - i)
-        print(f"  [{i}/{len(rows)}] {uid[:18]} games={n:5} "
-              f"elapsed={elapsed/60:.1f}m eta={eta/60:.1f}m", flush=True)
+        rate = games_done / elapsed if elapsed else 0
+        eta = (total_games - games_done) / rate if rate else 0
+        print(f"  [{i}/{len(by_user)}] {uid[:18]} games={n:5} "
+              f"({games_done}/{total_games}) elapsed={elapsed/60:.1f}m "
+              f"eta={eta/60:.1f}m @{rate*60:.0f} games/min", flush=True)
         if n == 0:
             continue
 
@@ -358,11 +469,17 @@ def main():
         av, fo = lifetime_recognition(rec, "fork")
         if av >= MIN_OPPS_FOR_MASTERY:
             mastery_rates.append(fo / av)
-            oav, ofo = lifetime_recognition(r.get("motif_recognition"), "fork")
-            if oav >= MIN_OPPS_FOR_MASTERY:
-                old_mastery.append(ofo / oav)
-                if _tier_for(ofo / oav, "fork")[0] != _tier_for(fo / av, "fork")[0]:
-                    tier_moves[f"{_tier_for(ofo/oav,'fork')[1]} -> {_tier_for(fo/av,'fork')[1]}"] += 1
+        oav, _ofo = lifetime_recognition(r.get("motif_recognition"), "fork")
+        if oav >= MIN_OPPS_FOR_MASTERY:
+            old_mastery.append(_ofo / oav)
+        # DISPLAYED tier churn: weaker of attack/defense, and crossing the
+        # MIN_OPPS_TO_SHOW visibility gate counts as a change the user sees.
+        old_t = displayed_tier(r.get("motif_recognition"), r.get("motif_anticipation"))
+        new_t = displayed_tier(rec, ant)
+        if old_t != new_t:
+            nm = lambda t: "(not shown)" if t is None else TIER_NAMES[t]
+            tier_moves[f"{nm(old_t)} -> {nm(new_t)}"] += 1
+        tier_inputs.append((rec, ant, r.get("motif_recognition"), r.get("motif_anticipation")))
 
         # weakness/strength label churn under the CURRENT cutoffs
         os_, ow = labels(old_mp, "fork", n)
@@ -372,13 +489,36 @@ def main():
         if ow != nwk:
             label_moves[f"weakness {ow} -> {nwk}"] += 1
 
-        ok, bad, prov = legality(mp)
+        ok, bad, prov = legality(mp, only="fork")
         legal_ok += ok
         legal_bad += bad
         prov_total += prov
+        aok, abad, aprov = legality(mp)
+        all_ok += aok
+        all_bad += abad
+        all_prov += aprov
 
-        if o != nw or ((old_mp or {}).get("fork") or {}) != ((mp or {}).get("fork") or {}):
-            changed_docs.append((r["_id"], uid, mp, rec, ant))
+        # Compare ALL THREE stores in full, not just motif_profile.fork.
+        # An earlier version keyed only on the fork sub-dict, which meant a
+        # document whose motif_recognition or motif_anticipation changed while
+        # its fork profile happened not to would never be written -- and
+        # --verify would then report "0 differences" while those two stores sat
+        # stale. motif_recognition is what drives the mastery ladder being
+        # refitted here, so that failure mode is directly load-bearing. The
+        # non-fork motifs are recomputed too and must not be left inconsistent.
+        if (
+            (old_mp or {}) != (mp or {})
+            or (r.get("motif_recognition") or {"by_game": {}}) != rec
+            or (r.get("motif_anticipation") or {"by_game": {}}) != ant
+        ):
+            # EVERY document for this user, not just the one analytics used.
+            for d in docs:
+                changed_docs.append((d["_id"], uid, mp, rec, ant))
+            store_changed["motif_profile"] += int((old_mp or {}) != (mp or {}))
+            store_changed["motif_recognition"] += int(
+                (r.get("motif_recognition") or {"by_game": {}}) != rec)
+            store_changed["motif_anticipation"] += int(
+                (r.get("motif_anticipation") or {"by_game": {}}) != ant)
 
     # ── report ──
     print("--- fork counts (whole cohort) ---")
@@ -391,7 +531,8 @@ def main():
     print("\n--- drill positions ---")
     print(f"  added   {pos_added}")
     print(f"  dropped {pos_dropped}")
-    print(f"  profiles whose fork store changed: {len(changed_docs)} / {len(rows)}")
+    print(f"  profiles needing a write: {len(changed_docs)} / {len(rows)}")
+    print(f"  by store: {dict(store_changed)}")
 
     print("\n--- legality + provenance of recomputed rows ---")
     print(f"  solution legal in fen_before: {legal_ok} / {legal_ok + legal_bad}")
@@ -415,6 +556,32 @@ def main():
     print("  _DEFENSE_EDGES: unchanged by design (absolute anticipation %, "
           "not population-calibrated)")
 
+    # ── ROUNDING CHECK ───────────────────────────────────────────────────
+    # Prefer readable two-decimal constants, but only if rounding changes
+    # nothing a user sees. Score exact vs rounded on the SAME recomputed data.
+    exact_w, exact_s = _pct(got_rates, .70), _pct(made_rates, .70)
+    exact_m = [_pct(mastery_rates, q) for q in (.25, .50, .75, .90)]
+    round_w, round_s = round(exact_w or 0, 2), round(exact_s or 0, 2)
+    round_m = [round(x, 2) for x in exact_m if x is not None]
+
+    w_flips = sum(1 for v in got_rates if (v >= exact_w) != (v >= round_w))
+    s_flips = sum(1 for v in made_rates if (v >= exact_s) != (v >= round_s))
+    t_flips = 0
+    for rec_n, ant_n, _ro, _ao in tier_inputs:
+        if displayed_tier(rec_n, ant_n, edges=exact_m) !=            displayed_tier(rec_n, ant_n, edges=round_m):
+            t_flips += 1
+
+    print("\n--- ROUNDING: exact vs two-decimal candidates ---")
+    print(f"  WEAKNESS  exact {exact_w}  rounded {round_w}   label flips: {w_flips}")
+    print(f"  STRENGTH  exact {exact_s}  rounded {round_s}   label flips: {s_flips}")
+    print(f"  MASTERY   exact {exact_m}")
+    print(f"            rounded {round_m}                    tier flips: {t_flips}")
+    if w_flips == s_flips == t_flips == 0:
+        print(f"  -> ROUNDING IS SAFE. Store the readable values: "
+              f"{round_w}, {round_s}, {round_m}")
+    else:
+        print("  -> rounding changes user-visible output; keep the EXACT values")
+
     print("\n--- label / tier churn (under CURRENT cutoffs) ---")
     print(f"  weakness+strength label changes: {dict(label_moves) or 'none'}")
     print(f"  mastery tier transitions: {dict(tier_moves) or 'none'}")
@@ -434,16 +601,23 @@ def main():
     db[backup].insert_many(docs)
     print(f"\n  backup: {backup} ({len(docs)} docs)")
 
+    matched = modified = 0
     for _id, uid, mp, rec, ant in changed_docs:
         # BY _id. player_profiles is not unique on user_id (69 docs / 67 users);
         # update_one({"user_id": ...}) silently skips duplicates.
-        db.player_profiles.update_one(
+        res = db.player_profiles.update_one(
             {"_id": _id},
             {"$set": {"motif_profile": mp,
                       "motif_recognition": rec,
                       "motif_anticipation": ant}},
         )
-    print(f"  applied to {len(changed_docs)} profiles (by _id)")
+        matched += res.matched_count
+        modified += res.modified_count
+    print(f"  applied to {len(changed_docs)} profiles (by _id): "
+          f"matched={matched} modified={modified}")
+    if matched != len(changed_docs):
+        print(f"  FAIL: {len(changed_docs) - matched} intended writes did not match a document")
+        sys.exit(1)
     print("  now re-run with --verify — it must report 0 differing profiles.")
 
 

@@ -85,6 +85,11 @@ const MotifDrill = ({ user }) => {
         if (cancelled) return;
         // Defence in depth: the endpoint already drops unresolved rows, but never
         // render a drill whose advertised solution is not playable on its own board.
+        if (data.gated) {
+          setDrills([]);
+          setError(data.gated_reason || "This drill is paused.");
+          return;
+        }
         setDrills(usableDrills(data.drills));
         setIdx(0);
       } catch (e) {
@@ -217,7 +222,12 @@ const MotifDrill = ({ user }) => {
                     <p className="text-lg font-bold font-mono" data-testid="motif-solution">{current?.solution_san || "—"}</p>
                   </div>
                   <p className="text-xs text-muted-foreground italic">
-                    This move avoids the {motif} your opponent creates.
+                    {/* Was: "This move avoids the {motif} your opponent creates."
+                        Unproven -- `solution` is the ENGINE'S BEST MOVE, and the
+                        engine's best sometimes ACCEPTS the motif because it is
+                        best overall (2 of 18 stratified fork positions). We can
+                        only claim what we verified: it is the strongest move. */}
+                    The engine's strongest move in this position.
                   </p>
                 </div>
               </div>
