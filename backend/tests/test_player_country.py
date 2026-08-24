@@ -35,6 +35,20 @@ def test_junk_returns_none_rather_than_garbage():
         assert normalize_iso2(bad) is None, bad
 
 
+def test_chesscom_pseudo_codes():
+    """chess.com is not pure ISO-3166. XE/XS/XW are real places and must be
+    kept; XX is its "International / prefer not to say" marker and must NOT be
+    stored as a country -- doing so asserts a fact the user declined to give.
+    A live dry run over 117 users returned one XX."""
+    assert normalize_iso2("https://api.chess.com/pub/country/XE") == "XE"
+    assert normalize_iso2("https://api.chess.com/pub/country/XS") == "XS"
+    assert normalize_iso2("https://api.chess.com/pub/country/XW") == "XW"
+    assert normalize_iso2("https://api.chess.com/pub/country/XX") is None
+    assert normalize_iso2("xx") is None
+    assert country_update_fields(normalize_iso2("https://api.chess.com/pub/country/XX"),
+                                 "chesscom") == {}
+
+
 def test_lichess_nested_shape():
     """Lichess nests it under `profile`, which is frequently absent."""
     assert country_from_lichess_profile({"profile": {"country": "IN"}}) == "IN"

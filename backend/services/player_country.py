@@ -28,6 +28,14 @@ logger = logging.getLogger(__name__)
 
 _ISO2 = re.compile(r"^[A-Za-z]{2}$")
 
+# Chess.com does not use pure ISO-3166. It adds four X-prefixed codes:
+#   XE England, XS Scotland, XW Wales  -- real places, keep them
+#   XX International                   -- explicitly NOT a country; it is
+#                                         chess.com's "unset / prefer not to say"
+# A live dry run over 117 users returned one XX. Storing that as a country
+# would assert a fact the user declined to give, so it resolves to unknown.
+_NOT_A_COUNTRY = {"XX"}
+
 
 def normalize_iso2(value: Optional[str]) -> Optional[str]:
     """Accept either a bare ISO code or a chess.com country URL; return 'IN'.
@@ -39,7 +47,10 @@ def normalize_iso2(value: Optional[str]) -> Optional[str]:
     if not value or not isinstance(value, str):
         return None
     tail = value.rstrip("/").rsplit("/", 1)[-1].strip()
-    return tail.upper() if _ISO2.match(tail) else None
+    if not _ISO2.match(tail):
+        return None
+    code = tail.upper()
+    return None if code in _NOT_A_COUNTRY else code
 
 
 def country_from_lichess_profile(profile: Optional[Dict[str, Any]]) -> Optional[str]:
