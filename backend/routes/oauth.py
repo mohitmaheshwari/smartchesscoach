@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from routes.auth import get_current_user, User
+from services.player_country import country_from_lichess_profile, country_update_fields
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +188,16 @@ async def lichess_callback(code: str = None, state: str = None, error: str = Non
                 "rating": lichess_rating,
                 "title": profile.get("title"),
                 "url": profile.get("url"),
+                # Lichess already returns an ISO-3166 alpha-2 code under
+                # profile.country. It was being discarded (2026-08-24).
+                "country": country_from_lichess_profile(profile),
             },
+            # Canonical, platform-independent field. Normalised in one place so a
+            # lichess ISO code and a chess.com URL can never land in the same
+            # field in different shapes. Absent key when unknown -- see
+            # country_update_fields -- so a blank profile cannot erase a country
+            # chess.com already established for this user.
+            **country_update_fields(country_from_lichess_profile(profile), "lichess"),
         }}
     )
 
