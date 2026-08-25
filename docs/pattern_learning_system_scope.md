@@ -1,8 +1,9 @@
 # Scope: Pattern Learning System (V1 — Knight Forks)
 
-Status: **DRAFT v4.2 — awaiting Mohit's signoff.**
+Status: **LOCKED v4.4 — Mohit signed off on 2026-08-24.**
 v1–v3 2026-08-13 · v4 after review · v4.1 after product-direction approval · v4.2 after the
-fork-architecture correction
+fork-architecture correction · v4.3 after measurement-equivalence and review-capacity audit · v4.4
+after learner-facing projection reconciliation
 Measurements: [pattern_learning_system_evidence.md](pattern_learning_system_evidence.md).
 
 v4.1 → v4.2: **the fork model is piece-agnostic.** Royal-fork support moved OUT of a lesson-local
@@ -12,6 +13,15 @@ a knight-specific fix would have missed 63% of them. `pattern_confidence/fork.py
 redefined as canonical evidence (normal **or** royal), re-run on the mate-corrected set: **97 gold,
 not 64**. Entry copy re-worded for ambiguous provenance. Stage 6 closing lesson added. Q4 scoped as
 a Stage-8-only blocker. Pre-commit optimisation discharged (`6e094a87`).
+
+v4.2 → v4.3: V1 remains knight forks, but the learning measurement is now a two-cohort design:
+calibration users establish difficulty-matched, counterbalanced baseline/post/delayed forms and are
+excluded from the confirmatory analysis. The authoring dry run now includes all distractors. Review
+classes distinguish independent human review from explicitly weaker delayed self-review.
+
+v4.3 → v4.4: rungs 1–8 are explicitly internal evidence checkpoints, never a second user-facing
+ladder. `learning_experience_system_scope.md` owns the three-state learner projection and freshness
+contract through `concept_mastery_service`; `teaching_engine.py` owns the lesson lifecycle contract.
 
 ---
 
@@ -32,6 +42,13 @@ failure mode is building a mechanism and not landing it — 262 services, ~30 wr
 never-fired collections, and three fully-built systems found dead during this audit (`mistake_cards`
 at 0 documents, cross-game recall never fired, MotifDrill's trap panel unreachable). A sixth
 parallel training product would repeat it.
+
+**Canonical cross-document contract.** This document owns knight-fork content, grading, and the map
+from fork evidence to internal checkpoints. It does not own a separate progress UI or lesson
+lifecycle. `backend/services/teaching_engine.py` is the lifecycle contract to extend, and
+`backend/services/concept_mastery_service.py` is the only learner-facing status and next-step
+projection. The rendered states, current-versus-highest checkpoint behavior, demotion, and
+`Refresh needed` semantics come from `docs/learning_experience_system_scope.md` §2F.
 
 **Prerequisite found by this audit and already shipped** (commits `25e0114c`, `2b331aa1`): the
 personal-position contract was broken in production — 92% of stored drill solutions were illegal in
@@ -83,7 +100,8 @@ motifs, attribution is clean (**E2**).
 > "You have stopped missing forks in your games."
 
 That is a real-game transfer claim, legal only after Track A's measurement passes its correctness
-gate. Until then the rung-8 slot reads *"Not measured yet."* — plain text, not a spinner or a lock.
+gate. Until then internal checkpoint 8 remains unearned. The result may say *"Real-game application
+is not measured yet"* as an evidence line, but the user never sees an eight-rung ladder or rung-8 slot.
 
 ---
 
@@ -136,7 +154,7 @@ each independently completable, each ending on a real result.
 | **A — See it** | 1 Understand · 2 Geometry · 3 Identify | 1–3 |
 | **B — Use it** | 4 Real-vs-fake · 5 Create · 6 Spot the trap | 4–5 |
 | **C — Own it** | 7 Mixed unseen · 8 Your game *(optional)* · 9 Result | 6 |
-| **Recall** — ≥24h later, unannounced | 10 Delayed unseen | 7 |
+| **Recall** — after the configured delay, unannounced | 10 Delayed unseen | 7 |
 
 ### The stages
 
@@ -200,7 +218,7 @@ We do **not** then ask for the preventing move; there is no single right answer.
 
 **7 · Mixed unseen.** Six positions. **The word "fork" never appears.** Two contain no tactic.
 *"Something may be available here. What do you notice?"* → `[ There's a tactic ] [ Nothing here ]`
-→ *"Show me."* This is the rung-6 test.
+→ *"Show me."* This is the internal checkpoint-6 test.
 
 **8 · Your game — optional bonus, role-reversed.**
 
@@ -218,7 +236,7 @@ Discriminating, legal (3,395/3,395 verified post-hotfix), personal, and it teach
 than a move. Candidate pool: **≤32 users, median 4 positions, max 18** — but these are
 Gold-*eligible*, not reviewed. Real coverage is determined after authoring (**E3.4**), and Stage 8
 stays optional regardless. **Skipped silently when unavailable, never
-faked, excluded from every rung, and never gates completion.**
+faked, excluded from every internal checkpoint, and never gates completion.**
 
 Only rows with `provenance == "exact"` may print a game or date; 11% of stored rows match several
 games and have their attribution cleared (**E1.4**).
@@ -240,8 +258,10 @@ games and have their attribution cleared (**E1.4**).
 
 Not "Lesson complete." Not a percentage. Not a trophy.
 
-**10 · Delayed recall.** ≥24h later, inside the normal `/training` session, interleaved, no pattern
-name. Three positions, one a counterexample. Rung 7 — **measurable entirely inside training,
+**10 · Delayed recall.** After the configured delay, inside the normal `/training` session,
+interleaved, no pattern name. Three positions, one a counterexample. The earlier 24-hour value is a
+pilot hypothesis until the delay is locked from calibration before confirmatory use. Internal
+checkpoint 7 is **measurable entirely inside training,
 independent of Track A.**
 
 ### Wrong-answer coaching
@@ -259,7 +279,7 @@ independent of Track A.**
 
 **Failure exit — mandatory.** After **two consecutive wrong answers on one position**, stop. Show
 the answer with the geometry drawn, mark the stage `shown`, move on. A `shown` stage **cannot count
-toward rung progression**. Endless retry is how people quit.
+toward internal-checkpoint progression**. Endless retry is how people quit.
 
 ---
 
@@ -270,9 +290,10 @@ toward rung progression**. Endless retry is how people quit.
 2. **Sessions A–C plus delayed recall**, per §2.
 3. **A generalised lesson component** derived from `EndgameLesson.jsx`'s phase machine.
 4. **Tap-the-square / tap-the-arrow interaction.** Never a SAN-only choice.
-5. **The mastery ladder** — rungs 1–7 live, rung 8 shown as *"not measured yet"*:
+5. **Internal evidence checkpoints** — checkpoints 1–7 are measurable in V1; checkpoint 8 is
+   unearned until Track A supplies verified real-game evidence:
 
-   | Rung | Meaning | Measured by |
+   | Internal checkpoint | Meaning | Measured by |
    |---|---|---|
    | 1 | Introduced | Stage 1 complete |
    | 2 | Recognises with visual help | Stage 2 with hints |
@@ -280,8 +301,15 @@ toward rung progression**. Endless retry is how people quit.
    | 4 | Solves clean examples | Stage 5, positions 1–2 |
    | 5 | Handles both directions | Stage 5 pos. 3 + Stage 6 |
    | 6 | Recognises in mixed unseen positions | Stage 7, unprompted, incl. negatives |
-   | 7 | Retains after a delay | Stage 10, ≥24h, unannounced |
+   | 7 | Retains after a delay | Stage 10, configured delay, unannounced |
    | 8 | Applies it in real games | *gated on Track A* |
+
+   These checkpoints are not rendered as an eight-step ladder. The learner sees only **Learning**,
+   **Remembered**, or **Proven in games**, plus `Refresh needed` when justified, through
+   `concept_mastery_service`. This document supplies fork evidence to that projection. It inherits
+   `highest_demonstrated_checkpoint`, `current_demonstrated_checkpoint`, failed-recall demotion, and
+   freshness behavior from Learning Experience System §2F rather than defining a monotonic fork-only
+   status.
 
 6. **Move grading reads the canonical evidence through the shared promotion predicate.**
    A Stage 8 answer is **correct** if the move is legal and either it is the stored
@@ -321,12 +349,15 @@ toward rung progression**. Endless retry is how people quit.
    | Class | Bar | Used for |
    |---|---|---|
    | **Gold-eligible** | Canonical `multi_target_attack_evidence` passes `is_named_fork()` with `attacker_piece_type = knight` and `via_moving_piece = True` · not a mate line by explicit `mate_info`. **183 candidates today** | the pool review draws from |
-   | **Gold** | A Gold-eligible candidate **that a human has reviewed and accepted** | Stages 1, 3, 4, 5, 6, 8 |
-   | **Verified** | Detector + engine agree, no human pass | Stages 7, 10 |
+   | **Gold** | A Gold-eligible candidate accepted by a qualified human **who is not its author** | Every user-facing teaching and assessment stage, including calibration and confirmatory cohorts |
+   | **Provisional** | Engine + detector verification, followed by a delayed blinded second-pass self-review by the author because no independent reviewer is available | Admin walking skeleton only; cannot advance mastery or enter calibration/confirmatory cohorts |
+   | **Verified** | Detector + engine agree, no human pass | Offline screening only; never shown to a cohort |
    | **Inferred** | Broad tag only (`missed_tactic`, `tactical`) | Never used here |
    | **Rejected** | Ambiguous, competing ideas, tag mismatch, unclear solution | Discarded, reason recorded |
 
-   **Gold-eligible is not Gold.** Eligibility is machine-decidable; Gold requires human review.
+   **Gold-eligible is not Gold.** Eligibility is machine-decidable; Gold requires independent human
+   review. A delayed self-review is explicitly weaker and remains Provisional. It is a fallback for
+   plumbing work, not a substitute that can silently open beta.
    The 183 figure is the size of the *pool*, not the amount of teaching content we have — the
    entry-copy gate and Stage 8 coverage must be recomputed from reviewed positions only, never from
    the candidate count (**E3.4**).
@@ -343,17 +374,25 @@ toward rung progression**. Endless retry is how people quit.
 
 9. **Stage 6 distractors: hand-picked.** Per Gold position, exactly one move that allows the fork
    plus three legal, plausible, positionally sound alternatives — no obviously silly answer — each
-   engine- and detector-verified and human-reviewed. No generation rule is built.
+   engine- and detector-verified and independently human-reviewed. No generation rule is built.
 
 10. **Sourcing.** Teaching positions from `lichess_puzzles` (`themes: fork`, knight-filtered on the
     solving move, 62% hit rate at 400–1000, rating-banded). Personal positions from the post-hotfix
     reconstructed records, deduped by `(game_id, opp_creates_motif)`, `provenance == "exact"` for
     anything that names a game or date. Counterexamples hand-authored.
 
-11. **Stage-level instrumentation from the first commit** — every tap, hint, wrong answer and
+11. **Assessment equivalence.** Baseline, immediate post-test, and delayed-recall items are built as
+    difficulty-matched triplets. Initial matching uses available puzzle rating plus verified position
+    features. A named calibration cohort supplies first-attempt empirical difficulty before receiving
+    fork instruction and is excluded
+    from confirmatory analysis. Within each triplet, assignment to baseline/post/delay is constrained-
+    random and counterbalanced across users; no user repeats a position and no fixed form is always
+    post-instruction. The triplets and scoring rule freeze before a separate confirmatory cohort starts.
+
+12. **Stage-level instrumentation from the first commit** — every tap, hint, wrong answer and
     failure exit, keyed to stage and position ID.
 
-12. **Single source of truth.** `caption_facts.multi_target_attack_evidence` is the ONE fork
+13. **Single source of truth.** `caption_facts.multi_target_attack_evidence` is the ONE fork
     signal, for every attacker type and for royal forks alike. The lesson filters it with
     `attacker_piece_type == "knight"`. `motif_profile.fork` and
     `move_observations.tactical_pattern_executed` are read-only consumers.
@@ -362,9 +401,9 @@ toward rung progression**. Endless retry is how people quit.
     independent cross-check for four detector scripts. No lesson-local, frontend, or
     knight-specific recognizer may be created.
 
-13. **Delivery — two parallel tracks, 60 days, two developers.**
+14. **Delivery — two parallel tracks, 60 days, two developers.**
 
-    **Track A — measurement foundation** (unblocks rung 8 and the retention loop): fix the BSON
+    **Track A — measurement foundation** (unblocks internal checkpoint 8 and the retention loop): fix the BSON
     string/datetime comparison in `check_focus_outcome`; use one canonical event time for numerator
     and denominator; backtest historical focuses; add minimum-sample and uncertainty handling;
     remove the improvement claim that fails the shuffle test; give `time_management` a measurable
@@ -373,7 +412,7 @@ toward rung progression**. Endless retry is how people quit.
     **Track B — the Knight Forks pilot**: §7 item 5 (rating resolution) first, then item 6, then
     Sessions A–C, then delayed recall, instrumented throughout.
 
-    The tracks touch in exactly one place: rung 8. Track B ships without it.
+    The tracks touch in exactly one place: internal checkpoint 8. Track B ships without it.
 
 ---
 
@@ -388,36 +427,44 @@ toward rung progression**. Endless retry is how people quit.
 - The wider curriculum families: board vision, opponent awareness, chess theory.
 - Any real-game transfer claim.
 - Streaks, XP, completion animations, trophies.
-- Numeric thresholds. Every cut point — how many of six mixed positions counts as rung 6, how long a
-  delay counts for rung 7, how fast scaffolding fades — is locked against the pilot's own
-  distribution via `/lock-via-data`. Picking a number before seeing the histogram is the mistake
-  this project has made three times.
+- Numeric thresholds. Every cut point — how many mixed positions counts as the independent checkpoint,
+  how long a delay counts for retention, how fast scaffolding fades — is locked from the eligible
+  corpus, design simulation, and calibration distribution via `/lock-via-data`, then frozen before
+  the confirmatory cohort begins. Picking a number from the confirmatory outcomes would invalidate
+  the result just as surely as picking it from intuition.
 
 ---
 
 ## 5. Success criteria
 
-**Primary — pilot hypotheses, not targets.** These are what we test. At n≈15 they are not powered,
-and they are revised against the pilot's own distribution via `/lock-via-data` before any is
-reported as a result.
+**Primary — within-player learning and retention.** Each confirmatory user is their own control:
+unguided baseline versus a different difficulty-matched immediate form versus a third matched delayed
+form. Assignment inside each matched triplet is constrained-random and counterbalanced across users.
+The calibration cohort that established item difficulty is excluded from this analysis. A result is
+valid only after the triplets, scoring, missing-follow-up rule, and sequential stop/continue boundary
+were frozen before the confirmatory cohort started.
 
-> *Hypothesis:* of beta users who complete Sessions A–C, **≥60% reach rung 6** — identifying knight
-> forks in mixed unseen positions where the pattern was not named, including correctly rejecting at
-> least one position with no tactic — and **≥40% reach rung 7** on delayed recall ≥24h later.
+Group percentages are descriptive only at this cohort size. The report shows every eligible user's
+baseline → post-test → delayed transition, plus exact counts for started, completed, recalled,
+benefited, did not benefit, and missing follow-up. It does not turn a group mean into a population
+claim.
 
-**Secondary — the readable result.** The stage at which each user *first fails* is recorded. If
-failures cluster on one stage across the cohort, that stage is mis-designed and we will know which.
-At this cohort size this is the finding V1 is actually for.
+**Secondary — the readable diagnostic.** The stage at which each user *first fails* is recorded. If
+failures cluster on one stage across the cohort, that stage is probably mis-designed and must be
+audited before the lesson expands.
 
-**Deferred to Track A (rung 8).** Among users reaching rung 7, the knight-fork `got` rate per game
+**Deferred to Track A (internal checkpoint 8).** Among users reaching internal checkpoint 7, the knight-fork `got` rate per game
 after the lesson versus their pre-lesson baseline. **Not shown to any user** until Track A's
 measurement passes its correctness gate: a fixed comparison window, a minimum sample, and a
 shuffle-control the claim survives. The current improvement claim fails that control (66% real vs
 71% shuffled) and must be removed before any new one ships.
 
-**Cohort.** 20–25 recruited players rated 600–1200, targeting ≥15 completers. Present traffic — 4
-logins in the last 7 days, 512 lifetime training attempts — cannot support a conventional
-experiment (**E6**).
+**Cohorts.** Admin sessions verify plumbing only. A named calibration cohort supplies independent
+first-attempt item data before receiving fork instruction; those users cannot appear in the confirmatory result. A separately recruited
+confirmatory cohort receives the frozen assessment pool. Cohort sizes and item-attempt coverage are
+locked from the eligible corpus plus a design simulation before recruitment; they are not inferred
+from one admin or seven authored items. Present traffic — 4 logins in the last 7 days, 512 lifetime
+training attempts — means outside recruitment may still be required (**E6**).
 
 ---
 
@@ -425,9 +472,9 @@ experiment (**E6**).
 
 | # | Question | Owner | Unblocking step |
 |---|---|---|---|
-| 1 | **Content authoring capacity.** 40 Gold positions + 12 counterexamples + 3 distractors per Gold is the largest cost in V1 and it scales with the Gold count. Is it one person or split? | **Mohit to assign** | Author 5 Gold + 2 counterexamples as a timed pilot batch, measure minutes-per-asset, then size the rest from the real rate rather than an estimate |
-| 2 | **Independent chess reviewer.** §3.8 and §3.9 both require a human who is not the author. Who? | **Mohit to assign** | Name the reviewer before authoring starts, so review is not retrofitted; Parth is the obvious candidate given prior caption-review history |
-| 3 | **Recruitment channel.** 20–25 players rated 600–1200, ≥15 completers. | **Mohit to assign** | Decide channel (existing 64-user base has only ~26 in band and 4 weekly actives, so this likely needs outside recruitment); draft the invite and the consent line before Track B ships |
+| 1 | **Content authoring capacity.** The planned contract is 40 Gold positions + 12 counterexamples + 120 distractor moves = 172 review units. Distractors are 70% of the units, though not necessarily 70% of effort. Is authoring one person or split? | **Mohit to assign** | Time 5 Gold + 2 counterexamples + all 15 distractors attached to those five Gold positions, plus a representative assessment-review sample. Record minutes and rejection rates separately by asset type, then size the rest from those real rates. |
+| 2 | **Independent chess reviewer.** Gold, counterexamples, distractors, and cohort assessment items require a qualified human who is not the author. Who? | **Mohit to assign** | Name the reviewer before cohort authoring. If unavailable, engine/detector verification plus delayed blinded self-review is labelled `Provisional`, permitted only for the admin walking skeleton, and cannot satisfy this gate or enter calibration/confirmatory cohorts. |
+| 3 | **Calibration and confirmatory recruitment.** What channels can supply separate 600–1200 calibration and confirmatory cohorts without reusing users? | **Mohit to assign** | Use the eligible corpus plus a design simulation to lock item-attempt coverage and cohort sizes before recruitment; then draft separate invites and consent language. Existing traffic likely requires outside recruitment. |
 | 4 | ~~Royal-fork floor~~ — **CLOSED.** 300 cp confirmed by Mohit 2026-08-13 as the minimum for a *named/teaching-grade* fork, not as the definition of whether a fork exists. Moved out of the detector into the shared `is_named_fork()` promotion predicate. | — | Closed |
 | 5 | ~~Uniform vs royal-only naming floor~~ — **CLOSED.** Ratified by Mohit 2026-08-13: 300 cp applies uniformly to normal and royal shapes. Royal-only rejected (leaves pawn+pawn named while equivalent royal shapes are suppressed); 500 rejected (loses valid minor-piece forks); no floor rejected (demonstrated caption noise). | — | Closed |
 | 6 | ~~Boundary refit~~ — **CLOSED.** Refit, ratified by Mohit 2026-08-13: holding the old values would preserve thresholds calibrated to a detector definition that no longer exists. **Two distinct systems, refitted separately** (§7 item 14) — an earlier draft of this row conflated them. | — | Closed; the numbers are chosen from the full-cohort dry run, not a sample |
@@ -447,22 +494,22 @@ experiment (**E6**).
 | 5 | Detect ambiguous provenance joins; quarantine game/date attribution | ✅ **Discharged** — E1.4, 373/3,395 quarantined, 0 leaks |
 | 6 | Fix `/training/prescribed` difficulty to use `rating_resolver.get_current_rating` | ⬜ **Open — blocking.** Two days. **Track B starts here** |
 | 7 | Correct the stale audit comment at `motif_profile_service.py:15` | ⬜ Open — one line |
-| 8 | Author 40 Gold + 12 counterexamples + 3 distractors per Gold, through the §3.7–3.9 gates | ⬜ Open — the main content cost; see §6 Q1 |
-| 9 | Recruit 20–25 players rated 600–1200 | ⬜ Open — see §6 Q3 |
+| 8 | Time the complete authoring pilot (5 Gold + 2 counterexamples + 15 distractors + assessment-review sample), then author the approved full set through the §3.7–3.11 gates | ⬜ Open — the main content cost; see §6 Q1 |
+| 9 | Recruit separate calibration and confirmatory cohorts; calibration users are excluded from confirmatory analysis | ⬜ Open — cohort sizes and item coverage require `/lock-via-data`; see §6 Q3 |
 | 10 | Optimise the pre-commit hook (one `grep` per file, not per line) | ✅ **Discharged** — `6e094a87`. 469,113 ms → 85 ms on `coach_play.py` |
 | 11 | Royal-fork support in the canonical detector; retire `pattern_confidence/fork.py` | ✅ **Discharged** — `de9f6d11` |
 | 12 | Move the 300 floor out of the detector into a shared promotion predicate; behavioural tests | ✅ **Discharged** — `is_named_fork()`, 10 behavioural tests, no new regression |
 | 13 | Wire every user-facing fork consumer to the derived `named_fork_evidence` view; de-duplicate `_p_tac_fork_pattern`'s threshold | ✅ **Discharged** — R02, principle path, motif profile (4 sites), player identity |
-| 14 | **Recompute all three stored fork stores, then refit two separate boundary systems.** ⬜ **Open — blocking for any fork drill or Stage 8 content.**<br><br>*Recompute* (`scripts/migrate_fork_promotion_recompute.py`, dry-run by default): `motif_profile.fork`, the `fork` keys in `motif_recognition`, and the `fork` keys in `motif_anticipation`. 35% of drill positions change credit even though the totals barely move (**E3.4a**).<br><br>*Refit — `_verdict` cutoffs:* `WEAKNESS_RATE["fork"]` = p70 of `got / games`; `STRENGTH_RATE["fork"]` = p70 of `made_sound / games`; both over users with **≥5 games**.<br><br>*Refit — mastery ladder:* `MASTERY_EDGES["fork"]` = p25/p50/p75/p90 of `found / available` over users with **≥8 opportunities**. These are a different system from the `_verdict` cutoffs and must not be conflated.<br><br>*Not refitted:* `_DEFENSE_EDGES` — absolute anticipation percentages, not population-calibrated. Its underlying data is still recomputed.<br><br>*Order:* sample validation (correctness) → full-cohort dry run (boundaries) → lock numbers → backup → apply by `_id` → second run reports zero changes. |
+| 14 | **Recompute all three stored fork stores, then refit two separate boundary systems.** ⬜ **Open — blocking for any fork drill or Stage 8 content.**<br><br>*Recompute* (`scripts/migrate_fork_promotion_recompute.py`, dry-run by default): `motif_profile.fork`, the `fork` keys in `motif_recognition`, and the `fork` keys in `motif_anticipation`. 35% of drill positions change credit even though the totals barely move (**E3.4a**).<br><br>*Refit — `_verdict` cutoffs:* `WEAKNESS_RATE["fork"]` = p70 of `got / games`; `STRENGTH_RATE["fork"]` = p70 of `made_sound / games`; both over users with **≥5 games**.<br><br>*Refit — internal motif-recognition evidence boundaries:* `MASTERY_EDGES["fork"]` = p25/p50/p75/p90 of `found / available` over users with **≥8 opportunities**. These are raw evidence inputs, not the learner-facing projection, and are distinct from the `_verdict` cutoffs.<br><br>*Not refitted:* `_DEFENSE_EDGES` — absolute anticipation percentages, not population-calibrated. Its underlying data is still recomputed.<br><br>*Order:* sample validation (correctness) → full-cohort dry run (boundaries) → lock numbers → backup → apply by `_id` → second run reports zero changes. |
 | 16 | **Do not deploy the consumer change while live fork drills still serve old-profile material.** Migrate in the same rollout, or gate fork drills until the recompute lands | ⬜ **Open — release-coordination gate** |
 | 17 | Rotate the two production database credentials found committed in 34 tracked files and present in git history | ⬜ **Open — P0, owner: Mohit.** Code scrubbed in `11d38aeb`; that does not remediate history |
 | 15 | Correct the stale audit-status block at `motif_profile_service.py:15` | ✅ **Discharged** — replaced with the per-motif geometry/attribution table |
 
 **Decisions recorded (Mohit, 2026-08-13):**
 
-1. **Cohort** — 20–25 real players rated 600–1200, ≥15 completers.
+1. **Cohort — superseded in v4.3.** The earlier 20–25 / ≥15-completer group target did not separate item calibration from confirmation. V1 now requires non-overlapping calibration and confirmatory cohorts; their sizes are locked from eligible traffic and design simulation before recruitment.
 2. **Stage 8** — stays in V1. It is the screen that turns a good tactics course into a coach who
-   remembers your games. Optional, never affects rungs or completion; a median of 2 positions is
+   remembers your games. Optional, never affects internal checkpoints or completion; a median of 2 positions is
    enough because it is a reflection moment, not a repetition pool.
 3. **Stage 8 grading** — accept any legal move that creates the verified fork, not only the
    historical move (§3.6).
