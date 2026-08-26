@@ -65,6 +65,12 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
       // session didn't carry a canonical instruction).
       instruction_id: data.instruction_id ?? null,
       is_carried_forward: data.is_carried_forward ?? false,
+      // Explicit flag/eligibility telemetry (2026-08-08, external review
+      // of b0105f21) -- distinguishes WHY instruction_id might be null
+      // (flag off vs. wrong role vs. genuinely no active focus), which
+      // instruction_id alone can't.
+      flag_enabled: data.instruction_eligibility?.flag_enabled ?? null,
+      instruction_eligible: data.instruction_eligibility?.instruction_eligible ?? null,
     });
   }, [data]);
 
@@ -169,6 +175,34 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
               </button>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* ── SURVIVING INSTRUCTION VERDICT ──
+          Sprint 2 (docs/one_surviving_instruction_scope.md). A SEPARATE
+          signal from pattern_verdict above -- pattern_verdict comes from
+          pattern_memory_service's independent decay model; this comes
+          from the exact instruction the player was actually given this
+          session (user_active_focus -> focus_bridge), checked against
+          this session's own scoreboard. Only renders for rollout-gate-
+          eligible users with an active piece_safety focus -- null/
+          undefined for everyone else, so this is a no-op addition for
+          every user outside the internal/admin cohort.
+          Correction (2026-08-08): v1 computed this data but only ever
+          sent it to analytics -- never rendered it. This is that render. */}
+      {data.instruction_verdict && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="rounded-xl border border-violet-500/20 bg-violet-500/[0.03] p-5"
+          data-testid="instruction-verdict"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Brain className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
+            <p className="text-xs font-bold uppercase tracking-wider text-violet-400">Your instruction</p>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed">{data.instruction_verdict.message}</p>
         </motion.div>
       )}
 

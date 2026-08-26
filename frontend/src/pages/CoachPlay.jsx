@@ -1206,9 +1206,28 @@ const CoachPlay = ({ user }) => {
       console.warn("[CoachPlay] Error fetching training focus:", e);
     }
 
-    // Fetch active focus rule for pre-game banner
+    // PIC uses the canonical active-focus instruction and mastery projection.
+    // Legacy users keep the Lab Coach's Pick compatibility path.
     try {
-      const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+      const canonicalRes = await fetch(`${API}/coach/active-focus`, {
+        credentials: "include",
+      });
+      const canonical = canonicalRes.ok ? await canonicalRes.json() : null;
+      const pic = canonical?.personal_improvement_cycle;
+      if (pic?.eligible) {
+        trainingFocusCognitivGap = "piece_safety";
+        setFocusRule({
+          name: `${pic.focus_label} · ${pic.learner_state?.label || "Learning"}`,
+          rule:
+            pic.instruction_text ||
+            "Before moving, check whether the piece will be safe on its new square.",
+          pattern: "piece_safety",
+          evidenceMode: "practice_assisted",
+        });
+        setShowFocusBanner(true);
+        setTimeout(() => setShowFocusBanner(false), 6000);
+      } else {
+        const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
       if (focusRes.ok) {
         const focusData = await focusRes.json();
         const coaching = focusData.coaching;
@@ -1222,6 +1241,7 @@ const CoachPlay = ({ user }) => {
           // Auto-hide after 6 seconds
           setTimeout(() => setShowFocusBanner(false), 6000);
         }
+      }
       }
     } catch (e) { /* non-fatal */ }
     

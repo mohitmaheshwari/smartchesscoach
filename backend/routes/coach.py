@@ -4353,7 +4353,10 @@ async def get_active_focus(user: User = Depends(get_current_user)):
     lu = focus.get("locked_until")
     if lu:
         try:
-            lu_dt = datetime.fromisoformat(lu.replace("Z", "+00:00"))
+            from services.focus_bridge import _to_dt
+            lu_dt = _to_dt(lu)
+            if lu_dt is None:
+                raise ValueError("invalid locked_until")
             days_remaining = max(0, (lu_dt - datetime.now(timezone.utc)).days)
         except Exception:
             pass
@@ -4382,8 +4385,10 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         # A dot goes green when there's an analyzed game on that day.
         from datetime import datetime as _dt, timezone as _tz, timedelta as _td
         try:
-            started_iso = focus.get("started_at") or ""
-            started_dt = _dt.fromisoformat(started_iso.replace("Z", "+00:00"))
+            from services.focus_bridge import _to_dt
+            started_dt = _to_dt(focus.get("started_at"))
+            if started_dt is None:
+                raise ValueError("invalid started_at")
             today = _dt.now(_tz.utc)
             day_grid = []
             days_played_in_a_row = 0
@@ -4479,6 +4484,15 @@ async def get_active_focus(user: User = Depends(get_current_user)):
             "rating_band": focus.get("rating_band"),
             "rating_confidence": focus.get("rating_confidence"),
         })
+        # PIC is an additive default-off projection from the same focus and
+        # observation authorities. While enabled, suppress the legacy
+        # events-per-game trend so it cannot claim improvement from incomplete
+        # simple_hang absence.
+        from services.focus_bridge import get_pic_focus_projection
+        pic = await get_pic_focus_projection(db, user.user_id, focus=focus)
+        if pic is not None:
+            resp.pop("focus_trend", None)
+            resp["personal_improvement_cycle"] = pic
     if strength:
         resp["strength"] = {
             "label": strength.get("label"),
@@ -4493,6 +4507,42 @@ async def get_active_focus(user: User = Depends(get_current_user)):
             "baseline_fallback": strength.get("baseline_fallback"),
         }
     return resp
+
+
+@router.post("/active-focus/focus-game/commit")
+async def commit_active_focus_game(user: User = Depends(get_current_user)):
+    """Commit the next newly imported game as the user's Focus Game."""
+    from services.focus_game_service import commit_next_focus_game
+    try:
+        pending = await commit_next_focus_game(db, user.user_id)
+        return {"success": True, "pending_focus_game": pending}
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/active-focus/focus-game/cancel")
+async def cancel_active_focus_game(user: User = Depends(get_current_user)):
+    """Cancel a waiting Focus Game commitment before import."""
+    from services.focus_game_service import cancel_focus_game_commitment
+    try:
+        pending = await cancel_focus_game_commitment(db, user.user_id)
+        return {"success": True, "pending_focus_game": pending}
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/active-focus/focus-game/correct")
+async def correct_active_focus_game(
+    game_id: str = Body(..., embed=True),
+    user: User = Depends(get_current_user),
+):
+    """Reject a wrongly claimed game and wait for the next imported game."""
+    from services.focus_game_service import correct_claimed_focus_game
+    try:
+        pending = await correct_claimed_focus_game(db, user.user_id, game_id)
+        return {"success": True, "pending_focus_game": pending}
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @router.get("/personal-moments/{topic}")
@@ -4521,4 +4571,3 @@ async def get_personal_moments(topic: str, user: User = Depends(get_current_user
         "moments": moments,
         "user_id": user.user_id,
     }
-

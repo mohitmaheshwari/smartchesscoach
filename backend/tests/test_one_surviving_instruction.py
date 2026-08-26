@@ -26,9 +26,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from services.focus_bridge import get_active_focus_bundle  # noqa: E402
 from services.mission_scoreboard import (  # noqa: E402
+    build_instruction_verdict,
     is_focus_moment,
     rebuild_scoreboard_from_history,
 )
+from services.session_greeting_service import build_session_greeting  # noqa: E402
 
 
 class _FakeCollection:
@@ -265,3 +267,214 @@ class TestSubtypeAwareMatching:
         )
         result_without = is_focus_moment("king_safety", board_fen, "e1g1", "white")
         assert result_with_subtype == result_without
+
+
+class TestBuildInstructionVerdict:
+    """The actual VISIBLE postgame verdict (2026-08-08, external review
+    of b0105f21 -- v1 computed instruction_id/text but only ever sent
+    them to analytics, never rendered them). Honest-framing tests are
+    the load-bearing ones here: the reviewer's exact concern was that
+    'no hang detected' must never be phrased as 'instruction followed.'"""
+
+    def test_no_instruction_id_returns_none(self):
+        assert build_instruction_verdict({"instruction_text": "x"}) is None
+
+    def test_no_instruction_text_returns_none(self):
+        assert build_instruction_verdict({"instruction_id": "x"}) is None
+
+    def test_none_scoreboard_returns_none(self):
+        assert build_instruction_verdict(None) is None
+
+    def test_non_simple_hang_subtype_gets_no_behavioral_claim(self):
+        sb = {
+            "instruction_id": "inst_1", "instruction_text": "Walk every capture to the end.",
+            "focus_subtype": "tactical_seq_loss", "matched_moments": 3,
+        }
+        verdict = build_instruction_verdict(sb)
+        assert verdict["has_measured_outcome"] is False
+        assert verdict["message"] == "Walk every capture to the end."
+        # Must NOT claim anything about matched_moments for an unverified subtype.
+        assert "outcome" not in verdict
+
+    def test_simple_hang_with_a_real_hang_reports_the_miss(self):
+        sb = {
+            "instruction_id": "inst_1",
+            "instruction_text": "Before every move, ask: can this piece be taken?",
+            "focus_subtype": "simple_hang",
+            "matched_moments": 1,
+            "events": [{"move_number": 14, "move": "Qd5", "outcome": "missed"}],
+        }
+        verdict = build_instruction_verdict(sb)
+        assert verdict["outcome"] == "missed"
+        assert "hanging on move 14" in verdict["message"]
+        assert "Same instruction next game" in verdict["message"]
+
+    def test_simple_hang_zero_matches_says_no_hang_detected_not_followed(self):
+        sb = {
+            "instruction_id": "inst_1",
+            "instruction_text": "Before every move, ask: can this piece be taken?",
+            "focus_subtype": "simple_hang",
+            "matched_moments": 0,
+            "events": [],
+        }
+        verdict = build_instruction_verdict(sb)
+        assert verdict["outcome"] == "no_hang_detected"
+        # The exact honesty bar the review set: must say "detected," never "followed."
+        assert "no hang detected" in verdict["message"].lower()
+        assert "followed" not in verdict["message"].lower()
+        assert "checked" not in verdict["message"].lower()
+
+    def test_simple_hang_missing_move_number_omits_clause_gracefully(self):
+        sb = {
+            "instruction_id": "inst_1", "instruction_text": "x",
+            "focus_subtype": "simple_hang", "matched_moments": 1,
+            "events": [{"move": "Qd5"}],  # no move_number key
+        }
+        verdict = build_instruction_verdict(sb)
+        assert "on move" not in verdict["message"]
+
+
+class _FakeSessionsCollection:
+    """Fakes just enough of coach_sessions for
+    session_greeting_service._last_session_summary: find_one with a
+    status-$in filter and a sort-by-field-descending, over a real list
+    of session docs (not a single fixed doc, unlike _FakeCollection)."""
+
+    def __init__(self, docs):
+        self._docs = docs
+
+    async def find_one(self, query, sort=None):
+        matches = [d for d in self._docs if self._matches(d, query)]
+        if not matches:
+            return None
+        if sort:
+            field, direction = sort[0]
+            matches.sort(key=lambda d: d.get(field) or "", reverse=(direction == -1))
+        return dict(matches[0])
+
+    @staticmethod
+    def _matches(doc, query):
+        for k, v in query.items():
+            if isinstance(v, dict) and "$in" in v:
+                if doc.get(k) not in v["$in"]:
+                    return False
+            elif doc.get(k) != v:
+                return False
+        return True
+
+
+class _TwoSessionFakeDB:
+    """A fuller fake DB for the two-consecutive-sessions integration
+    test: real user_active_focus + users (single doc, matches
+    _FakeCollection) plus a real coach_sessions list."""
+
+    def __init__(self, focus_doc, user_doc, session_docs):
+        self._collections = {"user_active_focus": _FakeCollection(focus_doc)}
+        self.users = _FakeCollection(user_doc)
+        self.coach_sessions = _FakeSessionsCollection(session_docs)
+
+    def __getitem__(self, name):
+        return self._collections[name]
+
+
+class TestTwoConsecutiveSessionsIntegration:
+    """The scope's own required coverage (§7): two consecutive sessions,
+    confirming the instruction survives session N -> session N+1 by
+    reading focus_bridge fresh each time (Correction #6), NOT by
+    chaining off session N's own document -- and that outcome-context
+    phrasing ('same instruction as last time') only changes the
+    framing, never the instruction identity itself.
+    """
+
+    FOCUS = dict(REAL_FOCUS_DOC)  # same instruction_id across both sessions
+
+    @pytest.mark.asyncio
+    async def test_session_two_greeting_is_carried_forward_when_same_instruction(self, monkeypatch):
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        session_one = {
+            "user_id": "user_real_123",
+            "status": "completed",
+            "ended_at": "2026-08-07T10:00:00+00:00",
+            "result": "user_won",
+            "mission_scoreboard": {
+                "instruction_id": self.FOCUS["instruction_id"],
+                "matched_moments": 2, "handled_correctly": 2, "handled_incorrectly": 0,
+            },
+        }
+        db = _TwoSessionFakeDB(self.FOCUS, {"role": "admin"}, [session_one])
+
+        greeting = await build_session_greeting(db, "user_real_123")
+
+        assert greeting is not None
+        assert greeting["instruction_id"] == "inst_abc123"
+        assert greeting["is_carried_forward"] is True
+        assert "Same instruction as last time" in greeting["text"]
+
+    @pytest.mark.asyncio
+    async def test_session_two_greeting_not_carried_forward_when_instruction_differs(self, monkeypatch):
+        # Session one was under a DIFFERENT (now-resolved) instruction --
+        # the current one must NOT be framed as carried forward.
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        session_one = {
+            "user_id": "user_real_123",
+            "status": "completed",
+            "ended_at": "2026-08-01T10:00:00+00:00",
+            "result": "user_won",
+            "mission_scoreboard": {"instruction_id": "inst_some_other_old_one"},
+        }
+        db = _TwoSessionFakeDB(self.FOCUS, {"role": "admin"}, [session_one])
+
+        greeting = await build_session_greeting(db, "user_real_123")
+
+        assert greeting["instruction_id"] == "inst_abc123"
+        assert greeting["is_carried_forward"] is False
+        assert "Same instruction as last time" not in greeting["text"]
+
+    @pytest.mark.asyncio
+    async def test_session_one_no_prior_session_not_carried_forward(self, monkeypatch):
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        db = _TwoSessionFakeDB(self.FOCUS, {"role": "admin"}, [])  # no prior sessions at all
+
+        greeting = await build_session_greeting(db, "user_real_123")
+
+        assert greeting["instruction_id"] == "inst_abc123"
+        assert greeting["is_carried_forward"] is False
+
+    @pytest.mark.asyncio
+    async def test_abandoned_malformed_prior_session_degrades_gracefully(self, monkeypatch):
+        # Correction #6's core promise: an abandoned/malformed session N
+        # must not break session N+1's ability to get its instruction.
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        malformed_prior = {
+            "user_id": "user_real_123",
+            "status": "abandoned",
+            "ended_at": "2026-08-07T09:00:00+00:00",
+            # no mission_scoreboard at all -- e.g. abandoned before any move
+        }
+        db = _TwoSessionFakeDB(self.FOCUS, {"role": "admin"}, [malformed_prior])
+
+        greeting = await build_session_greeting(db, "user_real_123")
+
+        # Still gets a real instruction from focus_bridge -- unaffected
+        # by the prior session being malformed.
+        assert greeting["instruction_id"] == "inst_abc123"
+        assert greeting["instruction_text"] == "Before every move, ask: can this piece be taken?"
+        assert greeting["is_carried_forward"] is False  # no outcome-context available, degrades cleanly
+
+    @pytest.mark.asyncio
+    async def test_ineligible_user_gets_no_instruction_across_both_sessions(self, monkeypatch):
+        # The rollout gate must hold across the whole two-session flow,
+        # not just session one.
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        session_one = {
+            "user_id": "user_real_123", "status": "completed",
+            "ended_at": "2026-08-07T10:00:00+00:00", "result": "user_won",
+            "mission_scoreboard": {"instruction_id": None},
+        }
+        db = _TwoSessionFakeDB(self.FOCUS, {"role": "user"}, [session_one])
+
+        greeting = await build_session_greeting(db, "user_real_123")
+
+        assert greeting["instruction_id"] is None
+        assert greeting["instruction_text"] is None
+        assert greeting["is_carried_forward"] is False

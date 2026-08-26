@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,25 @@ def set_db(database):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+
+
+async def _require_pic_training_user(user: User):
+    from services.focus_bridge import get_pic_focus_projection
+
+    projection = await get_pic_focus_projection(db, user.user_id)
+    if not projection or not projection.get("eligible"):
+        raise HTTPException(
+            status_code=409,
+            detail="An eligible PIC piece-safety focus is required",
+        )
+    return projection
+
+
+def _raise_pic_lesson_error(result: Dict):
+    if result.get("error"):
+        status = 404 if result["error"] == "Session not found" else 409
+        raise HTTPException(status_code=status, detail=result["error"])
+    return result
 
 # Import training services (from mistake_card_service)
 from mistake_card_service import (
@@ -65,6 +85,95 @@ class PuzzleAttemptRequest(BaseModel):
     correct: bool
     time_taken_ms: Optional[int] = None
     moves_tried: Optional[List[str]] = []
+
+
+class PICLessonStartRequest(BaseModel):
+    limit: int = 5
+
+
+class PICLessonMoveRequest(BaseModel):
+    session_id: str
+    move: str
+    interaction_id: Optional[str] = None
+
+
+class PICLessonPauseRequest(BaseModel):
+    session_id: str
+    choice: str = "pause"
+
+
+# ==================== PERSONAL IMPROVEMENT CYCLE ====================
+
+@router.post("/pic/session/start")
+async def start_pic_training_session(
+    request: PICLessonStartRequest,
+    user: User = Depends(get_current_user),
+):
+    """Start or resume the verified, own-game-first piece-safety lesson."""
+    await _require_pic_training_user(user)
+    from services.teaching_engine import PIC_LESSON_TYPE, start_lesson
+
+    result = await start_lesson(
+        db,
+        str(uuid.uuid4()),
+        user.user_id,
+        PIC_LESSON_TYPE,
+        {"limit": request.limit},
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.get("/pic/session")
+async def get_pic_training_session(user: User = Depends(get_current_user)):
+    """Return the user's current PIC lesson without exposing another user."""
+    await _require_pic_training_user(user)
+    from services.teaching_engine import get_pic_piece_safety_lesson
+
+    result = await get_pic_piece_safety_lesson(db, user.user_id)
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/pic/session/move")
+async def submit_pic_training_move(
+    request: PICLessonMoveRequest,
+    user: User = Depends(get_current_user),
+):
+    """Grade one move through the canonical teaching dispatcher."""
+    await _require_pic_training_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import process_lesson_move
+
+    result = await process_lesson_move(
+        db,
+        request.session_id,
+        request.move,
+        interaction_id=request.interaction_id,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/pic/session/pause")
+async def pause_pic_training_session(
+    request: PICLessonPauseRequest,
+    user: User = Depends(get_current_user),
+):
+    """Pause or exit a PIC lesson while preserving its frozen items."""
+    await _require_pic_training_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import exit_lesson
+
+    result = await exit_lesson(db, request.session_id, request.choice)
+    return _raise_pic_lesson_error(result)
 
 
 # ==================== CORE SESSION ENDPOINTS ====================

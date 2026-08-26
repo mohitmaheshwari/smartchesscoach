@@ -483,14 +483,25 @@ async def _get_active_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     })
 
 
-async def _get_cohort_signals(db, user_id: str) -> Dict[str, Any]:
+async def _pic_enabled_for_user(db, user_id: str) -> bool:
+    from services.focus_bridge import _pic_fields_eligible
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    return _pic_fields_eligible((user_doc or {}).get("role"))
+
+
+async def _get_cohort_signals(
+    db, user_id: str, see_backed_only: bool = False
+) -> Dict[str, Any]:
     """Compute the aggregate signals from this user's move_observations.
 
     Cap at 25000 obs (~1000 games) — enough to cover our largest users
     (Mohit has 15k, Parth 6k). Any user hitting the cap should switch to
     server-side aggregation, but at current scale in-memory is fine."""
     from services.move_observation_deriver import aggregate_user_signals
-    obs = await db.move_observations.find({"user_id": user_id}).to_list(length=25000)
+    query: Dict[str, Any] = {"user_id": user_id}
+    if see_backed_only:
+        query["schema_version"] = {"$gte": 16}
+    obs = await db.move_observations.find(query).to_list(length=25000)
     return aggregate_user_signals(obs), len(obs)
 
 
@@ -528,17 +539,22 @@ async def _in_cooldown(db, user_id: str, topic: str) -> bool:
     return prev is not None
 
 
-async def _compute_baseline_metric(db, user_id: str, topic: str) -> Dict[str, Any]:
+async def _compute_baseline_metric(
+    db, user_id: str, topic: str, see_backed_only: bool = False
+) -> Dict[str, Any]:
     """Baseline per-game rate — total occurrences divided by total analyzed
     games. Simple + correct. Previous version divided by a capped n which
     made rates 30x too high."""
     games_analyzed = await db.games.count_documents(
         {"user_id": user_id, "is_analyzed": True}
     )
-    total = await db.move_observations.count_documents({
+    observation_query: Dict[str, Any] = {
         "user_id": user_id,
         "missed_pattern": topic,
-    })
+    }
+    if see_backed_only:
+        observation_query["schema_version"] = {"$gte": 16}
+    total = await db.move_observations.count_documents(observation_query)
     rate = round(total / max(games_analyzed, 1), 3)
     return {
         "name": f"{topic}_per_game",
@@ -577,8 +593,12 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     if n_games < MIN_ANALYZED_GAMES:
         return None
 
-    # Signals from move_observations
-    signals, n_obs = await _get_cohort_signals(db, user_id)
+    # Signals from move_observations. PIC hard-excludes pre-SEE schemas;
+    # flag-off users retain the legacy query until controlled migration.
+    pic_enabled = await _pic_enabled_for_user(db, user_id)
+    signals, n_obs = await _get_cohort_signals(
+        db, user_id, see_backed_only=pic_enabled
+    )
     if n_obs == 0:
         return None
 
@@ -753,6 +773,7 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     # full diagnosis+instruction coaching_narrative paragraph above.
     winner["instruction_text"] = narrative_pack["instruction_text"]
     winner["dominant_subtype_at_assignment"] = narrative_pack["dominant_subtype"]
+    winner["pic_enabled"] = pic_enabled
 
     winner["runners_up"] = [
         {
@@ -768,19 +789,52 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     return winner
 
 
+async def _instruction_fields_eligible_for_write(db, user_id: str) -> bool:
+    """Same eligibility rule as focus_bridge's read-time gate (flag +
+    role), evaluated here at write time instead. Reuses focus_bridge's
+    own check rather than duplicating the flag/role logic -- one source
+    of truth for what "eligible" means, just called from two places
+    (write-time here, read-time in focus_bridge for docs written before
+    this fix)."""
+    from services.focus_bridge import _instruction_fields_eligible
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    return _instruction_fields_eligible((user_doc or {}).get("role"))
+
+
 async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     """Pick + persist. Returns the created focus doc or None."""
     picked = await pick_next_focus(db, user_id)
     if not picked:
         return None
     now = datetime.now(timezone.utc)
-    baseline = await _compute_baseline_metric(db, user_id, picked["topic"])
+    pic_enabled = bool(picked.get("pic_enabled"))
+    baseline = await _compute_baseline_metric(
+        db,
+        user_id,
+        picked["topic"],
+        see_backed_only=pic_enabled,
+    )
     # Sprint 2 (docs/one_surviving_instruction_scope.md): pre-generate the
     # _id so instruction_id can be set in the SAME document, atomically --
     # no follow-up write needed. instruction_id is a plain string field
     # (not literally _id) so callers never have to know/care it originated
     # from an ObjectId.
     new_id = ObjectId()
+
+    # Correction (2026-08-08, external review of b0105f21): the scope's
+    # own contract is "a non-eligible user's session should not COMPUTE
+    # instruction_id/instruction_text, not merely hide them" -- v1 of this
+    # function wrote the 3 fields unconditionally for every user and
+    # topic, gating only at focus_bridge read time. That's real Sprint 2
+    # logic executing for every eligible user regardless of role, which
+    # is not what was locked. Gated HERE, at the only write site, so an
+    # ineligible user's user_active_focus document never contains these
+    # fields at all -- identical in shape to a pre-Sprint-2 legacy doc.
+    include_instruction_fields = (
+        picked["topic"] == "piece_safety"
+        and await _instruction_fields_eligible_for_write(db, user_id)
+    )
+
     focus = {
         "_id": new_id,
         "user_id": user_id,
@@ -809,22 +863,60 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "next_action": None,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
-        # Sprint 2 canonical instruction fields -- the ONE source of truth
-        # for "what is the player being asked to do," captured once here
-        # and never regenerated for the life of this focus. instruction_id
-        # is a plain string (not the raw ObjectId) so JSON serialization
-        # downstream never needs special handling.
-        "instruction_id": str(new_id),
-        "instruction_text": picked.get("instruction_text"),
-        "instruction_version": INSTRUCTION_TEMPLATE_VERSION,
-        "instruction_subtype": picked.get("dominant_subtype_at_assignment"),
     }
+
+    simple_hang_count = int(
+        ((picked.get("subtype_histogram") or {}).get("simple_hang") or {}).get(
+            "count", 0
+        )
+    )
+    if pic_enabled and picked["topic"] == "piece_safety" and simple_hang_count > 0:
+        from services.focus_bridge import get_d_live_evidence_summary
+        focus.update({
+            "cycle_version": 1,
+            "focus_kind": "piece_safety/simple_hang",
+            "proof_eligibility": "verified",
+            "diagnosis_detector_id": "move_observation.simple_hang.v16_plus",
+            "proof_detector_id": "piece_safety.d_live.v1",
+            "evidence_summary": {
+                "baseline": await get_d_live_evidence_summary(db, user_id),
+                "recent": {"decisions": 0, "misses": 0, "handled": 0},
+                "last_verdict": "measurement_pending",
+                "measured_at": now,
+            },
+            # New PIC timestamps are BSON datetimes. Readers remain tolerant of
+            # legacy ISO strings while comparisons stop mixing types.
+            "started_at": now,
+            "locked_until": now + timedelta(days=LOCK_DURATION_DAYS),
+            "created_at": now,
+            "updated_at": now,
+        })
+
+    # Sprint 2 canonical instruction fields -- the ONE source of truth for
+    # "what is the player being asked to do," captured once here and never
+    # regenerated for the life of this focus. Only present on the document
+    # AT ALL when eligible (piece_safety + admin/super_admin + flag on) --
+    # an ineligible user's doc is identical in shape to a pre-Sprint-2
+    # legacy doc, not just a doc with these fields hidden downstream.
+    if include_instruction_fields:
+        focus["instruction_id"] = str(new_id)
+        focus["instruction_text"] = picked.get("instruction_text")
+        focus["instruction_version"] = INSTRUCTION_TEMPLATE_VERSION
+        focus["instruction_subtype"] = picked.get("dominant_subtype_at_assignment")
+
     await db[COLLECTION].insert_one(focus)
     return focus
 
 
 async def check_focus_outcome(db, focus: Dict[str, Any]) -> Dict[str, Any]:
     """Called at locked_until. Returns {resolution, action, delta_pct}."""
+    if focus.get("cycle_version") == 1:
+        return {
+            "resolution": "measurement_pending",
+            "action": "hold",
+            "delta_pct": None,
+            "current_metric": None,
+        }
     topic = focus["topic_key"]
     user_id = focus["user_id"]
     started_at = focus["started_at"]

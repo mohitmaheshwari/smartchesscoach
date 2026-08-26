@@ -14,6 +14,7 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
 import DifficultySelector from "@/components/training/DifficultySelector";
+import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import { Chess } from "chess.js";
 import {
@@ -73,6 +74,9 @@ export default function PrescribedTraining() {
   //   3. default to "current" — backend resolves to user's active focus
   const { pattern: patternFromUrl } = useParams();
   const weakness = searchParams.get("weakness") || patternFromUrl || "current";
+  const picCandidate = weakness === "piece_safety" || weakness === "current";
+  const [picProjection, setPicProjection] = useState(null);
+  const [picCheckPending, setPicCheckPending] = useState(picCandidate);
   
   // [PART C] Module and prescription state
   const planId = searchParams.get("plan");
@@ -109,6 +113,34 @@ export default function PrescribedTraining() {
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
   const boardRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!picCandidate) {
+      setPicProjection(null);
+      setPicCheckPending(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setPicCheckPending(true);
+    fetch(`${API}/coach/active-focus`, { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const projection = data?.personal_improvement_cycle;
+        setPicProjection(projection?.eligible ? projection : null);
+      })
+      .catch(() => {
+        if (!cancelled) setPicProjection(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPicCheckPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [picCandidate]);
   
   // Fetch prescribed training
   useEffect(() => {
@@ -488,6 +520,18 @@ export default function PrescribedTraining() {
     setPuzzleState("revealed");
   };
   
+  if (picCheckPending) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+      </div>
+    );
+  }
+
+  if (picProjection) {
+    return <PICPieceSafetyLesson projection={picProjection} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
