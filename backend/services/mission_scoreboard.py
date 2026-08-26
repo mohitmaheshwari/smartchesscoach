@@ -400,6 +400,74 @@ def rebuild_scoreboard_from_history(
     return rebuilt
 
 
+def build_instruction_verdict(mission_scoreboard: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Sprint 2 (docs/one_surviving_instruction_scope.md) -- the ACTUAL
+    visible postgame verdict for the surviving instruction, built from
+    THIS session's own scoreboard. Deliberately NOT pattern_verdict/
+    pattern_memory_service.get_top_patterns() -- that's a separate,
+    independent mechanism that can disagree with the instruction the
+    player was actually given (the exact bug this scope exists to fix).
+
+    Lives here, not in routes/coach_play.py, deliberately (2026-08-08,
+    external review of b0105f21, refactored while adding test coverage):
+    this is a pure function of a mission_scoreboard dict -- zero
+    dependency on the DB, the request, or anything else in that route
+    file -- so it belongs next to the data shape it reads, and can be
+    unit tested without importing a route module that initializes a
+    live Stockfish engine at import time.
+
+    Honest framing, not an overclaim: is_focus_moment() for simple_hang
+    only ever returns True when a real SEE-verified hang occurred, so
+    matched_moments > 0 means "at least one real hang happened" -- it
+    does NOT mean "checked every move and N were unsafe," and a count of
+    0 does NOT mean "correctly checked every move all game," only that
+    no hang was DETECTED. Reviewer's own suggested fix, applied: label
+    the zero case "no hang detected," never "instruction followed."
+    Only simple_hang gets a specific behavioral claim -- V1 only
+    board-verifies that one subtype (is_focus_moment above); every other
+    piece_safety subtype gets the instruction text with no verdict
+    claim, honestly reflecting that nothing was actually measured.
+    """
+    sb = mission_scoreboard or {}
+    instruction_id = sb.get("instruction_id")
+    instruction_text = sb.get("instruction_text")
+    if not instruction_id or not instruction_text:
+        return None
+
+    subtype = sb.get("focus_subtype")
+    matched = sb.get("matched_moments", 0)
+
+    if subtype != "simple_hang":
+        return {
+            "instruction_id": instruction_id,
+            "instruction_text": instruction_text,
+            "has_measured_outcome": False,
+            "message": instruction_text,
+        }
+
+    if matched > 0:
+        first_event = next(iter(sb.get("events") or []), None)
+        move_number = first_event.get("move_number") if first_event else None
+        move_clause = f" on move {move_number}" if move_number else ""
+        return {
+            "instruction_id": instruction_id,
+            "instruction_text": instruction_text,
+            "has_measured_outcome": True,
+            "outcome": "missed",
+            "matched_moments": matched,
+            "message": f"A piece was left hanging{move_clause}. Same instruction next game: {instruction_text}",
+        }
+
+    return {
+        "instruction_id": instruction_id,
+        "instruction_text": instruction_text,
+        "has_measured_outcome": True,
+        "outcome": "no_hang_detected",
+        "matched_moments": 0,
+        "message": f"No hang detected this game. Same instruction next game: {instruction_text}",
+    }
+
+
 async def compute_today_focus_count(db, user_id: str, focus_topic: str, dominant_subtype: Optional[str]) -> int:
     """Count how many focus-relevant events the user has already had TODAY
     across all their analyzed games. Used to inject 'this is your Nth

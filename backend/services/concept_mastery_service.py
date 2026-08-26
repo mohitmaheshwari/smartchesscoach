@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from services.engine2_skill_builder import _load_tree
 
@@ -57,6 +57,171 @@ STALE_DAYS = 30
 # the skill within this window, don't mark it stale even when
 # learned_at is older — they're keeping it sharp.
 RECENT_REINFORCEMENT_DAYS = 14
+
+PIC_SKILL_ID = "piece_safety_simple_hang"
+PIC_STATE_LABELS = {
+    "learning": "Learning",
+    "remembered": "Remembered",
+    "proven_in_games": "Proven in games",
+}
+
+
+def reduce_pic_mastery(
+    events: Iterable[Dict[str, Any]],
+    *,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Project eligible PIC evidence into the inherited LES learner states.
+
+    The reducer deliberately accepts explicit evidence decisions instead of
+    deriving eligibility from outcome text. That keeps content review,
+    assistance, cohort isolation and the future game-proof rule outside the
+    projection. Verified own-game positions and assisted practice may
+    introduce the skill, but cannot independently advance it.
+    """
+    ordered = sorted(
+        list(events or []),
+        key=lambda event: str(event.get("occurred_at") or ""),
+    )
+    introduced = diagnosed
+    current = 0
+    highest = 0
+    refresh_needed = False
+    accepted = 0
+    rejected = 0
+
+    for event in ordered:
+        event_type = event.get("event_type")
+        if event_type in ("lesson_started", "diagnosis_confirmed"):
+            introduced = True
+            current = max(current, 1)
+            highest = max(highest, 1)
+
+        checkpoint = event.get("checkpoint")
+        if checkpoint is None:
+            checkpoint = event.get("checkpoint_candidate")
+        try:
+            checkpoint = int(checkpoint)
+        except (TypeError, ValueError):
+            checkpoint = 0
+        checkpoint = checkpoint if 1 <= checkpoint <= 8 else 0
+
+        passed = event.get("result") in (
+            "correct",
+            "passed",
+            "handled",
+            "demonstrated",
+        )
+        eligible = bool(event.get("evidence_eligible"))
+        if checkpoint and passed:
+            if not eligible:
+                rejected += 1
+                continue
+            accepted += 1
+            introduced = True
+            current = max(current, checkpoint)
+            highest = max(highest, checkpoint)
+            refresh_needed = False
+            continue
+
+        if event.get("result") not in ("wrong", "failed", "miss"):
+            continue
+        if not eligible or not event.get("demotion_eligible"):
+            rejected += int(bool(checkpoint))
+            continue
+
+        if event.get("stage") == "delayed_recall" or checkpoint == 7:
+            fallback = event.get("last_redemonstrated_checkpoint", 6)
+            try:
+                fallback = int(fallback)
+            except (TypeError, ValueError):
+                fallback = 6
+            current = min(current, max(1, min(fallback, 6)))
+            refresh_needed = True
+        elif (
+            event.get("stage") == "external_focus_game"
+            and event.get("proof_rule_locked")
+            and event.get("repeated_verified_misses")
+        ):
+            current = min(current, 7)
+            refresh_needed = True
+
+    if current >= 8:
+        state = "proven_in_games"
+        next_step = "Keep applying it in real games"
+    elif current >= 7:
+        state = "remembered"
+        next_step = "Use it in a committed Focus Game"
+    else:
+        state = "learning"
+        next_step = (
+            "Take an unassisted checkpoint"
+            if current >= 6
+            else "Continue the piece-safety lesson"
+        )
+
+    return {
+        "skill_id": PIC_SKILL_ID,
+        "state": state,
+        "label": PIC_STATE_LABELS[state],
+        "refresh_needed": refresh_needed,
+        "current_demonstrated_checkpoint": current,
+        "highest_demonstrated_checkpoint": highest,
+        "introduced": introduced,
+        "next_step": next_step,
+        "evidence": {
+            "eligible_events": accepted,
+            "rejected_events": rejected,
+        },
+    }
+
+
+async def get_pic_mastery_projection(
+    db,
+    user_id: str,
+    *,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Read PIC evidence adapters and return the one canonical projection."""
+    events: List[Dict[str, Any]] = []
+    sessions = db.learning_sessions.find(
+        {"user_id": user_id, "skill_id": PIC_SKILL_ID},
+        {"_id": 0, "events": 1},
+    )
+    async for session in sessions:
+        events.extend(session.get("events") or [])
+
+    game_cursor = db.games.find(
+        {
+            "user_id": user_id,
+            "pic_evidence.proof_detector_id": "piece_safety.d_live.v1",
+        },
+        {"_id": 0, "pic_evidence": 1, "date_played": 1},
+    )
+    async for game in game_cursor:
+        evidence = game.get("pic_evidence") or {}
+        summary = evidence.get("summary") or {}
+        events.append({
+            "event_type": "external_game_evidence",
+            "occurred_at": game.get("date_played"),
+            "stage": evidence.get("evidence_mode") or "ordinary_play",
+            "checkpoint_candidate": 8,
+            "result": (
+                "miss"
+                if int(summary.get("misses") or 0) > 0
+                else "handled"
+            ),
+            # The PIC proof rule is intentionally not locked yet. The
+            # evidence remains visible and auditable but cannot promote or
+            # demote mastery until an explicit eligible decision is stored.
+            "evidence_eligible": bool(evidence.get("mastery_eligible")),
+            "demotion_eligible": bool(evidence.get("demotion_eligible")),
+            "proof_rule_locked": bool(evidence.get("proof_rule_locked")),
+            "repeated_verified_misses": bool(
+                evidence.get("repeated_verified_misses")
+            ),
+        })
+    return reduce_pic_mastery(events, diagnosed=diagnosed)
 
 
 def _parse_iso(ts: Optional[str]) -> Optional[datetime]:

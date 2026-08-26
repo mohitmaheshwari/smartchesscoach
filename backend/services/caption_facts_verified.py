@@ -77,6 +77,12 @@ def _has_any_coaching_fact(facts: Dict[str, Any]) -> bool:
     """
     Check if move has ANY coaching reason (tactical or positional).
 
+    Deliberately reads RAW multi_target_attack_evidence, not named_fork_evidence:
+    the question here is "is there anything to say about this move", and a
+    pawn-only royal fork does give the move real content (it renders through the
+    check explanation). Do not "fix" this to the promoted view — that would make
+    such moves look contentless.
+
     Returns True if ANY of these exist:
     - Hangs/undefended pieces
     - Tactics (fork, pin, skewer, discovered attack)

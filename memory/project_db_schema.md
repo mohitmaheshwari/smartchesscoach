@@ -5,7 +5,7 @@ type: reference
 ---
 
 **Database:** chess_coach (NOT test_database)
-**Mongo URL:** mongodb://admin_user_mii_s_c:...@mongodb:27017
+**Mongo URL:** mongodb://<user>:<password-from-env>@mongodb:27017
 
 ## Key Collections
 

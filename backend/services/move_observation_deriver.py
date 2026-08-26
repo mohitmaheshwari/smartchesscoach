@@ -18,10 +18,14 @@ Usage (pure function):
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 16  # v16 (2026-07-05): simple_hang upgraded from attacker>defender COUNT to
-# strict SEE. The count rule over-fired ~1/3 of the time — measured on the live corpus, only
-# 66% of simple_hang events were real hangs under SEE, and a 150-game re-derivation reclassified
-# 30% (mostly to small_slip). Bump forces re-derivation of the whole corpus (~30 min backfill).
+SCHEMA_VERSION = 17  # v17 (2026-08-25): additive piece_safety.d_live.v1 fact.
+# v16 introduced strict SEE for simple_hang. Schemas <16 are pre-SEE and must
+# never enter PIC diagnosis/proof. v17 retains that detector and adds the
+# comparable-decision fact validated in docs/simple_hang_corpus_evidence.md.
+
+D_LIVE_FACT_VERSION = "piece_safety.d_live.v1"
+D_LIVE_SEE_FLOOR_CP = 150
+D_LIVE_CP_LOSS_FLOOR = 150
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -39,6 +43,94 @@ def _is_good_enough(mv: Dict[str, Any]) -> bool:
     ev = mv.get("evaluation")
     cp_loss = mv.get("cp_loss") or 0
     return ev in ("best", "excellent", "good", "brilliant") and cp_loss < 50
+
+
+def _safe_cp(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _derive_d_live_fact(mv: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive the canonical piece_safety.d_live.v1 fact for one move.
+
+    Eligibility and outcome are deliberately separate from `simple_hang`.
+    `simple_hang` remains a high-precision positive diagnosis; D_live records
+    every comparable destination-safety decision, including handled ones.
+    """
+    fact: Dict[str, Any] = {
+        "version": D_LIVE_FACT_VERSION,
+        "derivation_status": "ok",
+        "eligible": False,
+        "outcome": "not_eligible",
+        "moved_piece": None,
+        "legal_destination_captures": 0,
+        "destination_see_cp": 0,
+        "stockfish_cp_loss": _safe_cp(mv.get("cp_loss")),
+    }
+    fen = mv.get("fen_before")
+    uci = str(mv.get("move_uci") or "")
+    if not fen or len(uci) < 4:
+        fact["derivation_status"] = "unavailable"
+        fact["reason"] = "missing_position"
+        return fact
+
+    try:
+        import chess
+        from coach_play.coach_blunder_guard import see_gain
+
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(uci)
+        if move not in board.legal_moves:
+            fact["derivation_status"] = "unavailable"
+            fact["reason"] = "illegal_move"
+            return fact
+        moved_piece = board.piece_at(move.from_square)
+        if moved_piece is None:
+            fact["derivation_status"] = "unavailable"
+            fact["reason"] = "missing_piece"
+            return fact
+
+        fact["moved_piece"] = chess.piece_name(moved_piece.piece_type)
+        if moved_piece.piece_type not in (
+            chess.KNIGHT,
+            chess.BISHOP,
+            chess.ROOK,
+            chess.QUEEN,
+        ):
+            fact["reason"] = "piece_not_eligible"
+            return fact
+
+        board_after = board.copy()
+        board_after.push(move)
+        captures = [
+            reply
+            for reply in board_after.legal_moves
+            if board_after.is_capture(reply) and reply.to_square == move.to_square
+        ]
+        fact["legal_destination_captures"] = len(captures)
+        if not captures:
+            fact["reason"] = "not_legally_capturable"
+            return fact
+
+        destination_see = max(
+            0,
+            max(see_gain(board_after, reply) for reply in captures),
+        )
+        fact["eligible"] = True
+        fact["destination_see_cp"] = destination_see
+        fact["outcome"] = (
+            "miss"
+            if destination_see >= D_LIVE_SEE_FLOOR_CP
+            and fact["stockfish_cp_loss"] >= D_LIVE_CP_LOSS_FLOOR
+            else "handled"
+        )
+        return fact
+    except Exception:
+        fact["derivation_status"] = "unavailable"
+        fact["reason"] = "derivation_error"
+        return fact
 
 
 def _classify_register(mv: Dict[str, Any]) -> Optional[str]:
@@ -649,6 +741,10 @@ def derive_observations_for_game(
 
             # Decision style
             "decision_register": _classify_register(mv),
+
+            # PIC comparable decision. Exact nested version is mandatory for
+            # proof queries; schemas <16 are never eligible for PIC evidence.
+            "piece_safety_decision": _derive_d_live_fact(mv),
         }
 
         # v9: time management signals from PGN clocks

@@ -109,7 +109,7 @@ def _engine_view(fen: str) -> dict[str, Any]:
 async def main_async(out_path: str, max_games: int, min_cluster: int):
     url = os.environ.get(
         "MONGO_URL",
-        "mongodb://admin_user_mii_s_c:Mii123$44$@host.docker.internal:27018/?authSource=admin",
+        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
     )
     db = AsyncIOMotorClient(url)["chess_coach"]
     existing_setups = _load_existing_setups()

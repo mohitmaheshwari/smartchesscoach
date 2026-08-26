@@ -8,6 +8,7 @@ Run once:
   python3 backend/migrations/001_create_learning_checkpoints.py
 """
 
+import os
 import asyncio
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -20,7 +21,7 @@ async def create_learning_checkpoints_collection():
     """Create collection and indexes for active recall tracking."""
 
     # Connect to MongoDB via Docker network with credentials
-    mongo_url = "mongodb://admin_user_mii_s_c:N8lXqNfJsxQSTUZ9Hpu43eXq928K@mongodb:27017/?authSource=admin"
+    mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     client = AsyncIOMotorClient(mongo_url)
     db = client["test_database"]
 

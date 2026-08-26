@@ -97,7 +97,7 @@ async def regen_one(db, game_id: str) -> dict:
 async def main_async(game_ids: list[str]):
     url = os.environ.get(
         "MONGO_URL",
-        "mongodb://admin_user_mii_s_c:Mii123$44$@host.docker.internal:27018/?authSource=admin",
+        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
     )
     db = AsyncIOMotorClient(url)["chess_coach"]
     print(f"Regenerating {len(game_ids)} games at v{V5_COACHING_VERSION}...")

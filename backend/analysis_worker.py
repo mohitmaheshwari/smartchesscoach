@@ -48,6 +48,7 @@ from services.user_opening_profile import (
 from services.opening_deviation import (
     detect_opening_deviation, OPENING_DEVIATION_VERSION,
 )
+from services.rating_resolver import resolve_game_user_rating
 from config import STOCKFISH_DEPTH
 from analysis.intent_recognition_service import recognize_intent, get_game_phase
 from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
@@ -1000,16 +1001,22 @@ def process_job(db, job):
         
         user_color = game.get("user_color", "white")
         
-        # Get user's rating for this game (used for module detection).
-        # `white`/`black` may be a dict ({rating: N, username: ...}) OR a bare username
-        # string depending on the import path — guard against both (a string has no .get).
-        def _side_rating(side):
-            return side.get("rating") if isinstance(side, dict) else None
-        if user_color == "white":
-            user_rating = game.get("white_rating") or _side_rating(game.get("white")) or 1200
-        else:
-            user_rating = game.get("black_rating") or _side_rating(game.get("black")) or 1200
-        user_rating = int(user_rating) if user_rating else 1200
+        # Preserve exact game-time provenance separately from the coaching
+        # fallback. A missing rating remains unknown in storage/corpus queries.
+        game_rating = resolve_game_user_rating(game)
+        exact_user_rating = game_rating["rating"]
+        user_rating = exact_user_rating or 1200
+        if exact_user_rating is not None and (
+            game.get("user_rating") != exact_user_rating
+            or game.get("user_rating_source") != game_rating["source"]
+        ):
+            db.games.update_one(
+                {"game_id": game_id},
+                {"$set": {
+                    "user_rating": exact_user_rating,
+                    "user_rating_source": game_rating["source"],
+                }},
+            )
         
         # Update game status to show it's being processed
         db.games.update_one(
@@ -1765,6 +1772,7 @@ def process_job(db, job):
         # here is non-fatal: log + continue. We never want a deriver bug to
         # break game analysis.
         # =========================================================================
+        obs_list = []
         try:
             from services.move_observation_deriver import derive_observations_for_game
             # Build the minimal stockfish_analysis dict the deriver expects
@@ -1787,6 +1795,23 @@ def process_job(db, job):
                 logger.info(f"[OBSERVATIONS] Wrote {len(obs_list)} move_observations for {game_id}")
         except Exception as obs_err:
             logger.warning(f"[OBSERVATIONS] Failed to derive (non-fatal): {obs_err}")
+
+        # PIC uses the same observation-completion chokepoint. The envelope is
+        # deterministic and additive; flag-off users perform no write.
+        if obs_list:
+            try:
+                from services.focus_game_service import record_pic_game_evidence_sync
+                envelope = record_pic_game_evidence_sync(
+                    db, user_id, game, obs_list
+                )
+                if envelope:
+                    logger.info(
+                        "[PIC] Recorded %s evidence for %s",
+                        envelope["evidence_mode"],
+                        game_id,
+                    )
+            except Exception as pic_err:
+                logger.warning(f"[PIC] Evidence write failed (non-fatal): {pic_err}")
 
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE
