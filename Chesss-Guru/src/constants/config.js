@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Machine local Wi-Fi IP for physical phone testing via Expo Go
-const LOCAL_HOST_IP = '10.140.51.139';
+const LOCAL_HOST_IP = '192.168.1.19';
 
 const getDefaultApiUrl = () => {
   // Use local Wi-Fi IP in dev so physical phones via Expo Go & emulators can connect

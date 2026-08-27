@@ -74,6 +74,15 @@ function MainTabNavigator() {
       />
 
       <Tab.Screen
+        name="ReflectTab"
+        component={ReflectScreen}
+        options={{
+          tabBarLabel: 'Ledger',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20 }}>📈</Text>,
+        }}
+      />
+
+      <Tab.Screen
         name="StudioTab"
         component={GameAnalysisScreen}
         options={{

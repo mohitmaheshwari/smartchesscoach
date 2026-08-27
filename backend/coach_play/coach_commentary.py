@@ -107,7 +107,7 @@ class CoachCommentary:
         self._last_api_call = 0
         self._api_cooldown = 1.0  # seconds between Lichess API calls
     
-    async def analyze_position(self, fen: str) -> PositionAnalysis:
+    async def analyze_position(self, fen: str, engine=None) -> PositionAnalysis:
         """
         Analyze a position using Stockfish and Lichess data.
         
@@ -117,7 +117,7 @@ class CoachCommentary:
         
         # Get Stockfish analysis — depth 12 is enough for teaching evaluation
         # at rating bands 600-1800. Each extra depth ply roughly doubles cost.
-        evaluation, mate_in, best_moves = await self._stockfish_analyze(fen, depth=12, multipv=3)
+        evaluation, mate_in, best_moves = await self._stockfish_analyze(fen, depth=12, multipv=3, engine=engine)
         
         # Get opening info (with caching and rate limiting)
         opening_name, opening_eco = await self._get_opening_info(fen)
@@ -144,7 +144,8 @@ class CoachCommentary:
         self,
         fen_before: str,
         move_san: str,
-        fen_after: str
+        fen_after: str,
+        engine=None
     ) -> MoveAnalysis:
         """
         Analyze a specific move - was it good, bad, best?
@@ -156,10 +157,10 @@ class CoachCommentary:
         
         # Get analysis of position before the move — depth 12 matches post-move
         # depth below; going deeper here was inconsistent and slow.
-        eval_before, _, best_moves_before = await self._stockfish_analyze(fen_before, depth=12, multipv=3)
+        eval_before, _, best_moves_before = await self._stockfish_analyze(fen_before, depth=12, multipv=3, engine=engine)
         
         # Get evaluation after the move
-        eval_after, mate_after, _ = await self._stockfish_analyze(fen_after, depth=12, multipv=1)
+        eval_after, mate_after, _ = await self._stockfish_analyze(fen_after, depth=12, multipv=1, engine=engine)
         
         # Flip eval_after to same perspective (it's opponent's turn now)
         eval_after = -eval_after
@@ -492,7 +493,8 @@ class CoachCommentary:
         self,
         fen: str,
         depth: int = 15,
-        multipv: int = 3
+        multipv: int = 3,
+        engine = None
     ) -> Tuple[float, Optional[int], List[Dict]]:
         """
         Analyze position with Stockfish.
@@ -504,8 +506,11 @@ class CoachCommentary:
         if board.is_game_over():
             return 0.0, None, []
         
+        close_engine = False
         try:
-            transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+            if engine is None:
+                transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+                close_engine = True
             
             # Get multi-PV analysis
             result = await engine.analyse(
@@ -514,7 +519,8 @@ class CoachCommentary:
                 multipv=multipv
             )
             
-            await engine.quit()
+            if close_engine:
+                await engine.quit()
             
             best_moves = []
             evaluation = 0.0
@@ -778,9 +784,21 @@ async def get_quick_analysis(
     """
     coach = CoachCommentary()
     
+    engine = None
+    try:
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+    except Exception as e:
+        print(f"Failed to start Stockfish in get_quick_analysis: {e}")
+        
     # Analyze position and move
-    position_analysis = await coach.analyze_position(fen_before)
-    move_analysis = await coach.analyze_move(fen_before, move_san, fen_after)
+    position_analysis = await coach.analyze_position(fen_before, engine=engine)
+    move_analysis = await coach.analyze_move(fen_before, move_san, fen_after, engine=engine)
+    
+    if engine:
+        try:
+            await engine.quit()
+        except Exception:
+            pass
     
     return {
         "eval_before": position_analysis.evaluation,

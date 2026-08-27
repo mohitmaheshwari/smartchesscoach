@@ -462,7 +462,7 @@ export async function getMistakeCards(userId = CONFIG.DEFAULT_USER_ID) {
 // AI Coach Chat
 export async function sendCoachMessage(message, history = [], userId = CONFIG.DEFAULT_USER_ID) {
   try {
-    return await fetchAPI('/coach/chat', {
+    return await fetchAPI('/coach/play/chat', {
       method: 'POST',
       body: JSON.stringify({
         user_id: userId,
@@ -530,5 +530,62 @@ export async function chooseAlternativeCoachingPlan(planId, reason = '') {
     body: JSON.stringify({ plan_id: planId, reason }),
   });
 }
+
+// Progress and Narrative Endpoints
+export async function getRealProgress() {
+  try {
+    return await fetchAPI('/progress/real');
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function getProgressNarrative() {
+  try {
+    return await fetchAPI('/progress/narrative');
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function getImprovementProof() {
+  try {
+    return await fetchAPI('/progress/improvement-proof');
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function getRateMoveCalibration() {
+  try {
+    return await fetchAPI('/coach/play/rate-move/calibration');
+  } catch (e) {
+    return null;
+  }
+}
+
+
+// Settings — Link Chess.com / Lichess account and trigger sync
+export async function linkAccountAndSync(platform, username) {
+  // Step 1: Link the account
+  await fetchAPI('/journey/link-account', {
+    method: 'POST',
+    body: JSON.stringify({ platform, username }),
+  });
+  // Step 2: Trigger an immediate sync (non-fatal if it fails)
+  try {
+    await fetchAPI('/journey/sync-now', { method: 'POST' });
+  } catch (_) {}
+}
+
+// Learn — Complete an Engine 2 course skill (concept, endgame, mate pattern, etc.)
+export async function completeEngine2Skill(skillId, outcome = 'correct') {
+  return await fetchAPI('/engine2/skill-completed', {
+    method: 'POST',
+    body: JSON.stringify({ skill_id: skillId, outcome }),
+  });
+}
+
+
 
 

@@ -9,6 +9,7 @@ import {
   fetchAPI,
   getCoachPlayerIdentity,
   endCoachSession,
+  completeEngine2Skill,
 } from '../services/api';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -115,11 +116,23 @@ export default function CoachPlayScreen({ navigation, route }) {
   // Pre-game state
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedColor, setSelectedColor] = useState('white');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('auto');
   const [gameMode, setGameMode] = useState('coach');
   const [selectedOpening, setSelectedOpening] = useState('free');
   const [sessionId, setSessionId] = useState(null);
+  const [activeSkillId, setActiveSkillId] = useState(null);
   const [startError, setStartError] = useState(null);
   const [showFullStartError, setShowFullStartError] = useState(true);
+
+  const getDifficultyRating = () => {
+    switch (selectedDifficulty) {
+      case 'beginner': return 800;
+      case 'intermediate': return 1200;
+      case 'advanced': return 1600;
+      case 'master': return 2000;
+      default: return null;
+    }
+  };
 
   // Active game state
   const [fen, setFen] = useState(START_FEN);
@@ -407,20 +420,23 @@ export default function CoachPlayScreen({ navigation, route }) {
 
           // Fetch coaching advice (best effort)
           let advice = '';
+          let cleanUserAdvice = '';
+          let coachAdviceText = '';
           if (mode === 'coach') {
             try {
               const fb = await fetchAPI('/coach/play/v5/interactive-feedback', {
                 method: 'POST',
                 body: JSON.stringify({ session_id: sid }),
               });
-              console.log('[InteractiveFeedback] Response:', JSON.stringify(fb));
+              const hasCoaching = fb?.user_move_coaching || fb?.coach_move_coaching || fb?.behavioral_coaching;
+              if (hasCoaching) console.log('[InteractiveFeedback] Response:', JSON.stringify(fb));
 
               const rawUserAdvice = fb?.user_move_coaching?.narrative || fb?.user_move_coaching?.coaching_message || '';
-              const coachAdviceText = fb?.coach_move_coaching?.explanation || fb?.coach_move_coaching?.narrative || '';
+              coachAdviceText = fb?.coach_move_coaching?.explanation || fb?.coach_move_coaching?.narrative || '';
               const hintText = fb?.coach_move_coaching?.hint_for_user || '';
 
               // Clean up redundant "User Move: xx." prefix if present
-              const cleanUserAdvice = rawUserAdvice.replace(/^User Move:\s*[\w\d#+=-]+\.\s*/i, '').trim();
+              cleanUserAdvice = rawUserAdvice.replace(/^User Move:\s*[\w\d#+=-]+\.\s*/i, '').trim();
 
               const parts = [];
               if (cleanUserAdvice) parts.push(`💡 Feedback on your move:\n${cleanUserAdvice}`);
@@ -455,9 +471,24 @@ export default function CoachPlayScreen({ navigation, route }) {
           const newFen = state.current_fen || state.session?.current_fen || START_FEN;
           setFen(newFen); setServerFen(newFen);
           const res = state.session?.result;
-          if (res === 'loss') { setMoveQuality('CHECKMATED'); setCoachAdvice('Opponent won. Tap Restart!'); setStats(p => ({ ...p, losses: p.losses + 1 })); }
-          else if (res === 'draw') { setMoveQuality('DRAW'); setCoachAdvice('Game ended in a draw!'); setStats(p => ({ ...p, draws: p.draws + 1 })); }
+          let outcome = 'seen';
+          if (res === 'loss') {
+            setMoveQuality('CHECKMATED');
+            setCoachAdvice('Opponent won. Tap Restart!');
+            setStats(p => ({ ...p, losses: p.losses + 1 }));
+            outcome = 'wrong';
+          }
+          else if (res === 'draw') {
+            setMoveQuality('DRAW');
+            setCoachAdvice('Game ended in a draw!');
+            setStats(p => ({ ...p, draws: p.draws + 1 }));
+            outcome = 'seen';
+          }
           setGameOver(true); setCoachThinking(false);
+
+          if (activeSkillId) {
+            completeEngine2Skill(activeSkillId, outcome).catch(() => { });
+          }
           return;
         }
       } catch (_) { }
@@ -467,29 +498,38 @@ export default function CoachPlayScreen({ navigation, route }) {
         setCoachAdvice('Coach took too long. Your turn!');
         return;
       }
-      pollRef.current = setTimeout(poll, 2000);
+      const delay = attempts < 5 ? 800 : 2000;
+      pollRef.current = setTimeout(poll, delay);
     };
 
     pollRef.current = setTimeout(poll, 600);
   }, []);
 
   const localGameOver = (g, color) => {
+    let outcome = null;
     if (g.isCheckmate()) {
       const winner = g.turn() === 'w' ? 'black' : 'white';
       if (winner === color) {
         setMoveQuality('VICTORY!'); setCoachAdvice('YOU WON BY CHECKMATE!');
         setStats(p => ({ ...p, wins: p.wins + 1 }));
         setShowVictoryModal(true);
+        outcome = 'correct';
       } else {
         setMoveQuality('CHECKMATED'); setCoachAdvice('Opponent won. Tap Restart!');
         setStats(p => ({ ...p, losses: p.losses + 1 }));
+        outcome = 'wrong';
       }
     } else if (g.isStalemate() || g.isDraw()) {
       setMoveQuality('DRAW'); setCoachAdvice('Game drawn!');
       setStats(p => ({ ...p, draws: p.draws + 1 }));
+      outcome = 'seen';
     }
     setGameOver(true); setCoachThinking(false);
     if (sessionIdRef.current) endCoachSession(sessionIdRef.current).catch(() => { });
+
+    if (activeSkillId && outcome) {
+      completeEngine2Skill(activeSkillId, outcome).catch(() => { });
+    }
   };
 
   // =========================================================================
@@ -498,6 +538,18 @@ export default function CoachPlayScreen({ navigation, route }) {
   // =========================================================================
   const handleStartGame = async (overrideParams = null) => {
     stopPoll();
+
+    let skillId = activeSkillId;
+    if (overrideParams?.startSkillId) {
+      skillId = overrideParams.startSkillId;
+    } else if (overrideParams) {
+      skillId = null;
+    } else {
+      if (!gameOver) {
+        skillId = null;
+      }
+    }
+    setActiveSkillId(skillId);
 
     // Configurable parameters based on direct selections or learn redirections
     const color = overrideParams?.user_color || selectedColor;
@@ -526,6 +578,10 @@ export default function CoachPlayScreen({ navigation, route }) {
         user_color: color,
         game_mode: mode,
       };
+      const diffRating = getDifficultyRating();
+      if (diffRating) {
+        body.user_rating = diffRating;
+      }
       if (openingName) {
         body.opening_name = openingName;
       }
@@ -546,7 +602,19 @@ export default function CoachPlayScreen({ navigation, route }) {
         playerFirst = res.is_player_turn !== false;
       }
     } catch (e) {
-      console.log('[CoachPlay] start fallback mode activated:', e?.message);
+      const msg = e?.message || '';
+      // 402 = daily Coach Mode limit reached — show upgrade prompt, don't fall back silently
+      if (msg.includes('daily_pwc_limit') || msg.toLowerCase().includes('limit reached') || msg.toLowerCase().includes('upgrade')) {
+        setLoading(false);
+        Alert.alert(
+          '🎓 Daily Coach Limit Reached',
+          msg || 'You\'ve used your free Coach Mode sessions for today. Upgrade for unlimited coaching!',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+      // Genuine network/server error — fall back to local session
+      console.log('[CoachPlay] start fallback mode activated:', msg);
       newSid = 'local_' + Date.now();
       useFen = startFen;
     }
@@ -669,6 +737,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       setGameOver(true);
       setShowVictoryModal(true);
       if (sessionId) endCoachSession(sessionId).catch(() => { });
+      if (activeSkillId) completeEngine2Skill(activeSkillId, 'correct').catch(() => { });
       return;
     }
     if (g.isStalemate() || g.isDraw()) {
@@ -676,6 +745,7 @@ export default function CoachPlayScreen({ navigation, route }) {
       updateLocalUserStats('draw');
       setGameOver(true);
       if (sessionId) endCoachSession(sessionId).catch(() => { });
+      if (activeSkillId) completeEngine2Skill(activeSkillId, 'seen').catch(() => { });
       return;
     }
 
@@ -694,15 +764,23 @@ export default function CoachPlayScreen({ navigation, route }) {
         if (res?.game_over) {
           stopPoll();
           const r = res.result;
+          let outcome = 'seen';
           if (r === 'win') {
             setMoveQuality('CHECKMATE!');
             setCoachAdvice(`You won! ${moveSan} was checkmate!`);
             setStats(p => ({ ...p, wins: p.wins + 1 }));
             setShowVictoryModal(true);
+            outcome = 'correct';
           }
-          else if (r === 'draw') { setMoveQuality('DRAW'); setCoachAdvice('Game ended in a draw!'); setStats(p => ({ ...p, draws: p.draws + 1 })); }
+          else if (r === 'draw') {
+            setMoveQuality('DRAW');
+            setCoachAdvice('Game ended in a draw!');
+            setStats(p => ({ ...p, draws: p.draws + 1 }));
+            outcome = 'seen';
+          }
           setGameOver(true); setCoachThinking(false);
           if (sessionId) endCoachSession(sessionId).catch(() => { });
+          if (activeSkillId) completeEngine2Skill(activeSkillId, outcome).catch(() => { });
           return;
         }
         if (res?.current_fen) { setServerFen(res.current_fen); setFen(res.current_fen); }
@@ -801,6 +879,26 @@ export default function CoachPlayScreen({ navigation, route }) {
                   <TouchableOpacity key={c} style={[st.colorBtn, selectedColor === c && st.colorBtnOn]} onPress={() => setSelectedColor(c)}>
                     <Text style={st.colorDot}>{c === 'white' ? '⚪' : '🖤'}</Text>
                     <Text style={[st.colorTxt, selectedColor === c && st.colorTxtOn]}>{c === 'white' ? 'White' : 'Black'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={st.label}>Opponent Difficulty</Text>
+              <View style={st.diffGrid}>
+                {[
+                  { id: 'auto', label: 'Adaptive 🤖', sub: 'Matches ELO' },
+                  { id: 'beginner', label: 'Beginner 👶', sub: '800 ELO' },
+                  { id: 'intermediate', label: 'Medium ♟️', sub: '1200 ELO' },
+                  { id: 'advanced', label: 'Expert 🔥', sub: '1600 ELO' },
+                  { id: 'master', label: 'Master 🏆', sub: '2000 ELO' },
+                ].map(d => (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[st.diffBtn, selectedDifficulty === d.id && st.diffBtnOn]}
+                    onPress={() => setSelectedDifficulty(d.id)}
+                  >
+                    <Text style={[st.diffBtnTxt, selectedDifficulty === d.id && st.diffBtnTxtOn]}>{d.label}</Text>
+                    <Text style={st.diffBtnSub}>{d.sub}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1117,6 +1215,13 @@ const st = StyleSheet.create({
   badgeLbl: { color: '#cbd5e1', fontSize: 12 },
   badge: { backgroundColor: 'rgba(234,179,8,0.25)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: '#eab308' },
   badgeTxt: { color: '#fef08a', fontWeight: '800', fontSize: 12 },
+
+  diffGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  diffBtn: { flex: 1, minWidth: '28%', backgroundColor: 'rgba(30,41,59,0.85)', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },
+  diffBtnOn: { backgroundColor: 'rgba(234,179,8,0.25)', borderColor: '#eab308' },
+  diffBtnTxt: { color: '#cbd5e1', fontWeight: '800', fontSize: 13 },
+  diffBtnTxtOn: { color: '#fef08a', fontWeight: '900' },
+  diffBtnSub: { color: '#94a3b8', fontSize: 9, marginTop: 2 },
 
   openingGrid: { gap: 10, marginBottom: 24 },
   chip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(30,41,59,0.85)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },

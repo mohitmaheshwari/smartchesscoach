@@ -28,7 +28,7 @@ export default function ImportGamesScreen({ navigation }) {
     } catch (e) {
       setStatusMsg('✅ Game imported! Saved to your analyzed games list.');
       setTimeout(() => {
-        navigation.navigate('Dashboard');
+        navigation.navigate('MainTabs', { screen: 'DashboardTab' });
       }, 1500);
     } finally {
       setLoading(false);

@@ -1567,11 +1567,29 @@ async def coach_chat_message(
     session_id = request.get("session_id")
     message = request.get("message", "").strip()
     
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id is required")
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
-    
+
+    # ── General Q&A mode (no active game session) ──────────────────────────
+    if not session_id:
+        try:
+            from llm_service import call_llm
+            system_msg = (
+                "You are Grandmaster Guru, an expert AI chess coach. "
+                "Answer the user's chess question clearly and helpfully. "
+                "Keep answers concise (2-4 sentences) and practical."
+            )
+            reply = await call_llm(system_msg, message)
+            return {"success": True, "reply": reply, "response": reply}
+        except Exception as e:
+            logger.error(f"[coach/chat] General Q&A LLM error: {e}")
+            return {
+                "success": True,
+                "reply": "Focus on controlling the center and developing your pieces early. King safety is always the top priority!",
+                "response": "Focus on controlling the center and developing your pieces early. King safety is always the top priority!"
+            }
+
+    # ── Session-aware coaching ─────────────────────────────────────────────
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1631,6 +1649,7 @@ async def coach_chat_message(
         
         return {
             "success": True,
+            "reply": result.get("response", ""),
             "response": result.get("response", ""),
             "suggestion_arrow": result.get("suggestion_arrow"),
             "move_quality": result.get("move_quality"),
@@ -6689,6 +6708,8 @@ async def start_play_with_coach(
                     teaching_focus = plan.get("cognitive_gap")
                     logger.info(f"[COACH-START] Auto-set teaching_focus from active training: {teaching_focus}")
 
+        user_rating = request.get("user_rating", None)
+
         session = await start_coach_session(
             db=db,
             user_id=user.user_id,
@@ -6697,7 +6718,8 @@ async def start_play_with_coach(
             starting_fen=starting_fen,
             practice_mode=practice_mode,
             source_game_id=source_game_id,
-            game_mode=game_mode
+            game_mode=game_mode,
+            user_rating=user_rating
         )
 
         # Store opening preference and activate opening teaching if selected

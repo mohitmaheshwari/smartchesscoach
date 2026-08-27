@@ -660,11 +660,13 @@ async def choose_alternative_plan(
             reason=f"User chose alternative: {req.reason or 'No reason provided'}"
         )
 
+        response = build_prescription_response(new_prescription, plan)
+
         return {
             "status": "success",
             "message": f"Alternative plan '{plan['name']}' added to your prescriptions",
             "prescription_id": prescription_id,
-            "prescription": new_prescription
+            "prescription": response.dict()
         }
 
     except HTTPException:
@@ -755,13 +757,15 @@ async def add_parallel_plan(
             reason=f"Added as parallel plan: {req.reason or 'User choice'}"
         )
 
+        response = build_prescription_response(new_prescription, plan)
+
         return {
             "status": "success",
             "message": f"Plan '{plan['name']}' added as parallel training focus",
             "prescription_id": prescription_id,
             "active_plans_after": active_count + 1,
             "max_concurrent_plans": req.max_concurrent_plans,
-            "prescription": new_prescription
+            "prescription": response.dict()
         }
 
     except HTTPException:

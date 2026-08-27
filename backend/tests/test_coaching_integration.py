@@ -54,20 +54,30 @@ def result(name, success, detail="", test_name=""):
         print(f"  [FAIL] {name} - {detail}")
 
 
+class AuthenticatedClientContext:
+    def __init__(self):
+        self.client = httpx.AsyncClient(timeout=30.0)
+
+    async def __aenter__(self):
+        await self.client.__aenter__()
+        try:
+            res = await self.client.get(f"{API_URL}/auth/dev-login")
+            if res.status_code != 200:
+                raise Exception(f"Dev login failed: {res.text}")
+        except httpx.ConnectError:
+            raise Exception(
+                f"Could not connect to backend at {API_URL}. "
+                "Make sure the backend server is running on port 8001."
+            )
+        return self.client
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.client.__aexit__(exc_type, exc_val, exc_tb)
+
+
 async def setup_authenticated_client():
     """Create authenticated HTTP client"""
-    client = httpx.AsyncClient(timeout=30.0)
-    # Dev login
-    try:
-        res = await client.get(f"{API_URL}/auth/dev-login")
-        if res.status_code != 200:
-            raise Exception(f"Dev login failed: {res.text}")
-    except httpx.ConnectError:
-        raise Exception(
-            f"Could not connect to backend at {API_URL}. "
-            "Make sure the backend server is running on port 8001."
-        )
-    return client
+    return AuthenticatedClientContext()
 
 
 async def create_test_training_plans(client: httpx.AsyncClient):

@@ -251,7 +251,7 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.sectionHeader}>RECURRING BLUNDER HABITS</Text>
         <TouchableOpacity
           style={styles.patternsCard}
-          onPress={() => navigation.navigate('Reflect')}
+          onPress={() => navigation.navigate('ReflectTab')}
           activeOpacity={0.85}
         >
           <View style={styles.patternItem}>

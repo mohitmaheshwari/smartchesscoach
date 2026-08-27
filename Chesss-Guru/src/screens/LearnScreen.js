@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator, Alert } from 'react-native';
 import { COLORS } from '../constants/config';
 import { getGamificationProgress, getOpeningsProgress } from '../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -80,8 +80,17 @@ export default function LearnScreen({ navigation }) {
 
   const progressPercent = Math.min(100, Math.round((xpData.xp / xpData.next_level_xp) * 100)) + '%';
 
+  // Helper to check if an item at idx in a list is locked
+  const isItemLocked = (list, idx) => {
+    if (idx === 0) return false; // First item is always unlocked
+    const prevItem = list[idx - 1];
+    const completed = prevItem.state === 'studied' || prevItem.state === 'demonstrated' || prevItem.state === 'stale';
+    return !completed;
+  };
+
   // Helper to format state/status text
-  const formatStatus = (item) => {
+  const formatStatus = (item, isLocked) => {
+    if (isLocked) return 'Locked 🔒';
     const s = item.state;
     if (s === 'studied') return 'Studied';
     if (s === 'stale') return 'Worth a refresher';
@@ -97,14 +106,16 @@ export default function LearnScreen({ navigation }) {
   };
 
   // Helper to format item state styling
-  const getBadgeStyle = (state) => {
+  const getBadgeStyle = (state, isLocked) => {
+    if (isLocked) return styles.lockedBadge;
     if (state === 'studied' || state === 'demonstrated') return styles.completedBadge;
     if (state === 'stale') return styles.staleBadge;
     if (state === 'learning') return styles.progressBadge;
     return styles.lockedBadge;
   };
 
-  const getBadgeTextStyle = (state) => {
+  const getBadgeTextStyle = (state, isLocked) => {
+    if (isLocked) return { color: '#64748b' };
     if (state === 'studied' || state === 'demonstrated') return { color: '#22c55e' };
     if (state === 'stale') return { color: '#ef4444' };
     if (state === 'learning') return { color: '#eab308' };
@@ -113,12 +124,15 @@ export default function LearnScreen({ navigation }) {
 
   const handleItemPress = (item) => {
     // Navigate to Play tab (CoachPlayScreen) with startup parameters
-    navigation.navigate('CoachPlayTab', {
-      startSkillId: item.skill_id,
-      startLabel: item.label,
-      startKind: item.kind,
-      startContentRef: item.content_ref,
-      startColor: item.kind === 'opening' && item.skill_id.endsWith('_black') ? 'black' : 'white',
+    navigation.navigate('MainTabs', {
+      screen: 'CoachPlayTab',
+      params: {
+        startSkillId: item.skill_id,
+        startLabel: item.label,
+        startKind: item.kind,
+        startContentRef: item.content_ref,
+        startColor: item.kind === 'opening' && item.skill_id.endsWith('_black') ? 'black' : 'white',
+      }
     });
   };
 
@@ -167,93 +181,149 @@ export default function LearnScreen({ navigation }) {
               {/* ── CONCEPTS SECTION ── */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionHeader}>Concepts</Text>
-                {byKind.concept.length > 0 ? byKind.concept.map((item, idx) => (
-                  <TouchableOpacity key={idx} style={styles.itemRow} onPress={() => handleItemPress(item)} activeOpacity={0.75}>
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
-                      {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
-                    </View>
-                    <View style={styles.rightGroup}>
-                      {getTierLabel(item.tier) ? (
-                        <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
-                      ) : null}
-                      <View style={[styles.statusBadge, getBadgeStyle(item.state)]}>
-                        <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state)]}>
-                          {formatStatus(item)}
-                        </Text>
+                {byKind.concept.length > 0 ? byKind.concept.map((item, idx) => {
+                  const isLocked = isItemLocked(byKind.concept, idx);
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.itemRow, isLocked && { opacity: 0.45 }]}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Lesson Locked', 'Please study the previous concept first to unlock this one!');
+                        } else {
+                          handleItemPress(item);
+                        }
+                      }}
+                      activeOpacity={isLocked ? 1.0 : 0.75}
+                    >
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemLabel}>{item.label}</Text>
+                        {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                )) : <Text style={styles.emptyText}>No concepts available.</Text>}
+                      <View style={styles.rightGroup}>
+                        {getTierLabel(item.tier) ? (
+                          <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
+                        ) : null}
+                        <View style={[styles.statusBadge, getBadgeStyle(item.state, isLocked)]}>
+                          <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state, isLocked)]}>
+                            {formatStatus(item, isLocked)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }) : <Text style={styles.emptyText}>No concepts available.</Text>}
               </View>
 
               {/* ── ENDGAMES SECTION ── */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionHeader}>Endgames</Text>
-                {byKind.endgame.length > 0 ? byKind.endgame.map((item, idx) => (
-                  <TouchableOpacity key={idx} style={styles.itemRow} onPress={() => handleItemPress(item)} activeOpacity={0.75}>
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
-                      {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
-                    </View>
-                    <View style={styles.rightGroup}>
-                      {getTierLabel(item.tier) ? (
-                        <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
-                      ) : null}
-                      <View style={[styles.statusBadge, getBadgeStyle(item.state)]}>
-                        <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state)]}>
-                          {formatStatus(item)}
-                        </Text>
+                {byKind.endgame.length > 0 ? byKind.endgame.map((item, idx) => {
+                  const isLocked = isItemLocked(byKind.endgame, idx);
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.itemRow, isLocked && { opacity: 0.45 }]}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Lesson Locked', 'Please study the previous endgame first to unlock this one!');
+                        } else {
+                          handleItemPress(item);
+                        }
+                      }}
+                      activeOpacity={isLocked ? 1.0 : 0.75}
+                    >
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemLabel}>{item.label}</Text>
+                        {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                )) : <Text style={styles.emptyText}>No endgames available.</Text>}
+                      <View style={styles.rightGroup}>
+                        {getTierLabel(item.tier) ? (
+                          <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
+                        ) : null}
+                        <View style={[styles.statusBadge, getBadgeStyle(item.state, isLocked)]}>
+                          <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state, isLocked)]}>
+                            {formatStatus(item, isLocked)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }) : <Text style={styles.emptyText}>No endgames available.</Text>}
               </View>
 
               {/* ── MATE PATTERNS SECTION ── */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionHeader}>Mate patterns</Text>
-                {byKind.mate_pattern.length > 0 ? byKind.mate_pattern.map((item, idx) => (
-                  <TouchableOpacity key={idx} style={styles.itemRow} onPress={() => handleItemPress(item)} activeOpacity={0.75}>
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
-                      {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
-                    </View>
-                    <View style={styles.rightGroup}>
-                      {getTierLabel(item.tier) ? (
-                        <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
-                      ) : null}
-                      <View style={[styles.statusBadge, getBadgeStyle(item.state)]}>
-                        <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state)]}>
-                          {formatStatus(item)}
-                        </Text>
+                {byKind.mate_pattern.length > 0 ? byKind.mate_pattern.map((item, idx) => {
+                  const isLocked = isItemLocked(byKind.mate_pattern, idx);
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.itemRow, isLocked && { opacity: 0.45 }]}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Lesson Locked', 'Please study the previous checkmate pattern first to unlock this one!');
+                        } else {
+                          handleItemPress(item);
+                        }
+                      }}
+                      activeOpacity={isLocked ? 1.0 : 0.75}
+                    >
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemLabel}>{item.label}</Text>
+                        {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                )) : <Text style={styles.emptyText}>No mate patterns available.</Text>}
+                      <View style={styles.rightGroup}>
+                        {getTierLabel(item.tier) ? (
+                          <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
+                        ) : null}
+                        <View style={[styles.statusBadge, getBadgeStyle(item.state, isLocked)]}>
+                          <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state, isLocked)]}>
+                            {formatStatus(item, isLocked)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }) : <Text style={styles.emptyText}>No mate patterns available.</Text>}
               </View>
 
               {/* ── OPENINGS SECTION ── */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionHeader}>Openings</Text>
-                {byKind.opening.length > 0 ? byKind.opening.map((item, idx) => (
-                  <TouchableOpacity key={idx} style={styles.itemRow} onPress={() => handleItemPress(item)} activeOpacity={0.75}>
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
-                      {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
-                    </View>
-                    <View style={styles.rightGroup}>
-                      {getTierLabel(item.tier) ? (
-                        <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
-                      ) : null}
-                      <View style={[styles.statusBadge, getBadgeStyle(item.state)]}>
-                        <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state)]}>
-                          {formatStatus(item)}
-                        </Text>
+                {byKind.opening.length > 0 ? byKind.opening.map((item, idx) => {
+                  const isLocked = isItemLocked(byKind.opening, idx);
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.itemRow, isLocked && { opacity: 0.45 }]}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Lesson Locked', 'Please study the previous opening first to unlock this one!');
+                        } else {
+                          handleItemPress(item);
+                        }
+                      }}
+                      activeOpacity={isLocked ? 1.0 : 0.75}
+                    >
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemLabel}>{item.label}</Text>
+                        {item.progress_hint ? <Text style={styles.itemHint}>{item.progress_hint}</Text> : null}
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                )) : <Text style={styles.emptyText}>No openings available.</Text>}
+                      <View style={styles.rightGroup}>
+                        {getTierLabel(item.tier) ? (
+                          <View style={styles.tierTag}><Text style={styles.tierText}>{getTierLabel(item.tier)}</Text></View>
+                        ) : null}
+                        <View style={[styles.statusBadge, getBadgeStyle(item.state, isLocked)]}>
+                          <Text style={[styles.statusBadgeText, getBadgeTextStyle(item.state, isLocked)]}>
+                            {formatStatus(item, isLocked)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }) : <Text style={styles.emptyText}>No openings available.</Text>}
               </View>
 
             </View>

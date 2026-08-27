@@ -140,7 +140,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.cardTitle}>Coaching & Progress</Text>
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => navigation.navigate('Reflect')}
+            onPress={() => navigation.navigate('ReflectTab')}
             activeOpacity={0.8}
           >
             <Text style={styles.settingLabel}>📈 View Progress Ledger</Text>
