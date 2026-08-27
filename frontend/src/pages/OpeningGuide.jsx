@@ -55,7 +55,7 @@ const OpeningGuide = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#06060B] text-white flex items-center justify-center">
+      <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
       </div>
     );
@@ -63,7 +63,7 @@ const OpeningGuide = () => {
 
   if (error === "not-found") {
     return (
-      <div className="min-h-screen bg-[#06060B] text-white">
+      <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white">
         <SEO
           title="Opening not found"
           description="That opening guide doesn't exist. Browse the full list of opening guides on ChessGuru."
@@ -89,7 +89,7 @@ const OpeningGuide = () => {
 
   if (error || !opening) {
     return (
-      <div className="min-h-screen bg-[#06060B] text-white flex items-center justify-center">
+      <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white flex items-center justify-center">
         <p className="text-gray-400">Couldn't load this guide. Try again in a moment.</p>
       </div>
     );
@@ -199,7 +199,7 @@ const OpeningGuideContent = ({ opening, slug, navigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#06060B] text-white">
+    <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white">
       <SEO
         title={seoTitle}
         description={seoDescription}

@@ -419,7 +419,7 @@ const OpeningLesson = () => {
   const { opening, user_stats, user_mistakes, learning_progress } = lesson;
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="experience-page experience-lesson-page min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -557,9 +557,9 @@ const OpeningLesson = () => {
             <div>
               <Card>
                 <CardContent className="p-4">
-                  <div 
+                  <div
                     ref={boardRef} 
-                    className="w-full aspect-square rounded-lg overflow-hidden"
+                    className="experience-board-stage w-full aspect-square rounded-xl overflow-hidden"
                     style={{ maxWidth: "500px", margin: "0 auto" }}
                   />
                   

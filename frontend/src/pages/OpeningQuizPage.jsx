@@ -28,7 +28,7 @@ const OpeningQuizPage = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="container max-w-4xl mx-auto py-8 px-4">
+      <div className="experience-page experience-learning-page experience-quiz-page container max-w-5xl mx-auto py-8 px-4">
         <OpeningQuiz
           openingKey={openingKey}
           openingName={openingName}

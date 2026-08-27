@@ -384,7 +384,7 @@ const CoachBoard = forwardRef(({
       )}
 
       {/* Lichess Chessground Board */}
-      <div className={`relative ${size === "full" ? "w-full" : "w-[320px]"} aspect-square`}>
+      <div className={`experience-board-stage relative ${size === "full" ? "w-full" : "w-[320px]"} aspect-square`}>
         <LichessBoard
           ref={lichessBoardRef}
           fen={fen}

@@ -180,7 +180,7 @@ const PostLossRecovery = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-5xl mx-auto py-6" data-testid="post-loss-recovery-page">
+      <div className="experience-page experience-recovery-page max-w-6xl mx-auto py-6" data-testid="post-loss-recovery-page">
         {/* Desktop: Side-by-side layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           

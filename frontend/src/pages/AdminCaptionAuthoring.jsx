@@ -165,7 +165,7 @@ const AdminCaptionAuthoring = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-[1100px] mx-auto px-6 py-8 space-y-8">
+      <div className="experience-page experience-admin-page max-w-[1500px] mx-auto px-6 py-8 space-y-8">
         {/* Header */}
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>

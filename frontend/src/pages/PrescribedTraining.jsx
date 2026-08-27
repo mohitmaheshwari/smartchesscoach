@@ -615,7 +615,7 @@ export default function PrescribedTraining() {
   const puzzleRating = currentPuzzle?.rating || currentPuzzle?.avg_rating;
 
   return (
-    <div className="min-h-screen bg-background text-foreground" data-testid="prescribed-training">
+    <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
       <div className="max-w-[1080px] mx-auto px-6 md:px-10 py-8 md:py-12">
 
         {/* Back nav — subtle */}
@@ -671,7 +671,7 @@ export default function PrescribedTraining() {
         {/* ─── Page head: focus + progress pips ─── */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-10 md:mb-14">
           <div className="flex items-baseline gap-4 md:gap-5 flex-wrap">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
               Training · focus session
             </p>
             <span className="text-[13px] text-foreground font-medium capitalize">{focusName}</span>
@@ -728,7 +728,7 @@ export default function PrescribedTraining() {
           {/* Board column */}
           <div className="w-full">
             {currentPuzzle?.fen ? (
-              <div className="rounded-lg overflow-hidden ring-1 ring-border">
+              <div className="experience-board-stage rounded-xl overflow-hidden ring-1 ring-border">
                 <LichessBoard
                   ref={boardRef}
                   fen={game.fen()}

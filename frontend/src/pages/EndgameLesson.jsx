@@ -211,7 +211,7 @@ export default function EndgameLesson({ user }) {
     const intro = lesson.intro;
     return (
       <Layout user={user}>
-        <div className="max-w-3xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-intro">
+        <div className="experience-page experience-lesson-page max-w-3xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-intro">
           <div>
             <button
               className="text-xs text-muted-foreground hover:text-white transition-colors flex items-center gap-1 mb-1"
@@ -243,7 +243,7 @@ export default function EndgameLesson({ user }) {
 
           {intro.example_fen && (
             <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4 items-start">
-              <div className="aspect-square w-full max-w-[420px] mx-auto" data-testid="intro-example-board">
+              <div className="experience-board-stage aspect-square w-full max-w-[420px] mx-auto" data-testid="intro-example-board">
                 <LichessBoard
                   fen={intro.example_fen}
                   orientation="white"
@@ -328,7 +328,7 @@ export default function EndgameLesson({ user }) {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto py-4 px-4 space-y-4" data-testid="endgame-lesson">
+      <div className="experience-page experience-lesson-page max-w-5xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-lesson">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -359,7 +359,7 @@ export default function EndgameLesson({ user }) {
         {/* Board + Side panel */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4">
           {/* Board */}
-          <div className="aspect-square w-full max-w-[480px] mx-auto" data-testid="endgame-board">
+          <div className="experience-board-stage aspect-square w-full max-w-[480px] mx-auto" data-testid="endgame-board">
             {boardFen && (
               <LichessBoard
                 ref={boardRef}

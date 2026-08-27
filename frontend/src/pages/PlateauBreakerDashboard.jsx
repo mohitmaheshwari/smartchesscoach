@@ -286,7 +286,7 @@ const PlateauBreakerDashboard = ({ user }) => {
 
   return (
     <Layout user={user}>
-    <div className="min-h-screen">
+    <div className="experience-page experience-recovery-page experience-plateau-page min-h-screen">
       {/* Main Content - Focused */}
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         

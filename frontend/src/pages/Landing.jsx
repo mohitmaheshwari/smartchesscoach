@@ -62,7 +62,7 @@ const Landing = () => {
 
   return (
     <motion.div variants={pageEnter} initial="initial" animate="animate"
-      className="min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
+      className="experience-page experience-landing-page min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
 
       {/* ═══ NAVBAR ═══ */}
       <motion.header variants={navFade} initial="initial" animate="animate"

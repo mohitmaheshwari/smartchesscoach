@@ -48,7 +48,7 @@ const PersonalMoments = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+      <div className="experience-page experience-moments-page min-h-screen flex items-center justify-center text-muted-foreground">
         Pulling your moments…
       </div>
     );
@@ -56,7 +56,7 @@ const PersonalMoments = ({ user }) => {
 
   if (err || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="experience-page experience-moments-page min-h-screen flex items-center justify-center">
         <div className="max-w-md text-center space-y-3">
           <h2 className="text-xl font-semibold">We couldn't load this</h2>
           <p className="text-sm text-muted-foreground">{err || "Unknown error"}</p>
@@ -72,7 +72,7 @@ const PersonalMoments = ({ user }) => {
   const moments = data.moments || [];
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-8">
+    <div className="experience-page experience-moments-page min-h-screen bg-[#FAF7F2] py-8">
       <div className="max-w-3xl mx-auto px-6">
         {/* Header */}
         <button

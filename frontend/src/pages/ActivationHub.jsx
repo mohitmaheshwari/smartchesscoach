@@ -59,10 +59,10 @@ const ActivationHub = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(40_30%_98%)] flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[520px]">
+    <div className="experience-page experience-activation-page min-h-screen bg-[hsl(40_30%_98%)] flex items-center justify-center px-6 py-12">
+      <div className="experience-activation-shell w-full max-w-[560px]">
         <p className="text-[13px] mb-1" style={{ color: INK_MUTED }}>Welcome to ChessGuru 👋</p>
-        <h1 className="font-serif text-[28px] md:text-[32px] leading-tight mb-2" style={{ color: INK }}>
+        <h1 className="experience-coach-copy font-serif text-[28px] md:text-[38px] leading-tight mb-2" style={{ color: INK }}>
           Let's see how you play.
         </h1>
         <p className="text-[14px] mb-8 leading-relaxed" style={{ color: INK_MUTED }}>
@@ -74,7 +74,7 @@ const ActivationHub = () => {
         <button
           onClick={() => { track("funnel_activation_cta", { cta: "diagnostic" }); go("/diagnostic"); }}
           disabled={busy}
-          className="w-full text-left rounded-sm border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
+          className="experience-activation-primary w-full text-left rounded-xl border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
           style={{ borderColor: WINE, background: "rgba(114,47,55,0.03)" }}
           data-testid="hub-diagnostic"
         >
@@ -94,7 +94,7 @@ const ActivationHub = () => {
         <button
           onClick={() => { track("funnel_activation_cta", { cta: "coached_game" }); go("/play-with-coach"); }}
           disabled={busy}
-          className="w-full text-left rounded-sm border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
+          className="experience-activation-secondary w-full text-left rounded-xl border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
           style={{ borderColor: BORDER, background: "white" }}
           data-testid="hub-play"
         >

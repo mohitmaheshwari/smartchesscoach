@@ -162,14 +162,14 @@ const OpeningRepertoire = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="experience-page experience-learning-page min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="experience-page experience-learning-page experience-repertoire-page min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50">
         <div className="max-w-6xl mx-auto px-4 py-6">

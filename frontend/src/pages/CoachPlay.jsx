@@ -3343,7 +3343,7 @@ const CoachPlay = ({ user }) => {
           by overriding the shadcn CSS vars — scoped to PWC only. The shell below
           is responsive: two-column on desktop, board + coach bottom-sheet on
           mobile/tablet. Teaching logic in the child components is unchanged. */}
-      <div className="pwc-root flex flex-col flex-1 min-h-0">
+      <div className="experience-page experience-pwc-page pwc-root flex flex-col flex-1 min-h-0">
       <motion.div
         variants={navFade}
         initial="initial"
@@ -3352,7 +3352,7 @@ const CoachPlay = ({ user }) => {
       >
         <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
           <div className="flex items-baseline gap-4 min-w-0">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
               Play with Coach
             </p>
             {timeControl && (

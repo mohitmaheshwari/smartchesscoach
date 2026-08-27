@@ -180,7 +180,7 @@ export default function Pricing() {
   const isPro = user?.plan === "pro";
 
   return (
-    <div className="min-h-screen bg-[#06060B] text-gray-100">
+    <div className="experience-page experience-pricing-page min-h-screen bg-[#06060B] text-gray-100">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[180px] bg-amber-500/[0.06]" />

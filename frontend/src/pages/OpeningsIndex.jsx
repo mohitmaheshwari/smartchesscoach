@@ -56,7 +56,7 @@ const OpeningsIndex = () => {
       : null;
 
   return (
-    <div className="min-h-screen bg-[#06060B] text-white">
+    <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white">
       <SEO
         title="Chess Opening Guides for 600–1500 Rated Players"
         description="Free, in-depth guides to popular chess openings. Setup order, golden rules, traps, middlegame plans, and endgame tips for the Italian Game, Sicilian, French, Caro-Kann, Queen's Gambit, Ruy Lopez, and more."

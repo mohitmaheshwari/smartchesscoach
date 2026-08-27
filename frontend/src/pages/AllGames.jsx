@@ -140,7 +140,7 @@ const AllGames = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-lg mx-auto px-4 py-8" data-testid="all-games-page">
+      <div className="experience-page experience-utility-page experience-games-page max-w-3xl mx-auto px-4 py-8" data-testid="all-games-page">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
           <div className="flex items-center gap-2">
