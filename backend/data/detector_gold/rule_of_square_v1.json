@@ -1,0 +1,77 @@
+{
+  "detector_id": "endgame_rule_of_square",
+  "version": "v1_2026_08_27",
+  "source": "https://tablebase.lichess.ovh/standard",
+  "source_implementation": "https://github.com/lichess-org/lila-tablebase",
+  "claim": "Can the defending king catch this pawn if the pawn side races by pushing it?",
+  "cases": [
+    {
+      "case_id": "white_unstoppable_a_pawn",
+      "split": "development",
+      "family": "white_pawn",
+      "fen": "7k/8/8/P7/8/8/8/4K3 w - - 0 1",
+      "expected_applicable": true,
+      "expected_catchable": false,
+      "tablebase_category": "win",
+      "tablebase_response_sha256": "8d71a9c0c6a0a9681e9caf611499fa4589503f8570af4d916295bf3c4b916dad",
+      "note": "a6 preserves the tablebase win and the defender cannot catch the immediate race."
+    },
+    {
+      "case_id": "black_unstoppable_a_pawn",
+      "split": "held_out",
+      "family": "black_pawn",
+      "fen": "4k3/8/8/8/8/p7/8/7K b - - 0 1",
+      "expected_applicable": true,
+      "expected_catchable": false,
+      "note": "Pawn direction comes from its color, never its rank."
+    },
+    {
+      "case_id": "defender_captures_on_c2",
+      "split": "development",
+      "family": "immediate_capture",
+      "fen": "8/8/8/8/8/8/2P5/K1k5 b - - 0 1",
+      "expected_applicable": true,
+      "expected_catchable": true,
+      "tablebase_category": "draw",
+      "tablebase_response_sha256": "7e006f5745592bda6d783d4265b0cbaf0b1c9bad58192847f3fe56b9e41ab70c",
+      "note": "Kxc2 draws; Kd1 and Kd2 lose."
+    },
+    {
+      "case_id": "starting_black_pawn_double_push",
+      "split": "held_out",
+      "family": "double_push",
+      "fen": "5K1k/2p5/8/8/8/8/8/8 w - - 0 1",
+      "expected_applicable": true,
+      "expected_catchable": false,
+      "note": "The legal c7-c5 double push is part of the exact race."
+    },
+    {
+      "case_id": "catchable_race_but_full_position_lost",
+      "split": "held_out",
+      "family": "claim_boundary",
+      "fen": "7k/8/8/5p2/8/8/8/K7 w - - 0 1",
+      "expected_applicable": true,
+      "expected_catchable": true,
+      "tablebase_category": "loss",
+      "note": "White catches an immediate pawn-only race after promotion; full WDL is loss because Black may improve with king play. Full WDL is deliberately not the runtime label."
+    },
+    {
+      "case_id": "mutual_passers_abstain",
+      "split": "held_out",
+      "family": "mutual_race",
+      "fen": "8/8/8/8/P6p/8/K7/5k2 w - - 0 1",
+      "expected_applicable": false,
+      "expected_catchable": null,
+      "note": "V1 never attributes a two-pawn race to one square."
+    },
+    {
+      "case_id": "rook_ending_abstains",
+      "split": "held_out",
+      "family": "non_pawn_piece",
+      "fen": "7k/8/8/P7/8/8/8/R3K3 w - - 0 1",
+      "expected_applicable": false,
+      "expected_catchable": null,
+      "note": "A rook changes the stopping and escorting truth."
+    }
+  ]
+}

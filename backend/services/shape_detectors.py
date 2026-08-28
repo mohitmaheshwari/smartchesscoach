@@ -185,13 +185,15 @@ def _mover_dies_on_destination(
 # ────────────────────────────────────────────────────────────────────
 
 def detect_free_piece(board: chess.Board) -> List[Dict]:
-    """Enemy piece of value >= knight is attacked by us and has ZERO defenders.
+    """Enemy piece >= knight that can be captured without a legal recapture.
 
     Edge cases handled:
       - Skip enemy king (cannot be captured).
       - Skip enemy pawns (value < knight; covered by hanging-piece in TIER 2).
       - Skip if our cheapest attacker is pinned against our king for the target.
       - Multiple attackers: prefer the cheapest legal one as executing_move.
+      - Re-check the post-capture board so a newly opened x-ray defender is
+        not mislabeled as a free piece.
       - Two free pieces in the same position emit TWO evidences (don't collapse).
 
     Returns list of evidence dicts.
@@ -237,6 +239,13 @@ def detect_free_piece(board: chess.Board) -> List[Dict]:
         if atk.piece_type == chess.PAWN and chess.square_rank(sq) in (0, 7):
             mv = chess.Move(best_atk_sq, sq, promotion=chess.QUEEN)
         if mv not in board.legal_moves:
+            continue
+        after = board.copy(stack=False)
+        after.push(mv)
+        if any(
+            reply.to_square == sq and after.is_capture(reply)
+            for reply in after.legal_moves
+        ):
             continue
         out.append(_ev(
             "free_piece",

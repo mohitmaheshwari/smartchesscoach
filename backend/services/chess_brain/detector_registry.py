@@ -32,8 +32,24 @@ from .enums import (
     MistakeCategory,
     GamePhase
 )
+from services.detector_quality import (
+    QualityGrade,
+    QualitySurface,
+    brain_quality_id,
+    can_influence,
+    grade_for,
+)
+from services.board_concepts import newly_trapped_pieces
+from services.board_state_describer import king_safety_state
+from services.caption_facts import legally_hanging_pieces
+from services.game_phase_service import GamePhaseCalculator
 
 logger = logging.getLogger(__name__)
+
+CAUSAL_MISTAKE_MIN_CP_LOSS = 100
+HANGING_PIECE_MIN_GAIN_CP = 150
+TRAPPED_PIECE_MIN_CP_LOSS = CAUSAL_MISTAKE_MIN_CP_LOSS
+_PHASE_CALCULATOR = GamePhaseCalculator()
 
 
 # Type for detector functions
@@ -96,7 +112,8 @@ class DetectorRegistry:
             "Hanging Piece Detector",
             TacticalPattern.HANGING_PIECE.value,
             detect_hanging_piece,
-            priority=95  # High priority - common issue
+            priority=95,  # High priority - common issue
+            requires_best_move=True,
         )
         
         self.register_tactical(
@@ -104,7 +121,8 @@ class DetectorRegistry:
             "Trapped Piece Detector", 
             TacticalPattern.TRAPPED_PIECE.value,
             detect_trapped_piece,
-            priority=70
+            priority=70,
+            requires_best_move=True,
         )
         
         self.register_tactical(
@@ -204,6 +222,7 @@ class DetectorRegistry:
             StrategicConcept.KING_SAFETY.value,
             detect_king_safety,
             priority=80,
+            requires_best_move=True,
             phase_relevant=[GamePhase.OPENING, GamePhase.EARLY_MIDDLEGAME,
                            GamePhase.MIDDLEGAME, GamePhase.LATE_MIDDLEGAME]
         )
@@ -304,7 +323,8 @@ class DetectorRegistry:
         board: chess.Board,
         user_move: str,
         best_move: str,
-        context: Dict[str, Any]
+        context: Dict[str, Any],
+        include_shadow: bool = False,
     ) -> Tuple[List[DetectorResult], List[DetectorResult], List[DetectorResult]]:
         """
         Run all registered detectors and return results.
@@ -332,6 +352,9 @@ class DetectorRegistry:
             key=lambda x: x.priority,
             reverse=True
         ):
+            quality_id = brain_quality_id(det.detector_id)
+            if grade_for(quality_id) == QualityGrade.DISABLED:
+                continue
             if det.requires_best_move and not has_best_move:
                 continue
             if det.phase_relevant and game_phase not in det.phase_relevant:
@@ -339,7 +362,10 @@ class DetectorRegistry:
             
             try:
                 result = det.detector_func(board, user_move, best_move, context)
-                if result.detected:
+                if result.detected and (
+                    include_shadow
+                    or can_influence(quality_id, QualitySurface.CAPTION)
+                ):
                     tactical_results.append(result)
             except Exception as e:
                 logger.warning(f"Detector {det.detector_id} failed: {e}")
@@ -350,6 +376,9 @@ class DetectorRegistry:
             key=lambda x: x.priority,
             reverse=True
         ):
+            quality_id = brain_quality_id(det.detector_id)
+            if grade_for(quality_id) == QualityGrade.DISABLED:
+                continue
             if det.requires_best_move and not has_best_move:
                 continue
             if det.phase_relevant and game_phase not in det.phase_relevant:
@@ -357,7 +386,10 @@ class DetectorRegistry:
             
             try:
                 result = det.detector_func(board, user_move, best_move, context)
-                if result.detected:
+                if result.detected and (
+                    include_shadow
+                    or can_influence(quality_id, QualitySurface.CAPTION)
+                ):
                     strategic_results.append(result)
             except Exception as e:
                 logger.warning(f"Detector {det.detector_id} failed: {e}")
@@ -368,9 +400,15 @@ class DetectorRegistry:
             key=lambda x: x.priority,
             reverse=True
         ):
+            quality_id = brain_quality_id(det.detector_id)
+            if grade_for(quality_id) == QualityGrade.DISABLED:
+                continue
             try:
                 result = det.detector_func(board, user_move, best_move, context)
-                if result.detected:
+                if result.detected and (
+                    include_shadow
+                    or can_influence(quality_id, QualitySurface.PROMPT)
+                ):
                     behavioral_results.append(result)
             except Exception as e:
                 logger.warning(f"Detector {det.detector_id} failed: {e}")
@@ -382,10 +420,17 @@ class DetectorRegistry:
         board: chess.Board,
         user_move: str,
         best_move: str,
-        context: Dict[str, Any]
+        context: Dict[str, Any],
+        include_shadow: bool = False,
     ) -> List[DetectorResult]:
         """Run only tactical detectors."""
-        results, _, _ = self.run_all(board, user_move, best_move, context)
+        results, _, _ = self.run_all(
+            board,
+            user_move,
+            best_move,
+            context,
+            include_shadow=include_shadow,
+        )
         return results
     
     def get_detector(self, detector_id: str) -> Optional[RegisteredDetector]:
@@ -597,10 +642,7 @@ def detect_hanging_piece(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """
-    Detect if user's move left a piece hanging (undefended and attacked).
-    This is one of the most common tactical errors.
-    """
+    """Detect a causal, engine-significant legal material hang."""
     result = DetectorResult(
         detector_id="hanging_piece_detector",
         detected=False,
@@ -609,51 +651,94 @@ def detect_hanging_piece(
     )
     
     try:
+        cp_loss_raw = context.get("cp_loss")
+        if cp_loss_raw is None or not best_move:
+            return result
+        try:
+            cp_loss = abs(int(cp_loss_raw))
+        except (TypeError, ValueError):
+            return result
+        if cp_loss < CAUSAL_MISTAKE_MIN_CP_LOSS:
+            return result
+
         move = board.parse_san(user_move)
-        board_after = board.copy()
+        engine_move = board.parse_san(best_move)
+        if move == engine_move:
+            return result
+
+        user_color = board.turn
+        board_after = board.copy(stack=False)
         board_after.push(move)
-        
-        # User just moved, now it's opponent's turn
-        user_color = not board_after.turn  # Color of the player who just moved
-        
-        hanging_pieces = []
-        
-        for sq in chess.SQUARES:
-            piece = board_after.piece_at(sq)
-            if piece and piece.color == user_color and piece.piece_type != chess.KING:
-                # Check if attacked and undefended
-                is_attacked = board_after.is_attacked_by(not user_color, sq)
-                is_defended = board_after.is_attacked_by(user_color, sq)
-                
-                if is_attacked and not is_defended:
-                    piece_values = {
-                        chess.QUEEN: 9,
-                        chess.ROOK: 5,
-                        chess.BISHOP: 3,
-                        chess.KNIGHT: 3,
-                        chess.PAWN: 1
-                    }
-                    value = piece_values.get(piece.piece_type, 0)
-                    hanging_pieces.append((sq, piece, value))
-        
-        if hanging_pieces:
-            # Find the most valuable hanging piece
-            worst = max(hanging_pieces, key=lambda x: x[2])
-            
-            result.detected = True
-            result.confidence = min(1.0, worst[2] / 5)
-            result.details = {
-                "hanging_piece": chess.piece_name(worst[1].piece_type),
-                "hanging_square": chess.square_name(worst[0]),
-                "piece_value": worst[2],
-                "all_hanging": [
-                    {"piece": chess.piece_name(p[1].piece_type), 
-                     "square": chess.square_name(p[0])}
-                    for p in hanging_pieces
-                ]
-            }
-            result.key_squares = [chess.square_name(worst[0])]
-            result.teaching_hook = f"The {chess.piece_name(worst[1].piece_type)} on {chess.square_name(worst[0])} is hanging"
+        best_after = board.copy(stack=False)
+        best_after.push(engine_move)
+
+        played_facts = legally_hanging_pieces(
+            board_after,
+            user_color,
+            HANGING_PIECE_MIN_GAIN_CP,
+        )
+        best_facts = legally_hanging_pieces(
+            best_after,
+            user_color,
+            HANGING_PIECE_MIN_GAIN_CP,
+        )
+        played_by_issue = {
+            (fact["square"], fact["piece_type_id"]): fact
+            for fact in played_facts
+        }
+        best_issues = {
+            (fact["square"], fact["piece_type_id"])
+            for fact in best_facts
+        }
+        played_issues = set(played_by_issue)
+
+        # A safer best move must remove issues without introducing a different
+        # hang. This also prevents unrelated moves inheriting an existing label.
+        if not best_issues < played_issues:
+            return result
+
+        removed = [
+            played_by_issue[issue]
+            for issue in played_issues - best_issues
+        ]
+        removed.sort(
+            key=lambda fact: (
+                -fact["material_loss_cp"],
+                -fact["piece_value_cp"],
+                fact["square"],
+            )
+        )
+        worst = removed[0]
+        subtype = (
+            "moved_piece"
+            if worst["square"] == chess.square_name(move.to_square)
+            else "other_piece"
+        )
+
+        result.detected = True
+        result.confidence = 0.95
+        result.details = {
+            "subtype": subtype,
+            "hanging_piece": worst["piece_type"],
+            "hanging_square": worst["square"],
+            "piece_value": worst["piece_value_cp"] / 100,
+            "material_loss_cp": worst["material_loss_cp"],
+            "winning_reply": worst["winning_capture_san"],
+            "avoidable_with": board.san(engine_move),
+            "all_hanging": [
+                {
+                    "piece": fact["piece_type"],
+                    "square": fact["square"],
+                    "material_loss_cp": fact["material_loss_cp"],
+                    "winning_reply": fact["winning_capture_san"],
+                }
+                for fact in removed
+            ],
+        }
+        result.key_squares = [worst["square"]]
+        result.teaching_hook = (
+            f"The {worst['piece_type']} on {worst['square']} is hanging"
+        )
     
     except Exception as e:
         logger.debug(f"Hanging piece detection error: {e}")
@@ -667,7 +752,7 @@ def detect_trapped_piece(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """Detect if user moved a piece into a trap where it can't escape."""
+    """Detect an engine-significant move that newly traps an own piece."""
     result = DetectorResult(
         detector_id="trapped_piece_detector",
         detected=False,
@@ -676,39 +761,42 @@ def detect_trapped_piece(
     )
     
     try:
+        cp_loss_raw = context.get("cp_loss")
+        if cp_loss_raw is None:
+            return result
+        try:
+            cp_loss = abs(int(cp_loss_raw))
+        except (TypeError, ValueError):
+            return result
+
+        if cp_loss < TRAPPED_PIECE_MIN_CP_LOSS or not best_move:
+            return result
+
         move = board.parse_san(user_move)
-        piece = board.piece_at(move.from_square)
-        
-        if not piece or piece.piece_type in [chess.PAWN, chess.KING]:
+        engine_move = board.parse_san(best_move)
+        if move == engine_move:
             return result
-        
-        board_after = board.copy()
-        board_after.push(move)
-        
-        moved_piece = board_after.piece_at(move.to_square)
-        if not moved_piece:
+
+        newly_trapped = newly_trapped_pieces(board, move)
+        if not newly_trapped:
             return result
-        
-        # Count legal moves for this piece
-        legal_escapes = 0
-        for legal_move in board_after.legal_moves:
-            if legal_move.from_square == move.to_square:
-                legal_escapes += 1
-        
-        # Check if the piece is attacked
-        is_attacked = board_after.is_attacked_by(not moved_piece.color, move.to_square)
-        
-        # Trapped = attacked with no safe squares
-        if is_attacked and legal_escapes == 0:
-            result.detected = True
-            result.confidence = 0.9
-            result.details = {
-                "trapped_piece": chess.piece_name(moved_piece.piece_type),
-                "trapped_square": chess.square_name(move.to_square),
-                "legal_escapes": 0
-            }
-            result.key_squares = [chess.square_name(move.to_square)]
-            result.teaching_hook = f"The {chess.piece_name(moved_piece.piece_type)} is trapped!"
+
+        # The engine counterfactual must avoid every fresh trapped state. A
+        # different best move is not enough: it may create the same problem.
+        if newly_trapped_pieces(board, engine_move):
+            return result
+
+        trapped = newly_trapped[0]
+        result.detected = True
+        result.confidence = 0.95
+        result.details = {
+            "trapped_piece": trapped["piece"],
+            "trapped_square": trapped["square"],
+            "cost_cp": trapped["cost_cp"],
+            "avoidable_with": board.san(engine_move),
+        }
+        result.key_squares = [trapped["square"]]
+        result.teaching_hook = f"The {trapped['piece']} is trapped!"
     
     except Exception as e:
         logger.debug(f"Trapped piece detection error: {e}")
@@ -1488,7 +1576,7 @@ def detect_king_safety(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """Detect king safety issues."""
+    """Detect an engine-significant move that newly worsens king safety."""
     result = DetectorResult(
         detector_id="king_safety_detector",
         detected=False,
@@ -1497,73 +1585,59 @@ def detect_king_safety(
     )
     
     try:
+        cp_loss_raw = context.get("cp_loss")
+        if cp_loss_raw is None or not best_move:
+            return result
+        try:
+            cp_loss = abs(int(cp_loss_raw))
+        except (TypeError, ValueError):
+            return result
+        if cp_loss < CAUSAL_MISTAKE_MIN_CP_LOSS:
+            return result
+        if _PHASE_CALCULATOR.calculate_phase(board).is_endgame:
+            return result
+
         move = board.parse_san(user_move)
+        engine_move = board.parse_san(best_move)
+        if move == engine_move:
+            return result
+
+        user_color = board.turn
+        move_number = int(context.get("move_number") or board.fullmove_number)
         board_after = board.copy()
         board_after.push(move)
-        
-        user_color = not board_after.turn
-        king_sq = board_after.king(user_color)
-        
-        if not king_sq:
+        best_after = board.copy()
+        best_after.push(engine_move)
+
+        played_state = king_safety_state(board_after, user_color, move_number)
+        best_state = king_safety_state(best_after, user_color, move_number)
+        played_issues = played_state.effective_issues
+        best_issues = best_state.effective_issues
+
+        # Best must strictly reduce the same issue set. This rejects moves
+        # that merely exchange a broken shield for a king-zone attack.
+        if not best_issues < played_issues:
             return result
-        
-        # Check king safety factors
-        king_file = chess.square_file(king_sq)
-        king_rank = chess.square_rank(king_sq)
-        
-        safety_issues = []
-        
-        # Check if castled
-        is_castled = king_file in [6, 2]  # g1/g8 or c1/c8 after castling
-        
-        # Check pawn shield
-        shield_squares = []
-        if user_color == chess.WHITE:
-            shield_ranks = [king_rank + 1] if king_rank < 7 else []
-        else:
-            shield_ranks = [king_rank - 1] if king_rank > 0 else []
-        
-        for r in shield_ranks:
-            for f in [king_file - 1, king_file, king_file + 1]:
-                if 0 <= f <= 7:
-                    shield_squares.append(chess.square(f, r))
-        
-        missing_shield = 0
-        for sq in shield_squares:
-            piece = board_after.piece_at(sq)
-            if not piece or piece.piece_type != chess.PAWN or piece.color != user_color:
-                missing_shield += 1
-        
-        if missing_shield >= 2 and not is_castled:
-            safety_issues.append("weak_pawn_shield")
-        
-        # Check attackers near king
-        attackers_near = 0
-        for sq in chess.SQUARES:
-            piece = board_after.piece_at(sq)
-            if piece and piece.color != user_color:
-                # Check if piece attacks squares near king
-                attacks = board_after.attacks(sq)
-                for near_sq in [king_sq] + list(chess.SquareSet(chess.BB_KING_ATTACKS[king_sq])):
-                    if near_sq in attacks:
-                        attackers_near += 1
-                        break
-        
-        if attackers_near >= 3:
-            safety_issues.append("many_attackers")
-        
-        if safety_issues:
-            result.detected = True
-            result.confidence = 0.7
-            result.details = {
-                "king_square": chess.square_name(king_sq),
-                "is_castled": is_castled,
-                "missing_shield": missing_shield,
-                "attackers_near": attackers_near,
-                "issues": safety_issues
-            }
-            result.key_squares = [chess.square_name(king_sq)]
-            result.teaching_hook = "King safety needs attention"
+
+        removed_issues = played_issues - best_issues
+        subtype = (
+            "king_zone_attack"
+            if "king_zone_attack" in removed_issues
+            else "pawn_shield"
+        )
+        result.detected = True
+        result.confidence = 0.95
+        result.details = {
+            "subtype": subtype,
+            "king_square": played_state.king_square,
+            "missing_shield": played_state.missing_shield,
+            "attackers_near": played_state.attackers_near,
+            "attacker_squares": list(played_state.attacker_squares),
+            "issues": sorted(removed_issues),
+            "avoidable_with": board.san(engine_move),
+        }
+        result.key_squares = [played_state.king_square] if played_state.king_square else []
+        result.teaching_hook = "King safety needs attention"
     
     except Exception as e:
         logger.debug(f"King safety detection error: {e}")
