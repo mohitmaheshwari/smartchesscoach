@@ -8,11 +8,11 @@
  * no percentages, no confidence scores, no elo predictions.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
@@ -73,6 +73,8 @@ export default function HomePageNew({ user }) {
   const conversationEndRef = useRef(null);
   const mirrorSeenRef = useRef(false);
   const conversationSeenRef = useRef(false);
+  const curriculumDecisionShownRef = useRef(null);
+  const curriculumDecisionElementRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -124,6 +126,37 @@ export default function HomePageNew({ user }) {
     ? activeFocus.personal_improvement_cycle
     : null;
   const canonicalContext = activeFocus?.coaching_context || null;
+  const currentLearningDecision = useMemo(() => (
+    pic
+      ? {
+          decision_id: `legacy_pic:${pic.focus_kind || "piece_safety"}`,
+          decision_source: "personal_improvement_cycle",
+          recommendation_kind: "repair",
+          content_type: "pattern_drill",
+          content_id: pic.focus_kind || "piece_safety",
+        }
+      : null
+  ), [pic]);
+
+  useEffect(() => {
+    if (!currentLearningDecision) return;
+    const element = curriculumDecisionElementRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      if (curriculumDecisionShownRef.current === currentLearningDecision.decision_id) return;
+      curriculumDecisionShownRef.current = currentLearningDecision.decision_id;
+      trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN, {
+        surface: "legacy_home",
+        ...currentLearningDecision,
+        origin: "recommendation",
+        is_recommended: true,
+      });
+      observer.disconnect();
+    }, { threshold: 0.6 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [currentLearningDecision]);
 
   const updateFocusGame = async (action, body = null) => {
     setFocusGameBusy(true);
@@ -374,7 +407,7 @@ export default function HomePageNew({ user }) {
                   }}
                 />
               ) : pic ? (
-                <div className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
+                <div ref={curriculumDecisionElementRef} className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
                   <p className="experience-eyebrow text-[10px] uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400 font-semibold mb-2">
                     {pic.learner_state?.label || "Learning"}
                     {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
@@ -393,6 +426,14 @@ export default function HomePageNew({ user }) {
                     <button
                       onClick={() => {
                         track(ANALYTICS_EVENTS.PIC_NEXT_ACTION_CLICKED, { action: "practice" });
+                        if (currentLearningDecision) {
+                          trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
+                            surface: "legacy_home",
+                            ...currentLearningDecision,
+                            origin: "recommendation",
+                            is_recommended: true,
+                          });
+                        }
                         navigate("/training/pattern/piece_safety");
                       }}
                       className="experience-primary h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors"

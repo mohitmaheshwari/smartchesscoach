@@ -122,9 +122,64 @@ export const ANALYTICS_EVENTS = Object.freeze({
   PIC_LESSON_MOVE_CHECKED: "pic_lesson_move_checked",
   PIC_FOCUS_GAME_UPDATED: "pic_focus_game_updated",
   PIC_NEXT_ACTION_CLICKED: "pic_next_action_clicked",
+  CURRICULUM_DECISION_SHOWN: "curriculum_decision_shown",
+  CURRICULUM_PRIMARY_CLICKED: "curriculum_primary_clicked",
+  CURRICULUM_REVIEW_CLICKED: "curriculum_review_clicked",
+  LEARN_VIEWED: "learn_viewed",
+  PROGRESS_VIEWED: "progress_viewed",
+  EXPLORE_OPENED: "explore_opened",
+  LESSON_STARTED: "lesson_started",
+  EXPLANATION_COMPLETED: "explanation_completed",
+  GUIDED_ATTEMPT: "guided_attempt",
+  INDEPENDENT_ATTEMPT: "independent_attempt",
+  REVIEW_ATTEMPT: "review_attempt",
+  BACK_TO_PLAN: "back_to_plan",
 });
 
+export const CURRICULUM_ANALYTICS_VERSION = "personal_curriculum.baseline.v1";
+
+const CURRICULUM_EVENT_IDS = new Set([
+  ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN,
+  ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED,
+  ANALYTICS_EVENTS.CURRICULUM_REVIEW_CLICKED,
+  ANALYTICS_EVENTS.LEARN_VIEWED,
+  ANALYTICS_EVENTS.PROGRESS_VIEWED,
+  ANALYTICS_EVENTS.EXPLORE_OPENED,
+  ANALYTICS_EVENTS.LESSON_STARTED,
+  ANALYTICS_EVENTS.EXPLANATION_COMPLETED,
+  ANALYTICS_EVENTS.GUIDED_ATTEMPT,
+  ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT,
+  ANALYTICS_EVENTS.REVIEW_ATTEMPT,
+  ANALYTICS_EVENTS.BACK_TO_PLAN,
+]);
+
 const KNOWN_EVENT_IDS = new Set(Object.values(ANALYTICS_EVENTS));
+
+const CURRICULUM_ALLOWED_PROP_KEYS = new Set([
+  "surface",
+  "decision_id",
+  "decision_source",
+  "recommendation_kind",
+  "content_type",
+  "content_id",
+  "origin",
+  "rating_band",
+  "flag_state",
+  "support_level",
+  "outcome",
+  "position_index",
+  "attempt_number",
+  "explore_level",
+  "tab",
+  "is_recommended",
+]);
+
+const safeCurriculumValue = (value) => {
+  if (typeof value === "string") return value.slice(0, 120);
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return undefined;
+};
 
 export function track(event, props = {}) {
   try {
@@ -140,4 +195,24 @@ export function track(event, props = {}) {
   } catch (_e) {
     /* analytics must never break the product */
   }
+}
+
+export function trackCurriculum(event, props = {}) {
+  if (!CURRICULUM_EVENT_IDS.has(event)) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[analytics] ignored non-curriculum event: ${event}`);
+    }
+    return;
+  }
+
+  const safeProps = {
+    instrumentation_version: CURRICULUM_ANALYTICS_VERSION,
+    flag_state: "legacy_control",
+  };
+  for (const [key, value] of Object.entries(props || {})) {
+    if (!CURRICULUM_ALLOWED_PROP_KEYS.has(key)) continue;
+    const safeValue = safeCurriculumValue(value);
+    if (safeValue !== undefined) safeProps[key] = safeValue;
+  }
+  track(event, safeProps);
 }
