@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-08-28",
+  "source": "chess_coach production, server-side (not PostHog)",
+  "method": "deterministic full scan; no $sample",
+  "why_server_side": "Client analytics are lost to ad-blockers and cover only the contaminated pre-launch window. These are server facts.",
+  "funnel": {
+    "users_total": 120,
+    "connected_a_platform": 65,
+    "have_analysed_games": 46,
+    "started_play_with_coach": 73,
+    "attempted_a_puzzle": 18,
+    "payment_intent_created": 3,
+    "payment_completed": 0
+  },
+  "recruitable_users_min_5_analysed_games": {
+    "under_600": 12,
+    "600_899": 8,
+    "900_1199": 8,
+    "1200_1499": 7,
+    "1500_plus": 9,
+    "unknown_rating": 1,
+    "total": 45
+  },
+  "caveat": "Pre-launch funnel. Structural reach only; NOT an engagement baseline."
+}

@@ -1,0 +1,139 @@
+{
+  "snapshot_id": "personal_curriculum_surface_baseline_2026-08-28",
+  "generated_at_utc": "2026-08-28T14:39:21.200289+00:00",
+  "windows": {
+    "last_7_days_start_utc": "2026-08-21T14:39:21.200289+00:00",
+    "last_30_days_start_utc": "2026-07-29T14:39:21.200289+00:00"
+  },
+  "status": "partial_instrumentation_gap",
+  "privacy": {
+    "credentials_included": false,
+    "raw_user_ids_included": false,
+    "raw_game_ids_included": false
+  },
+  "measurement_boundary": {
+    "posthog_history_exported": false,
+    "reason": "No private PostHog export credential or event-history connector was available. MongoDB does not store the custom frontend events.",
+    "interpretation": "The collection aggregates below are persisted activity proxies, not page impressions, click-through rates, or lesson-funnel conversion rates. A missing event is not a zero-valued event."
+  },
+  "custom_event_instrumentation_observed_in_source": {
+    "home": [
+      "home viewed",
+      "mirror read",
+      "conversation scrolled",
+      "CTA clicks",
+      "navigation tile clicks",
+      "Personal Improvement Cycle events"
+    ],
+    "prescribed_training": [
+      "funnel_training_solve"
+    ],
+    "play_with_coach": [
+      "funnel_pwc_started"
+    ],
+    "learn_lab": [],
+    "openings_overview": [],
+    "opening_lesson": [],
+    "endgame_lesson": [],
+    "progress": []
+  },
+  "persisted_activity_proxies": {
+    "coach_sessions": {
+      "documents": 468,
+      "distinct_users": 73,
+      "last_7_days": {"records": 1, "distinct_users": 1},
+      "last_30_days": {"records": 18, "distinct_users": 8},
+      "status_counts": {
+        "abandoned": 41,
+        "active": 69,
+        "completed": 21,
+        "ended": 4,
+        "resigned": 333
+      },
+      "timestamp_field": "created_at",
+      "timestamp_types": {"string": 468}
+    },
+    "puzzle_attempts": {
+      "documents": 400,
+      "distinct_users": 18,
+      "last_7_days": {"records": 0, "distinct_users": 0},
+      "last_30_days": {"records": 6, "distinct_users": 1},
+      "timestamp_field": "created_at",
+      "timestamp_types": {"string": 400}
+    },
+    "training_solve_attempts": {
+      "documents": 118,
+      "distinct_users": 13,
+      "last_7_days": {"records": 0, "distinct_users": 0},
+      "last_30_days": {"records": 0, "distinct_users": 0},
+      "timestamp_field": "attempted_at",
+      "timestamp_types": {"string": 118}
+    },
+    "opening_practice_sessions": {
+      "documents": 25,
+      "distinct_users": 2,
+      "last_7_days": {"records": 0, "distinct_users": 0},
+      "last_30_days": {"records": 0, "distinct_users": 0},
+      "status_counts": {"active": 16, "completed": 9},
+      "timestamp_field": "created_at",
+      "timestamp_types": {"datetime": 25}
+    },
+    "user_opening_progress": {
+      "documents": 6433,
+      "distinct_users": 57,
+      "last_7_days": {"records": 216, "distinct_users": 22},
+      "last_30_days": {"records": 424, "distinct_users": 26},
+      "mastery_status_counts": {
+        "applied": 1548,
+        "introduced": 3,
+        "learning": 4370,
+        "mastered": 96,
+        "practiced": 416
+      },
+      "timestamp_field": "last_practiced_at",
+      "timestamp_types": {"datetime": 3, "string": 6430},
+      "legacy_non_iso_dates": 184,
+      "legacy_non_iso_format": "YYYY.MM.DD",
+      "legacy_non_iso_window_effect": "none_in_last_7_or_30_day_counts"
+    },
+    "user_opening_mastery": {
+      "documents": 706,
+      "distinct_users": 66,
+      "last_7_days": {"records": 0, "distinct_users": 0},
+      "last_30_days": {"records": 6, "distinct_users": 5},
+      "phase_counts": {
+        "awareness": 243,
+        "free_play": 112,
+        "introduction": 39,
+        "mastered": 312
+      },
+      "timestamp_field": "updated_at",
+      "timestamp_types": {"missing": 593, "string": 113}
+    },
+    "diagnostic_sessions": {
+      "documents": 28,
+      "distinct_users": 24,
+      "last_7_days": {"records": 3, "distinct_users": 3},
+      "last_30_days": {"records": 5, "distinct_users": 5},
+      "status_counts": {"complete": 2, "in_progress": 22, "skipped": 4}
+    },
+    "coaching_prescription_history": {
+      "documents": 5,
+      "distinct_users": 2,
+      "last_7_days": {"records": 0, "distinct_users": 0},
+      "last_30_days": {"records": 4, "distinct_users": 1},
+      "status_counts": {"active": 5}
+    }
+  },
+  "not_retroactively_measurable": [
+    "current Learn/Lab impressions",
+    "opening catalogue impressions",
+    "opening lesson starts from catalogue",
+    "endgame catalogue impressions",
+    "endgame lesson starts and completions",
+    "Progress impressions",
+    "cross-surface recommendation click-through rate",
+    "share of lesson starters reaching an independent attempt"
+  ],
+  "decision": "Do not use this snapshot to invent CTR or success thresholds. Add a non-user-visible instrumentation run-in, collect a fixed baseline window, then lock numeric rollout criteria before the Phase 4 A/B UI begins."
+}
