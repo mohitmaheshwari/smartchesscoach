@@ -62,7 +62,7 @@ const Landing = () => {
 
   return (
     <motion.div variants={pageEnter} initial="initial" animate="animate"
-      className="min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
+      className="experience-page experience-landing-page min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
 
       {/* ═══ NAVBAR ═══ */}
       <motion.header variants={navFade} initial="initial" animate="animate"
@@ -257,7 +257,7 @@ const Landing = () => {
             badge="Pattern Memory"
             title={<>Your coach remembers what you <span className="text-amber-400">keep forgetting.</span></>}
             description="Not just 'you blundered.' ChessGuru tracks recurring thinking errors across all your games with a decay-weighted model. Recent mistakes matter more. Recovery streaks earn credit."
-            points={["Tracks 10+ cognitive gap types", "Decay model: recent mistakes weigh more", "Named rules: 'Piece Safety Check', 'Threat Awareness'", "Recovery detection: knows when you've improved"]}
+            points={["Tracks 10+ cognitive gap types", "Decay model: recent mistakes weigh more", "Named rules: 'Piece Safety Check', 'Threat Awareness'", "Compares recent pattern frequency with earlier games"]}
             visual={<MockPatternCard />}
             reverse
           />

@@ -61,7 +61,7 @@ export default function AdminDashboard({ user }) {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto py-6 px-4 space-y-6" data-testid="admin-dashboard">
+      <div className="experience-page experience-admin-page max-w-7xl mx-auto py-6 px-4 space-y-6" data-testid="admin-dashboard">
         {/* Header */}
         <div>
           <h1 className="text-2xl text-foreground tracking-tight font-heading">

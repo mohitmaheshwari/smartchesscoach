@@ -36,6 +36,7 @@ import TrapPractice from "@/components/openings/TrapPractice";
 import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
 const OpeningLesson = () => {
   const { openingKey } = useParams();
@@ -44,6 +45,7 @@ const OpeningLesson = () => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
+  const lessonStartedRef = useRef(null);
   
   // Get current game mistake passed from Lab page
   const currentGameMistake = location.state?.currentGameMistake;
@@ -75,6 +77,16 @@ const OpeningLesson = () => {
         if (res.ok) {
           const data = await res.json();
           setLesson(data);
+          if (lessonStartedRef.current !== openingKey) {
+            lessonStartedRef.current = openingKey;
+            trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+              surface: "legacy_opening_lesson",
+              content_type: "opening",
+              content_id: openingKey,
+              origin: "lesson_route",
+              is_recommended: false,
+            });
+          }
           // Reset board state when variation changes
           setCurrentMoveIndex(-1);
           chessRef.current.reset();
@@ -419,7 +431,7 @@ const OpeningLesson = () => {
   const { opening, user_stats, user_mistakes, learning_progress } = lesson;
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="experience-page experience-lesson-page min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -526,7 +538,16 @@ const OpeningLesson = () => {
                 onComplete={() => {
                   console.log("Lesson completed");
                 }}
-                onStartPractice={() => setActiveTab("practice")}
+                onStartPractice={() => {
+                  trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
+                    surface: "legacy_opening_lesson",
+                    content_type: "opening",
+                    content_id: openingKey,
+                    origin: "lesson_route",
+                    is_recommended: false,
+                  });
+                  setActiveTab("practice");
+                }}
               />
               
               {/* Key Ideas - Collapsed reference */}
@@ -557,9 +578,9 @@ const OpeningLesson = () => {
             <div>
               <Card>
                 <CardContent className="p-4">
-                  <div 
+                  <div
                     ref={boardRef} 
-                    className="w-full aspect-square rounded-lg overflow-hidden"
+                    className="experience-board-stage w-full aspect-square rounded-xl overflow-hidden"
                     style={{ maxWidth: "500px", margin: "0 auto" }}
                   />
                   
@@ -677,6 +698,7 @@ const OpeningLesson = () => {
                     {selectedTrap && trapPracticeMode ? (
                       <TrapPractice
                         trap={selectedTrap}
+                        openingKey={openingKey}
                         onClose={closeTrapPractice}
                         onComplete={onTrapComplete}
                       />

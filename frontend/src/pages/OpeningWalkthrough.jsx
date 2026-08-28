@@ -188,7 +188,7 @@ const OpeningWalkthrough = ({ user }) => {
 
   return (
     <Layout user={user} hideNav>
-      <div className="h-screen flex flex-col overflow-hidden bg-background" data-testid="opening-walkthrough">
+      <div className="experience-page experience-learning-page experience-workspace-page h-screen flex flex-col overflow-hidden bg-background" data-testid="opening-walkthrough">
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-3">

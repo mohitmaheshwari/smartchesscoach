@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import {
@@ -75,35 +75,37 @@ const Onboarding = () => {
     setError("");
 
     try {
-      const url = isChessCom
-        ? `https://api.chess.com/pub/player/${username.toLowerCase()}`
-        : `https://lichess.org/api/user/${username}`;
-      const res = await fetch(url);
+      // Verification must happen server-side. Calling Chess.com/Lichess
+      // directly from the browser depends on third-party CORS behavior and can
+      // fail before ChessGuru receives the username. The existing backend
+      // endpoint validates, fetches games and persists the link atomically.
+      const linkRes = await fetch(`${API}/settings/link-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ platform, username: username.toLowerCase() }),
+      });
+      const data = await linkRes.json().catch(() => ({}));
 
-      if (res.ok) {
-        isChessCom ? setChessComVerified(true) : setLichessVerified(true);
-        try {
-          const linkRes = await fetch(`${API}/settings/link-account`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ platform, username: username.toLowerCase() }),
-          });
-          if (linkRes.ok) {
-            const d = await linkRes.json();
-            if (d.assessed_rating && (!detectedRating || isChessCom)) {
-              setDetectedRating(d.assessed_rating);
-              setDetectedPlatform(platform);
-              setGamesAnalyzed(d.games_analyzed || 0);
-            }
-          }
-        } catch { /* ok */ }
-      } else {
-        setError(`${isChessCom ? "Chess.com" : "Lichess"} username not found. Please check and try again.`);
-        isChessCom ? setChessComVerified(false) : setLichessVerified(false);
+      if (!linkRes.ok) {
+        throw new Error(
+          data.detail
+          || `${isChessCom ? "Chess.com" : "Lichess"} username not found. Please check and try again.`
+        );
       }
-    } catch {
-      setError(`Failed to verify ${isChessCom ? "Chess.com" : "Lichess"} account.`);
+
+      isChessCom ? setChessComVerified(true) : setLichessVerified(true);
+      if (data.assessed_rating && (!detectedRating || isChessCom)) {
+        setDetectedRating(data.assessed_rating);
+        setDetectedPlatform(platform);
+        setGamesAnalyzed(data.games_analyzed || 0);
+      }
+    } catch (err) {
+      isChessCom ? setChessComVerified(false) : setLichessVerified(false);
+      setError(
+        err?.message
+        || `Failed to verify ${isChessCom ? "Chess.com" : "Lichess"} account.`
+      );
     } finally {
       isChessCom ? setVerifyingChessCom(false) : setVerifyingLichess(false);
     }
@@ -121,16 +123,14 @@ const Onboarding = () => {
     setIsLoading(true);
     setError("");
     try {
-      if (chessComVerified) {
-        await fetch(`${API}/settings/link-account`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ platform: "chess.com", username: chessComUsername.toLowerCase() }) });
-      }
-      if (lichessVerified) {
-        await fetch(`${API}/settings/link-account`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ platform: "lichess", username: lichessUsername.toLowerCase() }) });
-      }
-      await fetch(`${API}/settings/profile`, {
+      const profileRes = await fetch(`${API}/settings/profile`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null, player_motivation: playerMotivation || null }),
       });
+      const profileData = await profileRes.json().catch(() => ({}));
+      if (!profileRes.ok) {
+        throw new Error(profileData.detail || "Could not save your profile.");
+      }
 
       setAnalyzing(true);
       setAnalysisProgress(20);
@@ -151,7 +151,7 @@ const Onboarding = () => {
         if (ahaRes.ok) {
           const aha = await ahaRes.json();
           if (aha.game_id) {
-            track("funnel_first_aha", { was_loss: aha.was_loss });
+            track(ANALYTICS_EVENTS.FUNNEL_FIRST_AHA, { was_loss: aha.was_loss });
             setAnalysisProgress(100);
             navigate(`/game/${aha.game_id}`);
             return;
@@ -204,8 +204,8 @@ const Onboarding = () => {
     const trainingUrl = topWeakness ? `/training?focus=${topWeakness}` : "/training";
 
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-lg py-8">
+      <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="experience-onboarding-shell w-full max-w-lg py-8">
           <InstantDNA
             data={instantDNA}
             onContinue={() => navigate(trainingUrl)}
@@ -504,8 +504,8 @@ const Onboarding = () => {
 // ── SHARED COMPONENTS ──
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-    <div className="w-full max-w-lg bg-card border border-border rounded-lg p-8 shadow-sm">
+  <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="experience-onboarding-shell w-full max-w-lg bg-card border border-border rounded-2xl p-8 shadow-sm">
       {children}
     </div>
   </div>

@@ -14,10 +14,11 @@
  * empty-state flow are preserved.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import {
   fadeInUp,
   glowPulseAmber,
@@ -125,6 +126,14 @@ const Dashboard = ({ user }) => {
   const [openingFit, setOpeningFit] = useState(null);
   // Session panel (Mirror window) — only loaded when ?session=... is in URL.
   const [mirrorSession, setMirrorSession] = useState(null);
+  const recommendationShownRef = useRef(null);
+  const recommendationElementRef = useRef(null);
+
+  useEffect(() => {
+    trackCurriculum(ANALYTICS_EVENTS.LEARN_VIEWED, {
+      surface: "legacy_lab",
+    });
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -203,6 +212,31 @@ const Dashboard = ({ user }) => {
       // Silent — hero just stays hidden.
     }
   };
+
+  useEffect(() => {
+    if (!learnNext?.skill_id) return;
+    const decisionId = `legacy_engine2:${learnNext.skill_id}`;
+    const element = recommendationElementRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      if (recommendationShownRef.current === decisionId) return;
+      recommendationShownRef.current = decisionId;
+      trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN, {
+        surface: "legacy_lab",
+        decision_id: decisionId,
+        decision_source: "engine2_learn_next",
+        recommendation_kind: "expand",
+        content_type: "skill",
+        content_id: learnNext.skill_id,
+        origin: "recommendation",
+        is_recommended: true,
+      });
+      observer.disconnect();
+    }, { threshold: 0.6 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [learnNext]);
 
   const fetchTrapIntel = async () => {
     try {
@@ -399,7 +433,7 @@ const Dashboard = ({ user }) => {
           <div className="flex flex-col gap-3 items-stretch">
             <button
               onClick={() => navigate("/play-with-coach")}
-              className="px-6 py-3 text-sm font-semibold rounded-xl bg-violet-500 hover:bg-violet-400 text-white transition-colors inline-flex items-center justify-center gap-2"
+              className="experience-primary px-6 py-3 text-sm font-semibold rounded-xl bg-violet-500 hover:bg-violet-400 text-white transition-colors inline-flex items-center justify-center gap-2"
             >
               <Swords className="w-4 h-4" strokeWidth={2} />
               Play with Coach
@@ -474,7 +508,7 @@ const Dashboard = ({ user }) => {
         initial="initial"
         animate="animate"
         exit="exit"
-        className="min-h-screen text-foreground"
+        className="experience-page experience-lab-page min-h-screen text-foreground"
         data-testid="lab-page"
       >
         <motion.div
@@ -486,10 +520,10 @@ const Dashboard = ({ user }) => {
           {/* ─── Page head ─── */}
           <div className="flex items-baseline justify-between mb-10 md:mb-14">
             <div>
-              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
+              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
                 Learn
               </p>
-              <h1 className="font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
+              <h1 className="experience-coach-copy font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
                 Your learning path
               </h1>
             </div>
@@ -502,11 +536,11 @@ const Dashboard = ({ user }) => {
               the report card — how you're doing; this is the syllabus — what to
               learn next.) 2026-07-07. */}
           {learnNext && (
-            <motion.section {...revealOnScroll} className="mb-12 md:mb-16">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+            <motion.section ref={recommendationElementRef} {...revealOnScroll} className="mb-12 md:mb-16">
+              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Learn next
               </div>
-              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
+              <div className="experience-focus-card experience-surface rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
                 <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground mb-2">
                   {learnNext.label}
                 </p>
@@ -519,8 +553,20 @@ const Dashboard = ({ user }) => {
                   </p>
                 )}
                 <button
-                  onClick={() => navigate(`/training/skill/${learnNext.skill_id}`)}
-                  className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                  onClick={() => {
+                    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
+                      surface: "legacy_lab",
+                      decision_id: `legacy_engine2:${learnNext.skill_id}`,
+                      decision_source: "engine2_learn_next",
+                      recommendation_kind: "expand",
+                      content_type: "skill",
+                      content_id: learnNext.skill_id,
+                      origin: "recommendation",
+                      is_recommended: true,
+                    });
+                    navigate(`/training/skill/${learnNext.skill_id}`);
+                  }}
+                  className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                 >
                   Start this lesson
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -676,7 +722,7 @@ const Dashboard = ({ user }) => {
               animate="animate"
               className="mb-16 md:mb-24"
             >
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Coach's Pick · most educational
               </div>
 
@@ -788,7 +834,7 @@ const Dashboard = ({ user }) => {
                           }`
                         )
                       }
-                      className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                      className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                     >
                       Review this game
                       <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -894,10 +940,10 @@ const Dashboard = ({ user }) => {
               notice over multiple sessions. */}
           {repeatMistakes?.has_data && repeatMistakes.top_pattern && (
             <motion.section {...revealOnScroll} className="mb-16 md:mb-24">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Pattern across your games
               </div>
-              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
+              <div className="experience-focus-card experience-surface rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
                 <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
                   {repeatMistakes.top_pattern.headline}
                 </p>
@@ -920,7 +966,7 @@ const Dashboard = ({ user }) => {
                       `/training/prescribed?weakness=${repeatMistakes.top_pattern.training_weakness}`
                     )
                   }
-                  className="h-10 px-5 rounded-lg bg-violet-500/90 hover:bg-violet-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                  className="experience-primary h-10 px-5 rounded-lg bg-violet-500/90 hover:bg-violet-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Train this pattern

@@ -86,7 +86,7 @@ const AdminAuthoring = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-[860px] mx-auto px-6 md:px-10 py-10">
+      <div className="experience-page experience-admin-page max-w-[1100px] mx-auto px-6 md:px-10 py-10">
         <div className="mb-8">
           <p className="text-[10.5px] uppercase tracking-[0.22em] text-violet-300 font-semibold mb-2">
             Caption authoring · {data?.round_id || "no active round"}

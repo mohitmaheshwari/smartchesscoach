@@ -92,7 +92,7 @@ const ImportGames = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="space-y-8" data-testid="import-games-page">
+      <div className="experience-page experience-utility-page experience-import-page space-y-8" data-testid="import-games-page">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Import Games</h1>
           <p className="text-muted-foreground">

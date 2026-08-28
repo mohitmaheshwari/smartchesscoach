@@ -162,7 +162,7 @@ const AdminAuthoringReview = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="experience-page experience-admin-page max-w-[1500px] mx-auto px-6 py-8">
       {/* Header */}
       <div className="mb-6 flex items-baseline justify-between gap-4">
         <div>

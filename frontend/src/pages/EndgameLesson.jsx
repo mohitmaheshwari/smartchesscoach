@@ -19,6 +19,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default function EndgameLesson({ user }) {
   const { categoryKey, lessonKey } = useParams();
   const navigate = useNavigate();
   const boardRef = useRef(null);
+  const lessonStartedRef = useRef(null);
 
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,17 @@ export default function EndgameLesson({ user }) {
         if (res.ok) {
           const data = await res.json();
           setLesson(data);
+          const contentId = `${categoryKey}/${lessonKey}`;
+          if (lessonStartedRef.current !== contentId) {
+            lessonStartedRef.current = contentId;
+            trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+              surface: "legacy_endgame_lesson",
+              content_type: "endgame",
+              content_id: contentId,
+              origin: "lesson_route",
+              is_recommended: false,
+            });
+          }
           // If the lesson has an intro block, start there — otherwise dive in
           setPhase(data.intro ? PHASE.INTRO : PHASE.TRY);
           if (data.positions?.length > 0) setBoardFen(data.positions[0].fen);
@@ -96,6 +109,19 @@ export default function EndgameLesson({ user }) {
       });
       const result = await res.json();
       setFeedback(result);
+
+      if (typeof result.correct === "boolean") {
+        trackCurriculum(ANALYTICS_EVENTS.GUIDED_ATTEMPT, {
+          surface: "legacy_endgame_lesson",
+          content_type: "endgame",
+          content_id: `${categoryKey}/${lessonKey}`,
+          origin: "lesson_route",
+          support_level: "concept_visual",
+          outcome: result.correct ? "correct" : "incorrect",
+          position_index: posIndex,
+          is_recommended: false,
+        });
+      }
 
       if (result.correct) {
         setPhase(PHASE.CORRECT);
@@ -176,8 +202,15 @@ export default function EndgameLesson({ user }) {
   }, [lesson]);
 
   const startFromIntro = useCallback(() => {
+    trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
+      surface: "legacy_endgame_lesson",
+      content_type: "endgame",
+      content_id: `${categoryKey}/${lessonKey}`,
+      origin: "lesson_route",
+      is_recommended: false,
+    });
     setPhase(PHASE.TRY);
-  }, []);
+  }, [categoryKey, lessonKey]);
 
   // ─── LOADING / NOT FOUND ──────────────────────────────────────────
 
@@ -211,7 +244,7 @@ export default function EndgameLesson({ user }) {
     const intro = lesson.intro;
     return (
       <Layout user={user}>
-        <div className="max-w-3xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-intro">
+        <div className="experience-page experience-lesson-page max-w-3xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-intro">
           <div>
             <button
               className="text-xs text-muted-foreground hover:text-white transition-colors flex items-center gap-1 mb-1"
@@ -243,7 +276,7 @@ export default function EndgameLesson({ user }) {
 
           {intro.example_fen && (
             <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4 items-start">
-              <div className="aspect-square w-full max-w-[420px] mx-auto" data-testid="intro-example-board">
+              <div className="experience-board-stage aspect-square w-full max-w-[420px] mx-auto" data-testid="intro-example-board">
                 <LichessBoard
                   fen={intro.example_fen}
                   orientation="white"
@@ -328,7 +361,7 @@ export default function EndgameLesson({ user }) {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto py-4 px-4 space-y-4" data-testid="endgame-lesson">
+      <div className="experience-page experience-lesson-page max-w-5xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-lesson">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -359,7 +392,7 @@ export default function EndgameLesson({ user }) {
         {/* Board + Side panel */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4">
           {/* Board */}
-          <div className="aspect-square w-full max-w-[480px] mx-auto" data-testid="endgame-board">
+          <div className="experience-board-stage aspect-square w-full max-w-[480px] mx-auto" data-testid="endgame-board">
             {boardFen && (
               <LichessBoard
                 ref={boardRef}

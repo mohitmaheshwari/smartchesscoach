@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -70,6 +70,7 @@ import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
 import CoachSession from "@/components/coach/CoachSession";
 import CoachAction from "@/components/Lab/CoachAction";
 import CoachMovePanel from "@/components/coach/CoachMovePanel";
+import CanonicalReviewFocus from "@/components/experience/CanonicalReviewFocus";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -384,6 +385,7 @@ const LabV2 = ({ user }) => {
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   const [focusModule, setFocusModule] = useState(null);
+  const [coachingContext, setCoachingContext] = useState(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -426,7 +428,7 @@ const LabV2 = ({ user }) => {
   const tabsVisitedRef = useRef(new Set(["decrypt"])); // Track which tabs user visited
   
   // Track tab visits
-  useEffect(() => { track("funnel_review_opened"); }, []);
+  useEffect(() => { track(ANALYTICS_EVENTS.FUNNEL_REVIEW_OPENED); }, []);
 
   useEffect(() => {
     tabsVisitedRef.current.add(viewMode);
@@ -477,17 +479,34 @@ const LabV2 = ({ user }) => {
           if (crRes.ok) setCoachReview(await crRes.json());
         } catch (e) { /* non-fatal */ }
         
-        // Fetch focus module
+        // Prefer the default-off canonical focus connection. When the endpoint
+        // is unavailable, preserve the legacy priority request unchanged.
+        let canonicalContextLoaded = false;
         try {
-          const focusRes = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
-          if (focusRes.ok) {
-            const focusData = await focusRes.json();
-            if (focusData.primary_focus) {
-              setFocusModule(focusData.primary_focus);
-            }
+          const contextRes = await fetch(
+            `${API}/coach/coaching-context/review?game_id=${encodeURIComponent(gameId)}`,
+            { credentials: "include" }
+          );
+          if (contextRes.ok) {
+            setCoachingContext(await contextRes.json());
+            canonicalContextLoaded = true;
           }
         } catch (e) {
-          // Focus module not critical
+          // Default-off endpoint is non-critical; legacy fallback follows.
+        }
+
+        if (!canonicalContextLoaded) {
+          try {
+            const focusRes = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
+            if (focusRes.ok) {
+              const focusData = await focusRes.json();
+              if (focusData.primary_focus) {
+                setFocusModule(focusData.primary_focus);
+              }
+            }
+          } catch (e) {
+            // Focus module not critical
+          }
         }
         
       } catch (error) {
@@ -1350,9 +1369,9 @@ const LabV2 = ({ user }) => {
 
   return (
     <Layout user={user} hideNav>
-      <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <div className="experience-page experience-review-page h-screen flex flex-col overflow-hidden bg-background">
         {/* Top Bar */}
-        <div className="shrink-0 border-b border-border">
+        <div className="experience-review-header shrink-0 border-b border-border">
           {/* Main header row */}
           <div className="flex items-center justify-between px-5 py-3">
             <div className="flex items-center gap-4">
@@ -1452,11 +1471,21 @@ const LabV2 = ({ user }) => {
           {coachSummary?.key_observation && (
             <div className="px-5 pb-4 pt-1">
               <p
-                className="font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
+                className="experience-coach-copy font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
                 data-testid="coach-narrative-strip"
               >
                 "{coachSummary.key_observation}"
               </p>
+            </div>
+          )}
+          {coachingContext && (
+            <div className="px-5 pb-4 pt-1 max-w-[900px]">
+              <CanonicalReviewFocus
+                context={coachingContext}
+                onMoveSelect={(moveNumber) => {
+                  navigate(`/game/${gameId}?move=${moveNumber}`, { replace: true });
+                }}
+              />
             </div>
           )}
         </div>
@@ -1466,6 +1495,7 @@ const LabV2 = ({ user }) => {
           /* Game Decryption View - Step-by-step explanations */
           <div className="flex-1 overflow-auto">
             <GameDecryptionV5
+              key={`${gameId}:${initialMoveParam || "start"}`}
               gameId={gameId}
               analysis={analysis}
               pgn={game?.pgn}
@@ -1480,12 +1510,12 @@ const LabV2 = ({ user }) => {
             />
           </div>
         ) : (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="experience-review-workspace flex-1 flex overflow-hidden">
           {/* Left: Board and controls */}
-          <div className="w-[55%] flex flex-col border-r border-border">
+          <div className="experience-review-board-column w-[55%] flex flex-col border-r border-border">
             {/* Board */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="w-full max-w-[560px] aspect-square relative">
+              <div className="experience-board-stage w-full max-w-[560px] aspect-square relative">
                 <LichessBoard
                   fen={displayFen}
                   orientation={boardOrientation}
@@ -1727,7 +1757,7 @@ const LabV2 = ({ user }) => {
           </div>
           
           {/* Right Panel: Coach Move Panel (dynamic) OR Habits */}
-          <div className="w-[45%] flex flex-col overflow-hidden">
+          <div className="experience-review-insights w-[45%] flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               {/* Insights panel — phases, behaviors, key moments, fundamentals */}
               {true && (

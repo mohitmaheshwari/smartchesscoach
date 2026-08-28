@@ -16,6 +16,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,6 +84,18 @@ const OpeningsOverview = ({ user }) => {
     if (activeTab === "endgames" && endgameCategories.length === 0) {
       fetchEndgames();
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    trackCurriculum(ANALYTICS_EVENTS.EXPLORE_OPENED, {
+      surface: "legacy_study",
+      content_type: activeTab === "endgames" ? "endgame" : "opening",
+      content_id: activeTab,
+      origin: "browse",
+      explore_level: "category",
+      tab: activeTab,
+      is_recommended: false,
+    });
   }, [activeTab]);
 
   const handleTabChange = (tab) => {
@@ -157,6 +170,34 @@ const OpeningsOverview = ({ user }) => {
     []
   );
 
+  const openOpeningLesson = useCallback((key) => {
+    if (!key) return;
+    trackCurriculum(ANALYTICS_EVENTS.EXPLORE_OPENED, {
+      surface: "legacy_study",
+      content_type: "opening",
+      content_id: key,
+      origin: "browse",
+      explore_level: "lesson",
+      tab: "openings",
+      is_recommended: false,
+    });
+    navigate(`/openings/${key}`);
+  }, [navigate]);
+
+  const openEndgameLesson = useCallback((categoryKey, lessonKey) => {
+    if (!categoryKey || !lessonKey) return;
+    trackCurriculum(ANALYTICS_EVENTS.EXPLORE_OPENED, {
+      surface: "legacy_study",
+      content_type: "endgame",
+      content_id: `${categoryKey}/${lessonKey}`,
+      origin: "browse",
+      explore_level: "lesson",
+      tab: "endgames",
+      is_recommended: false,
+    });
+    navigate(`/endgames/${categoryKey}/${lessonKey}`);
+  }, [navigate]);
+
   if (loading && activeTab === "openings") {
     return (
       <Layout user={user}>
@@ -170,10 +211,11 @@ const OpeningsOverview = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto py-4 px-4 space-y-6" data-testid="openings-overview">
+      <div className="experience-page experience-study-page max-w-5xl mx-auto py-6 px-4 space-y-8" data-testid="openings-overview">
         {/* Header + Tabs */}
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Study</h1>
+          <p className="experience-eyebrow text-[10.5px] uppercase font-semibold mb-2">Your learning library</p>
+          <h1 className="experience-coach-copy text-3xl md:text-4xl font-semibold tracking-tight">Study</h1>
           <div className="flex gap-1 mt-3 bg-zinc-900 rounded-lg p-1 w-fit" data-testid="study-tabs">
             <button
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -217,6 +259,7 @@ const OpeningsOverview = ({ user }) => {
               expandedKey={expandedKey}
               handleToggleExpand={handleToggleExpand}
               navigate={navigate}
+              openLesson={openOpeningLesson}
             />
           </>
         ) : (
@@ -224,6 +267,7 @@ const OpeningsOverview = ({ user }) => {
             categories={endgameCategories}
             loading={endgameLoading}
             navigate={navigate}
+            openLesson={openEndgameLesson}
           />
         )}
       </div>
@@ -234,7 +278,7 @@ const OpeningsOverview = ({ user }) => {
 /* ============================================================
  * OPENINGS TAB — existing openings content
  * ============================================================ */
-const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack, progress, expandedKey, handleToggleExpand, navigate }) => {
+const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack, progress, expandedKey, handleToggleExpand, navigate, openLesson }) => {
   if (totalGames === 0 && coachTaught.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4" data-testid="openings-empty">
@@ -262,7 +306,7 @@ const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack
             opening={focusOpening}
             allWhite={allWhite}
             allBlack={allBlack}
-            onStudy={(key) => key && navigate(`/openings/${key}`)}
+            onStudy={openLesson}
           />
         )}
 
@@ -274,7 +318,7 @@ const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack
             progress={progress}
             expandedKey={expandedKey}
             onToggleExpand={handleToggleExpand}
-            onStudy={(key) => key && navigate(`/openings/${key}`)}
+            onStudy={openLesson}
           />
         )}
 
@@ -286,7 +330,7 @@ const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack
             progress={progress}
             expandedKey={expandedKey}
             onToggleExpand={handleToggleExpand}
-            onStudy={(key) => key && navigate(`/openings/${key}`)}
+            onStudy={openLesson}
           />
         )}
 
@@ -304,7 +348,7 @@ const categoryIcons = {
   queen_vs_pawn: <Zap className="w-5 h-5 text-purple-400" />,
 };
 
-const EndgamesTab = ({ categories, loading, navigate }) => {
+const EndgamesTab = ({ categories, loading, openLesson }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]" data-testid="endgames-loading">
@@ -343,7 +387,7 @@ const EndgamesTab = ({ categories, loading, navigate }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="rounded-lg border border-border/50 p-3 cursor-pointer hover:border-primary/40 transition-all"
-                onClick={() => navigate(`/endgames/${cat.key}/${lesson.key}`)}
+                onClick={() => openLesson(cat.key, lesson.key)}
                 data-testid={`endgame-lesson-${lesson.key}`}
               >
                 <div className="flex items-center justify-between">

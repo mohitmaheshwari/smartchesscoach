@@ -109,7 +109,7 @@ export default function DailyFixDrill({ user }) {
   if (!drills.length) {
     return (
       <Layout user={user}>
-        <div className="max-w-[560px] mx-auto px-6 py-16 text-center" data-testid="daily-fix-empty">
+        <div className="experience-page experience-learning-page experience-daily-page max-w-[620px] mx-auto px-6 py-16 text-center" data-testid="daily-fix-empty">
           <p className="text-[15px] text-muted-foreground">
             No timed drills ready right now. Play or import a few more games and the moments you rushed will show up here.
           </p>
@@ -127,7 +127,7 @@ export default function DailyFixDrill({ user }) {
   if (phase === "done") {
     return (
       <Layout user={user}>
-        <div className="max-w-[560px] mx-auto px-6 py-16 text-center" data-testid="daily-fix-done">
+        <div className="experience-page experience-learning-page experience-daily-page max-w-[620px] mx-auto px-6 py-16 text-center" data-testid="daily-fix-done">
           <div className="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold text-[18px] mb-3">
             <Flame className="h-5 w-5" strokeWidth={2} /> {streakResult?.current || 1}-day streak
           </div>
@@ -148,7 +148,7 @@ export default function DailyFixDrill({ user }) {
 
   return (
     <Layout user={user}>
-      <div className="max-w-[560px] mx-auto px-6 py-8" data-testid="daily-fix-drill">
+      <div className="experience-page experience-learning-page experience-daily-page max-w-[620px] mx-auto px-6 py-8" data-testid="daily-fix-drill">
         <div className="flex items-center justify-between mb-4">
           <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
             Timed fix · {idx + 1} of {drills.length}

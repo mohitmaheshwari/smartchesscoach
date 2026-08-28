@@ -9,11 +9,13 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
 import DifficultySelector from "@/components/training/DifficultySelector";
+import CanonicalTrainingAssignment from "@/components/training/CanonicalTrainingAssignment";
+import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import { Chess } from "chess.js";
 import {
@@ -73,6 +75,10 @@ export default function PrescribedTraining() {
   //   3. default to "current" — backend resolves to user's active focus
   const { pattern: patternFromUrl } = useParams();
   const weakness = searchParams.get("weakness") || patternFromUrl || "current";
+  const picCandidate = weakness === "piece_safety" || weakness === "current";
+  const [picProjection, setPicProjection] = useState(null);
+  const [picCheckPending, setPicCheckPending] = useState(picCandidate);
+  const [canonicalContext, setCanonicalContext] = useState(null);
   
   // [PART C] Module and prescription state
   const planId = searchParams.get("plan");
@@ -109,6 +115,42 @@ export default function PrescribedTraining() {
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
   const boardRef = useRef(null);
+  const lessonStartedRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!picCandidate) {
+      setPicProjection(null);
+      setCanonicalContext(null);
+      setPicCheckPending(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setPicCheckPending(true);
+    fetch(`${API}/coach/active-focus`, { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const projection = data?.personal_improvement_cycle;
+        setPicProjection(projection?.eligible ? projection : null);
+        setCanonicalContext(
+          weakness === "current" ? data?.coaching_context || null : null
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPicProjection(null);
+          setCanonicalContext(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPicCheckPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [picCandidate, weakness]);
   
   // Fetch prescribed training
   useEffect(() => {
@@ -128,6 +170,13 @@ export default function PrescribedTraining() {
           );
           if (response.ok) {
             const motifData = await response.json();
+            // Server-side gate (2026-08-23): the motif drill is paused until
+            // every served row is proven to avoid the named motif. Show the
+            // reason rather than an empty board.
+            if (motifData.gated) {
+              setError(motifData.gated_reason || "This drill is paused.");
+              return;
+            }
             // Transform motif drills to match PrescribedTraining format.
             // 2026-08-13 contract fix: the endpoint now returns position_fen +
             // solution_san as a matched pair. Previously this mapped drill.solution
@@ -296,6 +345,20 @@ export default function PrescribedTraining() {
 
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
+
+  useEffect(() => {
+    if (!currentPuzzle) return;
+    const contentId = selectedModule?.module_id || selectedModule?.id || weakness;
+    if (lessonStartedRef.current === contentId) return;
+    lessonStartedRef.current = contentId;
+    trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+      surface: "legacy_prescribed_training",
+      content_type: planId ? "prescribed_drill" : "pattern_drill",
+      content_id: contentId,
+      origin: planId ? "prescription" : "training",
+      is_recommended: Boolean(planId),
+    });
+  }, [currentPuzzle, planId, selectedModule, weakness]);
   
   // Handle move attempt
   const onDrop = async (sourceSquare, targetSquare) => {
@@ -412,7 +475,17 @@ export default function PrescribedTraining() {
   // evaluator ran; omitted on binary-match fallback.
   const recordAttempt = async (puzzle, solved, quality = null) => {
     try {
-      track("funnel_training_solve");
+      track(ANALYTICS_EVENTS.FUNNEL_TRAINING_SOLVE);
+      trackCurriculum(ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT, {
+        surface: "legacy_prescribed_training",
+        content_type: planId ? "prescribed_drill" : "pattern_drill",
+        content_id: selectedModule?.module_id || selectedModule?.id || weakness,
+        origin: planId ? "prescription" : "training",
+        support_level: "none",
+        outcome: solved ? "correct" : "incorrect",
+        position_index: currentPuzzleIndex,
+        is_recommended: Boolean(planId),
+      });
       await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -481,6 +554,18 @@ export default function PrescribedTraining() {
     setPuzzleState("revealed");
   };
   
+  if (picCheckPending) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+      </div>
+    );
+  }
+
+  if (picProjection) {
+    return <PICPieceSafetyLesson projection={picProjection} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -564,7 +649,7 @@ export default function PrescribedTraining() {
   const puzzleRating = currentPuzzle?.rating || currentPuzzle?.avg_rating;
 
   return (
-    <div className="min-h-screen bg-background text-foreground" data-testid="prescribed-training">
+    <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
       <div className="max-w-[1080px] mx-auto px-6 md:px-10 py-8 md:py-12">
 
         {/* Back nav — subtle */}
@@ -575,6 +660,8 @@ export default function PrescribedTraining() {
           <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
           Back
         </button>
+
+        <CanonicalTrainingAssignment context={canonicalContext} />
 
         {/* [PART C] Module selector — shown when viewing a training plan */}
         {modules && modules.modules && modules.modules.length > 0 && (
@@ -620,7 +707,7 @@ export default function PrescribedTraining() {
         {/* ─── Page head: focus + progress pips ─── */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-10 md:mb-14">
           <div className="flex items-baseline gap-4 md:gap-5 flex-wrap">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
               Training · focus session
             </p>
             <span className="text-[13px] text-foreground font-medium capitalize">{focusName}</span>
@@ -677,7 +764,7 @@ export default function PrescribedTraining() {
           {/* Board column */}
           <div className="w-full">
             {currentPuzzle?.fen ? (
-              <div className="rounded-lg overflow-hidden ring-1 ring-border">
+              <div className="experience-board-stage rounded-xl overflow-hidden ring-1 ring-border">
                 <LichessBoard
                   ref={boardRef}
                   fen={game.fen()}

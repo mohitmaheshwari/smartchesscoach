@@ -65,6 +65,7 @@ import PrototypeInteractiveMoment from "@/pages/PrototypeInteractiveMoment";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { MotionConfig } from "framer-motion";
+import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
@@ -80,6 +81,18 @@ const consumeStoredRedirectPath = () => {
   return savedPath;
 };
 
+const getExperienceFamily = (pathname) => {
+  if (["/terms", "/privacy", "/refund", "/contact"].includes(pathname)) return "legal";
+  if (pathname === "/" || pathname === "/login" || pathname === "/pricing" || pathname.startsWith("/learn/openings")) return "public";
+  if (["/welcome", "/onboarding", "/diagnostic", "/import", "/settings"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "setup";
+  if (pathname.startsWith("/admin") || pathname.startsWith("/review/authoring")) return "admin";
+  if (pathname.startsWith("/recover") || pathname.startsWith("/plateau-breaker") || pathname === "/reflect") return "recovery";
+  if (pathname.startsWith("/game") || pathname.startsWith("/lab/game") || pathname.startsWith("/replay") || pathname === "/review" || pathname === "/games") return "review";
+  if (pathname.startsWith("/training") || pathname.startsWith("/daily-fix") || pathname.startsWith("/openings") || pathname.startsWith("/opening-") || pathname.startsWith("/endgames") || pathname.startsWith("/mission") || pathname === "/challenge") return "learning";
+  if (pathname.startsWith("/prototype")) return "prototype";
+  return "core";
+};
+
 // Protected Route wrapper with onboarding check
 const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
   const [isResolved, setIsResolved] = useState(false);
@@ -88,6 +101,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
   const [redirectTarget, setRedirectTarget] = useState(null);
   const location = useLocation();
   const demoBypass = location.search.includes('demo=true') || window.sessionStorage.getItem('demo_mode_bypass') === 'true';
+  const activationHubBypass = location.state?.fromActivationHub === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +127,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
         setUser(userData);
         setIsAuthenticated(true);
 
-        if (!skipOnboardingCheck && !demoBypass) {
+        if (!skipOnboardingCheck && !demoBypass && !activationHubBypass) {
           const onboardingResponse = await fetch(`${API}/onboarding/status`, {
             credentials: 'include'
           });
@@ -149,7 +163,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, location.search, location.state, skipOnboardingCheck, demoBypass]);
+  }, [location.pathname, location.search, location.state, skipOnboardingCheck, demoBypass, activationHubBypass]);
 
   if (!isResolved) {
     return (
@@ -163,7 +177,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
     return <Navigate to="/" replace />;
   }
   
-  if (redirectTarget === '/welcome' && !skipOnboardingCheck && !demoBypass) {
+  if (redirectTarget === '/welcome' && !skipOnboardingCheck && !demoBypass && !activationHubBypass) {
     return <Navigate to="/welcome" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
@@ -174,6 +188,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
 function AppRouter() {
   const location = useLocation();
   const navigate = useNavigate();
+  const experienceFamily = getExperienceFamily(location.pathname);
 
   // Check for auth=success in URL (from Google OAuth callback)
   useEffect(() => {
@@ -189,6 +204,7 @@ function AppRouter() {
   }
 
   return (
+    <div className={`experience-route experience-route-${experienceFamily}`} data-experience-family={experienceFamily}>
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -439,6 +455,7 @@ function AppRouter() {
         </ProtectedRoute>
       } />
     </Routes>
+    </div>
   );
 }
 
@@ -447,7 +464,7 @@ function App() {
     <ThemeProvider>
       {/* reducedMotion="user" — all Framer Motion animations respect prefers-reduced-motion */}
       <MotionConfig reducedMotion="user">
-        <div className="App min-h-screen bg-background">
+        <div className={`App min-h-screen bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
           <BrowserRouter>
             <AppRouter />
           </BrowserRouter>

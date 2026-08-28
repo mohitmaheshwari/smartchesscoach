@@ -173,14 +173,14 @@ const SkillDrill = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+      <div className="experience-page experience-learning-page min-h-screen flex items-center justify-center text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading drill…
       </div>
     );
   }
   if (error) {
     return (
-      <div className="max-w-xl mx-auto p-10 text-center">
+      <div className="experience-page experience-learning-page max-w-xl mx-auto p-10 text-center">
         <p className="text-red-500 mb-4">{error}</p>
         <Link to="/progress" className="text-primary underline">Back to progress</Link>
       </div>
@@ -188,7 +188,7 @@ const SkillDrill = ({ user }) => {
   }
   if (total === 0) {
     return (
-      <div className="max-w-xl mx-auto p-10 text-center">
+      <div className="experience-page experience-learning-page max-w-xl mx-auto p-10 text-center">
         <h2 className="font-serif text-2xl mb-3">No drill positions yet</h2>
         <p className="text-muted-foreground mb-6">
           We didn't find any positions for {copy.title} in your games or the
@@ -201,7 +201,7 @@ const SkillDrill = ({ user }) => {
   if (done) {
     const pct = stats.attempted ? Math.round((stats.correct / stats.attempted) * 100) : 0;
     return (
-      <div className="max-w-xl mx-auto p-10 text-center">
+      <div className="experience-page experience-learning-page max-w-xl mx-auto p-10 text-center">
         <h2 className="font-serif text-2xl mb-3">Drill complete</h2>
         <p className="text-[15px] text-muted-foreground mb-6">
           You got <span className="text-foreground font-semibold">{stats.correct}</span> out
@@ -226,7 +226,7 @@ const SkillDrill = ({ user }) => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="experience-page experience-learning-page experience-drill-page max-w-6xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button

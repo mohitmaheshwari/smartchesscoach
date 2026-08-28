@@ -44,7 +44,7 @@ const SAMPLE_CANDIDATES = [
 
 export default function PrototypeInteractiveMoment() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="experience-page experience-prototype-page min-h-screen bg-background text-foreground">
       <div className="max-w-[800px] mx-auto px-6 py-12 md:py-16">
         <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
           Prototype · interactive moment

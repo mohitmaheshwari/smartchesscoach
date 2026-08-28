@@ -31,8 +31,9 @@ import { Badge } from "@/components/ui/badge";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
-const TrapPractice = ({ trap, onClose, onComplete }) => {
+const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
@@ -46,6 +47,17 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
   
   const setupMoves = trap?.setup_moves || [];
   const trapLine = trap?.trap_line || [];
+  const trapContentId = `${openingKey || "opening"}:${trap?.key || trap?.id || trap?.slug || "trap"}`;
+
+  useEffect(() => {
+    trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+      surface: "legacy_trap_practice",
+      content_type: "trap",
+      content_id: trapContentId,
+      origin: "opening_lesson",
+      is_recommended: false,
+    });
+  }, [trapContentId]);
   
   // Use refs to store current state for callbacks
   const currentMoveIndexRef = useRef(currentMoveIndex);
@@ -172,8 +184,20 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
       
       const expectedSan = expectedMove.move.replace(/[+#!?]/g, "");
       const playedSan = result.san.replace(/[+#!?]/g, "");
+      const isCorrect = playedSan.toLowerCase() === expectedSan.toLowerCase();
+
+      trackCurriculum(ANALYTICS_EVENTS.GUIDED_ATTEMPT, {
+        surface: "legacy_trap_practice",
+        content_type: "trap",
+        content_id: trapContentId,
+        origin: "opening_lesson",
+        support_level: "guided_line",
+        outcome: isCorrect ? "correct" : "incorrect",
+        position_index: idx,
+        is_recommended: false,
+      });
       
-      if (playedSan.toLowerCase() === expectedSan.toLowerCase()) {
+      if (isCorrect) {
         // Correct move!
         setFen(chessRef.current.fen());
         setLastMove({ from: result.from, to: result.to });
@@ -217,7 +241,7 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
       setFeedback({ type: "error", message: "Invalid move" });
       setupUserMoveBoard();
     }
-  }, [trapLine, trap, setupUserMoveBoard]);
+  }, [trapLine, trap, setupUserMoveBoard, trapContentId]);
   
   // Play opponent's move at given index
   const playOpponentMoveAt = useCallback((index) => {

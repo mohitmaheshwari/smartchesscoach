@@ -101,7 +101,7 @@ const AdminCaptionDrafts = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-[1100px] mx-auto px-6 py-8 space-y-6">
+      <div className="experience-page experience-admin-page max-w-[1400px] mx-auto px-6 py-8 space-y-6">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-100">
