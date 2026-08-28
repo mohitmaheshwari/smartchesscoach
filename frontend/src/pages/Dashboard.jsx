@@ -14,10 +14,11 @@
  * empty-state flow are preserved.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import {
   fadeInUp,
   glowPulseAmber,
@@ -125,6 +126,14 @@ const Dashboard = ({ user }) => {
   const [openingFit, setOpeningFit] = useState(null);
   // Session panel (Mirror window) — only loaded when ?session=... is in URL.
   const [mirrorSession, setMirrorSession] = useState(null);
+  const recommendationShownRef = useRef(null);
+  const recommendationElementRef = useRef(null);
+
+  useEffect(() => {
+    trackCurriculum(ANALYTICS_EVENTS.LEARN_VIEWED, {
+      surface: "legacy_lab",
+    });
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -203,6 +212,31 @@ const Dashboard = ({ user }) => {
       // Silent — hero just stays hidden.
     }
   };
+
+  useEffect(() => {
+    if (!learnNext?.skill_id) return;
+    const decisionId = `legacy_engine2:${learnNext.skill_id}`;
+    const element = recommendationElementRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      if (recommendationShownRef.current === decisionId) return;
+      recommendationShownRef.current = decisionId;
+      trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN, {
+        surface: "legacy_lab",
+        decision_id: decisionId,
+        decision_source: "engine2_learn_next",
+        recommendation_kind: "expand",
+        content_type: "skill",
+        content_id: learnNext.skill_id,
+        origin: "recommendation",
+        is_recommended: true,
+      });
+      observer.disconnect();
+    }, { threshold: 0.6 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [learnNext]);
 
   const fetchTrapIntel = async () => {
     try {
@@ -502,7 +536,7 @@ const Dashboard = ({ user }) => {
               the report card — how you're doing; this is the syllabus — what to
               learn next.) 2026-07-07. */}
           {learnNext && (
-            <motion.section {...revealOnScroll} className="mb-12 md:mb-16">
+            <motion.section ref={recommendationElementRef} {...revealOnScroll} className="mb-12 md:mb-16">
               <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 Learn next
               </div>
@@ -519,7 +553,19 @@ const Dashboard = ({ user }) => {
                   </p>
                 )}
                 <button
-                  onClick={() => navigate(`/training/skill/${learnNext.skill_id}`)}
+                  onClick={() => {
+                    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
+                      surface: "legacy_lab",
+                      decision_id: `legacy_engine2:${learnNext.skill_id}`,
+                      decision_source: "engine2_learn_next",
+                      recommendation_kind: "expand",
+                      content_type: "skill",
+                      content_id: learnNext.skill_id,
+                      origin: "recommendation",
+                      is_recommended: true,
+                    });
+                    navigate(`/training/skill/${learnNext.skill_id}`);
+                  }}
                   className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                 >
                   Start this lesson

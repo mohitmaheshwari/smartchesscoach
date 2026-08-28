@@ -33,6 +33,7 @@ import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
 // Move quality indicator component - shows on the board
 const MoveIndicator = ({ type, square, orientation, boardSize }) => {
@@ -86,6 +87,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   // Use refs for values needed in callbacks to avoid stale closures
   const sessionIdRef = useRef(null);
   const fenRef = useRef("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const hintVisibleRef = useRef(false);
+  const hintCountRef = useRef(0);
+  const moveNumberRef = useRef(1);
   
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -108,6 +112,12 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   useEffect(() => {
     fenRef.current = fen;
   }, [fen]);
+
+  useEffect(() => {
+    hintVisibleRef.current = Boolean(hint);
+    hintCountRef.current = hintCount;
+    moveNumberRef.current = moveNumber;
+  }, [hint, hintCount, moveNumber]);
   
   // Measure board size
   useEffect(() => {
@@ -221,6 +231,21 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       
       if (res.ok) {
         const data = await res.json();
+        if (data.complete || data.correct || data.try_again) {
+          const attemptEvent = hintVisibleRef.current || hintCountRef.current > 0
+            ? ANALYTICS_EVENTS.GUIDED_ATTEMPT
+            : ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT;
+          trackCurriculum(attemptEvent, {
+            surface: "legacy_opening_practice",
+            content_type: "opening_practice",
+            content_id: openingKey,
+            origin: "opening_lesson",
+            support_level: attemptEvent === ANALYTICS_EVENTS.GUIDED_ATTEMPT ? "hint" : "none",
+            outcome: data.complete || data.correct ? "correct" : "incorrect",
+            position_index: moveNumberRef.current,
+            is_recommended: false,
+          });
+        }
         
         if (data.complete) {
           // Practice completed!
@@ -361,6 +386,13 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       
       if (res.ok) {
         const data = await res.json();
+        trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+          surface: "legacy_opening_practice",
+          content_type: "opening_practice",
+          content_id: openingKey,
+          origin: "opening_lesson",
+          is_recommended: false,
+        });
         
         // Set session ID first
         setSessionId(data.session_id);
