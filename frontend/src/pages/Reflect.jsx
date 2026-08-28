@@ -897,7 +897,7 @@ const Reflect = ({ user }) => {
         />
       </AnimatePresence>
       
-      <div className="max-w-5xl mx-auto py-6 px-4">
+      <div className="experience-page experience-recovery-page experience-reflect-page max-w-6xl mx-auto py-6 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

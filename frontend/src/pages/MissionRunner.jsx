@@ -364,7 +364,7 @@ const MissionRunner = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-3xl mx-auto" data-testid="mission-runner-page">
+      <div className="experience-page experience-learning-page experience-mission-page max-w-4xl mx-auto" data-testid="mission-runner-page">
         {/* Mission Stepper - Shows Reflect → Train → Wrap-up */}
         <MissionStepper currentPhase={phase} />
         

@@ -242,3 +242,6 @@ frontend/node_modules/.cache/default-development/15.pack
 # Environment files
 *.env
 *.env.*
+
+# Playwright run artifacts — screenshots and error contexts, regenerated every run.
+tests/test-results/

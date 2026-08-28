@@ -11,7 +11,7 @@ import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://admin_user_mii_s_c:Mii123$44$@localhost:27017")
+MONGO_URL = os.environ.get("MONGO_URL", os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 from pymongo import MongoClient

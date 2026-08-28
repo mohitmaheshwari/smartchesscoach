@@ -57,6 +57,8 @@ export default function HomePageNew({ user }) {
   const [hasGames, setHasGames] = useState(false);
   const [diagnosticStatus, setDiagnosticStatus] = useState(null);
   const [lastSession, setLastSession] = useState(null);
+  const [activeFocus, setActiveFocus] = useState(null);
+  const [focusGameBusy, setFocusGameBusy] = useState(false);
   // The single coach conversation — see docs/home_page_coach_conversation_scope.md.
   // Replaces the old recommendations grid / improvement-% / domain-score-grid
   // stack below with one narrative: relationship stage, continuity, a
@@ -79,6 +81,13 @@ export default function HomePageNew({ user }) {
         if (convRes.ok) {
           const convData = await convRes.json();
           if (convData.has_conversation) setCoachConversation(convData);
+        }
+
+        const focusRes = await fetch(`${API}/coach/active-focus`, {
+          credentials: "include",
+        });
+        if (focusRes.ok) {
+          setActiveFocus(await focusRes.json());
         }
 
         // Check diagnostic status
@@ -109,6 +118,42 @@ export default function HomePageNew({ user }) {
       }
     })();
   }, []);
+
+  const pic = activeFocus?.personal_improvement_cycle?.eligible
+    ? activeFocus.personal_improvement_cycle
+    : null;
+
+  const updateFocusGame = async (action, body = null) => {
+    setFocusGameBusy(true);
+    try {
+      const response = await fetch(
+        `${API}/coach/active-focus/focus-game/${action}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: body ? JSON.stringify(body) : undefined,
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || "Focus Game update failed");
+      setActiveFocus((current) => ({
+        ...current,
+        personal_improvement_cycle: {
+          ...current.personal_improvement_cycle,
+          focus_game: result.pending_focus_game,
+        },
+      }));
+      track("pic_focus_game_updated", {
+        action,
+        status: result.pending_focus_game?.status,
+      });
+    } catch (error) {
+      console.error("Focus Game update failed:", error);
+    } finally {
+      setFocusGameBusy(false);
+    }
+  };
 
   // Mirror / Coach Conversation "seen" — IntersectionObserver, not mount,
   // since both can render off-screen below the fold on a short viewport.
@@ -149,7 +194,7 @@ export default function HomePageNew({ user }) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+          <div className="experience-spinner w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
         </div>
       </Layout>
     );
@@ -173,7 +218,7 @@ export default function HomePageNew({ user }) {
               return shouldShow;
             })() && (
               <section>
-                <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 rounded-lg p-6">
+                <div className="experience-focus-card rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 p-6">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="text-[16px] font-semibold text-foreground mb-2">Get your Chess DNA</h3>
@@ -184,7 +229,7 @@ export default function HomePageNew({ user }) {
                       </p>
                       <button
                         onClick={() => navigate("/diagnostic")}
-                        className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                        className="experience-primary h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                       >
                         {diagnosticStatus.status === "in_progress" ? "Continue" : "Start"} diagnostic
                         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
@@ -197,10 +242,10 @@ export default function HomePageNew({ user }) {
             )}
 
             <section>
-              <p className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
                 First session
               </p>
-              <h1 className="font-serif text-[32px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[560px]">
+              <h1 className="experience-coach-copy font-serif text-[32px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[560px]">
                 I'm your personal chess coach. Let's find out how you play.
               </h1>
               <p className="mt-6 text-[14px] text-muted-foreground max-w-[520px] leading-relaxed">
@@ -212,7 +257,7 @@ export default function HomePageNew({ user }) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigate("/play-with-coach")}
-                  className="h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
+                  className="experience-primary h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
                 >
                   <Swords className="h-4 w-4" strokeWidth={2} />
                   Play my first game
@@ -267,7 +312,7 @@ export default function HomePageNew({ user }) {
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
                 Since you last played
               </div>
-              <div className="bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg p-6">
+              <div className="experience-surface bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
                 <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
                   <button
@@ -275,7 +320,7 @@ export default function HomePageNew({ user }) {
                       track("funnel_home_cta_clicked", { cta: "review_this_game" });
                       navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                     }}
-                    className="mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
+                    className="experience-link mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
                   >
                     Review this game
                     <ChevronRight className="h-3 w-3" strokeWidth={2} />
@@ -295,7 +340,7 @@ export default function HomePageNew({ user }) {
               and five smaller cards that all competed for "the one thing
               to do today") with a single flow. No cards, no stats. */}
           {coachConversation?.has_conversation ? (
-            <motion.section variants={fadeInUp} className="mb-16 md:mb-20 max-w-[620px]">
+            <motion.section variants={fadeInUp} className="experience-home-coach mb-16 md:mb-20 max-w-[660px]">
               {coachConversation.thinking_signature && (
                 <p className="text-[15px] leading-relaxed text-foreground mb-5">
                   {coachConversation.thinking_signature}
@@ -308,9 +353,74 @@ export default function HomePageNew({ user }) {
                 {coachConversation.narrative.continuity}{" "}
                 {coachConversation.narrative.belief}
               </p>
-              <p className="text-[15px] leading-relaxed text-foreground font-medium mb-6">
-                {coachConversation.one_action}
-              </p>
+              {pic ? (
+                <div className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
+                  <p className="experience-eyebrow text-[10px] uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400 font-semibold mb-2">
+                    {pic.learner_state?.label || "Learning"}
+                    {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
+                  </p>
+                  <p className="text-[17px] font-medium text-foreground mb-2">
+                    {pic.focus_label}
+                  </p>
+                  <p className="text-[14px] leading-relaxed text-foreground mb-2">
+                    {pic.instruction_text || "Before you move, check whether the piece will be safe on its new square."}
+                  </p>
+                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                    I verified {pic.diagnosis?.count || 0} clear example{pic.diagnosis?.count === 1 ? "" : "s"} in your games.
+                    {" "}I am collecting comparable decisions, but I have not claimed improvement yet.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => {
+                        track("pic_next_action_clicked", { action: "practice" });
+                        navigate("/training/pattern/piece_safety");
+                      }}
+                      className="experience-primary h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors"
+                    >
+                      Practise this
+                    </button>
+                    {!pic.focus_game || ["cancelled", "completed"].includes(pic.focus_game.status) ? (
+                      <button
+                        disabled={focusGameBusy}
+                        onClick={() => updateFocusGame("commit")}
+                        className="h-9 px-4 rounded-lg border border-border text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50"
+                      >
+                        Make my next game a Focus Game
+                      </button>
+                    ) : pic.focus_game.status === "waiting" ? (
+                      <>
+                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
+                          Committed — play on Chess.com or Lichess, then sync.
+                        </span>
+                        <button
+                          disabled={focusGameBusy}
+                          onClick={() => updateFocusGame("cancel")}
+                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : pic.focus_game.status === "claimed" ? (
+                      <>
+                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
+                          Focus Game captured. Analysis is measurement only for now.
+                        </span>
+                        <button
+                          disabled={focusGameBusy}
+                          onClick={() => updateFocusGame("correct", { game_id: pic.focus_game.game_id })}
+                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          That was not my Focus Game
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[15px] leading-relaxed text-foreground font-medium mb-6">
+                  {coachConversation.one_action}
+                </p>
+              )}
               <p className="text-[13px] text-muted-foreground mb-2">
                 {coachConversation.encouragement}
               </p>
@@ -319,17 +429,17 @@ export default function HomePageNew({ user }) {
                   {coachConversation.closing_line}
                 </p>
               )}
-              <button
+              {!pic && <button
                 ref={conversationEndRef}
                 onClick={() => {
                   track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: true });
                   navigate("/play-with-coach");
                 }}
-                className="h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
               >
                 Play with Coach
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
-              </button>
+              </button>}
             </motion.section>
           ) : (
             // No active focus assigned yet — real edge case (games exist,
@@ -341,7 +451,7 @@ export default function HomePageNew({ user }) {
                 return shouldShow;
               })() && (
                 <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
-                  <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 rounded-lg p-6">
+                  <div className="experience-focus-card rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 p-6">
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="text-[16px] font-semibold text-foreground mb-2">Get your Chess DNA</h3>
@@ -352,7 +462,7 @@ export default function HomePageNew({ user }) {
                         </p>
                         <button
                           onClick={() => navigate("/diagnostic")}
-                          className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                          className="experience-primary h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                         >
                           {diagnosticStatus.status === "in_progress" ? "Continue" : "Start"} diagnostic
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
@@ -372,7 +482,7 @@ export default function HomePageNew({ user }) {
                     track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: false });
                     navigate("/play-with-coach");
                   }}
-                  className="h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                  className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                 >
                   Play with Coach
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -399,7 +509,7 @@ export default function HomePageNew({ user }) {
                       track("funnel_home_nav_tile_clicked", { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="group p-3 rounded-lg border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
+                    className="experience-utility group p-3 rounded-xl border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
                   >
                     <Icon className="w-4 h-4 text-muted-foreground/70 group-hover:text-foreground mb-2 transition-colors" strokeWidth={1.5} />
                     <p className="text-[11.5px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</p>

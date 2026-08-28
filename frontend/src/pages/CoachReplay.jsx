@@ -95,7 +95,7 @@ const CoachReplay = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="h-[calc(100vh-80px)] flex" data-testid="coach-replay">
+      <div className="experience-page experience-review-workspace-page h-[calc(100vh-80px)] flex" data-testid="coach-replay">
 
         {/* LEFT: Board */}
         <div className="w-1/2 flex items-center justify-center bg-muted/20 p-6 relative">

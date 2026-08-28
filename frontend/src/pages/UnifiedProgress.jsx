@@ -41,6 +41,7 @@ import {
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import CoachRecommendationsGrid from "@/components/CoachRecommendationsGrid";
+import FocusGraduationPreview from "@/components/experience/FocusGraduationPreview";
 import {
   ChevronRight,
   Swords,
@@ -509,7 +510,7 @@ const UnifiedProgress = ({ user }) => {
           </p>
           <button
             onClick={() => navigate("/play-with-coach")}
-            className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+            className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
           >
             <Swords className="h-4 w-4" strokeWidth={2} />
             Play with Coach
@@ -527,15 +528,15 @@ const UnifiedProgress = ({ user }) => {
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        className="experience-page experience-progress-page max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
         data-testid="progress-page"
       >
         {/* ─── Page head ─── */}
         <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
-          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+          <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
             Progress · the ledger
           </p>
-          <h1 className="font-serif text-[28px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[640px]">
+          <h1 className="experience-coach-copy font-serif text-[28px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[640px]">
             {derived.headline}
           </h1>
           <p className="mt-5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[520px]">
@@ -664,7 +665,7 @@ const UnifiedProgress = ({ user }) => {
                 duration: MOTION_TIMING.micro.duration / 1000,
                 ease: MOTION_TIMING.micro.easing,
               }}
-              className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-6 md:p-7"
+              className="experience-focus-card experience-surface rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-6 md:p-7"
             >
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 md:gap-8 items-start">
                 <div>
@@ -727,7 +728,7 @@ const UnifiedProgress = ({ user }) => {
                       training, not a generic page. */}
                   <button
                     onClick={() => navigate(`/training/pattern/${derived.active.trained_pattern}`)}
-                    className="h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                    className="experience-primary h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                   >
                     <Target className="h-3.5 w-3.5" strokeWidth={2} />
                     Practice this pattern
@@ -864,9 +865,14 @@ const UnifiedProgress = ({ user }) => {
                       {a.meta}
                     </div>
                   </div>
-                  <span className="text-[10.5px] text-muted-foreground/60 font-mono tabular-nums">
-                    {a.beaten ? "beaten" : "stable"}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="text-[10.5px] text-muted-foreground/60 font-mono tabular-nums">
+                      {a.beaten ? "beaten" : "stable"}
+                    </span>
+                    {a.beaten && (
+                      <FocusGraduationPreview focusLabel={a.name} evidence={a.meta} />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

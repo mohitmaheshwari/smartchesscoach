@@ -1206,9 +1206,28 @@ const CoachPlay = ({ user }) => {
       console.warn("[CoachPlay] Error fetching training focus:", e);
     }
 
-    // Fetch active focus rule for pre-game banner
+    // PIC uses the canonical active-focus instruction and mastery projection.
+    // Legacy users keep the Lab Coach's Pick compatibility path.
     try {
-      const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+      const canonicalRes = await fetch(`${API}/coach/active-focus`, {
+        credentials: "include",
+      });
+      const canonical = canonicalRes.ok ? await canonicalRes.json() : null;
+      const pic = canonical?.personal_improvement_cycle;
+      if (pic?.eligible) {
+        trainingFocusCognitivGap = "piece_safety";
+        setFocusRule({
+          name: `${pic.focus_label} · ${pic.learner_state?.label || "Learning"}`,
+          rule:
+            pic.instruction_text ||
+            "Before moving, check whether the piece will be safe on its new square.",
+          pattern: "piece_safety",
+          evidenceMode: "practice_assisted",
+        });
+        setShowFocusBanner(true);
+        setTimeout(() => setShowFocusBanner(false), 6000);
+      } else {
+        const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
       if (focusRes.ok) {
         const focusData = await focusRes.json();
         const coaching = focusData.coaching;
@@ -1222,6 +1241,7 @@ const CoachPlay = ({ user }) => {
           // Auto-hide after 6 seconds
           setTimeout(() => setShowFocusBanner(false), 6000);
         }
+      }
       }
     } catch (e) { /* non-fatal */ }
     
@@ -3323,7 +3343,7 @@ const CoachPlay = ({ user }) => {
           by overriding the shadcn CSS vars — scoped to PWC only. The shell below
           is responsive: two-column on desktop, board + coach bottom-sheet on
           mobile/tablet. Teaching logic in the child components is unchanged. */}
-      <div className="pwc-root flex flex-col flex-1 min-h-0">
+      <div className="experience-page experience-pwc-page pwc-root flex flex-col flex-1 min-h-0">
       <motion.div
         variants={navFade}
         initial="initial"
@@ -3332,7 +3352,7 @@ const CoachPlay = ({ user }) => {
       >
         <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
           <div className="flex items-baseline gap-4 min-w-0">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
               Play with Coach
             </p>
             {timeControl && (

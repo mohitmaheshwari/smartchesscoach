@@ -30,7 +30,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 async def main() -> None:
     url = os.environ.get(
         "MONGO_URL",
-        "mongodb://admin_user_mii_s_c:Mii123$44$@host.docker.internal:27018/?authSource=admin",
+        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
     )
     db_name = os.environ.get("DB_NAME", "chess_coach")
     db = AsyncIOMotorClient(url)[db_name]

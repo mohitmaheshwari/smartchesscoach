@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
+import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
 
 const Layout = ({ children, user }) => {
   const location = useLocation();
@@ -151,10 +152,10 @@ const Layout = ({ children, user }) => {
   const userInitial = userName.charAt(0);
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className={`min-h-screen flex bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
+        className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
           sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
         }`}
       >
@@ -334,7 +335,7 @@ const Layout = ({ children, user }) => {
       </aside>
 
       {/* ═══ Mobile Header ═══ */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
+      <header className="experience-mobile-header md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="flex items-center justify-between h-14 px-4">
           <Link to="/home" className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-md gradient-gold flex items-center justify-center">
@@ -422,13 +423,41 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <main className={`experience-main flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+        <div className={`${EXPERIENCE_V1_ENABLED ? 'max-w-[1440px]' : 'max-w-6xl'} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`}>
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             {children}
           </motion.div>
         </div>
       </main>
+
+      {EXPERIENCE_V1_ENABLED && (
+        <nav className="experience-mobile-nav md:hidden" aria-label="Primary navigation">
+          {navigation.map((item) => {
+            const IconComponent = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={active ? "is-active" : ""}
+                aria-current={active ? "page" : undefined}
+              >
+                <IconComponent aria-hidden="true" />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+          <Link
+            to="/play-with-coach"
+            className={`experience-mobile-coach ${location.pathname === '/play-with-coach' ? 'is-active' : ''}`}
+            aria-current={location.pathname === '/play-with-coach' ? 'page' : undefined}
+          >
+            <Swords aria-hidden="true" />
+            <span>Coach</span>
+          </Link>
+        </nav>
+      )}
     </div>
   );
 };

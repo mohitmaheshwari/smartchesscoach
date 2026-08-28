@@ -53,8 +53,8 @@ const AuthCallback = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4">
+    <div className="experience-page experience-auth-callback-page min-h-screen bg-background flex items-center justify-center">
+      <div className="experience-surface text-center space-y-4 rounded-2xl px-10 py-9">
         <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto" />
         <p className="text-muted-foreground">Signing you in...</p>
       </div>

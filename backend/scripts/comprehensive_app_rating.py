@@ -17,7 +17,7 @@ from collections import defaultdict
 
 
 def main():
-    client = MongoClient("mongodb://admin_user_mii_s_c:Mii123$44$@localhost:27018")
+    client = MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
     db = client["chess_coach"]
 
     print("=" * 100)

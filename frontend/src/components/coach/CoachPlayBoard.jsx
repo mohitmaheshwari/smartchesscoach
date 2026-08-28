@@ -106,7 +106,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
         <div className="flex gap-2 items-stretch">
 
           <div
-            className="flex-1 relative rounded-lg overflow-hidden aspect-square"
+            className="experience-board-stage flex-1 relative rounded-lg overflow-hidden aspect-square"
             style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
           >
             <LichessBoard

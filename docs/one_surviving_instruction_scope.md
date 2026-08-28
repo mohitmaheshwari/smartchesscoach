@@ -1,17 +1,72 @@
 # Scope: One Surviving Instruction (Sprint 2)
 
-Status: **IMPLEMENTED, 2026-08-08 — behind `PWC_SURVIVING_INSTRUCTION_
-ENABLED` (default OFF), not yet deployed.** v1 rejected (4 inaccuracies).
-v2 rated 8.5/10, withheld on 2 amendments (canonical ownership,
-orthogonality ruling) — both applied in v3, signed off. During
-implementation, subtype-aware matching was further narrowed to
-`simple_hang` only after checking the real subtype distribution (see
-§3) — a real, data-checked scope reduction, not silently shipped as if
-it covered all 5 subtypes. All §7 pre-code requirements are checked
-off. 18 dedicated tests + full existing regression suite (33/33)
-passing. Not deployed — this flag/gate combination means it cannot
-reach any real user even once merged, until an explicit deploy AND a
-separate rollout decision after Experiment #1 closes (§4).
+Status: **HARDENED, 2026-08-08 — behind `PWC_SURVIVING_INSTRUCTION_
+ENABLED` (default OFF), not yet deployed.** v1 rejected (4
+inaccuracies). v2 rated 8.5/10, withheld on 2 amendments (canonical
+ownership, orthogonality ruling) — both applied in v3, signed off.
+The first implementation (commit `b0105f21`) was itself externally
+reviewed and found to have shipped the data plumbing without closing
+the loop to the user — every claim checked against the code before
+acting; all were confirmed real:
+
+1. **The postgame instruction was computed but never rendered** — the
+   visible card still only showed `pattern_verdict` (sourced from
+   `pattern_memory_service.get_top_patterns`, unrelated to
+   `user_active_focus`); `instruction_id`/`instruction_text` only ever
+   reached `pwc_insight_shown`'s analytics payload. Fixed: a real,
+   visible verdict card (`build_instruction_verdict`,
+   `mission_scoreboard.py`), sourced from the session's own scoreboard.
+2. **`simple_hang`'s "clean handling" claim was unsupported** —
+   `is_focus_moment` only ever returns true when a hang actually
+   occurred (an outcome check, not an opportunity check — inherited
+   from the pre-existing topic-level `_is_piece_safety_moment`, not
+   introduced by Sprint 2, but never corrected either). A clean game
+   produces `matched_moments: 0`, which is NOT evidence the player
+   checked every move. Fixed per the honest-relabeling path: the
+   verdict now says "no hang detected," never "instruction followed."
+3. **The rollout gate ran too late** — `assign_focus()` wrote the 3
+   canonical fields for every eligible user regardless of role;
+   `focus_bridge` only stripped them at read time. That's real Sprint 2
+   logic executing for ineligible users, not the "does not compute"
+   contract that was locked. Fixed: gated at the only write site
+   (`_instruction_fields_eligible_for_write`, reusing focus_bridge's
+   own check, not a duplicate).
+4. **The piece_safety-only V1 boundary was never enforced in code** —
+   `_tier_closing`/`_CLOSING_BY_SUBTYPE` cover other topics too, so
+   instruction fields were being computed for every topic. Fixed: gated
+   in the same write-time check as #3.
+5. **Telemetry lacked explicit flag/eligibility state** — `instruction_
+   id` being null couldn't distinguish flag-off from wrong-role from
+   no-active-focus. Added `focus_bridge.get_instruction_eligibility_
+   state` and wired it into both the postgame response and
+   `pwc_insight_shown`.
+6. **Existing active admin focuses had no path to the new fields** —
+   only NEW `assign_focus()` calls get them; an existing 14-day-locked
+   focus doesn't retroactively gain them. Added a scoped, admin-only
+   backfill script (dry-run by default) — real dry run against
+   production data found 3 real admin accounts eligible, though all 3
+   currently have `tactical_seq_loss` as their dominant subtype (not
+   `simple_hang`), so even post-backfill they'd see the honest
+   instruction-only framing, not the behavioral verdict, until their
+   next natural reassignment. Not yet applied — needs explicit
+   confirmation before writing to real accounts, even admin ones.
+7. **Test evidence gaps** — added 12 more tests (30 total): honest-
+   framing coverage for `build_instruction_verdict`, and a genuine
+   two-consecutive-sessions integration suite (`session_greeting_
+   service`, including the abandoned-prior-session degrade-gracefully
+   case). `build_instruction_verdict` itself was relocated from
+   `routes/coach_play.py` to `mission_scoreboard.py` — it had zero
+   dependency on anything in that route file, and importing the route
+   module directly for a test hung past 25s (module-level Stockfish
+   engine setup), so it was untestable where it was. Full
+   `test_all_flows.py` (33/33) and a real `npm run build` (not just
+   babel syntax-check) both reconfirmed passing/succeeding, zero new
+   warnings in either changed file.
+
+30 dedicated tests + 33/33 regression suite, all passing. Not
+deployed — the flag/gate combination still means it cannot reach any
+real user even once merged, until an explicit deploy AND a separate
+rollout decision after Experiment #1 closes (§4).
 
 ---
 

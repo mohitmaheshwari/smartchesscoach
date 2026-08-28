@@ -132,7 +132,7 @@ const Lab = ({ user }) => {
   
   return (
     <Layout user={user}>
-      <div className="h-[calc(100vh-80px)] flex flex-col" data-testid="lab-page">
+      <div className="experience-page experience-review-workspace-page h-[calc(100vh-80px)] flex flex-col" data-testid="lab-page">
         {/* Header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/50 px-4 py-3">
           <div className="flex items-center justify-between gap-4">

@@ -1,6 +1,30 @@
 """
-Fork Confidence Scorer (simple, SEE-based)
+Fork Confidence Scorer (simple, SEE-based)  —  ** RETIRED 2026-08-13 **
 ==========================================
+
+DO NOT USE IN NEW CODE. Not a coaching source.
+
+`caption_facts.multi_target_attack_evidence` is the single canonical fork
+signal. It is piece-agnostic (any attacker type via `attacker_piece_type`)
+and, since 2026-08-13, represents the enemy king as a FORCED target when the
+move gives check — so royal forks live there too. See `_forced_king_target`.
+
+Until that change this module was the only recognizer in the repo that handled
+check-plus-piece forks, which made royal-fork truth ambiguous across three
+sources. It is kept only because four scripts still import it
+(`scripts/test_fork_corpus.py`, `test_fork_detector.py`,
+`validate_fork_against_lichess.py`) as an independent cross-check during
+detector work. It has never had a production caller.
+
+One behavioural warning if you do read it: `forker_safe` below is
+`forker_safety_loss <= 0 or gives_check`. That `or gives_check` accepts a
+checking piece that simply gets captured — a knight that checks and is taken
+by the king for free scores as a safe fork. The canonical implementation
+deliberately does NOT copy that leniency; it requires the checker to survive
+SEE on its own square.
+
+Original notes follow.
+--------------------------------------------------------------------
 
 3-signal formula instead of the full 6-component spec:
   • forced SEE on the best target square  → "is there material to win?"

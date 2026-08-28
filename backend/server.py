@@ -499,6 +499,16 @@ app.include_router(coaching_patterns_routes.router, prefix="/api")
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
 
+ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "https://chessguru.ai",
+    "https://www.chessguru.ai",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

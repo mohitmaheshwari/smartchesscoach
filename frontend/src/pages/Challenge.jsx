@@ -175,7 +175,7 @@ const Challenge = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="space-y-8" data-testid="challenge-page">
+      <div className="experience-page experience-learning-page experience-challenge-page space-y-8" data-testid="challenge-page">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Challenge Mode</h1>
           <p className="text-muted-foreground">

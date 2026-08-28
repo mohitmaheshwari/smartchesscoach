@@ -1,4 +1,5 @@
 """Regenerate all user motif profiles with the opp_creates_motif field."""
+import os
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from services.motif_profile_service import (
@@ -6,7 +7,7 @@ from services.motif_profile_service import (
 )
 
 async def main():
-    mongo_url = "mongodb://admin_user_mii_s_c:Mii123$44$@72.60.204.176:27017"
+    mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db = AsyncIOMotorClient(mongo_url)['chess_coach']
     
     users = await db.users.find({}, {"_id": 0, "user_id": 1}).to_list(1000)

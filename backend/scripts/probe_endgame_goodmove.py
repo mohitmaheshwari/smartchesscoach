@@ -14,7 +14,7 @@ import chess, chess.pgn
 from motor.motor_asyncio import AsyncIOMotorClient
 import asyncio
 
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://admin_user_mii_s_c:Mii123$44$@72.60.204.176:27017/?authSource=admin")
+MONGO_URL = os.environ.get("MONGO_URL", os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 

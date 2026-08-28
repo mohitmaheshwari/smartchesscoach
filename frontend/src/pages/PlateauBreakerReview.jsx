@@ -501,7 +501,7 @@ const PlateauBreakerReview = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="experience-page experience-recovery-page min-h-screen bg-zinc-950 flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -519,7 +519,7 @@ const PlateauBreakerReview = ({ user }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="experience-page experience-recovery-page experience-plateau-review-page min-h-screen bg-zinc-950 text-white">
       {/* Header */}
       <div className="border-b border-zinc-800 p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">

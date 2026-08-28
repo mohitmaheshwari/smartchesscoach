@@ -335,7 +335,18 @@ async def settings_link_account(req: LinkAccountRequest, user: User = Depends(ge
     if assessed_rating:
         update_data["assessed_rating"] = assessed_rating
         update_data["rating_source"] = platform
-    
+
+    # Country (2026-08-24). chess.com's public profile needs no auth, so this
+    # costs one extra request at link time. Lichess is captured in its OAuth
+    # callback instead, where the token is available. A failed lookup adds
+    # nothing rather than writing null, so linking never regresses a country
+    # the other platform already gave us.
+    if platform == "chess.com":
+        from services.player_country import fetch_chesscom_country, country_update_fields
+        update_data.update(
+            country_update_fields(await fetch_chesscom_country(username), "chesscom")
+        )
+
     await db.users.update_one(
         {"user_id": user.user_id},
         {"$set": update_data}

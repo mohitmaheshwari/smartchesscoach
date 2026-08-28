@@ -217,7 +217,7 @@ export default function AdminOpenings({ user }) {
 
   return (
     <Layout user={user}>
-      <div className="space-y-6 max-w-7xl mx-auto" data-testid="admin-openings-page">
+      <div className="experience-page experience-admin-page space-y-6 max-w-[1500px] mx-auto" data-testid="admin-openings-page">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
             <ShieldCheck className="w-6 h-6 text-primary" />

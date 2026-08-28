@@ -625,7 +625,7 @@ const LichessBoard = forwardRef(({
   }
 
   return (
-    <div className="relative w-full aspect-square" style={{ maxWidth: "100%" }}>
+    <div className="board-stage-board relative w-full aspect-square" style={{ maxWidth: "100%" }}>
       <div
         ref={boardRef}
         className="w-full h-full rounded-lg overflow-hidden"

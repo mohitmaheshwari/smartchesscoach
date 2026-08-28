@@ -1,6 +1,31 @@
-"""backfill_motif_profile_and_anticipation.py — populate
-player_profiles.motif_profile (two-sided verdict) and .motif_anticipation
-(defense-side "did you see it coming") for existing analyzed games.
+"""backfill_motif_profile_and_anticipation.py — *** SUPERSEDED 2026-08-13 ***
+
+DO NOT RUN. Use scripts/migrate_fork_promotion_recompute.py instead.
+
+Kept for history only. Four defects make it unsafe against current production:
+
+  1. LOSES PROVENANCE. It calls compute_game_motifs(mevals, user_color) without
+     `game_id` (line ~53), so every drill row it writes gets game_id=None and no
+     provenance stamp. get_drills() then refuses to name the game, and the Stage 8
+     "this is you, 6 days ago" copy silently has nothing to show. The replacement
+     passes game_id, which is what lets the service stamp provenance "exact".
+  2. SKIPS DUPLICATE PROFILES. It writes with update_one({"user_id": uid}).
+     player_profiles is NOT unique on user_id — 69 docs for 67 user_ids in
+     production — so the second copy of a duplicated profile is never written.
+     This exact bug silently lost 68 rows during the Gate 3 backfill.
+  3. NEVER RECOMPUTES motif_recognition. It rebuilds motif_profile and
+     motif_anticipation only, so the offense-recognition store (which drives the
+     mastery ladder) is left calibrated to the old fork definition.
+  4. NON-DETERMINISTIC TRUNCATION. It relies on natural find() order. Because
+     merge_motifs keeps only the last 30 got_positions, WHICH positions survive
+     depends on that order, so two runs can disagree.
+
+Original docstring follows.
+--------------------------------------------------------------------
+
+populate player_profiles.motif_profile (two-sided verdict) and
+.motif_anticipation (defense-side "did you see it coming") for existing
+analyzed games.
 
 Reuses the verified single-source computes. Idempotent: rebuilds each
 user's totals from scratch so re-runs produce the same result. Safe to

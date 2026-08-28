@@ -54,7 +54,7 @@ cd /app/backend
 python3 scripts/regenerate_captions_verified.py \
   --user-id bhutramohit \
   --games 20 \
-  --db-url mongodb://admin_user_mii_s_c:Mii123$44$@localhost:27017 \
+  --db-url mongodb://<user>:<password-from-env>@localhost:27017 \
   --db-name chess_coach
 ```
 

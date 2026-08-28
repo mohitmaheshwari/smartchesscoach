@@ -170,10 +170,11 @@ const OpeningsOverview = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto py-4 px-4 space-y-6" data-testid="openings-overview">
+      <div className="experience-page experience-study-page max-w-5xl mx-auto py-6 px-4 space-y-8" data-testid="openings-overview">
         {/* Header + Tabs */}
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Study</h1>
+          <p className="experience-eyebrow text-[10.5px] uppercase font-semibold mb-2">Your learning library</p>
+          <h1 className="experience-coach-copy text-3xl md:text-4xl font-semibold tracking-tight">Study</h1>
           <div className="flex gap-1 mt-3 bg-zinc-900 rounded-lg p-1 w-fit" data-testid="study-tabs">
             <button
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${

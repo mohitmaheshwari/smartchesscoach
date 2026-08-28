@@ -16,7 +16,7 @@ export default function RefundPolicy() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-black text-gray-200">
+    <div className="experience-page experience-legal-page min-h-screen bg-black text-gray-200">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <button
           onClick={() => navigate(-1)}

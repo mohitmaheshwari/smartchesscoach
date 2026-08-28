@@ -25,6 +25,7 @@ import chess
 
 # Active Recall Integration (pedagogical Q&A enrichment)
 from services.active_recall_integration import enrich_coaching_with_active_recall
+from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -7537,7 +7538,22 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         },
     }
 
-    await db.games.insert_one(game_doc)
+    # The find_one guard above is necessary but NOT sufficient: there is an
+    # await between the check and this insert, and three call sites
+    # (1222, 7832, 9770) can reach it concurrently. On 2026-08-18 one session
+    # was promoted NINE times inside 122ms because every caller passed the
+    # check before any of them inserted.
+    #
+    # games.coach_session_id now carries a partial UNIQUE index, so the storage
+    # layer settles the race. Losing it means another caller already promoted
+    # this session -- that is SUCCESS, not an error, so exit quietly rather
+    # than surfacing a 500 to a user who just finished a game.
+    try:
+        await db.games.insert_one(game_doc)
+    except DuplicateKeyError:
+        logger.info(f"[COACH] Session {session_id[:8]} already promoted "
+                    f"(concurrent call lost the race) — skipping")
+        return
     await db.game_analyses.insert_one(analysis_doc)
     logger.info(f"[COACH] Promoted session {session_id[:8]} → game {game_id} "
                 f"({len(pgn_moves)} moves, {blunders}B {mistakes}M, acc={accuracy}%)")
@@ -9814,6 +9830,17 @@ async def _process_move_and_respond(
 # POST-GAME REFLECTION
 # =============================================================================
 
+async def _get_instruction_eligibility_safe(db, user_id: str) -> Optional[dict]:
+    """Non-fatal wrapper around focus_bridge.get_instruction_eligibility_state
+    -- telemetry must never break the postgame response."""
+    try:
+        from services.focus_bridge import get_instruction_eligibility_state
+        return await get_instruction_eligibility_state(db, user_id)
+    except Exception as e:
+        logger.debug(f"instruction eligibility telemetry failed (non-fatal): {e}")
+        return None
+
+
 async def _instruction_carried_forward(db, user_id: str, current_session_id: str,
                                         current_instruction_id: Optional[str]) -> bool:
     """Sprint 2 (docs/one_surviving_instruction_scope.md): was this
@@ -9993,6 +10020,8 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
         except Exception as pv_err:
             logger.debug(f"Pattern verdict failed (non-fatal): {pv_err}")
 
+        from services.mission_scoreboard import build_instruction_verdict
+
         # Extract the key fields for the reflection UI
         return {
             "has_data": True,
@@ -10023,15 +10052,18 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
             "pattern_verdict": pattern_verdict,
 
             # Sprint 2 (docs/one_surviving_instruction_scope.md): the
-            # session's own immutable snapshot -- None for anyone not
-            # eligible under the rollout gate (focus_bridge.py) or on a
-            # pre-Sprint-2 session, same as everywhere else this appears.
+            # actual VISIBLE verdict, not just plumbing for analytics --
+            # None for anyone not eligible under the rollout gate
+            # (focus_bridge.py / primary_weakness_picker.py) or on a
+            # pre-Sprint-2 session.
+            "instruction_verdict": build_instruction_verdict(session.get("mission_scoreboard")),
             "instruction_id": (session.get("mission_scoreboard") or {}).get("instruction_id"),
             "instruction_text": (session.get("mission_scoreboard") or {}).get("instruction_text"),
             "is_carried_forward": await _instruction_carried_forward(
                 db, user.user_id, session_id,
                 (session.get("mission_scoreboard") or {}).get("instruction_id"),
             ),
+            "instruction_eligibility": await _get_instruction_eligibility_safe(db, user.user_id),
 
             # Legacy memory insights
             "memory_insights": [

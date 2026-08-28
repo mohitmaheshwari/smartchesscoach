@@ -6,7 +6,9 @@
 # This builds the frontend, deploys it to the host nginx directory,
 # and runs backend + MongoDB in Docker.
 #
-# Host nginx serves the frontend static files from /var/www/html/SMART_CHESS_COACH
+# Host nginx serves the frontend static files from /var/www/chessguru.ai
+#   (this MUST match `root` in /etc/nginx/sites-enabled/chessguru.ai and the
+#    frontend-builder volume below -- see the note on that volume)
 # Host nginx proxies /api to localhost:8002 (backend container)
 
 services:
@@ -21,7 +23,7 @@ services:
       # Bound to localhost only (2026-07-14 security hardening): the DB was
       # publicly reachable on 0.0.0.0 with root creds. Remote access goes via
       # SSH tunnel (ssh -L 27018:localhost:27017), never a public bind.
-      - "127.0.0.1:27017:27017"
+      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
@@ -235,7 +237,14 @@ services:
       dockerfile: Dockerfile.frontend.build
     container_name: chess-coach-frontend-builder
     volumes:
-      - /var/www/html/SMART_CHESS_COACH:/output
+      # This path MUST equal nginx's `root` for chessguru.ai. It did not
+      # between 2026-08-07 and 2026-08-28: the builder wrote to
+      # /var/www/html/SMART_CHESS_COACH while nginx served
+      # /var/www/chessguru.ai, so `docker compose up -d --build` reported
+      # success and three weeks of frontend work never reached a user.
+      # A green build is not a deploy -- verify the live bundle hash after
+      # shipping, not the exit code.
+      - /var/www/chessguru.ai:/output
     # Runs once (build + copy), then exits — that's expected
     restart: "no"
 

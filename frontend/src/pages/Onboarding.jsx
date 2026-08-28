@@ -204,8 +204,8 @@ const Onboarding = () => {
     const trainingUrl = topWeakness ? `/training?focus=${topWeakness}` : "/training";
 
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-lg py-8">
+      <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="experience-onboarding-shell w-full max-w-lg py-8">
           <InstantDNA
             data={instantDNA}
             onContinue={() => navigate(trainingUrl)}
@@ -504,8 +504,8 @@ const Onboarding = () => {
 // ── SHARED COMPONENTS ──
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-    <div className="w-full max-w-lg bg-card border border-border rounded-lg p-8 shadow-sm">
+  <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="experience-onboarding-shell w-full max-w-lg bg-card border border-border rounded-2xl p-8 shadow-sm">
       {children}
     </div>
   </div>

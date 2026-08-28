@@ -67,14 +67,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#06060B] text-gray-100 flex items-center justify-center px-6">
+    <div className="experience-page experience-login-page min-h-screen bg-[#06060B] text-gray-100 flex items-center justify-center px-6">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] rounded-full blur-[160px] bg-amber-500/[0.06]" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[160px] bg-amber-600/[0.04]" />
       </div>
 
-      <div className="relative w-full max-w-sm">
+      <div className="experience-auth-panel relative w-full max-w-sm">
         <Link to="/" className="flex items-center gap-2.5 mb-10">
           <img src="/chessguru-logo.svg" alt="ChessGuru" className="w-7 h-7" />
           <span className="text-[15px] font-heading font-bold tracking-tight text-white">

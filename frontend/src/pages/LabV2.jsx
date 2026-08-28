@@ -1350,9 +1350,9 @@ const LabV2 = ({ user }) => {
 
   return (
     <Layout user={user} hideNav>
-      <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <div className="experience-page experience-review-page h-screen flex flex-col overflow-hidden bg-background">
         {/* Top Bar */}
-        <div className="shrink-0 border-b border-border">
+        <div className="experience-review-header shrink-0 border-b border-border">
           {/* Main header row */}
           <div className="flex items-center justify-between px-5 py-3">
             <div className="flex items-center gap-4">
@@ -1452,7 +1452,7 @@ const LabV2 = ({ user }) => {
           {coachSummary?.key_observation && (
             <div className="px-5 pb-4 pt-1">
               <p
-                className="font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
+                className="experience-coach-copy font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
                 data-testid="coach-narrative-strip"
               >
                 "{coachSummary.key_observation}"
@@ -1480,12 +1480,12 @@ const LabV2 = ({ user }) => {
             />
           </div>
         ) : (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="experience-review-workspace flex-1 flex overflow-hidden">
           {/* Left: Board and controls */}
-          <div className="w-[55%] flex flex-col border-r border-border">
+          <div className="experience-review-board-column w-[55%] flex flex-col border-r border-border">
             {/* Board */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="w-full max-w-[560px] aspect-square relative">
+              <div className="experience-board-stage w-full max-w-[560px] aspect-square relative">
                 <LichessBoard
                   fen={displayFen}
                   orientation={boardOrientation}
@@ -1727,7 +1727,7 @@ const LabV2 = ({ user }) => {
           </div>
           
           {/* Right Panel: Coach Move Panel (dynamic) OR Habits */}
-          <div className="w-[45%] flex flex-col overflow-hidden">
+          <div className="experience-review-insights w-[45%] flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               {/* Insights panel — phases, behaviors, key moments, fundamentals */}
               {true && (

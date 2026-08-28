@@ -158,7 +158,7 @@ const Settings = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-[680px] mx-auto px-6 md:px-10 py-14 md:py-20" data-testid="settings-page">
+      <div className="experience-page experience-utility-page experience-settings-page max-w-[760px] mx-auto px-6 md:px-10 py-12 md:py-16" data-testid="settings-page">
 
         {/* Head */}
         <div className="mb-16">

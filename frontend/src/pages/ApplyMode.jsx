@@ -185,7 +185,7 @@ const ApplyMode = ({ user }) => {
   // INTRO SCREEN
   if (gameState === "intro") {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+      <div className="experience-page experience-recovery-page experience-apply-page min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -247,7 +247,7 @@ const ApplyMode = ({ user }) => {
   // FAILED SCREEN
   if (gameState === "failed") {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+      <div className="experience-page experience-recovery-page experience-apply-page min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -290,7 +290,7 @@ const ApplyMode = ({ user }) => {
   // COMPLETE SCREEN
   if (gameState === "complete") {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+      <div className="experience-page experience-recovery-page experience-apply-page min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -337,7 +337,7 @@ const ApplyMode = ({ user }) => {
   
   // GAME SCREEN
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="experience-page experience-recovery-page experience-apply-page min-h-screen bg-zinc-950 text-white">
       {/* Header */}
       <div className="border-b border-zinc-800 p-4">
         <div className="max-w-4xl mx-auto">

@@ -305,7 +305,7 @@ const DiagnosticPuzzles = () => {
 
     return (
       <Layout>
-        <div className="min-h-screen px-6 py-10 max-w-2xl mx-auto">
+        <div className="experience-page experience-diagnostic-page min-h-screen px-6 py-10 max-w-2xl mx-auto">
           <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
             Your Chess DNA
           </p>
@@ -434,7 +434,7 @@ const DiagnosticPuzzles = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen px-4 py-6 max-w-5xl mx-auto">
+      <div className="experience-page experience-diagnostic-page min-h-screen px-4 py-6 max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-5">
           <div>
