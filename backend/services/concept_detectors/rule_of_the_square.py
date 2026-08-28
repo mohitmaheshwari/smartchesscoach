@@ -1,205 +1,239 @@
+"""Canonical rule-of-the-square truth and mastery adapter.
+
+This module is the only runtime source for the chess fact. Caption, legacy
+endgame and puzzle consumers derive their views from it.
 """
-Rule-of-the-Square in-game detector.
+from __future__ import annotations
 
-The rule: a passed pawn racing toward promotion is uncatchable by the
-defending king iff the king cannot step into the geometric "square"
-running from the pawn's current rank to its promotion rank. The
-defending king, on its move, gets one tempo to enter the zone.
-
-Mohit 2026-06-01: original detector only fired on pure K+P vs K
-(exactly 3 pieces on the board). That's too strict — the SKILL applies
-any time a passed pawn race is the decisive question and the
-defending king is the only realistic stopper. Empirically: 0 fires
-on 50 of Mohit's analyzed games. Widened the definition to fire on
-ANY position where:
-
-  1. There exists a passed pawn (no enemy pawn on same / adjacent
-     files ahead of it).
-  2. The pawn is past the middle of the board (rank >= 4 for white,
-     <= 4 for black) — race is real.
-  3. The path to promotion (squares the pawn will traverse) is empty
-     AND not attacked by any non-king enemy piece.
-  4. The promotion square itself is not attacked by any non-king
-     enemy piece.
-  5. The pawn itself is not attacked by any non-king enemy piece
-     (no easy capture by rook / bishop / knight).
-  6. No own piece blocks the pawn's path.
-
-When all six hold, the king-vs-pawn geometric square IS the decisive
-question. Other pieces are spectators in this race.
-
-PRECISION GUARDS for the verdict:
-
-  Attacker (owns the racing pawn):
-    - Race wins:   pushing THIS pawn → "applied". Any other move → None
-                   (don't grade — user might be doing something else
-                   tactical that's also fine).
-    - Race fails:  pawn push → "missed". King move → "applied".
-                   Other → None.
-
-  Defender:
-    - King already in zone → None (no clean test).
-    - Catchable + user moves king into zone → "applied".
-    - Catchable + user moves king OUT of zone → "missed".
-    - Catchable + user moves a non-king piece → None (other-piece
-      response might be a tactical reason we can't assess here; don't
-      falsely penalise).
-
-This errs on the side of FALSE NEGATIVES, not false positives. The
-worst case is the user doesn't get credited for a position they
-played correctly. The best case is we get an accurate "seen" count.
-
-Scope: see the empirical scan results in commit message. Backfill
-script in scripts/backfill_rule_of_square_evidence.py credits the
-two cleanly-applied cases in Mohit's last 50 games against
-coach_memory.
-"""
-
-from typing import Optional, Set
+from dataclasses import asdict, dataclass
+from functools import lru_cache
+from typing import Any, Dict, Optional, Set
 
 import chess
+
+
+@dataclass(frozen=True)
+class RuleOfSquareFact:
+    pawn_square: int
+    pawn_color: chess.Color
+    defender_color: chess.Color
+    defending_king_square: int
+    promotion_square: int
+    pawn_pushes_to_promote: int
+    catchable: bool
+
+    def evidence(self) -> Dict[str, Any]:
+        raw = asdict(self)
+        raw.update({
+            "pawn_square": chess.square_name(self.pawn_square),
+            "pawn_color": "white" if self.pawn_color else "black",
+            "defender_color": "white" if self.defender_color else "black",
+            "defending_king_square": chess.square_name(
+                self.defending_king_square
+            ),
+            "promotion_square": chess.square_name(self.promotion_square),
+        })
+        return raw
+
+
+def promotion_square(pawn_square: int, pawn_color: chess.Color) -> int:
+    return chess.square(
+        chess.square_file(pawn_square),
+        7 if pawn_color == chess.WHITE else 0,
+    )
+
+
+def pawn_pushes_to_promote(
+    board: chess.Board,
+    pawn_square: int,
+    pawn_color: chess.Color,
+) -> int:
+    """Minimum unobstructed legal pushes, including a starting double push."""
+    rank = chess.square_rank(pawn_square)
+    distance = (7 - rank) if pawn_color == chess.WHITE else rank
+    start_rank = 1 if pawn_color == chess.WHITE else 6
+    if rank != start_rank:
+        return distance
+    direction = 8 if pawn_color == chess.WHITE else -8
+    one = pawn_square + direction
+    two = pawn_square + 2 * direction
+    if (
+        0 <= one < 64
+        and 0 <= two < 64
+        and board.piece_at(one) is None
+        and board.piece_at(two) is None
+    ):
+        return distance - 1
+    return distance
 
 
 def square_of_the_pawn(
     pawn_square: chess.Square,
     pawn_color: chess.Color,
 ) -> Set[chess.Square]:
-    """The set of squares the defending king must reach to catch the pawn.
-
-    Geometric square from pawn rank to promotion rank, width = distance.
-    """
+    """Textbook geometric square, retained as evidence rather than truth."""
     pawn_file = chess.square_file(pawn_square)
     pawn_rank = chess.square_rank(pawn_square)
     promotion_rank = 7 if pawn_color == chess.WHITE else 0
     distance = abs(promotion_rank - pawn_rank)
-
-    rank_lo = min(pawn_rank, promotion_rank)
-    rank_hi = max(pawn_rank, promotion_rank)
-    file_lo = max(0, pawn_file - distance)
-    file_hi = min(7, pawn_file + distance)
-
     return {
-        chess.square(f, r)
-        for f in range(file_lo, file_hi + 1)
-        for r in range(rank_lo, rank_hi + 1)
+        chess.square(file_, rank)
+        for file_ in range(
+            max(0, pawn_file - distance),
+            min(7, pawn_file + distance) + 1,
+        )
+        for rank in range(
+            min(pawn_rank, promotion_rank),
+            max(pawn_rank, promotion_rank) + 1,
+        )
     }
 
 
 def is_kp_vs_k(board: chess.Board) -> bool:
-    """Exactly two kings + one pawn on the board.
-
-    Kept for callers that want the strict version. The detector itself
-    no longer requires this — see is_pure_king_pawn_race.
-    """
     pieces = list(board.piece_map().values())
-    if len(pieces) != 3:
-        return False
-    kings = sum(1 for p in pieces if p.piece_type == chess.KING)
-    pawns = sum(1 for p in pieces if p.piece_type == chess.PAWN)
-    return kings == 2 and pawns == 1
+    return (
+        len(pieces) == 3
+        and sum(p.piece_type == chess.KING for p in pieces) == 2
+        and sum(p.piece_type == chess.PAWN for p in pieces) == 1
+    )
 
 
-def _is_passed_pawn(board: chess.Board, sq: int, color: chess.Color) -> bool:
-    """No enemy pawn on same / adjacent files ahead of this pawn."""
-    f = chess.square_file(sq)
-    r = chess.square_rank(sq)
-    enemy_color = not color
-    direction = 1 if color == chess.WHITE else -1
-    for ef in (f - 1, f, f + 1):
-        if not (0 <= ef <= 7):
-            continue
-        for er in range(r + direction, 8 if color == chess.WHITE else -1, direction):
-            t = chess.square(ef, er)
-            p = board.piece_at(t)
-            if p and p.piece_type == chess.PAWN and p.color == enemy_color:
-                return False
-    return True
+def _critical_pawn(board: chess.Board) -> Optional[tuple[int, chess.Color]]:
+    if not is_kp_vs_k(board):
+        return None
+    pawns = [
+        (square, piece.color)
+        for square, piece in board.piece_map().items()
+        if piece.piece_type == chess.PAWN
+    ]
+    return pawns[0] if len(pawns) == 1 else None
 
 
-def _path_to_promotion(sq: int, color: chess.Color):
-    """Squares the pawn traverses to promote (exclusive of current, inclusive of promotion)."""
-    f = chess.square_file(sq)
-    r = chess.square_rank(sq)
-    promo = 7 if color == chess.WHITE else 0
-    step = 1 if color == chess.WHITE else -1
-    return [chess.square(f, rr) for rr in range(r + step, promo + step, step)]
-
-
-def _defender_has_only_king_and_pawns(board: chess.Board, defender_color: chess.Color) -> bool:
-    """Defender (the side NOT promoting) has no queens, rooks, bishops, or knights.
-
-    Mohit 2026-06-01: the previous "no non-king attacker on the path"
-    check was insufficient. Position `Q7/6p1/2K5/1B2p1p1/5k2/3P4/8/8 b`
-    falsely qualified because the white queen on a8 was blocked by its
-    own king on c6 in the CURRENT move — so it didn't attack the path
-    right now. But the queen exists on the board and dominates the
-    race in any future move. The rule of the square only meaningfully
-    applies when the king is genuinely the ONLY stopper. So defender
-    must have no non-pawn material besides the king.
-    """
-    for _, p in board.piece_map().items():
-        if p.color != defender_color:
-            continue
-        if p.piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT):
-            return False
-    return True
-
-
-def is_pure_king_pawn_race(board: chess.Board, pawn_sq: int, pawn_color: chess.Color) -> bool:
-    """Is the pawn on this square in a clean king-vs-pawn race?
-
-    Seven conditions now (see module docstring + the defender-material
-    check). Returns True only when the geometric square calculation
-    IS the decisive question for this position.
-    """
-    enemy = not pawn_color
-    if not _defender_has_only_king_and_pawns(board, enemy):
-        return False
-    if not _is_passed_pawn(board, pawn_sq, pawn_color):
-        return False
-    pawn_rank = chess.square_rank(pawn_sq)
-    if pawn_color == chess.WHITE and pawn_rank < 3:
-        return False  # rank 4+ in human terms (0-indexed rank 3)
-    if pawn_color == chess.BLACK and pawn_rank > 4:
-        return False
-    path = _path_to_promotion(pawn_sq, pawn_color)
-    if not path:
-        return False
-    for sq in path:
-        if board.piece_at(sq):
-            return False  # path blocked (could be own piece or enemy)
-        for atk in board.attackers(enemy, sq):
-            pc = board.piece_at(atk)
-            if pc and pc.piece_type != chess.KING:
-                return False  # non-king enemy attacks the path
-    for atk in board.attackers(enemy, pawn_sq):
-        pc = board.piece_at(atk)
-        if pc and pc.piece_type != chess.KING:
-            return False  # pawn itself capturable by non-king enemy
-    return True
-
-
-def _defender_can_reach_zone(
-    board: chess.Board,
-    defender_king: chess.Square,
-    catch_zone: Set[chess.Square],
-    side_to_move: chess.Color,
+def _defender_can_capture_promoted_piece(
+    board_after_promotion: chess.Board,
+    promotion_target: int,
     defender_color: chess.Color,
 ) -> bool:
-    """Can the defending king step into the zone (one tempo) or is it
-    already there?
-    """
-    if defender_king in catch_zone:
-        return True
+    if board_after_promotion.turn != defender_color:
+        return False
+    king_square = board_after_promotion.king(defender_color)
+    if king_square is None:
+        return False
+    return any(
+        move.from_square == king_square
+        and move.to_square == promotion_target
+        and board_after_promotion.is_capture(move)
+        for move in board_after_promotion.legal_moves
+    )
 
-    if side_to_move == defender_color:
-        for to_sq in chess.SquareSet(chess.BB_KING_ATTACKS[defender_king]):
-            if to_sq in catch_zone:
-                if chess.Move(defender_king, to_sq) in board.legal_moves:
-                    return True
+
+def _race_is_catchable(
+    board: chess.Board,
+    pawn_square: int,
+    pawn_color: chess.Color,
+) -> bool:
+    """Exact finite race: pawn pushes versus legal defending-king moves."""
+
+    @lru_cache(maxsize=None)
+    def solve(fen: str, tracked_pawn_square: int) -> bool:
+        work = chess.Board(fen)
+        pawn = work.piece_at(tracked_pawn_square)
+        if (
+            pawn is None
+            or pawn.piece_type != chess.PAWN
+            or pawn.color != pawn_color
+        ):
+            return True
+
+        defender_color = not pawn_color
+        if work.turn == pawn_color:
+            pushes = [
+                move
+                for move in work.legal_moves
+                if move.from_square == tracked_pawn_square
+            ]
+            if not pushes:
+                return True
+
+            results = []
+            for move in pushes:
+                after = work.copy(stack=False)
+                after.push(move)
+                if move.promotion:
+                    results.append(
+                        _defender_can_capture_promoted_piece(
+                            after, move.to_square, defender_color
+                        )
+                    )
+                else:
+                    results.append(solve(after.fen(), move.to_square))
+            # The pawn side chooses its best racing push.
+            return all(results)
+
+        king_square = work.king(defender_color)
+        if king_square is None:
+            return False
+        king_moves = [
+            move
+            for move in work.legal_moves
+            if move.from_square == king_square
+        ]
+        if not king_moves:
+            return False
+
+        for move in king_moves:
+            if (
+                move.to_square == tracked_pawn_square
+                and work.is_capture(move)
+            ):
+                return True
+            after = work.copy(stack=False)
+            after.push(move)
+            if solve(after.fen(), tracked_pawn_square):
+                return True
         return False
 
-    return False
+    return solve(board.fen(), pawn_square)
+
+
+def analyze_rule_of_square(
+    board: chess.Board,
+) -> Optional[RuleOfSquareFact]:
+    """Return canonical K+P-vs-K race truth, or None outside V1 scope."""
+    if not board.is_valid():
+        return None
+    critical = _critical_pawn(board)
+    if critical is None:
+        return None
+    pawn_square, pawn_color = critical
+    defender_color = not pawn_color
+    defending_king = board.king(defender_color)
+    if defending_king is None:
+        return None
+    return RuleOfSquareFact(
+        pawn_square=pawn_square,
+        pawn_color=pawn_color,
+        defender_color=defender_color,
+        defending_king_square=defending_king,
+        promotion_square=promotion_square(pawn_square, pawn_color),
+        pawn_pushes_to_promote=pawn_pushes_to_promote(
+            board, pawn_square, pawn_color
+        ),
+        catchable=_race_is_catchable(board, pawn_square, pawn_color),
+    )
+
+
+def is_pure_king_pawn_race(
+    board: chess.Board,
+    pawn_sq: int,
+    pawn_color: chess.Color,
+) -> bool:
+    fact = analyze_rule_of_square(board)
+    return bool(
+        fact
+        and fact.pawn_square == pawn_sq
+        and fact.pawn_color == pawn_color
+    )
 
 
 def detect_rule_of_the_square_application(
@@ -207,93 +241,42 @@ def detect_rule_of_the_square_application(
     move: chess.Move,
     user_color: chess.Color,
 ) -> Optional[str]:
-    """Was this move a clean test of the rule of the square?
-
-    Args:
-        board_before: position immediately before `move` is played.
-        move:         the user's move.
-        user_color:   chess.WHITE or chess.BLACK — the user's side.
-
-    Returns:
-        "applied" | "missed" | None
-
-    See module docstring for the broadened detection rules and the
-    precision guards on the verdict.
-    """
-    if board_before.turn != user_color:
+    """Grade one clean demonstration while unsafe output remains quarantined."""
+    if board_before.turn != user_color or move not in board_before.legal_moves:
         return None
-
-    # Find a passed pawn whose race is the clean test.
-    # If multiple passed pawns qualify, take the first one — multi-race
-    # situations are rare and the rule applies to each independently.
-    qualifying_pawn = None
-    for sq, p in board_before.piece_map().items():
-        if p.piece_type != chess.PAWN:
-            continue
-        if is_pure_king_pawn_race(board_before, sq, p.color):
-            qualifying_pawn = (sq, p.color)
-            break
-
-    if qualifying_pawn is None:
+    fact_before = analyze_rule_of_square(board_before)
+    if fact_before is None:
         return None
-
-    pawn_sq, pawn_color = qualifying_pawn
-    user_is_attacker = (user_color == pawn_color)
-    defender_color = not pawn_color
-    defender_king = board_before.king(defender_color)
-    if defender_king is None:
-        return None
-
-    catch_zone = square_of_the_pawn(pawn_sq, pawn_color)
-    catchable = _defender_can_reach_zone(
-        board_before, defender_king, catch_zone,
-        side_to_move=board_before.turn,
-        defender_color=defender_color,
-    )
-
     moved_piece = board_before.piece_at(move.from_square)
-    if moved_piece is None:
+    if moved_piece is None or moved_piece.color != user_color:
         return None
 
-    is_pawn_push = (
-        moved_piece.piece_type == chess.PAWN
-        and moved_piece.color == user_color
-        and move.from_square == pawn_sq
-    )
-    is_king_move = (
-        moved_piece.piece_type == chess.KING
-        and moved_piece.color == user_color
-    )
+    if user_color == fact_before.pawn_color:
+        if (
+            moved_piece.piece_type == chess.PAWN
+            and move.from_square == fact_before.pawn_square
+        ):
+            return "missed" if fact_before.catchable else "applied"
+        return None
 
-    # PRECISION GUARDS: only credit "applied" when the user clearly
-    # demonstrated the skill, and only flag "missed" when the user
-    # CLEARLY did the wrong thing. For anything ambiguous (e.g. the
-    # attacker walks the king to support a race they've already won),
-    # return None — neither credit nor penalise.
-    if user_is_attacker:
-        if not catchable:
-            # Race wins: pushing is the canonical skill demonstration.
-            # Walking the king is fine in many positions (supporting
-            # the promotion / king activation) — don't penalise.
-            if is_pawn_push:
-                return "applied"
-            return None
-        else:
-            # Race fails: pushing into a lost race is a clear miss.
-            # Bringing the king is the right answer.
-            if is_pawn_push:
-                return "missed"
-            if is_king_move:
-                return "applied"
-            return None
+    if moved_piece.piece_type != chess.KING:
+        return None
+    if not fact_before.catchable:
+        return None
+    if move.to_square == fact_before.pawn_square and board_before.is_capture(move):
+        return "applied"
 
-    # User is the defender — must catch with the king.
-    if defender_king in catch_zone:
-        return None  # already safe; no clean test
-    if not catchable:
-        return None  # lost by force; don't grade
+    board_after = board_before.copy(stack=False)
+    board_after.push(move)
+    fact_after = analyze_rule_of_square(board_after)
+    if fact_after is None:
+        return "applied"
+    return "applied" if fact_after.catchable else "missed"
 
-    # Clean test: must step the king into the zone this move.
-    if is_king_move:
-        return "applied" if move.to_square in catch_zone else "missed"
-    return None  # non-king move — could be tactical, don't grade
+
+def is_rule_of_square_relevant(fen: str, engine=None) -> bool:
+    """Puzzle eligibility adapter; engine is retained for call compatibility."""
+    try:
+        return analyze_rule_of_square(chess.Board(fen)) is not None
+    except (TypeError, ValueError):
+        return False

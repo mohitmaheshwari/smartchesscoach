@@ -56,11 +56,12 @@ def test_detector_returns_applied_when_attacker_pushes_uncatchable_pawn():
     assert detect_rule_of_the_square_application(board, move, chess.WHITE) == "applied"
 
 
-def test_detector_returns_missed_when_attacker_should_have_pushed_but_played_king():
-    # Same uncatchable scenario but white plays king move instead.
+def test_detector_abstains_when_king_move_is_not_a_clean_rule_test():
+    # A king move in this material class is not enough to prove that the
+    # player misunderstood the pawn square. The detector must abstain.
     board = chess.Board("7k/8/8/P7/8/8/8/4K3 w - - 0 1")
     move = board.parse_san("Kd2")
-    assert detect_rule_of_the_square_application(board, move, chess.WHITE) == "missed"
+    assert detect_rule_of_the_square_application(board, move, chess.WHITE) is None
 
 
 def test_detector_returns_none_when_position_is_not_kp_vs_k():
@@ -72,11 +73,11 @@ def test_detector_returns_none_when_position_is_not_kp_vs_k():
 
 # ─── runner contract ──────────────────────────────────────────────────────────
 
-def test_runner_emits_skill_id_applied_tuple():
+def test_runner_quarantines_disabled_rule_of_square_grade():
     board = chess.Board("7k/8/8/P7/8/8/8/4K3 w - - 0 1")
     move = board.parse_san("a6")
     grades = run_detectors_for_move(board, move, chess.WHITE)
-    assert ("endgame_rule_of_square", "applied") in grades
+    assert grades == []
 
 
 def test_runner_skips_non_user_moves_via_caller_responsibility():
@@ -94,10 +95,7 @@ def test_runner_skips_non_user_moves_via_caller_responsibility():
 
 # ─── integration: record_concept_applications_from_game ──────────────────────
 
-def test_record_concept_applications_writes_applied_to_skill_progress():
-    """End-to-end: rule_of_the_square 'applied' grade flows through
-    record_concept_applications_from_game and lands as a SkillProgress
-    record with applied=1, correct=1, and an 'applied' outcome."""
+def test_record_concept_applications_does_not_write_disabled_applied_grade():
     mem = _fresh_memory()
     # Single user move that should grade applied.
     move_evaluations = [
@@ -112,15 +110,14 @@ def test_record_concept_applications_writes_applied_to_skill_progress():
         user_color="white",
         timestamp="2026-05-29T12:00:00+00:00",
     )
-    assert recorded == [("endgame_rule_of_square", "applied")]
+    assert recorded == []
+    assert all(
+        s.skill_id != "endgame_rule_of_square"
+        for s in mem.learning.skills
+    )
 
-    skill = next(s for s in mem.learning.skills if s.skill_id == "endgame_rule_of_square")
-    assert skill.applied == 1
-    assert skill.correct == 1  # applied also bumps correct (see record_skill_attempt)
-    assert "applied" in skill.outcomes
 
-
-def test_record_concept_applications_writes_wrong_when_user_misses():
+def test_record_concept_applications_does_not_write_disabled_wrong_grade():
     mem = _fresh_memory()
     move_evaluations = [
         {
@@ -133,10 +130,11 @@ def test_record_concept_applications_writes_wrong_when_user_misses():
         move_evaluations=move_evaluations,
         user_color="white",
     )
-    assert recorded == [("endgame_rule_of_square", "wrong")]
-    skill = next(s for s in mem.learning.skills if s.skill_id == "endgame_rule_of_square")
-    assert skill.applied == 0
-    assert skill.wrong == 1
+    assert recorded == []
+    assert all(
+        s.skill_id != "endgame_rule_of_square"
+        for s in mem.learning.skills
+    )
 
 
 def test_record_concept_applications_skips_opponent_moves():

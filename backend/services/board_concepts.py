@@ -285,7 +285,7 @@ def trapped_pieces(board: chess.Board, color: chess.Color) -> List[Dict[str, Any
     This is the failure mode that eval-based detectors miss: the cause is board
     geometry, not the evaluation drop that follows it.
     """
-    from coach_play.coach_blunder_guard import material_hung_after, see_gain
+    from coach_play.coach_blunder_guard import piece_value_cp, see_gain
 
     out = []
     if board.turn != color:
@@ -311,13 +311,36 @@ def trapped_pieces(board: chess.Board, color: chess.Color) -> List[Dict[str, Any
         if stay_cost < TRAPPED_FLOOR_CP:
             continue
 
-        # Can any move of this piece reach safety?
+        # Can any move of this piece reach safety? Follow only this piece.
+        # A global "material hung after" value is wrong here: an unrelated
+        # loose piece can otherwise make every escape look unsafe.
         escaped = False
         for mv in board.legal_moves:
             if mv.from_square != sq:
                 continue
-            worst, _ = material_hung_after(board, mv)
-            if worst < TRAPPED_FLOOR_CP:
+
+            captured = board.piece_at(mv.to_square)
+            capture_credit = (
+                piece_value_cp(captured.piece_type)
+                if captured is not None and captured.color != color
+                else 0
+            )
+
+            after = board.copy(stack=False)
+            after.push(mv)
+            destination_loss = 0
+            for reply in after.legal_moves:
+                if after.is_capture(reply) and reply.to_square == mv.to_square:
+                    destination_loss = max(
+                        destination_loss,
+                        see_gain(after, reply),
+                    )
+
+            # Trading the escaping piece for enemy material is not the same as
+            # simply losing it. Credit what the escape captured before naming
+            # the remaining net loss.
+            net_loss = max(0, destination_loss - capture_credit)
+            if net_loss < TRAPPED_FLOOR_CP:
                 escaped = True
                 break
         if escaped:
@@ -331,6 +354,35 @@ def trapped_pieces(board: chess.Board, color: chess.Color) -> List[Dict[str, Any
             "cost_cp": stay_cost,
         })
     return out
+
+
+def newly_trapped_pieces(
+    board: chess.Board,
+    move: chess.Move,
+) -> List[Dict[str, Any]]:
+    """Own pieces that become trapped as a direct state change of move.
+
+    The post-move position is probed with the mover to move again because this
+    function measures that side's escape geometry, not the real turn order.
+    Capturability on the opponent's actual reply remains part of
+    trapped_pieces via SEE.
+    """
+    if move not in board.legal_moves:
+        return []
+
+    color = board.turn
+    before = {item["square"] for item in trapped_pieces(board, color)}
+
+    after = board.copy(stack=False)
+    after.push(move)
+    probe = after.copy(stack=False)
+    probe.turn = color
+
+    return [
+        item
+        for item in trapped_pieces(probe, color)
+        if item["square"] not in before
+    ]
 
 
 def detect_all(board: chess.Board) -> Dict[str, Any]:

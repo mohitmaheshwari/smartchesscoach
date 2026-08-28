@@ -35,8 +35,8 @@ from services.board_concepts import (
     _path_clear,
     _steps_to_promote,
     back_rank_weakness,
+    newly_trapped_pieces,
     opposition,
-    trapped_pieces,
 )
 
 logger = logging.getLogger(__name__)
@@ -191,29 +191,14 @@ def _allowed_back_rank_mate(board: chess.Board, move: chess.Move) -> Optional[Di
 
 def _trapped_own_piece(board: chess.Board, move: chess.Move) -> Optional[Dict[str, Any]]:
     """Did this move walk one of the mover's own pieces into a trap?"""
-    me = board.turn
-    before = {t["square"] for t in trapped_pieces(board, me)}
-
-    after = board.copy(stack=False)
-    after.push(move)
-    # trapped_pieces reports for the side to move; after our move it is theirs,
-    # so ask about the position as if it were ours again.
-    probe = after.copy(stack=False)
-    probe.turn = me
-    now = trapped_pieces(probe, me)
-    fresh = [t for t in now if t["square"] not in before]
+    fresh = newly_trapped_pieces(board, move)
     if not fresh:
         return None
 
     for alt in list(board.legal_moves)[:MAX_ALTERNATIVES]:
         if alt == move:
             continue
-        ab = board.copy(stack=False)
-        ab.push(alt)
-        pb = ab.copy(stack=False)
-        pb.turn = me
-        alt_trapped = {t["square"] for t in trapped_pieces(pb, me)}
-        if not (alt_trapped - before):
+        if not newly_trapped_pieces(board, alt):
             t = fresh[0]
             return {
                 "concept": "trapped_piece",
