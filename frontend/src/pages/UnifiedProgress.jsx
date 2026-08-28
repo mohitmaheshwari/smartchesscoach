@@ -26,6 +26,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import {
   AnimatedNumber,
   staggerContainer,
@@ -207,6 +208,12 @@ const UnifiedProgress = ({ user }) => {
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
   const [calibration, setCalibration] = useState(null);
+
+  useEffect(() => {
+    trackCurriculum(ANALYTICS_EVENTS.PROGRESS_VIEWED, {
+      surface: "legacy_progress",
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {

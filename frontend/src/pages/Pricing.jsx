@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
@@ -58,7 +58,7 @@ export default function Pricing() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  useEffect(() => { track("funnel_paywall_viewed"); }, []);
+  useEffect(() => { track(ANALYTICS_EVENTS.FUNNEL_PAYWALL_VIEWED); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,7 +139,7 @@ export default function Pricing() {
         handler: async (rzpResponse) => {
           // 3. Verify on the server
           try {
-            track("funnel_payment_attempted");
+            track(ANALYTICS_EVENTS.FUNNEL_PAYMENT_ATTEMPTED);
             const verifyRes = await fetch(`${API}/billing/verify-payment`, {
               method: "POST",
               credentials: "include",
@@ -155,7 +155,7 @@ export default function Pricing() {
               setError(data.detail || "Payment verification failed.");
               return;
             }
-            track("funnel_payment_success");
+            track(ANALYTICS_EVENTS.FUNNEL_PAYMENT_SUCCESS);
             setSuccess(true);
             setTimeout(() => navigate("/home"), 2500);
           } catch {
@@ -196,9 +196,9 @@ export default function Pricing() {
             Train smarter, not just harder.
           </h1>
           <p className="text-base text-gray-400 max-w-xl mx-auto">
-            Free is enough to feel the coach. Pro is for players who want
-            the full closed loop — every game watched, every pattern
-            tracked.
+            Free lets you experience the current coach. Recurring Pro
+            subscriptions will open after the complete coaching and billing
+            lifecycle has been verified.
           </p>
           {config?.test_mode && (
             <div className="inline-block mt-6 px-3 py-1.5 rounded-md bg-amber-500/[0.08] border border-amber-500/20 text-amber-300 text-[12px]">
@@ -243,12 +243,13 @@ export default function Pricing() {
             <div className="text-xs uppercase tracking-wider text-amber-400/70 mb-2">Pro</div>
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-4xl font-heading font-bold text-white">
-                {formatINR(config?.amount)}
+                {config?.enabled ? formatINR(config?.amount) : "Coming soon"}
               </span>
-              <span className="text-sm text-gray-500">/month</span>
+              {config?.enabled && <span className="text-sm text-gray-500">/month</span>}
             </div>
             <p className="text-sm text-gray-400 mb-6">
-              The full closed loop. Cancel any time.
+              Ongoing coaching will be sold only after renewal, cancellation
+              and verified-progress behavior match what this page promises.
             </p>
             <ul className="space-y-2.5 mb-8">
               {PRO_FEATURES.map((f) => (
@@ -273,7 +274,7 @@ export default function Pricing() {
             ) : (
               <button
                 onClick={handleSubscribe}
-                disabled={submitting || !config}
+                disabled={submitting || !config?.enabled}
                 data-testid="subscribe-button"
                 className="w-full px-5 py-3 text-sm font-semibold text-black rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
               >
@@ -281,7 +282,7 @@ export default function Pricing() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    Subscribe to Pro
+                    {config?.enabled ? "Subscribe to Pro" : "Subscriptions temporarily unavailable"}
                     <ChevronRight className="w-4 h-4" />
                   </>
                 )}

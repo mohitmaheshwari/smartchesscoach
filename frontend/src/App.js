@@ -101,6 +101,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
   const [redirectTarget, setRedirectTarget] = useState(null);
   const location = useLocation();
   const demoBypass = location.search.includes('demo=true') || window.sessionStorage.getItem('demo_mode_bypass') === 'true';
+  const activationHubBypass = location.state?.fromActivationHub === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -126,7 +127,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
         setUser(userData);
         setIsAuthenticated(true);
 
-        if (!skipOnboardingCheck && !demoBypass) {
+        if (!skipOnboardingCheck && !demoBypass && !activationHubBypass) {
           const onboardingResponse = await fetch(`${API}/onboarding/status`, {
             credentials: 'include'
           });
@@ -162,7 +163,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, location.search, location.state, skipOnboardingCheck, demoBypass]);
+  }, [location.pathname, location.search, location.state, skipOnboardingCheck, demoBypass, activationHubBypass]);
 
   if (!isResolved) {
     return (
@@ -176,7 +177,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
     return <Navigate to="/" replace />;
   }
   
-  if (redirectTarget === '/welcome' && !skipOnboardingCheck && !demoBypass) {
+  if (redirectTarget === '/welcome' && !skipOnboardingCheck && !demoBypass && !activationHubBypass) {
     return <Navigate to="/welcome" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 

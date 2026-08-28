@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const newInteractionId = () =>
   globalThis.crypto?.randomUUID?.() ||
@@ -32,7 +32,7 @@ export default function PICPieceSafetyLesson({ projection }) {
         if (!response.ok) throw new Error(result.detail || "Could not start this lesson");
         if (!cancelled) {
           setSession(result);
-          track("pic_lesson_started", {
+          track(ANALYTICS_EVENTS.PIC_LESSON_STARTED, {
             resumed: result.current_index > 0,
             total_items: result.total_items,
           });
@@ -69,7 +69,7 @@ export default function PICPieceSafetyLesson({ projection }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Could not check that move");
       setFeedback(result);
-      track("pic_lesson_move_checked", {
+      track(ANALYTICS_EVENTS.PIC_LESSON_MOVE_CHECKED, {
         correct: result.correct,
         item_id: currentItem.item_id,
       });

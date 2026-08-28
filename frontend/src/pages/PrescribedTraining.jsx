@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
@@ -115,6 +115,7 @@ export default function PrescribedTraining() {
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
   const boardRef = useRef(null);
+  const lessonStartedRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,6 +345,20 @@ export default function PrescribedTraining() {
 
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
+
+  useEffect(() => {
+    if (!currentPuzzle) return;
+    const contentId = selectedModule?.module_id || selectedModule?.id || weakness;
+    if (lessonStartedRef.current === contentId) return;
+    lessonStartedRef.current = contentId;
+    trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+      surface: "legacy_prescribed_training",
+      content_type: planId ? "prescribed_drill" : "pattern_drill",
+      content_id: contentId,
+      origin: planId ? "prescription" : "training",
+      is_recommended: Boolean(planId),
+    });
+  }, [currentPuzzle, planId, selectedModule, weakness]);
   
   // Handle move attempt
   const onDrop = async (sourceSquare, targetSquare) => {
@@ -461,6 +476,16 @@ export default function PrescribedTraining() {
   const recordAttempt = async (puzzle, solved, quality = null) => {
     try {
       track(ANALYTICS_EVENTS.FUNNEL_TRAINING_SOLVE);
+      trackCurriculum(ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT, {
+        surface: "legacy_prescribed_training",
+        content_type: planId ? "prescribed_drill" : "pattern_drill",
+        content_id: selectedModule?.module_id || selectedModule?.id || weakness,
+        origin: planId ? "prescription" : "training",
+        support_level: "none",
+        outcome: solved ? "correct" : "incorrect",
+        position_index: currentPuzzleIndex,
+        is_recommended: Boolean(planId),
+      });
       await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

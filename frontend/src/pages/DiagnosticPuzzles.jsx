@@ -12,7 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import { API } from "@/App";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import LichessBoard from "@/components/LichessBoard";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -82,9 +82,9 @@ const DiagnosticPuzzles = () => {
           // session are different user stories -- don't conflate them
           // into one "started" event.
           if ((data.current_index || 1) <= 1) {
-            track("diagnostic_started");
+            track(ANALYTICS_EVENTS.DIAGNOSTIC_STARTED);
           } else {
-            track("diagnostic_resumed", { puzzle_number: data.current_index });
+            track(ANALYTICS_EVENTS.DIAGNOSTIC_RESUMED, { puzzle_number: data.current_index });
           }
           setPuzzle(data.puzzle);
           setPuzzleNumber(data.current_index || 1);
@@ -113,7 +113,7 @@ const DiagnosticPuzzles = () => {
   useEffect(() => {
     const onVisibility = () => {
       if (document.hidden && puzzle && !verdict) {
-        track("diagnostic_pause", { puzzle_number: puzzleNumber });
+        track(ANALYTICS_EVENTS.DIAGNOSTIC_PAUSE, { puzzle_number: puzzleNumber });
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -128,7 +128,7 @@ const DiagnosticPuzzles = () => {
   useEffect(() => {
     if (diagnosis && !insightShownFiredRef.current) {
       insightShownFiredRef.current = true;
-      track("insight_shown", {
+      track(ANALYTICS_EVENTS.INSIGHT_SHOWN, {
         insight_id: "diagnostic_headline_gap",
         source: "diagnostic",
         version: 1,
@@ -185,13 +185,13 @@ const DiagnosticPuzzles = () => {
 
       if (!firstAnswerFiredRef.current) {
         firstAnswerFiredRef.current = true;
-        track("diagnostic_first_answer");
+        track(ANALYTICS_EVENTS.DIAGNOSTIC_FIRST_ANSWER);
       }
       // Deliberately no verdict/correctness in the props -- per the
       // residency review, the funnel question is "where does commitment
       // break," not "grade every answer." puzzle_number is enough to
       // plot the drop-off curve.
-      track("diagnostic_puzzle_completed", { puzzle_number: puzzleNumber });
+      track(ANALYTICS_EVENTS.DIAGNOSTIC_PUZZLE_COMPLETED, { puzzle_number: puzzleNumber });
 
       // Show the verdict card so the user gets feedback.
       setVerdict({
@@ -206,7 +206,7 @@ const DiagnosticPuzzles = () => {
       }
 
       if (data.status === "complete") {
-        track("diagnostic_completed", { exited_early: false, puzzle_count: puzzleNumber });
+        track(ANALYTICS_EVENTS.DIAGNOSTIC_COMPLETED, { exited_early: false, puzzle_count: puzzleNumber });
         // Hold the verdict briefly, then reveal the diagnosis.
         setTimeout(() => {
           setDiagnosis(data.diagnosis);
@@ -232,7 +232,7 @@ const DiagnosticPuzzles = () => {
 
   // ── Finish early — score whatever's solved and STILL build the profile ──
   const handleExit = async () => {
-    track("diagnostic_abandoned", { puzzle_number: puzzleNumber });
+    track(ANALYTICS_EVENTS.DIAGNOSTIC_ABANDONED, { puzzle_number: puzzleNumber });
     try {
       const res = await fetch(`${API}/diagnostic/exit`, {
         method: "POST",
@@ -241,7 +241,7 @@ const DiagnosticPuzzles = () => {
       if (res.ok) {
         const data = await res.json();
         if (data.diagnosis) {
-          track("diagnostic_completed", { exited_early: true, puzzle_count: puzzleNumber - 1 });
+          track(ANALYTICS_EVENTS.DIAGNOSTIC_COMPLETED, { exited_early: true, puzzle_count: puzzleNumber - 1 });
           setDiagnosis(data.diagnosis);
           return;
         }
@@ -395,7 +395,7 @@ const DiagnosticPuzzles = () => {
               variant="default"
               className="flex-1"
               onClick={() => {
-                track("diagnostic_training_started", { headline_gap: headline_gap || null });
+                track(ANALYTICS_EVENTS.DIAGNOSTIC_TRAINING_STARTED, { headline_gap: headline_gap || null });
                 headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training");
               }}
               data-testid="diagnostic-start-training"
@@ -447,7 +447,7 @@ const DiagnosticPuzzles = () => {
           </div>
           <button
             onClick={() => {
-              track("diagnostic_exit_intent_shown", { puzzle_number: puzzleNumber });
+              track(ANALYTICS_EVENTS.DIAGNOSTIC_EXIT_INTENT_SHOWN, { puzzle_number: puzzleNumber });
               setShowExitConfirm(true);
             }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"

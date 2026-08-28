@@ -36,6 +36,7 @@ import TrapPractice from "@/components/openings/TrapPractice";
 import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
 const OpeningLesson = () => {
   const { openingKey } = useParams();
@@ -44,6 +45,7 @@ const OpeningLesson = () => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
+  const lessonStartedRef = useRef(null);
   
   // Get current game mistake passed from Lab page
   const currentGameMistake = location.state?.currentGameMistake;
@@ -75,6 +77,16 @@ const OpeningLesson = () => {
         if (res.ok) {
           const data = await res.json();
           setLesson(data);
+          if (lessonStartedRef.current !== openingKey) {
+            lessonStartedRef.current = openingKey;
+            trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
+              surface: "legacy_opening_lesson",
+              content_type: "opening",
+              content_id: openingKey,
+              origin: "lesson_route",
+              is_recommended: false,
+            });
+          }
           // Reset board state when variation changes
           setCurrentMoveIndex(-1);
           chessRef.current.reset();
@@ -526,7 +538,16 @@ const OpeningLesson = () => {
                 onComplete={() => {
                   console.log("Lesson completed");
                 }}
-                onStartPractice={() => setActiveTab("practice")}
+                onStartPractice={() => {
+                  trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
+                    surface: "legacy_opening_lesson",
+                    content_type: "opening",
+                    content_id: openingKey,
+                    origin: "lesson_route",
+                    is_recommended: false,
+                  });
+                  setActiveTab("practice");
+                }}
               />
               
               {/* Key Ideas - Collapsed reference */}
@@ -677,6 +698,7 @@ const OpeningLesson = () => {
                     {selectedTrap && trapPracticeMode ? (
                       <TrapPractice
                         trap={selectedTrap}
+                        openingKey={openingKey}
                         onClose={closeTrapPractice}
                         onComplete={onTrapComplete}
                       />
