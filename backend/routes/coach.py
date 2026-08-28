@@ -4311,6 +4311,30 @@ async def get_pattern_progress(user: User = Depends(get_current_user)):
 # email promise = page delivery. See services/moments_topic_registry.py +
 # docs/email_page_contract.md.
 
+@router.get("/coaching-context/{surface}")
+async def get_coaching_context(
+    surface: str,
+    game_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """Return the default-off canonical context for one core surface."""
+    from services.focus_bridge import (
+        COACHING_CONTEXT_SURFACES,
+        build_coaching_context,
+    )
+
+    if surface not in COACHING_CONTEXT_SURFACES:
+        raise HTTPException(status_code=404, detail="Unknown coaching surface")
+    context = await build_coaching_context(
+        db,
+        user.user_id,
+        surface=surface,
+        game_id=game_id,
+    )
+    if context is None:
+        raise HTTPException(status_code=404, detail="Coaching context is not enabled")
+    return context
+
 @router.get("/active-focus")
 async def get_active_focus(user: User = Depends(get_current_user)):
     """Return the user's currently-locked coaching focus (if any).
@@ -4332,6 +4356,22 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         "runners_up": [...]      # top-3 alternate patterns for blended coaching
       }
     """
+    # Default-off migration seam. Eligible flag-on users receive the canonical
+    # context before this legacy handler can re-query Mongo or recompute trend.
+    # Ineligible and flag-off users retain the byte-for-byte legacy path.
+    from services.focus_bridge import build_coaching_context
+    coaching_context = await build_coaching_context(
+        db,
+        user.user_id,
+        surface="home",
+    )
+    if coaching_context is not None:
+        return {
+            "has_focus": coaching_context.get("primary_focus") is not None,
+            "has_strength": False,
+            "coaching_context": coaching_context,
+        }
+
     from services.primary_weakness_picker import COLLECTION
     from datetime import datetime, timezone
     # Weakness focus: any doc without an explicit type OR type="weakness"
@@ -4345,6 +4385,23 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         {"user_id": user.user_id, "status": "active", "type": "strength"},
         {"_id": 0}
     )
+    from services.detector_quality import (
+        QualitySurface,
+        can_influence,
+        focus_document_is_authorized,
+        shape_quality_id,
+    )
+    if focus and not focus_document_is_authorized(focus):
+        focus = None
+    if strength and strength.get("kind") == "pattern":
+        _metric_key = str(strength.get("metric_key") or "")
+        _pattern_id = _metric_key
+        if _metric_key.startswith("pattern_") and _metric_key.endswith("_rate"):
+            _pattern_id = _metric_key[len("pattern_"):-len("_rate")]
+        if not can_influence(
+            shape_quality_id(_pattern_id), QualitySurface.PLAN
+        ):
+            strength = None
     if not focus and not strength:
         return {"has_focus": False, "has_strength": False}
 

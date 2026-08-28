@@ -9,11 +9,12 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
 import DifficultySelector from "@/components/training/DifficultySelector";
+import CanonicalTrainingAssignment from "@/components/training/CanonicalTrainingAssignment";
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import { Chess } from "chess.js";
@@ -77,6 +78,7 @@ export default function PrescribedTraining() {
   const picCandidate = weakness === "piece_safety" || weakness === "current";
   const [picProjection, setPicProjection] = useState(null);
   const [picCheckPending, setPicCheckPending] = useState(picCandidate);
+  const [canonicalContext, setCanonicalContext] = useState(null);
   
   // [PART C] Module and prescription state
   const planId = searchParams.get("plan");
@@ -118,6 +120,7 @@ export default function PrescribedTraining() {
     let cancelled = false;
     if (!picCandidate) {
       setPicProjection(null);
+      setCanonicalContext(null);
       setPicCheckPending(false);
       return () => {
         cancelled = true;
@@ -130,9 +133,15 @@ export default function PrescribedTraining() {
         if (cancelled) return;
         const projection = data?.personal_improvement_cycle;
         setPicProjection(projection?.eligible ? projection : null);
+        setCanonicalContext(
+          weakness === "current" ? data?.coaching_context || null : null
+        );
       })
       .catch(() => {
-        if (!cancelled) setPicProjection(null);
+        if (!cancelled) {
+          setPicProjection(null);
+          setCanonicalContext(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setPicCheckPending(false);
@@ -140,7 +149,7 @@ export default function PrescribedTraining() {
     return () => {
       cancelled = true;
     };
-  }, [picCandidate]);
+  }, [picCandidate, weakness]);
   
   // Fetch prescribed training
   useEffect(() => {
@@ -451,7 +460,7 @@ export default function PrescribedTraining() {
   // evaluator ran; omitted on binary-match fallback.
   const recordAttempt = async (puzzle, solved, quality = null) => {
     try {
-      track("funnel_training_solve");
+      track(ANALYTICS_EVENTS.FUNNEL_TRAINING_SOLVE);
       await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -626,6 +635,8 @@ export default function PrescribedTraining() {
           <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
           Back
         </button>
+
+        <CanonicalTrainingAssignment context={canonicalContext} />
 
         {/* [PART C] Module selector — shown when viewing a training plan */}
         {modules && modules.modules && modules.modules.length > 0 && (

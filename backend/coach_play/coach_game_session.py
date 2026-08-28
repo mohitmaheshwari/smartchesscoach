@@ -118,6 +118,11 @@ class CoachGameSession:
     # focus_bundle) — topic_key + subtype + narrative + histogram.
     session_focus: Optional[Dict] = None
 
+    # Default-off canonical cross-surface context. This is an immutable
+    # historical snapshot for the session; the next session rebuilds it from
+    # focus_bridge rather than chaining from this stored copy.
+    coaching_context: Optional[Dict] = None
+
     # Async coaching state
     coach_move_pending: bool = False  # Whether coach is still thinking
     last_coach_move: Optional[Dict] = None  # Last move made by coach
@@ -296,6 +301,7 @@ async def start_coach_session(
     # game_mirror kept as fallback for users without a picked focus yet.
     student_weaknesses: List[str] = []
     focus_bundle = None
+    coaching_context = None
     try:
         from services.focus_bridge import get_active_focus_bundle
         focus_bundle = await get_active_focus_bundle(db, user_id)
@@ -311,8 +317,38 @@ async def start_coach_session(
     except Exception as e:
         logger.warning(f"focus_bridge lookup failed for {user_id}: {e}")
 
+    # Eligible flag-on sessions must carry the same strict Plan-authorized
+    # context as Home/Review/Training. A canonical no-focus state deliberately
+    # clears the permissive legacy bundle instead of falling through to a rival
+    # picker.
+    try:
+        from services.focus_bridge import build_coaching_context
+        coaching_context = await build_coaching_context(
+            db,
+            user_id,
+            surface="coach_play",
+        )
+        if coaching_context is not None:
+            primary = coaching_context.get("primary_focus")
+            if not primary:
+                focus_bundle = None
+                student_weaknesses = []
+            elif (
+                not focus_bundle
+                or focus_bundle.get("focus_id") != primary.get("focus_id")
+            ):
+                logger.warning(
+                    "canonical coaching context did not match focus bundle; "
+                    "session focus failed closed"
+                )
+                focus_bundle = None
+                student_weaknesses = []
+    except Exception as e:
+        logger.warning(f"coaching_context build failed for {user_id}: {e}")
+        coaching_context = None
+
     # Legacy fallback — only if focus_bridge has nothing
-    if not student_weaknesses:
+    if not student_weaknesses and coaching_context is None:
         try:
             from services.game_mirror import get_established_patterns
             patterns, _ = await get_established_patterns(db, user_id)
@@ -329,23 +365,36 @@ async def start_coach_session(
     # from the existing player identity engine (personal) or a rating-band default.
     # Best-effort — never blocks the session start.
     session_goal = None
-    try:
-        from services.session_goal_service import derive_session_goal
-        session_goal = await derive_session_goal(db, user_id, user_rating)
-        logger.info(
-            f"session_goal for {user_id}: source={session_goal.get('source')} "
-            f"focus={session_goal.get('focus_area')}"
-        )
-    except Exception as e:
-        logger.warning(f"session_goal derivation failed for {user_id}: {e}")
+    if coaching_context is not None:
+        primary = coaching_context.get("primary_focus")
+        if primary:
+            session_goal = {
+                "text": primary.get("instruction_text"),
+                "focus_area": primary.get("topic_key"),
+                "source": "coaching_context.v1",
+                "confidence": "verified",
+                "focus_id": primary.get("focus_id"),
+                "instruction_id": primary.get("instruction_id"),
+            }
+    else:
+        try:
+            from services.session_goal_service import derive_session_goal
+            session_goal = await derive_session_goal(db, user_id, user_rating)
+            logger.info(
+                f"session_goal for {user_id}: source={session_goal.get('source')} "
+                f"focus={session_goal.get('focus_area')}"
+            )
+        except Exception as e:
+            logger.warning(f"session_goal derivation failed for {user_id}: {e}")
 
     # 2026-07-03 (P3): warm greeting from session_greeting_service (uses focus + last-session)
     session_greeting: Optional[Dict] = None
-    try:
-        from services.session_greeting_service import build_session_greeting
-        session_greeting = await build_session_greeting(db, user_id)
-    except Exception as e:
-        logger.warning(f"session_greeting failed for {user_id}: {e}")
+    if coaching_context is None:
+        try:
+            from services.session_greeting_service import build_session_greeting
+            session_greeting = await build_session_greeting(db, user_id)
+        except Exception as e:
+            logger.warning(f"session_greeting failed for {user_id}: {e}")
 
     # 2026-07-03 (P1): initialize mission_scoreboard from focus_bridge bundle
     initial_scoreboard: Optional[Dict] = None
@@ -393,6 +442,7 @@ async def start_coach_session(
         # session_focus.topic_key without depending on the conductor's
         # lazy-load path. focus_bundle is already loaded above (line ~286).
         session_focus=focus_bundle,
+        coaching_context=coaching_context,
         game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
     )
 

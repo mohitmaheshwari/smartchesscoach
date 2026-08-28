@@ -9,11 +9,12 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
 import { navFade, fadeInUp } from "@/lib/motion";
+import { coachPlayFocusRule } from "@/lib/coachingContext";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
@@ -1192,7 +1193,7 @@ const CoachPlay = ({ user }) => {
   };
 
   const actuallyStartGame = async () => {
-    track("funnel_pwc_started");
+    track(ANALYTICS_EVENTS.FUNNEL_PWC_STARTED);
     setShowPreGameStreakPopup(false);
     setLoading(true);
     // Reset emotional state tracking for new game
@@ -1213,8 +1214,15 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
       });
       const canonical = canonicalRes.ok ? await canonicalRes.json() : null;
-      const pic = canonical?.personal_improvement_cycle;
-      if (pic?.eligible) {
+      const context = canonical?.coaching_context;
+      const canonicalRule = coachPlayFocusRule(context, gameMode);
+      if (context) {
+        trainingFocusCognitivGap = context.primary_focus?.topic_key || null;
+        setFocusRule(canonicalRule);
+        setShowFocusBanner(Boolean(canonicalRule));
+      } else {
+        const pic = canonical?.personal_improvement_cycle;
+        if (pic?.eligible) {
         trainingFocusCognitivGap = "piece_safety";
         setFocusRule({
           name: `${pic.focus_label} · ${pic.learner_state?.label || "Learning"}`,
@@ -1226,22 +1234,23 @@ const CoachPlay = ({ user }) => {
         });
         setShowFocusBanner(true);
         setTimeout(() => setShowFocusBanner(false), 6000);
-      } else {
-        const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
-      if (focusRes.ok) {
-        const focusData = await focusRes.json();
-        const coaching = focusData.coaching;
-        if (coaching?.rule && coaching?.diagnosis) {
-          setFocusRule({
-            name: coaching.rule.name,
-            rule: coaching.rule.rule,
-            pattern: coaching.root_problem?.pattern,
-          });
-          setShowFocusBanner(true);
-          // Auto-hide after 6 seconds
-          setTimeout(() => setShowFocusBanner(false), 6000);
+        } else {
+          const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+          if (focusRes.ok) {
+            const focusData = await focusRes.json();
+            const coaching = focusData.coaching;
+            if (coaching?.rule && coaching?.diagnosis) {
+              setFocusRule({
+                name: coaching.rule.name,
+                rule: coaching.rule.rule,
+                pattern: coaching.root_problem?.pattern,
+              });
+              setShowFocusBanner(true);
+              // Auto-hide after 6 seconds
+              setTimeout(() => setShowFocusBanner(false), 6000);
+            }
+          }
         }
-      }
       }
     } catch (e) { /* non-fatal */ }
     
@@ -1308,6 +1317,14 @@ const CoachPlay = ({ user }) => {
         throw new Error(data.detail || "Failed to start game");
       }
       setSession(data.session);
+      if (data.coaching_context) {
+        const canonicalRule = coachPlayFocusRule(data.coaching_context, gameMode);
+        setFocusRule(canonicalRule);
+        setShowFocusBanner(Boolean(canonicalRule));
+      } else if (gameMode === "play") {
+        setFocusRule(null);
+        setShowFocusBanner(false);
+      }
       // Ensure we have a valid FEN
       const validFen = data.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
       setCurrentFen(validFen);

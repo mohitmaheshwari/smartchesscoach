@@ -502,6 +502,8 @@ async def _get_cohort_signals(
     if see_backed_only:
         query["schema_version"] = {"$gte": 16}
     obs = await db.move_observations.find(query).to_list(length=25000)
+    from services.detector_quality import sanitize_plan_observation
+    obs = [sanitize_plan_observation(item) for item in obs]
     return aggregate_user_signals(obs), len(obs)
 
 
@@ -552,6 +554,20 @@ async def _compute_baseline_metric(
         "user_id": user_id,
         "missed_pattern": topic,
     }
+    from services.detector_quality import (
+        authorized_gap_subtypes,
+        enforcement_enabled,
+    )
+    if enforcement_enabled():
+        authorized_subtypes = authorized_gap_subtypes(topic)
+        if not authorized_subtypes:
+            return {
+                "name": f"{topic}_per_game",
+                "value": 0.0,
+                "occurrence_count": 0,
+                "n_games_at_baseline": games_analyzed,
+            }
+        observation_query["subtype"] = {"$in": list(authorized_subtypes)}
     if see_backed_only:
         observation_query["schema_version"] = {"$gte": 16}
     total = await db.move_observations.count_documents(observation_query)
@@ -864,6 +880,14 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
     }
+
+    from services.detector_quality import gap_quality_id, grade_for
+    dominant_subtype = picked.get("dominant_subtype_at_assignment")
+    detector_quality_id = gap_quality_id(picked["topic"], dominant_subtype)
+    focus["detector_quality_id"] = detector_quality_id
+    focus["detector_quality_grade"] = grade_for(
+        detector_quality_id
+    ).value
 
     simple_hang_count = int(
         ((picked.get("subtype_histogram") or {}).get("simple_hang") or {}).get(

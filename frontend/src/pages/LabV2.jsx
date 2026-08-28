@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -70,6 +70,7 @@ import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
 import CoachSession from "@/components/coach/CoachSession";
 import CoachAction from "@/components/Lab/CoachAction";
 import CoachMovePanel from "@/components/coach/CoachMovePanel";
+import CanonicalReviewFocus from "@/components/experience/CanonicalReviewFocus";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -384,6 +385,7 @@ const LabV2 = ({ user }) => {
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   const [focusModule, setFocusModule] = useState(null);
+  const [coachingContext, setCoachingContext] = useState(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -426,7 +428,7 @@ const LabV2 = ({ user }) => {
   const tabsVisitedRef = useRef(new Set(["decrypt"])); // Track which tabs user visited
   
   // Track tab visits
-  useEffect(() => { track("funnel_review_opened"); }, []);
+  useEffect(() => { track(ANALYTICS_EVENTS.FUNNEL_REVIEW_OPENED); }, []);
 
   useEffect(() => {
     tabsVisitedRef.current.add(viewMode);
@@ -477,17 +479,34 @@ const LabV2 = ({ user }) => {
           if (crRes.ok) setCoachReview(await crRes.json());
         } catch (e) { /* non-fatal */ }
         
-        // Fetch focus module
+        // Prefer the default-off canonical focus connection. When the endpoint
+        // is unavailable, preserve the legacy priority request unchanged.
+        let canonicalContextLoaded = false;
         try {
-          const focusRes = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
-          if (focusRes.ok) {
-            const focusData = await focusRes.json();
-            if (focusData.primary_focus) {
-              setFocusModule(focusData.primary_focus);
-            }
+          const contextRes = await fetch(
+            `${API}/coach/coaching-context/review?game_id=${encodeURIComponent(gameId)}`,
+            { credentials: "include" }
+          );
+          if (contextRes.ok) {
+            setCoachingContext(await contextRes.json());
+            canonicalContextLoaded = true;
           }
         } catch (e) {
-          // Focus module not critical
+          // Default-off endpoint is non-critical; legacy fallback follows.
+        }
+
+        if (!canonicalContextLoaded) {
+          try {
+            const focusRes = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
+            if (focusRes.ok) {
+              const focusData = await focusRes.json();
+              if (focusData.primary_focus) {
+                setFocusModule(focusData.primary_focus);
+              }
+            }
+          } catch (e) {
+            // Focus module not critical
+          }
         }
         
       } catch (error) {
@@ -1459,6 +1478,16 @@ const LabV2 = ({ user }) => {
               </p>
             </div>
           )}
+          {coachingContext && (
+            <div className="px-5 pb-4 pt-1 max-w-[900px]">
+              <CanonicalReviewFocus
+                context={coachingContext}
+                onMoveSelect={(moveNumber) => {
+                  navigate(`/game/${gameId}?move=${moveNumber}`, { replace: true });
+                }}
+              />
+            </div>
+          )}
         </div>
         
         {/* MAIN CONTENT - Conditional based on viewMode */}
@@ -1466,6 +1495,7 @@ const LabV2 = ({ user }) => {
           /* Game Decryption View - Step-by-step explanations */
           <div className="flex-1 overflow-auto">
             <GameDecryptionV5
+              key={`${gameId}:${initialMoveParam || "start"}`}
               gameId={gameId}
               analysis={analysis}
               pgn={game?.pgn}

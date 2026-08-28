@@ -25,6 +25,13 @@ from typing import Iterable, List, Optional, Tuple
 import chess
 
 from services.concept_detectors.registry import all_detectors
+from services.detector_quality import (
+    QualityGrade,
+    QualitySurface,
+    can_influence,
+    concept_quality_id,
+    grade_for,
+)
 
 # Detectors beyond the documented 3-arg contract (board_before, move,
 # user_color) declare extra optional kwargs — trap_detection and
@@ -66,6 +73,7 @@ def run_detectors_for_move(
     move_number: Optional[int] = None,
     opening_name: Optional[str] = None,
     move_history_san: Optional[List[str]] = None,
+    include_shadow: bool = False,
 ) -> List[Tuple[str, str]]:
     """Run every registered detector against a move.
 
@@ -84,6 +92,10 @@ def run_detectors_for_move(
     """
     results: List[Tuple[str, str]] = []
     for skill_id, detector in all_detectors().items():
+        quality_id = concept_quality_id(skill_id)
+        grade = grade_for(quality_id)
+        if grade == QualityGrade.DISABLED:
+            continue
         try:
             accepted = _extra_kwargs_accepted(detector)
             kwargs = {}
@@ -96,6 +108,10 @@ def run_detectors_for_move(
             verdict = detector(board_before, move, user_color, **kwargs)
         except Exception:
             # Detector bugs must not poison the move pipeline.
+            continue
+        if not include_shadow and not can_influence(
+            quality_id, QualitySurface.MASTERY
+        ):
             continue
         if verdict == "applied":
             results.append((skill_id, "applied"))

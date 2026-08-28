@@ -37,6 +37,11 @@ import chess
 
 from services.shape_detectors import detect_all_shapes, verify_with_engine_data
 from services.shape_patterns import PATTERNS_BY_ID
+from services.detector_quality import (
+    QualitySurface,
+    can_influence,
+    shape_quality_id,
+)
 
 
 def _is_relevant_to_move(
@@ -335,6 +340,16 @@ def select_shape_for_position(
     if not verified:
         return None
 
+    verified = [
+        ev for ev in verified
+        if can_influence(
+            shape_quality_id(ev.get("pattern_id", "")),
+            QualitySurface.CAPTION,
+        )
+    ]
+    if not verified:
+        return None
+
     # Suppress patterns already fired this game.
     verified = [ev for ev in verified if ev["pattern_id"] not in shapes_fired_this_game]
     if not verified:
@@ -381,6 +396,10 @@ def tally_shapes_across_games(
         for rec in game_records:
             pid = rec.get("shape_pattern_id")
             if not pid:
+                continue
+            if not can_influence(
+                shape_quality_id(pid), QualitySurface.PLAN
+            ):
                 continue
             pattern_counts[pid] += 1
             seen_this_game.add(pid)

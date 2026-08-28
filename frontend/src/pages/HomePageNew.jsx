@@ -12,9 +12,10 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import {
   ChevronRight,
   Swords,
@@ -114,7 +115,7 @@ export default function HomePageNew({ user }) {
         // "Return within 24h" is deliberately NOT a client event here —
         // it's computed downstream from repeat home_viewed timestamps,
         // not something a single page load can observe about itself.
-        track("funnel_home_viewed");
+        track(ANALYTICS_EVENTS.FUNNEL_HOME_VIEWED);
       }
     })();
   }, []);
@@ -122,6 +123,7 @@ export default function HomePageNew({ user }) {
   const pic = activeFocus?.personal_improvement_cycle?.eligible
     ? activeFocus.personal_improvement_cycle
     : null;
+  const canonicalContext = activeFocus?.coaching_context || null;
 
   const updateFocusGame = async (action, body = null) => {
     setFocusGameBusy(true);
@@ -144,7 +146,7 @@ export default function HomePageNew({ user }) {
           focus_game: result.pending_focus_game,
         },
       }));
-      track("pic_focus_game_updated", {
+      track(ANALYTICS_EVENTS.PIC_FOCUS_GAME_UPDATED, {
         action,
         status: result.pending_focus_game?.status,
       });
@@ -165,11 +167,11 @@ export default function HomePageNew({ user }) {
           if (!entry.isIntersecting) continue;
           if (entry.target === mirrorRef.current && !mirrorSeenRef.current) {
             mirrorSeenRef.current = true;
-            track("funnel_home_mirror_read");
+            track(ANALYTICS_EVENTS.FUNNEL_HOME_MIRROR_READ);
           }
           if (entry.target === conversationEndRef.current && !conversationSeenRef.current) {
             conversationSeenRef.current = true;
-            track("funnel_home_conversation_scrolled");
+            track(ANALYTICS_EVENTS.FUNNEL_HOME_CONVERSATION_SCROLLED);
           }
         }
       },
@@ -317,7 +319,7 @@ export default function HomePageNew({ user }) {
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
                   <button
                     onClick={() => {
-                      track("funnel_home_cta_clicked", { cta: "review_this_game" });
+                      track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
                       navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                     }}
                     className="experience-link mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
@@ -339,21 +341,39 @@ export default function HomePageNew({ user }) {
               percentage-improvement line, a numeric domain-score grid,
               and five smaller cards that all competed for "the one thing
               to do today") with a single flow. No cards, no stats. */}
-          {coachConversation?.has_conversation ? (
+          {coachConversation?.has_conversation || canonicalContext ? (
             <motion.section variants={fadeInUp} className="experience-home-coach mb-16 md:mb-20 max-w-[660px]">
-              {coachConversation.thinking_signature && (
+              {coachConversation?.thinking_signature && (
                 <p className="text-[15px] leading-relaxed text-foreground mb-5">
                   {coachConversation.thinking_signature}
                 </p>
               )}
-              <p className="text-[15px] leading-relaxed text-foreground mb-5">
-                {coachConversation.narrative.stage_opener}
-              </p>
-              <p className="text-[15px] leading-relaxed text-foreground mb-5">
-                {coachConversation.narrative.continuity}{" "}
-                {coachConversation.narrative.belief}
-              </p>
-              {pic ? (
+              {coachConversation?.narrative && (
+                <>
+                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                    {coachConversation.narrative.stage_opener}
+                  </p>
+                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                    {coachConversation.narrative.continuity}{" "}
+                    {coachConversation.narrative.belief}
+                  </p>
+                </>
+              )}
+              {canonicalContext ? (
+                <CanonicalFocusRail
+                  context={canonicalContext}
+                  onAction={(action) => {
+                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
+                      cta: "coaching_context_next_action",
+                      schema_version: canonicalContext.schema_version,
+                      context_id: canonicalContext.context_id,
+                      instruction_id: canonicalContext.primary_focus?.instruction_id || null,
+                      action_type: action.type,
+                    });
+                    navigate(action.href);
+                  }}
+                />
+              ) : pic ? (
                 <div className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
                   <p className="experience-eyebrow text-[10px] uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400 font-semibold mb-2">
                     {pic.learner_state?.label || "Learning"}
@@ -372,7 +392,7 @@ export default function HomePageNew({ user }) {
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => {
-                        track("pic_next_action_clicked", { action: "practice" });
+                        track(ANALYTICS_EVENTS.PIC_NEXT_ACTION_CLICKED, { action: "practice" });
                         navigate("/training/pattern/piece_safety");
                       }}
                       className="experience-primary h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors"
@@ -421,18 +441,20 @@ export default function HomePageNew({ user }) {
                   {coachConversation.one_action}
                 </p>
               )}
-              <p className="text-[13px] text-muted-foreground mb-2">
-                {coachConversation.encouragement}
-              </p>
-              {coachConversation.closing_line && (
+              {coachConversation?.encouragement && (
+                <p className="text-[13px] text-muted-foreground mb-2">
+                  {coachConversation.encouragement}
+                </p>
+              )}
+              {coachConversation?.closing_line && (
                 <p className="text-[13px] text-muted-foreground mb-8">
                   {coachConversation.closing_line}
                 </p>
               )}
-              {!pic && <button
+              {!canonicalContext && !pic && <button
                 ref={conversationEndRef}
                 onClick={() => {
-                  track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: true });
+                  track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: true });
                   navigate("/play-with-coach");
                 }}
                 className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
@@ -479,7 +501,7 @@ export default function HomePageNew({ user }) {
                 </p>
                 <button
                   onClick={() => {
-                    track("funnel_home_cta_clicked", { cta: "play_with_coach", has_conversation: false });
+                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: false });
                     navigate("/play-with-coach");
                   }}
                   className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
@@ -506,7 +528,7 @@ export default function HomePageNew({ user }) {
                   <button
                     key={item.id}
                     onClick={() => {
-                      track("funnel_home_nav_tile_clicked", { tile: item.id });
+                      track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
                     className="experience-utility group p-3 rounded-xl border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
