@@ -881,41 +881,6 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "updated_at": now.isoformat(),
     }
 
-    from services.detector_quality import gap_quality_id, grade_for
-    dominant_subtype = picked.get("dominant_subtype_at_assignment")
-    detector_quality_id = gap_quality_id(picked["topic"], dominant_subtype)
-    focus["detector_quality_id"] = detector_quality_id
-    focus["detector_quality_grade"] = grade_for(
-        detector_quality_id
-    ).value
-
-    simple_hang_count = int(
-        ((picked.get("subtype_histogram") or {}).get("simple_hang") or {}).get(
-            "count", 0
-        )
-    )
-    if pic_enabled and picked["topic"] == "piece_safety" and simple_hang_count > 0:
-        from services.focus_bridge import get_d_live_evidence_summary
-        focus.update({
-            "cycle_version": 1,
-            "focus_kind": "piece_safety/simple_hang",
-            "proof_eligibility": "verified",
-            "diagnosis_detector_id": "move_observation.simple_hang.v16_plus",
-            "proof_detector_id": "piece_safety.d_live.v1",
-            "evidence_summary": {
-                "baseline": await get_d_live_evidence_summary(db, user_id),
-                "recent": {"decisions": 0, "misses": 0, "handled": 0},
-                "last_verdict": "measurement_pending",
-                "measured_at": now,
-            },
-            # New PIC timestamps are BSON datetimes. Readers remain tolerant of
-            # legacy ISO strings while comparisons stop mixing types.
-            "started_at": now,
-            "locked_until": now + timedelta(days=LOCK_DURATION_DAYS),
-            "created_at": now,
-            "updated_at": now,
-        })
-
     # Sprint 2 canonical instruction fields -- the ONE source of truth for
     # "what is the player being asked to do," captured once here and never
     # regenerated for the life of this focus. Only present on the document

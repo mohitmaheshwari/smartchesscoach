@@ -76,16 +76,12 @@ def _pic_fields_eligible(user_role: Optional[str]) -> bool:
     return _pic_flag_enabled() and user_role in _pic_rollout_roles()
 
 
+def _instruction_flag_enabled() -> bool:
+    return os.environ.get("PWC_SURVIVING_INSTRUCTION_ENABLED", "false").lower() == "true"
+
+
 def _instruction_fields_eligible(user_role: Optional[str]) -> bool:
-    pwc_eligible = (
-        _instruction_flag_enabled()
-        and user_role in _INSTRUCTION_ROLLOUT_ROLES
-    )
-    context_eligible = (
-        _coaching_context_flag_enabled()
-        and user_role in _coaching_context_rollout_roles()
-    )
-    return pwc_eligible or _pic_fields_eligible(user_role) or context_eligible
+    return _instruction_flag_enabled() and user_role in _INSTRUCTION_ROLLOUT_ROLES
 
 
 async def get_instruction_eligibility_state(db, user_id: str) -> Dict[str, Any]:
@@ -96,178 +92,14 @@ async def get_instruction_eligibility_state(db, user_id: str) -> Dict[str, Any]:
     off, wrong role, or simply no active focus -- three different
     things, one signal). Callers that want to log WHY a user did or
     didn't see Sprint 2 output call this directly."""
-    pwc_flag_enabled = _instruction_flag_enabled()
-    pic_flag_enabled = _pic_flag_enabled()
-    flag_enabled = pwc_flag_enabled or pic_flag_enabled
+    flag_enabled = _instruction_flag_enabled()
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
     role = (user_doc or {}).get("role")
     role_eligible = role in _INSTRUCTION_ROLLOUT_ROLES
     return {
         "flag_enabled": flag_enabled,
-        "pwc_flag_enabled": pwc_flag_enabled,
-        "pic_flag_enabled": pic_flag_enabled,
         "role_eligible": role_eligible,
-        "instruction_eligible": _instruction_fields_eligible(role),
-    }
-
-
-async def get_d_live_evidence_summary(
-    db, user_id: str, game_ids: Optional[list[str]] = None
-) -> Dict[str, int]:
-    """Aggregate exact-version D_live facts without reading pre-SEE residue."""
-    if game_ids is not None and not game_ids:
-        return {"decisions": 0, "misses": 0, "handled": 0}
-    match: Dict[str, Any] = {
-        "user_id": user_id,
-        "schema_version": {"$gte": 16},
-        "piece_safety_decision.version": PIC_FACT_VERSION,
-        "piece_safety_decision.derivation_status": "ok",
-        "piece_safety_decision.eligible": True,
-    }
-    if game_ids is not None:
-        match["game_id"] = {"$in": game_ids}
-    rows = await db.move_observations.aggregate([
-        {"$match": match},
-        {"$group": {
-            "_id": None,
-            "decisions": {"$sum": 1},
-            "misses": {"$sum": {
-                "$cond": [
-                    {"$eq": ["$piece_safety_decision.outcome", "miss"]},
-                    1,
-                    0,
-                ]
-            }},
-        }},
-    ]).to_list(length=1)
-    if not rows:
-        return {"decisions": 0, "misses": 0, "handled": 0}
-    decisions = int(rows[0].get("decisions") or 0)
-    misses = int(rows[0].get("misses") or 0)
-    return {
-        "decisions": decisions,
-        "misses": misses,
-        "handled": max(0, decisions - misses),
-    }
-
-
-async def get_pic_focus_projection(
-    db,
-    user_id: str,
-    focus: Optional[Dict[str, Any]] = None,
-    user_role: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
-    """Return the default-off PIC presentation model from canonical sources."""
-    if not _pic_flag_enabled():
-        return None
-    if user_role is None:
-        user_doc = await db.users.find_one(
-            {"user_id": user_id}, {"_id": 0, "role": 1}
-        )
-        user_role = (user_doc or {}).get("role")
-    if not _pic_fields_eligible(user_role):
-        return None
-    if focus is None:
-        focus = await db[COLLECTION].find_one(
-            {
-                "user_id": user_id,
-                "status": "active",
-                "$or": [
-                    {"type": {"$exists": False}},
-                    {"type": "weakness"},
-                ],
-            },
-            {"_id": 0},
-        )
-    if not focus or focus.get("topic_key") != "piece_safety":
-        return {
-            "enabled": True,
-            "eligible": False,
-            "state": "not_eligible",
-            "reason": "piece_safety_focus_required",
-        }
-
-    diagnosis_query = {
-        "user_id": user_id,
-        "schema_version": {"$gte": 16},
-        "missed_pattern": "piece_safety",
-        "subtype": "simple_hang",
-    }
-    diagnosis_count = await db.move_observations.count_documents(diagnosis_query)
-    example_cursor = db.move_observations.find(
-        diagnosis_query,
-        {
-            "_id": 0,
-            "game_id": 1,
-            "move_number": 1,
-            "move_san": 1,
-            "fen_before": 1,
-        },
-    ).sort("derived_at", -1).limit(2)
-    examples = await example_cursor.to_list(length=2)
-
-    all_available = await get_d_live_evidence_summary(db, user_id)
-    started_dt = _to_dt(focus.get("started_at"))
-    recent_game_ids: list[str] = []
-    if started_dt is not None:
-        recent_game_ids = await db.games.distinct(
-            "game_id",
-            {
-                "user_id": user_id,
-                "is_analyzed": True,
-                "date_played": {"$gte": started_dt.isoformat()},
-            },
-        )
-    recent = await get_d_live_evidence_summary(db, user_id, recent_game_ids)
-    stored_baseline = ((focus.get("evidence_summary") or {}).get("baseline"))
-    from services.concept_mastery_service import get_pic_mastery_projection
-    learner_state = await get_pic_mastery_projection(
-        db,
-        user_id,
-        diagnosed=diagnosis_count > 0,
-    )
-
-    if diagnosis_count <= 0:
-        state = "not_eligible"
-        next_action = {"type": "review", "label": "Review your latest game", "href": "/lab"}
-    elif recent["decisions"] <= 0:
-        state = "diagnosed"
-        next_action = {"type": "practice", "label": "Practise this", "href": "/training/pattern/piece_safety"}
-    else:
-        state = "evidence_collected"
-        next_action = {"type": "focus_game", "label": "Use this in a real game", "href": "/home"}
-
-    return {
-        "enabled": True,
-        "eligible": diagnosis_count > 0,
-        "cycle_version": 1,
-        "focus_kind": "piece_safety/simple_hang",
-        "state": state,
-        "focus_label": "Keeping your pieces safe",
-        "instruction_id": focus.get("instruction_id"),
-        "instruction_text": focus.get("instruction_text"),
-        "proof_eligibility": focus.get("proof_eligibility") or "verified",
-        "focus_game": focus.get("pending_focus_game"),
-        "learner_state": learner_state,
-        "diagnosis": {
-            "detector_id": "move_observation.simple_hang.v16_plus",
-            "count": diagnosis_count,
-            "examples": examples,
-        },
-        "evidence": {
-            "proof_detector_id": PIC_FACT_VERSION,
-            "available": all_available,
-            "baseline": stored_baseline,
-            "since_focus": recent,
-            "verdict": "measurement_pending",
-            "message": (
-                "We have comparable decisions, but the improvement rule is "
-                "not locked yet. No progress claim has been made."
-                if recent["decisions"] > 0
-                else "No comparable decision evidence since this focus started."
-            ),
-        },
-        "next_action": next_action,
+        "instruction_eligible": flag_enabled and role_eligible,
     }
 
 
