@@ -32,9 +32,31 @@ COLLECTION = "user_active_focus"
 _INSTRUCTION_ROLLOUT_ROLES = ("admin", "super_admin")
 
 
+def _instruction_flag_enabled() -> bool:
+    return os.environ.get("PWC_SURVIVING_INSTRUCTION_ENABLED", "false").lower() == "true"
+
+
 def _instruction_fields_eligible(user_role: Optional[str]) -> bool:
-    flag_on = os.environ.get("PWC_SURVIVING_INSTRUCTION_ENABLED", "false").lower() == "true"
-    return flag_on and user_role in _INSTRUCTION_ROLLOUT_ROLES
+    return _instruction_flag_enabled() and user_role in _INSTRUCTION_ROLLOUT_ROLES
+
+
+async def get_instruction_eligibility_state(db, user_id: str) -> Dict[str, Any]:
+    """Explicit flag/role telemetry (2026-08-08, external review of
+    b0105f21) -- the scope required 'telemetry for flag state and
+    eligibility,' which pwc_insight_shown's instruction_id/
+    is_carried_forward alone don't distinguish (null could mean flag
+    off, wrong role, or simply no active focus -- three different
+    things, one signal). Callers that want to log WHY a user did or
+    didn't see Sprint 2 output call this directly."""
+    flag_enabled = _instruction_flag_enabled()
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    role = (user_doc or {}).get("role")
+    role_eligible = role in _INSTRUCTION_ROLLOUT_ROLES
+    return {
+        "flag_enabled": flag_enabled,
+        "role_eligible": role_eligible,
+        "instruction_eligible": flag_enabled and role_eligible,
+    }
 
 
 async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:

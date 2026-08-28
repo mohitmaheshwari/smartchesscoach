@@ -768,6 +768,18 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     return winner
 
 
+async def _instruction_fields_eligible_for_write(db, user_id: str) -> bool:
+    """Same eligibility rule as focus_bridge's read-time gate (flag +
+    role), evaluated here at write time instead. Reuses focus_bridge's
+    own check rather than duplicating the flag/role logic -- one source
+    of truth for what "eligible" means, just called from two places
+    (write-time here, read-time in focus_bridge for docs written before
+    this fix)."""
+    from services.focus_bridge import _instruction_fields_eligible
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    return _instruction_fields_eligible((user_doc or {}).get("role"))
+
+
 async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     """Pick + persist. Returns the created focus doc or None."""
     picked = await pick_next_focus(db, user_id)
@@ -781,6 +793,21 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     # (not literally _id) so callers never have to know/care it originated
     # from an ObjectId.
     new_id = ObjectId()
+
+    # Correction (2026-08-08, external review of b0105f21): the scope's
+    # own contract is "a non-eligible user's session should not COMPUTE
+    # instruction_id/instruction_text, not merely hide them" -- v1 of this
+    # function wrote the 3 fields unconditionally for every user and
+    # topic, gating only at focus_bridge read time. That's real Sprint 2
+    # logic executing for every eligible user regardless of role, which
+    # is not what was locked. Gated HERE, at the only write site, so an
+    # ineligible user's user_active_focus document never contains these
+    # fields at all -- identical in shape to a pre-Sprint-2 legacy doc.
+    include_instruction_fields = (
+        picked["topic"] == "piece_safety"
+        and await _instruction_fields_eligible_for_write(db, user_id)
+    )
+
     focus = {
         "_id": new_id,
         "user_id": user_id,
@@ -809,16 +836,20 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "next_action": None,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
-        # Sprint 2 canonical instruction fields -- the ONE source of truth
-        # for "what is the player being asked to do," captured once here
-        # and never regenerated for the life of this focus. instruction_id
-        # is a plain string (not the raw ObjectId) so JSON serialization
-        # downstream never needs special handling.
-        "instruction_id": str(new_id),
-        "instruction_text": picked.get("instruction_text"),
-        "instruction_version": INSTRUCTION_TEMPLATE_VERSION,
-        "instruction_subtype": picked.get("dominant_subtype_at_assignment"),
     }
+
+    # Sprint 2 canonical instruction fields -- the ONE source of truth for
+    # "what is the player being asked to do," captured once here and never
+    # regenerated for the life of this focus. Only present on the document
+    # AT ALL when eligible (piece_safety + admin/super_admin + flag on) --
+    # an ineligible user's doc is identical in shape to a pre-Sprint-2
+    # legacy doc, not just a doc with these fields hidden downstream.
+    if include_instruction_fields:
+        focus["instruction_id"] = str(new_id)
+        focus["instruction_text"] = picked.get("instruction_text")
+        focus["instruction_version"] = INSTRUCTION_TEMPLATE_VERSION
+        focus["instruction_subtype"] = picked.get("dominant_subtype_at_assignment")
+
     await db[COLLECTION].insert_one(focus)
     return focus
 
