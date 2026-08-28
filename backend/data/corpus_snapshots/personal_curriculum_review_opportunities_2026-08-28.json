@@ -1,0 +1,123 @@
+{
+  "generated_at": "2026-08-28T13:59:05.123395+00:00",
+  "source": "chess_coach",
+  "method": "deterministic read-only aggregate; no $sample; rolling consecutive N-game windows",
+  "filters": {
+    "game_denominator": "games where every current-schema user-move observation carries piece_safety.d_live.v1; schema-16 games without the fact are not measured, not zero",
+    "d_live_derivation_status": "ok",
+    "d_live_eligible": true,
+    "event_order": "games.date_played only; imported_at was inspected but never used for ordering",
+    "candidate_game_counts": [1, 2, 3, 5],
+    "rating_band_assignment": "median numeric games.user_rating within each window"
+  },
+  "instrumentation_coverage": {
+    "all_current_schema_game_groups": 4839,
+    "fully_instrumented_game_groups": 254,
+    "partly_instrumented_game_groups": 0,
+    "not_instrumented_game_groups": 4585
+  },
+  "measured_corpus": {
+    "users": 24,
+    "game_groups": 254,
+    "current_schema_moves": 8592,
+    "derivation_ok_moves": 8592,
+    "d_live_decisions": 1323,
+    "game_count_distribution": {"p25": 2.75, "median": 5.5, "p75": 18.75, "p90": 23.4, "max": 37},
+    "largest_user_game_count": 37
+  },
+  "timestamp_quality": {
+    "date_played_types": {"str": 254},
+    "imported_at_types": {"str": 254},
+    "missing_game_documents": 0,
+    "missing_date_played": 0,
+    "unparseable_non_null_date_played": 0,
+    "games_excluded_from_windows_for_event_time": 0
+  },
+  "rating_quality": {
+    "games_with_numeric_user_rating": 254,
+    "percent_measured_games_with_numeric_user_rating": 100.0
+  },
+  "candidate_columns": [
+    "users_in_cohort", "users_reaching_window", "percent_users_reaching_window", "windows",
+    "p25_decisions", "median_decisions", "p75_decisions", "p90_decisions",
+    "percent_zero", "percent_lt6", "percent_gte6", "percent_gte10", "percent_gte12"
+  ],
+  "candidates_all_measured_users": {
+    "1": [24, 24, 100.0, 254, 3.0, 5.0, 7.0, 9.0, 0.0, 55.12, 44.88, 5.12, 0.79],
+    "2": [24, 19, 79.17, 230, 8.0, 10.5, 13.0, 16.0, 0.0, 10.43, 89.57, 59.57, 40.87],
+    "3": [24, 18, 75.0, 211, 12.5, 15.0, 20.0, 23.0, 0.0, 0.95, 99.05, 89.1, 81.99],
+    "5": [24, 13, 54.17, 179, 23.0, 27.0, 32.0, 35.2, 0.0, 0.0, 100.0, 100.0, 100.0]
+  },
+  "candidates_without_largest_user": {
+    "1": [23, 23, 100.0, 217, 3.0, 5.0, 7.0, 8.0, 0.0, 53.92, 46.08, 5.07, 0.92],
+    "2": [23, 18, 78.26, 194, 8.0, 11.0, 13.0, 16.0, 0.0, 9.28, 90.72, 59.28, 41.75],
+    "3": [23, 17, 73.91, 176, 12.75, 15.5, 20.0, 23.0, 0.0, 1.14, 98.86, 89.77, 81.82],
+    "5": [23, 12, 52.17, 146, 23.25, 27.0, 32.0, 36.0, 0.0, 0.0, 100.0, 100.0, 100.0]
+  },
+  "rating_band_columns": [
+    "windows", "p25_decisions", "median_decisions", "p75_decisions", "p90_decisions",
+    "percent_zero", "percent_lt6", "percent_gte6", "percent_gte10", "percent_gte12"
+  ],
+  "rating_band_split_all_measured_users": {
+    "1": {
+      "0-999": [36, 2.0, 3.5, 5.0, 6.5, 0.0, 80.56, 19.44, 2.78, 0.0],
+      "1000-1399": [123, 4.0, 5.0, 7.0, 9.0, 0.0, 55.28, 44.72, 5.69, 0.0],
+      "1400-1799": [56, 3.75, 6.0, 7.25, 8.5, 0.0, 48.21, 51.79, 5.36, 1.79],
+      "1800+": [39, 3.5, 6.0, 8.0, 8.0, 0.0, 41.03, 58.97, 5.13, 2.56]
+    },
+    "2": {
+      "0-999": [27, 5.5, 8.0, 10.0, 13.0, 0.0, 25.93, 74.07, 33.33, 14.81],
+      "1000-1399": [120, 8.0, 11.0, 13.0, 16.0, 0.0, 8.33, 91.67, 60.83, 38.33],
+      "1400-1799": [47, 8.5, 11.0, 13.5, 15.4, 0.0, 8.51, 91.49, 68.09, 48.94],
+      "1800+": [36, 7.75, 13.0, 15.0, 16.0, 0.0, 8.33, 91.67, 63.89, 58.33]
+    },
+    "3": {
+      "0-999": [19, 8.5, 11.0, 15.0, 16.2, 0.0, 5.26, 94.74, 63.16, 42.11],
+      "1000-1399": [113, 13.0, 15.0, 20.0, 23.8, 0.0, 0.88, 99.12, 91.15, 85.84],
+      "1400-1799": [44, 13.75, 16.0, 20.0, 22.7, 0.0, 0.0, 100.0, 95.45, 90.91],
+      "1800+": [35, 13.0, 19.0, 21.5, 23.6, 0.0, 0.0, 100.0, 88.57, 80.0]
+    },
+    "5": {
+      "0-999": [9, 15.0, 19.0, 21.0, 25.4, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1000-1399": [105, 22.0, 26.0, 32.0, 35.0, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1400-1799": [35, 24.0, 27.0, 33.0, 37.8, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1800+": [30, 25.0, 29.5, 34.0, 37.1, 0.0, 0.0, 100.0, 100.0, 100.0]
+    }
+  },
+  "rating_band_split_without_largest_user": {
+    "1": {
+      "0-999": [36, 2.0, 3.5, 5.0, 6.5, 0.0, 80.56, 19.44, 2.78, 0.0],
+      "1000-1399": [92, 3.75, 5.0, 7.0, 8.9, 0.0, 54.35, 45.65, 5.43, 0.0],
+      "1400-1799": [50, 4.0, 6.0, 8.0, 9.0, 0.0, 44.0, 56.0, 6.0, 2.0],
+      "1800+": [39, 3.5, 6.0, 8.0, 8.0, 0.0, 41.03, 58.97, 5.13, 2.56]
+    },
+    "2": {
+      "0-999": [27, 5.5, 8.0, 10.0, 13.0, 0.0, 25.93, 74.07, 33.33, 14.81],
+      "1000-1399": [88, 8.0, 10.5, 13.0, 15.3, 0.0, 5.68, 94.32, 59.09, 37.5],
+      "1400-1799": [43, 9.0, 12.0, 14.0, 15.8, 0.0, 6.98, 93.02, 72.09, 53.49],
+      "1800+": [36, 7.75, 13.0, 15.0, 16.0, 0.0, 8.33, 91.67, 63.89, 58.33]
+    },
+    "3": {
+      "0-999": [19, 8.5, 11.0, 15.0, 16.2, 0.0, 5.26, 94.74, 63.16, 42.11],
+      "1000-1399": [83, 13.0, 15.0, 20.0, 23.0, 0.0, 1.2, 98.8, 92.77, 86.75],
+      "1400-1799": [39, 15.0, 18.0, 20.5, 23.0, 0.0, 0.0, 100.0, 97.44, 92.31],
+      "1800+": [35, 13.0, 19.0, 21.5, 23.6, 0.0, 0.0, 100.0, 88.57, 80.0]
+    },
+    "5": {
+      "0-999": [9, 15.0, 19.0, 21.0, 25.4, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1000-1399": [77, 23.0, 26.0, 30.0, 35.0, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1400-1799": [30, 25.0, 27.5, 33.75, 39.2, 0.0, 0.0, 100.0, 100.0, 100.0],
+      "1800+": [30, 25.0, 29.5, 34.0, 37.1, 0.0, 0.0, 100.0, 100.0, 100.0]
+    }
+  },
+  "decision": {
+    "review_after_measured_games": 3,
+    "calendar_backstop_days": 21,
+    "reason": "Three games is the first candidate with at least 6 decisions in more than 99 percent of all windows and more than 94 percent of 0-999 windows; overall p25 is 12.5 decisions while measured-user reach remains 75 percent."
+  },
+  "limitations": [
+    "Only 24 users have fully instrumented stored D_live games.",
+    "The 0-999 rating band has only 19 three-game rolling windows.",
+    "Historical schema-16 games cannot be treated as measured-zero D_live games."
+  ]
+}

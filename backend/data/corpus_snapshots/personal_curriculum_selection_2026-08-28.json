@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-08-28",
+  "source": "chess_coach",
+  "method": "deterministic, no $sample",
+  "users_with_v16plus_evidence": 46,
+  "evidence_per_user": {
+    "observations": {
+      "p25": 307,
+      "median": 791,
+      "p75": 2792,
+      "max": 53497
+    },
+    "analysed_games": {
+      "p25": 9,
+      "median": 28,
+      "p75": 96,
+      "max": 1510
+    }
+  },
+  "users_with_at_least_n_games": {
+    "1": 46,
+    "3": 42,
+    "5": 39,
+    "10": 34,
+    "20": 25,
+    "40": 20
+  },
+  "repair_candidates": {
+    "users_with_a_named_topic_recurring_at_least": {
+      "2": 40,
+      "3": 38,
+      "5": 33,
+      "8": 27
+    },
+    "topics_by_users_affected_min3": [
+      [
+        "simple_hang",
+        36
+      ],
+      [
+        "ignored_king_attack",
+        33
+      ],
+      [
+        "missed_fork",
+        21
+      ],
+      [
+        "missed_pin",
+        20
+      ],
+      [
+        "missed_skewer",
+        16
+      ],
+      [
+        "weakened_shelter",
+        16
+      ],
+      [
+        "tempo_wasted_by_repeat",
+        15
+      ],
+      [
+        "passed_pawn_ignored",
+        12
+      ],
+      [
+        "missed_discovered_attack",
+        11
+      ],
+      [
+        "early_flank_pawn_move",
+        5
+      ],
+      [
+        "passive_king_in_endgame",
+        4
+      ],
+      [
+        "threat_ignored",
+        1
+      ]
+    ]
+  },
+  "expand_candidates": {
+    "distinct_named_topics_per_user": {
+      "p25": 4,
+      "median": 7,
+      "p75": 10,
+      "max": 17
+    },
+    "named_topics_in_taxonomy": 20
+  },
+  "play_cadence_days_between_games": {
+    "all_gaps": {
+      "p25": 1,
+      "median": 1,
+      "p75": 2,
+      "p90": 21
+    },
+    "per_user_median_gap": {
+      "p25": 1.0,
+      "median": 1,
+      "p75": 2
+    },
+    "users_measured": 15,
+    "note": "review intervals must exceed typical play gap or the check has no new evidence"
+  },
+  "naming_rate_v16plus": {
+    "named": 3619,
+    "with_subtype": 12504,
+    "pct": 28.9
+  }
+}
