@@ -243,5 +243,11 @@ frontend/node_modules/.cache/default-development/15.pack
 *.env
 *.env.*
 
-# Playwright run artifacts — screenshots and error contexts, regenerated every run.
-tests/test-results/
+# Local test dependency tree (pip install --target .test-deps).
+# 2,575 files / 43MB of third-party packages, all of them already pinned in
+# backend/requirements.txt, plus 8 platform-specific compiled binaries.
+# Reconstructible with one pip install; never belongs in git history.
+.test-deps/
+
+# Codex UI review logs
+frontend/.codex-ui-review.*.log
