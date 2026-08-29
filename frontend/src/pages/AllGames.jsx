@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { ChevronRight, ChevronLeft, Swords, Import } from "lucide-react";
+import { CURRICULUM_ROUTES } from "@/lib/personalCurriculum";
 
 const resultWord = (g) => {
   const r = String(g.result || "").toLowerCase().trim();
@@ -145,13 +146,13 @@ const AllGames = ({ user }) => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate("/lab")}
+              onClick={() => navigate(CURRICULUM_ROUTES.home)}
               className="p-1.5 rounded-lg hover:bg-muted/50 transition"
-              aria-label="Back to Lab"
+              aria-label="Back to Home"
             >
               <ChevronLeft className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
             </button>
-            <h1 className="text-lg font-heading font-semibold text-foreground">All games</h1>
+            <h1 className="text-lg font-heading font-semibold text-foreground">Game Review</h1>
           </div>
 
           <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/30 border border-border/40">

@@ -1,4 +1,5 @@
 import {
+  CURRICULUM_ROUTES,
   EXPLORE_DESTINATIONS,
   curriculumCta,
   curriculumHeadline,
@@ -27,6 +28,12 @@ test("Explore exposes every signed learning family through a real route", () => 
       href: "/training",
     },
   ]);
+});
+
+test("Game Review opens the player's reviewable game history", () => {
+  expect(CURRICULUM_ROUTES.gameReview).toBe("/games");
+  expect(CURRICULUM_ROUTES.gameReview).not.toBe("/lab");
+  expect(CURRICULUM_ROUTES.gameReview).not.toBe("/review");
 });
 
 test("the primary message and action stay coach-led", () => {
