@@ -24,6 +24,9 @@ services:
       # publicly reachable on 0.0.0.0 with root creds. Remote access goes via
       # SSH tunnel (ssh -L 27018:localhost:27017), never a public bind.
       - "27017:27017"
+    # The whole dataset is well under a gigabyte; the default cache ceiling of
+    # ~half of host RAM was holding mostly air on a shared 15GB machine.
+    command: ["mongod", "--wiredTigerCacheSizeGB", "1.5"]
     volumes:
       - mongodb_data:/data/db
     environment:
@@ -32,10 +35,17 @@ services:
       # Secret comes from the untracked project-root .env (same pattern as SMTP/Razorpay).
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
+      # `mongosh --eval` boots a full JavaScript shell for one ping. On a
+      # loaded box that does not finish in 5s, so the check failed 2,590 times
+      # consecutively while the database itself answered queries fine -- and
+      # because the backend has `depends_on: condition: service_healthy`, every
+      # `docker compose up` blocked on it. Deploys were silently gated behind a
+      # liveness probe, not a real outage.
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' || exit 1"]
+      interval: 30s
+      timeout: 20s
       retries: 5
+      start_period: 60s
 
   # ============================================
   # Backend API (FastAPI + Stockfish)
