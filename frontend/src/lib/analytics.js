@@ -195,42 +195,6 @@ const safeCurriculumValue = (value) => {
   return undefined;
 };
 
-// Canonical event IDs. Emitters import this object instead of repeating raw
-// strings, so a rename cannot silently split one funnel into two event names.
-export const ANALYTICS_EVENTS = Object.freeze({
-  FUNNEL_ACTIVATION_CTA: "funnel_activation_cta",
-  FUNNEL_DIAGNOSTIC_DONE: "funnel_diagnostic_done",
-  FUNNEL_IMPORT_DONE: "funnel_import_done",
-  FUNNEL_REVIEW_OPENED: "funnel_review_opened",
-  FUNNEL_TRAINING_SOLVE: "funnel_training_solve",
-  FUNNEL_PWC_STARTED: "funnel_pwc_started",
-  FUNNEL_PAYWALL_VIEWED: "funnel_paywall_viewed",
-  FUNNEL_PAYMENT_ATTEMPTED: "funnel_payment_attempted",
-  FUNNEL_PAYMENT_SUCCESS: "funnel_payment_success",
-  FUNNEL_HOME_VIEWED: "funnel_home_viewed",
-  FUNNEL_HOME_MIRROR_READ: "funnel_home_mirror_read",
-  FUNNEL_HOME_CONVERSATION_SCROLLED: "funnel_home_conversation_scrolled",
-  FUNNEL_HOME_CTA_CLICKED: "funnel_home_cta_clicked",
-  FUNNEL_HOME_NAV_TILE_CLICKED: "funnel_home_nav_tile_clicked",
-  FUNNEL_FIRST_AHA: "funnel_first_aha",
-  DIAGNOSTIC_STARTED: "diagnostic_started",
-  DIAGNOSTIC_RESUMED: "diagnostic_resumed",
-  DIAGNOSTIC_FIRST_ANSWER: "diagnostic_first_answer",
-  DIAGNOSTIC_PUZZLE_COMPLETED: "diagnostic_puzzle_completed",
-  DIAGNOSTIC_PAUSE: "diagnostic_pause",
-  DIAGNOSTIC_EXIT_INTENT_SHOWN: "diagnostic_exit_intent_shown",
-  DIAGNOSTIC_ABANDONED: "diagnostic_abandoned",
-  DIAGNOSTIC_COMPLETED: "diagnostic_completed",
-  DIAGNOSTIC_TRAINING_STARTED: "diagnostic_training_started",
-  INSIGHT_SHOWN: "insight_shown",
-  PWC_INSIGHT_SHOWN: "pwc_insight_shown",
-  PIC_LESSON_STARTED: "pic_lesson_started",
-  PIC_LESSON_MOVE_CHECKED: "pic_lesson_move_checked",
-  PIC_FOCUS_GAME_UPDATED: "pic_focus_game_updated",
-  PIC_NEXT_ACTION_CLICKED: "pic_next_action_clicked",
-});
-
-const KNOWN_EVENT_IDS = new Set(Object.values(ANALYTICS_EVENTS));
 
 export function track(event, props = {}) {
   try {

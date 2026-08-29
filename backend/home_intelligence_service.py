@@ -762,13 +762,8 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     # home page always has a "next step" visible.
     learn_next = None
     try:
-        from services.engine2_skill_builder import pick_next_skill
-        from services.coach_memory import get_or_create_memory
-        # Get user's estimated rating from memory (performance.best_performance_rating)
-        # or fall back to a reasonable default
-        _mem = await get_or_create_memory(db, user_id)
-        _rating = _mem.performance.best_performance_rating or 1000
-        learn_next = pick_next_skill(_mem, _rating)
+        from services.today_composer import pick_knowledge_focus
+        learn_next = await pick_knowledge_focus(db, user_id)
     except Exception as e:
         logger.debug(f"Engine 2 failed (non-critical): {e}")
 

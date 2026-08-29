@@ -4335,6 +4335,14 @@ async def get_coaching_context(
         raise HTTPException(status_code=404, detail="Coaching context is not enabled")
     return context
 
+
+@router.get("/personal-curriculum")
+async def get_personal_curriculum(user: User = Depends(get_current_user)):
+    """Return the one default-off curriculum decision shared by Home/Learn."""
+    from services.personal_curriculum import build_player_curriculum
+
+    return await build_player_curriculum(db, user.user_id)
+
 @router.get("/active-focus")
 async def get_active_focus(user: User = Depends(get_current_user)):
     """Return the user's currently-locked coaching focus (if any).

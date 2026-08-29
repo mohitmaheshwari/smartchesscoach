@@ -105,7 +105,7 @@ KIND_ACTIONS = {
         "beginner_high": "Do the endgame lesson",
         "intermediate": "Do the endgame lesson",
         "advanced": "Do the endgame lesson",
-        # href resolves through the canonical endgame service below
+        # href resolved through the canonical endgame service below.
         "href": "/openings-overview#endgames",
         "medium": "lesson",
     },
@@ -195,7 +195,7 @@ async def compose_today(db, user_id: str) -> Dict[str, Any]:
 
     # ── Pick both engines independently ──
     engine1 = await _pick_engine1_focus(db, user_id)
-    engine2 = await _pick_engine2_focus(db, user_id)
+    engine2 = await pick_knowledge_focus(db, user_id)
 
     # ── Assign primary / secondary ──
     if engine1:
@@ -477,7 +477,7 @@ async def _pick_engine1_focus(db, user_id: str) -> Optional[Dict]:
     return None
 
 
-async def _pick_engine2_focus(db, user_id: str) -> Optional[Dict]:
+async def pick_knowledge_focus(db, user_id: str) -> Optional[Dict]:
     """Engine 2 (build-new-skill) pick, or None if nothing ready.
     Note: Engine 2's 'kind' (opening/trap_set/...) is kept on the focus
     dict under 'e2_kind' to avoid colliding with legacy 'kind' usage."""
@@ -779,16 +779,16 @@ def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
         cta = cfg.get(band_name) or cfg.get("intermediate") or "Start"
 
         # Endgame needs a two-segment URL (/endgames/<category>/<lesson>).
-        # The alias index belongs to the canonical endgame service.
-        endgame_content = None
+        # Mate patterns aren't in endgame_theory_tree → route to coach.
         if kind == "endgame":
             from services.endgame_theory_service import resolve_content_ref
-            endgame_content = resolve_content_ref(content_ref)
-
-        if kind == "endgame" and endgame_content:
-            href = endgame_content["href"]
-        elif kind in ("endgame", "mate_pattern") and not endgame_content:
-            # No theory-tree entry — teach via coached play with the skill
+            resolved = resolve_content_ref(content_ref)
+            href = (
+                resolved["href"]
+                if resolved
+                else f"/play-with-coach?focus={skill_id}"
+            )
+        elif kind == "mate_pattern":
             href = f"/play-with-coach?focus={skill_id}"
         elif kind == "trap_set":
             # opening_curriculum.json uses underscores; TRAP_LIBRARY uses hyphens.

@@ -1,8 +1,10 @@
 # Personal Curriculum — Phase 4 Pre-Code Audit
 
-**Status:** PHASE 4 VALIDATION RUNNING; PRODUCTION CODE BLOCKED — 2026-08-28.
-The user-facing Home/Learn implementation must not begin until the remaining
-evidence gates pass.
+**Status:** PASS FOR PHASE 4 PRODUCT CODE; REPRESENTATIVE ACCEPTANCE PENDING
+(sequence changed by product owner on 2026-08-29).
+The user-facing Home/Learn implementation may proceed behind the default-off
+flag. Representative-player and coach sessions remain mandatory final
+acceptance evidence before cohort expansion.
 
 Mohit's “go next” authorizes advancing the Phase 4 process. It does not silently waive the signed pre-code requirements in `personal_curriculum_scope.md`.
 
@@ -17,9 +19,10 @@ Mohit's “go next” authorizes advancing the Phase 4 process. It does not sile
 | 5. Deferred work remains deferred | **Pass** | Full curriculum authoring, premium packaging, hard locks, unsupported real-game claims, route deletion, and “Make this my focus” remain outside the first slice. |
 | 6. Mohit technical sign-off | **Pass for the Phase 4 process** | Mohit signed the route/UX contract and instructed the work to continue. No sign-off has been recorded for invented thresholds or skipping representative-player validation. |
 
-All six core audit gates now pass for the signed design boundary. Product code
-still has no pre-code pass because the separately signed representative-player
-session requirement remains incomplete.
+All six core audit gates pass for the signed design boundary. Product code has
+a pre-code pass under the product owner's explicit sequencing decision.
+Representative sessions remain incomplete; they moved to final acceptance and
+were not simulated, replaced, or treated as a behavioral baseline.
 
 ## Additional signed pre-code requirements
 
@@ -31,7 +34,7 @@ session requirement remains incomplete.
 | Sparse, stale, conflicting, and no-opportunity behavior | **Pass for Phase 4 read-only slice** | Phase 3 decision/result contracts encode the signed honesty constraints. |
 | Migration and deep-link preservation | **Pass on paper; runtime verification pending** | The route contract preserves `/lab`, `/training/*`, `/openings/*`, and `/endgames/*`; runtime parity is still required after implementation. |
 | Structural reach for recruitment | **Pass** | `backend/data/corpus_snapshots/funnel_and_recruitment_2026-08-28.json` records 45 users with at least five analysed games: 8 at 600–899, 8 at 900–1199, 7 at 1200–1499, plus adjacent cohorts. It is server truth used only to establish recruitable reach, never engagement. |
-| Representative-player mockup validation | **Blocked; recruitable pool known** | The protocol exists and the structural pool is sufficient, but no 600–900, 1000–1200, 1300–1500, or browse-first session has been observed. |
+| Representative-player mockup validation | **Required at final acceptance; recruitable pool known** | The product owner will manually audit the completed implementation with multiple coaches. Sessions must still cover 600–900, 1000–1200, 1300–1500, and browse-first behavior before cohort expansion. |
 | Product-owner desktop/mobile visual audit | **Pass** | Mohit reviewed the interactive Home/Learn/Explore/lesson-return prototype, including mobile mode, and responded: “I love it, please move forward.” Authenticated runtime checks remain implementation QA, not a substitute for player sessions. |
 
 ## Completed instrumentation prerequisite
@@ -52,23 +55,22 @@ That slice must:
 
 The run-in is not used to rehabilitate contaminated pre-launch behavior as an
 engagement baseline. The dated server snapshot supplies the structural reach
-needed for recruitment. Real representative-player sessions remain the only
-pre-code blocker.
+needed for recruitment. Real representative-player sessions remain the final
+acceptance gate.
 
 ## Exit conditions
 
-Change this audit to PASS FOR PHASE 4 product code only when:
-
-- representative sessions cover 600–900, 1000–1200, 1300–1500, and a
-  browse-oriented participant, with any failed contract retested; and
-- the audit is rerun immediately before the first user-facing implementation
-  change.
+Phase 4 product code is authorized behind the default-off role gate. Before
+cohort expansion, representative sessions must cover 600–900, 1000–1200,
+1300–1500, and a browse-oriented participant, with failed contracts fixed and
+retested.
 
 Before any cohort expansion, preregister a clean treatment interval and lock
 numeric rollout, rollback, and behavior-success thresholds from that treatment.
 Do not derive them from pre-launch PostHog history.
 
-Until then, do not add `/learn`, change the Home recommendation, change navigation, or expose the Personal Curriculum flag to users.
+Until final acceptance, do not expand beyond the explicitly configured
+admin/super-admin treatment roles.
 
 ## Run-in update — 2026-08-28
 
@@ -107,11 +109,10 @@ protocol.
 Current pre-code verdict:
 
 ```text
-PRE-CODE AUDIT: BLOCKED
+PRE-CODE AUDIT: PASS FOR DEFAULT-OFF PHASE 4 IMPLEMENTATION
 Passed: literal UI contract, teaching headline, behavior-changing definition,
-        deferred-scope control, explicit Mohit authorization
-Blocked: representative-player sessions
-DO NOT WRITE PRODUCT CODE until resolved.
+        deferred-scope control, explicit Mohit authorization and sequencing
+Final acceptance pending: representative-player and coach sessions
 ```
 
 ## Mohit visual approval update — 2026-08-28
@@ -130,5 +131,6 @@ no PostHog query credential is configured.
 
 The PostHog access issue is not a mockup-validation blocker. The dated
 server-side snapshot is the structural-reach source; historical client behavior
-remains excluded. The sole external pre-code unblocker is observed sessions
-covering 600–900, 1000–1200, 1300–1500, and a browse-oriented participant.
+remains excluded. The outstanding external acceptance evidence is observed
+sessions covering 600–900, 1000–1200, 1300–1500, and a browse-oriented
+participant; it gates cohort expansion, not completion of default-off code.

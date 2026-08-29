@@ -43,6 +43,22 @@ const Layout = ({ children, user }) => {
   const [prevUnreadCount, setPrevUnreadCount] = useState(0);
   const [coachPulse, setCoachPulse] = useState(null);
   const [lossStreak, setLossStreak] = useState({ show: false, count: 0 });
+  const [personalCurriculumEnabled, setPersonalCurriculumEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(API + "/coach/personal-curriculum", { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled) setPersonalCurriculumEnabled(Boolean(data?.enabled));
+      })
+      .catch(() => {
+        if (!cancelled) setPersonalCurriculumEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_id]);
 
   useEffect(() => {
     const fetchCoachPulse = async () => {
@@ -124,7 +140,10 @@ const Layout = ({ children, user }) => {
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Learn', href: '/lab', icon: BookOpen },
+    { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen },
+    ...(personalCurriculumEnabled
+      ? [{ name: 'Game Review', href: '/lab', icon: FlaskConical }]
+      : []),
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
@@ -135,6 +154,14 @@ const Layout = ({ children, user }) => {
     (user?.role === 'super_admin' || user?.role === 'admin')
     && ADMIN_EMAILS.has((user?.email || '').trim().toLowerCase());
   const isActive = (href) => location.pathname === href ||
+    (href === '/learn' && [
+      '/training',
+      '/openings',
+      '/openings-overview',
+      '/endgames',
+      '/coach',
+      '/focus',
+    ].some((prefix) => location.pathname.startsWith(prefix))) ||
     (href === '/lab' && location.pathname.startsWith('/game/')) ||
     (href === '/lab' && location.pathname.startsWith('/lab/')) ||
     (href === '/admin' && location.pathname.startsWith('/admin')) ||
@@ -195,7 +222,7 @@ const Layout = ({ children, user }) => {
                     ? 'bg-primary/15 text-primary font-medium'
                     : 'text-muted-foreground hover:text-foreground hover:bg-white/5 dark:hover:bg-white/5'
                   }`}
-                  data-testid={`nav-${item.name.toLowerCase()}`}
+                  data-testid={"nav-" + item.name.toLowerCase().replaceAll(" ", "-")}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
                   {active && (
@@ -390,7 +417,7 @@ const Layout = ({ children, user }) => {
               <nav className="flex flex-col p-3 gap-1">
                 {navigation.map((item) => { const IconComponent = item.icon; const active = isActive(item.href); return (
                   <Link key={item.href} to={item.href} onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant={active ? "secondary" : "ghost"} className={`w-full justify-start gap-3 ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={`mobile-nav-${item.name.toLowerCase()}`}>
+                    <Button variant={active ? "secondary" : "ghost"} className={`w-full justify-start gap-3 ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={"mobile-nav-" + item.name.toLowerCase().replaceAll(" ", "-")}>
                       <IconComponent className="w-4 h-4" /> {item.name}
                     </Button>
                   </Link>
