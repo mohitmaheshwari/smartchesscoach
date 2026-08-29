@@ -94,16 +94,42 @@ def _played_move(board: chess.Board, played_san: Optional[str]) -> Optional[ches
         return None
 
 
+def _independent_legal_exchange_gain(board: chess.Board, target_sq: int) -> int:
+    """Independent board-mutating verifier for an immediate exchange.
+
+    This intentionally does not import the production SEE. A verifier that
+    calls the detector's evaluator can reproduce the same x-ray/check bug and
+    turn implementation agreement into a misleading 100% score.
+    """
+    best = 0
+    occupant = board.piece_at(target_sq)
+    if occupant is None:
+        return 0
+    for move in list(board.legal_moves):
+        if move.to_square != target_sq or not board.is_capture(move):
+            continue
+        captured = board.piece_at(target_sq)
+        captured_value = PIECE_VALUE_CP.get(captured.piece_type, 0) if captured else 100
+        promotion_gain = (
+            PIECE_VALUE_CP.get(move.promotion, 0) - PIECE_VALUE_CP[chess.PAWN]
+            if move.promotion is not None else 0
+        )
+        after = board.copy(stack=False)
+        after.push(move)
+        best = max(
+            best,
+            captured_value + promotion_gain
+            - _independent_legal_exchange_gain(after, target_sq),
+        )
+    return best
+
+
 # ────────────────────────────────────────────────────────────────────
 # GEOMETRIC verifiers — re-derive the claim from the FEN
 # ────────────────────────────────────────────────────────────────────
 
 def _verify_tac_hanging_piece(board, ev, played_san):
-    """Hanging piece. Detector requires is_exchange_losing=True (SEE-based),
-    which already correctly handles piece-value mismatches. Our verifier
-    re-uses SEE on the claimed hanging square. If SEE < 0 from opponent's
-    POV, the piece is hanging.
-    """
+    """Hanging piece: opponent has a legal material-winning exchange now."""
     e = ev.get("evidence") or {}
     sq = _sq(e.get("hanging_piece_square"))
     if sq is None:
@@ -121,14 +147,9 @@ def _verify_tac_hanging_piece(board, ev, played_san):
                        else chess.BLACK if claimed_color_str == "black" else None)
     if expected_color is not None and p.color != expected_color:
         return False, f"piece on {chess.square_name(sq)} is wrong colour", "GEOMETRIC"
-    attackers = after.attackers(not p.color, sq)
-    if not attackers:
-        return False, f"no opponent attackers on {chess.square_name(sq)} after move", "GEOMETRIC"
-    # Use SEE to verify the opponent gains material by capturing.
-    from services.caption_facts import static_exchange_eval
-    see_for_opponent = static_exchange_eval(after, sq, not p.color)
-    if see_for_opponent <= 0:
-        return False, f"SEE for opponent capturing {chess.square_name(sq)} is {see_for_opponent} (not losing)", "GEOMETRIC"
+    see_for_opponent = _independent_legal_exchange_gain(after, sq)
+    if see_for_opponent <= 50:
+        return False, f"legal exchange gain on {chess.square_name(sq)} is {see_for_opponent} (not winning)", "GEOMETRIC"
     return True, "ok", "GEOMETRIC"
 
 

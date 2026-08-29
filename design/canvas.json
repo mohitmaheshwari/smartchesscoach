@@ -1,0 +1,44 @@
+{
+  "pages": [
+    { "id": "web", "name": "Web" },
+    { "id": "mobile", "name": "Mobile" }
+  ],
+  "artboards": [
+    { "file": "TodayWeb.dc.html", "title": "1 · Today", "page": "web", "x": 0, "y": 0, "w": 1440, "h": 900 },
+    { "file": "PlayWeb.dc.html", "title": "2 · Play", "page": "web", "x": 1560, "y": 0, "w": 1440, "h": 900 },
+    { "file": "ReviewWeb.dc.html", "title": "3 · Review", "page": "web", "x": 3120, "y": 0, "w": 1440, "h": 900 },
+    { "file": "PlanWeb.dc.html", "title": "4 · Plan", "page": "web", "x": 4680, "y": 0, "w": 1440, "h": 900 },
+
+    { "file": "Main.dc.html", "title": "1 · Today", "page": "mobile", "x": 0, "y": 0, "w": 390, "h": 844 },
+    { "file": "Play.dc.html", "title": "2 · Play", "page": "mobile", "x": 510, "y": 0, "w": 390, "h": 844 },
+    { "file": "Review.dc.html", "title": "3 · Review", "page": "mobile", "x": 1020, "y": 0, "w": 390, "h": 844 },
+    { "file": "Plan.dc.html", "title": "4 · Plan", "page": "mobile", "x": 1530, "y": 0, "w": 390, "h": 844 }
+  ],
+  "annotations": [
+    {
+      "id": "web-note",
+      "page": "web",
+      "x": 0,
+      "y": -190,
+      "w": 780,
+      "text": "Four screens replace 57 routes.\nThe extra width on desktop becomes breathing room, not more cards — one centred column, a quiet 232px rail, and nothing competing with the board.\nBrand kept (crimson / amber / navy, Outfit + Manrope); the layout language is what resets."
+    },
+    {
+      "id": "web-note-2",
+      "page": "web",
+      "x": 3120,
+      "y": -190,
+      "w": 700,
+      "text": "Review is where desktop earns its width: recurrence chip first, geometry second, the engine line never.\n\"3rd time this month\" is the sentence no competitor can say."
+    },
+    {
+      "id": "mobile-note",
+      "page": "mobile",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "The same four screens at 390×844.\nThe board carries the teaching: one line above it, one line under it, one action."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "web" }
+}

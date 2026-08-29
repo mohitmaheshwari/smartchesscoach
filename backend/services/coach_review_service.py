@@ -451,21 +451,22 @@ async def compute_proof(
     diagnosis: str,
 ) -> Dict:
     """
-    What's getting better? Honest encouragement based on data.
+    Compare two dated analysis windows without turning a directional snapshot
+    into a mastery or durable-improvement claim.
     """
     # Get recent game analyses
     recent = []
     cursor = db.game_analyses.find(
-        {"user_id": user_id},
-        {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "created_at": 1}
-    ).sort("created_at", -1).limit(20)
+        {"user_id": user_id, "analyzed_at": {"$type": "date"}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "analyzed_at": 1}
+    ).sort("analyzed_at", -1).limit(20)
     async for doc in cursor:
         recent.append(doc)
 
-    if len(recent) < 3:
+    if len(recent) < 10:
         return {
             "has_enough_data": False,
-            "message": "Play a few more games and I'll show your progress.",
+            "message": "I need 10 dated analyses before comparing two game windows.",
             "improvements": [],
             "still_working_on": [],
         }
@@ -513,7 +514,7 @@ async def compute_proof(
     if recent_blunder_rate < older_blunder_rate * 0.7:
         improvements.append({
             "area": "Fewer blunders",
-            "detail": f"Blunders down from {older_blunder_rate:.1f} to {recent_blunder_rate:.1f} per game. Nice.",
+            "detail": f"The recent window had {recent_blunder_rate:.1f} blunders per game, versus {older_blunder_rate:.1f} before it.",
         })
     elif recent_blunder_rate > older_blunder_rate * 1.3:
         still_working.append({
@@ -524,8 +525,8 @@ async def compute_proof(
     # Accuracy comparison
     if recent_accuracy > older_accuracy + 3:
         improvements.append({
-            "area": "Better accuracy",
-            "detail": f"Accuracy up from {older_accuracy:.0f}% to {recent_accuracy:.0f}%. You're getting sharper.",
+            "area": "Higher recent accuracy",
+            "detail": f"The recent window averaged {recent_accuracy:.0f}% accuracy, versus {older_accuracy:.0f}% before it.",
         })
     elif older_accuracy > recent_accuracy + 3:
         still_working.append({
@@ -549,19 +550,19 @@ async def compute_proof(
 
     if recent_opening < older_opening * 0.6 and older_opening > 0.5:
         improvements.append({
-            "area": "Opening play",
-            "detail": "Your openings are getting cleaner. The early mistakes are decreasing.",
+            "area": "Fewer recent opening mistakes",
+            "detail": "The recent window had fewer early mistakes than the earlier window.",
         })
 
     # Build encouraging message
     if improvements and not still_working:
-        message = "You're getting better. The numbers show it."
+        message = "The recent analysis window moved in a positive direction."
     elif improvements and still_working:
-        message = "Some things are improving, some need work. That's normal."
+        message = "The two windows show mixed movement."
     elif still_working:
         message = "Tough stretch. But you know what to work on — that matters."
     else:
-        message = "Steady play. No big changes — you're consistent."
+        message = "The two windows do not show a large directional change."
 
     return {
         "has_enough_data": True,
@@ -570,6 +571,7 @@ async def compute_proof(
         "still_working_on": still_working,
         "recent_accuracy": round(recent_accuracy, 1),
         "older_accuracy": round(older_accuracy, 1),
+        "claim_basis": "recent_5_vs_earlier_dated_analyses",
     }
 
 

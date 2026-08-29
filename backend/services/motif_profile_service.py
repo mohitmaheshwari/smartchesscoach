@@ -6,13 +6,29 @@ coaching loop (docs/motif_profile_scope.md). The weakness positions are captured
 the practice layer can drill that motif from the user's own games.
 
 LOAD-BEARING RULE: geometry is never credited without the move-quality gate, and the
-GEOMETRY itself comes from the verified, winnability-checked detector
-(caption_facts.multi_target_attack_evidence) on BOTH sides — symmetric, single-source.
+GEOMETRY itself comes from the verified, winnability-checked detector on BOTH sides —
+symmetric, single-source. Fork claims read the PROMOTED view
+(caption_facts.named_fork_evidence, via _named_forks below), never the raw
+multi_target_attack_evidence, so "you keep getting forked" covers exactly the moves the
+captions are willing to call a fork.
 Audited 2026-06-21: made-side consolidated (old heuristic was 96% FP); got-side via the
 same detector on the opponent's reply = 86% independently-confirmed (the loose
 opp_reply_creates_fork was 45%, rejected).
 
-Phase 1: FORK only (audited). pin/skewer/discovered follow once each is audited clean.
+AUDIT STATUS (corrected 2026-08-13 — this block previously read "Phase 1: FORK only
+(audited)", which was stale relative to docs/motif_profile_backlog.md):
+
+  fork    — geometry AND attribution clean. `multi_target_attack_evidence` is built from
+            threats_created, so it is move-scoped; sampled 28/28 with via_moving_piece.
+  pin     — the original audit found 29% of board-wide shapes already existed before
+            the move. `extract_facts` now emits only the before/after delta, including
+            a target-pair guard for sliders that merely move along an existing line.
+  skewer  — the original audit found 14% pre-existing; the same causal delta applies.
+  discovered / loose — counts computed; not separately attribution-audited.
+
+Precision and attribution are different audits. The causal implementation is now
+regression-tested, but pin/skewer remain Shadow until fresh independent semantic
+samples meet the Detector Quality Gate. See docs/pattern_learning_system_evidence.md E2.
 """
 from typing import Dict, List, Any, Optional
 import chess
@@ -72,6 +88,18 @@ def _pv_captures_own_loose(fen_after: str, pv_first_san: str) -> bool:
         return not defenders
     except Exception:
         return False
+
+
+def _named_forks(facts) -> list:
+    """The PROMOTED fork view. A profile that says "you keep getting forked" and
+    a caption that says "check, and it attacks a pawn" must be talking about the
+    same set of moves -- so this reads named_fork_evidence, never the raw
+    geometry. Falls back to filtering for facts dicts built before the view."""
+    shapes = (facts or {}).get("named_fork_evidence")
+    if shapes is None:
+        from services.caption_facts import named_fork_shapes
+        shapes = named_fork_shapes((facts or {}).get("multi_target_attack_evidence"))
+    return shapes or []
 
 
 def _classify_aligned(aligned) -> set:
@@ -141,7 +169,7 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
             mf = extract_facts(fen_before=fen, played_san=played, best_move_san=best,
                                cp_loss=cp, pv_after_played=pv, mover_is_user=True)
             made = set()
-            if mf.get("multi_target_attack_evidence"):
+            if _named_forks(mf):
                 made.add("fork")
             made |= _classify_aligned(mf.get("aligned_pieces_evidence"))
             if mf.get("discovered_attack_evidence"):
@@ -165,7 +193,7 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                 gf = extract_facts(fen_before=fen_after, played_san=pv[0],
                                    cp_loss=0, mover_is_user=False)
                 got = set()
-                if gf.get("multi_target_attack_evidence"):
+                if _named_forks(gf):
                     got.add("fork")
                 got |= _classify_aligned(gf.get("aligned_pieces_evidence"))
                 if gf.get("discovered_attack_evidence"):
@@ -201,6 +229,16 @@ def compute_game_motifs(move_evaluations: List[Dict], user_color: Optional[str] 
                     "game_id": game_id,             # provenance
                     "move_number": ev.get("move_number"),
                     "contract_version": 2,
+                    # A row derived here comes straight from ONE game's
+                    # move_evaluations, so its attribution is known by
+                    # construction — there is no (fen_after, move) join to be
+                    # ambiguous about. Stamp "exact" so get_drills() will emit
+                    # game_id/move_number for it. When the caller did not pass a
+                    # game_id we leave provenance unset rather than claiming
+                    # knowledge we don't have; get_drills() then withholds the
+                    # attribution. See docs/pattern_learning_system_evidence.md
+                    # E1.4 for why 11% of backfilled rows can't do this.
+                    **({"provenance": "exact"} if game_id else {}),
                 })
     return out
 
@@ -312,7 +350,7 @@ def position_allows_motif(ev: Dict) -> Optional[str]:
         return None
     try:
         gf = extract_facts(fen_before=fa, played_san=pv[0], cp_loss=0, mover_is_user=False)
-        if gf.get("multi_target_attack_evidence"):
+        if _named_forks(gf):
             return "fork"
         aligned = _classify_aligned(gf.get("aligned_pieces_evidence"))
         if "pin" in aligned:
@@ -573,7 +611,7 @@ def _move_motifs(fen, move, pv, mover_user) -> set:
     try:
         f = extract_facts(fen_before=fen, played_san=move, best_move_san=move,
                           cp_loss=0, pv_after_played=pv or [], mover_is_user=mover_user)
-        if f.get("multi_target_attack_evidence"):
+        if _named_forks(f):
             out.add("fork")
         out |= _classify_aligned(f.get("aligned_pieces_evidence"))
         if f.get("discovered_attack_evidence"):

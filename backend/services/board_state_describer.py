@@ -27,7 +27,7 @@ This module produces only facts.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 import chess
 
@@ -52,6 +52,38 @@ class BoardStateFact:
     category: str
     severity: int
     placeholders: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class KingSafetyState:
+    """Structured king-safety truth shared by captions and detectors."""
+
+    king_square: Optional[str]
+    missing_shield: int
+    attacker_squares: Tuple[str, ...]
+    opponent_has_queen: bool
+
+    @property
+    def attackers_near(self) -> int:
+        return len(self.attacker_squares)
+
+    @property
+    def shield_issue(self) -> bool:
+        return self.missing_shield >= 2
+
+    @property
+    def attack_issue(self) -> bool:
+        return self.attackers_near >= 3
+
+    @property
+    def effective_issues(self) -> FrozenSet[str]:
+        """Issues strong enough to support a causal coaching label."""
+        issues = set()
+        if self.shield_issue and self.opponent_has_queen:
+            issues.add("pawn_shield")
+        if self.attack_issue:
+            issues.add("king_zone_attack")
+        return frozenset(issues)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -262,41 +294,29 @@ def _metric_pieces_on_back_rank(
     )
 
 
-def _metric_king_shield_broken(
+def _missing_king_shield(
     board: chess.Board, user_color: chess.Color, move_number: int
-) -> Optional[BoardStateFact]:
-    """User's king has lost shelter pawns from the original castled
-    formation. We check the 3 squares directly in front of the king
-    on the rank it occupies — if pawns are missing from there (and
-    king has castled, i.e. not on e1/e8), call it shield-broken.
-
-    Parth fb_a81663d410b6: gate on king being on its STARTING BACK
-    RANK. The "front rank pawns are the shelter" geometry assumes the
-    king is castled on rank 1 (white) / rank 8 (black). If the king
-    has walked further (e.g. Kc7 from Kc8, or Kg2 from Kg1), the
-    shelter calculation looks at the wrong squares — and saying "lost
-    N of its pawn shelter" misrepresents a position where the king is
-    actively out of shelter altogether.
-    """
+) -> int:
+    """Return missing shelter pawns when the canonical geometry applies."""
     if move_number < 10:
-        return None
+        return 0
     king_sq = board.king(user_color)
     if king_sq is None:
-        return None
+        return 0
     starting_king_sq = chess.E1 if user_color == chess.WHITE else chess.E8
     if king_sq == starting_king_sq:
-        return None  # uncastled — the shield idea doesn't apply yet
+        return 0
     # King must still be on its back rank for the shelter geometry to
     # make sense. Walked-off kings have left the shelter — don't claim
     # "lost N pawn shelter" when the structure no longer applies.
     back_rank = 0 if user_color == chess.WHITE else 7
     if chess.square_rank(king_sq) != back_rank:
-        return None
+        return 0
     kf = chess.square_file(king_sq)
     # Front rank from king's POV
     front_rank = chess.square_rank(king_sq) + (1 if user_color == chess.WHITE else -1)
     if front_rank < 0 or front_rank > 7:
-        return None
+        return 0
     files_to_check = [f for f in (kf - 1, kf, kf + 1) if 0 <= f < 8]
     missing = 0
     for f in files_to_check:
@@ -304,6 +324,15 @@ def _metric_king_shield_broken(
         p = board.piece_at(sq)
         if p is None or p.piece_type != chess.PAWN or p.color != user_color:
             missing += 1
+    return missing
+
+
+def _metric_king_shield_broken(
+    board: chess.Board, user_color: chess.Color, move_number: int
+) -> Optional[BoardStateFact]:
+    """User's back-rank king is missing at least two shelter pawns."""
+    king_sq = board.king(user_color)
+    missing = _missing_king_shield(board, user_color, move_number)
     if missing < 2:
         return None
     return BoardStateFact(
@@ -317,21 +346,30 @@ def _metric_king_shield_broken(
     )
 
 
-def _metric_king_attackers(
+def _king_zone_attacker_squares(
     board: chess.Board, user_color: chess.Color, move_number: int
-) -> Optional[BoardStateFact]:
-    """Count of opp pieces attacking squares in user's king zone.
-    3+ attackers = "opp has pieces aimed at your king."""
+) -> List[int]:
+    """Return unique opponent pieces attacking the canonical king zone."""
     if move_number < 10:
-        return None
+        return []
     king_sq = board.king(user_color)
     if king_sq is None:
-        return None
+        return []
     opp_color = not user_color
     attacker_set = set()
     for sq in _king_zone(king_sq):
         for attacker_sq in board.attackers(opp_color, sq):
             attacker_set.add(attacker_sq)
+    return sorted(attacker_set)
+
+
+def _metric_king_attackers(
+    board: chess.Board, user_color: chess.Color, move_number: int
+) -> Optional[BoardStateFact]:
+    """Count of opp pieces attacking squares in user's king zone.
+    3+ attackers = "opp has pieces aimed at your king."""
+    king_sq = board.king(user_color)
+    attacker_set = _king_zone_attacker_squares(board, user_color, move_number)
     if len(attacker_set) < 3:
         return None
     return BoardStateFact(
@@ -342,6 +380,20 @@ def _metric_king_attackers(
             "bs_king_square": chess.square_name(king_sq),
             "bs_attacker_count": len(attacker_set),
         },
+    )
+
+
+def king_safety_state(
+    board: chess.Board, user_color: chess.Color, move_number: int
+) -> KingSafetyState:
+    """Return canonical structured king-safety facts for one position."""
+    king_sq = board.king(user_color)
+    attackers = _king_zone_attacker_squares(board, user_color, move_number)
+    return KingSafetyState(
+        king_square=chess.square_name(king_sq) if king_sq is not None else None,
+        missing_shield=_missing_king_shield(board, user_color, move_number),
+        attacker_squares=tuple(chess.square_name(sq) for sq in attackers),
+        opponent_has_queen=bool(board.pieces(chess.QUEEN, not user_color)),
     )
 
 

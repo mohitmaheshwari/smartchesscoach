@@ -63,7 +63,7 @@ def _sq(name: str) -> int:
 
 def _verify_free_piece(board: chess.Board, mover: str, targets: List[str],
                        executing_move: Optional[str]) -> Tuple[bool, str]:
-    """Free piece: target is enemy ≥knight, zero defenders, attacker exists."""
+    """Free piece: a legal capture of enemy ≥knight has no legal recapture."""
     if not targets:
         return False, "no targets"
     tgt = _sq(targets[0])
@@ -79,6 +79,21 @@ def _verify_free_piece(board: chess.Board, mover: str, targets: List[str],
         return False, "target has defenders (not free)"
     if not board.attackers(board.turn, tgt):
         return False, "no own attacker on target"
+    if not executing_move:
+        return False, "no executing_move"
+    try:
+        move = chess.Move.from_uci(executing_move)
+    except ValueError:
+        return False, "bad executing_move uci"
+    if move not in board.legal_moves or move.to_square != tgt:
+        return False, "executing_move is not a legal capture of target"
+    after = board.copy(stack=False)
+    after.push(move)
+    if any(
+        reply.to_square == tgt and after.is_capture(reply)
+        for reply in after.legal_moves
+    ):
+        return False, "opponent has a legal recapture after executing_move"
     return True, "ok"
 
 

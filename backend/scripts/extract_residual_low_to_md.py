@@ -143,7 +143,7 @@ whether to leave it or eliminate the variants entirely).
 async def main_async(out_dir: str, max_per_variant: int):
     mongo_url = os.environ.get(
         "MONGO_URL",
-        "mongodb://admin_user_mii_s_c:Mii123$44$@host.docker.internal:27018/?authSource=admin",
+        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
     )
     db_name = os.environ.get("DB_NAME", "chess_coach")
     client = AsyncIOMotorClient(mongo_url)

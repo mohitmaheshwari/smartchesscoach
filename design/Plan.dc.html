@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Manrope', system-ui, sans-serif; }
+    a { color: #FABD23; } a:hover { color: #FFD569; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #0B0D14; color: #F2F3F7; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 16px 24px;">
+
+  <div style="font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8A90A2; margin-bottom: 20px;">YOUR PLAN</div>
+
+  <!-- the named leak: this is how the player refers to it -->
+  <h1 style="margin: 0; font-family: 'Outfit', system-ui, sans-serif; font-size: 27px; line-height: 1.2; font-weight: 600; color: #F2F3F7; text-wrap: pretty;">The square you don&#39;t check</h1>
+  <p style="margin: 9px 0 0; font-size: 15px; line-height: 1.5; color: #8A90A2;">Moving pieces where they can be taken</p>
+
+  <!-- four stages, criteria not dates -->
+  <div style="display: flex; flex-direction: column; margin-top: 28px;">
+    <sc-for list="{{stages}}" as="s" hint-placeholder-count="4">
+      <div style="{{s.rowStyle}}">
+        <div style="{{s.iconWrap}}">
+          <span style="{{s.iconStyle}}">{{s.icon}}</span>
+        </div>
+        <div style="flex-grow: 1;">
+          <div style="{{s.titleStyle}}">{{s.title}}</div>
+          <div style="font-size: 13px; color: #7C8296; margin-top: 3px;">{{s.detail}}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- the evidence number: countable, from their own games -->
+  <div style="margin-top: 26px; background: #12151F; border: 1px solid #232838; border-radius: 14px; padding: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;">
+      <span style="font-family: 'Outfit', system-ui, sans-serif; font-size: 30px; font-weight: 700; color: #FABD23; line-height: 1; font-variant-numeric: tabular-nums;">14</span>
+      <span style="font-size: 15px; color: #8A90A2;">of 20 clean in real games</span>
+    </div>
+    <div style="display: flex; gap: 3px;">
+      <sc-for list="{{ticks}}" as="t" hint-placeholder-count="20">
+        <div style="{{t.style}}"></div>
+      </sc-for>
+    </div>
+    <p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #A9AFBF;">Six more clean decisions and this is done.</p>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div style="height: 54px; display: flex; align-items: center; justify-content: center; border-radius: 11px; background: #FABD23; color: #16120A; font-size: 16px; font-weight: 700;">Today &middot; 8 reps &middot; 3 min</div>
+
+  <!-- one teaser forward, never the full list of weaknesses -->
+  <div style="display: flex; align-items: center; gap: 8px; margin-top: 18px;">
+    <span style="font-size: 13px; color: #6E7488;">Next up</span>
+    <span style="font-size: 13px; color: #9AA0B0;">your king gets exposed early</span>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const defs = [
+      { title: 'See it', detail: '8 of 8 reps, no hints', state: 'done' },
+      { title: 'Do it', detail: 'passed with no help', state: 'done' },
+      { title: 'Prove it', detail: 'in real games', state: 'current' },
+      { title: 'Fixed', detail: 'not yet', state: 'todo' }
+    ];
+
+    const stages = defs.map(function (d, i) {
+      const last = i === defs.length - 1;
+      let icon = '';
+      let iconWrap = 'width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+      let iconStyle = 'font-size:13px;line-height:1;font-weight:700;';
+
+      if (d.state === 'done') {
+        icon = '✓';
+        iconWrap += 'background:#1E3A28;';
+        iconStyle += 'color:#5FD08A;';
+      } else if (d.state === 'current') {
+        icon = '→';
+        iconWrap += 'background:#FABD23;';
+        iconStyle += 'color:#16120A;';
+      } else {
+        icon = '';
+        iconWrap += 'background:transparent;border:1.5px solid #2A3040;';
+      }
+
+      return {
+        title: d.title,
+        detail: d.detail,
+        icon: icon,
+        iconWrap: iconWrap,
+        iconStyle: iconStyle,
+        rowStyle: 'display:flex;align-items:flex-start;gap:14px;padding:14px 0;'
+          + (last ? '' : 'border-bottom:1px solid #1A1E2A;'),
+        titleStyle: 'font-family:Outfit,system-ui,sans-serif;font-size:17px;font-weight:600;'
+          + (d.state === 'todo' ? 'color:#6E7488;' : 'color:#F2F3F7;')
+      };
+    });
+
+    const ticks = [];
+    for (let i = 0; i < 20; i++) {
+      ticks.push({
+        style: 'height:8px;flex-grow:1;border-radius:2px;background:'
+          + (i < 14 ? '#FABD23' : '#252A3A') + ';'
+      });
+    }
+
+    return { stages: stages, ticks: ticks };
+  }
+}
+</script>
+</body>
+</html>

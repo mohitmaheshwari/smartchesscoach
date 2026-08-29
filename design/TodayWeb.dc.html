@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Manrope', system-ui, sans-serif; }
+    a { color: #FABD23; } a:hover { color: #FFD569; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; background: #0B0D14; color: #F2F3F7; display: flex; box-sizing: border-box;">
+
+  <!-- rail: four destinations, not fifty-seven -->
+  <div style="width: 232px; flex-shrink: 0; border-right: 1px solid #191D28; display: flex; flex-direction: column; padding: 32px 20px; box-sizing: border-box;">
+    <div style="font-family: 'Outfit', system-ui, sans-serif; font-size: 19px; font-weight: 700; color: #F2F3F7; padding: 0 10px; margin-bottom: 36px;">Chess<span style="color: #FABD23;">Guru</span></div>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 9px; background: #1A1508;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FABD23" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+        <span style="font-size: 15px; font-weight: 600; color: #FABD23;">Today</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 9px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l13 8-13 8V4z"></path></svg>
+        <span style="font-size: 15px; font-weight: 500; color: #8A90A2;">Play</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 9px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>
+        <span style="font-size: 15px; font-weight: 500; color: #8A90A2;">Review</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 9px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"></path></svg>
+        <span style="font-size: 15px; font-weight: 500; color: #8A90A2;">Plan</span>
+      </div>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px;">
+      <div style="width: 30px; height: 30px; border-radius: 50%; background: #9B2734; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff;">M</div>
+      <div>
+        <div style="font-size: 13px; font-weight: 600;">Mohit</div>
+        <div style="font-size: 11px; color: #6E7488;">1042</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- one centred column. the space around it is the point -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 48px 0; box-sizing: border-box;">
+    <div style="width: 560px; display: flex; flex-direction: column;">
+
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px;">
+        <div>
+          <p style="margin: 0; font-family: 'Outfit', system-ui, sans-serif; font-size: 25px; line-height: 1.3; font-weight: 500; text-wrap: pretty;">Yesterday, move 19 &mdash; the bishop again.</p>
+          <p style="margin: 7px 0 0; font-size: 14px; color: #8A90A2;">Eight quick ones.</p>
+        </div>
+        <span style="font-size: 13px; color: #8A90A2; white-space: nowrap;">3 min</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); width: 480px; height: 480px; align-self: center; border-radius: 8px; overflow: hidden; box-shadow: 0 14px 40px rgba(0,0,0,0.5);">
+        <sc-for list="{{squares}}" as="sq" hint-placeholder-count="64">
+          <div style="{{sq.sqStyle}}">
+            <span style="{{sq.pieceStyle}}">{{sq.glyph}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <p style="margin: 26px 0 0; font-size: 18px; color: #F2F3F7; font-weight: 500;">You want to play <span style="font-family: 'Outfit', system-ui, sans-serif; font-weight: 600;">Bg5</span>.</p>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px;">
+        <div style="height: 54px; display: flex; align-items: center; justify-content: center; border: 1px solid #2A3040; border-radius: 10px; font-size: 16px; font-weight: 600; background: #12151F;">Safe</div>
+        <div style="height: 54px; display: flex; align-items: center; justify-content: center; border: 1px solid #2A3040; border-radius: 10px; font-size: 16px; font-weight: 600; background: #12151F;">Not safe</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 22px;">
+        <div style="display: flex; gap: 5px; flex-grow: 1;">
+          <sc-for list="{{pips}}" as="p" hint-placeholder-count="8">
+            <div style="{{p.style}}"></div>
+          </sc-for>
+        </div>
+        <span style="font-size: 13px; color: #8A90A2; font-variant-numeric: tabular-nums;">3 / 8</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+const G = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const LIGHT = '#C6CAD4';
+const DARK = '#6A7186';
+
+class Component extends DCLogic {
+  buildSquares(rows, marks) {
+    const out = [];
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const ch = rows[r][f];
+        const name = 'abcdefgh'[f] + (8 - r);
+        const light = (r + f) % 2 === 0;
+        const m = marks[name] || null;
+        const isWhite = ch !== '.' && ch === ch.toUpperCase();
+        let glyph = '';
+        let pieceStyle = 'font-size:40px;line-height:1;';
+        if (ch !== '.') {
+          glyph = G[ch.toLowerCase()];
+          pieceStyle += isWhite
+            ? 'color:#FFFFFF;text-shadow:0 0 1px rgba(0,0,0,.9),0 2px 3px rgba(0,0,0,.45);'
+            : 'color:#12141C;text-shadow:0 0 1px rgba(255,255,255,.22);';
+        } else if (m && m.ghost) {
+          glyph = G[m.ghost];
+          pieceStyle += 'color:#FFFFFF;opacity:.38;';
+        }
+        out.push({
+          key: name, glyph: glyph, pieceStyle: pieceStyle,
+          sqStyle: 'display:flex;align-items:center;justify-content:center;background:'
+            + (light ? LIGHT : DARK) + ';' + (m ? (m.sq || '') : '')
+        });
+      }
+    }
+    return out;
+  }
+
+  renderVals() {
+    const rows = [
+      'r.bqk..r', 'pppp.pp.', '..n..n.p', '..b.p...',
+      '..B.P...', '...P.N..', 'PPP..PPP', 'RNBQ.RK.'
+    ];
+    const marks = {
+      c1: { sq: 'box-shadow: inset 0 0 0 4px rgba(250,189,35,.75);' },
+      g5: { sq: 'box-shadow: inset 0 0 0 4px #FABD23;', ghost: 'b' }
+    };
+    const pips = [];
+    for (let i = 0; i < 8; i++) {
+      pips.push({ style: 'height:3px;flex-grow:1;border-radius:2px;background:' + (i < 3 ? '#FABD23' : '#232838') + ';' });
+    }
+    return { squares: this.buildSquares(rows, marks), pips: pips };
+  }
+}
+</script>
+</body>
+</html>

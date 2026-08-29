@@ -410,14 +410,150 @@ def static_exchange_eval(board: chess.Board, target_sq: int, initiating_side: ch
     return gain[0]
 
 
+def _captured_value_for_legal_move(board: chess.Board, move: chess.Move) -> int:
+    """Material removed by one legal capture, including en passant."""
+    if board.is_en_passant(move):
+        return PIECE_VALUE_CP[chess.PAWN]
+    captured = board.piece_at(move.to_square)
+    return PIECE_VALUE_CP.get(captured.piece_type, 0) if captured else 0
+
+
+def _promotion_gain_for_move(move: chess.Move) -> int:
+    """Material created when a pawn capture promotes on the exchange square."""
+    if move.promotion is None:
+        return 0
+    return PIECE_VALUE_CP.get(move.promotion, 0) - PIECE_VALUE_CP[chess.PAWN]
+
+
+def legal_exchange_gain(
+    board: chess.Board,
+    target_sq: int,
+    initiating_side: chess.Color,
+    *,
+    first_move: Optional[chess.Move] = None,
+) -> int:
+    """Exact material gain for legal captures on one square.
+
+    Unlike :func:`static_exchange_eval`, this pushes every capture on a copied
+    board. That makes newly opened x-rays, king safety, checks, pins and king
+    recaptures part of the truth. The side to move may stop at every later
+    step; ``first_move`` forces only the already-played first capture.
+
+    This function deliberately requires ``initiating_side == board.turn``.
+    The older static evaluator also supports hypothetical captures by the side
+    that is *not* to move, which is useful for shape research but is not valid
+    evidence that a hanging piece can be taken now.
+    """
+    if initiating_side != board.turn:
+        raise ValueError("legal_exchange_gain requires initiating_side to move")
+
+    def best_gain(work: chess.Board, depth: int = 0) -> int:
+        if depth > 32:
+            return 0
+        best = 0  # the side to move may decline the exchange
+        for move in list(work.legal_moves):
+            if move.to_square != target_sq or not work.is_capture(move):
+                continue
+            immediate = (
+                _captured_value_for_legal_move(work, move)
+                + _promotion_gain_for_move(move)
+            )
+            after = work.copy(stack=False)
+            after.push(move)
+            best = max(best, immediate - best_gain(after, depth + 1))
+        return best
+
+    if first_move is None:
+        return best_gain(board)
+
+    if (
+        first_move not in board.legal_moves
+        or first_move.to_square != target_sq
+        or not board.is_capture(first_move)
+    ):
+        raise ValueError("first_move must be a legal capture on target_sq")
+    immediate = (
+        _captured_value_for_legal_move(board, first_move)
+        + _promotion_gain_for_move(first_move)
+    )
+    after = board.copy(stack=False)
+    after.push(first_move)
+    return immediate - best_gain(after, 1)
+
+
+def legally_hanging_pieces(
+    board: chess.Board,
+    owner: chess.Color,
+    minimum_gain_cp: int,
+) -> List[Dict[str, Any]]:
+    """Return owner pieces the side to move can win by legal exchange.
+
+    This is the structured player-facing view of ``legal_exchange_gain``.
+    ``owner`` must be the side that just moved, so the opponent is currently
+    entitled to capture. The caller supplies the product-specific material
+    floor; this function owns only chess truth.
+    """
+    if board.turn == owner:
+        raise ValueError("legally_hanging_pieces requires the opponent to move")
+
+    facts: List[Dict[str, Any]] = []
+    for target_sq, piece in board.piece_map().items():
+        if piece.color != owner or piece.piece_type == chess.KING:
+            continue
+
+        material_loss_cp = legal_exchange_gain(board, target_sq, board.turn)
+        if material_loss_cp < minimum_gain_cp:
+            continue
+
+        winning_move = None
+        winning_gain = 0
+        for move in list(board.legal_moves):
+            if move.to_square != target_sq or not board.is_capture(move):
+                continue
+            forced_gain = legal_exchange_gain(
+                board,
+                target_sq,
+                board.turn,
+                first_move=move,
+            )
+            if forced_gain > winning_gain:
+                winning_gain = forced_gain
+                winning_move = move
+
+        facts.append({
+            "square": chess.square_name(target_sq),
+            "piece_type": PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+            "piece_type_id": piece.piece_type,
+            "piece_value_cp": PIECE_VALUE_CP.get(piece.piece_type, 0),
+            "material_loss_cp": material_loss_cp,
+            "winning_capture_san": board.san(winning_move) if winning_move else None,
+            "winning_capture_uci": winning_move.uci() if winning_move else None,
+        })
+
+    facts.sort(
+        key=lambda fact: (
+            -fact["material_loss_cp"],
+            -fact["piece_value_cp"],
+            fact["square"],
+        )
+    )
+    return facts
+
+
 def _see_for_played_move(board_before: chess.Board, played_move: chess.Move) -> Optional[int]:
     """Return SEE for a capture move (the played side's perspective),
     or None if the move is not a capture."""
     if not board_before.is_capture(played_move):
         return None
-    # Compute SEE on the target square with the played side as initiator.
+    # Force the move that was actually played. The legacy SEE picked the
+    # cheapest attacker instead, which could grade a different capture.
     initiator = board_before.turn
-    return static_exchange_eval(board_before, played_move.to_square, initiator)
+    return legal_exchange_gain(
+        board_before,
+        played_move.to_square,
+        initiator,
+        first_move=played_move,
+    )
 
 
 def _target_square_exchange_cp(board_after: chess.Board, target_sq: int) -> Optional[int]:
@@ -434,7 +570,7 @@ def _target_square_exchange_cp(board_after: chess.Board, target_sq: int) -> Opti
     if not piece_on_target:
         return None
     initiator = board_after.turn  # opponent is to move in board_after
-    return static_exchange_eval(board_after, target_sq, initiator)
+    return legal_exchange_gain(board_after, target_sq, initiator)
 
 
 def _exchange_participants(
@@ -683,7 +819,7 @@ def _pieces_now_undefended(
         remaining_defender_count = len(remaining_defenders)
         see_if_captured = 0
         if now_attacked:
-            see_if_captured = static_exchange_eval(board_after, sq, opp_color)
+            see_if_captured = legal_exchange_gain(board_after, sq, opp_color)
         # "Hanging" is a strong renderer signal — distinct from "lost a
         # defender but still adequately defended." Defined as:
         # under attack AND the exchange loses material AND no other
@@ -726,9 +862,167 @@ def _pieces_now_undefended(
 # evidence of the line."
 # ────────────────────────────────────────────────────────────────────
 
+# ── Promotion policy, NOT geometry ───────────────────────────────────────────
+#
+# Minimum value of a WINNABLE target before ChessGuru will NAME a shape as a
+# fork and use it as training material. The enemy king never counts toward it.
+#
+# This is deliberately NOT a gate inside the detector. A knight that checks the
+# king while attacking a pawn IS a fork — saying otherwise would make the
+# canonical evidence assert something chessically false, and would let the
+# caption layer and the lesson layer drift into different definitions of the
+# word. So: the evidence records the complete geometry, and this one shared
+# predicate decides what gets promoted into named teaching.
+#
+# Locked against the distribution, not picked by feel (2026-08-13, 6k-move
+# corpus): of 82 royal forks, 47 (57%) had a pawn as their only winnable target
+# and 35 (43%) had a minor piece or better. 300 keeps the 35 meaningful ones
+# across queens, knights, rooks and bishops; 500 would wrongly discard valid
+# check-plus-minor forks such as Qb5+ (king + knight). Pawn-only royal forks are
+# not silenced — they fall through to the existing "check, and it attacks a
+# pawn" explanation. Confirmed by Mohit 2026-08-13.
+FORK_MIN_NAMED_TARGET_CP = 300
+
+
+def is_named_fork(shape: Dict[str, Any]) -> bool:
+    """Should ChessGuru NAME this multi-target shape as a fork and teach from it?
+
+    THE one promotion predicate. Captions, Gold-content selection and the
+    Stage 8 grader all call this, so "what counts as a teachable fork" cannot
+    diverge between the caption system and the lesson system.
+
+    Chess truth (is it a fork?) lives in the evidence. Product policy (do we
+    name it?) lives here. Piece-agnostic — a bishop, rook or queen fork is
+    judged exactly like a knight's.
+
+    THE RULE: at least one target we can actually WIN must be worth a minor
+    piece or more. The enemy king never counts toward that — it is a forced
+    target, not winnable material — so a royal fork is named on the strength of
+    its other target alone.
+
+    Applied uniformly to royal and normal shapes. The asymmetric version (floor
+    on royal only) was tried first and rejected: it forced Gold-content
+    selection to use a STRICTER predicate than the caption layer, which is the
+    exact drift this function exists to prevent — Gold-eligible candidates
+    inflated from 97 to 193 by admitting pawn+pawn forks nobody would teach.
+
+    Measured cost of uniformity, 6,000-move corpus: **32 moves (0.5%)** lose a
+    fork caption and fall back to another rule rather than to silence. (An
+    earlier note said "20 / 0.3%" — that was counting pawn-only normal *shapes*,
+    not moves; one move can carry several shapes. 32 moves is the user-visible
+    figure and the one the evidence doc uses.) The existing principle path
+    `_p_tac_fork_pattern` already applied this same >=300 bar, so this aligns
+    `extract_primary_reason` with a rule the codebase already held.
+    """
+    winnable = [
+        t for t in (shape.get("attacked_targets") or []) if not t.get("is_forced")
+    ]
+    return any(
+        (t.get("value_cp") or 0) >= FORK_MIN_NAMED_TARGET_CP for t in winnable
+    )
+
+
+def named_fork_shapes(evidence: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """The subset of multi_target_attack_evidence eligible to be named/taught."""
+    return [s for s in (evidence or []) if is_named_fork(s)]
+
+
+def _forced_king_target(
+    threats: List[Dict[str, Any]],
+    board_after: chess.Board,
+    played_move: Optional[chess.Move] = None,
+) -> Optional[Dict[str, Any]]:
+    """The royal-fork gap: one attacker giving CHECK while also attacking a
+    winnable piece is a fork, but `_threats_created` can never see it.
+
+    `_threats_created` skips the king outright ("checks are handled by is_check,
+    not threats") because a king is not winnable material and every SEE on it is
+    meaningless. Correct for material accounting — but it means a check-plus-piece
+    fork reaches the grouper with only ONE target and is discarded.
+
+    Measured 2026-08-13: this rejected the historically-correct fork move on 16 of
+    63 gold knight-fork positions, every one a check-plus-piece shape
+    (`Nxc2+` -> targets seen `['rook','pawn']`). Royal forks are the most
+    instructive forks there are, and the canonical detector could not express one.
+
+    This is PIECE-AGNOSTIC by construction: it keys off "the checking piece" and
+    "the attacker already has a winnable target", never off knights. A bishop
+    checking while hitting a rook, or a pawn checking while hitting a knight, is
+    the same shape and is treated identically.
+
+    Returns a synthetic target entry to append to that attacker's group, or None.
+    Three gates, all required — a checking move is NOT automatically a fork:
+
+      1. SEE on the other target — inherited. Every entry in `threats` already
+         passed `see_cp > 0` in _threats_created, so the second target is
+         genuinely winnable, not merely attacked.
+      2. Moving piece — the CHECK must come from the piece that just moved.
+         A pre-existing check, or a discovered check from another piece, is a
+         different shape and is not folded in here.
+      3. Material safety — the checking piece must not simply hang. If the
+         opponent profits by capturing it (SEE > 0 on the forker's own square),
+         the "fork" resolves by taking the forker and there is nothing to win.
+
+    Gate 3 is where `pattern_confidence/fork.py:120` was too lenient: it treated
+    `gives_check` as making the forker safe outright, which accepts a knight that
+    checks and is captured by the king for free.
+
+    Known approximation: SEE ignores check legality, so a recapture by a pinned
+    defender is still counted. Same approximation used throughout this module.
+    """
+    if not board_after.is_check():
+        return None
+
+    king_sq = board_after.king(board_after.turn)
+    if king_sq is None:
+        return None
+
+    checkers = board_after.checkers()
+    if len(checkers) != 1:
+        return None  # double check is a different (stronger) shape — not folded in
+
+    checker_sq = next(iter(checkers))
+
+    # Gate 2 — the check must come from the piece that just moved.
+    if played_move is not None and checker_sq != played_move.to_square:
+        return None
+
+    # Gate 1 — that same attacker must already hold a winnable target.
+    # NO value floor here on purpose: check + pawn is still geometrically a fork,
+    # and the evidence layer must say so. Whether we NAME it is decided later by
+    # is_named_fork(). Keeping the floor here would make the canonical evidence
+    # claim a real fork does not exist.
+    checker_name = chess.square_name(checker_sq)
+    if not any(t.get("attacker_square") == checker_name for t in threats):
+        return None
+
+    # Gate 3 — the checking piece must survive.
+    opp_color = board_after.turn
+    if static_exchange_eval(board_after, checker_sq, opp_color) > 0:
+        return None
+
+    return {
+        "attacker_square": checker_name,
+        "attacker_piece_type": chess.piece_name(
+            board_after.piece_at(checker_sq).piece_type
+        ),
+        "target_square": chess.square_name(king_sq),
+        "target_piece_type": "king",
+        # A king is never won. Value 0 keeps it out of every material
+        # calculation while still counting as a target that must be answered.
+        "target_value_cp": 0,
+        "see_cp": 0,
+        "is_forced": True,
+        "is_immediate": True,
+        "via_moving_piece": played_move is None or checker_sq == played_move.to_square,
+        "via_discovered": False,
+    }
+
+
 def _multi_target_attack_evidence(
     threats: List[Dict[str, Any]],
     board_after: Optional[chess.Board] = None,
+    played_move: Optional[chess.Move] = None,
 ) -> List[Dict[str, Any]]:
     """Group `threats_created` entries by attacker_square. Any attacker
     with ≥2 separately-winning threats forms a multi-target-attack shape.
@@ -750,10 +1044,25 @@ def _multi_target_attack_evidence(
     for t in threats:
         by_attacker.setdefault(t["attacker_square"], []).append(t)
 
+    # Royal forks: fold in the enemy king as a forced target when the checking
+    # piece is also holding a winnable target. Appended AFTER grouping by
+    # attacker so it can only ever join an attacker that already has a real
+    # threat — it can never create a group on its own. See _forced_king_target.
+    if board_after is not None:
+        _king_t = _forced_king_target(threats, board_after, played_move)
+        if _king_t is not None:
+            by_attacker.setdefault(_king_t["attacker_square"], []).append(_king_t)
+
     out: List[Dict[str, Any]] = []
     for attacker_sq, ts in by_attacker.items():
         if board_after is not None:
-            ts = _filter_king_defended_overvalue_targets(ts, board_after)
+            # The king entry is exempt from the king-defended-overvalue filter:
+            # that filter drops targets whose only defender is the enemy king,
+            # which is meaningless for the king itself.
+            _forced = [t for t in ts if t.get("is_forced")]
+            ts = _filter_king_defended_overvalue_targets(
+                [t for t in ts if not t.get("is_forced")], board_after
+            ) + _forced
         if len(ts) < 2:
             continue
         # Sort targets by value descending so renderer sees the most valuable first
@@ -767,9 +1076,16 @@ def _multi_target_attack_evidence(
                     "piece_type": t["target_piece_type"],
                     "value_cp": t["target_value_cp"],
                     "see_cp": t["see_cp"],
+                    # True only for the enemy king in a royal fork: a target that
+                    # must be answered but can never be won. Consumers doing
+                    # material maths must skip it; consumers counting "how many
+                    # things are attacked" must not.
+                    "is_forced": bool(t.get("is_forced")),
                 }
                 for t in targets_sorted
             ],
+            # Lets a consumer branch on royal-vs-normal without re-scanning targets.
+            "includes_forced_king": any(t.get("is_forced") for t in ts),
             "via_moving_piece": all(t.get("via_moving_piece", False) for t in ts),
         })
     # Sort fork shapes by the highest-value target descending
@@ -936,8 +1252,23 @@ def _aligned_pieces_evidence(
 
             front_sq, front_piece = first_enemy
             rear_sq, rear_piece = second_enemy
-            front_val = PIECE_VALUE_CP.get(front_piece.piece_type, 0)
-            rear_val = PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+            # A king is the load-bearing rear piece in an absolute pin. The
+            # general material table intentionally gives kings no exchange
+            # value, but using that zero here reverses the alignment taxonomy:
+            # a knight pinned to its king looks "higher" than the rear piece
+            # and downstream motif code calls it a skewer. Alignment needs an
+            # ordering value, not a capturable-material value, so kings sort
+            # above every other piece on either side of the pair.
+            front_val = (
+                10_000
+                if front_piece.piece_type == chess.KING
+                else PIECE_VALUE_CP.get(front_piece.piece_type, 0)
+            )
+            rear_val = (
+                10_000
+                if rear_piece.piece_type == chess.KING
+                else PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+            )
 
             # Front-vs-rear value comparison (renderer decides taxonomy):
             #   "lower"  → front cheaper than rear  (classic pin shape)
@@ -1478,10 +1809,14 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     _tactic_ok = _move_cpl < MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
 
     # Priority 2: own tactic shape on the played move (gated)
-    if _tactic_ok and facts.get("multi_target_attack_evidence"):
+    # Routed through is_named_fork() — the shared promotion policy. A royal fork
+    # whose only winnable target is a pawn is a real fork geometrically, but it
+    # is not worth NAMING as one; it falls through to the check_extra rule
+    # below, which explains the check and the pawn honestly.
+    if _tactic_ok and named_fork_shapes(facts.get("multi_target_attack_evidence")):
         return {
             "category": "tactic_played",
-            "ref_field": "multi_target_attack_evidence",
+            "ref_field": "named_fork_evidence",
             "priority_level": 2,
         }
     if _tactic_ok and facts.get("aligned_pieces_evidence"):
@@ -1970,13 +2305,16 @@ def _p_tac_fork_pattern(
 ) -> Optional[Dict[str, Any]]:
     """Fires when the played move creates a multi-target attack with at
     least one target valued ≥ knight, AND the engine endorses the move."""
-    shapes = facts.get("multi_target_attack_evidence") or []
+    # Promotion policy comes from the shared predicate — this used to inline its
+    # own `any(value_cp >= 300)`, a second copy of the threshold that could drift
+    # from is_named_fork(). Falls back to filtering the raw list so the helper
+    # still works when handed a facts dict built before the view existed.
+    shapes = facts.get("named_fork_evidence")
+    if shapes is None:
+        shapes = named_fork_shapes(facts.get("multi_target_attack_evidence"))
     if not shapes:
         return None
     shape = shapes[0]
-    targets = shape.get("attacked_targets") or []
-    if not any(t.get("value_cp", 0) >= 300 for t in targets):
-        return None
     # endorsement_required: only fire when engine endorses the move
     # itself. Since the played move IS what created the fork, the
     # engine's #1 should match played_san for the principle to apply.
@@ -3216,61 +3554,6 @@ def _p_mid_pawn_break(
 # ────────────────────────────────────────────────────────────────────
 
 
-def _pawn_promotion_square(pawn_sq: int, pawn_color: chess.Color) -> int:
-    """Promotion square for a pawn of `pawn_color` currently on `pawn_sq`.
-    White promotes on rank 8 (index 7); black on rank 1 (index 0)."""
-    file_ = chess.square_file(pawn_sq)
-    promo_rank = 7 if pawn_color == chess.WHITE else 0
-    return chess.square(file_, promo_rank)
-
-
-def _pawn_distance_to_promote(pawn_sq: int, pawn_color: chess.Color) -> int:
-    """Number of pawn pushes needed to reach promotion. Pawns on their
-    starting rank can double-push, so effective distance is one less.
-
-    For white: starting rank = 1 (index 1). For black: rank 7 (index 6).
-    """
-    rank = chess.square_rank(pawn_sq)
-    if pawn_color == chess.WHITE:
-        dist = 7 - rank
-        if rank == 1:
-            dist -= 1  # double-push available
-    else:
-        dist = rank
-        if rank == 6:
-            dist -= 1
-    return dist
-
-
-def _pawn_promotion_path_clear(board: chess.Board, pawn_sq: int, pawn_color: chess.Color) -> bool:
-    """True if every square between the pawn and its promotion rank is
-    empty. A "passed" pawn whose path is blocked by ANY piece (own or
-    enemy) can't actually race — the race is delayed by however many
-    tempi it takes to clear the path.
-
-    Audit 2026-05-17 found two false-positive shapes that this filter
-    eliminates:
-      • Fire #6: doubled-pawn case (a5 blocked by own a4)
-      • Fire #12: own piece blocks (d5 blocked by own knight on d6)
-
-    For pure Rule of the Square teaching, the pawn must be on a clear
-    runway. With blockers in the way, the lesson is more nuanced
-    (clear-the-path-then-race) and the simple Chebyshev calculation
-    misleads.
-    """
-    file_ = chess.square_file(pawn_sq)
-    rank_ = chess.square_rank(pawn_sq)
-    promo_rank = 7 if pawn_color == chess.WHITE else 0
-    if pawn_color == chess.WHITE:
-        ranks_to_check = range(rank_ + 1, promo_rank + 1)
-    else:
-        ranks_to_check = range(promo_rank, rank_)
-    for r in ranks_to_check:
-        if board.piece_at(chess.square(file_, r)) is not None:
-            return False
-    return True
-
-
 def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
     """Pedagogical purity gate for Rule of the Square.
 
@@ -3300,204 +3583,117 @@ def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
     return True
 
 
-def _king_inside_pawn_square(
-    king_sq: int,
-    pawn_sq: int,
-    pawn_color: chess.Color,
-) -> bool:
-    """Rule of the Square — king is in the box iff its Chebyshev
-    distance to the promotion square does not exceed the pawn's
-    remaining distance to promote.
-
-    Single rule, no move-order dependency. This is the PEDAGOGICAL
-    formulation 1200-1500 players learn. The strict K-vs-K+P
-    "king-to-move ≤; pawn-to-move <" distinction is technically
-    correct in pure-king-and-pawn endings but pedagogically
-    misleading (it says e3 doesn't catch a g3 pawn even though in
-    practice the defending side survives via post-promotion capture).
-
-    Pure geometry. Doesn't account for own pieces blocking the king's
-    path — known v1 limitation (rare in K+P endings).
-    """
-    promo = _pawn_promotion_square(pawn_sq, pawn_color)
-    king_dist = chess.square_distance(king_sq, promo)
-    pawn_dist = _pawn_distance_to_promote(pawn_sq, pawn_color)
-    return king_dist <= pawn_dist
-
-
-# ── Detector #24: END_RULE_OF_SQUARE ────────────────────────────────
-#
-# Fires when:
-#   1. Phase is endgame.
-#   2. cp_loss >= 30 (the move was sub-optimal enough to be a missed
-#      teaching moment).
-#   3. Opponent has at least one passed pawn (uses _own_passed_pawns
-#      with the opponent's color — the helper is color-parameterised
-#      despite its name).
-#   4. For some opponent passed pawn P:
-#      - Our king's Chebyshev distance to P's promotion square exceeds
-#        the pawn's distance to promote (king is OUTSIDE the square).
-#      - The engine's best move IS a king move.
-#      - After that king move, the king is INSIDE the square (a real
-#        catching move, not just any king step).
-#      - The played move did NOT step into the square (if it did, no
-#        teaching moment — we caught the pawn).
-#
-# Edge cases enumerated (Phase 0 audit):
-#   A. Multiple opp passed pawns — fires on the first that triggers.
-#   B. Pawn double-push from starting rank — handled in
-#      _pawn_distance_to_promote.
-#   C. King already inside square — don't fire (no risk).
-#   D. Engine's best isn't a king move — don't fire.
-#   E. Best king move lands OUTSIDE the square — don't fire.
-#   F. Played move IS the catching king move — don't fire.
-#   G. SAN parse failures — return None safely.
-#   H. Own pieces blocking king path — NOT handled v1 (flag in audit).
-#   I. STM already winning by >+300cp — pedagogical purity gate
-#      drops (added Pass 4, 2026-05-17).
 def _p_end_rule_of_square(
     facts: Dict[str, Any],
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
-    """Rule of the Square — defending king failed to step into the box
-    of an opposing passed pawn."""
+    """Caption adapter over the canonical legal pawn-race truth."""
     if facts.get("phase") != "endgame":
         return None
     if (facts.get("cp_loss") or 0) < 30:
         return None
 
-    # Pedagogical purity gate #1 — material composition. Rule of the
-    # Square only applies in clean K+P (+ ≤1 minor) endgames. With
-    # rooks or queens, other dynamics dominate and the teaching
-    # becomes misleading. Added 2026-05-17 after corpus audit
-    # revealed ~75% false-positive rate (135 → 13 fires).
-    if not _is_clean_king_and_pawn_endgame(board_before):
-        return None
-
-    # Pedagogical purity gate #2 — eval bracket. If the side-to-move
-    # is already winning by more than +300cp, Rule of the Square
-    # isn't the load-bearing lesson — the player just chose a slower
-    # win. Telling a player up 3+ pawns "your king is too far" reads
-    # as factually wrong about their game state and erodes trust.
-    #
-    # Asymmetric: LOSING positions are kept (Mohit signoff 2026-05-17:
-    # named-pattern teaching value > position-saving value — a 1200
-    # player still benefits from seeing the geometric pattern even
-    # when the game can't be saved).
-    #
-    # Audit 2026-05-17 found this pattern in 2/10 fires on prod corpus
-    # (both fires in game b4c2d442, player up ~6 pawns).
     eval_before_white_pov = facts.get("eval_before_cp")
     if eval_before_white_pov is not None:
         side_white = facts.get("moving_piece_color") == "white"
-        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        stm_eval = (
+            eval_before_white_pov
+            if side_white
+            else -eval_before_white_pov
+        )
         if stm_eval > 300:
             return None
 
+    from services.concept_detectors.rule_of_the_square import (
+        analyze_rule_of_square,
+        detect_rule_of_the_square_application,
+    )
+
+    canonical = analyze_rule_of_square(board_before)
+    if canonical is None or board_before.turn != canonical.defender_color:
+        return None
+
     best_san = _normalize_san(facts.get("best_move_san") or "")
     played_san = _normalize_san(facts.get("played_san") or "")
-    if not best_san:
+    if not best_san or not played_san or best_san == played_san:
+        return None
+    try:
+        best_move = board_before.parse_san(best_san)
+        played_move = board_before.parse_san(played_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
         return None
 
     us = board_before.turn
-    them = not us
-
-    # Opponent's passed pawns. _own_passed_pawns is color-parameterised
-    # — name is historical, function is generic.
-    opp_passed = _own_passed_pawns(board_before, them)
-    if not opp_passed:
-        return None
-
-    our_king_sq = board_before.king(us)
-    if our_king_sq is None:
-        return None
-
-    # The engine's best must be a king move.
-    try:
-        best_move = board_before.parse_san(best_san)
-    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
-        return None
     best_piece = board_before.piece_at(best_move.from_square)
-    if not best_piece or best_piece.piece_type != chess.KING or best_piece.color != us:
+    if (
+        best_piece is None
+        or best_piece.color != us
+        or best_piece.piece_type != chess.KING
+    ):
         return None
-    best_king_dest = best_move.to_square
 
-    # Parse the played move (may not be a king move — we still want to
-    # know whether the player coincidentally caught the pawn).
-    played_king_dest: Optional[int] = None
-    try:
-        played_move = board_before.parse_san(played_san)
-        played_piece = board_before.piece_at(played_move.from_square)
-        if played_piece and played_piece.piece_type == chess.KING and played_piece.color == us:
-            played_king_dest = played_move.to_square
-    except Exception:
-        played_king_dest = None
+    best_grade = detect_rule_of_the_square_application(
+        board_before, best_move, us
+    )
+    played_grade = detect_rule_of_the_square_application(
+        board_before, played_move, us
+    )
+    if best_grade != "applied" or played_grade != "missed":
+        return None
 
-    # Scan each opponent passed pawn for the square-rule violation.
-    for pawn_sq in opp_passed:
-        # Clear-runway filter: the pawn must have an unobstructed
-        # path to its promotion rank. Doubled own pawn (fire #6) or
-        # any own/enemy piece on the path (fire #12) muddies the
-        # Rule of the Square lesson. Audit 2026-05-17.
-        if not _pawn_promotion_path_clear(board_before, pawn_sq, them):
-            continue
+    board_after_best = board_before.copy(stack=False)
+    board_after_best.push(best_move)
+    after_best = analyze_rule_of_square(board_after_best)
+    best_captured_pawn = (
+        board_before.is_capture(best_move)
+        and best_move.to_square == canonical.pawn_square
+    )
+    if after_best is None and not best_captured_pawn:
+        return None
+    if after_best is not None and not after_best.catchable:
+        return None
 
-        # Case C: king already in the square — skip this pawn.
-        if _king_inside_pawn_square(our_king_sq, pawn_sq, them):
-            continue
-
-        # Case E: best move must LAND in the square.
-        if not _king_inside_pawn_square(best_king_dest, pawn_sq, them):
-            continue
-
-        # Case F: played move is a king move that ALSO lands in the
-        # square — no fire (we caught it via a different square).
-        if played_king_dest is not None and _king_inside_pawn_square(
-            played_king_dest, pawn_sq, them
-        ):
-            continue
-
-        promo_sq = _pawn_promotion_square(pawn_sq, them)
-        return {
+    evidence = canonical.evidence()
+    evidence.update({
+        "pawn_distance": canonical.pawn_pushes_to_promote,
+        "king_square_played": chess.square_name(
+            canonical.defending_king_square
+        ),
+        "king_distance_before": chess.square_distance(
+            canonical.defending_king_square,
+            canonical.promotion_square,
+        ),
+        "king_should_move_to": chess.square_name(best_move.to_square),
+        "king_distance_after_best": chess.square_distance(
+            best_move.to_square,
+            canonical.promotion_square,
+        ),
+        "catchable_before": canonical.catchable,
+        "catchable_after_best": (
+            True if best_captured_pawn else after_best.catchable
+        ),
+        "played_san": facts.get("played_san") or "",
+        "best_san": facts.get("best_move_san") or "",
+    })
+    return {
+        "principle_id": "END_RULE_OF_SQUARE",
+        "evidence": evidence,
+        "state_key": _freeze_state_key({
             "principle_id": "END_RULE_OF_SQUARE",
-            "evidence": {
-                "pawn_square":            chess.square_name(pawn_sq),
-                "pawn_color":             "white" if them == chess.WHITE else "black",
-                "promotion_square":       chess.square_name(promo_sq),
-                "pawn_distance":          _pawn_distance_to_promote(pawn_sq, them),
-                "king_square_played":     chess.square_name(our_king_sq),
-                "king_distance_before":   chess.square_distance(our_king_sq, promo_sq),
-                "king_should_move_to":    chess.square_name(best_king_dest),
-                "king_distance_after_best": chess.square_distance(best_king_dest, promo_sq),
-                "played_san":             facts.get("played_san") or "",
-                "best_san":               facts.get("best_move_san") or "",
-            },
-            "state_key": _freeze_state_key({
-                "principle_id":     "END_RULE_OF_SQUARE",
-                "phase":            "endgame",
-                "intent_type":      "defensive_geometry",
-                "focal_squares":    (chess.square_name(pawn_sq), chess.square_name(best_king_dest)),
-                "involved_piece":   "king",
-                "best_move_family": "K_move",
-            }),
-            "engine_endorsement": "best",
-            "aligned_moves_offered": [best_san],
-        }
-
-    return None
+            "phase": "endgame",
+            "intent_type": "defensive_geometry",
+            "focal_squares": (
+                chess.square_name(canonical.pawn_square),
+                chess.square_name(best_move.to_square),
+            ),
+            "involved_piece": "king",
+            "best_move_family": "K_move",
+        }),
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
+    }
 
 
-# ── Opposition geometry helper ──────────────────────────────────────
-#
-# Direct opposition: kings on the same file OR rank with exactly ONE
-# square between them. Side to move must give way → the side NOT to
-# move has the opposition.
-#
-# Distant opposition: same file or rank with 3 or 5 squares between
-# (Chebyshev 4 or 6). Harder for 1200-1500 but still a named pattern.
-#
-# Diagonal opposition: kings on the same diagonal with 1 square between.
-# Less common but valid. Included for completeness.
 def _kings_in_opposition(king1_sq: int, king2_sq: int) -> Optional[str]:
     """Returns "direct" / "distant" / "diagonal" if the two king squares
     sit in an opposition shape, else None.
@@ -5545,7 +5741,9 @@ def extract_facts(
     #   aligned_pieces     — "three pieces on a line" (renderer picks
     #                        pin/skewer/x-ray via front_value_vs_rear)
     #   discovered_attack  — "uncovered attacker via played move"
-    multi_target_attack_evidence = _multi_target_attack_evidence(threats_created, board_after)
+    multi_target_attack_evidence = _multi_target_attack_evidence(
+        threats_created, board_after, played_move
+    )
     # User-flagged bug 2026-05-13 (fb_69b32c5fdcbf): R03 fired
     # "Nf3. Pins the knight on f6 against the queen on d8" — knight Nf3
     # can't pin (knights aren't sliders), so the pin must have been
@@ -5964,7 +6162,15 @@ def extract_facts(
         # Renderer rules read these and decide whether to say "fork" /
         # "pin" / "skewer" / "x-ray" / "double attack" / "pressure" —
         # the extractor never commits to a coaching word.
+        # Raw geometry — complete chess truth, including shapes we do not name.
+        # For geometry audits, detector research and regression work ONLY.
         "multi_target_attack_evidence": multi_target_attack_evidence,
+        # The PROMOTED view: the subset ChessGuru is willing to call a fork.
+        # Every user-facing surface — captions, profile claims, drills — must
+        # read this, never the raw list, or one surface will say "check, and it
+        # attacks a pawn" while another says "you keep getting forked" about the
+        # same move. Derived solely by is_named_fork().
+        "named_fork_evidence": named_fork_shapes(multi_target_attack_evidence),
         "aligned_pieces_evidence": aligned_pieces_evidence,
         "discovered_attack_evidence": discovered_attack_evidence,
 

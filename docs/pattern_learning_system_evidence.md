@@ -129,19 +129,23 @@ are scoped differently.
 | Motif | Detector scope | Measurement | Teaching-grade? |
 |---|---|---|---|
 | **fork** | `multi_target_attack_evidence`, built from `threats_created` — **move-scoped**, SEE-gated | 57 games sampled: **28 / 28 fork shapes had `via_moving_piece = True`** — the moved piece is the forker. Small n; interval is wide. | **Yes** |
-| **pin** | `_aligned_pieces_evidence` — a **board-wide scan of every own slider's ray**, not a move-effect detector | 276 sound user-moves: **29% of pin events were shapes that already existed before the move** | **No — needs a `created_by_move` gate** |
-| **skewer** | same | **14% pre-existed** | **No — same gate** |
+| **pin** | `_aligned_pieces_evidence` now emits the **before/after delta**, with a target-pair guard for a slider moving along an existing line | The original 276-move audit found **29% pre-existing**. The causal gate is implemented; a later 50-game scan also found 26 absolute pins whose king value made them classify incorrectly, now repaired. | **Implementation repaired; fresh semantic packet pending** |
+| **skewer** | same causal delta and corrected king ordering | The original audit found **14% pre-existing**. Deterministic regressions now cover unrelated moves, line-preserving moves and newly created skewers. | **Implementation repaired; fresh semantic packet pending** |
 
 This does **not** contradict `motif_profile_backlog.md`'s "pin 100% / skewer 87%". That audited
 *geometry precision* — is the shape really a pin? It is. What was never audited is *attribution* —
 did the user's move cause it? Precision and attribution are separate audits.
 
-Consequences:
-1. `motif_profile_service.py:15` (*"Phase 1: FORK only (audited)…"*) is stale relative to the
-   backlog. One-line correction required.
-2. Before any pin or skewer lesson, `_classify_aligned` must take `board_before` and drop
-   pre-existing shapes (~10 lines). Counts drop ~29% / ~14% — corrections, not regressions.
-3. V1 is unaffected: fork attribution is clean.
+Current consequences:
+1. The causal `created_by_move` behavior is implemented at the shared fact extractor, so
+   every downstream consumer receives only newly created aligned shapes.
+2. Absolute pins now order the king above every capturable piece for taxonomy purposes;
+   this does not alter the material-value table.
+3. Pin and skewer remain Shadow. Implementation repair is not a substitute for the
+   independently reviewed precision, negatives and adversarial packet required by the
+   Detector Quality Gate.
+4. Full evidence and the read-only 50-game impact scan are in
+   `docs/detector_tactical_attribution_2026_08_27.md`.
 
 `via_moving_piece` is computed then discarded at `motif_profile_service.py:139`. It is free to
 assert, and it is the difference between "you forked them" and "a fork appeared."

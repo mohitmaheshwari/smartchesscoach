@@ -22,6 +22,7 @@ Resolution order (first non-None wins):
   5) users.assessed_rating           (self-assessment)
   6) DEFAULT_RATING from config      (1200)
 """
+import re
 from typing import Optional, Any, Dict
 
 try:
@@ -61,6 +62,85 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
             return int(v)
 
     return int(DEFAULT_RATING)
+
+
+def _positive_int(value: Any) -> Optional[int]:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def get_game_side_ratings(game: Optional[Dict[str, Any]]) -> Dict[str, Optional[int]]:
+    """Return authoritative white/black ratings stored on one game.
+
+    Unlike `get_current_rating`, this never supplies DEFAULT_RATING. Missing
+    historical evidence must stay missing so rating-aware corpus behavior does
+    not silently degrade into a guessed band.
+    """
+    game = game or {}
+    white = _positive_int(game.get("white_rating"))
+    black = _positive_int(game.get("black_rating"))
+
+    white_obj = game.get("white")
+    black_obj = game.get("black")
+    if white is None and isinstance(white_obj, dict):
+        white = _positive_int(white_obj.get("rating"))
+    if black is None and isinstance(black_obj, dict):
+        black = _positive_int(black_obj.get("rating"))
+
+    pgn = str(game.get("pgn") or "")
+    if pgn and (white is None or black is None):
+        white_match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        black_match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        if white is None and white_match:
+            white = _positive_int(white_match.group(1))
+        if black is None and black_match:
+            black = _positive_int(black_match.group(1))
+
+    return {"white": white, "black": black}
+
+
+def resolve_game_user_rating(game: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Resolve the user's rating at game time with provenance.
+
+    Precedence: explicit user_rating → side-specific stored/API rating → PGN
+    header. Returns `{rating: None, source: "unknown"}` instead of 1200 when
+    no authoritative value exists.
+    """
+    game = game or {}
+    direct = _positive_int(game.get("user_rating"))
+    if direct is None:
+        direct = _positive_int(game.get("user_rating_at_time"))
+    if direct is not None:
+        return {"rating": direct, "source": "stored_user_rating"}
+
+    color = str(game.get("user_color") or "").lower()
+    if color not in ("white", "black"):
+        return {"rating": None, "source": "unknown"}
+
+    explicit_side = _positive_int(game.get(f"{color}_rating"))
+    if explicit_side is not None:
+        return {"rating": explicit_side, "source": f"{color}_rating"}
+
+    side_obj = game.get(color)
+    if isinstance(side_obj, dict):
+        api_rating = _positive_int(side_obj.get("rating"))
+        if api_rating is not None:
+            return {"rating": api_rating, "source": f"{color}_api_rating"}
+
+    pgn = str(game.get("pgn") or "")
+    header = "WhiteElo" if color == "white" else "BlackElo"
+    match = re.search(rf'\[{header} "(\d+)"\]', pgn)
+    if match:
+        return {"rating": int(match.group(1)), "source": f"pgn_{header.lower()}"}
+    return {"rating": None, "source": "unknown"}
+
+
+def get_game_user_rating(game: Optional[Dict[str, Any]]) -> Optional[int]:
+    """Convenience accessor for the authoritative per-game rating or None."""
+    return resolve_game_user_rating(game)["rating"]
 
 
 def get_rating_band(rating: int) -> str:

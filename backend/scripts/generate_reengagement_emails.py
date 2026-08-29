@@ -73,7 +73,7 @@ def style_note(style: dict) -> str:
 
 def trend_hook(trend: str, recent_games: int) -> str:
     if trend == "improving":
-        return "I went through your last games and you're actually getting better — fewer mistakes, more good moves. The next step is small."
+        return "I went through your stored game profile. There is a useful next step, and it is small."
     if trend == "regressing":
         return "Your last few games haven't gone your way. That's frustrating — and usually fixable in 2-3 sessions."
     if trend == "stuck":
@@ -84,7 +84,7 @@ def trend_hook(trend: str, recent_games: int) -> str:
 def build_subject(name: str, trend: str, top_opening: str, total: int) -> str:
     first_name = (name or "there").split()[0]
     if trend == "improving":
-        return f"{first_name}, you're getting better. Here's what's next."
+        return f"{first_name}, your coach found a useful next step"
     if trend == "regressing":
         return f"{first_name}, your last 10 games tell a different story"
     if total >= 200:

@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MONGO_URL = "mongodb://admin_user_mii_s_c:N8lXqNfJsxQSTUZ9Hpu43eXq928K@mongodb:27017/?authSource=admin"
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 
 
 async def test_active_recall_e2e():

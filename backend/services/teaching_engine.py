@@ -16,8 +16,9 @@ Each lesson type implements:
 import logging
 import json
 import os
+import uuid
 import chess
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,9 @@ ENDGAME_TREE_PATH = os.path.join(
 )
 
 _ENDGAME_TREE = None
+
+PIC_LESSON_TYPE = "pic_piece_safety"
+PIC_CONTENT_VERSION = 1
 
 def _load_endgame_tree() -> Dict:
     global _ENDGAME_TREE
@@ -408,6 +412,216 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
 
 
 # ─────────────────────────────────────────────
+# PIC PIECE-SAFETY LESSON
+# ─────────────────────────────────────────────
+
+def _public_pic_session(session: Dict[str, Any]) -> Dict[str, Any]:
+    items = session.get("items") or []
+    index = int(session.get("current_index") or 0)
+    current = items[index] if index < len(items) else None
+    return {
+        "session_id": session.get("session_id"),
+        "lesson_type": PIC_LESSON_TYPE,
+        "status": session.get("status"),
+        "current_index": index,
+        "total_items": len(items),
+        "completed_items": min(index, len(items)),
+        "current_item": current,
+        "content_version": session.get("content_version"),
+        "content_tier": session.get("content_tier"),
+        "mastery_eligible": False,
+    }
+
+
+async def get_pic_piece_safety_lesson(
+    db, user_id: str, session_id: Optional[str] = None
+) -> Dict:
+    """Return only a lesson owned by the requesting user."""
+    query: Dict[str, Any] = {
+        "user_id": user_id,
+        "lesson_type": PIC_LESSON_TYPE,
+    }
+    if session_id:
+        query["session_id"] = session_id
+    else:
+        query["status"] = {"$in": ["active", "paused"]}
+    session = await db.learning_sessions.find_one(
+        query,
+        sort=[("updated_at", -1)],
+    )
+    if not session:
+        return {"error": "Session not found"}
+    return _public_pic_session(session)
+
+
+async def start_pic_piece_safety_lesson(
+    db, session_id: str, user_id: str, params: Dict
+) -> Dict:
+    """Start or resume a finite, own-game-first PIC lesson."""
+    existing = await db.learning_sessions.find_one({
+        "user_id": user_id,
+        "lesson_type": PIC_LESSON_TYPE,
+        "status": {"$in": ["active", "paused"]},
+    })
+    if existing:
+        if existing.get("status") == "paused":
+            now = datetime.now(timezone.utc)
+            await db.learning_sessions.update_one(
+                {"_id": existing["_id"], "status": "paused"},
+                {"$set": {"status": "active", "updated_at": now}, "$push": {
+                    "events": {
+                        "event_id": str(uuid.uuid4()),
+                        "event_type": "lesson_resumed",
+                        "idempotency_key": f"resume:{existing['session_id']}:{now.isoformat()}",
+                        "occurred_at": now,
+                        "evidence_eligible": False,
+                        "rejection_reason": "assisted_verified_practice",
+                    }
+                }},
+            )
+            existing["status"] = "active"
+        return _public_pic_session(existing)
+
+    from services.puzzle_extraction_service import get_pattern_training_puzzles
+
+    requested = max(1, min(int((params or {}).get("limit", 5)), 5))
+    supply = await get_pattern_training_puzzles(
+        db, user_id, "piece_safety", requested
+    )
+    own = [p for p in (supply.get("own_puzzles") or []) if not p.get("already_solved")]
+    community = supply.get("community_puzzles") or []
+    selected = (own + community)[:requested]
+    if not selected:
+        return {"error": "No piece-safety practice positions are available yet"}
+
+    items = [{
+        "item_id": str(item.get("puzzle_id")),
+        "fen": item.get("fen"),
+        "best_move_san": item.get("best_move_san"),
+        "source": item.get("source"),
+        "source_game_id": item.get("source_game_id"),
+        "difficulty": item.get("difficulty"),
+        "content_tier": "verified",
+        "mastery_eligible": False,
+    } for item in selected if item.get("fen") and item.get("best_move_san")]
+    if not items:
+        return {"error": "Available positions are missing board or solution data"}
+
+    now = datetime.now(timezone.utc)
+    session = {
+        "session_id": session_id,
+        "user_id": user_id,
+        "lesson_type": PIC_LESSON_TYPE,
+        "lesson_id": "pic-piece-safety-v1",
+        "skill_id": "piece_safety_simple_hang",
+        "content_version": PIC_CONTENT_VERSION,
+        "content_tier": "verified",
+        "cohort_role": "admin",
+        "status": "active",
+        "current_index": 0,
+        "items": items,
+        "events": [{
+            "event_id": str(uuid.uuid4()),
+            "event_type": "lesson_started",
+            "idempotency_key": f"start:{session_id}",
+            "occurred_at": now,
+            "evidence_eligible": False,
+            "rejection_reason": "assisted_verified_practice",
+        }],
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.learning_sessions.insert_one(session)
+    return _public_pic_session(session)
+
+
+async def process_pic_piece_safety_move(
+    db,
+    session_id: str,
+    move: str,
+    interaction_id: Optional[str] = None,
+) -> Dict:
+    session = await db.learning_sessions.find_one({"session_id": session_id})
+    if not session:
+        return {"error": "Session not found"}
+    key = interaction_id or str(uuid.uuid4())
+    for event in session.get("events") or []:
+        if event.get("idempotency_key") == key:
+            return event.get("result_payload") or {"duplicate": True}
+    if session.get("status") == "completed":
+        return {**_public_pic_session(session), "complete": True}
+    if session.get("status") != "active":
+        return {"error": "Session is not active"}
+
+    index = int(session.get("current_index") or 0)
+    items = session.get("items") or []
+    if index >= len(items):
+        return {**_public_pic_session(session), "complete": True}
+    item = items[index]
+
+    from services.puzzle_move_evaluator import evaluate_puzzle_move
+    evaluation = await evaluate_puzzle_move(
+        fen=item["fen"],
+        played_uci=move,
+        known_best_san=item["best_move_san"],
+    )
+    correct = bool(evaluation.get("is_acceptable"))
+    next_index = index + 1 if correct else index
+    complete = correct and next_index >= len(items)
+    now = datetime.now(timezone.utc)
+    result = {
+        "correct": correct,
+        "quality": evaluation.get("quality"),
+        "feedback": evaluation.get("feedback"),
+        "best_move_san": evaluation.get("best_move_san"),
+        "complete": complete,
+        "current_index": next_index,
+        "total_items": len(items),
+        "next_item": items[next_index] if next_index < len(items) else None,
+    }
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "answer_submitted",
+        "idempotency_key": key,
+        "occurred_at": now,
+        "stage": "assisted_practice",
+        "item_id": item["item_id"],
+        "attempt_number": 1 + sum(
+            1 for e in session.get("events") or []
+            if e.get("event_type") == "answer_submitted"
+            and e.get("item_id") == item["item_id"]
+        ),
+        "response": {"move_uci": move},
+        "grader_version": "puzzle_move_evaluator.v1",
+        "result": "correct" if correct else "wrong",
+        "evidence_eligible": False,
+        "rejection_reason": "assisted_verified_practice",
+        "result_payload": result,
+    }
+    update_set: Dict[str, Any] = {
+        "current_index": next_index,
+        "updated_at": now,
+    }
+    if complete:
+        update_set.update({"status": "completed", "completed_at": now})
+    write = await db.learning_sessions.update_one(
+        {
+            "_id": session["_id"],
+            "current_index": index,
+            "events.idempotency_key": {"$ne": key},
+        },
+        {"$set": update_set, "$push": {"events": event}},
+    )
+    if not write.modified_count:
+        latest = await db.learning_sessions.find_one({"_id": session["_id"]})
+        for prior in (latest or {}).get("events") or []:
+            if prior.get("idempotency_key") == key:
+                return prior.get("result_payload") or {"duplicate": True}
+        return {"error": "Session changed; reload and try again"}
+    return result
+
+
+# ─────────────────────────────────────────────
 # GENERIC DISPATCH
 # ─────────────────────────────────────────────
 
@@ -417,6 +631,10 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
         return await start_trap_lesson(db, session_id, user_id, params)
     elif lesson_type == "endgame":
         return await start_endgame_lesson(db, session_id, user_id, params)
+    elif lesson_type == PIC_LESSON_TYPE:
+        return await start_pic_piece_safety_lesson(
+            db, session_id, user_id, params
+        )
     elif lesson_type in ("learn_trap", "learn_main_line", "opening"):
         # Delegate to existing opening teaching. trap_key (when provided)
         # tells the lesson which specific trap to teach — without it the
@@ -429,10 +647,19 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
         return {"error": f"Unknown lesson type: {lesson_type}"}
 
 
-async def process_lesson_move(db, session_id: str, move: str) -> Dict:
+async def process_lesson_move(
+    db, session_id: str, move: str, interaction_id: Optional[str] = None
+) -> Dict:
     """Process a move — dispatches based on current lesson type in session."""
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
+        learning_session = await db.learning_sessions.find_one(
+            {"session_id": session_id}
+        )
+        if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
+            return await process_pic_piece_safety_move(
+                db, session_id, move, interaction_id=interaction_id
+            )
         return {"error": "Session not found"}
 
     lesson_type = session_doc.get("lesson_type", "opening")
@@ -451,6 +678,26 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
     """Exit any lesson type and restore game state."""
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
+        learning_session = await db.learning_sessions.find_one(
+            {"session_id": session_id}
+        )
+        if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
+            now = datetime.now(timezone.utc)
+            status = "paused" if choice in ("pause", "continue_later") else "exited"
+            await db.learning_sessions.update_one(
+                {"_id": learning_session["_id"], "status": "active"},
+                {"$set": {"status": status, "updated_at": now}, "$push": {
+                    "events": {
+                        "event_id": str(uuid.uuid4()),
+                        "event_type": "lesson_paused" if status == "paused" else "lesson_exited",
+                        "idempotency_key": f"exit:{session_id}:{now.isoformat()}",
+                        "occurred_at": now,
+                        "evidence_eligible": False,
+                        "rejection_reason": "assisted_verified_practice",
+                    }
+                }},
+            )
+            return {"success": True, "status": status}
         return {"error": "Session not found"}
 
     restored_fen = session_doc.get("pre_teaching_fen")

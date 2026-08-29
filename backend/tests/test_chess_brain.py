@@ -28,7 +28,7 @@ class TestDetectorRegistry:
         registry = get_detector_registry()
         
         assert len(registry._tactical_detectors) == 10
-        assert len(registry._strategic_detectors) == 5
+        assert len(registry._strategic_detectors) == 20
         assert len(registry._behavioral_detectors) == 3
     
     def test_hanging_piece_detection(self):
