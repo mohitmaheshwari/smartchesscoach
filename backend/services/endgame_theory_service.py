@@ -10,10 +10,23 @@ import json
 import os
 import logging
 import chess
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 _endgame_tree = None
+
+CANONICAL_SOURCE = "backend/data/coaching/endgame_theory_tree.json"
+
+# Skill-tree content references are legacy-stable public identifiers. Resolve
+# them here, beside the canonical lesson tree, so Today, Personal Curriculum,
+# and future adapters cannot grow separate route tables.
+_CONTENT_REF_INDEX = {
+    "opposition": ("king_and_pawn", "opposition"),
+    "rule_of_square": ("king_and_pawn", "square_rule"),
+    "lucena_position": ("rook_endgames", "lucena"),
+    "philidor_position": ("rook_endgames", "philidor"),
+}
 
 
 def _load_tree():
@@ -23,6 +36,33 @@ def _load_tree():
         with open(path, "r") as f:
             _endgame_tree = json.load(f)
     return _endgame_tree
+
+
+def resolve_content_ref(content_ref: str) -> Optional[Dict[str, str]]:
+    """Resolve one stable skill-tree reference into canonical lesson identity."""
+    identity = _CONTENT_REF_INDEX.get(str(content_ref or ""))
+    if not identity:
+        return None
+    category_key, lesson_key = identity
+    lesson = get_lesson(category_key, lesson_key)
+    if not lesson:
+        return None
+    return {
+        "content_ref": str(content_ref),
+        "category_key": category_key,
+        "lesson_key": lesson_key,
+        "lesson_id": f"{category_key}/{lesson_key}",
+        "href": f"/endgames/{category_key}/{lesson_key}",
+        "canonical_source": CANONICAL_SOURCE,
+    }
+
+
+def get_lesson_by_content_ref(content_ref: str):
+    """Read lesson content through the canonical content-reference index."""
+    resolved = resolve_content_ref(content_ref)
+    if not resolved:
+        return None
+    return get_lesson(resolved["category_key"], resolved["lesson_key"])
 
 
 def get_all_categories():

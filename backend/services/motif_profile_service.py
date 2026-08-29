@@ -20,16 +20,15 @@ AUDIT STATUS (corrected 2026-08-13 — this block previously read "Phase 1: FORK
 
   fork    — geometry AND attribution clean. `multi_target_attack_evidence` is built from
             threats_created, so it is move-scoped; sampled 28/28 with via_moving_piece.
-  pin     — geometry 100% precise, but ATTRIBUTION is not audited-clean.
-            `_aligned_pieces_evidence` is a board-wide scan of every own slider's ray,
-            not a move-effect detector: measured over 276 sound user-moves, 29% of pin
-            events were shapes that ALREADY EXISTED before the move.
-  skewer  — same mechanism, 14% pre-existed.
+  pin     — the original audit found 29% of board-wide shapes already existed before
+            the move. `extract_facts` now emits only the before/after delta, including
+            a target-pair guard for sliders that merely move along an existing line.
+  skewer  — the original audit found 14% pre-existing; the same causal delta applies.
   discovered / loose — counts computed; not separately attribution-audited.
 
-Precision and attribution are different audits. Before any pin/skewer teaching surface
-ships, `_classify_aligned` must take board_before and drop pre-existing shapes.
-See docs/pattern_learning_system_evidence.md E2.
+Precision and attribution are different audits. The causal implementation is now
+regression-tested, but pin/skewer remain Shadow until fresh independent semantic
+samples meet the Detector Quality Gate. See docs/pattern_learning_system_evidence.md E2.
 """
 from typing import Dict, List, Any, Optional
 import chess

@@ -38,6 +38,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from services.moments_topic_registry import list_topics, TOPICS as MOMENTS_TOPICS
 from services.move_observation_deriver import aggregate_user_signals
 from services.primary_weakness_picker import COLLECTION as FOCUS_COLL
+from services.detector_quality import (
+    focus_document_is_authorized,
+    sanitize_plan_observation,
+)
 
 
 # ─── Voice templates, per topic ────────────────────────────────────────────
@@ -200,6 +204,7 @@ async def _get_eligible_users(db, user_id: str = None, limit: int = 0):
     query = {"status": "active"}
     if user_id: query["user_id"] = user_id
     focuses = await db[FOCUS_COLL].find(query).to_list(length=None)
+    focuses = [f for f in focuses if focus_document_is_authorized(f)]
     if limit:
         focuses = focuses[:limit]
 
@@ -212,6 +217,7 @@ async def _get_eligible_users(db, user_id: str = None, limit: int = 0):
         if u.get("merged_into") or u.get("deleted_at"):
             continue
         obs = await db.move_observations.find({"user_id": f["user_id"]}).to_list(length=5000)
+        obs = [sanitize_plan_observation(item) for item in obs]
         agg = aggregate_user_signals(obs)
         games = await db.games.count_documents({"user_id": f["user_id"], "is_analyzed": True})
         out.append((u, f, agg, games))

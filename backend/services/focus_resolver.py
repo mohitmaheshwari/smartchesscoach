@@ -152,6 +152,26 @@ async def get_active_focus(
         "aggregate_focus": None,
     }
 
+    from services.detector_quality import enforcement_enabled
+    if enforcement_enabled():
+        from services.focus_bridge import get_active_focus_bundle
+        bundle = await get_active_focus_bundle(db, user_id)
+        if not bundle:
+            return result
+        topic = bundle.get("topic_key")
+        result.update({
+            "focus": topic,
+            "category": FOCUS_TO_CATEGORY.get(topic),
+            "gap": FOCUS_TO_GAP.get(topic) or topic,
+            "label": bundle.get("topic_label"),
+            "reason": bundle.get("coaching_narrative"),
+            "type": "pattern_drill",
+            "source": "quality_authorized_focus",
+            "brain_focus": None,
+            "aggregate_focus": None,
+        })
+        return result
+
     # 1. Read the brain's decision
     memory = await db.coach_memory.find_one({"user_id": user_id}, {"learning": 1})
     brain_focus = None

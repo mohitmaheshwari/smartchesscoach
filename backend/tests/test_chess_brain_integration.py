@@ -5,7 +5,7 @@ Chess Brain API Integration Tests
 Tests for Chess Brain integration with /api/coach/play endpoints.
 
 Tests cover:
-1. Detector registry initialization (10 tactical, 5 strategic, 3 behavioral)
+1. Detector registry initialization (10 tactical, 20 strategic, 3 behavioral)
 2. Lesson selection engine scoring
 3. ChessBrain analyze_move outputs
 4. Integration with realtime_coaching_feedback
@@ -28,14 +28,14 @@ class TestChessBrainDetectorRegistry:
     """Test detector registry initialization and detector counts."""
     
     def test_detector_counts(self):
-        """Verify registry has exactly 10 tactical, 5 strategic, 3 behavioral detectors."""
+        """Verify registry has exactly 10 tactical, 20 strategic, 3 behavioral detectors."""
         from services.chess_brain import get_detector_registry
         
         registry = get_detector_registry()
         
         # Verify counts
         assert len(registry._tactical_detectors) == 10, f"Expected 10 tactical detectors, got {len(registry._tactical_detectors)}"
-        assert len(registry._strategic_detectors) == 5, f"Expected 5 strategic detectors, got {len(registry._strategic_detectors)}"
+        assert len(registry._strategic_detectors) == 20, f"Expected 20 strategic detectors, got {len(registry._strategic_detectors)}"
         assert len(registry._behavioral_detectors) == 3, f"Expected 3 behavioral detectors, got {len(registry._behavioral_detectors)}"
     
     def test_tactical_detector_names(self):

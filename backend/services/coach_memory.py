@@ -707,7 +707,10 @@ async def update_memory_after_game(
     except Exception:
         _bridge_focus = None
 
-    _new_focus = _bridge_focus or coach_prescription
+    from services.detector_quality import enforcement_enabled
+    _new_focus = _bridge_focus or (
+        None if enforcement_enabled() else coach_prescription
+    )
     if _new_focus:
         old_focus = memory.learning.current_focus
         memory.learning.current_focus = _new_focus

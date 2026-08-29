@@ -2974,6 +2974,21 @@ def select_shape_pattern_record(
                 f"{_post_shape_exc}"
             )
 
+    if shape_pattern_record:
+        try:
+            from services.detector_quality import (
+                QualitySurface as _QualitySurface,
+                can_influence as _can_detector_influence,
+                shape_quality_id as _shape_quality_id,
+            )
+            if not _can_detector_influence(
+                _shape_quality_id(shape_pattern_record.get("pattern_id", "")),
+                _QualitySurface.CAPTION,
+            ):
+                shape_pattern_record = None
+        except Exception:
+            shape_pattern_record = None
+
     return shape_pattern_record
 
 
@@ -4235,6 +4250,41 @@ def build_move_teaching_decision(
 
     if _PRINCIPLES_BY_ID:
         raw_principles = caption_facts.get("principles_violated") or []
+        try:
+            from services.detector_quality import (
+                QualitySurface as _QualitySurface,
+                can_influence as _can_detector_influence,
+                grade_for as _detector_grade_for,
+                principle_quality_id as _principle_quality_id,
+            )
+            _authorized_principles = []
+            _shadow_principles = []
+            for _raw_ev in raw_principles:
+                _raw_pid = _raw_ev.get("principle_id")
+                _quality_id = _principle_quality_id(_raw_pid or "")
+                _annotated = dict(_raw_ev)
+                _annotated["detector_quality_id"] = _quality_id
+                _annotated["detector_quality_grade"] = _detector_grade_for(
+                    _quality_id
+                ).value
+                if _can_detector_influence(
+                    _quality_id, _QualitySurface.CAPTION
+                ):
+                    _authorized_principles.append(_annotated)
+                else:
+                    _shadow_principles.append(_annotated)
+            raw_principles = _authorized_principles
+            if _shadow_principles:
+                _quality_shadow = caption_facts.setdefault(
+                    "detector_quality_shadow", {}
+                )
+                _quality_shadow["principles_violated"] = _shadow_principles
+        except Exception:
+            _quality_shadow = caption_facts.setdefault(
+                "detector_quality_shadow", {}
+            )
+            _quality_shadow["principles_violated"] = list(raw_principles)
+            raw_principles = []
         caption_principles_violated: List[Dict[str, Any]] = []
         for _ev in raw_principles:
             _pid = _ev.get("principle_id")

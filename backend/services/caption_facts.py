@@ -410,14 +410,150 @@ def static_exchange_eval(board: chess.Board, target_sq: int, initiating_side: ch
     return gain[0]
 
 
+def _captured_value_for_legal_move(board: chess.Board, move: chess.Move) -> int:
+    """Material removed by one legal capture, including en passant."""
+    if board.is_en_passant(move):
+        return PIECE_VALUE_CP[chess.PAWN]
+    captured = board.piece_at(move.to_square)
+    return PIECE_VALUE_CP.get(captured.piece_type, 0) if captured else 0
+
+
+def _promotion_gain_for_move(move: chess.Move) -> int:
+    """Material created when a pawn capture promotes on the exchange square."""
+    if move.promotion is None:
+        return 0
+    return PIECE_VALUE_CP.get(move.promotion, 0) - PIECE_VALUE_CP[chess.PAWN]
+
+
+def legal_exchange_gain(
+    board: chess.Board,
+    target_sq: int,
+    initiating_side: chess.Color,
+    *,
+    first_move: Optional[chess.Move] = None,
+) -> int:
+    """Exact material gain for legal captures on one square.
+
+    Unlike :func:`static_exchange_eval`, this pushes every capture on a copied
+    board. That makes newly opened x-rays, king safety, checks, pins and king
+    recaptures part of the truth. The side to move may stop at every later
+    step; ``first_move`` forces only the already-played first capture.
+
+    This function deliberately requires ``initiating_side == board.turn``.
+    The older static evaluator also supports hypothetical captures by the side
+    that is *not* to move, which is useful for shape research but is not valid
+    evidence that a hanging piece can be taken now.
+    """
+    if initiating_side != board.turn:
+        raise ValueError("legal_exchange_gain requires initiating_side to move")
+
+    def best_gain(work: chess.Board, depth: int = 0) -> int:
+        if depth > 32:
+            return 0
+        best = 0  # the side to move may decline the exchange
+        for move in list(work.legal_moves):
+            if move.to_square != target_sq or not work.is_capture(move):
+                continue
+            immediate = (
+                _captured_value_for_legal_move(work, move)
+                + _promotion_gain_for_move(move)
+            )
+            after = work.copy(stack=False)
+            after.push(move)
+            best = max(best, immediate - best_gain(after, depth + 1))
+        return best
+
+    if first_move is None:
+        return best_gain(board)
+
+    if (
+        first_move not in board.legal_moves
+        or first_move.to_square != target_sq
+        or not board.is_capture(first_move)
+    ):
+        raise ValueError("first_move must be a legal capture on target_sq")
+    immediate = (
+        _captured_value_for_legal_move(board, first_move)
+        + _promotion_gain_for_move(first_move)
+    )
+    after = board.copy(stack=False)
+    after.push(first_move)
+    return immediate - best_gain(after, 1)
+
+
+def legally_hanging_pieces(
+    board: chess.Board,
+    owner: chess.Color,
+    minimum_gain_cp: int,
+) -> List[Dict[str, Any]]:
+    """Return owner pieces the side to move can win by legal exchange.
+
+    This is the structured player-facing view of ``legal_exchange_gain``.
+    ``owner`` must be the side that just moved, so the opponent is currently
+    entitled to capture. The caller supplies the product-specific material
+    floor; this function owns only chess truth.
+    """
+    if board.turn == owner:
+        raise ValueError("legally_hanging_pieces requires the opponent to move")
+
+    facts: List[Dict[str, Any]] = []
+    for target_sq, piece in board.piece_map().items():
+        if piece.color != owner or piece.piece_type == chess.KING:
+            continue
+
+        material_loss_cp = legal_exchange_gain(board, target_sq, board.turn)
+        if material_loss_cp < minimum_gain_cp:
+            continue
+
+        winning_move = None
+        winning_gain = 0
+        for move in list(board.legal_moves):
+            if move.to_square != target_sq or not board.is_capture(move):
+                continue
+            forced_gain = legal_exchange_gain(
+                board,
+                target_sq,
+                board.turn,
+                first_move=move,
+            )
+            if forced_gain > winning_gain:
+                winning_gain = forced_gain
+                winning_move = move
+
+        facts.append({
+            "square": chess.square_name(target_sq),
+            "piece_type": PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+            "piece_type_id": piece.piece_type,
+            "piece_value_cp": PIECE_VALUE_CP.get(piece.piece_type, 0),
+            "material_loss_cp": material_loss_cp,
+            "winning_capture_san": board.san(winning_move) if winning_move else None,
+            "winning_capture_uci": winning_move.uci() if winning_move else None,
+        })
+
+    facts.sort(
+        key=lambda fact: (
+            -fact["material_loss_cp"],
+            -fact["piece_value_cp"],
+            fact["square"],
+        )
+    )
+    return facts
+
+
 def _see_for_played_move(board_before: chess.Board, played_move: chess.Move) -> Optional[int]:
     """Return SEE for a capture move (the played side's perspective),
     or None if the move is not a capture."""
     if not board_before.is_capture(played_move):
         return None
-    # Compute SEE on the target square with the played side as initiator.
+    # Force the move that was actually played. The legacy SEE picked the
+    # cheapest attacker instead, which could grade a different capture.
     initiator = board_before.turn
-    return static_exchange_eval(board_before, played_move.to_square, initiator)
+    return legal_exchange_gain(
+        board_before,
+        played_move.to_square,
+        initiator,
+        first_move=played_move,
+    )
 
 
 def _target_square_exchange_cp(board_after: chess.Board, target_sq: int) -> Optional[int]:
@@ -434,7 +570,7 @@ def _target_square_exchange_cp(board_after: chess.Board, target_sq: int) -> Opti
     if not piece_on_target:
         return None
     initiator = board_after.turn  # opponent is to move in board_after
-    return static_exchange_eval(board_after, target_sq, initiator)
+    return legal_exchange_gain(board_after, target_sq, initiator)
 
 
 def _exchange_participants(
@@ -683,7 +819,7 @@ def _pieces_now_undefended(
         remaining_defender_count = len(remaining_defenders)
         see_if_captured = 0
         if now_attacked:
-            see_if_captured = static_exchange_eval(board_after, sq, opp_color)
+            see_if_captured = legal_exchange_gain(board_after, sq, opp_color)
         # "Hanging" is a strong renderer signal — distinct from "lost a
         # defender but still adequately defended." Defined as:
         # under attack AND the exchange loses material AND no other
@@ -1116,8 +1252,23 @@ def _aligned_pieces_evidence(
 
             front_sq, front_piece = first_enemy
             rear_sq, rear_piece = second_enemy
-            front_val = PIECE_VALUE_CP.get(front_piece.piece_type, 0)
-            rear_val = PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+            # A king is the load-bearing rear piece in an absolute pin. The
+            # general material table intentionally gives kings no exchange
+            # value, but using that zero here reverses the alignment taxonomy:
+            # a knight pinned to its king looks "higher" than the rear piece
+            # and downstream motif code calls it a skewer. Alignment needs an
+            # ordering value, not a capturable-material value, so kings sort
+            # above every other piece on either side of the pair.
+            front_val = (
+                10_000
+                if front_piece.piece_type == chess.KING
+                else PIECE_VALUE_CP.get(front_piece.piece_type, 0)
+            )
+            rear_val = (
+                10_000
+                if rear_piece.piece_type == chess.KING
+                else PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+            )
 
             # Front-vs-rear value comparison (renderer decides taxonomy):
             #   "lower"  → front cheaper than rear  (classic pin shape)
@@ -3403,61 +3554,6 @@ def _p_mid_pawn_break(
 # ────────────────────────────────────────────────────────────────────
 
 
-def _pawn_promotion_square(pawn_sq: int, pawn_color: chess.Color) -> int:
-    """Promotion square for a pawn of `pawn_color` currently on `pawn_sq`.
-    White promotes on rank 8 (index 7); black on rank 1 (index 0)."""
-    file_ = chess.square_file(pawn_sq)
-    promo_rank = 7 if pawn_color == chess.WHITE else 0
-    return chess.square(file_, promo_rank)
-
-
-def _pawn_distance_to_promote(pawn_sq: int, pawn_color: chess.Color) -> int:
-    """Number of pawn pushes needed to reach promotion. Pawns on their
-    starting rank can double-push, so effective distance is one less.
-
-    For white: starting rank = 1 (index 1). For black: rank 7 (index 6).
-    """
-    rank = chess.square_rank(pawn_sq)
-    if pawn_color == chess.WHITE:
-        dist = 7 - rank
-        if rank == 1:
-            dist -= 1  # double-push available
-    else:
-        dist = rank
-        if rank == 6:
-            dist -= 1
-    return dist
-
-
-def _pawn_promotion_path_clear(board: chess.Board, pawn_sq: int, pawn_color: chess.Color) -> bool:
-    """True if every square between the pawn and its promotion rank is
-    empty. A "passed" pawn whose path is blocked by ANY piece (own or
-    enemy) can't actually race — the race is delayed by however many
-    tempi it takes to clear the path.
-
-    Audit 2026-05-17 found two false-positive shapes that this filter
-    eliminates:
-      • Fire #6: doubled-pawn case (a5 blocked by own a4)
-      • Fire #12: own piece blocks (d5 blocked by own knight on d6)
-
-    For pure Rule of the Square teaching, the pawn must be on a clear
-    runway. With blockers in the way, the lesson is more nuanced
-    (clear-the-path-then-race) and the simple Chebyshev calculation
-    misleads.
-    """
-    file_ = chess.square_file(pawn_sq)
-    rank_ = chess.square_rank(pawn_sq)
-    promo_rank = 7 if pawn_color == chess.WHITE else 0
-    if pawn_color == chess.WHITE:
-        ranks_to_check = range(rank_ + 1, promo_rank + 1)
-    else:
-        ranks_to_check = range(promo_rank, rank_)
-    for r in ranks_to_check:
-        if board.piece_at(chess.square(file_, r)) is not None:
-            return False
-    return True
-
-
 def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
     """Pedagogical purity gate for Rule of the Square.
 
@@ -3487,204 +3583,117 @@ def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
     return True
 
 
-def _king_inside_pawn_square(
-    king_sq: int,
-    pawn_sq: int,
-    pawn_color: chess.Color,
-) -> bool:
-    """Rule of the Square — king is in the box iff its Chebyshev
-    distance to the promotion square does not exceed the pawn's
-    remaining distance to promote.
-
-    Single rule, no move-order dependency. This is the PEDAGOGICAL
-    formulation 1200-1500 players learn. The strict K-vs-K+P
-    "king-to-move ≤; pawn-to-move <" distinction is technically
-    correct in pure-king-and-pawn endings but pedagogically
-    misleading (it says e3 doesn't catch a g3 pawn even though in
-    practice the defending side survives via post-promotion capture).
-
-    Pure geometry. Doesn't account for own pieces blocking the king's
-    path — known v1 limitation (rare in K+P endings).
-    """
-    promo = _pawn_promotion_square(pawn_sq, pawn_color)
-    king_dist = chess.square_distance(king_sq, promo)
-    pawn_dist = _pawn_distance_to_promote(pawn_sq, pawn_color)
-    return king_dist <= pawn_dist
-
-
-# ── Detector #24: END_RULE_OF_SQUARE ────────────────────────────────
-#
-# Fires when:
-#   1. Phase is endgame.
-#   2. cp_loss >= 30 (the move was sub-optimal enough to be a missed
-#      teaching moment).
-#   3. Opponent has at least one passed pawn (uses _own_passed_pawns
-#      with the opponent's color — the helper is color-parameterised
-#      despite its name).
-#   4. For some opponent passed pawn P:
-#      - Our king's Chebyshev distance to P's promotion square exceeds
-#        the pawn's distance to promote (king is OUTSIDE the square).
-#      - The engine's best move IS a king move.
-#      - After that king move, the king is INSIDE the square (a real
-#        catching move, not just any king step).
-#      - The played move did NOT step into the square (if it did, no
-#        teaching moment — we caught the pawn).
-#
-# Edge cases enumerated (Phase 0 audit):
-#   A. Multiple opp passed pawns — fires on the first that triggers.
-#   B. Pawn double-push from starting rank — handled in
-#      _pawn_distance_to_promote.
-#   C. King already inside square — don't fire (no risk).
-#   D. Engine's best isn't a king move — don't fire.
-#   E. Best king move lands OUTSIDE the square — don't fire.
-#   F. Played move IS the catching king move — don't fire.
-#   G. SAN parse failures — return None safely.
-#   H. Own pieces blocking king path — NOT handled v1 (flag in audit).
-#   I. STM already winning by >+300cp — pedagogical purity gate
-#      drops (added Pass 4, 2026-05-17).
 def _p_end_rule_of_square(
     facts: Dict[str, Any],
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
-    """Rule of the Square — defending king failed to step into the box
-    of an opposing passed pawn."""
+    """Caption adapter over the canonical legal pawn-race truth."""
     if facts.get("phase") != "endgame":
         return None
     if (facts.get("cp_loss") or 0) < 30:
         return None
 
-    # Pedagogical purity gate #1 — material composition. Rule of the
-    # Square only applies in clean K+P (+ ≤1 minor) endgames. With
-    # rooks or queens, other dynamics dominate and the teaching
-    # becomes misleading. Added 2026-05-17 after corpus audit
-    # revealed ~75% false-positive rate (135 → 13 fires).
-    if not _is_clean_king_and_pawn_endgame(board_before):
-        return None
-
-    # Pedagogical purity gate #2 — eval bracket. If the side-to-move
-    # is already winning by more than +300cp, Rule of the Square
-    # isn't the load-bearing lesson — the player just chose a slower
-    # win. Telling a player up 3+ pawns "your king is too far" reads
-    # as factually wrong about their game state and erodes trust.
-    #
-    # Asymmetric: LOSING positions are kept (Mohit signoff 2026-05-17:
-    # named-pattern teaching value > position-saving value — a 1200
-    # player still benefits from seeing the geometric pattern even
-    # when the game can't be saved).
-    #
-    # Audit 2026-05-17 found this pattern in 2/10 fires on prod corpus
-    # (both fires in game b4c2d442, player up ~6 pawns).
     eval_before_white_pov = facts.get("eval_before_cp")
     if eval_before_white_pov is not None:
         side_white = facts.get("moving_piece_color") == "white"
-        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        stm_eval = (
+            eval_before_white_pov
+            if side_white
+            else -eval_before_white_pov
+        )
         if stm_eval > 300:
             return None
 
+    from services.concept_detectors.rule_of_the_square import (
+        analyze_rule_of_square,
+        detect_rule_of_the_square_application,
+    )
+
+    canonical = analyze_rule_of_square(board_before)
+    if canonical is None or board_before.turn != canonical.defender_color:
+        return None
+
     best_san = _normalize_san(facts.get("best_move_san") or "")
     played_san = _normalize_san(facts.get("played_san") or "")
-    if not best_san:
+    if not best_san or not played_san or best_san == played_san:
+        return None
+    try:
+        best_move = board_before.parse_san(best_san)
+        played_move = board_before.parse_san(played_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
         return None
 
     us = board_before.turn
-    them = not us
-
-    # Opponent's passed pawns. _own_passed_pawns is color-parameterised
-    # — name is historical, function is generic.
-    opp_passed = _own_passed_pawns(board_before, them)
-    if not opp_passed:
-        return None
-
-    our_king_sq = board_before.king(us)
-    if our_king_sq is None:
-        return None
-
-    # The engine's best must be a king move.
-    try:
-        best_move = board_before.parse_san(best_san)
-    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
-        return None
     best_piece = board_before.piece_at(best_move.from_square)
-    if not best_piece or best_piece.piece_type != chess.KING or best_piece.color != us:
+    if (
+        best_piece is None
+        or best_piece.color != us
+        or best_piece.piece_type != chess.KING
+    ):
         return None
-    best_king_dest = best_move.to_square
 
-    # Parse the played move (may not be a king move — we still want to
-    # know whether the player coincidentally caught the pawn).
-    played_king_dest: Optional[int] = None
-    try:
-        played_move = board_before.parse_san(played_san)
-        played_piece = board_before.piece_at(played_move.from_square)
-        if played_piece and played_piece.piece_type == chess.KING and played_piece.color == us:
-            played_king_dest = played_move.to_square
-    except Exception:
-        played_king_dest = None
+    best_grade = detect_rule_of_the_square_application(
+        board_before, best_move, us
+    )
+    played_grade = detect_rule_of_the_square_application(
+        board_before, played_move, us
+    )
+    if best_grade != "applied" or played_grade != "missed":
+        return None
 
-    # Scan each opponent passed pawn for the square-rule violation.
-    for pawn_sq in opp_passed:
-        # Clear-runway filter: the pawn must have an unobstructed
-        # path to its promotion rank. Doubled own pawn (fire #6) or
-        # any own/enemy piece on the path (fire #12) muddies the
-        # Rule of the Square lesson. Audit 2026-05-17.
-        if not _pawn_promotion_path_clear(board_before, pawn_sq, them):
-            continue
+    board_after_best = board_before.copy(stack=False)
+    board_after_best.push(best_move)
+    after_best = analyze_rule_of_square(board_after_best)
+    best_captured_pawn = (
+        board_before.is_capture(best_move)
+        and best_move.to_square == canonical.pawn_square
+    )
+    if after_best is None and not best_captured_pawn:
+        return None
+    if after_best is not None and not after_best.catchable:
+        return None
 
-        # Case C: king already in the square — skip this pawn.
-        if _king_inside_pawn_square(our_king_sq, pawn_sq, them):
-            continue
-
-        # Case E: best move must LAND in the square.
-        if not _king_inside_pawn_square(best_king_dest, pawn_sq, them):
-            continue
-
-        # Case F: played move is a king move that ALSO lands in the
-        # square — no fire (we caught it via a different square).
-        if played_king_dest is not None and _king_inside_pawn_square(
-            played_king_dest, pawn_sq, them
-        ):
-            continue
-
-        promo_sq = _pawn_promotion_square(pawn_sq, them)
-        return {
+    evidence = canonical.evidence()
+    evidence.update({
+        "pawn_distance": canonical.pawn_pushes_to_promote,
+        "king_square_played": chess.square_name(
+            canonical.defending_king_square
+        ),
+        "king_distance_before": chess.square_distance(
+            canonical.defending_king_square,
+            canonical.promotion_square,
+        ),
+        "king_should_move_to": chess.square_name(best_move.to_square),
+        "king_distance_after_best": chess.square_distance(
+            best_move.to_square,
+            canonical.promotion_square,
+        ),
+        "catchable_before": canonical.catchable,
+        "catchable_after_best": (
+            True if best_captured_pawn else after_best.catchable
+        ),
+        "played_san": facts.get("played_san") or "",
+        "best_san": facts.get("best_move_san") or "",
+    })
+    return {
+        "principle_id": "END_RULE_OF_SQUARE",
+        "evidence": evidence,
+        "state_key": _freeze_state_key({
             "principle_id": "END_RULE_OF_SQUARE",
-            "evidence": {
-                "pawn_square":            chess.square_name(pawn_sq),
-                "pawn_color":             "white" if them == chess.WHITE else "black",
-                "promotion_square":       chess.square_name(promo_sq),
-                "pawn_distance":          _pawn_distance_to_promote(pawn_sq, them),
-                "king_square_played":     chess.square_name(our_king_sq),
-                "king_distance_before":   chess.square_distance(our_king_sq, promo_sq),
-                "king_should_move_to":    chess.square_name(best_king_dest),
-                "king_distance_after_best": chess.square_distance(best_king_dest, promo_sq),
-                "played_san":             facts.get("played_san") or "",
-                "best_san":               facts.get("best_move_san") or "",
-            },
-            "state_key": _freeze_state_key({
-                "principle_id":     "END_RULE_OF_SQUARE",
-                "phase":            "endgame",
-                "intent_type":      "defensive_geometry",
-                "focal_squares":    (chess.square_name(pawn_sq), chess.square_name(best_king_dest)),
-                "involved_piece":   "king",
-                "best_move_family": "K_move",
-            }),
-            "engine_endorsement": "best",
-            "aligned_moves_offered": [best_san],
-        }
-
-    return None
+            "phase": "endgame",
+            "intent_type": "defensive_geometry",
+            "focal_squares": (
+                chess.square_name(canonical.pawn_square),
+                chess.square_name(best_move.to_square),
+            ),
+            "involved_piece": "king",
+            "best_move_family": "K_move",
+        }),
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
+    }
 
 
-# ── Opposition geometry helper ──────────────────────────────────────
-#
-# Direct opposition: kings on the same file OR rank with exactly ONE
-# square between them. Side to move must give way → the side NOT to
-# move has the opposition.
-#
-# Distant opposition: same file or rank with 3 or 5 squares between
-# (Chebyshev 4 or 6). Harder for 1200-1500 but still a named pattern.
-#
-# Diagonal opposition: kings on the same diagonal with 1 square between.
-# Less common but valid. Included for completeness.
 def _kings_in_opposition(king1_sq: int, king2_sq: int) -> Optional[str]:
     """Returns "direct" / "distant" / "diagonal" if the two king squares
     sit in an opposition shape, else None.

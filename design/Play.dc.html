@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Manrope', system-ui, sans-serif; }
+    a { color: #FABD23; } a:hover { color: #FFD569; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #0B0D14; color: #F2F3F7; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 16px 24px;">
+
+  <!-- opponent -->
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #1B2030; display: flex; align-items: center; justify-content: center;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 21h12l-1-7H7l-1 7z"></path><path d="M8 14V9a4 4 0 0 1 8 0v5"></path>
+      </svg>
+    </div>
+    <div style="flex-grow: 1;">
+      <div style="font-size: 14px; font-weight: 600; color: #F2F3F7;">Coach</div>
+      <div style="font-size: 12px; color: #8A90A2;">playing at your level</div>
+    </div>
+    <div style="font-size: 15px; color: #8A90A2; font-variant-numeric: tabular-nums;">8:24</div>
+  </div>
+
+  <!-- board -->
+  <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); width: 358px; height: 358px; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 28px rgba(0,0,0,0.45);">
+    <sc-for list="{{squares}}" as="sq" hint-placeholder-count="64">
+      <div style="{{sq.sqStyle}}">
+        <span style="{{sq.pieceStyle}}">{{sq.glyph}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <!-- guardian: it ASKS, it does not tell -->
+  <div style="background: #161B27; border: 1px solid #2A3040; border-radius: 14px; padding: 18px 18px 16px;">
+    <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 12px;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FABD23" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z"></path>
+      </svg>
+      <span style="font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #FABD23;">HOLD ON</span>
+    </div>
+
+    <p style="margin: 0 0 18px; font-family: 'Outfit', system-ui, sans-serif; font-size: 19px; line-height: 1.35; font-weight: 500; color: #F2F3F7; text-wrap: pretty;">Look at d4 again &mdash; who&#39;s watching that square?</p>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+      <div style="height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: #FABD23; color: #16120A; font-size: 15px; font-weight: 700;">Let me look</div>
+      <div style="height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #2A3040; background: transparent; color: #A9AFBF; font-size: 15px; font-weight: 600;">I&#39;m sure</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+const G = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const LIGHT = '#C6CAD4';
+const DARK = '#6A7186';
+
+class Component extends DCLogic {
+  buildSquares(rows, marks) {
+    const out = [];
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const ch = rows[r][f];
+        const name = 'abcdefgh'[f] + (8 - r);
+        const light = (r + f) % 2 === 0;
+        const m = marks[name] || null;
+        const isWhite = ch !== '.' && ch === ch.toUpperCase();
+
+        let glyph = '';
+        let pieceStyle = 'font-size:30px;line-height:1;';
+        if (ch !== '.') {
+          glyph = G[ch.toLowerCase()];
+          pieceStyle += isWhite
+            ? 'color:#FFFFFF;text-shadow:0 0 1px rgba(0,0,0,.9),0 1px 2px rgba(0,0,0,.45);'
+            : 'color:#12141C;text-shadow:0 0 1px rgba(255,255,255,.22);';
+        } else if (m && m.ghost) {
+          glyph = G[m.ghost];
+          pieceStyle += 'color:#FFFFFF;opacity:.38;';
+        }
+
+        out.push({
+          key: name,
+          glyph: glyph,
+          pieceStyle: pieceStyle,
+          sqStyle: 'display:flex;align-items:center;justify-content:center;background:'
+            + (light ? LIGHT : DARK) + ';' + (m ? (m.sq || '') : '')
+        });
+      }
+    }
+    return out;
+  }
+
+  renderVals() {
+    // White has picked up the f3 knight for d4; the e5 pawn covers it.
+    const rows = [
+      'r.bq.rk.',
+      'ppp..ppp',
+      '..np.n..',
+      '....p...',
+      '..B.P...',
+      '..NP.N..',
+      'PPP..PPP',
+      'R.BQ.RK.'
+    ];
+    const marks = {
+      f3: { sq: 'box-shadow: inset 0 0 0 3px rgba(250,189,35,.7);' },
+      d4: { sq: 'box-shadow: inset 0 0 0 3px #9B2734;', ghost: 'n' }
+    };
+    return { squares: this.buildSquares(rows, marks) };
+  }
+}
+</script>
+</body>
+</html>

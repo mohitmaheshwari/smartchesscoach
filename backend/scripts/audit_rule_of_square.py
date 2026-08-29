@@ -40,9 +40,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from services.caption_facts import (
     _p_end_rule_of_square,
-    _king_inside_pawn_square,
-    _pawn_distance_to_promote,
     _own_passed_pawns,
+)
+from services.concept_detectors.rule_of_the_square import (
+    analyze_rule_of_square,
 )
 
 
@@ -103,10 +104,22 @@ def _verify_geometry(board: chess.Board, ev: dict) -> str:
     if pawn_sq not in passed:
         return f"{pawn_sq_name} pawn is NOT passed in this position"
 
-    # Check: distances are consistent
-    expected_pawn_dist = _pawn_distance_to_promote(pawn_sq, pawn_color)
-    if expected_pawn_dist != pawn_dist:
-        return f"pawn_distance mismatch: claim {pawn_dist}, computed {expected_pawn_dist}"
+    canonical = analyze_rule_of_square(board)
+    if canonical is None:
+        return "canonical detector says position is outside V1 scope"
+    if canonical.pawn_square != pawn_sq:
+        return "canonical critical pawn differs from caption evidence"
+    if canonical.pawn_color != pawn_color:
+        return "canonical pawn color differs from caption evidence"
+    if canonical.pawn_pushes_to_promote != pawn_dist:
+        return (
+            f"pawn_distance mismatch: claim {pawn_dist}, "
+            f"canonical {canonical.pawn_pushes_to_promote}"
+        )
+    if not ev.get("catchable_before"):
+        return "caption claims a miss when the pawn was not catchable before"
+    if not ev.get("catchable_after_best"):
+        return "engine best move does not preserve canonical catchability"
 
     expected_king_dist_before = chess.square_distance(king_played, promo_sq)
     if expected_king_dist_before != king_dist_before:
@@ -117,12 +130,6 @@ def _verify_geometry(board: chess.Board, ev: dict) -> str:
     if expected_king_dist_after != king_dist_after:
         return (f"king_distance_after_best mismatch: claim {king_dist_after}, "
                 f"computed {expected_king_dist_after}")
-
-    # Check: king IS outside before, INSIDE after
-    if king_dist_before <= pawn_dist:
-        return f"king already inside square before move (claim of 'outside' is false)"
-    if king_dist_after > pawn_dist:
-        return f"king STILL outside square after best move (best move doesn't catch)"
 
     return "OK"
 

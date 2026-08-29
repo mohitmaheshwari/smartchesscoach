@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Optional
 from pymongo import ReturnDocument
 
 from services.focus_bridge import PIC_FACT_VERSION, _pic_fields_eligible, _to_dt
+from services.detector_quality import focus_document_is_authorized
 
 
 FOCUS_COLLECTION = "user_active_focus"
@@ -63,6 +64,8 @@ async def _require_pic_focus(db, user_id: str) -> Dict[str, Any]:
     })
     if not focus:
         raise ValueError("an active PIC piece-safety focus is required")
+    if not focus_document_is_authorized(focus):
+        raise ValueError("the active focus detector is not Plan-grade")
     return focus
 
 
@@ -146,6 +149,8 @@ def claim_pending_focus_game_sync(
     })
     if not focus:
         return None
+    if not focus_document_is_authorized(focus):
+        return None
     pending = focus.get("pending_focus_game") or {}
     if pending.get("status") == "claimed" and pending.get("game_id") == game_id:
         return focus
@@ -189,6 +194,8 @@ def record_pic_game_evidence_sync(
         "cycle_version": 1,
     })
     if not focus:
+        return None
+    if not focus_document_is_authorized(focus):
         return None
 
     game_id = str(game.get("game_id") or "")

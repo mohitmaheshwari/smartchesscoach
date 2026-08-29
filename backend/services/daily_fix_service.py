@@ -35,7 +35,20 @@ async def _resolve_focus(db, user_id: str) -> Optional[str]:
     if bundle and bundle.get("topic_key"):
         return bundle["topic_key"]
     cm = await db.coach_memory.find_one({"user_id": user_id}, {"learning.current_focus": 1})
-    return (cm or {}).get("learning", {}).get("current_focus")
+    fallback = (cm or {}).get("learning", {}).get("current_focus")
+    if not fallback:
+        return None
+    from services.detector_quality import (
+        QualitySurface,
+        can_influence,
+        gap_quality_id,
+    )
+    quality_id = gap_quality_id(str(fallback), None)
+    return (
+        fallback
+        if can_influence(quality_id, QualitySurface.PLAN)
+        else None
+    )
 
 
 async def resolve_daily_fix(db, user_id: str, limit: int = 5, today: Any = None) -> Dict[str, Any]:

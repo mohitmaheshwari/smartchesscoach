@@ -252,7 +252,8 @@ class ChessBrain:
             "time_spent": time_spent,
             "time_remaining": time_remaining,
             "consecutive_blunders": consecutive_blunders,
-            "move_number": move_number
+            "move_number": move_number,
+            "cp_loss": cp_loss,
         }
         
         tactical, strategic, behavioral = self.detector_registry.run_all(

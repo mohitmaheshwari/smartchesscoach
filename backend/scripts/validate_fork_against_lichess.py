@@ -2,7 +2,9 @@
 Cross-validate fork detector against Lichess-tagged fork puzzles.
 
 Sample N puzzles from `lichess_puzzles` where themes contains "fork".
-For each, apply our solution-move and run evaluate_fork. Tally:
+For each, replay the full solution and run evaluate_fork on every player move.
+Lichess themes describe the combination, not necessarily the first solution
+move. Tally:
   • detected as fork (matches Lichess tag)
   • not detected (we say "no fork" but Lichess tagged it)
   • setup error (move illegal etc.)
@@ -34,7 +36,63 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from services.pattern_confidence.fork import evaluate_fork
 
 
-async def main(n: int, show_mismatches: int) -> None:
+def evaluate_tagged_puzzle(p: dict) -> dict:
+    """Locate the first player solution ply our fork detector recognizes."""
+    fen = p.get("fen", "")
+    moves = p.get("moves") or []
+    if not fen or len(moves) < 2:
+        return {"setup_error": True, "reason": "missing FEN or solution moves"}
+
+    try:
+        board = chess.Board(fen)
+    except Exception:
+        return {"setup_error": True, "reason": "invalid FEN"}
+
+    checks = []
+    for move_index, uci in enumerate(moves):
+        try:
+            move = chess.Move.from_uci(uci)
+        except Exception:
+            return {"setup_error": True, "reason": f"invalid UCI at index {move_index}"}
+        if move not in board.legal_moves:
+            return {"setup_error": True, "reason": f"illegal move at index {move_index}"}
+
+        # Index 0 is the opponent's setup move. Player solution moves are
+        # indexes 1, 3, 5, ... in the alternating Lichess line.
+        if move_index % 2 == 1:
+            try:
+                san = board.san(move)
+            except Exception:
+                san = uci
+            result = evaluate_fork(board, move)
+            checks.append({
+                "solution_ply": (move_index + 1) // 2,
+                "move_index": move_index,
+                "move_san": san,
+                "move_uci": uci,
+                "fen": board.fen(),
+                "detected": bool(result.get("detected")),
+                "tier": result.get("tier"),
+                "reason": result.get("reason"),
+            })
+            if result.get("detected"):
+                return {
+                    "setup_error": False,
+                    "detected": True,
+                    "match": checks[-1],
+                    "checks": checks,
+                }
+        board.push(move)
+
+    return {
+        "setup_error": False,
+        "detected": False,
+        "checks": checks,
+        "reason": "no player solution ply matched the fork claim",
+    }
+
+
+async def main(n: int, show_mismatches: int, negative_n: int = 0) -> None:
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name = os.environ.get("DB_NAME", "chess_coach")
     db = AsyncIOMotorClient(mongo_url)[db_name]
@@ -58,58 +116,37 @@ async def main(n: int, show_mismatches: int) -> None:
     detected_high = 0
     detected_medium = 0
     detected_low = 0
+    detected_first = 0
+    detected_later = 0
     not_detected = 0
     setup_errors = 0
     mismatches = []
 
     for p in samples:
-        fen = p.get("fen", "")
-        moves = p.get("moves") or []
-        if not fen or len(moves) < 2:
+        evaluated = evaluate_tagged_puzzle(p)
+        if evaluated.get("setup_error"):
             setup_errors += 1
             continue
-
-        try:
-            board = chess.Board(fen)
-            # Lichess: first move is opponent's setup move; advance.
-            opp = chess.Move.from_uci(moves[0])
-            if opp not in board.legal_moves:
-                setup_errors += 1
-                continue
-            board.push(opp)
-
-            # The second move IS the fork solution. Evaluate it.
-            fork_move = chess.Move.from_uci(moves[1])
-            if fork_move not in board.legal_moves:
-                setup_errors += 1
-                continue
-        except Exception:
-            setup_errors += 1
-            continue
-
-        result = evaluate_fork(board, fork_move)
-
-        if not result.get("detected"):
+        if not evaluated.get("detected"):
             not_detected += 1
             if len(mismatches) < show_mismatches:
-                # Build a visual position for the human reviewer
-                fork_san = ""
-                try:
-                    fork_san = board.san(fork_move)
-                except Exception:
-                    pass
                 mismatches.append({
                     "puzzle_id": p.get("puzzle_id"),
                     "rating": p.get("rating"),
                     "themes": p.get("themes"),
-                    "fen": board.fen(),
-                    "fork_move_san": fork_san,
-                    "fork_move_uci": moves[1],
-                    "reason": result.get("reason"),
+                    "fen": p.get("fen"),
+                    "moves": p.get("moves") or [],
+                    "checks": evaluated.get("checks") or [],
+                    "reason": evaluated.get("reason"),
                 })
             continue
 
-        tier = result.get("tier")
+        match = evaluated["match"]
+        if match["solution_ply"] == 1:
+            detected_first += 1
+        else:
+            detected_later += 1
+        tier = match.get("tier")
         if tier == "HIGH":
             detected_high += 1
         elif tier == "MEDIUM":
@@ -127,6 +164,8 @@ async def main(n: int, show_mismatches: int) -> None:
     print()
     print(f"Detected as fork:   {detected_total}  "
           f"({100*detected_total/max(total_evaluated,1):.1f}% of evaluated)")
+    print(f"  first player ply: {detected_first}")
+    print(f"  later player ply: {detected_later}")
     print(f"  HIGH tier:        {detected_high}")
     print(f"  MEDIUM tier:      {detected_medium}")
     print(f"  LOW tier:         {detected_low}")
@@ -147,14 +186,80 @@ async def main(n: int, show_mismatches: int) -> None:
             print(f"  ID {m['puzzle_id']}  rating={m['rating']}")
             print(f"    themes: {m['themes']}")
             print(f"    fen:    {m['fen']}")
-            print(f"    move:   {m['fork_move_san']} ({m['fork_move_uci']})")
+            print(f"    moves:  {' '.join(m['moves'])}")
+            for check in m["checks"]:
+                print(
+                    f"    player ply {check['solution_ply']}: "
+                    f"{check['move_san']} ({check['move_uci']}) — "
+                    f"{check.get('reason')}"
+                )
             print(f"    reason: {m['reason']}")
             print()
+
+    if negative_n > 0:
+        negative_pipeline = [
+            {"$match": {"themes": {"$ne": "fork"}}},
+            {"$sample": {"size": negative_n}},
+        ]
+        negative_samples = []
+        async for p in db.lichess_puzzles.aggregate(negative_pipeline):
+            negative_samples.append(p)
+
+        negative_fires = []
+        negative_setup_errors = 0
+        for p in negative_samples:
+            evaluated = evaluate_tagged_puzzle(p)
+            if evaluated.get("setup_error"):
+                negative_setup_errors += 1
+                continue
+            if evaluated.get("detected"):
+                negative_fires.append({
+                    "puzzle_id": p.get("puzzle_id"),
+                    "rating": p.get("rating"),
+                    "themes": p.get("themes"),
+                    "match": evaluated.get("match"),
+                })
+
+        negative_evaluated = len(negative_samples) - negative_setup_errors
+        print()
+        print("── Negative-control sample (no Lichess fork tag) ──")
+        print(f"Sampled:             {len(negative_samples)}")
+        print(f"Setup errors:        {negative_setup_errors}")
+        print(f"Evaluated:           {negative_evaluated}")
+        print(
+            f"Detector fires:      {len(negative_fires)} "
+            f"({100*len(negative_fires)/max(negative_evaluated,1):.1f}%)"
+        )
+        print(
+            "These are review candidates, not automatic false positives: "
+            "Lichess tags can omit secondary themes."
+        )
+        for item in negative_fires[:show_mismatches]:
+            match = item["match"] or {}
+            print(
+                f"  ID {item['puzzle_id']} rating={item['rating']} "
+                f"themes={item['themes']}"
+            )
+            print(
+                f"    player ply {match.get('solution_ply')}: "
+                f"{match.get('move_san')} ({match.get('move_uci')}) "
+                f"tier={match.get('tier')}"
+            )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=int, default=100)
     parser.add_argument("--show-mismatches", type=int, default=10)
+    parser.add_argument(
+        "--negative-n",
+        type=int,
+        default=0,
+        help="Also sample N puzzles without a fork tag as a specificity control.",
+    )
     args = parser.parse_args()
-    asyncio.run(main(n=args.n, show_mismatches=args.show_mismatches))
+    asyncio.run(main(
+        n=args.n,
+        show_mismatches=args.show_mismatches,
+        negative_n=args.negative_n,
+    ))
