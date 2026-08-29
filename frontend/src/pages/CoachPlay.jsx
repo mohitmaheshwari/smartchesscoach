@@ -15,6 +15,7 @@ import { Chess } from "chess.js";
 import { motion } from "framer-motion";
 import { navFade, fadeInUp } from "@/lib/motion";
 import { coachPlayFocusRule } from "@/lib/coachingContext";
+import { nextLessonPrompt } from "@/lib/teachingLessonPrompt";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
@@ -3144,9 +3145,7 @@ const CoachPlay = ({ user }) => {
             quality: "teaching",
             main_insight: data.message || `Undid ${data.undone_move}`,
             why: activeLesson?.opening_name ? `Back in ${activeLesson.opening_name}` : null,
-            next_idea: data.instruction.is_user_move
-              ? `Your turn: play ${data.instruction.move}`
-              : `Watch: I'll play ${data.instruction.move}`,
+            next_idea: nextLessonPrompt(data.instruction),
             has_better_move: false,
             can_explain: true,
             teaching_mode: true,

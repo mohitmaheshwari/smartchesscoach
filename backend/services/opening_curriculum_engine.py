@@ -59,9 +59,13 @@ def _load_curriculum() -> Dict:
 
 def get_available_openings(color: str = None) -> List[Dict]:
     """Get list of available openings to learn."""
+    from services.curriculum_content_validator import is_content_publishable
+
     curriculum = _load_curriculum()
     result = []
     for key, data in curriculum.items():
+        if not is_content_publishable("openings", key):
+            continue
         if color and data.get("color") != color:
             continue
         result.append({

@@ -5,8 +5,8 @@
     "content_sources": {
       "opening": "data/opening_curriculum.json",
       "trap_set": "services/trap_library.py (TRAP_LIBRARY)",
-      "endgame": "services/endgame_teaching.py (ENDGAME_LESSONS)",
-      "mate_pattern": "services/endgame_teaching.py (ENDGAME_LESSONS — queen_checkmate / rook_checkmate)",
+      "endgame": "data/coaching/endgame_theory_tree.json via services/endgame_theory_service.py",
+      "mate_pattern": "not exposed until canonical queen/rook mate lessons pass verification",
       "concept": "TODO — create data/concepts.json for these",
       "coached_play": "self-referential — played in Play with Coach with focus= skill_id"
     },

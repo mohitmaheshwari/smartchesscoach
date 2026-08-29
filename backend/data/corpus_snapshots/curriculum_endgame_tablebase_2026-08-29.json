@@ -1,0 +1,2712 @@
+{
+  "schema_version": 1,
+  "source": "https://tablebase.lichess.ovh/standard",
+  "source_documentation": "https://github.com/lichess-org/lila-tablebase/blob/main/README.md",
+  "retrieved_at": "2026-08-29T17:24:40.455483+00:00",
+  "canonical_content_source": "backend/data/coaching/endgame_theory_tree.json",
+  "eligibility": "valid standard-chess positions with seven pieces or fewer",
+  "entries": [
+    {
+      "content_id": "king_and_pawn/opposition",
+      "position_index": 0,
+      "fen": "8/4k3/8/8/4K3/4P3/8/8 w - - 0 1",
+      "stored_move_uci": "e4d5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -4,
+      "precise_dtz": -4,
+      "preserving_moves": [
+        {
+          "uci": "e4d5",
+          "san": "Kd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "e4e5",
+          "san": "Ke5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "e4f5",
+          "san": "Kf5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        }
+      ],
+      "response_sha256": "836cbe6f1acfe645fc26bed440f817074f04f596e9cef97b0bc816944160d3d2"
+    },
+    {
+      "content_id": "king_and_pawn/opposition",
+      "position_index": 1,
+      "fen": "8/3k4/8/3PK3/8/8/8/8 w - - 0 1",
+      "stored_move_uci": "e5f6",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "d5d6",
+          "san": "d6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e5d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e5e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e5f4",
+          "san": "Kf4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e5f5",
+          "san": "Kf5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e5f6",
+          "san": "Kf6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "eafca83f7722286df23a3bd467c83b48b66b460414348dc3c04c742aa2bd9b6f"
+    },
+    {
+      "content_id": "king_and_pawn/opposition",
+      "position_index": 2,
+      "fen": "8/3k4/8/8/3KP3/8/8/8 w - - 0 1",
+      "stored_move_uci": "d4d5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -6,
+      "precise_dtz": -6,
+      "preserving_moves": [
+        {
+          "uci": "d4d5",
+          "san": "Kd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "8ba57722c3cf4dbfeb535f71224d3f0e0fd545f3ababd56ad3deeee2822ec29a"
+    },
+    {
+      "content_id": "king_and_pawn/key_squares",
+      "position_index": 0,
+      "fen": "7k/8/8/8/8/8/1PK5/8 w - - 0 1",
+      "stored_move_uci": "c2d3",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "b2b4",
+          "san": "b4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2c3",
+          "san": "Kc3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2b3",
+          "san": "Kb3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "b2b3",
+          "san": "b3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2d2",
+          "san": "Kd2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2b1",
+          "san": "Kb1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2c1",
+          "san": "Kc1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "c2d1",
+          "san": "Kd1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "005bf8e3b3247ef0db9d3dd8cb39cc15bf23f495d0de60ee0c30e59e67f6b2ec"
+    },
+    {
+      "content_id": "king_and_pawn/key_squares",
+      "position_index": 1,
+      "fen": "8/8/3k4/8/8/4K3/4P3/8 w - - 0 1",
+      "stored_move_uci": "e3d4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -6,
+      "precise_dtz": -6,
+      "preserving_moves": [
+        {
+          "uci": "e3e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "e3d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "e3f4",
+          "san": "Kf4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "e3f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        }
+      ],
+      "response_sha256": "5abd094473789f625f0ccc9e22e7344e06acf10a0fa46ee694b7ec5b10676a69"
+    },
+    {
+      "content_id": "king_and_pawn/key_squares",
+      "position_index": 2,
+      "fen": "8/8/2k5/8/2K5/2P5/8/8 w - - 0 1",
+      "stored_move_uci": "c4d4",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "c4b3",
+          "san": "Kb3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c4d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c4b4",
+          "san": "Kb4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c4d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "5f5e9391970f3e37a625edcc44814f586c359c5b18acda1d8d9b7a8a0c2ef77c"
+    },
+    {
+      "content_id": "king_and_pawn/square_rule",
+      "position_index": 0,
+      "fen": "7k/8/6K1/1p6/8/8/8/8 w - - 0 1",
+      "stored_move_uci": "g6f5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "g6f5",
+          "san": "Kf5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "4a7d115d4bb038dd7750251c5d5e85455f585702bff5b7e704bc2e91a1e9e428"
+    },
+    {
+      "content_id": "king_and_pawn/square_rule",
+      "position_index": 1,
+      "fen": "7k/8/8/2K5/6p1/8/8/8 w - - 0 1",
+      "stored_move_uci": "c5d4",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "c5d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "689c1839a156355a11d60579f225b55f307104d01581cbaf3260d579dcf4467e"
+    },
+    {
+      "content_id": "king_and_pawn/square_rule",
+      "position_index": 2,
+      "fen": "k7/8/8/4K3/p7/8/8/8 w - - 0 1",
+      "stored_move_uci": "e5d4",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "e5d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "c156330cb3ef34adb80aa87c067dac01a4587e83b605edd26fe8c9918a7da168"
+    },
+    {
+      "content_id": "king_and_pawn/king_centralization",
+      "position_index": 1,
+      "fen": "8/5k2/4p3/3pP3/3P4/8/8/4K3 w - - 0 1",
+      "stored_move_uci": "e1d2",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "e1f1",
+          "san": "Kf1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e1d2",
+          "san": "Kd2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e1e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e1f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "b0fd6975bab496478f61a976efc7cd5afd86f5d8c25a81d77433edabbe2bbfb0"
+    },
+    {
+      "content_id": "king_and_pawn/king_centralization",
+      "position_index": 2,
+      "fen": "8/p4k2/1p6/8/6P1/8/P7/6K1 w - - 0 1",
+      "stored_move_uci": "g1f2",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "a2a3",
+          "san": "a3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g4g5",
+          "san": "g5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a2a4",
+          "san": "a4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g1f1",
+          "san": "Kf1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g1h1",
+          "san": "Kh1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g1f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g1g2",
+          "san": "Kg2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g1h2",
+          "san": "Kh2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "f98de39f479f914384328c251dee044e8cbcbb400423250700b492dd6a34ffdf"
+    },
+    {
+      "content_id": "rook_endgames/lucena",
+      "position_index": 0,
+      "fen": "1K6/1P1k4/8/8/8/8/r7/7R w - - 0 1",
+      "stored_move_uci": "h1h4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -14,
+      "precise_dtz": -14,
+      "preserving_moves": [
+        {
+          "uci": "h1d1",
+          "san": "Rd1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "h1h4",
+          "san": "Rh4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "h1b1",
+          "san": "Rb1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1c1",
+          "san": "Rc1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1e1",
+          "san": "Re1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1f1",
+          "san": "Rf1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1g1",
+          "san": "Rg1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1h3",
+          "san": "Rh3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1h7",
+          "san": "Rh7+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1h5",
+          "san": "Rh5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "h1h6",
+          "san": "Rh6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "h1h8",
+          "san": "Rh8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        }
+      ],
+      "response_sha256": "ad18a3d67376897cc2a4f9b07c77d3cce41f26a887b1ea52c3d3f4d9648cd985"
+    },
+    {
+      "content_id": "rook_endgames/lucena",
+      "position_index": 1,
+      "fen": "3K4/3P1k2/8/8/8/8/r7/4R3 w - - 0 1",
+      "stored_move_uci": "e1e4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -14,
+      "precise_dtz": -14,
+      "preserving_moves": [
+        {
+          "uci": "e1f1",
+          "san": "Rf1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e1c1",
+          "san": "Rc1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "e1e7",
+          "san": "Re7+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "e1b1",
+          "san": "Rb1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "e1d1",
+          "san": "Rd1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "e1e3",
+          "san": "Re3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "e1e4",
+          "san": "Re4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "e1e5",
+          "san": "Re5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "e1g1",
+          "san": "Rg1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "e1h1",
+          "san": "Rh1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -16,
+          "precise_dtz": -16
+        },
+        {
+          "uci": "d8c7",
+          "san": "Kc7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -18,
+          "precise_dtz": -18
+        },
+        {
+          "uci": "d8c8",
+          "san": "Kc8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -18,
+          "precise_dtz": -18
+        }
+      ],
+      "response_sha256": "138f8e3b87fd69488a02cbe41dc363c427480d454943a160e59b4caf6233088a"
+    },
+    {
+      "content_id": "rook_endgames/lucena",
+      "position_index": 2,
+      "fen": "5K2/5P2/8/8/4R3/8/r4k2/8 w - - 0 1",
+      "stored_move_uci": "f8e7",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -8,
+      "precise_dtz": -8,
+      "preserving_moves": [
+        {
+          "uci": "f8g8",
+          "san": "Kg8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "f8g7",
+          "san": "Kg7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "e4e6",
+          "san": "Re6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "e4e5",
+          "san": "Re5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4e7",
+          "san": "Re7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4e8",
+          "san": "Re8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "f8e7",
+          "san": "Ke7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4b4",
+          "san": "Rb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4c4",
+          "san": "Rc4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4d4",
+          "san": "Rd4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4g4",
+          "san": "Rg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "e4h4",
+          "san": "Rh4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "f8e8",
+          "san": "Ke8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "e4f4",
+          "san": "Rf4+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "20cd3994a195def421a7e3ad1f708358980d29a8f0f0a9a8b29c8ae924bab583"
+    },
+    {
+      "content_id": "rook_endgames/philidor",
+      "position_index": 0,
+      "fen": "4k3/8/8/4PK2/8/8/8/r4R2 b - - 0 1",
+      "stored_move_uci": "a1a6",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": false,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "a1f1",
+          "san": "Rxf1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        }
+      ],
+      "response_sha256": "ea92176acd8ca539d15084d18d547f6e998ad22f4efe9b54d7efe56815dba164"
+    },
+    {
+      "content_id": "rook_endgames/philidor",
+      "position_index": 1,
+      "fen": "4k3/8/4PK2/8/8/8/8/r4R2 b - - 0 1",
+      "stored_move_uci": "a1f1",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -6,
+      "precise_dtz": -6,
+      "preserving_moves": [
+        {
+          "uci": "a1f1",
+          "san": "Rxf1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "90d161132d72c27eed8b479ca9af0441ee54b1b1a6dafa62d93511583e96b7eb"
+    },
+    {
+      "content_id": "rook_endgames/philidor",
+      "position_index": 2,
+      "fen": "4k3/8/r3P3/5K2/8/8/8/4R3 b - - 0 1",
+      "stored_move_uci": "a6a5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "a6a2",
+          "san": "Ra2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6a3",
+          "san": "Ra3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6a4",
+          "san": "Ra4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6a5",
+          "san": "Ra5+",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6b6",
+          "san": "Rb6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6c6",
+          "san": "Rc6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6d6",
+          "san": "Rd6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6a7",
+          "san": "Ra7",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "a6a8",
+          "san": "Ra8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e8e7",
+          "san": "Ke7",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e8d8",
+          "san": "Kd8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e8f8",
+          "san": "Kf8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "c1a7e0fb557cbd3f07f3b52e7e1df94c2fd7cb85a2c29d3fbf0c4cb36c1191ab"
+    },
+    {
+      "content_id": "rook_endgames/active_rook",
+      "position_index": 0,
+      "fen": "8/R4pk1/5p2/5P2/8/6K1/r7/8 w - - 0 1",
+      "stored_move_uci": "a7a8",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": false,
+      "dtz": 1,
+      "precise_dtz": 1,
+      "preserving_moves": [
+        {
+          "uci": "a7a2",
+          "san": "Rxa2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "ee658c66b880a1719bfae1709e30a54a5a17ab0e7e4e58971f79b1dfc4ceab20"
+    },
+    {
+      "content_id": "rook_endgames/active_rook",
+      "position_index": 2,
+      "fen": "8/1r6/8/1Pk5/8/1K6/8/1R6 w - - 0 1",
+      "stored_move_uci": "b3a4",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "b5b6",
+          "san": "b6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1a1",
+          "san": "Ra1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1c1",
+          "san": "Rc1+",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1d1",
+          "san": "Rd1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1e1",
+          "san": "Re1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1f1",
+          "san": "Rf1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1g1",
+          "san": "Rg1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1h1",
+          "san": "Rh1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b1b2",
+          "san": "Rb2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3a2",
+          "san": "Ka2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3b2",
+          "san": "Kb2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3c2",
+          "san": "Kc2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3a3",
+          "san": "Ka3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3c3",
+          "san": "Kc3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b3a4",
+          "san": "Ka4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "247e07b73ef1ad567ce02932ca31afa33104290107005e343ea237241999a403"
+    },
+    {
+      "content_id": "queen_vs_pawn/stop_promotion",
+      "position_index": 0,
+      "fen": "8/8/8/8/7k/1q6/1P6/1K6 b - - 0 1",
+      "stored_move_uci": "b3c3",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": false,
+      "dtz": 1,
+      "precise_dtz": 1,
+      "preserving_moves": [
+        {
+          "uci": "h4g3",
+          "san": "Kg3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -9,
+          "precise_dtz": -9
+        },
+        {
+          "uci": "h4g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -9,
+          "precise_dtz": -9
+        },
+        {
+          "uci": "h4g5",
+          "san": "Kg5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -9,
+          "precise_dtz": -9
+        },
+        {
+          "uci": "h4h3",
+          "san": "Kh3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "h4h5",
+          "san": "Kh5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "b3a4",
+          "san": "Qa4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -9,
+          "precise_dtz": -9
+        },
+        {
+          "uci": "b3c4",
+          "san": "Qc4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "b3b4",
+          "san": "Qb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -11,
+          "precise_dtz": -11
+        },
+        {
+          "uci": "b3d3",
+          "san": "Qd3+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3e3",
+          "san": "Qe3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3d1",
+          "san": "Qd1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "b3b5",
+          "san": "Qb5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -11,
+          "precise_dtz": -11
+        },
+        {
+          "uci": "b3f3",
+          "san": "Qf3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3d5",
+          "san": "Qd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3b6",
+          "san": "Qb6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3e6",
+          "san": "Qe6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3b7",
+          "san": "Qb7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3f7",
+          "san": "Qf7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3b8",
+          "san": "Qb8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3g8",
+          "san": "Qg8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "b3g3",
+          "san": "Qg3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -13,
+          "precise_dtz": -13
+        },
+        {
+          "uci": "b3h3",
+          "san": "Qh3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -13,
+          "precise_dtz": -13
+        }
+      ],
+      "response_sha256": "5c9dae1ae9c10a725d3474b02bb1274bc059ee0068a5841b1ccdbff8d34ddbb9"
+    },
+    {
+      "content_id": "queen_vs_pawn/stop_promotion",
+      "position_index": 1,
+      "fen": "8/8/8/7k/q7/8/P7/K7 b - - 0 1",
+      "stored_move_uci": "a4d1",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -6,
+      "precise_dtz": -6,
+      "preserving_moves": [
+        {
+          "uci": "a4a3",
+          "san": "Qa3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -3,
+          "precise_dtz": -3
+        },
+        {
+          "uci": "h5g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "h5g5",
+          "san": "Kg5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "h5g6",
+          "san": "Kg6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4c2",
+          "san": "Qc2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -1,
+          "precise_dtz": -1
+        },
+        {
+          "uci": "a4b4",
+          "san": "Qb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -1,
+          "precise_dtz": -1
+        },
+        {
+          "uci": "a4b5",
+          "san": "Qb5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -1,
+          "precise_dtz": -1
+        },
+        {
+          "uci": "a4d4",
+          "san": "Qd4+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -3,
+          "precise_dtz": -3
+        },
+        {
+          "uci": "a4c4",
+          "san": "Qc4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4e4",
+          "san": "Qe4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4f4",
+          "san": "Qf4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4g4",
+          "san": "Qg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4h4",
+          "san": "Qh4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4a5",
+          "san": "Qa5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4a6",
+          "san": "Qa6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4c6",
+          "san": "Qc6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "h5h4",
+          "san": "Kh4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "h5h6",
+          "san": "Kh6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4d1",
+          "san": "Qd1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4a7",
+          "san": "Qa7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4d7",
+          "san": "Qd7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4a8",
+          "san": "Qa8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "a4e8",
+          "san": "Qe8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "6d0e41d262968b556530490193257089e30bf9c8dc4e42e05e07fbbe82df6850"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 0,
+      "fen": "8/8/8/8/5k2/1q6/5P2/5K2 b - - 0 1",
+      "stored_move_uci": "b3e3",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": false,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "b3f3",
+          "san": "Qf3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -3,
+          "precise_dtz": -3
+        },
+        {
+          "uci": "f4f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "b3b5",
+          "san": "Qb5+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3b1",
+          "san": "Qb1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "b3d1",
+          "san": "Qd1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "b3e6",
+          "san": "Qe6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "b3a2",
+          "san": "Qa2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3b2",
+          "san": "Qb2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3c2",
+          "san": "Qc2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3d3",
+          "san": "Qd3+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3c4",
+          "san": "Qc4+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "b3c3",
+          "san": "Qc3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3a4",
+          "san": "Qa4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "f4e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3a3",
+          "san": "Qa3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3h3",
+          "san": "Qh3+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3b4",
+          "san": "Qb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3d5",
+          "san": "Qd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3b6",
+          "san": "Qb6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3b7",
+          "san": "Qb7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3f7",
+          "san": "Qf7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3b8",
+          "san": "Qb8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "b3g8",
+          "san": "Qg8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "f4g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "f4e5",
+          "san": "Ke5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "f4f5",
+          "san": "Kf5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "f4g5",
+          "san": "Kg5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        }
+      ],
+      "response_sha256": "074a81e30ae484ed9d357493f59aca0ac05befc685c57c57500e25e430ad17a6"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 2,
+      "fen": "8/8/8/8/7k/8/q2P4/3K4 b - - 0 1",
+      "stored_move_uci": "a2a5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -7,
+      "precise_dtz": -7,
+      "preserving_moves": [
+        {
+          "uci": "a2b3",
+          "san": "Qb3+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "h4g3",
+          "san": "Kg3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "h4g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "h4g5",
+          "san": "Kg5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2c4",
+          "san": "Qc4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -5,
+          "precise_dtz": -5
+        },
+        {
+          "uci": "a2a3",
+          "san": "Qa3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a1",
+          "san": "Qa1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2b1",
+          "san": "Qb1+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2b2",
+          "san": "Qb2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a4",
+          "san": "Qa4+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a5",
+          "san": "Qa5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2d5",
+          "san": "Qd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a6",
+          "san": "Qa6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2e6",
+          "san": "Qe6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a7",
+          "san": "Qa7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2f7",
+          "san": "Qf7",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2a8",
+          "san": "Qa8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "a2g8",
+          "san": "Qg8",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "h4h3",
+          "san": "Kh3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        },
+        {
+          "uci": "h4h5",
+          "san": "Kh5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -7,
+          "precise_dtz": -7
+        }
+      ],
+      "response_sha256": "17d6689067512372f112ab1271d9fa439e6eb6e76530b8b6a3d83b4e4880e363"
+    },
+    {
+      "content_id": "bishop_endgames/opposite_color_bishops",
+      "position_index": 0,
+      "fen": "8/8/4k3/3pp3/8/4B3/4K3/2b5 w - - 0 1",
+      "stored_move_uci": "e3c5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": false,
+      "dtz": 1,
+      "precise_dtz": 1,
+      "preserving_moves": [
+        {
+          "uci": "e3c1",
+          "san": "Bxc1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "5fc970762e5f6e47526be6c9889753bf398993817a8efc7ec03fa1a2e5ddc721"
+    },
+    {
+      "content_id": "bishop_endgames/opposite_color_bishops",
+      "position_index": 1,
+      "fen": "2b5/5p2/4pk2/8/4PK2/5B2/8/8 w - - 0 1",
+      "stored_move_uci": "f3g4",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": false,
+      "dtz": 1,
+      "precise_dtz": 1,
+      "preserving_moves": [
+        {
+          "uci": "e4e5",
+          "san": "e5+",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3d1",
+          "san": "Bd1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3h1",
+          "san": "Bh1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3e2",
+          "san": "Be2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3g2",
+          "san": "Bg2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3h5",
+          "san": "Bh5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f4e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "9f2ae59b174c9e9f731632d5fc4be51c51e97ddef9f1c88e345fc7a8d5d6e21c"
+    },
+    {
+      "content_id": "bishop_endgames/opposite_color_bishops",
+      "position_index": 2,
+      "fen": "8/p4k2/8/1P6/5b2/4B3/5K2/8 w - - 0 1",
+      "stored_move_uci": "b5b6",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": false,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "e3f4",
+          "san": "Bxf4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        }
+      ],
+      "response_sha256": "482918d347bfb6e80248a2f0ed3e065f4f8134e747ab6587ac633955049d68cf"
+    },
+    {
+      "content_id": "knight_endgames/knight_vs_bishop",
+      "position_index": 1,
+      "fen": "8/5k2/3n4/4p3/4P3/3NK3/8/8 w - - 0 1",
+      "stored_move_uci": "d3c5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "d3e5",
+          "san": "Nxe5+",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3c1",
+          "san": "Nc1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3e1",
+          "san": "Ne1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3b2",
+          "san": "Nb2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3f2",
+          "san": "Nf2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3b4",
+          "san": "Nb4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3f4",
+          "san": "Nf4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d3c5",
+          "san": "Nc5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3d2",
+          "san": "Kd2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "b28abba95d013c42761b5815c8e7560613123ee7cd8e194f012509376414b5a1"
+    },
+    {
+      "content_id": "knight_endgames/knight_blockade",
+      "position_index": 0,
+      "fen": "8/8/1n6/1P6/8/4k3/8/4K3 b - - 0 1",
+      "stored_move_uci": "b6d7",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "b6a4",
+          "san": "Na4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b6c4",
+          "san": "Nc4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b6d5",
+          "san": "Nd5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b6d7",
+          "san": "Nd7",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b6a8",
+          "san": "Na8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "b6c8",
+          "san": "Nc8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "e3f4",
+          "san": "Kf4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "82ea501a3192ea7865a580d1b4ec9785deb458b35c49f61c6a92b414d55657ac"
+    },
+    {
+      "content_id": "knight_endgames/knight_blockade",
+      "position_index": 2,
+      "fen": "8/2k5/2P5/8/3n4/8/6K1/8 b - - 0 1",
+      "stored_move_uci": "d4b5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "d4c6",
+          "san": "Nxc6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7c6",
+          "san": "Kxc6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4c2",
+          "san": "Nc2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4e2",
+          "san": "Ne2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4b3",
+          "san": "Nb3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4f3",
+          "san": "Nf3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4b5",
+          "san": "Nb5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4f5",
+          "san": "Nf5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "d4e6",
+          "san": "Ne6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7b6",
+          "san": "Kb6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7d6",
+          "san": "Kd6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7b8",
+          "san": "Kb8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7c8",
+          "san": "Kc8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "c7d8",
+          "san": "Kd8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "107e6b0f8506572b7bfd784cdf6f89a2b58be1a38545ef508288446946327e46"
+    },
+    {
+      "content_id": "practical_endgames/creating_passed_pawn",
+      "position_index": 0,
+      "fen": "8/5k2/8/pp6/P7/1P6/5K2/8 w - - 0 1",
+      "stored_move_uci": "a4b5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "a4b5",
+          "san": "axb5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2e1",
+          "san": "Ke1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2f1",
+          "san": "Kf1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2g1",
+          "san": "Kg1",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2g2",
+          "san": "Kg2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f2g3",
+          "san": "Kg3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "b73e6f3b897585cde0e0ffd16df52acc43338c7ed78424c28b3d3066f4e473e8"
+    },
+    {
+      "content_id": "practical_endgames/creating_passed_pawn",
+      "position_index": 2,
+      "fen": "8/2k5/4p3/4P3/2K5/5P2/8/8 w - - 0 1",
+      "stored_move_uci": "f3f4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": false,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "c4c5",
+          "san": "Kc5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "c4b5",
+          "san": "Kb5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "c4d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -8,
+          "precise_dtz": -8
+        },
+        {
+          "uci": "c4d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -10,
+          "precise_dtz": -10
+        },
+        {
+          "uci": "c4c3",
+          "san": "Kc3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -12,
+          "precise_dtz": -12
+        },
+        {
+          "uci": "c4b3",
+          "san": "Kb3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        },
+        {
+          "uci": "c4b4",
+          "san": "Kb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        }
+      ],
+      "response_sha256": "c64c569f93b210d60a22e4b5e608b34a9cbb43ee7bb6a0e64aa074b99ce71380"
+    },
+    {
+      "content_id": "practical_endgames/zugzwang",
+      "position_index": 0,
+      "fen": "8/8/1p1k4/1P1p4/3K4/8/8/8 w - - 0 1",
+      "stored_move_uci": "d4c3",
+      "root_category": "loss",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": true,
+      "dtz": 3,
+      "precise_dtz": 3,
+      "preserving_moves": [
+        {
+          "uci": "d4d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "win",
+          "dtz": 3,
+          "precise_dtz": 3
+        },
+        {
+          "uci": "d4c3",
+          "san": "Kc3",
+          "category_from_opponent_turn": "win",
+          "dtz": 3,
+          "precise_dtz": 3
+        },
+        {
+          "uci": "d4e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "win",
+          "dtz": 3,
+          "precise_dtz": 3
+        }
+      ],
+      "response_sha256": "86f02c4a6509c38e9e668bd5df1850fa739958925beaf2a9ceec94a61b8848cf"
+    },
+    {
+      "content_id": "practical_endgames/zugzwang",
+      "position_index": 1,
+      "fen": "5k2/5p2/8/5PK1/8/8/8/8 w - - 0 1",
+      "stored_move_uci": "g5f6",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "f5f6",
+          "san": "f6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5f4",
+          "san": "Kf4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5h4",
+          "san": "Kh4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5h5",
+          "san": "Kh5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5f6",
+          "san": "Kf6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "g5h6",
+          "san": "Kh6",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "89788ce329ab9ef566ea616190f7bbbf6ccb639c3f628ad29780860710e28925"
+    },
+    {
+      "content_id": "practical_endgames/zugzwang",
+      "position_index": 2,
+      "fen": "8/8/4kpp1/4p3/4P1P1/5K2/8/8 w - - 0 1",
+      "stored_move_uci": "f3f2",
+      "root_category": "loss",
+      "move_category_from_opponent_turn": "win",
+      "preserves_wdl": true,
+      "dtz": 7,
+      "precise_dtz": null,
+      "preserving_moves": [
+        {
+          "uci": "f3e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "win",
+          "dtz": 7,
+          "precise_dtz": null
+        },
+        {
+          "uci": "f3f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "win",
+          "dtz": 7,
+          "precise_dtz": null
+        },
+        {
+          "uci": "f3e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "win",
+          "dtz": 7,
+          "precise_dtz": null
+        },
+        {
+          "uci": "f3g2",
+          "san": "Kg2",
+          "category_from_opponent_turn": "win",
+          "dtz": 1,
+          "precise_dtz": 1
+        },
+        {
+          "uci": "f3g3",
+          "san": "Kg3",
+          "category_from_opponent_turn": "win",
+          "dtz": 1,
+          "precise_dtz": 1
+        },
+        {
+          "uci": "g4g5",
+          "san": "g5",
+          "category_from_opponent_turn": "win",
+          "dtz": 1,
+          "precise_dtz": 1
+        }
+      ],
+      "response_sha256": "02428736c609d4e0a37ea6b737255245bb836b69082e2faa448e0606dd140221"
+    },
+    {
+      "content_id": "practical_endgames/outside_passed_pawn",
+      "position_index": 1,
+      "fen": "8/5k2/6p1/4p1P1/4K3/8/P7/8 w - - 0 1",
+      "stored_move_uci": "a2a4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "e4e5",
+          "san": "Kxe5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "a2a3",
+          "san": "a3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "a2a4",
+          "san": "a4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e4d5",
+          "san": "Kd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e4d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e4e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e4f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "b502d34e5bb92d89b3fbcd10edc8917e7c7cb36e5336ad8efe6e2a753318e35d"
+    },
+    {
+      "content_id": "practical_endgames/outside_passed_pawn",
+      "position_index": 2,
+      "fen": "8/p4k2/6p1/6P1/P7/5K2/8/8 w - - 0 1",
+      "stored_move_uci": "a4a5",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "a4a5",
+          "san": "a5",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3g2",
+          "san": "Kg2",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3e3",
+          "san": "Ke3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3g3",
+          "san": "Kg3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3f4",
+          "san": "Kf4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        },
+        {
+          "uci": "f3g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "93628153889eb4fc11d848013c0cc1b5dcf80658989eb8ee3d97751c161711e8"
+    },
+    {
+      "content_id": "practical_endgames/two_vs_one",
+      "position_index": 0,
+      "fen": "8/8/5k2/8/5pP1/5K2/5P2/8 w - - 0 1",
+      "stored_move_uci": "g4g5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": false,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "f3f4",
+          "san": "Kxf4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "f3e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "f3g2",
+          "san": "Kg2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "f3e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        }
+      ],
+      "response_sha256": "72266793850fd76364af58e63996ccbed42fb2c5052dced6cf1a5715901bae2f"
+    },
+    {
+      "content_id": "practical_endgames/two_vs_one",
+      "position_index": 1,
+      "fen": "8/8/6k1/6p1/5PP1/6K1/8/8 w - - 0 1",
+      "stored_move_uci": "f4f5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -14,
+      "precise_dtz": -14,
+      "preserving_moves": [
+        {
+          "uci": "f4f5",
+          "san": "f5+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -14,
+          "precise_dtz": -14
+        }
+      ],
+      "response_sha256": "28979985f407d5ee8f0acd894db05e027dcf8463955476b67ebc0e68e8c9a868"
+    },
+    {
+      "content_id": "practical_endgames/two_vs_one",
+      "position_index": 2,
+      "fen": "8/8/8/5k2/8/4KPP1/8/8 w - - 0 1",
+      "stored_move_uci": "f3f4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -4,
+      "precise_dtz": -4,
+      "preserving_moves": [
+        {
+          "uci": "g3g4",
+          "san": "g4+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "f3f4",
+          "san": "f4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -4,
+          "precise_dtz": -4
+        },
+        {
+          "uci": "e3d3",
+          "san": "Kd3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e3d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e3d2",
+          "san": "Kd2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e3e2",
+          "san": "Ke2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "e3f2",
+          "san": "Kf2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "b889f5b9f23d6be2e3036769ddc93fa1e4f9cee4ae79bfbe431cc3824e6fd205"
+    }
+  ]
+}

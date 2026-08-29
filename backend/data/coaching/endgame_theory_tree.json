@@ -10,9 +10,9 @@
     "description": "The foundation of all endgames. Master king activity and pawn promotion.",
     "lessons": {
       "opposition": {
-        "name": "Opposition",
-        "rule": "Get your King IN FRONT of the pawn. The pawn follows the King, not the other way around.",
-        "description": "The most critical endgame concept. Your King must lead the pawn forward — never push the pawn ahead of your King.",
+        "name": "Kings Face Off (Opposition)",
+        "rule": "Put your King in front of the pawn. When the Kings face each other with one square between them, make the other King give way.",
+        "description": "Chess players call this opposition: the Kings face each other with one empty square between them. Use that shape to lead your pawn forward.",
         "positions": [
           {
             "fen": "8/4k3/8/8/4K3/4P3/8/8 w - - 0 1",
@@ -21,10 +21,10 @@
             "correct_move_uci": "e4d5",
             "wrong_example_san": "e4",
             "prompt": "White to move. How do you make progress?",
-            "idea": "Outflank! Advance the King sideways to get AROUND the defender. Never push the pawn when your King can advance.",
-            "on_correct": "Exactly. Kd5 outflanks the Black King. From here, your King will escort the pawn home.",
-            "on_wrong": "Pushing e4 lets Black take the opposition with ...Kd6 and it's a draw. The King must lead.",
-            "rule_reminder": "King in FRONT of the pawn wins. King BEHIND the pawn draws."
+            "idea": "Step sideways with Kd5 so your King can get around the defender. Move the King while it can still advance; the pawn follows.",
+            "on_correct": "Exactly. Kd5 makes the Black King choose a side. Your King can now lead the pawn forward.",
+            "on_wrong": "Pushing e4 lets Black's King face yours and hold the draw. Your King must lead.",
+            "rule_reminder": "Put the King in front of the pawn. Let the pawn follow."
           },
           {
             "fen": "8/3k4/8/3PK3/8/8/8/8 w - - 0 1",
@@ -33,10 +33,10 @@
             "correct_move_uci": "e5f6",
             "wrong_example_san": "d6",
             "prompt": "Critical position. White to move. How do you win?",
-            "idea": "d6 leads to a stalemate trap! The King must outflank by going to f6, keeping the opponent boxed in.",
+            "idea": "d6 lets Black build a drawing setup. Kf6 goes around the Black King and keeps it boxed in.",
             "on_correct": "Perfect. Kf6 forces Black's King aside. After ...Ke8, Ke6 maintains full control.",
-            "on_wrong": "d6 is a classic blunder! After ...Kd7, Kd5, Kd8, Kc6, Kc8 — stalemate. You threw away the win.",
-            "rule_reminder": "NEVER push the pawn to the 6th rank if your King isn't on the 6th rank first."
+            "on_wrong": "d6 lets Black reach a drawing setup after ...Kd7. Bring your King to the sixth rank before the pawn.",
+            "rule_reminder": "Bring your King to the sixth rank before pushing the pawn there."
           },
           {
             "fen": "8/3k4/8/8/3KP3/8/8/8 w - - 0 1",
@@ -45,17 +45,17 @@
             "correct_move_uci": "d4d5",
             "wrong_example_san": "e5",
             "prompt": "White to move. What's the right plan?",
-            "idea": "Advance the King, not the pawn. Kd5 takes direct opposition and forces Black backwards.",
-            "on_correct": "Right. Kd5 seizes the opposition. Black must yield ground.",
-            "on_wrong": "e5 lets Black play ...Ke7 and suddenly Black has the opposition. Your winning advantage evaporates.",
+            "idea": "Advance the King, not the pawn. Kd5 makes the Kings face each other with one square between them, so Black must step aside.",
+            "on_correct": "Right. Kd5 makes Black give ground.",
+            "on_wrong": "e5 lets Black play ...Ke7 and build the same face-to-face drawing setup.",
             "rule_reminder": "Advance the King first. The pawn advances last."
           }
         ]
       },
       "key_squares": {
-        "name": "Key Squares",
-        "rule": "Every pawn has key squares. If your King reaches one, the pawn promotes — guaranteed.",
-        "description": "Key squares are the three squares two ranks ahead of the pawn. Reach one, and nothing can stop promotion.",
+        "name": "The Squares Your King Needs",
+        "rule": "For a pawn near its starting square, aim your King for the three squares two ranks ahead. Reaching the right one lets the King lead the pawn through.",
+        "description": "Chess players call these key squares. They are the nearby target squares your King needs before the pawn can advance safely.",
         "positions": [
           {
             "fen": "7k/8/8/8/8/8/1PK5/8 w - - 0 1",
@@ -88,8 +88,8 @@
             "correct_move_uci": "c4d4",
             "wrong_example_san": "c4",
             "prompt": "White to move. The pawn is on c3. What's the winning plan?",
-            "idea": "Outflank with Kd4. This forces Black's King to move aside, letting White reach the key squares (b5, c5, d5).",
-            "on_correct": "Kd4 outflanks. Black must choose a side, and White's King marches to the key squares.",
+            "idea": "Kd4 makes Black's King choose a side. White can then reach b5, c5, or d5 in front of the pawn.",
+            "on_correct": "Kd4 makes Black choose a side, and White's King can move into one of the target squares.",
             "on_wrong": "c4 pushes the pawn but doesn't secure a key square. The King does the heavy lifting in endgames.",
             "rule_reminder": "The King must claim key squares. The pawn just follows."
           }
@@ -246,9 +246,9 @@
     "description": "The most common endgame type. Master the Lucena, Philidor, and rook activity.",
     "lessons": {
       "lucena": {
-        "name": "Lucena — Building a Bridge",
-        "rule": "Rook to the 4th rank. Use it as a shield to block enemy checks. This is THE winning technique.",
-        "description": "When you have a Rook + Pawn on the 7th rank vs Rook, the 'Bridge' technique wins. Rook goes to the 4th rank, then blocks checks.",
+        "name": "Shield the King from Checks (Lucena)",
+        "rule": "Put your Rook on the fourth rank, move the King out, then use the Rook as a shield against checks.",
+        "description": "When your pawn is one step from promotion and the enemy Rook checks from the side, build a shield: your Rook blocks the checks so the King can escape.",
         "positions": [
           {
             "fen": "1K6/1P1k4/8/8/8/8/r7/7R w - - 0 1",
@@ -704,9 +704,9 @@
         ]
       },
       "zugzwang": {
-        "name": "Zugzwang — When Moving Loses",
-        "rule": "Zugzwang means any move makes your position worse. In endgames, pass the move to your opponent when they're in Zugzwang.",
-        "description": "The ultimate endgame weapon. When your opponent has no good moves, every move worsens their position. Force them to move.",
+        "name": "Make Them Move (Zugzwang)",
+        "rule": "Zugzwang means every available move makes the position worse. Use a waiting route so your opponent has to move first.",
+        "description": "Sometimes the position would be safe if a player could pass. Chess has no pass, so use your King to lose a turn and make the opponent step away.",
         "positions": [
           {
             "fen": "8/8/1p1k4/1P1p4/3K4/8/8/8 w - - 0 1",
@@ -715,10 +715,10 @@
             "correct_move_uci": "d4c3",
             "wrong_example_san": "Ke3",
             "prompt": "The position is locked. White needs to give Black the move. How?",
-            "idea": "Kc3! triangulates. The plan is Kc3-Kd3-Kd4, wasting a tempo so Black must move first in the critical position. Black will have to give way.",
-            "on_correct": "Kc3 begins the triangulation. White's King goes Kc3-Kd3-Kd4 while Black's King must stay on d6. Then it's Black's move and they must retreat.",
-            "on_wrong": "Ke3 moves away from the action. You need to stay near the critical squares and waste a move with triangulation.",
-            "rule_reminder": "Triangulation = King goes A→B→C→A in 3 moves, while opponent can only go back and forth in 2. You gain a tempo."
+            "idea": "Kc3 starts a three-step waiting route: Kc3, Kd3, Kd4. Black runs out of safe waiting moves and must step away.",
+            "on_correct": "Kc3 begins the waiting route. White returns to d4 only after making Black move first.",
+            "on_wrong": "Ke3 moves away from the useful squares. Stay close and take the longer King route so Black must move first.",
+            "rule_reminder": "When moving first would hurt you, take a safe King route that returns to the same job after the opponent has moved."
           },
           {
             "fen": "5k2/5p2/8/5PK1/8/8/8/8 w - - 0 1",
@@ -727,10 +727,10 @@
             "correct_move_uci": "g5f6",
             "wrong_example_san": "f6",
             "prompt": "Classic Zugzwang setup. White to move. How do you win?",
-            "idea": "Kf6! puts Black in Zugzwang. After ...Ke8, Ke6! and Black must move — any King move lets White take on f7 and promote.",
-            "on_correct": "Kf6 creates the Zugzwang setup. After ...Ke8, Ke6 and Black is in Zugzwang — every move loses the f7-pawn.",
-            "on_wrong": "f6 is a huge mistake! After ...Ke8, the position is drawn. The King must lead the pawn, not the other way around.",
-            "rule_reminder": "Zugzwang wins endgames. Force the opponent to move when they'd rather pass."
+            "idea": "Kf6 leaves Black with no useful waiting move. After ...Ke8, Ke6 makes the King step away from the f7-pawn.",
+            "on_correct": "Kf6 creates the setup. After ...Ke8 and Ke6, every Black move gives up ground.",
+            "on_wrong": "f6 lets Black hold the draw after ...Ke8. The King must lead the pawn.",
+            "rule_reminder": "When your opponent has no safe move, keep the pawn back and make their King move first."
           },
           {
             "fen": "8/8/4kpp1/4p3/4P1P1/5K2/8/8 w - - 0 1",
@@ -739,10 +739,10 @@
             "correct_move_uci": "f3f2",
             "wrong_example_san": "gxf5+",
             "prompt": "How does White create Zugzwang?",
-            "idea": "Kf2! (then Ke3-Kd3-Kc4-Kb5) maneuvers to create Zugzwang. By approaching from the queenside, White forces Black to abandon the kingside.",
-            "on_correct": "Kf2 begins the outflanking maneuver. White will circle around to the queenside, and Black's King can't hold both sides.",
+            "idea": "Kf2 starts the long route Ke3, Kd3, Kc4, Kb5. White approaches from the other side until Black's King cannot guard both wings.",
+            "on_correct": "Kf2 begins the long route around. Black's King cannot hold both sides forever.",
             "on_wrong": "gxf5+ opens the position but simplifies. Keep the tension — the locked structure is what creates Zugzwang.",
-            "rule_reminder": "Don't release tension. Locked pawns + King maneuver = Zugzwang. Let the opponent crack first."
+            "rule_reminder": "Keep the pawns locked while your King changes sides. Make the defending King choose what it can no longer guard."
           }
         ]
       },

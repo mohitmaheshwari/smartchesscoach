@@ -198,25 +198,43 @@ async def get_opening_lesson(
     Get full opening lesson data from the JSON theory tree.
     Optional: ?variation=french_advance to get a specific variation.
     """
-    from services.opening_theory_json_service import get_opening_theory, get_available_variations, get_variation_lesson_moves
-    from services.verified_opening_traps import get_verified_traps_for_opening
+    from services.curriculum_content_validator import (
+        get_defense_ready_trap_ids,
+        is_content_publishable,
+        trap_content_id,
+    )
+    from services.opening_theory_json_service import (
+        get_available_variations,
+        get_lesson_move_steps,
+        get_opening_theory,
+        resolve_opening_key,
+    )
+    from services.trap_library import get_traps_for_opening
     
+    canonical_key = resolve_opening_key(opening_key)
     theory = get_opening_theory(opening_key)
-    if not theory:
-        raise HTTPException(status_code=404, detail="Opening not found in theory database")
+    if (
+        not theory
+        or not canonical_key
+        or not is_content_publishable("openings", canonical_key)
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Verified opening lesson not found",
+        )
     
     variations = get_available_variations(opening_key)
-    traps = get_verified_traps_for_opening(opening_key)
+    trap_opening_key = canonical_key.replace("_", "-")
+    traps = get_traps_for_opening(trap_opening_key)
+    publishable_traps = get_defense_ready_trap_ids()
     
     # Pick the requested variation or default to first (may be None
     # for openings that don't split into variations — the service handles
     # None by falling back to the opening's main_line, so ALWAYS call it).
-    target_variation_key = variation or (variations[0]["key"] if variations else None)
-    lesson = get_variation_lesson_moves(opening_key, target_variation_key)
-    main_line = []
-    if lesson:
-        for i, move in enumerate(lesson["moves"]):
-            main_line.append({"move": move, "explanation": ""})
+    # Default to the authored primary response tree. A named variation is
+    # loaded only when the player explicitly selects it.
+    target_variation_key = variation
+    main_line = get_lesson_move_steps(opening_key, target_variation_key)
     
     # Build trap details.
     # trap.full_line = setup_moves + trap-only moves. TrapPractice.jsx
@@ -226,17 +244,16 @@ async def get_opening_lesson(
     # "Invalid move: e4" (already on e4). Slice from len(setup_moves).
     trap_details = []
     for trap in traps:
-        trap_only = trap.full_line[len(trap.setup_moves):]
+        if trap_content_id(trap_opening_key, trap.get("name", "")) not in publishable_traps:
+            continue
         trap_details.append({
-            "name": trap.name,
-            "description": trap.explanation,
-            "setup_moves": trap.setup_moves,
-            "trap_line": [
-                {"move": m, "explanation": trap.explanation if m == trap.trap_move else ""}
-                for m in trap_only
-            ],
-            "difficulty": trap.difficulty,
-            "result_type": "verified_trap",
+            "name": trap["name"],
+            "description": trap.get("description", ""),
+            "setup_moves": trap.get("setup_moves", []),
+            "trap_line": trap.get("trap_line", []),
+            "difficulty": trap.get("difficulty", "intermediate"),
+            "result_type": trap.get("result_type", ""),
+            "canonical_source": "backend/data/traps.json",
         })
     
     lesson_data = {

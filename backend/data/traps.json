@@ -1,6 +1,56 @@
 {
   "italian-game": [
     {
+      "name": "Scholar's Mate Danger",
+      "practice_key": "scholars_mate",
+      "description": "The queen and bishop both aim at f7. Black must answer that shared threat before developing the king knight.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Bc4",
+        "Nc6",
+        "Qh5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nf6",
+          "explanation": "This develops a piece but leaves f7 attacked twice."
+        },
+        {
+          "move": "Qxf7#",
+          "explanation": "The queen takes on f7 with the bishop protecting it. The king has no safe reply."
+        }
+      ],
+      "success_message": "The mate works only because Black ignored the two attackers on f7.",
+      "result_type": "checkmate",
+      "difficulty": "beginner",
+      "trap_color": "white",
+      "danger": "White's queen and bishop are both attacking f7.",
+      "how_to_avoid": "Defend f7 and block the queen-bishop attack before starting another plan.",
+      "defense_setup_moves": [
+        "e4",
+        "e5",
+        "Bc4",
+        "Nc6",
+        "Qh5"
+      ],
+      "defense_line": [
+        {
+          "move": "Qe7",
+          "explanation": "The queen guards f7. Now Qxf7 is no longer mate and Black can develop safely."
+        }
+      ],
+      "safe_moves": [
+        "Qe7",
+        "g6",
+        "Nh6"
+      ],
+      "key_squares": [
+        "f7"
+      ],
+      "tactical_theme": "shared_attack"
+    },
+    {
       "name": "Fried Liver Attack",
       "description": "A deadly knight sacrifice on f7 that wins material and exposes Black's king.",
       "setup_moves": [
@@ -271,6 +321,7 @@
   "sicilian-defense": [
     {
       "name": "Siberian Trap",
+      "variation_name": "Open Sicilian ...Bb4 line",
       "description": "A deadly trap where Black wins White's queen with a series of checks!",
       "trap_color": "black",
       "setup_moves": [
@@ -1757,7 +1808,7 @@
         },
         {
           "move": "cxd4",
-          "explanation": "Black tries counterplay."
+          "explanation": "Black takes in the center and opens lines for the other pieces."
         },
         {
           "move": "Ne2",

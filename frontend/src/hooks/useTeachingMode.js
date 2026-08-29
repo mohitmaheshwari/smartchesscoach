@@ -12,6 +12,7 @@
 import { useState, useCallback } from "react";
 import { Chess } from "chess.js";
 import { API } from "@/App";
+import { nextLessonPrompt } from "@/lib/teachingLessonPrompt";
 import { toast } from "sonner";
 
 const useTeachingMode = ({
@@ -94,9 +95,7 @@ const useTeachingMode = ({
         why: sideNote || (lessonData.opening_name
           ? `Part of the ${lessonData.opening_name}`
           : null),
-        next_idea: lessonData.instruction?.is_user_move
-          ? `Your turn: play ${lessonData.instruction.move}`
-          : `Watch: I'll play ${lessonData.instruction?.move}`,
+        next_idea: nextLessonPrompt(lessonData.instruction),
         has_better_move: false,
         can_explain: true,
         teaching_mode: true,
@@ -210,9 +209,7 @@ const useTeachingMode = ({
             result.message ||
             (result.correct ? "Good! Keep going." : "That's not quite right. Try again."),
           why: result.explanation,
-          next_idea: result.next_instruction?.is_user_move
-            ? `Your turn: play ${result.next_instruction.move}`
-            : `Watch: I'll play ${result.next_instruction?.move}`,
+          next_idea: nextLessonPrompt(result.next_instruction),
           has_better_move: !result.correct,
           can_explain: true,
           teaching_mode: true,

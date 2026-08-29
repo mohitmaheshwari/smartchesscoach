@@ -16,6 +16,8 @@ MIGRATED: now uses opening_unified_source.py
 import logging
 from typing import Dict, List, Optional
 
+import chess
+
 logger = logging.getLogger(__name__)
 
 _THEORY_DATA: Optional[Dict] = None
@@ -42,22 +44,37 @@ def get_all_opening_keys() -> List[str]:
     return list(_THEORY_DATA.keys())
 
 
+def resolve_opening_key(opening_key: str) -> Optional[str]:
+    """Resolve public underscore/hyphen aliases to the canonical JSON key."""
+    _load_theory()
+    for candidate in (
+        opening_key,
+        opening_key.replace("-", "_"),
+        opening_key.replace("_", "-"),
+    ):
+        if candidate in _THEORY_DATA:
+            return candidate
+    return None
+
+
 def get_opening_theory(opening_key: str) -> Optional[Dict]:
     """Get full theory data for an opening."""
     _load_theory()
     # Normalize: try as-is, then with underscores, then with hyphens
-    result = _THEORY_DATA.get(opening_key)
-    if not result:
-        result = _THEORY_DATA.get(opening_key.replace("-", "_"))
-    if not result:
-        result = _THEORY_DATA.get(opening_key.replace("_", "-"))
-    return result
+    resolved = resolve_opening_key(opening_key)
+    return _THEORY_DATA.get(resolved) if resolved else None
 
 
 def get_available_variations(opening_key: str) -> List[Dict]:
     """Get list of available variations for an opening."""
     _load_theory()
-    opening = _THEORY_DATA.get(opening_key) or _THEORY_DATA.get(opening_key.replace("-", "_"))
+    resolved = resolve_opening_key(opening_key)
+    if not resolved:
+        return []
+    from services.curriculum_content_validator import is_content_publishable
+    if not is_content_publishable("openings", resolved):
+        return []
+    opening = _THEORY_DATA[resolved]
     if not opening:
         return []
 
@@ -93,11 +110,15 @@ def get_variation_lesson_moves(opening_key: str, variation_key: Optional[str] = 
         - critical_positions: Teaching data keyed by move index
     """
     _load_theory()
-    opening = _THEORY_DATA.get(opening_key) or _THEORY_DATA.get(opening_key.replace("-", "_"))
-    if not opening:
+    resolved = resolve_opening_key(opening_key)
+    if not resolved:
         return None
+    from services.curriculum_content_validator import is_content_publishable
+    if not is_content_publishable("openings", resolved):
+        return None
+    opening = _THEORY_DATA[resolved]
 
-    main_line = opening.get("main_line", [])
+    main_line = opening.get("main_line", []) or _derive_guided_tree_line(opening)
     variations = opening.get("variations", {})
 
     # If no variation specified, pick the first one (or return just the main line)
@@ -141,6 +162,58 @@ def get_variation_lesson_moves(opening_key: str, variation_key: Optional[str] = 
     }
 
 
+def get_lesson_move_steps(
+    opening_key: str,
+    variation_key: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """Return a playable lesson line with non-empty authored teaching copy."""
+    resolved = resolve_opening_key(opening_key)
+    lesson = get_variation_lesson_moves(opening_key, variation_key)
+    if not resolved or not lesson:
+        return []
+    opening = _THEORY_DATA[resolved]
+    if variation_key is None and opening.get("tree"):
+        tree_steps = _derive_guided_tree_steps(opening)
+        if tree_steps:
+            return tree_steps
+    move_ideas = opening.get("move_ideas") or {}
+    common = opening.get("common_learnings") or opening.get("golden_rules") or []
+    fallback_rule = str(common[0]) if common else ""
+    steps: List[Dict[str, str]] = []
+
+    for index, move in enumerate(lesson.get("moves", [])):
+        authored = move_ideas.get(move) or {}
+        explanation = str(authored.get("idea") or "").strip()
+        if not explanation:
+            context = get_move_teaching_context(
+                resolved,
+                variation_key,
+                index,
+                move,
+            ) or {}
+            explanation = str(
+                context.get("idea")
+                or context.get("why_good")
+                or context.get("key_decision")
+                or ""
+            ).strip()
+        if not explanation:
+            side_plan = (
+                lesson.get("white_plan")
+                if index % 2 == 0
+                else lesson.get("black_plan")
+            )
+            explanation = str(side_plan or fallback_rule).strip()
+        steps.append(
+            {
+                "move": move,
+                "explanation": explanation,
+                "side": "white" if index % 2 == 0 else "black",
+            }
+        )
+    return steps
+
+
 def get_move_teaching_context(opening_key: str, variation_key: str, move_index: int, move_san: str) -> Optional[Dict]:
     """
     Get rich teaching context for a specific move in a lesson.
@@ -161,11 +234,155 @@ def get_move_teaching_context(opening_key: str, variation_key: str, move_index: 
     # Check if the move itself is referenced as a best or mistake move
     # in any of the opening's critical positions
     _load_theory()
-    opening = _THEORY_DATA.get(opening_key)
+    resolved = resolve_opening_key(opening_key)
+    opening = _THEORY_DATA.get(resolved) if resolved else None
     if not opening:
         return None
 
     return _find_move_context_in_opening(opening, move_san)
+
+
+def _derive_guided_tree_line(opening: Dict) -> List[str]:
+    """Choose one authored, legal path through an interactive opening tree.
+
+    Some early lessons were authored as a response tree rather than a flat
+    ``main_line``.  The lesson page and practice board need one concrete path,
+    so use insertion order (the author's primary branch) and preserve the
+    tree's prescribed ``next`` moves.  This is a projection of the canonical
+    lesson, not a second opening database.
+    """
+    tree = opening.get("tree") or {}
+    if not isinstance(tree, dict) or not tree:
+        return []
+
+    board = chess.Board()
+    curriculum_color = str(opening.get("color") or "white").lower()
+    curriculum_turn = chess.WHITE if curriculum_color == "white" else chess.BLACK
+    first_san, node = next(iter(tree.items()))
+    try:
+        board.push_san(str(first_san))
+    except ValueError:
+        return []
+
+    moves = [str(first_san)]
+    for _ in range(40):
+        if not isinstance(node, dict):
+            break
+
+        if board.turn == curriculum_turn and node.get("next"):
+            prescribed = str(node["next"])
+            try:
+                board.push_san(prescribed)
+            except ValueError:
+                break
+            moves.append(prescribed)
+
+        responses = node.get("responses") or {}
+        if not isinstance(responses, dict) or not responses:
+            break
+
+        selected = None
+        for response_san, child in responses.items():
+            candidate = board.copy(stack=False)
+            try:
+                candidate.push_san(str(response_san))
+            except ValueError:
+                continue
+            selected = (str(response_san), child, candidate)
+            break
+        if not selected:
+            break
+        response_san, node, board = selected
+        moves.append(response_san)
+
+    return moves
+
+
+def _derive_guided_tree_steps(opening: Dict) -> List[Dict[str, str]]:
+    """Project the primary tree path with the explanation authored at each node."""
+    tree = opening.get("tree") or {}
+    if not isinstance(tree, dict) or not tree:
+        return []
+
+    board = chess.Board()
+    curriculum_color = str(opening.get("color") or "white").lower()
+    curriculum_turn = chess.WHITE if curriculum_color == "white" else chess.BLACK
+    first_san, node = next(iter(tree.items()))
+    try:
+        board.push_san(str(first_san))
+    except ValueError:
+        return []
+
+    first_explanation = ""
+    if isinstance(node, dict):
+        first_explanation = str(
+            node.get("idea")
+            or node.get("idea_opponent")
+            or node.get("right_feedback")
+            or node.get("hint")
+            or ""
+        ).strip()
+    steps = [{
+        "move": str(first_san),
+        "explanation": first_explanation,
+        "side": "white",
+    }]
+
+    for _ in range(40):
+        if not isinstance(node, dict):
+            break
+        if board.turn == curriculum_turn and node.get("next"):
+            prescribed = str(node["next"])
+            try:
+                board.push_san(prescribed)
+            except ValueError:
+                break
+            steps.append({
+                "move": prescribed,
+                "explanation": str(
+                    node.get("right_feedback")
+                    or node.get("idea")
+                    or node.get("hint")
+                    or ""
+                ).strip(),
+                "side": "white" if board.turn == chess.BLACK else "black",
+            })
+
+        responses = node.get("responses") or {}
+        if not isinstance(responses, dict) or not responses:
+            break
+        selected = None
+        for response_san, child in responses.items():
+            candidate = board.copy(stack=False)
+            try:
+                candidate.push_san(str(response_san))
+            except ValueError:
+                continue
+            selected = (str(response_san), child, candidate)
+            break
+        if not selected:
+            break
+        response_san, child, board = selected
+        child_data = child if isinstance(child, dict) else {}
+        steps.append({
+            "move": response_san,
+            "explanation": str(
+                child_data.get("idea_opponent")
+                or child_data.get("idea")
+                or child_data.get("name")
+                or ""
+            ).strip(),
+            "side": "white" if board.turn == chess.BLACK else "black",
+        })
+        node = child
+
+    move_ideas = opening.get("move_ideas") or {}
+    for step in steps:
+        if step["explanation"]:
+            continue
+        authored = move_ideas.get(step["move"]) or {}
+        step["explanation"] = str(authored.get("idea") or "").strip()
+    return steps
 
 
 def _build_critical_position_index(opening_data: Dict, full_moves: List[str], offset: int) -> Dict[int, Dict]:

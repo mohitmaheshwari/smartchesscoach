@@ -86,6 +86,12 @@ def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
                 return []
         return []
 
+    from services.curriculum_content_validator import (
+        get_publishable_content_ids,
+        trap_content_id,
+    )
+
+    publishable = get_publishable_content_ids("traps")
     for raw_key, traps in data.items():
         if not isinstance(traps, list) or raw_key.startswith("_"):
             continue
@@ -94,11 +100,20 @@ def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
         for t in traps:
             if not isinstance(t, dict) or not t.get("name"):
                 continue
+            if trap_content_id(raw_key, t["name"]) not in publishable:
+                continue
             setup = _as_list(t.get("setup_moves"))
             trap_line = _as_list(t.get("trap_line"))
             line_moves = [m.get("move", "") for m in trap_line if isinstance(m, dict) and m.get("move")]
-            trap_move = line_moves[0] if line_moves else ""
             trap_color = t.get("trap_color", "")
+            trap_move = next(
+                (
+                    move
+                    for index, move in enumerate(line_moves, start=len(setup))
+                    if (index % 2 == 0) == (trap_color == "white")
+                ),
+                "",
+            )
             victim = "black" if trap_color == "white" else "white" if trap_color == "black" else ""
             trap_id = f"{opening_key}_{t['name'].lower().replace(' ', '_')}"
             registry[trap_id] = VerifiedOpeningTrap(
@@ -106,7 +121,7 @@ def _load_traps_from_library_json() -> Dict[str, VerifiedOpeningTrap]:
                 name=t["name"],
                 opening_key=opening_key,
                 opening_name=opening_name,
-                variation_name="",
+                variation_name=t.get("variation_name", ""),
                 setup_moves=setup,
                 full_line=list(setup) + line_moves,
                 trap_move=trap_move,
@@ -141,15 +156,18 @@ def get_verified_trap(trap_id: str) -> Optional[VerifiedOpeningTrap]:
 
 
 def get_verified_traps_for_opening(opening_key: str) -> List[VerifiedOpeningTrap]:
-    return [trap for trap in VERIFIED_TRAP_REGISTRY.values() if trap.opening_key == opening_key]
+    normalized = opening_key.replace("-", "_")
+    return [trap for trap in VERIFIED_TRAP_REGISTRY.values() if trap.opening_key == normalized]
 
 
 def get_warnings_for_opening(opening_key: str) -> List[VerifiedOpeningTrap]:
-    return [trap for trap in OPENING_WARNINGS.values() if trap.opening_key == opening_key]
+    normalized = opening_key.replace("-", "_")
+    return [trap for trap in OPENING_WARNINGS.values() if trap.opening_key == normalized]
 
 
 def get_all_for_opening(opening_key: str) -> List[VerifiedOpeningTrap]:
-    return [trap for trap in ALL_REGISTRY.values() if trap.opening_key == opening_key]
+    normalized = opening_key.replace("-", "_")
+    return [trap for trap in ALL_REGISTRY.values() if trap.opening_key == normalized]
 
 
 def get_verified_trap_by_name(opening_key: str, trap_name: str) -> Optional[VerifiedOpeningTrap]:
@@ -164,10 +182,10 @@ def get_applicable_traps_for_moves(opening_key: str, moves: List[str]) -> List[V
     clean_moves = [_normalize(move) for move in moves if move]
     applicable = []
     for trap in get_all_for_opening(opening_key):
-        trap_setup = [_normalize(move) for move in trap.setup_moves]
-        if len(clean_moves) > len(trap_setup):
+        trap_full_line = [_normalize(move) for move in trap.full_line]
+        if len(clean_moves) > len(trap_full_line):
             continue
-        if trap_setup[: len(clean_moves)] == clean_moves:
+        if trap_full_line[: len(clean_moves)] == clean_moves:
             applicable.append(trap)
     return applicable
 

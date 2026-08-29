@@ -198,7 +198,7 @@ def find_reachable_traps(opening_key: str, moves_played: List[str], user_color: 
     reachable = []
     moves_lower = [m.lower() for m in moves_played]
 
-    for trap in TRAPS_DATABASE:
+    for trap in TRAPS_DATABASE.values():
         # Only show traps for the user's color
         if trap.get("trap_for", "") != user_color:
             continue
