@@ -62,6 +62,8 @@ export default function HomePageNew({ user }) {
   const [lastSession, setLastSession] = useState(null);
   const [activeFocus, setActiveFocus] = useState(null);
   const [focusGameBusy, setFocusGameBusy] = useState(false);
+  const [curriculum, setCurriculum] = useState(null);
+  const [curriculumLoading, setCurriculumLoading] = useState(true);
   // The single coach conversation — see docs/home_page_coach_conversation_scope.md.
   // Replaces the old recommendations grid / improvement-% / domain-score-grid
   // stack below with one narrative: relationship stage, continuity, a
@@ -252,13 +254,27 @@ export default function HomePageNew({ user }) {
       : "";
 
   // ─── Onboarding ────────────────────────────────────────────────────
-  if (loading) {
+  if (loading || curriculumLoading) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
           <div className="experience-spinner w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
         </div>
       </Layout>
+    );
+  }
+
+  if (curriculum?.enabled) {
+    return (
+      <CurriculumHome
+        user={user}
+        curriculum={curriculum}
+        greeting={
+          displayName
+            ? timeOfDayGreeting() + ", " + displayName + "."
+            : timeOfDayGreeting() + "."
+        }
+      />
     );
   }
 
