@@ -92,6 +92,18 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
+      # ── Coaching rollout flags ──────────────────────────────────
+      # These MUST be declared here to reach the container: the backend
+      # takes an explicit environment list, so a value set only in .env is
+      # silently ignored. Every one defaults to false/off, so omitting them
+      # from .env keeps the legacy experience.
+      - PERSONAL_CURRICULUM_ENABLED=${PERSONAL_CURRICULUM_ENABLED:-false}
+      - PERSONAL_CURRICULUM_ROLES=${PERSONAL_CURRICULUM_ROLES:-admin,super_admin}
+      - COACHING_CONTEXT_V1_ENABLED=${COACHING_CONTEXT_V1_ENABLED:-false}
+      - COACHING_CONTEXT_V1_ROLES=${COACHING_CONTEXT_V1_ROLES:-admin,super_admin}
+      - PERSONAL_IMPROVEMENT_CYCLE_ENABLED=${PERSONAL_IMPROVEMENT_CYCLE_ENABLED:-false}
+      - PERSONAL_IMPROVEMENT_CYCLE_ROLES=${PERSONAL_IMPROVEMENT_CYCLE_ROLES:-admin,super_admin}
+      - PWC_SURVIVING_INSTRUCTION_ENABLED=${PWC_SURVIVING_INSTRUCTION_ENABLED:-false}
       # PWC central-pipeline migration (2026-06-08). The divergence baseline
       # (commit 22eac125) confirmed a clear win: 100% content agreement where
       # both engines speak, 89% of one-silent cases are central enrichment PWC
