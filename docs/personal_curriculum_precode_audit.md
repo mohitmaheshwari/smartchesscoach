@@ -75,7 +75,9 @@ Update the existing selection lock with the chosen N, evidence, and rejected can
 
 The signed answers are documented in `personal_curriculum_route_ux_contract_2026_08_28.md`:
 
-1. `/learn` is canonical; `/lab` becomes Game Review after migration.
+1. `/learn` is canonical; `/games` is the player-facing Game Review
+   index. `/lab` remains a legacy mixed learning route until redirect
+   evidence exists.
 2. Explore does not replace the coach plan automatically.
 3. Persist only a compact active-plan reference in `coach_memory.learning`.
 4. Rule of the Square is the first lesson-contract slice; suppress real-game mastery claims until its detector is Plan-grade.

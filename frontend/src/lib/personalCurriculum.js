@@ -1,3 +1,9 @@
+export const CURRICULUM_ROUTES = Object.freeze({
+  home: "/home",
+  learn: "/learn",
+  gameReview: "/games",
+});
+
 export const EXPLORE_DESTINATIONS = Object.freeze([
   { id: "openings", label: "Openings", href: "/openings" },
   { id: "tactics_traps", label: "Tactics \u0026 traps", href: "/training" },

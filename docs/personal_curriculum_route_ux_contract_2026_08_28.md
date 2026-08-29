@@ -1,6 +1,9 @@
 # Personal Curriculum — Route and UX Contract
 
-**Status:** SIGNED OFF v1 — 2026-08-28. Mohit: “go ahead.”
+**Status:** SIGNED OFF v1 — 2026-08-28. Mohit: “go ahead.” Amended
+2026-08-29 after live validation showed that `/lab` still renders the legacy
+learning path; player Game Review therefore uses the existing `/games`
+index.
 
 ## Route ownership
 
@@ -8,7 +11,8 @@
 |---|---|
 | `/home` | Relationship and today’s one primary coaching action |
 | `/learn` | Canonical Personal Curriculum: current lesson, due review, naturally next, Explore |
-| `/lab` | Game review and evidence laboratory; no final curriculum selection |
+| `/games` | Player-facing Game Review index; lists the player's games and opens `/game/:gameId` |
+| `/lab` | Legacy mixed learning path and evidence laboratory; preserved during migration, but not labeled Game Review |
 | `/progress` | Improvement ledger; reports repair and knowledge evidence without choosing the next lesson |
 | `/training/*` | Drill/detail destinations selected by the coach or student |
 | `/openings/*` | Opening Explore and opening lesson details |
@@ -33,7 +37,7 @@ Flag on:
 ```text
 Home
 Learn        → /learn
-Game Review  → /lab
+Game Review  → /games
 Progress
 Play with Coach
 ```
@@ -155,12 +159,15 @@ The default completion CTA is **Back to your plan**, not More Lessons.
 3. Preserve `/lab`, `/training/*`, `/openings/*`, and `/endgames/*` unchanged.
 4. Run desktop/mobile parity and deep-link checks.
 5. Move the sidebar Learn destination only for eligible A/B users.
-6. After two clean weeks at 100%, remove curriculum selection from `/lab` and relabel it Game Review.
+6. After two clean weeks at 100%, remove curriculum selection from `/lab`
+   and decide its redirect from observed deep-link use. `/games` remains the
+   player-facing Game Review index.
 7. Redirect only superseded index routes; retain detail URLs.
 
 ## Decisions signed off by Mohit
 
-- `/learn` is canonical and `/lab` becomes Game Review after migration.
+- `/learn` is canonical and `/games` is the player-facing Game Review
+  index. `/lab` remains a preserved legacy route during migration.
 - Explore is non-replacing by default.
 - A compact active-plan reference may live in `coach_memory.learning` with no copied truth.
 - Rule of the Square is the first lesson-contract slice, with real-game claims suppressed until Plan-grade authorization.

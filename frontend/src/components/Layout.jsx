@@ -31,7 +31,10 @@ import {
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
-import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
+import {
+  CURRICULUM_ROUTES,
+  loadPersonalCurriculum,
+} from "@/lib/personalCurriculum";
 
 const Layout = ({ children, user }) => {
   const location = useLocation();
@@ -142,7 +145,7 @@ const Layout = ({ children, user }) => {
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen },
     ...(personalCurriculumEnabled
-      ? [{ name: 'Game Review', href: '/lab', icon: FlaskConical }]
+      ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
       : []),
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
@@ -164,6 +167,11 @@ const Layout = ({ children, user }) => {
     ].some((prefix) => location.pathname.startsWith(prefix))) ||
     (href === '/lab' && location.pathname.startsWith('/game/')) ||
     (href === '/lab' && location.pathname.startsWith('/lab/')) ||
+    (href === CURRICULUM_ROUTES.gameReview && [
+      '/game/',
+      '/lab/game/',
+      '/replay/',
+    ].some((prefix) => location.pathname.startsWith(prefix))) ||
     (href === '/admin' && location.pathname.startsWith('/admin')) ||
     (href === '/review' && location.pathname.startsWith('/review'));
 

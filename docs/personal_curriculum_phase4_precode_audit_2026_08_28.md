@@ -28,7 +28,7 @@ were not simulated, replaced, or treated as a behavioral baseline.
 
 | Requirement | Result | Evidence / next action |
 |---|---|---|
-| Route and content ownership | **Pass** | `/learn` is canonical, `/lab` remains the legacy Game Review/Lab surface during migration, and existing detail routes are preserved. |
+| Route and content ownership | **Pass after live correction** | `/learn` is canonical, `/games` is the player-facing Game Review index, `/lab` remains the legacy mixed learning path during migration, and existing detail routes are preserved. |
 | V1 lesson audit | **Pass for controlled evidence only** | Rule of the Square may teach through Can do alone; Used in games and Reliable remain suppressed until detector authorization. |
 | Evidence ownership and state translation | **Pass for Phase 4 read-only slice** | Phase 3 contracts derive decisions and lesson states without creating another mastery store. |
 | Sparse, stale, conflicting, and no-opportunity behavior | **Pass for Phase 4 read-only slice** | Phase 3 decision/result contracts encode the signed honesty constraints. |

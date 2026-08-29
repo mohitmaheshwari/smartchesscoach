@@ -250,7 +250,9 @@ No implementation phase begins until its blocking decisions in section 10 are si
 
 ## 10. Locked decisions / Open questions
 
-1. **Canonical route — locked:** `/learn` is canonical; `/lab` becomes Game Review after migration.
+1. **Canonical route — corrected by live validation:** `/learn` is canonical;
+   `/games` is the player-facing Game Review index. `/lab` remains the
+   preserved legacy learning-path route until redirect evidence exists.
 2. **Plan persistence — locked:** Store only a compact active-plan reference in `coach_memory.learning`; do not copy lesson, detector, or progress truth into it.
 3. **Explore autonomy — locked:** Explore runs alongside the coach plan and does not replace the recommendation automatically.
 4. **First lesson slice — locked:** Rule of the Square is first, through “Can do alone”; suppress real-game application and mastery claims until its detector is Plan-grade.

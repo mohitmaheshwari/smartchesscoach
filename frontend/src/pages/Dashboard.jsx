@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
+import { CURRICULUM_ROUTES } from "@/lib/personalCurriculum";
 import {
   fadeInUp,
   glowPulseAmber,
@@ -995,26 +996,27 @@ const Dashboard = ({ user }) => {
           )}
           {/* ━━━━━━━━━━ BROWSE YOUR GAMES ━━━━━━━━━━ */}
           {/* The full 50-game archive moved OFF the Lab — the game LIST + review
-              queue is /review (ReviewQueue) and /games (AllGames). The Lab is the
+              queue is /games (AllGames). The reviewer-only queue stays at
+              /review. The Lab is the
               experiment bench (drills + the one curated Coach's Pick above), not a
               game log. This is just a way out to those pages. 2026-07-07. */}
           <section id="lab-archive">
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/20 px-6 py-5">
               <div className="text-[13px] text-muted-foreground">
-                Looking for a specific game? Your full history and review queue live in Review.
+                Looking for a specific game? Your game history is ready in Game Review.
               </div>
               <button
-                onClick={() => navigate("/review")}
+                onClick={() => navigate(CURRICULUM_ROUTES.gameReview)}
                 className="shrink-0 flex items-center gap-2 text-[12.5px] text-foreground hover:text-violet-500 dark:hover:text-violet-300 font-medium transition-colors"
               >
                 <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
-                <span>Go to Review</span>
+                <span>Browse games</span>
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
             </div>
           </section>
 
-          {/* Legacy archive table removed 2026-07-07 (moved to /review + /games).
+          {/* Legacy archive table removed 2026-07-07 (moved to /games).
               Kept the filter/row logic out of the Lab — it was the biggest source
               of noise. If a compact recent-games strip is wanted here later, build
               it fresh rather than restoring the 50-row scroll. */}
