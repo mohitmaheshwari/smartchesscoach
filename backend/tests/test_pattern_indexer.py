@@ -14,9 +14,15 @@ import pytest
 import asyncio
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
+import os
 import sys
-sys.path.insert(0, '/app/backend')
-sys.path.insert(0, '/app/backend/coach_play')
+# Resolve from THIS FILE, not from /app. The container layout is one
+# deployment of the repo, not the only one -- hardcoding it made the import
+# fail everywhere else, and an ImportError during collection aborts the whole
+# pytest run rather than failing one module.
+_BACKEND = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _BACKEND)
+sys.path.insert(0, os.path.join(_BACKEND, 'coach_play'))
 
 from pattern_indexer import (
     PatternIndexer, 
