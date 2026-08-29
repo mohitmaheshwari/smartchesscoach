@@ -3582,13 +3582,22 @@ async def _record_endgame_lesson_outcome(
         get_or_create_memory, record_skill_attempt, _memory_to_doc
     )
 
-    # Find matching Engine 2 skill by content_ref == lesson_key (e.g. "square_rule")
+    # Resolve authored lesson routes back to their canonical skill-tree content
+    # reference (e.g. square_rule -> rule_of_square) before matching.
+    from services.endgame_theory_service import resolve_content_ref
     matching_skill = None
     matching_kind = None
     for kind in ("endgame", "mate_pattern"):
         for sid in list_skills_by_kind(kind):
             node = get_skill_node(sid) or {}
-            if node.get("content_ref") == lesson_key:
+            content_ref = node.get("content_ref")
+            resolved = resolve_content_ref(content_ref) if kind == "endgame" else None
+            route_matches = bool(
+                resolved
+                and resolved["category_key"] == category_key
+                and resolved["lesson_key"] == lesson_key
+            )
+            if route_matches or content_ref == lesson_key:
                 matching_skill = sid
                 matching_kind = kind
                 break
@@ -3733,12 +3742,9 @@ async def engine2_learn_next(user: User = Depends(get_current_user)):
     Mirrors what home-intelligence already computes (routes/home.py), exposed as a
     cheap standalone call so the Lab doesn't have to pull the heavy home payload.
     """
-    from services.coach_memory import get_or_create_memory
-    from services.engine2_skill_builder import pick_next_skill
     try:
-        memory = await get_or_create_memory(db, user.user_id)
-        rating = (memory.performance.best_performance_rating or 1000)
-        return {"learn_next": pick_next_skill(memory, rating)}
+        from services.today_composer import pick_knowledge_focus
+        return {"learn_next": await pick_knowledge_focus(db, user.user_id)}
     except Exception as e:
         logger.warning(f"[engine2/learn-next] {e}")
         return {"learn_next": None}

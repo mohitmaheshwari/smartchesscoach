@@ -961,11 +961,8 @@ async def get_coach_home(user: User = Depends(get_current_user)):
 
     # ─── ENGINE 2: next skill to learn (forward-looking) ───
     try:
-        from services.engine2_skill_builder import pick_next_skill
-        from services.coach_memory import get_or_create_memory
-        _mem = await get_or_create_memory(db, user_id)
-        _rating = _mem.performance.best_performance_rating or 1000
-        result["learn_next"] = pick_next_skill(_mem, _rating)
+        from services.today_composer import pick_knowledge_focus
+        result["learn_next"] = await pick_knowledge_focus(db, user_id)
     except Exception as e:
         logger.warning(f"[COACH-HOME] Engine 2 failed: {e}")
         result["learn_next"] = None

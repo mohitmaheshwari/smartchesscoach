@@ -156,6 +156,10 @@ class LearningProgress:
     concepts_mastered: List[str] = field(default_factory=list)
     current_focus: Optional[str] = None
     suggested_next: List[str] = field(default_factory=list)
+    # Compact continuity reference for the Personal Curriculum. This stores
+    # identity and timestamps only; lesson copy, evidence, and mastery remain
+    # owned by their canonical services.
+    active_curriculum: Optional[Dict[str, Any]] = None
     # Structured skill tracking — the real seen/correct counts per skill
     skills: List[SkillProgress] = field(default_factory=list)
 

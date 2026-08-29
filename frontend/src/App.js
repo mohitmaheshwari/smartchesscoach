@@ -12,6 +12,7 @@ import RefundPolicy from "@/pages/RefundPolicy";
 import ContactUs from "@/pages/ContactUs";
 import Dashboard from "@/pages/Dashboard";
 import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07-11)
+import PersonalCurriculum from "@/pages/PersonalCurriculum";
 import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-test drill
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
@@ -88,7 +89,7 @@ const getExperienceFamily = (pathname) => {
   if (pathname.startsWith("/admin") || pathname.startsWith("/review/authoring")) return "admin";
   if (pathname.startsWith("/recover") || pathname.startsWith("/plateau-breaker") || pathname === "/reflect") return "recovery";
   if (pathname.startsWith("/game") || pathname.startsWith("/lab/game") || pathname.startsWith("/replay") || pathname === "/review" || pathname === "/games") return "review";
-  if (pathname.startsWith("/training") || pathname.startsWith("/daily-fix") || pathname.startsWith("/openings") || pathname.startsWith("/opening-") || pathname.startsWith("/endgames") || pathname.startsWith("/mission") || pathname === "/challenge") return "learning";
+  if (pathname === "/learn" || pathname.startsWith("/training") || pathname.startsWith("/daily-fix") || pathname.startsWith("/openings") || pathname.startsWith("/opening-") || pathname.startsWith("/endgames") || pathname.startsWith("/mission") || pathname === "/challenge") return "learning";
   if (pathname.startsWith("/prototype")) return "prototype";
   return "core";
 };
@@ -257,6 +258,11 @@ function AppRouter() {
       <Route path="/home" element={
         <ProtectedRoute>
           {({ user }) => <HomePageNew user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/learn" element={
+        <ProtectedRoute>
+          {({ user }) => <PersonalCurriculum user={user} />}
         </ProtectedRoute>
       } />
       {/* /today is now an alias for /home — one landing page */}

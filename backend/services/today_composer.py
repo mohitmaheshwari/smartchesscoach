@@ -83,21 +83,6 @@ SKILL_TO_GAP = {
 #   concept     → play with coach who reinforces the concept
 #   coached_play → play with coach, focus enforced
 
-# Maps a skill_tree content_ref (used in skill_tree.json) to the two-segment
-# route the EndgameLesson page actually needs: /endgames/<category>/<lesson>.
-# Keys here are what skill_tree.json holds; values are the actual lesson
-# keys from data/coaching/endgame_theory_tree.json.
-ENDGAME_ROUTES = {
-    # content_ref           →  "<category>/<lesson>"
-    "opposition":        "king_and_pawn/opposition",
-    "rule_of_square":    "king_and_pawn/square_rule",
-    "lucena_position":   "rook_endgames/lucena",
-    "philidor_position": "rook_endgames/philidor",
-    # Mate patterns (queen_checkmate / rook_checkmate) aren't in the theory
-    # tree — absent here means fall back to Play with Coach teaching flow.
-}
-
-
 KIND_ACTIONS = {
     "opening": {
         "beginner_low": "Let's learn this opening together",
@@ -120,7 +105,7 @@ KIND_ACTIONS = {
         "beginner_high": "Do the endgame lesson",
         "intermediate": "Do the endgame lesson",
         "advanced": "Do the endgame lesson",
-        # href resolved via ENDGAME_ROUTES below, falls through to OpeningsOverview
+        # href resolved through the canonical endgame service below.
         "href": "/openings-overview#endgames",
         "medium": "lesson",
     },
@@ -210,7 +195,7 @@ async def compose_today(db, user_id: str) -> Dict[str, Any]:
 
     # ── Pick both engines independently ──
     engine1 = await _pick_engine1_focus(db, user_id)
-    engine2 = await _pick_engine2_focus(db, user_id)
+    engine2 = await pick_knowledge_focus(db, user_id)
 
     # ── Assign primary / secondary ──
     if engine1:
@@ -492,7 +477,7 @@ async def _pick_engine1_focus(db, user_id: str) -> Optional[Dict]:
     return None
 
 
-async def _pick_engine2_focus(db, user_id: str) -> Optional[Dict]:
+async def pick_knowledge_focus(db, user_id: str) -> Optional[Dict]:
     """Engine 2 (build-new-skill) pick, or None if nothing ready.
     Note: Engine 2's 'kind' (opening/trap_set/...) is kept on the focus
     dict under 'e2_kind' to avoid colliding with legacy 'kind' usage."""
@@ -795,10 +780,15 @@ def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
 
         # Endgame needs a two-segment URL (/endgames/<category>/<lesson>).
         # Mate patterns aren't in endgame_theory_tree → route to coach.
-        if kind == "endgame" and content_ref in ENDGAME_ROUTES:
-            href = f"/endgames/{ENDGAME_ROUTES[content_ref]}"
-        elif kind in ("endgame", "mate_pattern") and content_ref not in ENDGAME_ROUTES:
-            # No theory-tree entry — teach via coached play with the skill
+        if kind == "endgame":
+            from services.endgame_theory_service import resolve_content_ref
+            resolved = resolve_content_ref(content_ref)
+            href = (
+                resolved["href"]
+                if resolved
+                else f"/play-with-coach?focus={skill_id}"
+            )
+        elif kind == "mate_pattern":
             href = f"/play-with-coach?focus={skill_id}"
         elif kind == "trap_set":
             # opening_curriculum.json uses underscores; TRAP_LIBRARY uses hyphens.

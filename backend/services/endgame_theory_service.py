@@ -14,6 +14,17 @@ import chess
 logger = logging.getLogger(__name__)
 
 _endgame_tree = None
+CANONICAL_SOURCE = "backend/data/coaching/endgame_theory_tree.json"
+
+# Skill-tree content references are stable curriculum identities. Their routed
+# category/lesson identities live here, beside the canonical lesson tree, so
+# player-facing selectors never grow their own competing endgame route tables.
+_CONTENT_REF_INDEX = {
+    "opposition": ("king_and_pawn", "opposition"),
+    "rule_of_square": ("king_and_pawn", "square_rule"),
+    "lucena_position": ("rook_endgames", "lucena"),
+    "philidor_position": ("rook_endgames", "philidor"),
+}
 
 
 def _load_tree():
@@ -88,6 +99,33 @@ def get_lesson(category_key: str, lesson_key: str):
         "positions": positions,
         "total_positions": len(positions),
     }
+
+
+def resolve_content_ref(content_ref: str):
+    """Resolve one skill-tree endgame reference through the canonical tree."""
+    route = _CONTENT_REF_INDEX.get(content_ref)
+    if not route:
+        return None
+    category_key, lesson_key = route
+    if get_lesson(category_key, lesson_key) is None:
+        return None
+    lesson_id = f"{category_key}/{lesson_key}"
+    return {
+        "content_ref": content_ref,
+        "category_key": category_key,
+        "lesson_key": lesson_key,
+        "lesson_id": lesson_id,
+        "href": f"/endgames/{lesson_id}",
+        "canonical_source": CANONICAL_SOURCE,
+    }
+
+
+def get_lesson_by_content_ref(content_ref: str):
+    """Return canonical lesson data for a skill-tree content reference."""
+    resolved = resolve_content_ref(content_ref)
+    if not resolved:
+        return None
+    return get_lesson(resolved["category_key"], resolved["lesson_key"])
 
 
 def check_move(category_key: str, lesson_key: str, position_index: int, user_move_uci: str):

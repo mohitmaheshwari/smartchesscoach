@@ -1,7 +1,7 @@
 # Personal Curriculum — Spec
 
-**Status:** PHASE 4 VALIDATION ACTIVE — product-owner visual approval complete;
-representative-player sessions remain the pre-code blocker.
+**Status:** PHASE 4 IMPLEMENTATION AUTHORIZED behind the default-off role gate;
+representative-player and coach sessions remain final acceptance evidence.
 **Version:** v1 (2026-08-28).
 **Scope:** largest of the current learning rewrites; multi-day, phased migration.
 
@@ -260,13 +260,15 @@ No implementation phase begins until its blocking decisions in section 10 are si
 8. **Product-owner visual approval — locked:** Mohit approved the interactive
    desktop/mobile Home, Learn, Explore, and lesson-return prototype on
    2026-08-28.
-9. **Representative-player validation — open:** Observe the signed tasks with
+9. **Representative-player validation — final acceptance:** Observe the signed tasks with
    600–900, 1000–1200, 1300–1500, and a browse-oriented participant. The
    server-side recruitment snapshot confirms structural reach; sessions must
-   still be real.
+   still be real. On 2026-08-29 Mohit explicitly moved these sessions after
+   implementation so the completed product can be audited with other coaches.
 
 **Sign-off gate:** Mohit approved the Phase 4 visual contract and instructed
 the work to move forward. Pre-launch PostHog behavior remains excluded as an
 engagement baseline. Structural recruitment reach is cited from
 `backend/data/corpus_snapshots/funnel_and_recruitment_2026-08-28.json`.
-Representative-player mockup sessions are the sole remaining pre-code gate.
+Representative-player and coach sessions are the final acceptance gate before
+cohort expansion; they are no longer a pre-code gate.
