@@ -16,23 +16,47 @@ FILES THAT MUST USE stockfish_analysis:
 
 import pytest
 import asyncio
+import io
+from pathlib import Path
+
 import httpx
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
 from bson import ObjectId
 
-load_dotenv('/app/backend/.env')
+# Paths are resolved RELATIVE TO THE REPOSITORY, not to /app. The container
+# layout is one deployment of this repo, not the only one: hardcoding /app made
+# this module raise FileNotFoundError at import time on any developer machine,
+# and because that is a collection error rather than a skip, it took the whole
+# pytest run down with it.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ENV = REPO_ROOT / "backend" / ".env"
+FRONTEND_ENV = REPO_ROOT / "frontend" / ".env"
 
-# Get API URL from frontend env
+if BACKEND_ENV.exists():
+    load_dotenv(BACKEND_ENV)
+
+
 def get_api_url():
-    with open('/app/frontend/.env', 'r') as f:
-        for line in f:
-            if line.startswith('REACT_APP_BACKEND_URL='):
-                return line.strip().split('=', 1)[1]
-    return 'http://localhost:8002'
+    """Backend URL the frontend is configured to call, or a local default."""
+    if FRONTEND_ENV.exists():
+        with io.open(FRONTEND_ENV, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("REACT_APP_BACKEND_URL="):
+                    return line.strip().split("=", 1)[1]
+    return "http://localhost:8002"
+
 
 API_URL = get_api_url()
+
+# These tests talk to a real database. Skip cleanly when one is not configured
+# rather than erroring -- a skipped suite reports honestly; a collection error
+# hides every other test in the run.
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("MONGO_URL") or not os.environ.get("DB_NAME"),
+    reason="MONGO_URL/DB_NAME not set; integration test needs a database",
+)
 
 
 @pytest.fixture

@@ -12,8 +12,14 @@ import requests
 import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
-if not BASE_URL:
-    raise ValueError("REACT_APP_BACKEND_URL environment variable is required")
+
+# Skip, do not raise. This module needs a running deployment to talk to; a
+# raise at import time is a COLLECTION error, which takes down the entire
+# pytest run instead of reporting one unrunnable suite.
+pytestmark = pytest.mark.skipif(
+    not BASE_URL,
+    reason="REACT_APP_BACKEND_URL not set; live-deployment integration test",
+)
 
 # Expected pawn structures from knowledge base
 EXPECTED_STRUCTURE_IDS = [
