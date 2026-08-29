@@ -46,7 +46,7 @@ Canonical focus, endgame, and coach-memory regressions:
 
 ```text
 python -m pytest tests/test_engine2_recording.py tests/test_endgame_opposition.py tests/test_endgame_lucena.py tests/test_endgame_philidor.py tests/test_focus_sync.py tests/test_coach_memory_velocity.py -q
-44 passed, 18 skipped in 13.94s
+44 passed, 18 skipped in 13.35s
 ```
 
 Focused frontend behavior, analytics, copy, and Explore routes:
@@ -54,7 +54,7 @@ Focused frontend behavior, analytics, copy, and Explore routes:
 ```text
 npm test -- --watchAll=false --runInBand src/lib/analytics.test.js src/lib/personalCurriculum.test.js src/components/curriculum/CurriculumPrimary.test.jsx
 Test Suites: 3 passed, 3 total
-Tests:       7 passed, 7 total
+Tests:       9 passed, 9 total
 ```
 
 Production bundle:
@@ -96,6 +96,15 @@ error 206. This is launcher/path-length infrastructure evidence, not a product
 pass or failure. Mohit's final desktop/mobile audit with representative
 600-1500 players and coaches remains the acceptance evidence before the role
 cohort is expanded.
+
+A first production screenshot review reached both the new navigation and
+`/learn`. It exposed three defects: Home and Learn could receive different
+concurrent curriculum responses, the repair card leaked legacy percentages
+and detector prose, and Learn repeated the selected lesson immediately below
+the card. The follow-up fix now shares one account-scoped request, projects
+reviewed player-safe copy, explains the Opposition label on first use, and
+removes the repeated block. Automated evidence above is from the corrected
+files; production screenshot retesting remains pending after redeployment.
 
 ## Engineer's self-declaration
 

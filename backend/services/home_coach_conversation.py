@@ -294,6 +294,17 @@ _CLEAN_LABEL: Dict[str, str] = {
 }
 
 
+def get_player_safe_focus_copy(topic_key: str) -> Dict[str, str]:
+    """Return reviewed focus wording without legacy metrics or severity."""
+    key = str(topic_key or "").strip()
+    label = _CLEAN_LABEL.get(key, key.replace("_", " ") or "your current focus")
+    title = label[:1].upper() + label[1:]
+    return {
+        "title": title,
+        "reason": _ONE_ACTION.get(key, _FALLBACK_ACTION),
+    }
+
+
 def _relationship_stage(games_analyzed: int) -> str:
     for boundary, stage in _STAGE_BOUNDARIES:
         if games_analyzed < boundary:

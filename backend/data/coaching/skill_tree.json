@@ -102,7 +102,7 @@
     },
     "endgame_opposition": {
       "kind": "endgame",
-      "label": "The Opposition",
+      "label": "Opposition: kings facing one square apart",
       "fixes": "not knowing how to promote with K+P",
       "content_ref": "opposition",
       "prerequisites": [

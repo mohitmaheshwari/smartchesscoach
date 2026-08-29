@@ -5,7 +5,10 @@ import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
-import { EXPLORE_DESTINATIONS } from "@/lib/personalCurriculum";
+import {
+  EXPLORE_DESTINATIONS,
+  loadPersonalCurriculum,
+} from "@/lib/personalCurriculum";
 
 export default function PersonalCurriculum({ user }) {
   const navigate = useNavigate();
@@ -15,11 +18,7 @@ export default function PersonalCurriculum({ user }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(API + "/coach/personal-curriculum", { credentials: "include" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("curriculum unavailable");
-        return response.json();
-      })
+    loadPersonalCurriculum(API, user?.user_id)
       .then((data) => {
         if (cancelled) return;
         setCurriculum(data);
@@ -42,7 +41,7 @@ export default function PersonalCurriculum({ user }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.user_id]);
 
   if (loading) {
     return (
@@ -78,7 +77,6 @@ export default function PersonalCurriculum({ user }) {
     );
   }
 
-  const primary = curriculum.decision.primary;
   const naturallyNext = curriculum.naturally_next;
 
   return (
@@ -103,18 +101,12 @@ export default function PersonalCurriculum({ user }) {
           onNavigate={navigate}
         />
 
-        <section className="mt-10 border-t border-border/70" aria-label="Coaching plan sequence">
-          <div className="grid gap-3 md:grid-cols-[140px_1fr_auto] md:items-center py-6">
-            <p className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">Learning now</p>
-            <div>
-              <h2 className="text-[16px] font-medium mb-1">{primary.title}</h2>
-              <p className="text-[13px] text-muted-foreground">{primary.reason}</p>
-            </div>
-            <span className="text-[12px] text-muted-foreground">In your plan</span>
-          </div>
-
-          {naturallyNext && (
-            <div className="grid gap-3 md:grid-cols-[140px_1fr_auto] md:items-center py-6 border-t border-border/70">
+        {naturallyNext && (
+          <section
+            className="mt-10 border-t border-border/70"
+            aria-label="Next lesson in your coaching plan"
+          >
+            <div className="grid gap-3 md:grid-cols-[140px_1fr_auto] md:items-center py-6">
               <p className="text-[12px] font-semibold text-muted-foreground">Naturally next</p>
               <div>
                 <h2 className="text-[16px] font-medium mb-1">{naturallyNext.title}</h2>
@@ -128,8 +120,8 @@ export default function PersonalCurriculum({ user }) {
                 View lesson
               </button>
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         <section className="mt-12" aria-labelledby="curriculum-explore-heading">
           <h2 id="curriculum-explore-heading" className="font-serif text-[27px] mb-2">Explore</h2>

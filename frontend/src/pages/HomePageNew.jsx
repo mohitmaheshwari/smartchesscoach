@@ -16,6 +16,8 @@ import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
+import CurriculumHome from "@/components/curriculum/CurriculumHome";
+import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 import {
   ChevronRight,
   Swords,
@@ -121,6 +123,23 @@ export default function HomePageNew({ user }) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPersonalCurriculum(API, user?.user_id)
+      .then((data) => {
+        if (!cancelled) setCurriculum(data);
+      })
+      .catch(() => {
+        if (!cancelled) setCurriculum(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCurriculumLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_id]);
 
   const pic = activeFocus?.personal_improvement_cycle?.eligible
     ? activeFocus.personal_improvement_cycle
