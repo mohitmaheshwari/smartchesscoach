@@ -251,3 +251,6 @@ frontend/node_modules/.cache/default-development/15.pack
 
 # Codex UI review logs
 frontend/.codex-ui-review.*.log
+
+# Playwright-generated test artifacts
+tests/test-results/
