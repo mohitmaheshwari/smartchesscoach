@@ -10,29 +10,46 @@ count a name, ECO label, legal move list, or hidden card as a finished lesson.
 
 | Subject | Canonical records | Chess/content verified | Player lesson ready |
 | --- | ---: | ---: | ---: |
-| Openings | 79 | 25 | 25 |
-| Traps | 55 | 22 | 1 defense-first lesson |
-| Endgames | 18 | 5 | 5 |
+| Openings | 79 | 37 | 37 |
+| Traps | 55 | 22 | 22 defense-first lessons |
+| Endgames | 20 | 20 | 20 |
 
-The opening catalog now contains the 25 authored response-tree lessons. The 42
-recognition-only labels and 12 legal-but-unexplained lines do not appear as
-lessons. Every visible primary line is legal and every move has its own
-authored explanation.
+The opening catalog now contains 37 authored lessons. The 12 previously
+legal-but-unexplained lines now include move-by-move coaching and are restored.
+The remaining 42 records are imported recognition labels, many of them aliases
+or named move-order fragments rather than distinct lessons. They continue to
+identify a player's games and route to a taught family; they are not padded
+into duplicate catalog cards. Every visible primary line is legal and every
+move has its own authored explanation.
 
-The 22 verified trap records are still useful for exact recognition and game
-review. Only **Scholar's Mate Danger** is currently offered as a coaching
-lesson because it is the only one with all three required pieces: the danger,
-a legal safe defense, and an explanation of why the defense works. The product
-does not silently replace a missing defense lesson with “learn how to spring
-this trick.”
+All 22 chess-verified trap records are now defense-first lessons. Each names
+the danger, starts at the actual decision point, offers engine-checked safe
+moves, and explains why the defense works. The product still does not replace
+a missing defense lesson with “learn how to spring this trick.”
 
-The five verified endgames are:
+The complete 20-lesson endgame catalog is now verified:
+
+- Mate with Queen
+- Mate with Rook
 
 - Kings Face Off (Opposition)
 - The Squares Your King Needs
 - Rule of the Square
+- Pawn Breakthrough
+- King to the Center
 - Shield the King from Checks (Lucena)
+- Philidor — Third Rank Defense
+- Rook Activity
+- Stopping Promotion
+- Stalemate Traps
+- Good Bishop vs Bad Bishop
+- Opposite-Color Bishop Draws
+- Knight vs Bishop
+- Knight Blockade
+- Creating a Passed Pawn
 - Make Them Move (Zugzwang)
+- Outside Passed Pawn
+- Two Pawns vs One
 
 Every visible endgame position has offline exact tablebase evidence when it is
 eligible. The first attempts hide the answer, and the final position is an
@@ -58,40 +75,35 @@ independent proof attempt.
   “fianchetto,” “IQP,” or “space advantage.” The validator now blocks those
   regressions.
 
-## What remains quarantined, and why
+## Completion backlog exposed by the gate
 
 ### Openings
 
 - 42 records can recognize a name but contain no playable lesson.
-- 12 records contain a legal line but no authored move-by-move teaching.
 - Some quarantined records also contain unexplained specialist wording.
 
-Do not add more opening names yet. The next useful opening work is to author
-complete response trees for the openings the real-user repertoire data shows
-are most common, then pass the same gate.
+The 12 legal lines are complete. The remaining job is to map every imported
+recognition label to a taught family where it is an alias, and author a new
+lesson only where the record represents a genuinely different player need.
 
 ### Traps
 
 - 33 records fail chess truth, explanation, or evidence requirements.
-- Of the 22 chess-verified lines, 21 still lack a defense-first lesson.
+- The 22 chess-verified lines are complete defense-first lessons.
 
-The next trap content should be authored in this order after coach review:
-Scholar's Mate (already ready), Legal's Mate danger, Blackburne Shilling,
-Stafford Gambit, Elephant Trap, and Englund Gambit. Each needs a concrete
-danger position, safe move(s), why the tempting move fails, and an independent
-defense attempt. Popularity should be checked against real games before this
-order is locked.
+The 500-game corpus shows the existing library covers the recurring named
+traps. Remaining trap records must first have their illegal or unsupported
+winning lines repaired; they must not be counted merely because they have a
+famous name.
 
 ### Endgames
 
-- Five positions have invalid FENs.
-- Nine stored answers lose an exact win or draw in tablebase evidence.
-- Ten positions outside tablebase coverage lack pinned Stockfish evidence.
-
-For 600–1500 players, the next additions should be **mate with queen**, **mate
-with rook**, **stop a pawn from promoting**, and **active rook defense**. Then
-repair Philidor, stalemate tricks, and the remaining pawn/bishop lessons. These
-are additions, not permission to re-expose the current broken records.
+- No completion backlog remains in the canonical endgame catalog.
+- All 20 lessons and all 60 positions are legal, answer-hidden at runtime, and
+  backed by exact Syzygy evidence or pinned Stockfish 18 evidence.
+- The repair replaced false breakthrough and passed-pawn examples, corrected
+  the Philidor, opposite-bishop, stalemate, and two-versus-one answers, and
+  replaced every illegal FEN instead of hiding its lesson.
 
 ## Reproduce offline
 
@@ -120,5 +132,6 @@ green. The manual audit should answer:
 4. Does completion require a clean final attempt?
 5. Does Learn still show one active plan and return the player to it?
 
-Expansion remains deferred until those sessions are completed; pre-launch
-analytics are not used as an engagement baseline.
+Manual sessions are the final coaching-quality audit, not a reason to leave the
+automated completion backlog unfinished. Pre-launch analytics are still not
+used as an engagement baseline.

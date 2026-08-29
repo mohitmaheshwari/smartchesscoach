@@ -23,7 +23,7 @@ def test_real_canonical_sources_are_reported_together():
     assert set(report["subjects"]) == {"openings", "traps", "endgames"}
     assert report["subjects"]["openings"]["total"] == 79
     assert report["subjects"]["traps"]["total"] == 55
-    assert report["subjects"]["endgames"]["total"] == 18
+    assert report["subjects"]["endgames"]["total"] == 20
     assert report["canonical_sources"]["openings"].endswith(
         "backend/data/opening_curriculum.json"
     )
@@ -41,6 +41,27 @@ def test_repaired_opening_trees_are_publishable():
         )
 
 
+def test_completed_flat_opening_lessons_are_publishable():
+    records = validate_all_content()["subjects"]["openings"]["records"]
+
+    completed = {
+        "albin_counter_gambit",
+        "benoni_defense",
+        "budapest_gambit",
+        "dutch_defense",
+        "englund_gambit",
+        "grunfeld_defense",
+        "nimzo_indian",
+        "nimzowitsch_defense",
+        "qgd",
+        "queens_indian",
+        "sicilian_dragon",
+        "sicilian_najdorf",
+    }
+
+    assert all(records[key]["publishable"] for key in completed)
+
+
 def test_repaired_french_critical_position_is_publishable():
     report = validate_all_content()
     french = report["subjects"]["openings"]["records"]["french_defense"]
@@ -50,6 +71,14 @@ def test_repaired_french_critical_position_is_publishable():
         issue["code"] == "move.illegal_or_ambiguous"
         for issue in french["issues"]
     )
+
+
+def test_complete_endgame_catalog_is_publishable():
+    subject = validate_all_content()["subjects"]["endgames"]
+
+    assert subject["total"] == 20
+    assert subject["publishable"] == 20
+    assert subject["quarantined"] == 0
 
 
 def test_opening_without_a_teaching_line_is_not_a_visible_lesson():
@@ -110,6 +139,31 @@ def test_unexplained_specialist_term_fails_player_voice_gate():
 
     assert "voice.unexplained_term" in _codes(record)
     assert record.publishable is False
+
+
+def test_player_voice_gate_ignores_internal_reference_ids():
+    record = validate_opening_record(
+        "reference_ids_are_not_copy",
+        {
+            "name": "Reference ID example",
+            "color": "white",
+            "main_line": ["d4"],
+            "move_ideas": {"d4": {"idea": "Put a pawn in the center."}},
+            "critical_positions": {
+                "choice": {
+                    "fen_pattern": chess.STARTING_FEN,
+                    "best_moves_white": {
+                        "d4": {
+                            "idea": "Put a pawn in the center.",
+                            "leads_to": "qi_fianchetto",
+                        }
+                    },
+                }
+            },
+        },
+    )
+
+    assert "voice.unexplained_term" not in _codes(record)
 
 
 def test_trap_line_must_demonstrate_claimed_mate():
@@ -188,7 +242,7 @@ def test_endgame_fen_and_answer_must_agree():
     assert "endgame.move_illegal" in _codes(broken_record)
 
 
-def test_real_tablebase_regressions_are_quarantined():
+def test_repaired_tablebase_lessons_preserve_the_exact_result():
     report = validate_all_content()
     philidor = report["subjects"]["endgames"]["records"][
         "rook_endgames/philidor"
@@ -197,14 +251,12 @@ def test_real_tablebase_regressions_are_quarantined():
         "bishop_endgames/opposite_color_bishops"
     ]
 
-    assert any(
+    assert philidor["publishable"] is True
+    assert opposite_bishops["publishable"] is True
+    assert not any(
         issue["code"] == "endgame.tablebase_regression"
-        for issue in philidor["issues"]
+        for issue in philidor["issues"] + opposite_bishops["issues"]
     )
-    assert sum(
-        issue["code"] == "endgame.tablebase_regression"
-        for issue in opposite_bishops["issues"]
-    ) == 3
 
 
 def test_publication_helpers_use_record_identity():

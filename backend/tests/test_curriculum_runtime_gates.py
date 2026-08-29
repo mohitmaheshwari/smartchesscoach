@@ -75,7 +75,8 @@ def test_public_endgame_catalog_contains_only_verified_lessons():
     }
 
     assert actual == expected
-    assert get_lesson("rook_endgames", "philidor") is None
+    assert len(actual) == 20
+    assert get_lesson("rook_endgames", "philidor") is not None
 
 
 def test_public_endgame_lesson_never_contains_answers():
@@ -140,9 +141,9 @@ def test_legacy_opening_library_is_only_a_canonical_verified_projection():
 
 
 def test_opening_match_falls_back_to_teachable_family_and_reuses_aliases():
-    # Najdorf can still be recognized, but its sparse flat line is not a
-    # lesson. Route the player to the teachable Sicilian family instead.
-    assert match_opening_to_library("Sicilian Najdorf Variation", "B90") == "sicilian-defense"
+    # The completed Najdorf now owns its exact lesson. Untaught aliases still
+    # fall back to a verified family lesson such as the Giuoco/Italian pair.
+    assert match_opening_to_library("Sicilian Najdorf Variation", "B90") == "sicilian-najdorf"
     assert match_opening_to_library("Giuoco Piano Game", "C54") == "italian-game"
 
 
@@ -159,7 +160,15 @@ def test_play_with_coach_catalog_is_truth_gated():
     report = validate_all_content()["subjects"]
 
     assert len(catalog["traps"]) == len(get_defense_ready_trap_ids())
-    assert {item["key"] for item in catalog["traps"]} == {"scholars_mate"}
+    assert len(catalog["traps"]) == 22
+    assert {
+        "scholars_mate",
+        "legals_mate",
+        "blackburne_shilling_gambit",
+        "elephant_trap",
+        "stafford_gambit_trap",
+        "tennison_gambit_trap",
+    }.issubset({item["key"] for item in catalog["traps"]})
     assert len(catalog["endgames"]) == report["endgames"]["publishable"]
     assert all(item.get("canonical_source") for item in catalog["endgames"])
 
@@ -227,7 +236,7 @@ def test_scholars_defense_starts_at_the_threat_without_the_answer():
     assert "move" not in result["instruction"]
 
 
-def test_execution_only_trap_cannot_silently_replace_a_defense_lesson():
+def test_completed_legals_mate_starts_as_a_hidden_answer_defense_lesson():
     result = asyncio.run(
         start_trap_lesson(
             FakeDB(),
@@ -237,4 +246,7 @@ def test_execution_only_trap_cannot_silently_replace_a_defense_lesson():
         )
     )
 
-    assert "safe-defense lesson" in result["error"]
+    assert result["mode"] == "avoidance"
+    assert result["auto_played_moves"][-1] == "Nxe5"
+    assert result["instruction"]["answer_hidden"] is True
+    assert "move" not in result["instruction"]

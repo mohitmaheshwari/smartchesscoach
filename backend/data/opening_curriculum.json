@@ -7133,6 +7133,14 @@
       "d4",
       "e5"
     ],
+    "move_ideas": {
+      "d4": {
+        "idea": "Put a pawn in the center and open a path for your dark-square bishop."
+      },
+      "e5": {
+        "idea": "Black offers the e-pawn to pull White away from normal development. White should check the queen check on b4 before choosing the next move."
+      }
+    },
     "white_plan": "Accept the gambit, develop solidly",
     "black_plan": "Sacrifice a pawn for tricks",
     "variations": {
@@ -7330,8 +7338,16 @@
       "e4",
       "Nc6"
     ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Put a pawn in the center and open paths for the queen and bishop."
+      },
+      "Nc6": {
+        "idea": "Develop the knight while leaving the center open. Black plans to let White build pawns there, then attack those pawns."
+      }
+    },
     "white_plan": "Maintain the center with d4, develop naturally, punish the unusual move order",
-    "black_plan": "Hypermodern approach - let White build the center, then attack it with d5, f5, or e5",
+    "black_plan": "Let White build the center, then attack those pawns with d5, f5, or e5",
     "variations": {
       "nimzo_main": {
         "name": "Nimzowitsch Main Line",
@@ -7359,7 +7375,7 @@
         "black_plan": "Challenge e5 with f6, develop Bf5 (before e6!), castle and counterattack",
         "critical_positions": {
           "after_e5": {
-            "key_decision": "White has a space advantage with e5",
+            "key_decision": "White's pawn on e5 gives the pieces more room",
             "best_moves": {
               "Bf5": {
                 "idea": "Develop the bishop before e6!",
@@ -7405,7 +7421,7 @@
             "key_decision": "Transposing to a Scandinavian-style position",
             "best_moves": {
               "Nc3": {
-                "idea": "Gain tempo on the queen",
+                "idea": "Develop the knight and make the queen move again",
                 "why_good": "Standard - forces the queen to move again"
               }
             }
@@ -7431,7 +7447,7 @@
     },
     "common_learnings": [
       "The Nimzowitsch Defense is a surprise weapon - opponents won't know the theory",
-      "Nc6 on move 1 is unusual but not bad - it has hypermodern ideas",
+      "Nc6 on move 1 is unusual but playable - Black lets White build the center and then attacks it",
       "Black often transposes into other openings (Scandinavian, French) from this setup",
       "Develop the light bishop before playing e6 - the same principle as Caro-Kann and Slav",
       "Best suited for players who enjoy unusual positions and catching opponents off guard"
@@ -7632,8 +7648,20 @@
       "Nc3",
       "g6"
     ],
+    "move_ideas": {
+      "e4": {"idea": "Take a share of the center and open paths for the queen and bishop."},
+      "c5": {"idea": "Fight for the center from the side and open the c-file after the center is exchanged."},
+      "Nf3": {"idea": "Develop the knight and prepare to open the center with d4."},
+      "d6": {"idea": "Support e5 and keep the c8 bishop ready to move."},
+      "d4": {"idea": "Open the center before Black can settle into a comfortable setup."},
+      "cxd4": {"idea": "Exchange the c-pawn for White's central d-pawn and open the c-file."},
+      "Nxd4": {"idea": "Recapture with a developed knight in the center."},
+      "Nf6": {"idea": "Develop with an attack on the e4 pawn."},
+      "Nc3": {"idea": "Defend e4 and bring the last queenside knight into play."},
+      "g6": {"idea": "Prepare Bg7, where the bishop will look through the center toward b2."}
+    },
     "white_plan": "Yugoslav Attack: castle queenside, launch h4-h5 pawn storm",
-    "black_plan": "Fianchetto bishop, counter on the c-file, attack White's king",
+    "black_plan": "Play g6 and Bg7, use the open c-file, and create threats against White's king",
     "critical_positions": {
       "dragon_setup": {
         "fen_pattern": "r1bqkb1r/pp2pp1p/2np1np1/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
@@ -7913,7 +7941,7 @@
               "a6": {
                 "why_bad": "Too slow - White's attack arrives first",
                 "consequence": "h4-h5 comes with devastating effect before Black is ready",
-                "learning": "In the Dragon Yugoslav, every tempo matters - activate with Rc8 immediately"
+                "learning": "In this sharp position, use Rc8 immediately instead of spending a move on a pawn push"
               }
             }
           }
@@ -7922,7 +7950,7 @@
     },
     "common_learnings": [
       "The Dragon is a race - whoever attacks first usually wins",
-      "Black's counterplay is on the c-file, not the a or b files",
+      "Black creates threats on the c-file, not the a or b files",
       "Trading the dragon bishop (Bg7) is often bad for Black",
       "Rc8 is almost always the right move after castling"
     ]
@@ -7954,8 +7982,20 @@
       "Nc3",
       "a6"
     ],
+    "move_ideas": {
+      "e4": {"idea": "Take a share of the center and open paths for the queen and bishop."},
+      "c5": {"idea": "Fight for the center from the side and prepare an open c-file."},
+      "Nf3": {"idea": "Develop the knight and prepare d4."},
+      "d6": {"idea": "Support e5 and keep Black's central choices flexible."},
+      "d4": {"idea": "Open the center while White is ahead in development."},
+      "cxd4": {"idea": "Trade the c-pawn for White's central pawn and open the c-file."},
+      "Nxd4": {"idea": "Recapture with the knight so it controls central squares."},
+      "Nf6": {"idea": "Develop with an attack on e4."},
+      "Nc3": {"idea": "Defend e4 and bring another piece into the center."},
+      "a6": {"idea": "Stop a knight jump to b5 and prepare b5 to gain room on the queenside."}
+    },
     "white_plan": "Attack! Choose between Be2 (English Attack), Bg5 (main line), f3 (English Attack), or Bc4",
-    "black_plan": "Fight for counterplay with e5, b5, or Bb7. The most dynamic Black opening.",
+    "black_plan": "Create threats with e5, b5, or Bb7. Black must play actively before White's attack arrives.",
     "critical_positions": {
       "after_a6": {
         "fen_pattern": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
@@ -8272,7 +8312,15 @@
       "Nc3",
       "d5"
     ],
-    "white_plan": "Build a massive center with e4, use the pawn center for space advantage",
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open the c1 bishop."},
+      "Nf6": {"idea": "Develop a knight and watch e4 without placing a pawn in the center yet."},
+      "c4": {"idea": "Gain more central room and control d5."},
+      "g6": {"idea": "Prepare Bg7 so the bishop can attack the center from the long diagonal."},
+      "Nc3": {"idea": "Develop and add another defender to d5 and e4."},
+      "d5": {"idea": "Challenge White's center immediately before it becomes stable."}
+    },
+    "white_plan": "Build a large pawn center with e4 so White's pieces have more room",
     "black_plan": "LET White build the center, then DESTROY it with c5, Bg7 pressure, and Nc6",
     "critical_positions": {
       "after_d5": {
@@ -8623,6 +8671,14 @@
       "Nc3",
       "Bb4"
     ],
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
+      "Nf6": {"idea": "Develop and stop White from playing e4 without preparation."},
+      "c4": {"idea": "Control d5 and ask Black how the center will be challenged."},
+      "e6": {"idea": "Open the f8 bishop and prepare either Bb4 or d5."},
+      "Nc3": {"idea": "Develop and support e4, but allow Black to pin this knight."},
+      "Bb4": {"idea": "Pin the knight that supports e4 and make White decide whether to accept doubled c-pawns."}
+    },
     "white_plan": "Unpin with various systems (e3, Qc2, a3), develop and use the bishop pair",
     "black_plan": "Pin the Nc3, control e4, create doubled c-pawns after Bxc3, play for dark square control",
     "critical_positions": {
@@ -8971,15 +9027,23 @@
       "Nf3",
       "b6"
     ],
-    "white_plan": "Control the center, develop with g3 or Nc3, use space advantage",
-    "black_plan": "Fianchetto the Bb7, control e4 indirectly, flexible center with d5 or d6",
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
+      "Nf6": {"idea": "Develop and watch e4 before White can build a full pawn center."},
+      "c4": {"idea": "Control d5 and gain room on the queenside."},
+      "e6": {"idea": "Open the f8 bishop and keep both d5 and Bb4 available."},
+      "Nf3": {"idea": "Develop without allowing the Bb4 pin on the other knight."},
+      "b6": {"idea": "Prepare Bb7, where the bishop will watch e4 and the long diagonal."}
+    },
+    "white_plan": "Control the center, develop with g3 or Nc3, and use the extra room behind the pawns",
+    "black_plan": "Play b6 and Bb7, watch e4 from the long diagonal, and choose d5 or d6 when the center is clear",
     "critical_positions": {
       "after_b6": {
         "fen_pattern": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq -",
-        "key_decision": "White chooses between g3 (fianchetto) or a3 (Petrosian system)",
+        "key_decision": "White chooses between g3 followed by Bg2, or a3 to stop Bb4",
         "best_moves_white": {
           "g3": {
-            "idea": "Fianchetto - the main line",
+            "idea": "Prepare Bg2 so the bishop reaches the long diagonal",
             "leads_to": "qi_fianchetto"
           },
           "a3": {
@@ -9146,7 +9210,7 @@
     },
     "variations": {
       "qi_fianchetto": {
-        "name": "Fianchetto Variation",
+        "name": "Bishop on g2 Variation",
         "moves_from_parent": [
           "g3",
           "Bb7",
@@ -9213,7 +9277,7 @@
             "key_decision": "The Petrosian system prevents Bb4 ideas",
             "best_moves": {
               "Bb7": {
-                "idea": "Continue the fianchetto plan",
+                "idea": "Continue with Bg2 so the bishop reaches the long diagonal",
                 "why_good": "The bishop is powerful on b7 regardless of White's setup"
               }
             }
@@ -9251,6 +9315,12 @@
       "c4",
       "e6"
     ],
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
+      "d5": {"idea": "Meet White in the center and stop an easy e4 pawn push."},
+      "c4": {"idea": "Attack the d5 pawn and try to pull Black's center apart."},
+      "e6": {"idea": "Support d5 with a pawn and open the f8 bishop, while accepting that the c8 bishop needs a later route."}
+    },
     "white_plan": "Build central control, develop with Nc3-Bg5-e3, aim for the b4-b5 queenside break or a central break",
     "black_plan": "Solidly defend d5, develop with Nf6-Be7-O-O, solve the light bishop problem, break with c5",
     "critical_positions": {
@@ -9499,7 +9569,14 @@
       "c5",
       "d5"
     ],
-    "white_plan": "Use the space advantage from d5, press on the queenside (a4, Nd2-c4), control e4",
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open the c1 bishop."},
+      "Nf6": {"idea": "Develop and watch e4 without fixing a central pawn yet."},
+      "c4": {"idea": "Take more central room and control d5."},
+      "c5": {"idea": "Attack d4 from the side and invite White to advance."},
+      "d5": {"idea": "Gain room and close the center, but give Black clear targets for e6 and b5."}
+    },
+    "white_plan": "Use the extra room from d5, press on the queenside with a4 and Nd2-c4, and control e4",
     "black_plan": "Counter with e6 (Modern Benoni) or e5 (Czech), kingside attack, use the dark squares",
     "critical_positions": {
       "after_d5": {
@@ -9766,7 +9843,7 @@
           "Ne5"
         ],
         "white_plan": "Use the d5 pawn as a spearhead, expand on queenside with a4-Nc4, control e4",
-        "black_plan": "Fianchetto Bg7, play on the kingside with f5 or center with e5, use the dark squares",
+        "black_plan": "Play g6 and Bg7, then attack with f5 on the kingside or e5 in the center",
         "critical_positions": {
           "after_d6": {
             "key_decision": "The Modern Benoni structure is set - asymmetric and sharp",
@@ -9798,7 +9875,7 @@
           "f4",
           "g6"
         ],
-        "white_plan": "Build a big center (e4+d5), slowly expand, use space advantage",
+        "white_plan": "Build a big center with e4 and d5, then use the extra room to improve every piece",
         "black_plan": "Lock the center with e5, maneuver pieces to the kingside, break with f5 when ready",
         "critical_positions": {
           "after_e5": {
@@ -9834,6 +9911,12 @@
       "c4",
       "e5"
     ],
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open the c1 bishop."},
+      "Nf6": {"idea": "Develop and watch e4 before committing a central pawn."},
+      "c4": {"idea": "Take more central room and control d5."},
+      "e5": {"idea": "Offer the e-pawn so Black can develop quickly and attack White's advanced pawn."}
+    },
     "white_plan": "Accept the gambit with dxe5, hold the extra pawn, develop solidly",
     "black_plan": "Sacrifice the e5 pawn for rapid development and piece activity, harass White's center",
     "critical_positions": {
@@ -9956,7 +10039,7 @@
           "O-O"
         ],
         "white_plan": "Hold e5, develop with Bf4-Nf3-e3, maintain the extra pawn",
-        "black_plan": "Pressure e5 with Ng4 and Nc6, develop Bb4+ for tempo, recover the pawn",
+        "black_plan": "Pressure e5 with Ng4 and Nc6, then use Bb4+ to develop with check and recover the pawn",
         "critical_positions": {
           "after_Ng4": {
             "key_decision": "Black immediately targets the e5 pawn",
@@ -10060,6 +10143,10 @@
       "d4",
       "f5"
     ],
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
+      "f5": {"idea": "Control e4 and prepare a kingside attack, while weakening the diagonal from e8 to h5."}
+    },
     "white_plan": "Control the center, develop naturally, exploit the weakened kingside (e1-h5 diagonal)",
     "black_plan": "Control e4 with f5, choose between Stonewall (d5), Leningrad (g6), or Classical (e6+Be7)",
     "critical_positions": {
@@ -10068,7 +10155,7 @@
         "key_decision": "Black plays aggressively with f5 - controlling e4 is the priority",
         "best_moves_white": {
           "g3": {
-            "idea": "Fianchetto - the most common response",
+            "idea": "Prepare Bg2 so the bishop can pressure the center",
             "why_good": "Bg2 will pressure the center and fight for e4"
           },
           "c4": {
@@ -10131,7 +10218,7 @@
           "Ne5",
           "Bb7"
         ],
-        "white_plan": "Fianchetto Bg2, exploit the weak e5 square, play around the stonewall",
+        "white_plan": "Play g3 and Bg2, use the weak e5 square, and play around the pawn wall",
         "black_plan": "Build the wall: d5+f5+e6+c6, develop Bd6 and aim for a kingside attack",
         "critical_positions": {
           "after_d5": {
@@ -10175,10 +10262,10 @@
           "Bxe6"
         ],
         "white_plan": "Develop with g3-Bg2-Nf3, challenge the center, exploit the weakened light squares",
-        "black_plan": "Fianchetto BOTH bishops (Bg7 + f5), play for e5 break, kingside attack",
+        "black_plan": "Place the bishop on g7 behind the f5 pawn, then prepare e5 and a kingside attack",
         "critical_positions": {
           "after_Bg7": {
-            "key_decision": "The Leningrad setup - double fianchetto with f5",
+            "key_decision": "The Leningrad setup - g6 and Bg7 behind the f5 pawn",
             "best_moves": {
               "Nf3": {
                 "idea": "Develop naturally",
@@ -10192,7 +10279,7 @@
     "common_learnings": [
       "The Dutch is aggressive for Black - f5 controls e4 and aims for kingside play",
       "The Stonewall (d5+f5) creates a fortress but leaves e5 weak",
-      "The Leningrad (g6+Bg7+f5) is more dynamic with the double fianchetto",
+      "The Leningrad uses g6, Bg7, and f5 to build a more active kingside setup",
       "The weak e1-h5 diagonal is Black's main vulnerability after f5",
       "Black should always castle kingside quickly to protect the weakened king position"
     ]
@@ -10289,6 +10376,12 @@
       "c4",
       "e5"
     ],
+    "move_ideas": {
+      "d4": {"idea": "Claim the center and open the c1 bishop."},
+      "d5": {"idea": "Meet White in the center and stop an easy e4 pawn push."},
+      "c4": {"idea": "Attack d5 and offer the c-pawn to pull Black's center apart."},
+      "e5": {"idea": "Counter in the center at once. If White captures, Black plans to push d4 and gain room for the pieces."}
+    },
     "white_plan": "Accept the gambit, hold the center",
     "black_plan": "Push d4, create complications",
     "variations": {}

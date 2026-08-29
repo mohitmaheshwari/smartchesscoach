@@ -2,7 +2,9 @@
 
 Status: **approved for implementation** on 2026-08-29. The existing-surface
 audit was reviewed with Mohit, and the explicit response “go for it please”
-approved the repair-first sequence below.
+approved the work. Mohit then explicitly corrected the release direction:
+incomplete content must be completed and strengthened, not left hidden as the
+product outcome. Quarantine remains a temporary safety gate only.
 
 ## 0. Existing surfaces audit
 
@@ -44,8 +46,10 @@ Decision:
   - openings: `backend/data/opening_curriculum.json`
   - traps: `backend/data/traps.json`
   - endgames: `backend/data/coaching/endgame_theory_tree.json`
-- Unsafe or incomplete records are not rendered as locked promises. They stay
-  out of the player catalog until their source record passes the content gate.
+- Unsafe or incomplete records are not rendered as locked promises while they
+  are being repaired. They stay in the canonical source, are completed in the
+  same release sequence, and return to the player catalog as soon as they pass
+  the content gate.
 
 ## 1. Player outcome
 
@@ -252,9 +256,14 @@ lesson.
   and a pinned engine verification path where Syzygy is not eligible.
 - Existing corpus snapshots decide repair priority. No engagement threshold is
   locked against contaminated pre-launch analytics.
-- The first release slice is repair and quarantine, not catalog expansion.
-- New opening, trap, and advanced endgame additions remain deferred until all
-  exposed records pass the gate and the external coach/player validation
-  sessions are complete.
+- The release outcome is a stronger catalog, not a smaller one: repair content,
+  complete missing teaching, validate it, and restore it.
+- Completion order is locked to existing evidence: finish the 12 already-legal
+  opening lines first; add defense teaching to the 21 chess-verified traps;
+  add the essential queen-mate, rook-mate, stop-promotion, and active-rook
+  endgames; then repair the remaining records by player frequency and level.
+- The validator may temporarily quarantine a broken record during development,
+  but a quarantine count is unfinished work and cannot be reported as the
+  completed curriculum.
 - Manual verification by Mohit and the invited coaches is the final product
   stage, after automated development evidence is green.

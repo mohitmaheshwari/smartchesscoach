@@ -4,6 +4,99 @@
     "version": "1.0",
     "structure": "Categories → Lessons → Positions. Each position: show → user tries → feedback + rule."
   },
+  "basic_mates": {
+    "name": "Basic Checkmates",
+    "icon": "target",
+    "description": "Turn a winning queen or rook into checkmate without stalemating the king.",
+    "lessons": {
+      "queen_mate": {
+        "name": "Mate with Queen",
+        "rule": "Use the queen to make a smaller box, bring your king close, then place the queen one knight-move away from the enemy king for mate.",
+        "description": "The queen makes the box smaller. Your king closes the last escape squares. Keep one legal square available until you are ready to mate.",
+        "positions": [
+          {
+            "fen": "7k/8/8/8/8/8/4K3/3Q4 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Qd7",
+            "correct_move_uci": "d1d7",
+            "wrong_example_san": "Qh1+",
+            "prompt": "What queen move cuts the king down to the last two ranks?",
+            "idea": "Qd7 controls every square on the seventh rank. The black king is now held near the back edge while White's king approaches.",
+            "on_correct": "Qd7 makes the box smaller without stalemating the king. Now bring your king closer.",
+            "on_wrong": "A distant check makes the king move but does not organize the mate. First use the queen to build a clear wall.",
+            "rule_reminder": "Queen first: make a smaller box. King second: walk toward the box."
+          },
+          {
+            "fen": "7k/8/8/4K3/8/8/8/Q7 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf6",
+            "correct_move_uci": "e5f6",
+            "wrong_example_san": "Qh1+",
+            "prompt": "The queen is doing its job. Which king move prepares the finish?",
+            "idea": "Kf6 brings White's king close enough to protect the queen on the mating rank. The queen does not need another check yet.",
+            "on_correct": "Kf6 brings the king into the finish. With both pieces working together, mate is close.",
+            "on_wrong": "Another queen check only sends the king around the box. Bring your king close so it can guard the queen.",
+            "rule_reminder": "Once the box is small, stop checking and bring your king."
+          },
+          {
+            "fen": "7k/4Q3/5K2/8/8/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Qg7#",
+            "correct_move_uci": "e7g7",
+            "wrong_example_san": "Qf8+",
+            "prompt": "Finish the checkmate in one move.",
+            "idea": "Qg7 is protected by the king on f6. The queen checks h8 and controls g8 and h7, so every escape square is closed.",
+            "on_correct": "Qg7 is checkmate. The queen gives the check and your king protects the queen.",
+            "on_wrong": "That is only another check. Look for a queen square protected by your king that also covers every escape square.",
+            "rule_reminder": "For the finish, the queen checks and the king protects the queen."
+          }
+        ]
+      },
+      "rook_mate": {
+        "name": "Mate with Rook",
+        "rule": "Use the rook as a wall, bring your king close, then check along the edge when your king controls the escape squares.",
+        "description": "A rook cannot finish alone. It cuts off a rank or file while your king walks up to support the final check.",
+        "positions": [
+          {
+            "fen": "7k/8/8/4K3/8/8/8/R7 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ra7",
+            "correct_move_uci": "a1a7",
+            "wrong_example_san": "Ra8+",
+            "prompt": "Where should the rook build a wall around the king?",
+            "idea": "Ra7 controls the entire seventh rank. The black king stays on the back rank while White's king approaches.",
+            "on_correct": "Ra7 builds the wall. Keep the rook safe and bring your king closer next.",
+            "on_wrong": "A check makes the king move but does not improve your king. Build the wall first, then walk your king up.",
+            "rule_reminder": "Rook makes the wall. King walks toward the trapped king."
+          },
+          {
+            "fen": "7k/R7/8/4K3/8/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf6",
+            "correct_move_uci": "e5f6",
+            "wrong_example_san": "Ra8+",
+            "prompt": "The rook holds the wall. Which king move prepares mate?",
+            "idea": "Kf6 brings White's king close enough to control g7 and g8. The rook can then give the final edge check.",
+            "on_correct": "Kf6 joins the rook. The black king is now ready to be mated on the back rank.",
+            "on_wrong": "Checking too soon only sends the king along the edge. Bring your king close enough to control the escape squares.",
+            "rule_reminder": "Do not check forever. Bring the king until it controls the next rank."
+          },
+          {
+            "fen": "7k/R7/6K1/8/8/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ra8#",
+            "correct_move_uci": "a7a8",
+            "wrong_example_san": "Rg7",
+            "prompt": "Finish the checkmate without stalemating Black.",
+            "idea": "Ra8 checks across the back rank and controls g8. White's king on g6 controls g7 and h7, so Black has no escape.",
+            "on_correct": "Ra8 is checkmate. The rook checks while your king removes the only escape squares.",
+            "on_wrong": "Rg7 closes every escape square without giving check, which is stalemate. When the king has no escape, your move must give check.",
+            "rule_reminder": "No escape plus no check is stalemate. Give the final rook check."
+          }
+        ]
+      }
+    }
+  },
   "king_and_pawn": {
     "name": "King & Pawn",
     "icon": "crown",
@@ -158,40 +251,42 @@
         "description": "When pawns face each other and Kings are far away, a well-timed sacrifice can create an unstoppable passer.",
         "positions": [
           {
-            "fen": "8/1p6/p1p5/PPP5/8/8/7k/K7 w - - 0 1",
+            "fen": "k7/5ppp/8/5PPP/8/8/8/K7 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "g6",
+            "correct_move_uci": "g5g6",
+            "wrong_example_san": "h6",
+            "prompt": "The Kings are far away. How can White force one pawn through?",
+            "idea": "g6! offers the middle pawn. If the h-pawn captures it, f6 creates a runner. If the f-pawn captures it, h6 creates the runner instead.",
+            "on_correct": "g6 forces Black to choose which outside pawn White will free. The middle pawn is the key that opens one side.",
+            "on_wrong": "h6 lets Black answer ...gxh6 and keep the pawns under control. Offer the middle pawn with g6 first.",
+            "rule_reminder": "When three pawns face three pawns, test the middle-pawn offer. It can free either outside pawn.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "k7/5ppp/8/5PPP/8/8/8/K7 w - - 0 1", "move_uci": "g5g6", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 599}
+          },
+          {
+            "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1",
             "side_to_move": "white",
             "correct_move_san": "b6",
             "correct_move_uci": "b5b6",
             "wrong_example_san": "a6",
-            "prompt": "Both Kings are far away. How does White create a passed pawn?",
-            "idea": "b6! sacrifices the b-pawn to blow open the position. If ...axb6, then c6! and if ...bxc6 then a6 — one pawn gets through.",
-            "on_correct": "b6! is the breakthrough. Black can't capture on both sides. One White pawn will promote.",
-            "on_wrong": "a6 doesn't break through. After ...bxa6, the position is simplified without an advantage.",
-            "rule_reminder": "Strike in the CENTER of your pawn chain. The side pawns become unstoppable runners."
+            "prompt": "The same breakthrough appears on the other wing. Which pawn must move first?",
+            "idea": "b6! offers the middle pawn. After ...cxb6, a6! forces a pawn through; after ...axb6, c6! does the same job.",
+            "on_correct": "b6 makes one of the outside pawns impossible to stop. Calculate both captures before you play it.",
+            "on_wrong": "a6 closes one route and gives Black time. The middle-pawn offer with b6 is what opens a path.",
+            "rule_reminder": "Do not memorize a file. Recognize the shape: the middle pawn is sacrificed so an outside pawn can run.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1", "move_uci": "b5b6", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 607}
           },
           {
-            "fen": "8/8/p1p5/1p6/1P6/P1P5/7k/K7 w - - 0 1",
+            "fen": "k7/5pp1/6p1/5P1P/8/8/8/K7 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "c4",
-            "correct_move_uci": "c3c4",
-            "wrong_example_san": "a4",
-            "prompt": "White's pawns vs Black's pawns. Find the breakthrough.",
-            "idea": "c4! breaks through. After ...bxc4, a4 creates a passed a-pawn. If ...b4, then c5 creates a passed c-pawn.",
-            "on_correct": "c4! is the key move. Whatever Black captures, White creates a passed pawn on the other side.",
-            "on_wrong": "a4 doesn't achieve anything. The breakthrough requires attacking the base of the chain.",
-            "rule_reminder": "Attack the weak link. One sacrifice creates two threats — the defender can only handle one."
-          },
-          {
-            "fen": "8/6p1/5p1p/5PPP/8/8/k7/7K w - - 0 1",
-            "side_to_move": "white",
-            "correct_move_san": "g6",
-            "correct_move_uci": "g5g6",
-            "wrong_example_san": "f6",
-            "prompt": "Same concept, kingside. Find the breakthrough.",
-            "idea": "g6! is the center strike. After ...fxg6, h6! and the h-pawn runs. After ...hxg6, f6! and the f-pawn runs.",
-            "on_correct": "g6! works identically to the queenside version. The center pawn sacrifice creates an outside passer.",
-            "on_wrong": "f6 can be captured without creating a passed pawn. The center sacrifice is the key.",
-            "rule_reminder": "Breakthrough = center sacrifice. The flanks become unstoppable."
+            "correct_move_san": "f6",
+            "correct_move_uci": "f5f6",
+            "wrong_example_san": "hxg6",
+            "prompt": "After g6 ...hxg6, which pawn completes the breakthrough?",
+            "idea": "f6! cannot be stopped by the g7-pawn: ...gxf6 lets h6 and h7 follow, while waiting lets f7 and f8=Q follow.",
+            "on_correct": "f6 is the second half of the combination. The pawn that was furthest from the capture becomes the runner.",
+            "on_wrong": "hxg6 removes a pawn but gives up the promotion race. The point of g6 was to free f6 immediately.",
+            "rule_reminder": "A breakthrough is a sequence, not one move: offer the middle pawn, then push the outside pawn that was freed."
           }
         ]
       },
@@ -210,7 +305,8 @@
             "idea": "Centralize the King! Kf2 starts the march toward d3-e4. Pawn moves can wait — the King decides the endgame.",
             "on_correct": "Kf2 begins centralization. Next: Ke3, then Kd3 or Ke4. The King will dominate the center.",
             "on_wrong": "a3 wastes time on the flank. Your King is on g1 doing nothing — that's the real problem.",
-            "rule_reminder": "Queens are gone? King to the center. This is endgame rule #1."
+            "rule_reminder": "Queens are gone? King to the center. This is endgame rule #1.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/pp3k2/8/3p4/3P4/8/PP6/6K1 w - - 0 1", "move_uci": "g1f2", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 0}
           },
           {
             "fen": "8/5k2/4p3/3pP3/3P4/8/8/4K3 w - - 0 1",
@@ -294,28 +390,28 @@
         "description": "The drawing technique when defending Rook vs Rook + Pawn. Hold the 6th rank, then switch to checking from behind.",
         "positions": [
           {
-            "fen": "4k3/8/8/4PK2/8/8/8/r4R2 b - - 0 1",
+            "fen": "8/4k3/r7/4K3/4P3/8/8/7R b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Ra6",
-            "correct_move_uci": "a1a6",
+            "correct_move_san": "Ra5+",
+            "correct_move_uci": "a6a5",
             "wrong_example_san": "Ra8",
-            "prompt": "Black to move. The e-pawn is on e5. How does Black hold the draw?",
-            "idea": "Ra6! places the Rook on the 6th rank. This prevents the White King from advancing to e6. The pawn can't progress.",
-            "on_correct": "Ra6 is the Philidor defense. The Rook on the 6th rank stops the White King from advancing. Hold this line.",
-            "on_wrong": "Ra8 goes to the back rank too early. The King can advance to e6 and the position becomes dangerous.",
-            "rule_reminder": "6th rank FIRST. Back rank LATER (only when the pawn reaches the 6th)."
+            "prompt": "Black's rook already blocks the White King from the side. What should Black do when a side check is available?",
+            "idea": "Ra5+ sends the King away from the pawn. The defender keeps checking from the side instead of waiting passively behind the pawn.",
+            "on_correct": "Ra5+ uses the rook's distance. White must move the King, so the e-pawn cannot advance with support.",
+            "on_wrong": "Ra8 gives up the useful side check and lets White improve. Check from the side while the King is exposed.",
+            "rule_reminder": "In the Philidor defense, deny the King shelter. Use side checks before switching behind the pawn."
           },
           {
-            "fen": "4k3/8/4PK2/8/8/8/8/r4R2 b - - 0 1",
+            "fen": "4k3/8/4K3/r3P3/8/8/8/7R b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Rf1",
-            "correct_move_uci": "a1f1",
-            "wrong_example_san": "Ra6",
-            "prompt": "The pawn has reached the 6th rank! Black to move. What now?",
-            "idea": "NOW switch to the back rank! Rf1+ starts the checking sequence. White can't escape the checks because advancing the King blocks the pawn.",
-            "on_correct": "Rf1+ is correct! The back rank is now the right place. Infinite checks from behind — White can never escape.",
-            "on_wrong": "Ra6 is too late now. The pawn is already on the 6th rank. You needed to switch to checking from behind.",
-            "rule_reminder": "Pawn on the 6th? → Back rank. Check from behind. The attacker can never escape."
+            "correct_move_san": "Ra6+",
+            "correct_move_uci": "a5a6",
+            "wrong_example_san": "Ra8",
+            "prompt": "White's King stepped to e6. Should Black rush behind the pawn or keep checking from the side?",
+            "idea": "Ra6+ keeps the White King exposed. Moving to a1 now would let White escape the checks and turn the draw into a win.",
+            "on_correct": "Ra6+ is the only move that keeps the exact draw. The check forces the King to move before the pawn can advance.",
+            "on_wrong": "Ra8 stops checking and gives White time to coordinate the King and pawn. Keep using side checks while they work.",
+            "rule_reminder": "Do not switch behind the pawn by memory alone. Keep checking from the side until the attacker finds shelter."
           },
           {
             "fen": "4k3/8/r3P3/5K2/8/8/8/4R3 b - - 0 1",
@@ -337,28 +433,28 @@
         "description": "In rook endgames, the activity of your Rook matters more than material. A Rook on the 7th rank or behind a passed pawn dominates.",
         "positions": [
           {
-            "fen": "8/R4pk1/5p2/5P2/8/6K1/r7/8 w - - 0 1",
+            "fen": "6k1/R7/5p2/5P2/8/6K1/1r6/8 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "Ra8",
+            "correct_move_san": "Ra8+",
             "correct_move_uci": "a7a8",
-            "wrong_example_san": "Kf4",
-            "prompt": "White's Rook is on the 7th rank. How should White proceed?",
-            "idea": "Ra8 keeps the Rook maximally active. From a8, it can swing to any file and maintains pressure on the 8th rank.",
-            "on_correct": "Ra8 maintains the active Rook. It ties down Black's King and keeps all options open.",
-            "on_wrong": "Kf4 is passive. The Rook's activity on the 7th/8th rank is the main advantage — keep it there.",
-            "rule_reminder": "Rook on the 7th rank = domination. Keep it active, don't abandon it."
+            "wrong_example_san": "Rh7",
+            "prompt": "White must hold this rook endgame. Which move checks from a safe distance?",
+            "idea": "Ra8+ checks along the back rank while keeping the rook far from Black's king and rook. The active check preserves the draw.",
+            "on_correct": "Ra8+ makes Black answer the check. White keeps enough activity to hold the game.",
+            "on_wrong": "Rh7 stops checking and places the rook where Black can coordinate an attack. Keep checking from the side or behind.",
+            "rule_reminder": "When defending a rook endgame, active checks can be worth more than guarding a pawn."
           },
           {
-            "fen": "8/8/4k3/p7/P4K2/8/8/r3R3 w - - 0 1",
+            "fen": "8/8/4k3/p7/P4K2/8/8/R7 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "Re5+",
-            "correct_move_uci": "e1e5",
-            "wrong_example_san": "Ra1",
-            "prompt": "Rooks and pawns. White to move.",
-            "idea": "Re5+! activates the Rook with check. After the King moves, the Rook is active and White can play for a win.",
-            "on_correct": "Re5+ is active play. The Rook gains activity AND attacks. This is how you win rook endgames.",
-            "on_wrong": "Ra1 is passive. Defending the a-pawn from behind is less important than Rook activity.",
-            "rule_reminder": "Activity > material. An active Rook wins; a passive Rook loses."
+            "correct_move_san": "Re1+",
+            "correct_move_uci": "a1e1",
+            "wrong_example_san": "Ra3",
+            "prompt": "White is a pawn up. How can the rook improve with a threat?",
+            "idea": "Re1+ moves the rook to an open file with check. Black's king must move before it can attack White's pawns.",
+            "on_correct": "Re1+ improves the rook and gains a move by checking the king.",
+            "on_wrong": "Ra3 moves the rook without creating a threat. Use the open rank to check from the side.",
+            "rule_reminder": "Improve the rook with a check when the check also gives it a useful file or rank."
           },
           {
             "fen": "8/1r6/8/1Pk5/8/1K6/8/1R6 w - - 0 1",
@@ -383,20 +479,20 @@
     "lessons": {
       "stop_promotion": {
         "name": "Stopping Promotion",
-        "rule": "Use checks to drive the enemy King IN FRONT of their pawn. Then bring your King closer. Repeat.",
-        "description": "When you have a Queen vs a pawn about to promote, use a check-and-approach pattern to bring your King in.",
+        "rule": "Stop the pawn with a pin, block, or useful check, then bring your King closer while the Queen keeps control.",
+        "description": "A Queen stops a dangerous pawn by controlling its next square. Once the pawn cannot move, bring the King closer and repeat.",
         "positions": [
           {
             "fen": "8/8/8/8/7k/1q6/1P6/1K6 b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Qc3",
-            "correct_move_uci": "b3c3",
-            "wrong_example_san": "Qb4",
-            "prompt": "Black has the Queen. White's b-pawn is one step from promoting. How do you stop it?",
-            "idea": "Qc3! forces the King to step in front of the pawn (Kc1 or Ka2), blocking the promotion. Then bring your King closer.",
-            "on_correct": "Qc3 forces Kb1 or Ka2, both stepping in front of the pawn. Now bring your King one step closer.",
-            "on_wrong": "Qb4 doesn't force the King in front of the pawn. The King can sidestep and the pawn still threatens.",
-            "rule_reminder": "Check → King in front of pawn → bring your King closer → repeat."
+            "correct_move_san": "Qb4",
+            "correct_move_uci": "b3b4",
+            "wrong_example_san": "Qc3",
+            "prompt": "Black has the Queen. How do you freeze the b-pawn before bringing the King closer?",
+            "idea": "Qb4 pins the b-pawn to the King on b1. The pawn cannot move because exposing the King would be illegal.",
+            "on_correct": "Qb4 freezes the pawn. Black can now walk the King closer without allowing promotion.",
+            "on_wrong": "Qc3 looks active, but it gives up the exact win. Pin the pawn from b4 so it cannot move at all.",
+            "rule_reminder": "If the pawn is pinned to its King, stop checking and bring your King closer."
           },
           {
             "fen": "8/8/8/7k/q7/8/P7/K7 b - - 0 1",
@@ -411,16 +507,16 @@
             "rule_reminder": "Give check from the direction that forces the King IN FRONT of the pawn."
           },
           {
-            "fen": "8/8/8/8/6k1/8/1q6/2KP4 b - - 0 1",
+            "fen": "8/8/8/8/6k1/7q/3P4/2K5 b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Qb1+",
-            "correct_move_uci": "b2b1",
+            "correct_move_san": "Qd3",
+            "correct_move_uci": "h3d3",
             "wrong_example_san": "Qc3+",
-            "prompt": "White's d-pawn is ready to push. Find the winning check.",
-            "idea": "Qb1+ forces Kd2, blocking the d-pawn. Now Kg3 brings the King closer. Repeat the pattern.",
-            "on_correct": "Qb1+ forces Kd2. The d-pawn can't advance. Now bring your King closer step by step.",
-            "on_wrong": "Qc3+ allows Kd1, and the pawn can still push next move. Choose checks that block the pawn.",
-            "rule_reminder": "Not all checks are equal. Pick the check that forces the King IN FRONT of the pawn."
+            "prompt": "White's d-pawn wants to advance. Which queen move blocks it and keeps the win?",
+            "idea": "Qd3 places the Queen directly in front of the pawn. The pawn cannot advance, so Black's King has time to approach.",
+            "on_correct": "Qd3 blockades the pawn. Now the King can come closer without a promotion race.",
+            "on_wrong": "Qc3+ is a check, but exact tablebase play says it throws away the win. A useful block is better than a check with no lasting control.",
+            "rule_reminder": "Not every check helps. First make sure the pawn's next square stays controlled."
           }
         ]
       },
@@ -432,24 +528,24 @@
           {
             "fen": "8/8/8/8/5k2/1q6/5P2/5K2 b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Qe3",
-            "correct_move_uci": "b3e3",
+            "correct_move_san": "Qf3",
+            "correct_move_uci": "b3f3",
             "wrong_example_san": "Ke3",
             "prompt": "White has an f-pawn on f2. Black has a Queen. Be careful — is there a stalemate trap?",
-            "idea": "Qe3 approaches the pawn and controls the key squares. The f-pawn (not a/h-pawn) is a normal win — no stalemate tricks here.",
-            "on_correct": "Qe3 takes control. The f-pawn is a standard win — centralize the Queen and bring your King closer.",
+            "idea": "Qf3 controls the pawn's next square and keeps the White King boxed in without taking away every legal move.",
+            "on_correct": "Qf3 keeps the win and avoids an accidental stalemate. Now Black can bring the King closer before taking the pawn.",
             "on_wrong": "Ke3 walks into the pawn's path. Keep the Queen active first, then approach with the King.",
             "rule_reminder": "Central and bishop/knight pawns are normal wins. Rook-pawn (a/h) is the stalemate danger zone."
           },
           {
-            "fen": "K7/P7/8/8/8/8/6q1/7k b - - 0 1",
+            "fen": "K7/P7/8/8/8/7k/5q2/8 b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Qg8",
-            "correct_move_uci": "g2g8",
+            "correct_move_san": "Qf8+",
+            "correct_move_uci": "f2f8",
             "wrong_example_san": "Qb7",
             "prompt": "White's a-pawn is on the 7th! King is in the corner. Can Black win?",
-            "idea": "Qg8 maintains pressure without allowing stalemate. But this is the dreaded rook-pawn position — if Black isn't careful, Ka8 leads to stalemate.",
-            "on_correct": "Qg8 keeps control. But be warned: this position with the a-pawn/h-pawn IS a draw with correct play from White. Ka8 and it's stalemate if the Queen takes the pawn.",
+            "idea": "Qf8+ keeps White's King moving. The position is drawn with correct defense because taking the a-pawn can leave the King with no legal move.",
+            "on_correct": "Qf8+ avoids stalemate for this move, but it does not create a win. The lesson is to recognize that the corner King and rook-pawn can hold the draw.",
             "on_wrong": "Qb7 is stalemate immediately! The King has no squares — that's exactly the trap.",
             "rule_reminder": "Queen vs rook-pawn (a or h file) with King in the corner = DRAW. This is one of the most important things to know."
           },
@@ -489,19 +585,21 @@
             "idea": "This is a GOOD bishop — pawns on d4, e5, f4 (dark) leave the light diagonals open. Bd3 aims at the kingside.",
             "on_correct": "Bd3 activates the good bishop. It eyes f5 and h7. Your pawns don't block your bishop — that's the key.",
             "on_wrong": "Bd1 retreats the bishop to a passive square. Use the open diagonals — that's why it's a good bishop.",
-            "rule_reminder": "Pawns on dark squares + light-squared bishop = GOOD. The bishop has open highways."
+            "rule_reminder": "Pawns on dark squares + light-squared bishop = GOOD. The bishop has open highways.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4BK2/8 w - - 0 1", "move_uci": "e2d3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 99974}
           },
           {
-            "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4K3/5b2 b - - 0 1",
+            "fen": "8/3b1k2/2p1p3/4Pp2/3P1P2/8/5K2/8 b - - 0 1",
             "side_to_move": "black",
-            "correct_move_san": "Ke8",
-            "correct_move_uci": "f7e8",
-            "wrong_example_san": "Bg2",
-            "prompt": "Black has a light-squared bishop. Pawns on e6, d5, f5 are also on light squares. What's the problem?",
-            "idea": "Black's bishop is BAD — trapped behind its own pawns on light squares. There's no active square. Ke8 tries to hold passively.",
-            "on_correct": "Ke8 is the best you can do. The bad bishop has no future — it's blocked by its own pawns. This is a losing structure.",
-            "on_wrong": "Bg2 looks active but has no targets. The bishop is doomed to passivity because the pawns block every diagonal.",
-            "rule_reminder": "BAD bishop = same color as your pawns. The fix: move your pawns OR trade the bishop."
+            "correct_move_san": "c5",
+            "correct_move_uci": "c6c5",
+            "wrong_example_san": "Ke8",
+            "prompt": "Black's bishop on d7 is blocked by the pawn on c6. How can Black open a useful diagonal?",
+            "idea": "c5 moves the c-pawn off c6 and opens d7-c6-b5-a4 for the bishop. Improve the blocked bishop by moving the pawn that cages it.",
+            "on_correct": "c5 gives the bishop a route to b5 and a4. The bishop becomes useful because one blocking pawn moved away.",
+            "on_wrong": "Ke8 leaves the bishop trapped behind c6. Fix the piece that has no route before making a waiting King move.",
+            "rule_reminder": "If your bishop is blocked by your own pawns, move one blocking pawn to open a diagonal.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/3b1k2/2p1p3/4Pp2/3P1P2/8/5K2/8 b - - 0 1", "move_uci": "c6c5", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 936}
           },
           {
             "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1",
@@ -513,7 +611,8 @@
             "idea": "White's bishop on e3 is GOOD (pawns on light squares a2, b5, c4, e4). Black's bishop on e6 is BAD (pawns on dark squares block nothing, but bishop has no targets). Activate the King.",
             "on_correct": "Kf2 starts centralizing. White's good bishop + active King will dominate Black's bad bishop.",
             "on_wrong": "a4 pushes a pawn but doesn't address the real advantage: King activity combined with the better bishop.",
-            "rule_reminder": "Good bishop + active King = winning formula. Bad bishop + passive King = suffering."
+            "rule_reminder": "Good bishop + active King = winning formula. Bad bishop + passive King = suffering.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1", "move_uci": "g1f2", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": -60}
           }
         ]
       },
@@ -525,38 +624,38 @@
           {
             "fen": "8/8/4k3/3pp3/8/4B3/4K3/2b5 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "Bc5",
-            "correct_move_uci": "e3c5",
+            "correct_move_san": "Bxc1",
+            "correct_move_uci": "e3c1",
             "wrong_example_san": "Bd2",
             "prompt": "Black is 2 pawns up but the bishops are on opposite colors. Can White hold?",
-            "idea": "Bc5! blockades the d-pawn. Black's dark-squared bishop can't challenge White's light-squared bishop. This is a fortress draw.",
-            "on_correct": "Bc5 creates a blockade. The bishops operate on different colors — Black can never break through. Classic drawn endgame.",
+            "idea": "Bxc1 removes Black's bishop before setting up the blockade. With only the two pawns left, White's King and bishop can hold them.",
+            "on_correct": "Bxc1 trades the piece that could support the pawns. The remaining pawn ending is held with a blockade.",
             "on_wrong": "Bd2 is passive. Bc5 sets up the blockade on the right diagonal. The key is blocking the passed pawns on squares your bishop controls.",
             "rule_reminder": "Opposite-color bishops = drawing weapon. Blockade the pawns on YOUR bishop's color."
           },
           {
             "fen": "2b5/5p2/4pk2/8/4PK2/5B2/8/8 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "Bg4",
-            "correct_move_uci": "f3g4",
-            "wrong_example_san": "e5+",
+            "correct_move_san": "e5+",
+            "correct_move_uci": "e4e5",
+            "wrong_example_san": "Bg4",
             "prompt": "Equal material, opposite-color bishops. What's the best strategy?",
-            "idea": "Bg4 targets the f5 square and pins the f-pawn. With opposite-color bishops, the ATTACKER needs to create threats on both sides of the board.",
-            "on_correct": "Bg4 creates pressure. In opposite-color bishop middlegames, the attacker has the advantage — but in pure endgames, it's usually drawn.",
-            "on_wrong": "e5+ trades the last pawn and it's a dead draw. Keep the tension — opposite-color bishops need pawns to create winning chances.",
-            "rule_reminder": "With pawns: create threats on BOTH sides. The defender's bishop can only cover one color. Without pawns: always drawn."
+            "idea": "e5+ fixes Black's pawns and forces the King to respond. White keeps the position level by preventing Black from creating a protected runner.",
+            "on_correct": "e5+ closes the route for Black's King and keeps the draw. The check gives White the time needed to hold the pawns.",
+            "on_wrong": "Bg4 lets Black improve the King and can turn the draw into a loss. Use the forcing pawn check now.",
+            "rule_reminder": "Opposite-color bishops often draw, but only if you stop the King and pawns before they cross your blockade."
           },
           {
             "fen": "8/p4k2/8/1P6/5b2/4B3/5K2/8 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "b6",
-            "correct_move_uci": "b5b6",
+            "correct_move_san": "Bxf4",
+            "correct_move_uci": "e3f4",
             "wrong_example_san": "Ke2",
             "prompt": "White has a passed b-pawn. Can the opposite-color bishops help or hurt?",
-            "idea": "b6! pushes the pawn to a dark square where Black's dark-squared bishop CAN attack it. But White's light-squared bishop will escort it. The key: the defending bishop must blockade on its own color.",
-            "on_correct": "b6 advances. Black's bishop can attack b6 but White's bishop controls the light-square route. Opposite-color bishops make passed pawns harder to stop when supported.",
-            "on_wrong": "Ke2 wastes time. The passed pawn is your advantage — push it before Black sets up a blockade.",
-            "rule_reminder": "Passed pawn + opposite-color bishops: the ATTACKER can win if the pawn is far advanced. It's not always a draw!"
+            "idea": "Bxf4 removes Black's bishop. Once the defender's bishop disappears, the b-pawn can advance without being attacked from f4.",
+            "on_correct": "Bxf4 wins the defending bishop and leaves White with a simple passed-pawn win.",
+            "on_wrong": "Ke2 misses the free bishop on f4. Before planning a pawn race, check whether you can remove the defender immediately.",
+            "rule_reminder": "The drawing power of opposite-color bishops disappears if one bishop can be captured. Check captures first."
           }
         ]
       }
@@ -582,7 +681,8 @@
             "idea": "Ne3! heads for d5 or f5 — powerful outposts. In closed positions, the knight hops over pawns while a bishop would be blocked.",
             "on_correct": "Ne3 starts the knight journey to an outpost on d5 or f5. Knights thrive in closed positions — they jump over the pawn chains.",
             "on_wrong": "Nb2 heads to the wrong side. The knight needs to reach a central outpost like d5 or f5.",
-            "rule_reminder": "Closed position = knight is better. It hops over locked pawns that would block a bishop."
+            "rule_reminder": "Closed position = knight is better. It hops over locked pawns that would block a bishop.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p1p2k2/1p1p4/3Pp3/1PP1P3/8/5K2/3N4 w - - 0 1", "move_uci": "d1e3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 530}
           },
           {
             "fen": "8/5k2/3n4/4p3/4P3/3NK3/8/8 w - - 0 1",
@@ -606,7 +706,8 @@
             "idea": "Nf3! heads for g5 or h4, targeting the kingside. The knight reroutes to attack weaknesses the opponent can't easily defend.",
             "on_correct": "Nf3 reroutes to g5, attacking e6 and h7. Knights can change direction quickly — that's their superpower.",
             "on_wrong": "Nb5 reaches an outpost but has no targets. The kingside offers real weaknesses to attack.",
-            "rule_reminder": "Knights reroute easily. Don't settle for a pretty square — aim for one that attacks real weaknesses."
+            "rule_reminder": "Knights reroute easily. Don't settle for a pretty square — aim for one that attacks real weaknesses.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p4k2/1p2p3/3pP3/1P1N4/P7/5K2/8 w - - 0 1", "move_uci": "d4f3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 737}
           }
         ]
       },
@@ -628,7 +729,7 @@
             "rule_reminder": "Knights are the ideal blockaders. They lose ZERO strength when sitting in front of a pawn."
           },
           {
-            "fen": "8/3k4/8/3pN3/8/4K3/8/8 w - - 0 1",
+            "fen": "8/2k5/8/3pN3/8/4K3/8/8 w - - 0 1",
             "side_to_move": "white",
             "correct_move_san": "Nd3",
             "correct_move_uci": "e5d3",
@@ -678,28 +779,28 @@
             "rule_reminder": "To create a passed pawn: exchange a pawn to leave one with a clear path. Don't lock the structure."
           },
           {
-            "fen": "8/5k2/1pp5/p1p5/P1P5/1P6/8/5K2 w - - 0 1",
+            "fen": "7k/8/p7/8/PP6/8/8/7K w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "b4",
-            "correct_move_uci": "b3b4",
-            "wrong_example_san": "Ke2",
-            "prompt": "Locked structure. How does White create a passed pawn?",
-            "idea": "b4! breaks the pawn chain. After ...axb4 (or ...cxb4), White recaptures and creates a passed pawn on the a or c-file.",
-            "on_correct": "b4 breaks through. This is a pawn lever — sacrificing the pawn structure to create a passer. Essential technique.",
-            "on_wrong": "Ke2 doesn't create any progress. You need a pawn break to create a passed pawn.",
-            "rule_reminder": "Use pawn levers (b4, c5, f5, etc.) to break the structure and create passed pawns."
+            "correct_move_san": "b5",
+            "correct_move_uci": "b4b5",
+            "wrong_example_san": "a5",
+            "prompt": "White has two pawns against Black's a-pawn. How can White force a passed pawn?",
+            "idea": "b5! offers the b-pawn. If ...axb5, then axb5 leaves White with a passed b-pawn and a clear route to promotion.",
+            "on_correct": "b5 forces the only black pawn to leave the a-file. White recaptures and creates a passed pawn.",
+            "on_wrong": "a5 lets Black block with ...b5 no longer available as a capture idea. Use b5 to force the exchange on your terms.",
+            "rule_reminder": "Create a passed pawn by forcing the enemy pawn to capture, then recapture onto the newly opened file."
           },
           {
-            "fen": "8/2k5/4p3/4P3/2K5/5P2/8/8 w - - 0 1",
+            "fen": "k7/8/6p1/8/5PP1/8/8/K7 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "f4",
-            "correct_move_uci": "f3f4",
-            "wrong_example_san": "Kd4",
-            "prompt": "White has an e5-pawn and f3-pawn. How to create a passed pawn?",
-            "idea": "f4! advances the f-pawn. After f5, Black must capture exf5, and White's e-pawn becomes a passed pawn. Or if Black doesn't capture, f6 creates a passer.",
-            "on_correct": "f4 prepares f5, creating a passed pawn by force. The f-pawn is a battering ram — it sacrifices itself to free the e-pawn.",
-            "on_wrong": "Kd4 centralizes but doesn't create a passer. You need f4-f5 to force the breakthrough.",
-            "rule_reminder": "Use a supporting pawn as a battering ram. Sacrifice it to create a passed pawn for its neighbor."
+            "correct_move_san": "f5",
+            "correct_move_uci": "f4f5",
+            "wrong_example_san": "g5",
+            "prompt": "White has two pawns against Black's g-pawn. Which pawn creates the runner?",
+            "idea": "f5! offers the f-pawn. If ...gxf5, then gxf5 creates a passed f-pawn. If Black waits, f6 becomes dangerous by itself.",
+            "on_correct": "f5 creates a passed pawn whichever way Black reacts. The neighboring pawn is ready to recapture.",
+            "on_wrong": "g5 locks the pawns and removes the useful capture. Offer the f-pawn so g4 can recapture onto an open file.",
+            "rule_reminder": "The pawn beside the enemy pawn often makes the break; its neighbor recaptures and becomes the passer."
           }
         ]
       },
@@ -761,7 +862,8 @@
             "idea": "a4! starts pushing the outside passer. Black's King must chase it, leaving the kingside pawns undefended. Then White's King eats them.",
             "on_correct": "a4 starts the decoy operation. The a-pawn runs, Black's King chases, White's King feasts on the kingside. Classic technique.",
             "on_wrong": "Kf3 is too slow. Push the a-pawn NOW — it's a decoy that wins the game by distraction.",
-            "rule_reminder": "Outside passed pawn = decoy. Push it, force the King to chase, clean up the other side."
+            "rule_reminder": "Outside passed pawn = decoy. Push it, force the King to chase, clean up the other side.",
+            "verification": {"method": "stockfish", "status": "verified", "fen": "8/8/1p2k1p1/1P4p1/6P1/4K3/P7/8 w - - 0 1", "move_uci": "a2a4", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 733}
           },
           {
             "fen": "8/5k2/6p1/4p1P1/4K3/8/P7/8 w - - 0 1",
@@ -783,8 +885,8 @@
             "wrong_example_san": "Ke4",
             "prompt": "Both sides have an a-pawn and g-pawn, but White's a-pawn is more advanced. How does this help?",
             "idea": "a5! advances the pawn. It's further from the kingside than Black's a7-pawn, so Black's King must travel further to stop it. White wins the foot race.",
-            "on_correct": "a5 gains the decisive tempo. White's passer is further advanced — Black's King can't handle both sides.",
-            "on_wrong": "Ke4 doesn't use the tempo advantage. The outside passer must advance NOW before Black can set up a defense.",
+            "on_correct": "a5 gains a full move in the pawn race. White's passer is further advanced, so Black's King cannot handle both sides.",
+            "on_wrong": "Ke4 gives away that extra move. The outside passer must advance now before Black can set up a defense.",
             "rule_reminder": "More advanced outside passer = bigger decoy range = more time for your King to win on the other side."
           }
         ]
@@ -797,14 +899,14 @@
           {
             "fen": "8/8/5k2/8/5pP1/5K2/5P2/8 w - - 0 1",
             "side_to_move": "white",
-            "correct_move_san": "g5+",
-            "correct_move_uci": "g4g5",
-            "wrong_example_san": "Kxf4",
+            "correct_move_san": "Kxf4",
+            "correct_move_uci": "f3f4",
+            "wrong_example_san": "g5+",
             "prompt": "White has g4 and f2 vs Black's f4. How to win?",
-            "idea": "g5+! advances the unblocked pawn. After ...Kf5 (or ...Kg6), the g-pawn distracts while the f2-pawn prepares to advance.",
-            "on_correct": "g5+ pushes the advanced pawn. Two connected pawns overpower one — push the one that's NOT blocked first.",
-            "on_wrong": "Kxf4 captures but then it's one pawn vs zero with Kings nearby — a much harder win. Keep both pawns for overwhelming force.",
-            "rule_reminder": "Two pawns vs one: push the UNBLOCKED pawn. The blocked pawn supports from behind."
+            "idea": "Kxf4 removes Black's last pawn while keeping both White pawns. White then has two connected pawns and an active King against a lone King.",
+            "on_correct": "Kxf4 is the cleanest win: remove Black's only pawn first, then walk the connected pawns forward with the King.",
+            "on_wrong": "g5+ leaves Black's f-pawn alive and turns the position into a race. Capture it now while the King can do so safely.",
+            "rule_reminder": "Before starting a pawn race, check whether your King can remove the opponent's last pawn for free."
           },
           {
             "fen": "8/8/6k1/6p1/5PP1/6K1/8/8 w - - 0 1",

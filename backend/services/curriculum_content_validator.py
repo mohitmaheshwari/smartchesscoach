@@ -139,6 +139,8 @@ def _iter_text(value: Any, location: str = "") -> Iterable[tuple[str, str]]:
     if isinstance(value, Mapping):
         for key, child in value.items():
             child_location = f"{location}.{key}" if location else str(key)
+            if key in {"leads_to", "trap_reference"}:
+                continue
             yield from _iter_text(child, child_location)
     elif isinstance(value, list):
         for index, child in enumerate(value):
