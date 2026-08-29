@@ -31,6 +31,7 @@ import {
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
+import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 
 const Layout = ({ children, user }) => {
   const location = useLocation();
@@ -47,8 +48,7 @@ const Layout = ({ children, user }) => {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(API + "/coach/personal-curriculum", { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
+    loadPersonalCurriculum(API, user?.user_id)
       .then((data) => {
         if (!cancelled) setPersonalCurriculumEnabled(Boolean(data?.enabled));
       })

@@ -348,19 +348,16 @@ def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]
     occurrence_count = _focus_occurrence_count(focus)
     if not topic_key or occurrence_count < 3:
         return None
-    label = str(
-        focus.get("topic_label")
-        or topic_key.replace("_", " ").title()
-    )
-    reason = str(
-        focus.get("coaching_narrative")
-        or "This has appeared several times in your recent games."
-    )
+    # topic_label and coaching_narrative belong to the legacy FocusCard and
+    # can contain internal percentages, corpus counts, and detector language.
+    # Curriculum surfaces consume the reviewed player projection instead.
+    from services.home_coach_conversation import get_player_safe_focus_copy
+    player_copy = get_player_safe_focus_copy(topic_key)
     return CurriculumCandidate(
         outcome=CurriculumOutcome.REPAIR,
         student_state=StudentState.LEARNING,
-        title=label,
-        reason=reason,
+        title=player_copy["title"],
+        reason=player_copy["reason"],
         evidence_summary="I found this in several of your recent games.",
         evidence_status=EvidenceStatus.TRUSTWORTHY,
         destination=CurriculumDestination(

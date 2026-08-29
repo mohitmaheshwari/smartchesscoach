@@ -31,3 +31,28 @@ export const curriculumStateLabel = (state) => ({
   can_do_alone: "Can do alone",
   used_in_games: "Used in games",
 }[state] || "Learning");
+
+const curriculumRequests = new Map();
+
+export const loadPersonalCurriculum = (api, userId) => {
+  const key = api + "|" + (userId || "anonymous");
+  if (!curriculumRequests.has(key)) {
+    const request = fetch(api + "/coach/personal-curriculum", {
+      credentials: "include",
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("curriculum unavailable");
+        return response.json();
+      })
+      .catch((error) => {
+        curriculumRequests.delete(key);
+        throw error;
+      });
+    curriculumRequests.set(key, request);
+  }
+  return curriculumRequests.get(key);
+};
+
+export const resetPersonalCurriculumRequestsForTests = () => {
+  curriculumRequests.clear();
+};

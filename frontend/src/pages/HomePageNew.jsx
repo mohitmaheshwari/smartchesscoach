@@ -17,6 +17,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/l
 import Layout from "@/components/Layout";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import CurriculumHome from "@/components/curriculum/CurriculumHome";
+import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 import {
   ChevronRight,
   Swords,
@@ -127,8 +128,7 @@ export default function HomePageNew({ user }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(API + "/coach/personal-curriculum", { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
+    loadPersonalCurriculum(API, user?.user_id)
       .then((data) => {
         if (!cancelled) setCurriculum(data);
       })
@@ -141,7 +141,7 @@ export default function HomePageNew({ user }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.user_id]);
 
   const pic = activeFocus?.personal_improvement_cycle?.eligible
     ? activeFocus.personal_improvement_cycle

@@ -148,7 +148,10 @@ def test_repair_requires_named_topic_to_recur_three_times():
     focus = {
         "focus_id": "f1",
         "topic_key": "piece_safety",
-        "topic_label": "Keep your pieces safe",
+        "topic_label": "Piece safety (53% critical)",
+        "coaching_narrative": (
+            "797 events across 624 games are tactical-sequence losses."
+        ),
         "detector_quality_id": "gap:piece_safety:simple_hang",
         "baseline_metric": {"occurrence_count": 2},
     }
@@ -158,3 +161,8 @@ def test_repair_requires_named_topic_to_recur_three_times():
     candidate = _repair_candidate(focus)
     assert candidate is not None
     assert candidate.outcome == CurriculumOutcome.REPAIR
+    assert candidate.title == "Piece safety"
+    assert "What changed after their last move?" in candidate.reason
+    assert "%" not in candidate.title
+    assert "797" not in candidate.reason
+    assert "tactical-sequence" not in candidate.reason
