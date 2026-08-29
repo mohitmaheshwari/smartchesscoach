@@ -41,11 +41,21 @@ services:
       # because the backend has `depends_on: condition: service_healthy`, every
       # `docker compose up` blocked on it. Deploys were silently gated behind a
       # liveness probe, not a real outage.
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' || exit 1"]
+      # Do NOT use `mongosh` here. It boots a full JavaScript runtime for one
+      # ping, which on a loaded box does not finish even in 20s -- measured
+      # 2,590 consecutive failures, one instance still running after 83s, while
+      # the database answered real queries the whole time. Because the backend
+      # declares `depends_on: condition: service_healthy`, that turned a
+      # liveness probe into a silent deploy gate: `docker compose up` waited
+      # forever on a check that could not pass.
+      #
+      # A TCP connect proves mongod is accepting connections and costs
+      # essentially nothing. Liveness, not a query benchmark.
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/27017' || exit 1"]
       interval: 30s
-      timeout: 20s
+      timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 40s
 
   # ============================================
   # Backend API (FastAPI + Stockfish)
