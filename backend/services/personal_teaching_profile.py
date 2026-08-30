@@ -34,10 +34,12 @@ def _exact_skill(
     coach_memory: Mapping[str, Any],
     skill_id: str,
 ) -> Optional[Mapping[str, Any]]:
-    for item in _skill_records(coach_memory):
-        if str(item.get("skill_id") or "") == skill_id:
-            return item
-    return None
+    # Exact match first; then the verified legacy vocabulary. Production
+    # history predates curriculum content_ids, so a strict == found history
+    # for 1 of 65 players (see services/skill_id_bridge.py).
+    from services.skill_id_bridge import find_skill_record
+
+    return find_skill_record(_skill_records(coach_memory), skill_id)
 
 
 def _plain_label(value: Any) -> str:
