@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "snapshot_id": "complete_curriculum_learning_evidence_2026-08-30",
+    "captured_at": "2026-08-30",
+    "database": "production chess_coach",
+    "method": "Read-only full aggregate over existing learning and profile collections. No sampled rows, credentials, user identifiers, positions, moves, or free-form text are included.",
+    "role": "Derived measurement snapshot only. This is not a canonical curriculum, profile, mastery, or chess-knowledge source."
+  },
+  "player_profile_coverage": {
+    "users": 120,
+    "player_profiles": 69,
+    "profiles_with_analyzed_game_evidence": 59,
+    "profiles_with_ranked_weaknesses": 58,
+    "learning_style_distribution": {
+      "concise": 3,
+      "missing": 66
+    },
+    "coaching_tone_distribution": {
+      "encouraging": 3,
+      "missing": 66
+    },
+    "chess_understanding_records": 15,
+    "chess_understanding_with_games": 15
+  },
+  "learning_evidence_coverage": {
+    "coach_memory_documents": 118,
+    "coach_memories_with_skill_progress": 65,
+    "coach_memories_with_weaknesses": 61,
+    "skill_records": 7613,
+    "skill_records_with_auditable_evidence": 187,
+    "skill_records_with_attempt_kind": 0,
+    "skill_records_with_delayed_review_field": 0,
+    "skill_records_with_evidence_source_field": 0,
+    "user_concept_understanding_records": 3723,
+    "concept_records_acknowledged": 461,
+    "concept_records_with_clean_streak": 944,
+    "user_opening_progress_records": 6449,
+    "user_opening_mastery_records": 706,
+    "puzzle_attempts": 400,
+    "training_solve_attempts": 118,
+    "learning_sessions": 0,
+    "reflection_sessions": 0
+  },
+  "skill_records_by_kind": {
+    "concept": {
+      "records": 110,
+      "users": 41,
+      "learned_at": 43,
+      "with_applied": 40,
+      "median_seen": 4,
+      "median_correct": 1,
+      "median_wrong": 2
+    },
+    "endgame": {
+      "records": 81,
+      "users": 47,
+      "learned_at": 44,
+      "with_applied": 73,
+      "median_seen": 5,
+      "median_correct": 3,
+      "median_wrong": 2
+    },
+    "mate_pattern": {
+      "records": 55,
+      "users": 30,
+      "learned_at": 48,
+      "with_applied": 53,
+      "median_seen": 3,
+      "median_correct": 3,
+      "median_wrong": 0
+    },
+    "opening": {
+      "records": 7363,
+      "users": 60,
+      "learned_at": 33,
+      "with_applied": 0,
+      "median_seen": 1,
+      "median_correct": 0,
+      "median_wrong": 0
+    },
+    "trap": {
+      "records": 3,
+      "users": 2,
+      "learned_at": 3,
+      "with_applied": 0,
+      "median_seen": 3,
+      "median_correct": 3,
+      "median_wrong": 0
+    },
+    "trap_set": {
+      "records": 1,
+      "users": 1,
+      "learned_at": 1,
+      "with_applied": 0,
+      "median_seen": 3,
+      "median_correct": 3,
+      "median_wrong": 0
+    }
+  },
+  "existing_decision_sources": [
+    "docs/personal_curriculum_selection_data_lock_2026_08_28.md",
+    "backend/data/corpus_snapshots/personal_curriculum_selection_2026-08-28.json",
+    "backend/data/corpus_snapshots/personal_curriculum_review_opportunities_2026-08-28.json"
+  ]
+}

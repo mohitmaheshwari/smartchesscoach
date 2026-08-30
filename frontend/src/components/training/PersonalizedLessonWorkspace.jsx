@@ -1,0 +1,411 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  Eye,
+  HelpCircle,
+  Loader2,
+  MessageCircleQuestion,
+  RotateCcw,
+} from "lucide-react";
+import { API } from "../../App";
+import LichessBoard from "../LichessBoard";
+import {
+  curriculumStateLabel,
+  invalidatePersonalCurriculum,
+} from "../../lib/personalCurriculum";
+
+const interactionId = (prefix) =>
+  globalThis.crypto?.randomUUID?.() ||
+  `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const STAGE_LABELS = {
+  diagnose: "First, show me what you notice",
+  explain: "Make the idea clear",
+  guide: "Try it with your coach",
+  recall: "Find it again",
+  mix: "Spot it among other ideas",
+  transfer: "New position · no answer shown",
+  apply: "Use it in a game",
+  retain: "Check that it stayed with you",
+};
+
+const SOURCE_LABELS = {
+  current_learning_interaction: "Your answer in this lesson",
+  "coach_memory.learning.skills": "Your lesson history",
+  "user_active_focus via services/focus_bridge.py": "Your analyzed games",
+  user_opening_progress: "Your repertoire",
+};
+
+const HELP_ACTIONS = [
+  { id: "show_on_board", label: "Show it on the board", icon: Eye },
+  { id: "ask_one_question", label: "Ask me one question", icon: MessageCircleQuestion },
+  { id: "let_me_try", label: "Let me try", icon: RotateCcw },
+];
+
+function EvidencePanel({ session, evidence, onLoadEvidence }) {
+  const profile = session?.teaching_profile || {};
+  return (
+    <details
+      className="rounded-xl border border-border/70 bg-card/70"
+      onToggle={(event) => {
+        if (event.currentTarget.open && evidence === null) onLoadEvidence();
+      }}
+    >
+      <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+        Why this lesson is for you
+        <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+      </summary>
+      <div className="border-t border-border/70 px-4 py-4 space-y-4">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {profile.why_now || "I need one answer from you before I can personalize this further."}
+        </p>
+        {(profile.anchors || []).map((anchor, index) => (
+          <div key={`${anchor.type}-${index}`} className="text-xs leading-relaxed">
+            <p className="text-foreground">{anchor.message}</p>
+            <p className="mt-1 text-muted-foreground">
+              Source: {SOURCE_LABELS[anchor.provenance?.owner] || "Your coaching evidence"}
+            </p>
+          </div>
+        ))}
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="text-muted-foreground">Used in your games</p>
+            <p className="mt-1 font-medium text-foreground">Not measured</p>
+          </div>
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="text-muted-foreground">Remembered later</p>
+            <p className="mt-1 font-medium text-foreground">Not measured</p>
+          </div>
+        </div>
+        {evidence === undefined && (
+          <p className="text-xs text-muted-foreground">Loading lesson evidence…</p>
+        )}
+        {Array.isArray(evidence) && evidence.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {evidence.length} checked position{evidence.length === 1 ? "" : "s"} in this lesson.
+          </p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+export default function PersonalizedLessonWorkspace({
+  contentKind,
+  contentId,
+  reviewMode = false,
+}) {
+  const navigate = useNavigate();
+  const boardRef = useRef(null);
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [help, setHelp] = useState(null);
+  const [reasonChoice, setReasonChoice] = useState("");
+  const [boardRevision, setBoardRevision] = useState(0);
+  const [evidence, setEvidence] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${API}/training/personalized/session/start`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content_kind: contentKind,
+            content_id: contentId,
+            review: reviewMode,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || "Could not start this lesson");
+        if (!cancelled) setSession(payload);
+      } catch (lessonError) {
+        if (!cancelled) setError(lessonError.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [contentKind, contentId, reviewMode]);
+
+  const pause = async () => {
+    if (session?.session_id) {
+      await fetch(`${API}/training/personalized/session/pause`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: session.session_id, choice: "pause" }),
+      }).catch(() => null);
+    }
+    navigate("/learn");
+  };
+
+  const askForHelp = async (action) => {
+    if (!session?.session_id || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API}/training/personalized/session/help`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: session.session_id,
+          action,
+          interaction_id: interactionId("help"),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Could not open that help");
+      setHelp(payload);
+      setSession((currentSession) => ({
+        ...currentSession,
+        stage: payload.stage || currentSession.stage,
+      }));
+      if (action === "show_on_board") {
+        boardRef.current?.highlightSquares(payload.highlight_squares || []);
+      } else if (action === "let_me_try") {
+        boardRef.current?.clearArrows();
+      }
+    } catch (helpError) {
+      setError(helpError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitMove = async (moveData) => {
+    const current = session?.current_item;
+    if (!current || busy || !reasonChoice) return;
+    setBusy(true);
+    setError(null);
+    setFeedback(null);
+    try {
+      const response = await fetch(`${API}/training/personalized/session/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: `${moveData.from}${moveData.to}${moveData.promotion || ""}`,
+          reason_choice: reasonChoice,
+          interaction_id: interactionId("answer"),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Could not check that move");
+      setFeedback(payload);
+      setHelp(null);
+      if (payload.complete) invalidatePersonalCurriculum();
+      setSession((currentSession) => ({
+        ...currentSession,
+        status: payload.complete ? "completed" : "active",
+        current_index: payload.current_index,
+        completed_items: payload.current_index,
+        current_item: payload.next_item,
+        stage: payload.next_stage || payload.next_item?.stage || "retain",
+        learner_state: {
+          ...currentSession.learner_state,
+          state: payload.highest_earned_state,
+        },
+        teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
+      }));
+      setReasonChoice("");
+      setBoardRevision((revision) => revision + 1);
+    } catch (moveError) {
+      setError(moveError.message);
+      setBoardRevision((revision) => revision + 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadEvidence = async () => {
+    if (!session?.session_id || evidence !== null) return;
+    setEvidence(undefined);
+    try {
+      const response = await fetch(
+        `${API}/training/personalized/session/${session.session_id}/evidence`,
+        { credentials: "include" }
+      );
+      const payload = await response.json();
+      setEvidence(response.ok ? payload.evidence || [] : []);
+    } catch {
+      setEvidence([]);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
+      </div>
+    );
+  }
+
+  if (error && !session) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          <p className="text-foreground mb-4">{error}</p>
+          <button className="text-emerald-700 hover:underline" onClick={() => navigate("/learn")}>Return to Learn</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (session?.status === "completed") {
+    const state = session.learner_state?.state || "learning";
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-xl text-center">
+          <CheckCircle2 className="h-11 w-11 text-emerald-700 mx-auto mb-4" />
+          <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold mb-2">
+            {curriculumStateLabel(state)}
+          </p>
+          <h1 className="font-serif text-3xl text-foreground mb-3">Lesson complete</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground mb-6">
+            I am only counting what you showed me here. I have not yet seen you use it in a game or remember it later.
+          </p>
+          <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
+          <button onClick={() => navigate("/learn")} className="mt-6 min-h-11 px-6 rounded-xl bg-emerald-700 text-white font-medium">
+            Return to your plan
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const item = session?.current_item;
+  const stage = item?.stage || session?.stage || "guide";
+  const isReady = Boolean(reasonChoice) && !busy;
+  const preferredHelp = session?.teaching_profile?.delivery?.preferred_help;
+  const helpActions = [...HELP_ACTIONS].sort((left, right) => (
+    left.id === preferredHelp ? -1 : right.id === preferredHelp ? 1 : 0
+  ));
+
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="max-w-6xl mx-auto px-5 py-6 md:py-10">
+        <button onClick={pause} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-7">
+          <ArrowLeft className="h-4 w-4" /> Continue later
+        </button>
+        <div className="grid lg:grid-cols-[minmax(0,620px)_minmax(300px,1fr)] gap-8 items-start">
+          <div className="w-full max-w-[620px]">
+            {item && (
+              <LichessBoard
+                ref={boardRef}
+                key={`${item.item_id}-${boardRevision}`}
+                fen={item.fen}
+                orientation={item.orientation || "white"}
+                onMove={submitMove}
+                interactive={isReady}
+                arrows={[]}
+              />
+            )}
+            {!reasonChoice && (
+              <p className="mt-3 text-xs text-center text-muted-foreground">
+                Choose what you are checking first. Then the board will unlock.
+              </p>
+            )}
+          </div>
+
+          <aside>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold mb-2">
+              {STAGE_LABELS[stage] || "Work through the position"}
+            </p>
+            <h1 className="font-serif text-3xl leading-tight text-foreground mb-3">
+              {session?.lesson?.title}
+            </h1>
+            <p className="text-sm leading-relaxed text-muted-foreground mb-4">
+              {session?.teaching_profile?.why_now}
+            </p>
+            <div className="rounded-xl border border-emerald-700/20 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 mb-5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-300 font-semibold mb-1.5">The idea</p>
+              <p className="text-sm leading-relaxed text-foreground">{session?.lesson?.rule}</p>
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Position {(session?.current_index || 0) + 1} of {session?.total_items}
+              {item?.source === "own_game" ? " · from your game" : " · checked for accuracy"}
+            </p>
+
+            <fieldset className="mb-5">
+              <legend className="text-sm font-medium text-foreground mb-2">{item?.reason_prompt}</legend>
+              <div className="space-y-2">
+                {(item?.reason_choices || []).map((choice) => (
+                  <button
+                    type="button"
+                    key={choice.id}
+                    aria-pressed={reasonChoice === choice.id}
+                    onClick={() => setReasonChoice(choice.id)}
+                    className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                      reasonChoice === choice.id
+                        ? "border-emerald-700 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                        : "border-border hover:bg-muted/60 text-foreground"
+                    }`}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="flex flex-wrap gap-2 mb-5" aria-label="Lesson help">
+              {helpActions.map(({ id, label, icon: Icon }) => (
+                <button
+                  type="button"
+                  key={id}
+                  onClick={() => askForHelp(id)}
+                  disabled={busy}
+                  className="min-h-9 px-3 rounded-lg border border-border hover:bg-muted/60 disabled:opacity-50 text-xs font-medium inline-flex items-center gap-1.5"
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
+                  {id === preferredHelp ? " · worked before" : ""}
+                </button>
+              ))}
+            </div>
+
+            {help?.message && (
+              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm leading-relaxed text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100 mb-4">
+                {help.message}
+              </div>
+            )}
+            {feedback && (
+              <div className={`rounded-lg border p-4 text-sm leading-relaxed mb-4 ${
+                feedback.correct
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+                  : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+              }`}>
+                <p>{feedback.feedback || (feedback.correct ? "You found it." : "Look once more.")}</p>
+                {!feedback.correct && feedback.answer_san && (
+                  <p className="mt-2">With your coach helping, the move is {feedback.answer_san}. Reset the board and explain what it fixes.</p>
+                )}
+                {!feedback.correct && !feedback.answer_san && (
+                  <p className="mt-2">The answer stays hidden on this new position. Use the correction and try again.</p>
+                )}
+              </div>
+            )}
+            {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+            {busy && <p className="text-sm text-muted-foreground mb-4">Your coach is checking the move and the reason…</p>}
+            <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
+            <div className="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-muted-foreground">
+              <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+              Help is remembered for this idea only. It changes today’s support, not your permanent learning style.
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
+}

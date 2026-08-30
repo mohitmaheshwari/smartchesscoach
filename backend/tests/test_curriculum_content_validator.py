@@ -203,6 +203,33 @@ def test_real_legal_mate_line_passes():
     assert record.publishable is True
 
 
+def test_exposed_king_claim_requires_the_line_to_remove_castling_and_move_king():
+    trap = {
+        "name": "King chase",
+        "description": "A sacrifice pulls the king away from home.",
+        "success_message": "The king is exposed on e6.",
+        "result_type": "king_exposed",
+        "trap_color": "white",
+        "setup_moves": [
+            "e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5",
+            "d5", "exd5", "Nxd5", "Nxf7", "Kxf7", "Qf3+", "Ke6",
+        ],
+        "trap_line": [
+            {"move": "Nc3", "explanation": "Develop with pressure on d5."},
+        ],
+    }
+
+    assert validate_trap_record("italian", trap).publishable is True
+
+    broken = deepcopy(trap)
+    broken["setup_moves"] = ["e4", "e5"]
+    broken["trap_line"] = [
+        {"move": "Nf3", "explanation": "Develop a knight."},
+    ]
+    record = validate_trap_record("italian", broken)
+    assert "trap.outcome_not_demonstrated" in _codes(record)
+
+
 def test_endgame_fen_and_answer_must_agree():
     lesson = {
         "name": "King step",

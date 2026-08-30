@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import { ChevronRight, ChevronLeft, Swords, Import } from "lucide-react";
 import { CURRICULUM_ROUTES } from "@/lib/personalCurriculum";
 
@@ -143,6 +144,8 @@ const AllGames = ({ user }) => {
     <Layout user={user}>
       <div className="experience-page experience-utility-page experience-games-page max-w-3xl mx-auto px-4 py-8" data-testid="all-games-page">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+          <CurriculumStateStrip user={user} surface="game_review" />
 
           <div className="flex items-center gap-2">
             <button

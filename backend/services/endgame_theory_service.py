@@ -26,6 +26,8 @@ TREE_PATH = (
 CANONICAL_SOURCE = "backend/data/coaching/endgame_theory_tree.json"
 
 _CONTENT_REF_INDEX = {
+    "queen_checkmate": ("basic_mates", "queen_mate"),
+    "rook_checkmate": ("basic_mates", "rook_mate"),
     "opposition": ("king_and_pawn", "opposition"),
     "rule_of_square": ("king_and_pawn", "square_rule"),
     "lucena_position": ("rook_endgames", "lucena"),

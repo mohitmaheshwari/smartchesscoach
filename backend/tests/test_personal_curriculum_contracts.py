@@ -20,12 +20,17 @@ from services.personal_curriculum import (
     CurriculumDestination,
     CurriculumOutcome,
     EvidenceStatus,
+    EvidenceSourceType,
+    HelpAction,
     LessonCapability,
     LessonResult,
     StudentState,
+    TeachingStage,
+    _knowledge_destination,
     build_curriculum_decision,
     compose_personal_curriculum,
     personal_curriculum_enabled,
+    personalized_teaching_eligible,
     resolve_endgame_destination,
 )
 
@@ -351,6 +356,7 @@ def _lesson_result(**overrides) -> LessonResult:
         "content_kind": "endgame",
         "content_id": "king_and_pawn/square_rule",
         "canonical_source": CANONICAL_SOURCE,
+        "content_version": "2026-08-29",
         "attempt_kind": AttemptKind.INDEPENDENT,
         "occurred_at": NOW,
         "correct": True,
@@ -409,6 +415,7 @@ def test_no_or_unclear_game_opportunity_never_changes_state(outcome):
         board_verified=False,
         distinct_position=False,
         application_outcome=outcome,
+        source_type=EvidenceSourceType.ORGANIC_GAME,
         detector_quality_id="concept:endgame_rule_of_square",
     )
     assert result.earned_state() is None
@@ -422,6 +429,7 @@ def test_disabled_detector_cannot_earn_used_in_games():
         board_verified=False,
         distinct_position=False,
         application_outcome=ApplicationOutcome.APPLIED,
+        source_type=EvidenceSourceType.ORGANIC_GAME,
         detector_quality_id="concept:endgame_rule_of_square",
     )
     assert result.earned_state() is None
@@ -433,8 +441,10 @@ def test_plan_grade_detector_can_earn_used_in_games():
         content_kind="concept",
         content_id="piece_safety",
         canonical_source="existing focus/concept registries",
+        content_version="1",
         attempt_kind=AttemptKind.APPLICATION,
         occurred_at=NOW,
+        source_type=EvidenceSourceType.ORGANIC_GAME,
         application_outcome=ApplicationOutcome.APPLIED,
         detector_quality_id="gap:piece_safety:simple_hang",
     )
@@ -443,6 +453,82 @@ def test_plan_grade_detector_can_earn_used_in_games():
 
 def test_lesson_result_event_is_versioned_and_never_emits_reliable():
     event = _lesson_result().event_dict()
-    assert event["schema_version"] == "lesson_result.v1"
+    assert event["schema_version"] == "lesson_result.v2"
     assert event["earned_state"] == "can_do_alone"
     assert event["earned_state"] != StudentState.RELIABLE.value
+
+
+def test_personalized_teaching_requires_both_default_off_flags_and_role():
+    enabled = {
+        "PERSONAL_CURRICULUM_ENABLED": "true",
+        "PERSONALIZED_TEACHING_ENABLED": "true",
+        "PERSONAL_CURRICULUM_ROLES": "admin",
+    }
+    assert personalized_teaching_eligible("admin", enabled) is True
+    assert personalized_teaching_eligible("user", enabled) is False
+    assert personalized_teaching_eligible(
+        "admin",
+        {"PERSONAL_CURRICULUM_ENABLED": "true"},
+    ) is False
+
+
+def test_mate_pattern_keeps_legacy_kind_but_routes_to_canonical_endgame():
+    destination = _knowledge_destination(
+        {
+            "kind": "mate_pattern",
+            "content_ref": "queen_checkmate",
+            "skill_id": "mate_kq_vs_k",
+        },
+        {
+            "href": "/play-with-coach?focus=mate_kq_vs_k",
+            "medium": "coached_game",
+        },
+    )
+
+    assert destination.content_kind == "endgame"
+    assert destination.content_id == "basic_mates/queen_mate"
+    assert destination.canonical_source == CANONICAL_SOURCE
+
+
+def test_lucky_move_with_conflicting_reason_does_not_earn_independent_proof():
+    result = _lesson_result(
+        stage=TeachingStage.TRANSFER,
+        prediction_correct=True,
+        reasoning_consistent=False,
+    )
+    assert result.earned_state() == StudentState.LEARNING
+    event = result.event_dict()
+    assert event["attempt"]["reasoning_consistent"] is False
+
+
+def test_requested_help_caps_credit_at_can_do_with_help():
+    result = _lesson_result(
+        requested_help=(HelpAction.SHOW_ON_BOARD,),
+    )
+    assert result.earned_state() == StudentState.CAN_DO_WITH_HELP
+
+
+def test_application_event_preserves_organic_source_and_provenance():
+    event = LessonResult(
+        content_kind="concept",
+        content_id="piece_safety",
+        canonical_source="backend/data/theory/tactical_patterns.json",
+        content_version="1",
+        skill_id="piece_safety",
+        primary_skill_id="piece_safety",
+        attempt_kind=AttemptKind.APPLICATION,
+        occurred_at=NOW,
+        stage=TeachingStage.APPLY,
+        source_type=EvidenceSourceType.ORGANIC_GAME,
+        application_outcome=ApplicationOutcome.APPLIED,
+        detector_quality_id="gap:piece_safety:simple_hang",
+        detector_version="simple_hang.v1",
+        evidence_owner="move_observations",
+        evidence_ref="game-1:move-17",
+    ).event_dict()
+
+    assert event["application"]["source_type"] == "organic_game"
+    assert event["provenance"] == {
+        "owner": "move_observations",
+        "ref": "game-1:move-17",
+    }

@@ -18,7 +18,7 @@ import json
 import os
 import uuid
 import chess
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,8 @@ _ENDGAME_TREE = None
 
 PIC_LESSON_TYPE = "pic_piece_safety"
 PIC_CONTENT_VERSION = 1
+PERSONALIZED_LESSON_TYPE = "personalized_curriculum"
+PERSONALIZED_SESSION_SCHEMA_VERSION = "personalized_learning_session.v1"
 
 def _load_endgame_tree() -> Dict:
     global _ENDGAME_TREE
@@ -710,6 +712,619 @@ async def process_pic_piece_safety_move(
 
 
 # ─────────────────────────────────────────────
+# PERSONALIZED CURRICULUM LESSONS
+# ─────────────────────────────────────────────
+
+_STATE_RANK = {
+    "new": 0,
+    "learning": 1,
+    "can_do_with_help": 2,
+    "can_do_alone": 3,
+    "used_in_games": 4,
+}
+
+
+def _public_personalized_item(item: Optional[Mapping[str, Any]]):
+    if not item:
+        return None
+    return {
+        key: value
+        for key, value in item.items()
+        if not str(key).startswith("_")
+    }
+
+
+def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
+    descriptor = session.get("descriptor") or {}
+    items = descriptor.get("items") or []
+    index = int(session.get("current_index") or 0)
+    current = items[index] if index < len(items) else None
+    highest = str(session.get("highest_earned_state") or "learning")
+    return {
+        "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
+        "session_id": session.get("session_id"),
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+        "status": session.get("status"),
+        "current_index": index,
+        "completed_items": min(index, len(items)),
+        "total_items": len(items),
+        "current_item": _public_personalized_item(current),
+        "stage": (
+            session.get("display_stage")
+            or (current or {}).get("stage")
+            or "retain"
+        ),
+        "lesson": {
+            "kind": descriptor.get("kind"),
+            "id": descriptor.get("id"),
+            "skill_id": descriptor.get("skill_id"),
+            "title": descriptor.get("title"),
+            "rule": descriptor.get("rule"),
+            "intro": descriptor.get("intro"),
+            "canonical_source": descriptor.get("canonical_source"),
+            "content_version": descriptor.get("content_version"),
+        },
+        "teaching_profile": session.get("teaching_profile") or {},
+        "learner_state": {
+            "state": highest,
+            "real_game_evidence": "not_measured",
+            "retention_evidence": "not_measured",
+        },
+        "allowed_help": [
+            "show_on_board",
+            "ask_one_question",
+            "let_me_try",
+        ],
+        "mastery_eligible": bool(
+            current
+            and current.get("stage") == "transfer"
+            and current.get("board_verified")
+        ),
+    }
+
+
+async def get_personalized_lesson(
+    db,
+    user_id: str,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    query: Dict[str, Any] = {
+        "user_id": user_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+    }
+    if session_id:
+        query["session_id"] = session_id
+    else:
+        query["status"] = {"$in": ["active", "paused"]}
+    session = await db.learning_sessions.find_one(
+        query,
+        sort=[("updated_at", -1)],
+    )
+    if not session:
+        return {"error": "Session not found"}
+    return _public_personalized_session(session)
+
+
+async def start_personalized_lesson(
+    db,
+    session_id: str,
+    user_id: str,
+    params: Dict[str, Any],
+) -> Dict[str, Any]:
+    content_kind = str((params or {}).get("content_kind") or "")
+    content_id = str((params or {}).get("content_id") or "")
+    if not content_kind or not content_id:
+        return {"error": "content_kind and content_id are required"}
+
+    existing = await db.learning_sessions.find_one({
+        "user_id": user_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+        "content_kind": content_kind,
+        "content_id": content_id,
+        "status": {"$in": ["active", "paused"]},
+    })
+    if existing:
+        if existing.get("status") == "paused":
+            now = datetime.now(timezone.utc)
+            await db.learning_sessions.update_one(
+                {"_id": existing["_id"], "status": "paused"},
+                {
+                    "$set": {"status": "active", "updated_at": now},
+                    "$push": {
+                        "events": {
+                            "event_id": str(uuid.uuid4()),
+                            "event_type": "lesson_resumed",
+                            "idempotency_key": (
+                                f"resume:{existing['session_id']}:{now.isoformat()}"
+                            ),
+                            "occurred_at": now,
+                            "evidence_eligible": False,
+                        }
+                    },
+                },
+            )
+            existing["status"] = "active"
+        return _public_personalized_session(existing)
+
+    from services.personalized_lesson_adapter import (
+        LessonUnavailable,
+        resolve_personalized_lesson,
+    )
+    try:
+        descriptor = await resolve_personalized_lesson(
+            db,
+            user_id,
+            content_kind=content_kind,
+            content_id=content_id,
+            params=params,
+        )
+    except LessonUnavailable as exc:
+        return {"error": str(exc)}
+    if bool((params or {}).get("review")):
+        review_item = dict(descriptor["items"][-1])
+        review_item["stage"] = "retain"
+        descriptor = {
+            **descriptor,
+            "items": [review_item],
+            "mastery_capability": "review",
+        }
+
+    from services.personal_teaching_profile import (
+        build_personal_teaching_profile,
+    )
+    identity = {
+        "kind": descriptor["kind"],
+        "id": descriptor["id"],
+        "canonical_source": descriptor["canonical_source"],
+        "content_version": descriptor["content_version"],
+    }
+    profile = await build_personal_teaching_profile(
+        db,
+        user_id,
+        skill_id=descriptor["skill_id"],
+        canonical_lesson=identity,
+    )
+    now = datetime.now(timezone.utc)
+    session = {
+        "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
+        "session_id": session_id,
+        "user_id": user_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+        "content_kind": descriptor["kind"],
+        "content_id": descriptor["id"],
+        "skill_id": descriptor["skill_id"],
+        "content_version": descriptor["content_version"],
+        "status": "active",
+        "current_index": 0,
+        "highest_earned_state": "learning",
+        "descriptor": descriptor,
+        "teaching_profile": profile,
+        "display_stage": (
+            "retain"
+            if bool((params or {}).get("review"))
+            else str(profile.get("first_stage") or "diagnose")
+        ),
+        "events": [{
+            "event_id": str(uuid.uuid4()),
+            "event_type": "lesson_started",
+            "idempotency_key": f"start:{session_id}",
+            "occurred_at": now,
+            "evidence_eligible": False,
+            "content_version": descriptor["content_version"],
+        }],
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.learning_sessions.insert_one(session)
+    return _public_personalized_session(session)
+
+
+def _item_help_events(
+    session: Mapping[str, Any],
+    item_id: str,
+) -> list[Mapping[str, Any]]:
+    return [
+        event
+        for event in (session.get("events") or [])
+        if event.get("item_id") == item_id
+        and event.get("event_type") in ("help_requested", "answer_submitted")
+    ]
+
+
+async def request_personalized_help(
+    db,
+    user_id: str,
+    session_id: str,
+    action: str,
+    interaction_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    from services.personal_curriculum import HelpAction
+
+    try:
+        help_action = HelpAction(str(action))
+    except ValueError:
+        return {"error": "Unknown help action"}
+    session = await db.learning_sessions.find_one({
+        "session_id": session_id,
+        "user_id": user_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+    })
+    if not session:
+        return {"error": "Session not found"}
+    if session.get("status") != "active":
+        return {"error": "Session is not active"}
+    key = interaction_id or str(uuid.uuid4())
+    for event in session.get("events") or []:
+        if event.get("idempotency_key") == key:
+            return event.get("result_payload") or {"duplicate": True}
+
+    items = (session.get("descriptor") or {}).get("items") or []
+    index = int(session.get("current_index") or 0)
+    if index >= len(items):
+        return {"error": "Lesson is complete"}
+    item = items[index]
+    if help_action == HelpAction.SHOW_ON_BOARD:
+        result = {
+            "action": help_action.value,
+            "message": (
+                "Trace every attack on the piece you want to move, "
+                "then check its destination."
+            ),
+            "highlight_squares": list(item.get("_help_squares") or []),
+        }
+    elif help_action == HelpAction.ASK_ONE_QUESTION:
+        result = {
+            "action": help_action.value,
+            "message": (
+                "After your move, what is the opponent's strongest capture, "
+                "check, or direct threat?"
+            ),
+            "highlight_squares": [],
+        }
+    else:
+        result = {
+            "action": help_action.value,
+            "message": "No hint. Take your time and make the move you trust.",
+            "highlight_squares": [],
+        }
+    display_stage = (
+        "notice"
+        if help_action in (
+            HelpAction.SHOW_ON_BOARD,
+            HelpAction.ASK_ONE_QUESTION,
+        )
+        else str(item.get("stage") or "guide")
+    )
+    result["stage"] = display_stage
+    now = datetime.now(timezone.utc)
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "help_requested",
+        "idempotency_key": key,
+        "occurred_at": now,
+        "item_id": item["item_id"],
+        "action": help_action.value,
+        "evidence_eligible": False,
+        "result_payload": result,
+    }
+    write = await db.learning_sessions.update_one(
+        {
+            "_id": session["_id"],
+            "events.idempotency_key": {"$ne": key},
+        },
+        {
+            "$set": {"updated_at": now, "display_stage": display_stage},
+            "$push": {"events": event},
+        },
+    )
+    if not write.modified_count:
+        return {"error": "Session changed; reload and try again"}
+    return result
+
+
+def _attempt_kind_for_stage(stage: str):
+    from services.personal_curriculum import AttemptKind
+
+    if stage in ("recall", "mix", "transfer"):
+        return AttemptKind.INDEPENDENT
+    if stage == "retain":
+        return AttemptKind.REVIEW
+    return AttemptKind.GUIDED
+
+
+def _reason_correction(
+    lesson_kind: str,
+    reason_choice: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    if not reason_choice:
+        return (
+            "reason_not_given",
+            "Before the next move, name what you checked on the board.",
+        )
+    corrections = {
+        "concept": {
+            "looks_active": (
+                "activity_before_safety",
+                "An active-looking move is not enough. Check whether every piece you leave behind can be taken.",
+            ),
+            "not_sure": (
+                "piece_safety_relationship_unclear",
+                "Start with one question: after your move, which of your pieces can the opponent capture?",
+            ),
+        },
+        "opening": {
+            "wins_now": (
+                "expects_immediate_opening_win",
+                "An opening move does not need to win now. Name the piece it develops and the square that piece helps.",
+            ),
+            "not_sure": (
+                "opening_plan_unclear",
+                "Look for the undeveloped piece your plan needs next, then say which square it should reach.",
+            ),
+        },
+        "trap": {
+            "starts_attack": (
+                "attacks_before_answering_threat",
+                "Starting your own attack does not stop the opponent's check, capture, or direct threat. Name their threat first.",
+            ),
+            "not_sure": (
+                "immediate_threat_unclear",
+                "Before choosing a move, name the opponent's check, capture, or direct threat.",
+            ),
+        },
+        "endgame": {
+            "gives_check": (
+                "check_without_endgame_rule",
+                "A check is not automatically best. Apply the ending's rule and verify where the king or pawn lands.",
+            ),
+            "not_sure": (
+                "endgame_rule_unclear",
+                "Say which king, pawn, or rook relationship the lesson's rule asks you to create.",
+            ),
+        },
+    }
+    return corrections.get(lesson_kind, {}).get(
+        reason_choice,
+        (
+            "reason_does_not_match_move",
+            "The move works, but that is not why. Before the next position, name which piece or square the move helps.",
+        ),
+    )
+
+
+async def process_personalized_move(
+    db,
+    session_id: str,
+    move: str,
+    interaction_id: Optional[str] = None,
+    *,
+    prediction_correct: Optional[bool] = None,
+    reason_choice: Optional[str] = None,
+    reasoning_consistent: Optional[bool] = None,
+) -> Dict[str, Any]:
+    session = await db.learning_sessions.find_one({
+        "session_id": session_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+    })
+    if not session:
+        return {"error": "Session not found"}
+    key = interaction_id or str(uuid.uuid4())
+    for event in session.get("events") or []:
+        if event.get("idempotency_key") == key:
+            return event.get("result_payload") or {"duplicate": True}
+    if session.get("status") == "completed":
+        return {**_public_personalized_session(session), "complete": True}
+    if session.get("status") != "active":
+        return {"error": "Session is not active"}
+
+    descriptor = session.get("descriptor") or {}
+    items = descriptor.get("items") or []
+    index = int(session.get("current_index") or 0)
+    if index >= len(items):
+        return {**_public_personalized_session(session), "complete": True}
+    item = items[index]
+
+    from services.personalized_lesson_adapter import grade_personalized_move
+
+    grade = await grade_personalized_move(descriptor, item, move)
+    correct = bool(grade.get("correct"))
+    expected_reason = item.get("_expected_reason")
+    if expected_reason:
+        reasoning_consistent = bool(
+            reason_choice and reason_choice == expected_reason
+        )
+    prior = _item_help_events(session, item["item_id"])
+    requested_values = [
+        event.get("action")
+        for event in prior
+        if event.get("event_type") == "help_requested"
+    ]
+    answer_was_revealed = any(
+        (event.get("result_payload") or {}).get("answer_san")
+        for event in prior
+        if event.get("event_type") == "answer_submitted"
+    )
+
+    from services.personal_curriculum import (
+        AssistanceKind,
+        EvidenceSourceType,
+        HelpAction,
+        LessonResult,
+        TeachingStage,
+    )
+
+    requested_help = tuple(
+        HelpAction(value)
+        for value in requested_values
+        if value in {action.value for action in HelpAction}
+    )
+    assistance = []
+    if any(
+        action in (HelpAction.SHOW_ON_BOARD, HelpAction.ASK_ONE_QUESTION)
+        for action in requested_help
+    ):
+        assistance.append(AssistanceKind.HINT)
+    if answer_was_revealed:
+        assistance.append(AssistanceKind.ANSWER_REVEALED)
+
+    stage_value = str(item.get("stage") or "guide")
+    stage = TeachingStage(stage_value)
+    lesson_kind = str(descriptor.get("kind"))
+    correction = None
+    if not correct:
+        misconception = {
+            "concept": "piece_left_unsafe",
+            "opening": "opening_plan_not_recognized",
+            "trap": "threat_not_identified",
+            "endgame": "endgame_rule_not_applied",
+        }.get(lesson_kind, "board_relationship_missed")
+        correction = str(grade.get("feedback") or "")
+    elif reasoning_consistent is False:
+        misconception, correction = _reason_correction(
+            lesson_kind,
+            reason_choice,
+        )
+    else:
+        misconception = None
+    event_contract = LessonResult(
+        content_kind=str(descriptor["kind"]),
+        content_id=str(descriptor["id"]),
+        canonical_source=str(descriptor["canonical_source"]),
+        content_version=str(descriptor["content_version"]),
+        skill_id=str(descriptor["skill_id"]),
+        primary_skill_id=str(descriptor["skill_id"]),
+        attempt_kind=_attempt_kind_for_stage(stage_value),
+        occurred_at=datetime.now(timezone.utc),
+        stage=stage,
+        correct=correct,
+        assistance=tuple(assistance),
+        requested_help=requested_help,
+        position_id=str(item["item_id"]),
+        board_verified=bool(item.get("board_verified")),
+        distinct_position=stage_value in ("mix", "transfer", "retain"),
+        prediction_correct=prediction_correct,
+        reason_choice=reason_choice,
+        reasoning_consistent=reasoning_consistent,
+        misconception=misconception,
+        corrective_action=correction,
+        source_type=(
+            EvidenceSourceType.MIXED_DRILL
+            if stage_value == "mix"
+            else EvidenceSourceType.LESSON
+        ),
+        grader_version=str(grade.get("grader_version") or ""),
+        evidence_owner=str(descriptor["canonical_source"]),
+        evidence_ref=str(item.get("source_ref") or item["item_id"]),
+        source_event_id=key,
+    )
+    evidence = event_contract.event_dict()
+    earned = evidence.get("earned_state") or "learning"
+    current_state = str(session.get("highest_earned_state") or "learning")
+    highest = (
+        earned
+        if _STATE_RANK.get(earned, 0) > _STATE_RANK.get(current_state, 0)
+        else current_state
+    )
+
+    next_index = index + 1 if correct else index
+    complete = bool(correct and next_index >= len(items))
+    reveal_answer = bool(not correct and stage_value == "guide")
+    next_profile = session.get("teaching_profile") or {}
+    if misconception:
+        from services.personal_teaching_profile import (
+            build_personal_teaching_profile,
+        )
+
+        next_profile = await build_personal_teaching_profile(
+            db,
+            str(session.get("user_id") or ""),
+            skill_id=str(descriptor["skill_id"]),
+            canonical_lesson={
+                "kind": descriptor["kind"],
+                "id": descriptor["id"],
+                "canonical_source": descriptor["canonical_source"],
+                "content_version": descriptor["content_version"],
+            },
+            current_interaction={
+                "event_id": key,
+                "misconception": misconception,
+                "reasoning_consistent": reasoning_consistent,
+            },
+        )
+    result = {
+        "correct": correct,
+        "feedback": correction or grade.get("feedback"),
+        "answer_san": grade.get("answer_san") if reveal_answer else None,
+        "answer_uci": grade.get("answer_uci") if reveal_answer else None,
+        "misconception": misconception,
+        "corrective_action": correction,
+        "reasoning_consistent": reasoning_consistent,
+        "teaching_profile": next_profile,
+        "earned_state": evidence.get("earned_state"),
+        "highest_earned_state": highest,
+        "complete": complete,
+        "current_index": next_index,
+        "total_items": len(items),
+        "next_item": (
+            _public_personalized_item(items[next_index])
+            if next_index < len(items)
+            else None
+        ),
+        "next_stage": (
+            "contrast"
+            if misconception
+            else (
+                str(items[next_index].get("stage") or "guide")
+                if next_index < len(items)
+                else "retain"
+            )
+        ),
+    }
+    now = datetime.now(timezone.utc)
+    event = {
+        **evidence,
+        "event_id": str(uuid.uuid4()),
+        "event_type": "answer_submitted",
+        "idempotency_key": key,
+        "item_id": item["item_id"],
+        "result_payload": result,
+    }
+    update_set: Dict[str, Any] = {
+        "current_index": next_index,
+        "highest_earned_state": highest,
+        "updated_at": now,
+        "teaching_profile": next_profile,
+        "display_stage": result["next_stage"],
+    }
+    if complete:
+        games_at_completion = None
+        games_collection = getattr(db, "games", None)
+        if games_collection is not None:
+            games_at_completion = await games_collection.count_documents({
+                "user_id": session.get("user_id"),
+                "is_analyzed": True,
+            })
+        update_set.update({"status": "completed", "completed_at": now})
+        if games_at_completion is not None:
+            update_set["analyzed_games_at_completion"] = games_at_completion
+    write = await db.learning_sessions.update_one(
+        {
+            "_id": session["_id"],
+            "current_index": index,
+            "events.idempotency_key": {"$ne": key},
+        },
+        {"$set": update_set, "$push": {"events": event}},
+    )
+    if not write.modified_count:
+        latest = await db.learning_sessions.find_one({"_id": session["_id"]})
+        for prior_event in (latest or {}).get("events") or []:
+            if prior_event.get("idempotency_key") == key:
+                return prior_event.get("result_payload") or {"duplicate": True}
+        return {"error": "Session changed; reload and try again"}
+    return result
+
+
+# ─────────────────────────────────────────────
 # GENERIC DISPATCH
 # ─────────────────────────────────────────────
 
@@ -721,6 +1336,10 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
         return await start_endgame_lesson(db, session_id, user_id, params)
     elif lesson_type == PIC_LESSON_TYPE:
         return await start_pic_piece_safety_lesson(
+            db, session_id, user_id, params
+        )
+    elif lesson_type == PERSONALIZED_LESSON_TYPE:
+        return await start_personalized_lesson(
             db, session_id, user_id, params
         )
     elif lesson_type in ("learn_trap", "learn_main_line", "opening"):
@@ -736,7 +1355,11 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
 
 
 async def process_lesson_move(
-    db, session_id: str, move: str, interaction_id: Optional[str] = None
+    db,
+    session_id: str,
+    move: str,
+    interaction_id: Optional[str] = None,
+    reason_choice: Optional[str] = None,
 ) -> Dict:
     """Process a move — dispatches based on current lesson type in session."""
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
@@ -747,6 +1370,17 @@ async def process_lesson_move(
         if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
             return await process_pic_piece_safety_move(
                 db, session_id, move, interaction_id=interaction_id
+            )
+        if (
+            learning_session
+            and learning_session.get("lesson_type") == PERSONALIZED_LESSON_TYPE
+        ):
+            return await process_personalized_move(
+                db,
+                session_id,
+                move,
+                interaction_id=interaction_id,
+                reason_choice=reason_choice,
             )
         return {"error": "Session not found"}
 
@@ -769,7 +1403,10 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
         learning_session = await db.learning_sessions.find_one(
             {"session_id": session_id}
         )
-        if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
+        if learning_session and learning_session.get("lesson_type") in (
+            PIC_LESSON_TYPE,
+            PERSONALIZED_LESSON_TYPE,
+        ):
             now = datetime.now(timezone.utc)
             status = "paused" if choice in ("pause", "continue_later") else "exited"
             await db.learning_sessions.update_one(
@@ -781,7 +1418,11 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
                         "idempotency_key": f"exit:{session_id}:{now.isoformat()}",
                         "occurred_at": now,
                         "evidence_eligible": False,
-                        "rejection_reason": "assisted_verified_practice",
+                        "rejection_reason": (
+                            "assisted_verified_practice"
+                            if learning_session.get("lesson_type") == PIC_LESSON_TYPE
+                            else "navigation_event_only"
+                        ),
                     }
                 }},
             )

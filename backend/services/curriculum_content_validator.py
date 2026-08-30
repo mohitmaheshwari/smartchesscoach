@@ -584,6 +584,21 @@ def validate_trap_record(
                     "The authored line claims a material win but does not finish with a material advantage.",
                     "result_type",
                 )
+    elif result_type == "king_exposed":
+        if trap_color_name in {"white", "black"}:
+            attacker = chess.WHITE if trap_color_name == "white" else chess.BLACK
+            victim = not attacker
+            home_square = chess.E8 if victim == chess.BLACK else chess.E1
+            victim_king = board.king(victim)
+            if victim_king == home_square or board.has_castling_rights(victim):
+                record.error(
+                    "trap.outcome_not_demonstrated",
+                    (
+                        "The authored line claims an exposed king but does not "
+                        "move that king away from home and remove castling rights."
+                    ),
+                    "result_type",
+                )
     elif result_type in {"equal_with_activity", "positional_advantage"}:
         record.error(
             "trap.outcome_requires_engine",
@@ -786,6 +801,211 @@ def validate_endgame_lesson(
                     f"{location}.{field_name}",
                 )
     _validate_player_voice(lesson, record)
+    return record
+
+
+def validate_personalized_lesson_descriptor(
+    descriptor: Mapping[str, Any],
+) -> RecordValidation:
+    """Validate the derived contract consumed by the shared lesson workspace.
+
+    This does not create another curriculum source. It verifies that a derived
+    view of canonical content remains safe, playable, answer-private, and
+    honest about the level of learning it can prove.
+    """
+    kind = str(descriptor.get("kind") or "").strip().lower()
+    content_id = str(descriptor.get("id") or "").strip()
+    record = RecordValidation(
+        subject="personalized_lessons",
+        content_id=f"{kind}:{content_id}" if kind or content_id else "unknown",
+    )
+
+    for field_name in (
+        "kind",
+        "id",
+        "skill_id",
+        "title",
+        "rule",
+        "canonical_source",
+        "content_version",
+    ):
+        if not str(descriptor.get(field_name) or "").strip():
+            record.error(
+                "personalized.field_missing",
+                f"{field_name} is required.",
+                field_name,
+            )
+
+    if kind not in {"opening", "trap", "endgame", "concept"}:
+        record.error(
+            "personalized.kind_invalid",
+            "kind must be opening, trap, endgame, or concept.",
+            "kind",
+        )
+
+    capability = str(descriptor.get("mastery_capability") or "")
+    if capability not in {"guided", "independent"}:
+        record.error(
+            "personalized.mastery_capability_invalid",
+            "mastery_capability must be guided or independent.",
+            "mastery_capability",
+        )
+
+    items = descriptor.get("items")
+    if not isinstance(items, list) or not items:
+        record.error(
+            "personalized.items_missing",
+            "At least one playable lesson item is required.",
+            "items",
+        )
+        return record
+
+    seen_item_ids: set[str] = set()
+    seen_positions: set[str] = set()
+    stages: list[str] = []
+    transfer_positions: set[str] = set()
+    earlier_positions: set[str] = set()
+
+    for index, item in enumerate(items):
+        location = f"items[{index}]"
+        if not isinstance(item, Mapping):
+            record.error(
+                "personalized.item_type",
+                "Lesson item must be an object.",
+                location,
+            )
+            continue
+
+        item_id = str(item.get("item_id") or "").strip()
+        if not item_id:
+            record.error(
+                "personalized.item_id_missing",
+                "item_id is required.",
+                f"{location}.item_id",
+            )
+        elif item_id in seen_item_ids:
+            record.error(
+                "personalized.item_id_duplicate",
+                "item_id must be unique within the lesson.",
+                f"{location}.item_id",
+            )
+        seen_item_ids.add(item_id)
+
+        fen = str(item.get("fen") or "").strip()
+        normalized_fen = ""
+        if not fen:
+            record.error(
+                "personalized.fen_missing",
+                "A board position is required.",
+                f"{location}.fen",
+            )
+        else:
+            try:
+                board = chess.Board(fen)
+                normalized_fen = " ".join(board.fen().split()[:4])
+                if not board.is_valid():
+                    record.error(
+                        "personalized.fen_invalid",
+                        f"Position is not legal (status={board.status()}).",
+                        f"{location}.fen",
+                    )
+            except ValueError as exc:
+                record.error(
+                    "personalized.fen_invalid",
+                    f"Position cannot be parsed: {exc}",
+                    f"{location}.fen",
+                )
+        if normalized_fen:
+            if normalized_fen in seen_positions:
+                record.error(
+                    "personalized.position_duplicate",
+                    "Each proof item must use a different board position.",
+                    f"{location}.fen",
+                )
+            seen_positions.add(normalized_fen)
+
+        for field_name in ("prompt", "reason_prompt", "source", "source_ref"):
+            if not str(item.get(field_name) or "").strip():
+                record.error(
+                    "personalized.item_field_missing",
+                    f"{field_name} is required.",
+                    f"{location}.{field_name}",
+                )
+        if item.get("board_verified") is not True:
+            record.error(
+                "personalized.board_unverified",
+                "Only board-verified lesson items may be published.",
+                f"{location}.board_verified",
+            )
+
+        reason_choices = item.get("reason_choices")
+        choice_ids = {
+            str(choice.get("id") or "").strip()
+            for choice in reason_choices or []
+            if isinstance(choice, Mapping)
+            and str(choice.get("label") or "").strip()
+        }
+        expected_reason = str(item.get("_expected_reason") or "").strip()
+        if len(choice_ids) < 2:
+            record.error(
+                "personalized.reason_choices_missing",
+                "At least two explained reason choices are required.",
+                f"{location}.reason_choices",
+            )
+        if not expected_reason or expected_reason not in choice_ids:
+            record.error(
+                "personalized.expected_reason_missing",
+                "The private expected reason must match a visible choice.",
+                f"{location}._expected_reason",
+            )
+
+        has_private_answer = bool(
+            item.get("_expected_uci")
+            or item.get("_endgame_position_index") is not None
+            or item.get("_puzzle_evaluator") is True
+        )
+        if not has_private_answer:
+            record.error(
+                "personalized.private_answer_missing",
+                "A server-owned grading path is required.",
+                location,
+            )
+
+        stage = str(item.get("stage") or "").strip()
+        if stage not in {"guide", "recall", "transfer"}:
+            record.error(
+                "personalized.stage_invalid",
+                "stage must be guide, recall, or transfer.",
+                f"{location}.stage",
+            )
+        stages.append(stage)
+        if normalized_fen:
+            if stage == "transfer":
+                transfer_positions.add(normalized_fen)
+            else:
+                earlier_positions.add(normalized_fen)
+
+    if capability == "independent":
+        if "transfer" not in stages or not ({"guide", "recall"} & set(stages)):
+            record.error(
+                "personalized.independent_proof_missing",
+                "Independent learning needs guided or recalled work plus transfer.",
+                "items",
+            )
+        if transfer_positions & earlier_positions:
+            record.error(
+                "personalized.transfer_reuses_position",
+                "Transfer must use a position not already taught.",
+                "items",
+            )
+    elif "transfer" in stages:
+        record.error(
+            "personalized.guided_claims_transfer",
+            "A guided-only lesson cannot label an item as transfer.",
+            "items",
+        )
+
+    _validate_player_voice(descriptor, record)
     return record
 
 

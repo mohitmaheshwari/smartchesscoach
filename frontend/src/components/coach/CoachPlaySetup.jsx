@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
+import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import { PreGameStreakPopup } from "@/components/streak";
 import { API } from "@/App";
 import {
@@ -146,6 +147,9 @@ const CoachPlaySetup = ({
   return (
     <Layout user={user}>
       <div className="max-w-2xl mx-auto py-8 px-4" data-testid="coach-play-setup">
+        <div className="mb-6">
+          <CurriculumStateStrip user={user} surface="play_with_coach" />
+        </div>
         <Button
           variant="ghost"
           size="sm"

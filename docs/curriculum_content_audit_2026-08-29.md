@@ -11,7 +11,7 @@ count a name, ECO label, legal move list, or hidden card as a finished lesson.
 | Subject | Canonical records | Chess/content verified | Player lesson ready |
 | --- | ---: | ---: | ---: |
 | Openings | 79 | 37 | 37 |
-| Traps | 55 | 22 | 22 defense-first lessons |
+| Traps | 55 | 23 | 23 defense-first lessons |
 | Endgames | 20 | 20 | 20 |
 
 The opening catalog now contains 37 authored lessons. The 12 previously
@@ -22,7 +22,7 @@ identify a player's games and route to a taught family; they are not padded
 into duplicate catalog cards. Every visible primary line is legal and every
 move has its own authored explanation.
 
-All 22 chess-verified trap records are now defense-first lessons. Each names
+All 23 chess-verified trap records are now defense-first lessons. Each names
 the danger, starts at the actual decision point, offers engine-checked safe
 moves, and explains why the defense works. The product still does not replace
 a missing defense lesson with “learn how to spring this trick.”

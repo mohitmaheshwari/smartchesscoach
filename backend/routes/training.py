@@ -49,6 +49,22 @@ async def _require_pic_training_user(user: User):
     return projection
 
 
+async def _require_personalized_teaching_user(user: User):
+    """Keep the new delivery path inside the existing role allowlist."""
+    from services.personal_curriculum import personalized_teaching_eligible
+
+    role = getattr(user, "role", None)
+    if not role:
+        user_doc = await db.users.find_one(
+            {"user_id": user.user_id},
+            {"_id": 0, "role": 1},
+        )
+        role = (user_doc or {}).get("role")
+    if not personalized_teaching_eligible(role):
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return role
+
+
 def _raise_pic_lesson_error(result: Dict):
     if result.get("error"):
         status = 404 if result["error"] == "Session not found" else 409
@@ -98,6 +114,35 @@ class PICLessonMoveRequest(BaseModel):
 
 
 class PICLessonPauseRequest(BaseModel):
+    session_id: str
+    choice: str = "pause"
+
+
+class PersonalizedLessonStartRequest(BaseModel):
+    content_kind: str
+    content_id: str
+    skill_id: Optional[str] = None
+    limit: int = 5
+    player_color: Optional[str] = None
+    variation: Optional[str] = None
+    mode: Optional[str] = None
+    review: bool = False
+
+
+class PersonalizedLessonRespondRequest(BaseModel):
+    session_id: str
+    move: str
+    interaction_id: Optional[str] = None
+    reason_choice: Optional[str] = None
+
+
+class PersonalizedLessonHelpRequest(BaseModel):
+    session_id: str
+    action: str
+    interaction_id: Optional[str] = None
+
+
+class PersonalizedLessonPauseRequest(BaseModel):
     session_id: str
     choice: str = "pause"
 
@@ -174,6 +219,145 @@ async def pause_pic_training_session(
 
     result = await exit_lesson(db, request.session_id, request.choice)
     return _raise_pic_lesson_error(result)
+
+
+# ==================== PERSONALIZED CURRICULUM TEACHING ====================
+
+@router.post("/personalized/session/start")
+async def start_personalized_training_session(
+    request: PersonalizedLessonStartRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    from services.teaching_engine import PERSONALIZED_LESSON_TYPE, start_lesson
+
+    result = await start_lesson(
+        db,
+        str(uuid.uuid4()),
+        user.user_id,
+        PERSONALIZED_LESSON_TYPE,
+        request.model_dump(exclude_none=True),
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.get("/personalized/session")
+async def get_personalized_training_session(
+    session_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    from services.teaching_engine import get_personalized_lesson
+
+    result = await get_personalized_lesson(db, user.user_id, session_id)
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/session/respond")
+async def respond_to_personalized_training(
+    request: PersonalizedLessonRespondRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import process_personalized_move
+
+    result = await process_personalized_move(
+        db,
+        request.session_id,
+        request.move,
+        interaction_id=request.interaction_id,
+        reason_choice=request.reason_choice,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/session/help")
+async def help_with_personalized_training(
+    request: PersonalizedLessonHelpRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    from services.teaching_engine import request_personalized_help
+
+    result = await request_personalized_help(
+        db,
+        user.user_id,
+        request.session_id,
+        request.action,
+        interaction_id=request.interaction_id,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/session/pause")
+async def pause_personalized_training(
+    request: PersonalizedLessonPauseRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import exit_lesson
+
+    result = await exit_lesson(db, request.session_id, request.choice)
+    return _raise_pic_lesson_error(result)
+
+
+@router.get("/personalized/session/{session_id}/evidence")
+async def get_personalized_training_evidence(
+    session_id: str,
+    user: User = Depends(get_current_user),
+):
+    await _require_personalized_teaching_user(user)
+    session = await db.learning_sessions.find_one(
+        {
+            "session_id": session_id,
+            "user_id": user.user_id,
+            "lesson_type": "personalized_curriculum",
+        },
+        {
+            "_id": 0,
+            "session_id": 1,
+            "skill_id": 1,
+            "highest_earned_state": 1,
+            "events": 1,
+        },
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    evidence = []
+    for event in session.get("events") or []:
+        if event.get("event_type") != "answer_submitted":
+            continue
+        evidence.append({
+            "event_id": event.get("event_id"),
+            "occurred_at": event.get("occurred_at"),
+            "lesson": event.get("lesson"),
+            "attempt": event.get("attempt"),
+            "application": event.get("application"),
+            "provenance": event.get("provenance"),
+            "earned_state": event.get("earned_state"),
+        })
+    return {
+        "session_id": session_id,
+        "skill_id": session.get("skill_id"),
+        "highest_earned_state": (
+            session.get("highest_earned_state") or "learning"
+        ),
+        "real_game_evidence": "not_measured",
+        "retention_evidence": "not_measured",
+        "evidence": evidence,
+    }
 
 
 # ==================== CORE SESSION ENDPOINTS ====================

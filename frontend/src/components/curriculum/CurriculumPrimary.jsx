@@ -27,6 +27,9 @@ export default function CurriculumPrimary({
 }) {
   const primary = curriculum?.decision?.primary;
   const review = curriculum?.decision?.review;
+  const teachingProfile = curriculum?.personalized_teaching?.enabled
+    ? curriculum?.personalized_teaching?.profile
+    : null;
   const shownRef = useRef(null);
 
   useEffect(() => {
@@ -84,6 +87,28 @@ export default function CurriculumPrimary({
           <p className="text-[12.5px] leading-relaxed text-muted-foreground/80">
             {primary.evidence}
           </p>
+          {teachingProfile && (
+            <details className="mt-4 rounded-lg border border-border/70 bg-muted/20">
+              <summary className="cursor-pointer px-3.5 py-2.5 text-[12.5px] font-medium text-foreground">
+                Why this lesson is for you
+              </summary>
+              <div className="border-t border-border/70 px-3.5 py-3 space-y-3">
+                <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                  {teachingProfile.why_now}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11.5px]">
+                  <div className="rounded-md bg-background/70 p-2.5">
+                    <p className="text-muted-foreground">Used in your games</p>
+                    <p className="mt-0.5 font-medium text-foreground">Not measured</p>
+                  </div>
+                  <div className="rounded-md bg-background/70 p-2.5">
+                    <p className="text-muted-foreground">Remembered later</p>
+                    <p className="mt-0.5 font-medium text-foreground">Not measured</p>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
         </div>
         <button
           type="button"

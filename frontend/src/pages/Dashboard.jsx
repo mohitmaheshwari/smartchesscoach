@@ -31,6 +31,7 @@ import {
   MOTION_TIMING,
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import LichessBoard from "@/components/LichessBoard";
 // Engine-2 skill curriculum — the Lab's new identity (moved off Progress).
 import MasteryPanel from "@/components/coach/MasteryPanel";
@@ -421,6 +422,9 @@ const Dashboard = ({ user }) => {
           className="max-w-[520px] mx-auto px-6 py-24 text-center"
           data-testid="lab-page"
         >
+          <div className="mb-8 text-left">
+            <CurriculumStateStrip user={user} surface="lab" />
+          </div>
           <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
             The Lab
           </p>
@@ -518,6 +522,9 @@ const Dashboard = ({ user }) => {
           animate="animate"
           className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
         >
+          <div className="mb-9">
+            <CurriculumStateStrip user={user} surface="lab" />
+          </div>
           {/* ─── Page head ─── */}
           <div className="flex items-baseline justify-between mb-10 md:mb-14">
             <div>

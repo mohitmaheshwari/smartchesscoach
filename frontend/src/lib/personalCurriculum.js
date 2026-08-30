@@ -62,3 +62,7 @@ export const loadPersonalCurriculum = (api, userId) => {
 export const resetPersonalCurriculumRequestsForTests = () => {
   curriculumRequests.clear();
 };
+
+export const invalidatePersonalCurriculum = () => {
+  curriculumRequests.clear();
+};

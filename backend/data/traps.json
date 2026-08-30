@@ -52,7 +52,42 @@
     },
     {
       "name": "Fried Liver Attack",
-      "description": "A deadly knight sacrifice on f7 that wins material and exposes Black's king.",
+      "practice_key": "fried_liver_defense",
+      "description": "White attacks f7 with the bishop and knight. Black must strike the center, then move the c6 knight instead of recapturing on d5.",
+      "danger": "After Ng5, the bishop on c4 and knight on g5 both attack f7. The natural Nxd5 recapture allows Nxf7 and pulls the king into danger.",
+      "how_to_avoid": "Play ...d5, and after exd5 move the c6 knight to a5. Do not recapture on d5 while f7 is attacked twice.",
+      "defense_setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Ng5"
+      ],
+      "defense_line": [
+        {
+          "move": "d5",
+          "explanation": "Black attacks the bishop and opens a route for the c6 knight to leave safely."
+        },
+        {
+          "move": "exd5",
+          "explanation": "White captures on d5 and renews the pressure on f7."
+        },
+        {
+          "move": "Na5",
+          "explanation": "The knight leaves c6 without stepping onto d5. Black attacks the bishop and avoids the king chase."
+        }
+      ],
+      "safe_moves": [
+        "d5"
+      ],
+      "key_squares": [
+        "f7",
+        "d5",
+        "a5"
+      ],
+      "tactical_theme": "shared_attack",
       "setup_moves": [
         "e4",
         "e5",
@@ -77,7 +112,7 @@
         },
         {
           "move": "Nxf7",
-          "explanation": "The Fried Liver sacrifice! Knight takes on f7."
+          "explanation": "White gives up the knight on f7 to pull Black's king away from safety."
         },
         {
           "move": "Kxf7",
@@ -93,11 +128,11 @@
         },
         {
           "move": "Nc3",
-          "explanation": "Develops and attacks at the same time. White wins the knight and has a crushing attack."
+          "explanation": "White develops the other knight toward d5 while Black's king remains exposed. The attack is dangerous, but it is not an automatic material win."
         }
       ],
-      "success_message": "The Fried Liver Attack! Black's king is exposed and you win material.",
-      "result_type": "wins_material",
+      "success_message": "The sacrifice has pulled Black's king to e6. White has attacking chances, not a guaranteed material win.",
+      "result_type": "king_exposed",
       "difficulty": "intermediate",
       "trap_color": "white"
     },

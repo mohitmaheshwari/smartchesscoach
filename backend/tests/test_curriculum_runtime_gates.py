@@ -160,7 +160,7 @@ def test_play_with_coach_catalog_is_truth_gated():
     report = validate_all_content()["subjects"]
 
     assert len(catalog["traps"]) == len(get_defense_ready_trap_ids())
-    assert len(catalog["traps"]) == 22
+    assert len(catalog["traps"]) == 23
     assert {
         "scholars_mate",
         "legals_mate",

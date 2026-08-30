@@ -1,22 +1,20 @@
 {
   "_meta": {
     "description": "Engine 2 curriculum tree — chess knowledge (openings, traps, endgames, concepts, mate patterns). Not tactical-mistake remediation (that's Engine 1). Rating-banded. Each node has a `kind` + `content_ref` pointing at existing content libraries.",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "content_sources": {
       "opening": "data/opening_curriculum.json",
-      "trap_set": "services/trap_library.py (TRAP_LIBRARY)",
+      "trap": "data/traps.json via trick_library_service.py",
+      "trap_set": "data/traps.json grouped by canonical opening key",
       "endgame": "data/coaching/endgame_theory_tree.json via services/endgame_theory_service.py",
-      "mate_pattern": "not exposed until canonical queen/rook mate lessons pass verification",
-      "concept": "TODO — create data/concepts.json for these",
+      "mate_pattern": "data/coaching/endgame_theory_tree.json via services/endgame_theory_service.py",
+      "concept": "data/theory/tactical_patterns.json, knowledge_base/strategic_imbalances.py, or knowledge_base/pawn_structures.py by content_ref",
       "coached_play": "self-referential — played in Play with Coach with focus= skill_id"
     },
     "mastery_rules": {
-      "opening": "5 games in this opening with avg accuracy >= threshold (60/65/70/75 by tier)",
-      "trap_set": "each trap in the set viewed + dismissed (no falls) OR no falls in 3 games",
-      "endgame": "lesson solved correctly once, then retained across 2+ reviews",
-      "mate_pattern": "lesson solved correctly",
-      "concept": "recognized + applied in 3 games",
-      "coached_play": "3 coached games with focus met"
+      "all": "StudentState and LessonResult in services/personal_curriculum.py are the only public evidence contract; no node defines its own attempt or accuracy threshold",
+      "application": "Used in games requires a quality-authorized opportunity detector and an auditable game event",
+      "retention": "Reliable remains unavailable until delayed evidence thresholds are data-locked"
     }
   },
   "skills": {
@@ -54,10 +52,10 @@
       "tier": 0
     },
     "defend_scholars_mate": {
-      "kind": "concept",
+      "kind": "trap",
       "label": "Defend against Scholar's Mate",
       "fixes": "the 4-move mate surprise",
-      "content_ref": "scholars_mate_defense",
+      "content_ref": "scholars_mate",
       "prerequisites": [],
       "rating_min": 0,
       "rating_max": 1199,
@@ -123,7 +121,7 @@
       "tier": 1
     },
     "defend_fried_liver": {
-      "kind": "concept",
+      "kind": "trap",
       "label": "Defend against Fried Liver",
       "fixes": "losing to the Nxf7 sacrifice",
       "content_ref": "fried_liver_defense",
