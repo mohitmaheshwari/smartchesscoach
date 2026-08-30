@@ -32,6 +32,11 @@ _PIECE_VAL = {
 DEFAULT_FLOOR_CP = 300
 
 
+def piece_value_cp(piece_type: int) -> int:
+    """Canonical SEE material value for a python-chess piece type."""
+    return _PIECE_VAL.get(piece_type, 0)
+
+
 def _lva_capture(board: chess.Board, sq: int) -> Optional[chess.Move]:
     """The least-valuable LEGAL capture of `sq` by the side to move, or None."""
     best_mv: Optional[chess.Move] = None
