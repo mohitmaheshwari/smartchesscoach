@@ -97,4 +97,30 @@ describe("CurriculumPrimary", () => {
     expect(container.querySelectorAll("button")).toHaveLength(2);
     expect(container.textContent).toContain("One quick review");
   });
+
+  test("explains personalization without inventing application evidence", () => {
+    const personalized = {
+      ...curriculum,
+      personalized_teaching: {
+        enabled: true,
+        profile: {
+          why_now: "This is the one idea in your current coaching plan.",
+        },
+      },
+    };
+
+    act(() => root.render(
+      <CurriculumPrimary
+        curriculum={personalized}
+        surface="learn"
+        onNavigate={jest.fn()}
+      />
+    ));
+
+    expect(container.textContent).toContain("Why this lesson is for you");
+    expect(container.textContent).toContain("Used in your games");
+    expect(container.textContent).toContain("Remembered later");
+    expect(container.textContent.match(/Not measured/g)).toHaveLength(2);
+    expect(container.textContent).not.toContain("Reliable");
+  });
 });

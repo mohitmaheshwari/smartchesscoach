@@ -1,157 +1,166 @@
-"""
-Endgame Theory Service
-======================
+"""Canonical, truth-gated endgame lesson service.
 
-Serves structured endgame lessons from endgame_theory_tree.json.
-Each lesson = one idea, multiple positions, Position → Try → Teach format.
+The only authored source is data/coaching/endgame_theory_tree.json. Public
+catalogs and lesson routes return only lessons that pass the offline curriculum
+validator. Correct moves remain server-side until the player attempts.
 """
 
+from __future__ import annotations
+
+from copy import deepcopy
 import json
-import os
-import logging
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import chess
-from typing import Dict, Optional
 
-logger = logging.getLogger(__name__)
+from services.curriculum_content_validator import is_content_publishable
 
-_endgame_tree = None
+
+TREE_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "coaching"
+    / "endgame_theory_tree.json"
+)
 CANONICAL_SOURCE = "backend/data/coaching/endgame_theory_tree.json"
 
-# Skill-tree content references are stable curriculum identities. Their routed
-# category/lesson identities live here, beside the canonical lesson tree, so
-# player-facing selectors never grow their own competing endgame route tables.
 _CONTENT_REF_INDEX = {
+    "queen_checkmate": ("basic_mates", "queen_mate"),
+    "rook_checkmate": ("basic_mates", "rook_mate"),
     "opposition": ("king_and_pawn", "opposition"),
     "rule_of_square": ("king_and_pawn", "square_rule"),
     "lucena_position": ("rook_endgames", "lucena"),
     "philidor_position": ("rook_endgames", "philidor"),
 }
 
-CANONICAL_SOURCE = "backend/data/coaching/endgame_theory_tree.json"
-
-# Skill-tree content references are legacy-stable public identifiers. Resolve
-# them here, beside the canonical lesson tree, so Today, Personal Curriculum,
-# and future adapters cannot grow separate route tables.
-_CONTENT_REF_INDEX = {
-    "opposition": ("king_and_pawn", "opposition"),
-    "rule_of_square": ("king_and_pawn", "square_rule"),
-    "lucena_position": ("rook_endgames", "lucena"),
-    "philidor_position": ("rook_endgames", "philidor"),
-}
+_endgame_tree: Optional[Dict[str, Any]] = None
 
 
-def _load_tree():
+def _load_tree() -> Dict[str, Any]:
     global _endgame_tree
     if _endgame_tree is None:
-        path = os.path.join(os.path.dirname(__file__), "..", "data", "coaching", "endgame_theory_tree.json")
-        with open(path, "r") as f:
-            _endgame_tree = json.load(f)
+        with TREE_PATH.open("r", encoding="utf-8") as handle:
+            _endgame_tree = json.load(handle)
     return _endgame_tree
 
 
-def resolve_content_ref(content_ref: str) -> Optional[Dict[str, str]]:
-    """Resolve one stable skill-tree reference into canonical lesson identity."""
-    identity = _CONTENT_REF_INDEX.get(str(content_ref or ""))
-    if not identity:
+def reset_endgame_cache() -> None:
+    global _endgame_tree
+    _endgame_tree = None
+
+
+def _lesson_id(category_key: str, lesson_key: str) -> str:
+    return f"{category_key}/{lesson_key}"
+
+
+def _raw_lesson(category_key: str, lesson_key: str) -> Optional[Dict[str, Any]]:
+    category = _load_tree().get(category_key)
+    if not isinstance(category, dict):
         return None
-    category_key, lesson_key = identity
-    lesson = get_lesson(category_key, lesson_key)
-    if not lesson:
+    lesson = (category.get("lessons") or {}).get(lesson_key)
+    return lesson if isinstance(lesson, dict) else None
+
+
+def get_verified_lesson_data(
+    category_key: str,
+    lesson_key: str,
+) -> Optional[Dict[str, Any]]:
+    """Return a defensive copy with answers for server-side teaching only."""
+    if not is_content_publishable(
+        "endgames",
+        _lesson_id(category_key, lesson_key),
+    ):
         return None
-    return {
-        "content_ref": str(content_ref),
-        "category_key": category_key,
-        "lesson_key": lesson_key,
-        "lesson_id": f"{category_key}/{lesson_key}",
-        "href": f"/endgames/{category_key}/{lesson_key}",
-        "canonical_source": CANONICAL_SOURCE,
-    }
+    lesson = _raw_lesson(category_key, lesson_key)
+    return deepcopy(lesson) if lesson else None
 
 
-def get_lesson_by_content_ref(content_ref: str):
-    """Read lesson content through the canonical content-reference index."""
-    resolved = resolve_content_ref(content_ref)
-    if not resolved:
-        return None
-    return get_lesson(resolved["category_key"], resolved["lesson_key"])
+def _stage_for(index: int, total: int) -> str:
+    return "independent_proof" if index == total - 1 else "guided_try"
 
 
-def get_all_categories():
-    """Return all endgame categories with their lessons (names only, no positions)."""
-    tree = _load_tree()
+def get_all_categories() -> list[Dict[str, Any]]:
     categories = []
-    for cat_key, cat_data in tree.items():
-        if cat_key.startswith("_"):
+    for category_key, category in _load_tree().items():
+        if category_key.startswith("_") or not isinstance(category, dict):
             continue
         lessons = []
-        for lesson_key, lesson_data in cat_data.get("lessons", {}).items():
-            lessons.append({
-                "key": lesson_key,
-                "name": lesson_data["name"],
-                "rule": lesson_data["rule"],
-                "description": lesson_data["description"],
-                "position_count": len(lesson_data.get("positions", []))
-            })
-        categories.append({
-            "key": cat_key,
-            "name": cat_data["name"],
-            "icon": cat_data.get("icon", ""),
-            "description": cat_data.get("description", ""),
-            "lessons": lessons
-        })
+        for lesson_key, lesson in (category.get("lessons") or {}).items():
+            content_id = _lesson_id(category_key, lesson_key)
+            if not is_content_publishable("endgames", content_id):
+                continue
+            lessons.append(
+                {
+                    "key": lesson_key,
+                    "name": lesson["name"],
+                    "rule": lesson["rule"],
+                    "description": lesson["description"],
+                    "position_count": len(lesson.get("positions", [])),
+                    "lesson_id": content_id,
+                    "canonical_source": CANONICAL_SOURCE,
+                }
+            )
+        if lessons:
+            categories.append(
+                {
+                    "key": category_key,
+                    "name": category["name"],
+                    "icon": category.get("icon", ""),
+                    "description": category.get("description", ""),
+                    "lessons": lessons,
+                }
+            )
     return categories
 
 
-def get_lesson(category_key: str, lesson_key: str):
-    """Return a specific lesson with all positions (but without correct moves — those are checked server-side)."""
-    tree = _load_tree()
-    cat = tree.get(category_key)
-    if not cat:
-        return None
-    lesson = cat.get("lessons", {}).get(lesson_key)
-    if not lesson:
+def get_lesson(category_key: str, lesson_key: str) -> Optional[Dict[str, Any]]:
+    lesson = get_verified_lesson_data(category_key, lesson_key)
+    category = _load_tree().get(category_key)
+    if not lesson or not isinstance(category, dict):
         return None
 
+    raw_positions = lesson.get("positions", [])
     positions = []
-    for i, pos in enumerate(lesson.get("positions", [])):
+    for index, position in enumerate(raw_positions):
         entry = {
-            "index": i,
-            "fen": pos["fen"],
-            "side_to_move": pos["side_to_move"],
-            "prompt": pos["prompt"],
+            "index": index,
+            "fen": position["fen"],
+            "side_to_move": position["side_to_move"],
+            "prompt": position["prompt"],
+            "stage": _stage_for(index, len(raw_positions)),
+            "answer_hidden": True,
         }
-        # Optional teaching aids (won't leak the correct move)
-        if pos.get("square_corners"):
-            entry["square_corners"] = pos["square_corners"]
-        if pos.get("concept"):
-            entry["concept"] = pos["concept"]
+        for optional in ("square_corners", "concept"):
+            if position.get(optional):
+                entry[optional] = position[optional]
         positions.append(entry)
 
     return {
         "category_key": category_key,
-        "category_name": cat["name"],
+        "category_name": category["name"],
         "lesson_key": lesson_key,
+        "lesson_id": _lesson_id(category_key, lesson_key),
         "name": lesson["name"],
         "rule": lesson["rule"],
         "description": lesson["description"],
-        # Optional lesson-level intro block for the pre-first-position screen
         "intro": lesson.get("intro"),
         "positions": positions,
         "total_positions": len(positions),
+        "canonical_source": CANONICAL_SOURCE,
     }
 
 
-def resolve_content_ref(content_ref: str):
-    """Resolve one skill-tree endgame reference through the canonical tree."""
-    route = _CONTENT_REF_INDEX.get(content_ref)
-    if not route:
+def resolve_content_ref(content_ref: str) -> Optional[Dict[str, str]]:
+    identity = _CONTENT_REF_INDEX.get(str(content_ref or ""))
+    if not identity:
         return None
-    category_key, lesson_key = route
+    category_key, lesson_key = identity
     if get_lesson(category_key, lesson_key) is None:
         return None
-    lesson_id = f"{category_key}/{lesson_key}"
+    lesson_id = _lesson_id(category_key, lesson_key)
     return {
-        "content_ref": content_ref,
+        "content_ref": str(content_ref),
         "category_key": category_key,
         "lesson_key": lesson_key,
         "lesson_id": lesson_id,
@@ -161,64 +170,69 @@ def resolve_content_ref(content_ref: str):
 
 
 def get_lesson_by_content_ref(content_ref: str):
-    """Return canonical lesson data for a skill-tree content reference."""
     resolved = resolve_content_ref(content_ref)
     if not resolved:
         return None
     return get_lesson(resolved["category_key"], resolved["lesson_key"])
 
 
-def check_move(category_key: str, lesson_key: str, position_index: int, user_move_uci: str):
-    """Check if the user's move matches the correct move for the position."""
-    tree = _load_tree()
-    cat = tree.get(category_key)
-    if not cat:
-        return {"error": "Category not found"}
-    lesson = cat.get("lessons", {}).get(lesson_key)
+def check_move(
+    category_key: str,
+    lesson_key: str,
+    position_index: int,
+    user_move_uci: str,
+) -> Dict[str, Any]:
+    lesson = get_verified_lesson_data(category_key, lesson_key)
     if not lesson:
-        return {"error": "Lesson not found"}
+        return {"error": "Verified lesson not found"}
     positions = lesson.get("positions", [])
     if position_index < 0 or position_index >= len(positions):
         return {"error": "Position not found"}
 
-    pos = positions[position_index]
-    correct_uci = pos["correct_move_uci"]
-    correct_san = pos["correct_move_san"]
-
-    # Normalize UCI (strip whitespace)
-    user_uci = user_move_uci.strip().lower()
-    correct_uci_norm = correct_uci.strip().lower()
-
-    # Also try to parse user's SAN move in case frontend sends SAN
-    is_correct = user_uci == correct_uci_norm
-
-    # Additional check: try to parse the user's UCI move and see if it matches
-    if not is_correct:
+    position = positions[position_index]
+    board = chess.Board(position["fen"])
+    supplied = str(user_move_uci or "").strip()
+    user_move = None
+    try:
+        user_move = chess.Move.from_uci(supplied.lower())
+    except ValueError:
         try:
-            chess.Board(pos["fen"])
-            user_chess_move = chess.Move.from_uci(user_uci)
-            correct_chess_move = chess.Move.from_uci(correct_uci_norm)
-            is_correct = user_chess_move == correct_chess_move
-        except Exception:
+            user_move = board.parse_san(supplied)
+        except (ValueError, AssertionError):
             pass
 
-    if is_correct:
+    correct_uci = position["correct_move_uci"].lower()
+    correct = bool(user_move and user_move.uci() == correct_uci)
+    stage = _stage_for(position_index, len(positions))
+    is_last = position_index == len(positions) - 1
+
+    if correct:
         return {
             "correct": True,
-            "move_san": correct_san,
+            "move_san": position["correct_move_san"],
             "move_uci": correct_uci,
-            "idea": pos["idea"],
-            "on_correct": pos["on_correct"],
-            "rule_reminder": pos.get("rule_reminder", lesson["rule"]),
-            "is_last": position_index >= len(positions) - 1
+            "idea": position["idea"],
+            "on_correct": position["on_correct"],
+            "rule_reminder": position.get("rule_reminder", lesson["rule"]),
+            "is_last": is_last,
+            "stage": stage,
+            "demonstrated": is_last,
         }
-    else:
-        return {
-            "correct": False,
-            "correct_move_san": correct_san,
-            "correct_move_uci": correct_uci,
-            "on_wrong": pos["on_wrong"],
-            "idea": pos["idea"],
-            "rule_reminder": pos.get("rule_reminder", lesson["rule"]),
-            "is_last": position_index >= len(positions) - 1
-        }
+
+    response = {
+        "correct": False,
+        "on_wrong": position["on_wrong"],
+        "rule_reminder": position.get("rule_reminder", lesson["rule"]),
+        "is_last": is_last,
+        "stage": stage,
+        "demonstrated": False,
+    }
+    if stage == "guided_try":
+        response.update(
+            {
+                "correct_move_san": position["correct_move_san"],
+                "correct_move_uci": correct_uci,
+                "idea": position["idea"],
+            }
+        )
+    return response

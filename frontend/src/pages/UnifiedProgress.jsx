@@ -41,6 +41,7 @@ import {
   MOTION_TIMING,
 } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import CoachRecommendationsGrid from "@/components/CoachRecommendationsGrid";
 import FocusGraduationPreview from "@/components/experience/FocusGraduationPreview";
 import {
@@ -505,6 +506,9 @@ const UnifiedProgress = ({ user }) => {
           className="max-w-[640px] mx-auto px-6 md:px-10 py-16 md:py-24"
           data-testid="progress-page"
         >
+          <div className="mb-8">
+            <CurriculumStateStrip user={user} surface="progress" />
+          </div>
           <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
             Progress · the ledger
           </p>
@@ -538,6 +542,9 @@ const UnifiedProgress = ({ user }) => {
         className="experience-page experience-progress-page max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
         data-testid="progress-page"
       >
+        <div className="mb-9">
+          <CurriculumStateStrip user={user} surface="progress" />
+        </div>
         {/* ─── Page head ─── */}
         <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
           <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">

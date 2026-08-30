@@ -16,6 +16,7 @@ import LichessBoard from "@/components/LichessBoard";
 import DifficultySelector from "@/components/training/DifficultySelector";
 import CanonicalTrainingAssignment from "@/components/training/CanonicalTrainingAssignment";
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
+import PersonalizedLessonWorkspace from "@/components/training/PersonalizedLessonWorkspace";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import { Chess } from "chess.js";
 import {
@@ -69,13 +70,19 @@ const getEncouragement = (type, streak = 0) => {
 export default function PrescribedTraining() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const personalizedLesson = searchParams.get("personalized") === "1";
+  const personalizedKind = searchParams.get("kind") || "";
+  const personalizedId = searchParams.get("lesson") || "";
+  const personalizedReview = searchParams.get("review") === "1";
   // Weakness can come from either:
   //   1. ?weakness=X query param (canonical: /training?weakness=X)
   //   2. :pattern URL segment (legacy: /training/pattern/:pattern)
   //   3. default to "current" — backend resolves to user's active focus
   const { pattern: patternFromUrl } = useParams();
   const weakness = searchParams.get("weakness") || patternFromUrl || "current";
-  const picCandidate = weakness === "piece_safety" || weakness === "current";
+  const picCandidate = !personalizedLesson && (
+    weakness === "piece_safety" || weakness === "current"
+  );
   const [picProjection, setPicProjection] = useState(null);
   const [picCheckPending, setPicCheckPending] = useState(picCandidate);
   const [canonicalContext, setCanonicalContext] = useState(null);
@@ -155,6 +162,10 @@ export default function PrescribedTraining() {
   // Fetch prescribed training
   useEffect(() => {
     const fetchTraining = async () => {
+      if (personalizedLesson) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         // Motifs use the new motif-drill endpoint; others use prescribed
@@ -250,7 +261,7 @@ export default function PrescribedTraining() {
     };
 
     fetchTraining();
-  }, [weakness, selectedDifficulty]);
+  }, [weakness, selectedDifficulty, personalizedLesson]);
 
   // [PART C] Fetch training modules if plan is specified
   useEffect(() => {
@@ -554,6 +565,16 @@ export default function PrescribedTraining() {
     setPuzzleState("revealed");
   };
   
+  if (personalizedLesson) {
+    return (
+      <PersonalizedLessonWorkspace
+        contentKind={personalizedKind}
+        contentId={personalizedId}
+        reviewMode={personalizedReview}
+      />
+    );
+  }
+
   if (picCheckPending) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

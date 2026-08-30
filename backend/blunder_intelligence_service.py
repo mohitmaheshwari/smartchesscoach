@@ -2886,8 +2886,13 @@ def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
 def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move_evals: List) -> Dict:
     """Analyze the opening: Plan + How you executed it + Where you deviated."""
     
-    # Import opening coaching data
-    from opening_service import OPENING_COACHING
+    # Use the same verified curriculum projection as Learn and Play with
+    # Coach.  The former OPENING_COACHING table was a parallel ten-opening
+    # curriculum whose plans could drift from the authored lesson.
+    from services.opening_library_service import (
+        get_opening_data,
+        match_opening_to_library,
+    )
     
     opening_info = {
         "name": opening_name or "Unknown Opening",
@@ -2902,34 +2907,31 @@ def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move
         }
     }
     
-    # Find matching opening coaching
-    matched_opening = None
-    for name, coaching in OPENING_COACHING.items():
-        if opening_name and name.lower() in opening_name.lower():
-            matched_opening = coaching
-            opening_info["name"] = name
-            break
-    
+    library_key = match_opening_to_library(opening_name or "")
+    matched_opening = get_opening_data(library_key) if library_key else None
+
     if matched_opening:
-        opening_info["plan"] = matched_opening.get("simple_plan", "")
-        opening_info["key_ideas"] = matched_opening.get("must_know", [])[:3]
-        opening_info["main_idea"] = matched_opening.get("main_idea", "")
-        opening_info["theory_tip"] = matched_opening.get("practice_tip", "")
+        opening_info["name"] = matched_opening["name"]
+        key_ideas = matched_opening.get("key_ideas", [])
+        opening_info["plan"] = matched_opening.get("description", "")
+        opening_info["key_ideas"] = key_ideas[:3]
+        opening_info["main_idea"] = key_ideas[0] if key_ideas else ""
+        opening_info["theory_tip"] = key_ideas[-1] if key_ideas else ""
     else:
         # Generic opening advice based on color
         if user_color == "white":
-            opening_info["plan"] = "Control center (e4/d4) → Develop knights → Develop bishops → Castle → Connect rooks"
+            opening_info["plan"] = "Put a pawn in the center → Bring out your knights and bishops → Castle → Connect your rooks"
             opening_info["key_ideas"] = [
-                "As White, you have the first-move advantage - use it to control the center",
-                "Develop pieces toward the center before starting attacks",
-                "Complete development before move 10-12"
+                "Use your first move to claim space in the center",
+                "Bring every knight and bishop into the game before you start an attack",
+                "Get your king castled before the center opens"
             ]
         else:
-            opening_info["plan"] = "Counter center control → Develop pieces → Neutralize White's initiative → Castle → Look for counterplay"
+            opening_info["plan"] = "Challenge White's center → Bring out your knights and bishops → Castle → Create a threat of your own"
             opening_info["key_ideas"] = [
-                "As Black, focus on equalizing first, then look for chances",
-                "Challenge White's center with ...d5 or ...c5 when ready",
-                "Don't be passive - create your own threats"
+                "Do not let White keep the whole center for free",
+                "Use a center pawn to challenge White when your pieces are ready",
+                "After your king is safe, make a threat of your own"
             ]
     
     # ===== EXECUTION ANALYSIS =====

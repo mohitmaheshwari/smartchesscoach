@@ -1,8 +1,93 @@
 {
   "italian-game": [
     {
+      "name": "Scholar's Mate Danger",
+      "practice_key": "scholars_mate",
+      "description": "The queen and bishop both aim at f7. Black must answer that shared threat before developing the king knight.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Bc4",
+        "Nc6",
+        "Qh5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nf6",
+          "explanation": "This develops a piece but leaves f7 attacked twice."
+        },
+        {
+          "move": "Qxf7#",
+          "explanation": "The queen takes on f7 with the bishop protecting it. The king has no safe reply."
+        }
+      ],
+      "success_message": "The mate works only because Black ignored the two attackers on f7.",
+      "result_type": "checkmate",
+      "difficulty": "beginner",
+      "trap_color": "white",
+      "danger": "White's queen and bishop are both attacking f7.",
+      "how_to_avoid": "Defend f7 and block the queen-bishop attack before starting another plan.",
+      "defense_setup_moves": [
+        "e4",
+        "e5",
+        "Bc4",
+        "Nc6",
+        "Qh5"
+      ],
+      "defense_line": [
+        {
+          "move": "Qe7",
+          "explanation": "The queen guards f7. Now Qxf7 is no longer mate and Black can develop safely."
+        }
+      ],
+      "safe_moves": [
+        "Qe7",
+        "g6",
+        "Nh6"
+      ],
+      "key_squares": [
+        "f7"
+      ],
+      "tactical_theme": "shared_attack"
+    },
+    {
       "name": "Fried Liver Attack",
-      "description": "A deadly knight sacrifice on f7 that wins material and exposes Black's king.",
+      "practice_key": "fried_liver_defense",
+      "description": "White attacks f7 with the bishop and knight. Black must strike the center, then move the c6 knight instead of recapturing on d5.",
+      "danger": "After Ng5, the bishop on c4 and knight on g5 both attack f7. The natural Nxd5 recapture allows Nxf7 and pulls the king into danger.",
+      "how_to_avoid": "Play ...d5, and after exd5 move the c6 knight to a5. Do not recapture on d5 while f7 is attacked twice.",
+      "defense_setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Ng5"
+      ],
+      "defense_line": [
+        {
+          "move": "d5",
+          "explanation": "Black attacks the bishop and opens a route for the c6 knight to leave safely."
+        },
+        {
+          "move": "exd5",
+          "explanation": "White captures on d5 and renews the pressure on f7."
+        },
+        {
+          "move": "Na5",
+          "explanation": "The knight leaves c6 without stepping onto d5. Black attacks the bishop and avoids the king chase."
+        }
+      ],
+      "safe_moves": [
+        "d5"
+      ],
+      "key_squares": [
+        "f7",
+        "d5",
+        "a5"
+      ],
+      "tactical_theme": "shared_attack",
       "setup_moves": [
         "e4",
         "e5",
@@ -27,7 +112,7 @@
         },
         {
           "move": "Nxf7",
-          "explanation": "The Fried Liver sacrifice! Knight takes on f7."
+          "explanation": "White gives up the knight on f7 to pull Black's king away from safety."
         },
         {
           "move": "Kxf7",
@@ -43,16 +128,21 @@
         },
         {
           "move": "Nc3",
-          "explanation": "Develops and attacks at the same time. White wins the knight and has a crushing attack."
+          "explanation": "White develops the other knight toward d5 while Black's king remains exposed. The attack is dangerous, but it is not an automatic material win."
         }
       ],
-      "success_message": "The Fried Liver Attack! Black's king is exposed and you win material.",
-      "result_type": "wins_material",
+      "success_message": "The sacrifice has pulled Black's king to e6. White has attacking chances, not a guaranteed material win.",
+      "result_type": "king_exposed",
       "difficulty": "intermediate",
       "trap_color": "white"
     },
     {
       "name": "Legal's Mate",
+      "danger": "White's knight on e5 appears to leave the queen on d1 unprotected, but taking the queen allows a forced mate.",
+      "how_to_avoid": "Do not take the queen. Capture the knight on e5 and remove the mating attack first.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "g6", "Nxe5"],
+      "defense_line": [{"move": "dxe5", "explanation": "The d6 pawn captures the knight. Black removes an attacker instead of opening the path to Bxf7+."}],
+      "safe_moves": ["dxe5"],
       "description": "A beautiful queen sacrifice leading to checkmate.",
       "setup_moves": [
         "e4",
@@ -93,6 +183,11 @@
     },
     {
       "name": "Blackburne Shilling Gambit",
+      "danger": "The pawn on e5 is bait. If White's knight takes it, Black's queen can attack g2 and start a mating attack.",
+      "how_to_avoid": "Take Black's knight on d4 instead of the pawn on e5.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nd4"],
+      "defense_line": [{"move": "Nxd4", "explanation": "White removes the advanced knight. The e5 pawn can wait, and Black's queen never gets the attack on g2."}],
+      "safe_moves": ["Nxd4", "O-O", "Nc3"],
       "description": "A cunning trap where Black sacrifices a pawn to deliver checkmate!",
       "trap_color": "black",
       "setup_moves": [
@@ -143,6 +238,11 @@
     },
     {
       "name": "Scholar's Mate Defense Trap",
+      "danger": "Black's knight check on c2 forks the king and rook. Moving the king lets the knight take the rook on a1.",
+      "how_to_avoid": "Capture the checking knight with the queen instead of moving the king.",
+      "defense_setup_moves": ["e4", "e5", "Bc4", "Nc6", "Qh5", "g6", "Qf3", "Nf6", "g4", "Nd4", "Qb3", "Nxc2+"],
+      "defense_line": [{"move": "Qxc2", "explanation": "The queen takes the checking knight. White keeps the rook on a1 and ends Black's fork."}],
+      "safe_moves": ["Qxc2"],
       "description": "Punish White's premature queen attack and win material!",
       "trap_color": "black",
       "setup_moves": [
@@ -271,6 +371,12 @@
   "sicilian-defense": [
     {
       "name": "Siberian Trap",
+      "danger": "After Black checks on c3, blocking with Bd2 leaves White's queen exposed to the exchange on d2.",
+      "how_to_avoid": "Capture the checking bishop with the b-pawn. Do not place the bishop on d2 in front of the queen.",
+      "defense_setup_moves": ["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4", "e5", "Qa5", "exf6", "Bxc3+"],
+      "defense_line": [{"move": "bxc3", "explanation": "The b-pawn removes the checking bishop. White's queen stays safe on d1."}],
+      "safe_moves": ["bxc3"],
+      "variation_name": "Open Sicilian ...Bb4 line",
       "description": "A deadly trap where Black wins White's queen with a series of checks!",
       "trap_color": "black",
       "setup_moves": [
@@ -414,6 +520,11 @@
   "queens-gambit": [
     {
       "name": "Elephant Trap",
+      "danger": "The pawn on d5 looks free, but taking it lets Black trade on d5 and then check with Bb4+, winning White's queen-side pieces.",
+      "how_to_avoid": "Finish development with e3 instead of taking the d5 pawn a second time.",
+      "defense_setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5"],
+      "defense_line": [{"move": "e3", "explanation": "White supports the center and opens the f1 bishop. The knight does not step onto the bait square d5."}],
+      "safe_moves": ["e3", "Qc2", "Nf3"],
       "description": "Black wins a piece with a beautiful intermezzo check!",
       "trap_color": "black",
       "setup_moves": [
@@ -511,6 +622,11 @@
     },
     {
       "name": "Rubinstein Trap",
+      "danger": "The pin on Black's knight can make the d5 and h7 pawns look easier to win than they are. Black must finish development before starting a pawn chase.",
+      "how_to_avoid": "Develop the f8 bishop and prepare to castle before spending a move on a6.",
+      "defense_setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5"],
+      "defense_line": [{"move": "Be7", "explanation": "Black breaks the pin, prepares to castle, and keeps the center defended."}],
+      "safe_moves": ["Be7", "dxc4", "c5"],
       "description": "A deep QGD trap where black's careless a6 allows a tactical sequence that wins a pawn through a pin against h7.",
       "setup_moves": [
         "d4",
@@ -560,6 +676,11 @@
     },
     {
       "name": "Cambridge Springs Trap",
+      "danger": "The pawn on d5 is protected by a tactical check on b4. Taking it with the knight allows Black to win a piece.",
+      "how_to_avoid": "Play e3 and complete development before taking on d5 again.",
+      "defense_setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5"],
+      "defense_line": [{"move": "e3", "explanation": "White opens the f1 bishop and keeps the knight away from the tactical check on b4."}],
+      "safe_moves": ["e3", "Qc2", "Rc1"],
       "description": "In the QGD Cambridge Springs, if White takes on d5 too greedily, Black wins a piece via a discovered check.",
       "setup_moves": [
         "d4",
@@ -694,6 +815,11 @@
   "london-system": [
     {
       "name": "Englund Gambit Trap",
+      "danger": "Black's queen has grabbed b2, but retreating to b4 lets White's bishop trap it.",
+      "how_to_avoid": "Use Bb4 to pin White's knight and give the queen an escape route.",
+      "defense_setup_moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+", "Bd2", "Qxb2", "Bc3"],
+      "defense_line": [{"move": "Bb4", "explanation": "The bishop pins the knight on c3 and stops White from trapping the queen with Bxb4."}],
+      "safe_moves": ["Bb4"],
       "description": "Refute the dubious Englund Gambit and trap Black's queen!",
       "setup_moves": [
         "d4",
@@ -736,6 +862,11 @@
   "caro-kann": [
     {
       "name": "Caro-Kann Smothered Mate",
+      "danger": "Both black knights can move to f6, but the g8 knight blocks the king's last escape squares and allows Nd6 mate.",
+      "how_to_avoid": "Use the knight from d7 to reach f6 and keep the g8 knight from sealing in the king.",
+      "defense_setup_moves": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Nd7", "Qe2"],
+      "defense_line": [{"move": "Ndf6", "explanation": "The d7 knight reaches f6. The g8 knight stays available, so White no longer has the same smothered mate."}],
+      "safe_moves": ["Ndf6", "Qc7", "e6"],
       "description": "A rare smothered mate in the Caro-Kann!",
       "setup_moves": [
         "e4",
@@ -1038,6 +1169,11 @@
     },
     {
       "name": "Mortimer Trap",
+      "danger": "The e5 pawn looks loose after Black's knight moves to e7, but Nxe5 lets Black chase the knight and open a mating attack.",
+      "how_to_avoid": "Build the center with d4 or castle instead of grabbing e5.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6", "d3", "Ne7"],
+      "defense_line": [{"move": "d4", "explanation": "White strengthens the center and opens lines without sending the knight onto the bait square e5."}],
+      "safe_moves": ["d4", "O-O", "Bc4"],
       "description": "A beautiful smothered mate in the Ruy Lopez!",
       "setup_moves": [
         "e4",
@@ -1163,6 +1299,11 @@
   "philidor-defense": [
     {
       "name": "Philidor's Legal Mate",
+      "danger": "White's knight on e5 appears to expose the queen, but taking the queen allows Bxf7+ followed by Nd5 mate.",
+      "how_to_avoid": "Capture the knight on e5. Do not take the queen while White's bishop and knight can reach f7 and d5.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "Nc6", "h3", "Bh5", "Nxe5"],
+      "defense_line": [{"move": "dxe5", "explanation": "The d6 pawn takes the knight and removes the piece needed for mate on d5."}],
+      "safe_moves": ["dxe5", "Nxe5"],
       "description": "A version of Legal's Mate in the Philidor Defense.",
       "setup_moves": [
         "e4",
@@ -1289,6 +1430,11 @@
   "petrov-defense": [
     {
       "name": "Stafford Gambit Trap",
+      "danger": "After Black's knight takes on e4, White's bishop on g5 is attacked and the queen-side back rank is vulnerable. Taking the queen on d8 allows a forced mate.",
+      "how_to_avoid": "Move the queen to e2 and keep defending f2 instead of taking Black's queen.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "Nf6", "Nxe5", "Nc6", "Nxc6", "dxc6", "d3", "Bc5", "Bg5", "Nxe4"],
+      "defense_line": [{"move": "Qe2", "explanation": "The queen keeps f2 defended and steps away from the mating net. Material can wait until the king is safe."}],
+      "safe_moves": ["Qe2", "Be3", "d4"],
       "description": "A dangerous gambit where Black sacrifices a pawn for a mating attack!",
       "setup_moves": [
         "e4",
@@ -1502,6 +1648,11 @@
   "budapest-gambit": [
     {
       "name": "Kieninger Trap",
+      "danger": "Black's knight on e5 appears pinned to the queen, but axb4 lets the other knight jump to d3 with mate.",
+      "how_to_avoid": "Remove the knight on e5 instead of taking the bishop on b4.",
+      "defense_setup_moves": ["d4", "Nf6", "c4", "e5", "dxe5", "Ng4", "Bf4", "Nc6", "Nf3", "Bb4+", "Nbd2", "Qe7", "a3", "Ngxe5"],
+      "defense_line": [{"move": "Nxe5", "explanation": "White's knight removes the attacker on e5. Black no longer has Nd3 mate."}],
+      "safe_moves": ["Nxe5", "Qc2", "Bxe5"],
       "description": "A sharp smothered mate in the Budapest Gambit!",
       "setup_moves": [
         "d4",
@@ -1583,6 +1734,11 @@
   "dutch-defense": [
     {
       "name": "Dutch Defense Mate",
+      "danger": "Black's rook on h8 is tempted to take the queen on h5, but moving it to h6 leaves the king boxed in for Bg6 mate.",
+      "how_to_avoid": "Ignore the queen for now and open an escape square with e6.",
+      "defense_setup_moves": ["d4", "f5", "Bg5", "h6", "Bh4", "g5", "Bg3", "f4", "e3", "h5", "Bd3"],
+      "defense_line": [{"move": "e6", "explanation": "Black opens e7 for the king and develops the f8 bishop. The queen sacrifice no longer forces mate."}],
+      "safe_moves": ["e6", "d6", "Bg7"],
       "description": "A quick checkmate if Black is too aggressive!",
       "setup_moves": [
         "d4",
@@ -1633,6 +1789,11 @@
   "opera-game": [
     {
       "name": "Opera Game Finale",
+      "danger": "Black is behind in development and the king is stuck in the center. The pawn move b5 opens more lines while White's rooks can reach the d-file.",
+      "how_to_avoid": "Move the king away from the open d-file and finish development instead of pushing another pawn.",
+      "defense_setup_moves": ["e4", "e5", "Nf3", "d6", "d4", "Bg4", "dxe5", "Bxf3", "Qxf3", "dxe5", "Bc4", "Nf6", "Qb3", "Qe7", "Nc3", "c6", "Bg5"],
+      "defense_line": [{"move": "Kd8", "explanation": "The king leaves e8 before White opens the d-file. Black is still under pressure, but avoids the famous forced finish."}],
+      "safe_moves": ["Kd8", "h6", "Na6"],
       "description": "The famous finish from Morphy's Opera Game - a model attacking game!",
       "setup_moves": [
         "e4",
@@ -1725,6 +1886,11 @@
   "french-defense": [
     {
       "name": "French Winawer Poisoned Pawn",
+      "danger": "White's queen attacks g7 and h7. Black should not make a slow move while those pawns and the king are exposed.",
+      "how_to_avoid": "Move the king away from the queen's checks or open the center immediately.",
+      "defense_setup_moves": ["e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "c5", "a3", "Bxc3+", "bxc3", "Ne7", "Qg4"],
+      "defense_line": [{"move": "Kf8", "explanation": "The king steps away from checks on the dark squares and lets Black answer the queen's pawn grabs safely."}],
+      "safe_moves": ["Kf8", "cxd4", "Qc7"],
       "description": "White wins material by taking pawns while Black's pieces are tangled.",
       "setup_moves": [
         "e4",
@@ -1757,7 +1923,7 @@
         },
         {
           "move": "cxd4",
-          "explanation": "Black tries counterplay."
+          "explanation": "Black takes in the center and opens lines for the other pieces."
         },
         {
           "move": "Ne2",
@@ -1863,6 +2029,11 @@
   "slav-defense": [
     {
       "name": "Slav Main Line Trap",
+      "danger": "White's knight on e5 can become a target after Black's bishop leaves c8, especially if White pushes f3 before opening the other bishop.",
+      "how_to_avoid": "Play e3 first, opening the f1 bishop and supporting the center.",
+      "defense_setup_moves": ["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4", "a4", "Bf5"],
+      "defense_line": [{"move": "e3", "explanation": "White opens the f1 bishop and prepares to recover the c4 pawn without weakening the king."}],
+      "safe_moves": ["e3", "Ne5", "Nh4"],
       "description": "A tactical sequence where Black wins material with a discovered attack.",
       "setup_moves": [
         "d4",
@@ -1993,6 +2164,11 @@
   "vienna-game": [
     {
       "name": "Frankenstein-Dracula Variation",
+      "danger": "White's queen and knight are deep in Black's position. A careless queen move can leave the rook on a8 and the king on e8 exposed to a knight check.",
+      "how_to_avoid": "Keep the queen defending c7 and f6; Qf6 meets White's threats without abandoning the back rank.",
+      "defense_setup_moves": ["e4", "e5", "Nc3", "Nf6", "Bc4", "Nxe4", "Qh5", "Nd6", "Bb3", "Nc6", "Nb5", "g6", "Qf3", "f5", "Qd5"],
+      "defense_line": [{"move": "Qf6", "explanation": "The queen protects c7 and blocks White's queen from creating an immediate fork on the king and rook."}],
+      "safe_moves": ["Qf6", "Qe7"],
       "description": "A wild gambit with attacking chances for both sides!",
       "setup_moves": [
         "e4",
@@ -2289,6 +2465,11 @@
   "tennison-gambit": [
     {
       "name": "Tennison Gambit Trap",
+      "danger": "The pawn move h6 attacks the knight, but it also gives White Nxf7 followed by Bg6+, pulling the king away from the queen.",
+      "how_to_avoid": "Develop with Nc6 and keep h6 unplayed until the king is safe.",
+      "defense_setup_moves": ["e4", "d5", "Nf3", "dxe4", "Ng5", "Nf6", "d3", "exd3", "Bxd3"],
+      "defense_line": [{"move": "Nc6", "explanation": "Black develops, guards central squares, and refuses to create the h6 hook that starts White's combination."}],
+      "safe_moves": ["Nc6", "Bd7", "e6"],
       "description": "A sharp trap where black's natural h6 runs into a queen sacrifice on f7.",
       "setup_moves": [
         "e4",
@@ -2468,6 +2649,11 @@
   "owens-defense": [
     {
       "name": "Owen's Defense Greek-Gift Trap",
+      "danger": "The early f5 pawn move opens the diagonal to Black's king. After White's queen reaches h5, another slow developing move allows a forced mate.",
+      "how_to_avoid": "Play e6 before touching the f-pawn so the king's diagonal stays closed.",
+      "defense_setup_moves": ["e4", "b6", "d4", "Bb7", "Bd3"],
+      "defense_line": [{"move": "e6", "explanation": "The e-pawn closes the bishop's path toward h7 and prepares safe development. White no longer has the same queen check on h5."}],
+      "safe_moves": ["e6", "d5", "g6"],
       "description": "When Black plays 3...f5?? in Owen's, White punishes with the Greek-gift sacrifice: queen check on h5 forces a king-hunt ending in mate.",
       "setup_moves": [
         "e4",
@@ -2524,6 +2710,11 @@
   "englund-gambit": [
     {
       "name": "Englund Gambit Mate Trap",
+      "danger": "Black's bishop captures on c3 and invites White's queen to recapture. Qxc3 places the queen on the c-file, where Qc1 is mate.",
+      "how_to_avoid": "Recapture the bishop with the knight, not the queen.",
+      "defense_setup_moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+", "Bd2", "Qxb2", "Bc3", "Bb4", "Qd2", "Bxc3"],
+      "defense_line": [{"move": "Nxc3", "explanation": "The knight recaptures and keeps the c1 square covered. Black's queen no longer has a mating move on c1."}],
+      "safe_moves": ["Nxc3"],
       "description": "Black's famous trap in the Englund Gambit: after 3...Qe7, if White plays the natural 4.Bf4??, Black wins material or delivers mate with the Qb4+ / Qxb2 / Bb4 pin combination.",
       "trap_color": "black",
       "setup_moves": [

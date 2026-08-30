@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from services.personal_curriculum import (
@@ -54,6 +54,10 @@ class FakeDB:
         self.users = FakeCollection([{"user_id": "u1", "role": role}])
         self.games = FakeCollection(count=analyzed_games)
         self.coach_memory = FakeCollection()
+        self.player_profiles = FakeCollection()
+        self.chess_understanding = FakeCollection()
+        self.user_opening_progress = FakeCollection()
+        self.learning_sessions = FakeCollection()
 
 
 def test_rollout_requires_both_flag_and_allowed_role():
@@ -166,3 +170,182 @@ def test_repair_requires_named_topic_to_recur_three_times():
     assert "%" not in candidate.title
     assert "797" not in candidate.reason
     assert "tactical-sequence" not in candidate.reason
+
+
+def test_approved_personalized_flag_routes_supported_lesson_through_workspace(
+    monkeypatch,
+):
+    db = FakeDB(analyzed_games=7)
+    enabled = {
+        **ENABLED,
+        "PERSONALIZED_TEACHING_ENABLED": "true",
+    }
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f1",
+            "topic_key": "piece_safety",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    async def no_active_focus(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db,
+        "u1",
+        generated_at=NOW,
+        env=enabled,
+    ))
+
+    primary = result["decision"]["primary"]
+    assert primary["destination"]["href"] == (
+        "/training?personalized=1&kind=concept&lesson=piece_safety"
+    )
+    assert result["personalized_teaching"]["enabled"] is True
+    assert result["personalized_teaching"]["profile"]["mode"] in {
+        "personalized",
+        "diagnostic_required",
+    }
+
+
+def test_curriculum_reuses_highest_state_proved_by_the_exact_lesson(monkeypatch):
+    db = FakeDB(analyzed_games=7)
+    db.learning_sessions.docs.append({
+        "user_id": "u1",
+        "lesson_type": "personalized_curriculum",
+        "content_kind": "concept",
+        "content_id": "piece_safety",
+        "highest_earned_state": "can_do_alone",
+        "updated_at": NOW,
+    })
+    enabled = {**ENABLED, "PERSONALIZED_TEACHING_ENABLED": "true"}
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f1",
+            "topic_key": "piece_safety",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db,
+        "u1",
+        generated_at=NOW,
+        env=enabled,
+    ))
+
+    assert result["decision"]["primary"]["state"] == "can_do_alone"
+
+
+def test_review_becomes_due_after_three_more_analyzed_games(monkeypatch):
+    db = FakeDB(analyzed_games=7)
+    db.learning_sessions.docs.append({
+        "user_id": "u1",
+        "lesson_type": "personalized_curriculum",
+        "status": "completed",
+        "content_kind": "concept",
+        "content_id": "piece_safety",
+        "skill_id": "piece_safety",
+        "highest_earned_state": "can_do_alone",
+        "analyzed_games_at_completion": 4,
+        "completed_at": NOW - timedelta(days=2),
+        "descriptor": {
+            "kind": "concept",
+            "id": "piece_safety",
+            "title": "Piece safety",
+            "canonical_source": "backend/data/theory/tactical_patterns.json",
+        },
+    })
+    enabled = {**ENABLED, "PERSONALIZED_TEACHING_ENABLED": "true"}
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f1",
+            "topic_key": "piece_safety",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db, "u1", generated_at=NOW, env=enabled
+    ))
+
+    primary = result["decision"]["primary"]
+    assert primary["outcome"] == "review"
+    assert primary["state"] == "can_do_alone"
+    assert "review=1" in primary["destination"]["href"]
+    assert "3 analyzed games" in primary["reason"]
+
+
+def test_calendar_backstop_is_honest_about_missing_new_game_evidence(monkeypatch):
+    db = FakeDB(analyzed_games=7)
+    db.learning_sessions.docs.append({
+        "user_id": "u1",
+        "lesson_type": "personalized_curriculum",
+        "status": "completed",
+        "content_kind": "concept",
+        "content_id": "piece_safety",
+        "skill_id": "piece_safety",
+        "highest_earned_state": "can_do_with_help",
+        "analyzed_games_at_completion": 7,
+        "completed_at": NOW - timedelta(days=22),
+        "descriptor": {
+            "kind": "concept",
+            "id": "piece_safety",
+            "title": "Piece safety",
+            "canonical_source": "backend/data/theory/tactical_patterns.json",
+        },
+    })
+    enabled = {**ENABLED, "PERSONALIZED_TEACHING_ENABLED": "true"}
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f1",
+            "topic_key": "piece_safety",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db, "u1", generated_at=NOW, env=enabled
+    ))
+
+    primary = result["decision"]["primary"]
+    assert primary["outcome"] == "review"
+    assert "check-in, not proof from new games" in primary["reason"]
+    assert primary["evidence"] == (
+        "No new game evidence is being claimed for this check-in."
+    )

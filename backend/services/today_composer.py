@@ -78,6 +78,7 @@ SKILL_TO_GAP = {
 # Each kind has band-aware CTA copy. Default verb matches the medium:
 #   opening     → study the lesson then play it with coach
 #   trap_set    → study the traps then play with coach who tests them
+#   trap        → practice one verified defense or execution line
 #   endgame     → do the lesson
 #   mate_pattern → do the lesson
 #   concept     → play with coach who reinforces the concept
@@ -98,6 +99,14 @@ KIND_ACTIONS = {
         "intermediate": "Study these traps",
         "advanced": "Study these traps",
         "href": "/openings/{content_ref}#traps",
+        "medium": "lesson",
+    },
+    "trap": {
+        "beginner_low": "Let's defend this threat together",
+        "beginner_high": "Practise this defense",
+        "intermediate": "Practise this defense",
+        "advanced": "Practise this defense",
+        "href": "/play-with-coach?trap={content_ref}",
         "medium": "lesson",
     },
     "endgame": {

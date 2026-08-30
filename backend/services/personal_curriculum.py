@@ -6,20 +6,22 @@ owners; it never copies lesson content or writes a mastery verdict.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 import hashlib
 import json
 import os
 from typing import Any, Dict, Mapping, Optional, Tuple
+from urllib.parse import urlencode
 
 from services.detector_quality import QualitySurface, is_authorized
 
 
 FEATURE_FLAG = "PERSONAL_CURRICULUM_ENABLED"
+PERSONALIZED_TEACHING_FEATURE_FLAG = "PERSONALIZED_TEACHING_ENABLED"
 CURRICULUM_SCHEMA_VERSION = "personal_curriculum.v1"
-LESSON_RESULT_SCHEMA_VERSION = "lesson_result.v1"
+LESSON_RESULT_SCHEMA_VERSION = "lesson_result.v2"
 CURRICULUM_SURFACE_SCHEMA_VERSION = "personal_curriculum.surface.v1"
 ROLLOUT_ROLES_ENV = "PERSONAL_CURRICULUM_ROLES"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -87,12 +89,51 @@ class ApplicationOutcome(str, Enum):
     UNCLEAR = "unclear"
 
 
+class TeachingStage(str, Enum):
+    DIAGNOSE = "diagnose"
+    NOTICE = "notice"
+    EXPLAIN = "explain"
+    CONTRAST = "contrast"
+    GUIDE = "guide"
+    RECALL = "recall"
+    MIX = "mix"
+    TRANSFER = "transfer"
+    APPLY = "apply"
+    RETAIN = "retain"
+
+
+class HelpAction(str, Enum):
+    SHOW_ON_BOARD = "show_on_board"
+    ASK_ONE_QUESTION = "ask_one_question"
+    LET_ME_TRY = "let_me_try"
+
+
+class EvidenceSourceType(str, Enum):
+    LESSON = "lesson"
+    MIXED_DRILL = "mixed_drill"
+    COACHED_APPLICATION = "coached_application"
+    ORGANIC_GAME = "organic_game"
+
+
 def personal_curriculum_enabled(
     env: Optional[Mapping[str, str]] = None,
 ) -> bool:
     """Return the default-off backend flag state."""
     source = os.environ if env is None else env
     return str(source.get(FEATURE_FLAG, "false")).strip().lower() in _TRUE_VALUES
+
+
+def personalized_teaching_enabled(
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Return the separate default-off personalized-delivery flag state."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(PERSONALIZED_TEACHING_FEATURE_FLAG, "false"))
+        .strip()
+        .lower()
+        in _TRUE_VALUES
+    )
 
 
 def personal_curriculum_rollout_roles(
@@ -111,6 +152,17 @@ def personal_curriculum_eligible(
         personal_curriculum_enabled(env)
         and bool(user_role)
         and user_role in personal_curriculum_rollout_roles(env)
+    )
+
+
+def personalized_teaching_eligible(
+    user_role: Optional[str],
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Personalized delivery never widens the Personal Curriculum rollout."""
+    return (
+        personal_curriculum_eligible(user_role, env)
+        and personalized_teaching_enabled(env)
     )
 
 
@@ -384,18 +436,23 @@ def _knowledge_destination(
 ) -> CurriculumDestination:
     kind = str(focus.get("e2_kind") or focus.get("kind") or "concept")
     content_ref = str(focus.get("content_ref") or "")
-    if kind == "endgame":
+    if kind in {"endgame", "mate_pattern"}:
         return resolve_endgame_destination(
             content_ref,
             capability=LessonCapability.TEACH,
         )
+    canonical_source = {
+        "opening": "backend/data/opening_curriculum.json",
+        "trap": "backend/data/traps.json",
+        "concept": "backend/data/theory/tactical_patterns.json",
+    }.get(kind, "backend/data/coaching/skill_tree.json")
     return CurriculumDestination(
         href=str(action.get("href") or "/play-with-coach"),
         medium=str(action.get("medium") or "lesson"),
         capability=LessonCapability.TEACH,
         content_kind=kind,
-        content_id=str(focus.get("skill_id") or content_ref),
-        canonical_source="backend/data/coaching/skill_tree.json",
+        content_id=str(content_ref or focus.get("skill_id")),
+        canonical_source=canonical_source,
     )
 
 
@@ -469,6 +526,199 @@ def _observe_candidate(analyzed_games: int) -> CurriculumCandidate:
             canonical_source="coach game session",
         ),
         evidence_owner="games",
+    )
+
+
+def _personalized_candidate(
+    candidate: CurriculumCandidate,
+) -> CurriculumCandidate:
+    """Route a supported canonical lesson through the shared workspace."""
+    destination = candidate.destination
+    if destination.content_kind not in {
+        "concept",
+        "opening",
+        "trap",
+        "endgame",
+    }:
+        return candidate
+    from services.personalized_lesson_adapter import (
+        supports_personalized_lesson_identity,
+    )
+
+    if not supports_personalized_lesson_identity(
+        destination.content_kind,
+        destination.content_id,
+    ):
+        return candidate
+    query = urlencode({
+        "personalized": "1",
+        "kind": destination.content_kind,
+        "lesson": destination.content_id,
+    })
+    return replace(
+        candidate,
+        destination=replace(
+            destination,
+            href=f"/training?{query}",
+            medium="personalized_lesson",
+        ),
+    )
+
+
+async def _with_latest_lesson_state(
+    db,
+    user_id: str,
+    candidate: CurriculumCandidate,
+) -> CurriculumCandidate:
+    """Project only the highest state an exact personalized lesson proved."""
+    sessions = getattr(db, "learning_sessions", None)
+    if sessions is None:
+        return candidate
+    latest = await sessions.find_one(
+        {
+            "user_id": user_id,
+            "lesson_type": "personalized_curriculum",
+            "content_kind": candidate.destination.content_kind,
+            "content_id": candidate.destination.content_id,
+        },
+        {
+            "_id": 0,
+            "highest_earned_state": 1,
+            "updated_at": 1,
+        },
+        sort=[("updated_at", -1)],
+    )
+    if not latest:
+        return candidate
+    allowed = {
+        StudentState.LEARNING,
+        StudentState.CAN_DO_WITH_HELP,
+        StudentState.CAN_DO_ALONE,
+    }
+    try:
+        proved = StudentState(str(latest.get("highest_earned_state") or ""))
+    except ValueError:
+        return candidate
+    if proved not in allowed:
+        return candidate
+    rank = {
+        StudentState.NEW: 0,
+        StudentState.LEARNING: 1,
+        StudentState.CAN_DO_WITH_HELP: 2,
+        StudentState.CAN_DO_ALONE: 3,
+    }
+    if rank.get(proved, 0) <= rank.get(candidate.student_state, 0):
+        return candidate
+    return replace(candidate, student_state=proved)
+
+
+def _stored_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    return None
+
+
+async def _due_personalized_review(
+    db,
+    user_id: str,
+    *,
+    analyzed_games: int,
+    now: datetime,
+) -> Optional[CurriculumCandidate]:
+    sessions = getattr(db, "learning_sessions", None)
+    if sessions is None:
+        return None
+    latest = await sessions.find_one(
+        {
+            "user_id": user_id,
+            "lesson_type": "personalized_curriculum",
+            "status": "completed",
+        },
+        {
+            "_id": 0,
+            "content_kind": 1,
+            "content_id": 1,
+            "skill_id": 1,
+            "highest_earned_state": 1,
+            "descriptor": 1,
+            "completed_at": 1,
+            "analyzed_games_at_completion": 1,
+        },
+        sort=[("completed_at", -1)],
+    )
+    if not latest:
+        return None
+    try:
+        state = StudentState(str(latest.get("highest_earned_state") or ""))
+    except ValueError:
+        return None
+    if state not in {StudentState.CAN_DO_WITH_HELP, StudentState.CAN_DO_ALONE}:
+        return None
+
+    baseline = latest.get("analyzed_games_at_completion")
+    games_since = (
+        max(0, analyzed_games - int(baseline))
+        if isinstance(baseline, (int, float))
+        else 0
+    )
+    completed_at = _stored_datetime(latest.get("completed_at"))
+    elapsed = (now - completed_at) if completed_at else timedelta(0)
+    game_due = games_since >= 3
+    backstop_due = elapsed >= timedelta(days=21)
+    if not game_due and not backstop_due:
+        return None
+
+    descriptor = latest.get("descriptor") or {}
+    kind = str(latest.get("content_kind") or descriptor.get("kind") or "")
+    lesson_id = str(latest.get("content_id") or descriptor.get("id") or "")
+    canonical_source = str(descriptor.get("canonical_source") or "")
+    if not kind or not lesson_id or not canonical_source:
+        return None
+    query = urlencode({
+        "personalized": "1",
+        "kind": kind,
+        "lesson": lesson_id,
+        "review": "1",
+    })
+    if game_due:
+        reason = (
+            f"You have played {games_since} analyzed games since this lesson. "
+            "Let us see whether you can find the idea again without help."
+        )
+        evidence = (
+            "The review is due because you have new game evidence since the lesson."
+        )
+        evidence_status = EvidenceStatus.TRUSTWORTHY
+    else:
+        reason = (
+            "It has been at least 21 days. This is a check-in, not proof from "
+            "new games."
+        )
+        evidence = "No new game evidence is being claimed for this check-in."
+        evidence_status = EvidenceStatus.STALE
+    return CurriculumCandidate(
+        outcome=CurriculumOutcome.REVIEW,
+        student_state=state,
+        title=str(descriptor.get("title") or "Review your lesson"),
+        reason=reason,
+        evidence_summary=evidence,
+        evidence_status=evidence_status,
+        destination=CurriculumDestination(
+            href=f"/training?{query}",
+            medium="personalized_lesson",
+            capability=LessonCapability.REVIEW,
+            content_kind=kind,
+            content_id=lesson_id,
+            canonical_source=canonical_source,
+        ),
+        evidence_owner="learning_sessions",
+        evidence_ref=str(latest.get("skill_id") or lesson_id),
     )
 
 
@@ -596,13 +846,36 @@ async def build_player_curriculum(
     if primary is None:
         primary = _observe_candidate(analyzed_games)
 
-    decision = build_curriculum_decision(primary, generated_at=now)
+    personalized_enabled = personalized_teaching_eligible(role, env)
+    if personalized_enabled:
+        primary = _personalized_candidate(primary)
+        primary = await _with_latest_lesson_state(db, user_id, primary)
+
+    review_candidate = None
+    if personalized_enabled:
+        review_candidate = await _due_personalized_review(
+            db,
+            user_id,
+            analyzed_games=analyzed_games,
+            now=now,
+        )
+        if review_candidate and review_candidate.content_identity == primary.content_identity:
+            primary = review_candidate
+            review_candidate = None
+
+    decision = build_curriculum_decision(
+        primary,
+        generated_at=now,
+        review=review_candidate,
+    )
     naturally_next = None
     if primary.outcome == CurriculumOutcome.REPAIR and knowledge is not None:
         next_candidate = _knowledge_candidate(
             knowledge,
             band_name=str((focus or {}).get("rating_band") or "beginner_high"),
         )
+        if personalized_enabled:
+            next_candidate = _personalized_candidate(next_candidate)
         naturally_next = {
             "title": next_candidate.title,
             "reason": "We will return to this after your current focus.",
@@ -623,6 +896,23 @@ async def build_player_curriculum(
         evidence_watermark=watermark,
         now=now,
     )
+    teaching_profile = None
+    if personalized_enabled and primary.outcome != CurriculumOutcome.OBSERVE:
+        from services.personal_teaching_profile import (
+            build_personal_teaching_profile,
+        )
+
+        teaching_profile = await build_personal_teaching_profile(
+            db,
+            user_id,
+            skill_id=primary.destination.content_id,
+            canonical_lesson={
+                "kind": primary.destination.content_kind,
+                "id": primary.destination.content_id,
+                "canonical_source": primary.destination.canonical_source,
+                "content_version": "resolved_at_session_start",
+            },
+        )
     return {
         "enabled": True,
         "schema_version": CURRICULUM_SURFACE_SCHEMA_VERSION,
@@ -633,6 +923,10 @@ async def build_player_curriculum(
             "selected_at": active_plan["selected_at"],
         },
         "rollout": {"eligible": True, "reason": "enabled_for_role"},
+        "personalized_teaching": {
+            "enabled": personalized_enabled,
+            "profile": teaching_profile,
+        },
     }
 
 
@@ -643,19 +937,41 @@ class LessonResult:
     content_kind: str
     content_id: str
     canonical_source: str
+    content_version: str
     attempt_kind: AttemptKind
     occurred_at: datetime
+    skill_id: Optional[str] = None
+    primary_skill_id: Optional[str] = None
+    stage: Optional[TeachingStage] = None
     correct: Optional[bool] = None
     assistance: Tuple[AssistanceKind, ...] = ()
+    requested_help: Tuple[HelpAction, ...] = ()
     position_id: Optional[str] = None
     board_verified: bool = False
     distinct_position: bool = False
+    prediction_correct: Optional[bool] = None
+    reason_choice: Optional[str] = None
+    reasoning_consistent: Optional[bool] = None
+    misconception: Optional[str] = None
+    corrective_action: Optional[str] = None
+    source_type: EvidenceSourceType = EvidenceSourceType.LESSON
     application_outcome: ApplicationOutcome = ApplicationOutcome.NOT_MEASURED
     detector_quality_id: Optional[str] = None
+    detector_version: Optional[str] = None
+    grader_version: Optional[str] = None
+    evidence_owner: Optional[str] = None
+    evidence_ref: Optional[str] = None
+    time_control: Optional[str] = None
+    under_time_pressure: Optional[bool] = None
     source_event_id: Optional[str] = None
 
     def __post_init__(self) -> None:
-        for field_name in ("content_kind", "content_id", "canonical_source"):
+        for field_name in (
+            "content_kind",
+            "content_id",
+            "canonical_source",
+            "content_version",
+        ):
             _require_text(getattr(self, field_name), field_name)
         if not isinstance(self.attempt_kind, AttemptKind):
             raise ContractViolation("attempt_kind must be an AttemptKind")
@@ -666,6 +982,12 @@ class LessonResult:
         _iso_utc(self.occurred_at)
         if any(not isinstance(item, AssistanceKind) for item in self.assistance):
             raise ContractViolation("assistance entries must be AssistanceKind values")
+        if any(not isinstance(item, HelpAction) for item in self.requested_help):
+            raise ContractViolation("requested_help entries must be HelpAction values")
+        if self.stage is not None and not isinstance(self.stage, TeachingStage):
+            raise ContractViolation("stage must be a TeachingStage")
+        if not isinstance(self.source_type, EvidenceSourceType):
+            raise ContractViolation("source_type must be an EvidenceSourceType")
         if self.attempt_kind in (
             AttemptKind.GUIDED,
             AttemptKind.INDEPENDENT,
@@ -680,6 +1002,13 @@ class LessonResult:
             if self.application_outcome == ApplicationOutcome.NOT_MEASURED:
                 raise ContractViolation(
                     "application attempts require an explicit opportunity outcome"
+                )
+            if self.source_type not in (
+                EvidenceSourceType.COACHED_APPLICATION,
+                EvidenceSourceType.ORGANIC_GAME,
+            ):
+                raise ContractViolation(
+                    "application attempts must preserve coached or organic source"
                 )
         elif self.application_outcome != ApplicationOutcome.NOT_MEASURED:
             raise ContractViolation(
@@ -705,8 +1034,15 @@ class LessonResult:
         if self.attempt_kind == AttemptKind.GUIDED:
             return StudentState.CAN_DO_WITH_HELP
 
-        if self.assistance:
+        effective_help = tuple(
+            item for item in self.requested_help
+            if item != HelpAction.LET_ME_TRY
+        )
+        if self.assistance or effective_help:
             return StudentState.CAN_DO_WITH_HELP
+
+        if self.reasoning_consistent is False:
+            return StudentState.LEARNING
 
         if self.board_verified and self.distinct_position:
             return StudentState.CAN_DO_ALONE
@@ -715,27 +1051,53 @@ class LessonResult:
 
     def event_dict(self) -> Dict[str, Any]:
         earned = self.earned_state()
+        stage = self.stage or {
+            AttemptKind.EXPLANATION: TeachingStage.EXPLAIN,
+            AttemptKind.GUIDED: TeachingStage.GUIDE,
+            AttemptKind.INDEPENDENT: TeachingStage.TRANSFER,
+            AttemptKind.REVIEW: TeachingStage.RETAIN,
+            AttemptKind.APPLICATION: TeachingStage.APPLY,
+        }[self.attempt_kind]
         return {
             "schema_version": LESSON_RESULT_SCHEMA_VERSION,
             "lesson": {
                 "kind": self.content_kind,
                 "id": self.content_id,
                 "canonical_source": self.canonical_source,
+                "content_version": self.content_version,
+                "skill_id": self.skill_id or self.content_id,
+                "primary_skill_id": self.primary_skill_id or self.skill_id or self.content_id,
             },
             "attempt": {
                 "kind": self.attempt_kind.value,
+                "stage": stage.value,
                 "correct": self.correct,
                 "assistance": [item.value for item in self.assistance],
+                "requested_help": [item.value for item in self.requested_help],
                 "position_id": self.position_id,
                 "board_verified": self.board_verified,
                 "distinct_position": self.distinct_position,
+                "prediction_correct": self.prediction_correct,
+                "reason_choice": self.reason_choice,
+                "reasoning_consistent": self.reasoning_consistent,
+                "misconception": self.misconception,
+                "corrective_action": self.corrective_action,
+                "grader_version": self.grader_version,
             },
             "application": {
                 "outcome": self.application_outcome.value,
+                "source_type": self.source_type.value,
                 "detector_quality_id": self.detector_quality_id,
+                "detector_version": self.detector_version,
                 "plan_authorized": _application_claim_authorized(
                     self.detector_quality_id
                 ),
+                "time_control": self.time_control,
+                "under_time_pressure": self.under_time_pressure,
+            },
+            "provenance": {
+                "owner": self.evidence_owner,
+                "ref": self.evidence_ref,
             },
             "occurred_at": _iso_utc(self.occurred_at),
             "source_event_id": self.source_event_id,
