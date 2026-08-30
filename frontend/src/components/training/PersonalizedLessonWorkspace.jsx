@@ -289,6 +289,13 @@ export default function PersonalizedLessonWorkspace({
   const item = session?.current_item;
   const stage = item?.stage || session?.stage || "guide";
   const isReady = Boolean(reasonChoice) && !busy;
+  const isPieceDiagnosis = item?.diagnosis_kind === "piece_in_danger";
+  const isOwnPosition = ["own_game", "own_coach_game"].includes(item?.source);
+  const positionContext = [
+    item?.side_to_move ? `${item.side_to_move} to move` : null,
+    item?.move_number ? `before move ${item.move_number}` : null,
+    isOwnPosition ? "from your game" : "checked for accuracy",
+  ].filter(Boolean).join(" · ");
   const preferredHelp = session?.teaching_profile?.delivery?.preferred_help;
   const helpActions = [...HELP_ACTIONS].sort((left, right) => (
     left.id === preferredHelp ? -1 : right.id === preferredHelp ? 1 : 0
@@ -313,11 +320,19 @@ export default function PersonalizedLessonWorkspace({
                 arrows={[]}
               />
             )}
-            {!reasonChoice && (
-              <p className="mt-3 text-xs text-center text-muted-foreground">
-                Choose what you are checking first. Then the board will unlock.
-              </p>
-            )}
+            <p className="mt-3 text-xs text-center text-muted-foreground">
+              {!reasonChoice
+                ? (
+                  isPieceDiagnosis
+                    ? "First identify the piece in danger. Then make your move."
+                    : "Choose what you are checking first. Then make your move."
+                )
+                : (
+                  isPieceDiagnosis
+                    ? "Now make a move that saves the piece or answers the attack."
+                    : "Now make the move you believe in."
+                )}
+            </p>
           </div>
 
           <aside>
@@ -336,8 +351,7 @@ export default function PersonalizedLessonWorkspace({
             </div>
             <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
             <p className="text-xs text-muted-foreground mb-4">
-              Position {(session?.current_index || 0) + 1} of {session?.total_items}
-              {item?.source === "own_game" ? " · from your game" : " · checked for accuracy"}
+              {positionContext} · Position {(session?.current_index || 0) + 1} of {session?.total_items}
             </p>
 
             <fieldset className="mb-5">

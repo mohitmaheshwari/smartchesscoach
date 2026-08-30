@@ -1,6 +1,7 @@
 import asyncio
 
 from services.personalized_lesson_adapter import (
+    grade_personalized_move,
     public_lesson_descriptor,
     resolve_personalized_lesson,
     supports_personalized_lesson_identity,
@@ -9,6 +10,12 @@ from services.personalized_lesson_adapter import (
 
 class _NoDB:
     pass
+
+
+SCREENSHOT_FEN = (
+    "r1bq1rk1/bppp1pp1/p4nnp/8/1PBNP3/"
+    "P1N2Q2/2P2PPP/R1B2RK1 w - - 0 1"
+)
 
 
 def test_verified_endgame_is_normalized_without_public_answers():
@@ -82,3 +89,104 @@ def test_curriculum_only_enters_workspace_for_resolvable_canonical_lessons():
     assert not supports_personalized_lesson_identity(
         "concept", "not_a_real_lesson"
     )
+
+
+def test_piece_safety_uses_exact_screenshot_geometry_and_filters_mismatches(
+    monkeypatch,
+):
+    async def supply(db, user_id, pattern, limit):
+        assert pattern == "piece_safety"
+        assert limit == 20
+        return {
+            "own_puzzles": [
+                {
+                    "puzzle_id": "not-piece-safety",
+                    "fen": "7k/8/8/8/8/8/4K3/8 w - - 0 1",
+                    "best_move_san": "Kf3",
+                    "source": "own_game",
+                    "source_game_id": "wrong-game",
+                },
+                {
+                    "puzzle_id": "screenshot-position",
+                    "fen": SCREENSHOT_FEN,
+                    "best_move_san": "Ne6",
+                    "source": "own_game",
+                    "source_game_id": "screenshot-game",
+                    "move_number": 18,
+                },
+            ],
+            "community_puzzles": [],
+        }
+
+    monkeypatch.setattr(
+        "services.puzzle_extraction_service.get_pattern_training_puzzles",
+        supply,
+    )
+    descriptor = asyncio.run(resolve_personalized_lesson(
+        _NoDB(),
+        "u1",
+        content_kind="concept",
+        content_id="piece_safety",
+    ))
+    item = descriptor["items"][0]
+    public = public_lesson_descriptor(descriptor)["items"][0]
+
+    assert len(descriptor["items"]) == 1
+    assert item["item_id"] == "screenshot-position"
+    assert item["side_to_move"] == "White"
+    assert item["reason_prompt"] == "Which piece needs your attention first?"
+    assert item["_expected_reason"] == "piece_in_danger:d4"
+    assert item["_help_squares"] == ["d4", "a7"]
+    assert "knight on d4" in item["_help_message"]
+    assert "bishop on a7" in item["_help_message"]
+    choices = {choice["id"]: choice for choice in public["reason_choices"]}
+    assert choices["piece_in_danger:d4"]["label"] == (
+        "My knight on d4 can be taken."
+    )
+    assert public["reason_choices"][0]["id"] != "piece_in_danger:d4"
+    assert "_problem_square" not in public
+
+
+def test_piece_safety_grader_requires_the_move_to_solve_the_named_danger(
+    monkeypatch,
+):
+    async def evaluate(**kwargs):
+        return {
+            "is_acceptable": True,
+            "best_move_san": "Ne6",
+            "feedback": "legacy generic feedback",
+        }
+
+    monkeypatch.setattr(
+        "services.puzzle_move_evaluator.evaluate_puzzle_move",
+        evaluate,
+    )
+    descriptor = {
+        "kind": "concept",
+        "items": [],
+    }
+    item = {
+        "fen": SCREENSHOT_FEN,
+        "_expected_san": "Ne6",
+        "_puzzle_evaluator": True,
+        "_problem_square": "d4",
+        "_problem_piece_name": "knight",
+        "_on_correct": (
+            "Yes. You dealt with the attack on your knight on d4. "
+            "Before starting your own idea, check whether an attacked piece "
+            "needs help."
+        ),
+        "_on_wrong": (
+            "That still leaves your knight on d4 where the bishop on a7 "
+            "can take it. Deal with that attack first."
+        ),
+    }
+
+    correct = asyncio.run(grade_personalized_move(descriptor, item, "d4e6"))
+    ignored = asyncio.run(grade_personalized_move(descriptor, item, "g1h1"))
+
+    assert correct["correct"] is True
+    assert "knight on d4" in correct["feedback"]
+    assert ignored["correct"] is False
+    assert "bishop on a7" in ignored["feedback"]
+    assert "legacy generic feedback" not in str((correct, ignored))

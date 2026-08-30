@@ -13,7 +13,7 @@ from typing import Any, Dict, Mapping, Optional
 import chess
 
 
-ADAPTER_SCHEMA_VERSION = "personalized_lesson_adapter.v1"
+ADAPTER_SCHEMA_VERSION = "personalized_lesson_adapter.v2"
 TACTICAL_PATH = (
     Path(__file__).resolve().parent.parent
     / "data"
@@ -53,8 +53,33 @@ def _reason_choices(kind: str) -> list[Dict[str, str]]:
     ]
 
 
+def _ordered_reason_choices(
+    choices: list[Dict[str, str]],
+    *,
+    expected_id: str,
+    position_id: str,
+) -> list[Dict[str, str]]:
+    """Vary answer order deterministically so “click first” never works."""
+    ordered = sorted(
+        choices,
+        key=lambda choice: hashlib.sha256(
+            f"{position_id}:{choice.get('id')}".encode("utf-8")
+        ).hexdigest(),
+    )
+    if len(ordered) > 1 and ordered[0].get("id") == expected_id:
+        ordered[0], ordered[1] = ordered[1], ordered[0]
+    return ordered
+
+
 def _content_version(value: Mapping[str, Any]) -> str:
-    encoded = json.dumps(value, sort_keys=True, default=str).encode("utf-8")
+    encoded = json.dumps(
+        {
+            "adapter_schema": ADAPTER_SCHEMA_VERSION,
+            "canonical_content": value,
+        },
+        sort_keys=True,
+        default=str,
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()[:16]
 
 
@@ -116,6 +141,106 @@ def _move_uci(board: chess.Board, san: str) -> str:
     return board.parse_san(str(san)).uci()
 
 
+def _piece_safety_diagnosis(
+    fen: str,
+    best_move_san: str,
+) -> Optional[Dict[str, Any]]:
+    """Derive one teachable danger from the shared piece-safety geometry.
+
+    `mission_scoreboard.find_hanging_pieces` remains the owner of what counts
+    as an undefended attacked piece. This adapter only checks that the known
+    solution actually resolves that board fact and shapes it for a lesson.
+    """
+    from services.mission_scoreboard import find_hanging_pieces
+
+    try:
+        board = chess.Board(fen)
+        own_is_white = board.turn == chess.WHITE
+        hanging = find_hanging_pieces(fen, own_is_white)
+        if len(hanging) != 1:
+            return None
+        problem = dict(hanging[0])
+        problem_square = chess.parse_square(problem["square"])
+        move = board.parse_san(str(best_move_san))
+        before_hanging = {item["square"] for item in hanging}
+        attacker_squares = sorted(
+            board.attackers(not board.turn, problem_square)
+        )
+        attacker_labels = []
+        for square in attacker_squares:
+            piece = board.piece_at(square)
+            if piece:
+                attacker_labels.append(
+                    f"{chess.piece_name(piece.piece_type)} on "
+                    f"{chess.square_name(square)}"
+                )
+
+        board.push(move)
+        after_hanging = {
+            item["square"]
+            for item in find_hanging_pieces(board.fen(), own_is_white)
+        }
+        if move.from_square == problem_square:
+            resolved = chess.square_name(move.to_square) not in after_hanging
+        else:
+            resolved = problem["square"] not in after_hanging
+        new_hangs = after_hanging - (before_hanging - {problem["square"]})
+        if not resolved or new_hangs:
+            return None
+
+        return {
+            **problem,
+            "attacker_squares": [
+                chess.square_name(square) for square in attacker_squares
+            ],
+            "attacker_labels": attacker_labels,
+            "side_to_move": "White" if own_is_white else "Black",
+        }
+    except (KeyError, TypeError, ValueError, AssertionError):
+        return None
+
+
+def _piece_safety_reason_choices(
+    board: chess.Board,
+    problem: Mapping[str, Any],
+) -> list[Dict[str, str]]:
+    problem_square = str(problem["square"])
+    expected = {
+        "id": f"piece_in_danger:{problem_square}",
+        "label": (
+            f"My {problem['piece_name']} on {problem_square} can be taken."
+        ),
+    }
+    alternatives = []
+    own_color = board.turn
+    opponent = not own_color
+    candidates = []
+    for square, piece in board.piece_map().items():
+        square_name = chess.square_name(square)
+        if (
+            piece.color != own_color
+            or piece.piece_type == chess.KING
+            or square_name == problem_square
+        ):
+            continue
+        candidates.append((
+            0 if board.attackers(opponent, square) else 1,
+            chess.square_distance(square, chess.parse_square(problem_square)),
+            square_name,
+            chess.piece_name(piece.piece_type),
+        ))
+    for _, _, square_name, piece_name in sorted(candidates)[:2]:
+        alternatives.append({
+            "id": f"piece_in_danger:{square_name}",
+            "label": f"My {piece_name} on {square_name} can be taken.",
+        })
+    return [
+        expected,
+        *alternatives,
+        {"id": "not_sure", "label": "I am not sure yet."},
+    ]
+
+
 def _opening_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, Any]:
     from services.opening_theory_json_service import (
         get_lesson_move_steps,
@@ -151,13 +276,18 @@ def _opening_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
             raise LessonUnavailable("Opening lesson contains an invalid move")
         if str(step.get("side") or "") != player_color:
             continue
+        item_id = f"{resolved}:{index}"
         candidates.append({
-            "item_id": f"{resolved}:{index}",
+            "item_id": item_id,
             "fen": before,
             "orientation": player_color,
             "prompt": "What move continues your plan here?",
             "reason_prompt": "Why does your move belong here?",
-            "reason_choices": _reason_choices("opening"),
+            "reason_choices": _ordered_reason_choices(
+                _reason_choices("opening"),
+                expected_id="continues_plan",
+                position_id=item_id,
+            ),
             "_expected_reason": "continues_plan",
             "_help_squares": [uci[:2]],
             "_expected_san": san,
@@ -223,8 +353,9 @@ def _trap_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, An
             raise LessonUnavailable("Trap lesson contains an invalid move")
         if index not in expected_indexes:
             continue
+        item_id = f"{content_id}:{mode}:{index}"
         candidates.append({
-            "item_id": f"{content_id}:{mode}:{index}",
+            "item_id": item_id,
             "fen": before,
             "orientation": trap.get("user_color") or "white",
             "prompt": (
@@ -233,7 +364,11 @@ def _trap_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, An
                 else "What move continues the line?"
             ),
             "reason_prompt": "What matters most before you move?",
-            "reason_choices": _reason_choices("trap"),
+            "reason_choices": _ordered_reason_choices(
+                _reason_choices("trap"),
+                expected_id="answers_threat",
+                position_id=item_id,
+            ),
             "_expected_reason": "answers_threat",
             "_expected_san": str(san),
             "_expected_uci": uci,
@@ -289,13 +424,18 @@ def _endgame_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
     items = []
     for position in lesson.get("positions") or []:
         index = int(position["index"])
+        item_id = f"{content_id}:{index}"
         items.append({
-            "item_id": f"{content_id}:{index}",
+            "item_id": item_id,
             "fen": position["fen"],
             "orientation": position.get("side_to_move") or "white",
             "prompt": position.get("prompt") or "What move works here?",
             "reason_prompt": "Why does this move fit the position?",
-            "reason_choices": _reason_choices("endgame"),
+            "reason_choices": _ordered_reason_choices(
+                _reason_choices("endgame"),
+                expected_id="uses_rule",
+                position_id=item_id,
+            ),
             "_expected_reason": "uses_rule",
             "stage": "transfer" if position.get("stage") == "independent_proof" else "guide",
             "source": "canonical_endgame",
@@ -347,7 +487,7 @@ async def _concept_descriptor(
         db,
         user_id,
         "piece_safety" if pattern_key == "undefended_piece" else pattern_key,
-        requested,
+        max(10, requested * 4),
     )
     own = [
         item for item in (supply.get("own_puzzles") or [])
@@ -364,23 +504,98 @@ async def _concept_descriptor(
             continue
         seen_fens.add(normalized_fen)
         board = chess.Board(item["fen"])
-        attacked_piece_squares = [
-            chess.square_name(square)
-            for square, piece in board.piece_map().items()
-            if piece.color == board.turn
-            and board.is_attacked_by(not board.turn, square)
-        ]
+        diagnosis = (
+            _piece_safety_diagnosis(item["fen"], item["best_move_san"])
+            if pattern_key == "undefended_piece"
+            else None
+        )
+        if pattern_key == "undefended_piece" and not diagnosis:
+            continue
+        problem_square = str((diagnosis or {}).get("square") or "")
+        problem_piece = str((diagnosis or {}).get("piece_name") or "piece")
+        attackers = list((diagnosis or {}).get("attacker_labels") or [])
+        attacker_text = (
+            " and ".join(attackers)
+            if attackers
+            else "an opposing piece"
+        )
+        expected_reason = (
+            f"piece_in_danger:{problem_square}"
+            if diagnosis
+            else "keeps_piece_safe"
+        )
+        reason_choices = (
+            _piece_safety_reason_choices(board, diagnosis)
+            if diagnosis
+            else _reason_choices("concept")
+        )
+        reason_choices = _ordered_reason_choices(
+            reason_choices,
+            expected_id=expected_reason,
+            position_id=str(item.get("puzzle_id")),
+        )
         items.append({
             "item_id": str(item.get("puzzle_id")),
             "fen": item["fen"],
             "orientation": (
                 "black" if str(item["fen"]).split()[1] == "b" else "white"
             ),
-            "prompt": "Which move keeps every piece safe?",
-            "reason_prompt": "What did you check before choosing the move?",
-            "reason_choices": _reason_choices("concept"),
-            "_expected_reason": "keeps_piece_safe",
-            "_help_squares": attacked_piece_squares,
+            "side_to_move": (
+                diagnosis["side_to_move"]
+                if diagnosis
+                else ("White" if board.turn == chess.WHITE else "Black")
+            ),
+            "move_number": item.get("move_number"),
+            "diagnosis_kind": (
+                "piece_in_danger" if diagnosis else "concept_reason"
+            ),
+            "prompt": (
+                "One of your pieces can be taken. Find a move that saves it "
+                "or answers the attack."
+                if diagnosis
+                else "Which move fits this idea?"
+            ),
+            "reason_prompt": (
+                "Which piece needs your attention first?"
+                if diagnosis
+                else "What did you check before choosing the move?"
+            ),
+            "reason_choices": reason_choices,
+            "_expected_reason": expected_reason,
+            "_problem_square": problem_square or None,
+            "_problem_piece_name": problem_piece if diagnosis else None,
+            "_attacker_labels": attackers,
+            "_help_squares": (
+                [problem_square, *(diagnosis.get("attacker_squares") or [])]
+                if diagnosis
+                else []
+            ),
+            "_help_message": (
+                f"Your {problem_piece} on {problem_square} is attacked by "
+                f"the {attacker_text}."
+                if diagnosis
+                else "Trace every attack before choosing your move."
+            ),
+            "_coach_question": (
+                f"If you ignore your {problem_piece} on {problem_square}, "
+                "what can your opponent take next?"
+                if diagnosis
+                else "What can your opponent take after your move?"
+            ),
+            "_on_correct": (
+                f"Yes. You dealt with the attack on your {problem_piece} "
+                f"on {problem_square}. Before starting your own idea, check "
+                "whether an attacked piece needs help."
+                if diagnosis
+                else "You checked the board before moving."
+            ),
+            "_on_wrong": (
+                f"That still leaves your {problem_piece} on {problem_square} "
+                f"where the {attacker_text} can take it. Deal with that "
+                "attack first."
+                if diagnosis
+                else "Check what your opponent can take next."
+            ),
             "stage": "",
             "source": str(item.get("source") or "verified_practice"),
             "source_ref": str(
@@ -390,6 +605,8 @@ async def _concept_descriptor(
             "_expected_san": item["best_move_san"],
             "_puzzle_evaluator": True,
         })
+        if len(items) >= requested:
+            break
     if not items:
         raise LessonUnavailable("No verified practice positions are available yet")
     for index, item in enumerate(items):
@@ -500,6 +717,47 @@ async def grade_personalized_move(
             played_uci=supplied_move,
             known_best_san=item["_expected_san"],
         )
+        if item.get("_problem_square"):
+            board = chess.Board(item["fen"])
+            parsed = _parse_move(item["fen"], supplied_move)
+            exact_known_move = False
+            resolves_lesson_goal = False
+            if parsed:
+                exact_known_move = bool(
+                    parsed == board.parse_san(str(item["_expected_san"]))
+                )
+                diagnosis = _piece_safety_diagnosis(
+                    item["fen"],
+                    board.san(parsed),
+                )
+                resolves_lesson_goal = bool(
+                    diagnosis
+                    and diagnosis.get("square") == item.get("_problem_square")
+                )
+            engine_acceptable = bool(
+                result.get("is_acceptable") or exact_known_move
+            )
+            correct = bool(resolves_lesson_goal and engine_acceptable)
+            if correct:
+                feedback = item.get("_on_correct")
+            elif not resolves_lesson_goal:
+                feedback = item.get("_on_wrong")
+            else:
+                feedback = (
+                    f"You moved your {item.get('_problem_piece_name') or 'piece'} "
+                    "out of danger, but this move creates a bigger problem. "
+                    "A safe move must solve the immediate danger without "
+                    "creating a new one."
+                )
+            return {
+                "correct": correct,
+                "feedback": feedback,
+                "answer_san": (
+                    result.get("best_move_san") or item.get("_expected_san")
+                ),
+                "answer_uci": None,
+                "grader_version": "piece_safety_geometry+puzzle_move_evaluator.v1",
+            }
         return {
             "correct": bool(result.get("is_acceptable")),
             "feedback": result.get("feedback"),

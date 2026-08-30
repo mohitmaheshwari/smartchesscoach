@@ -816,6 +816,12 @@ async def start_personalized_lesson(
     if not content_kind or not content_id:
         return {"error": "content_kind and content_id are required"}
 
+    from services.personalized_lesson_adapter import (
+        ADAPTER_SCHEMA_VERSION,
+        LessonUnavailable,
+        resolve_personalized_lesson,
+    )
+
     existing = await db.learning_sessions.find_one({
         "user_id": user_id,
         "lesson_type": PERSONALIZED_LESSON_TYPE,
@@ -824,7 +830,38 @@ async def start_personalized_lesson(
         "status": {"$in": ["active", "paused"]},
     })
     if existing:
-        if existing.get("status") == "paused":
+        existing_adapter_schema = str(
+            (existing.get("descriptor") or {}).get("schema_version") or ""
+        )
+        if existing_adapter_schema != ADAPTER_SCHEMA_VERSION:
+            now = datetime.now(timezone.utc)
+            await db.learning_sessions.update_one(
+                {
+                    "_id": existing["_id"],
+                    "status": {"$in": ["active", "paused"]},
+                },
+                {
+                    "$set": {
+                        "status": "superseded",
+                        "updated_at": now,
+                        "superseded_by_schema": ADAPTER_SCHEMA_VERSION,
+                    },
+                    "$push": {
+                        "events": {
+                            "event_id": str(uuid.uuid4()),
+                            "event_type": "lesson_superseded",
+                            "idempotency_key": (
+                                f"supersede:{existing['session_id']}:"
+                                f"{ADAPTER_SCHEMA_VERSION}"
+                            ),
+                            "occurred_at": now,
+                            "evidence_eligible": False,
+                            "reason": "adapter_schema_changed",
+                        }
+                    },
+                },
+            )
+        elif existing.get("status") == "paused":
             now = datetime.now(timezone.utc)
             await db.learning_sessions.update_one(
                 {"_id": existing["_id"], "status": "paused"},
@@ -844,12 +881,10 @@ async def start_personalized_lesson(
                 },
             )
             existing["status"] = "active"
-        return _public_personalized_session(existing)
+            return _public_personalized_session(existing)
+        else:
+            return _public_personalized_session(existing)
 
-    from services.personalized_lesson_adapter import (
-        LessonUnavailable,
-        resolve_personalized_lesson,
-    )
     try:
         descriptor = await resolve_personalized_lesson(
             db,
@@ -966,18 +1001,24 @@ async def request_personalized_help(
     if help_action == HelpAction.SHOW_ON_BOARD:
         result = {
             "action": help_action.value,
-            "message": (
-                "Trace every attack on the piece you want to move, "
-                "then check its destination."
+            "message": str(
+                item.get("_help_message")
+                or (
+                    "Trace every attack on the piece you want to move, "
+                    "then check its destination."
+                )
             ),
             "highlight_squares": list(item.get("_help_squares") or []),
         }
     elif help_action == HelpAction.ASK_ONE_QUESTION:
         result = {
             "action": help_action.value,
-            "message": (
-                "After your move, what is the opponent's strongest capture, "
-                "check, or direct threat?"
+            "message": str(
+                item.get("_coach_question")
+                or (
+                    "After your move, what is the opponent's strongest "
+                    "capture, check, or direct threat?"
+                )
             ),
             "highlight_squares": [],
         }
@@ -1092,6 +1133,35 @@ def _reason_correction(
     )
 
 
+def _position_specific_reason_correction(
+    item: Mapping[str, Any],
+    reason_choice: Optional[str],
+) -> Optional[tuple[str, str]]:
+    problem_square = str(item.get("_problem_square") or "")
+    if not problem_square:
+        return None
+    piece_name = str(item.get("_problem_piece_name") or "piece")
+    attackers = list(item.get("_attacker_labels") or [])
+    attacker_text = " and ".join(attackers) if attackers else "an opposing piece"
+    if reason_choice == "not_sure" or not reason_choice:
+        return (
+            "piece_in_danger_not_identified",
+            f"Start with your {piece_name} on {problem_square}. Trace the "
+            f"attack from the {attacker_text}. Before choosing a move, find "
+            "which of your pieces the opponent can take.",
+        )
+    if str(reason_choice).startswith("piece_in_danger:"):
+        chosen_square = str(reason_choice).split(":", 1)[1]
+        return (
+            "wrong_piece_identified",
+            f"The piece on {chosen_square} is not the immediate problem. "
+            f"Your {piece_name} on {problem_square} is attacked by the "
+            f"{attacker_text}. Before choosing a move, find which of your "
+            "pieces the opponent can take.",
+        )
+    return None
+
+
 async def process_personalized_move(
     db,
     session_id: str,
@@ -1180,9 +1250,9 @@ async def process_personalized_move(
         }.get(lesson_kind, "board_relationship_missed")
         correction = str(grade.get("feedback") or "")
     elif reasoning_consistent is False:
-        misconception, correction = _reason_correction(
-            lesson_kind,
-            reason_choice,
+        misconception, correction = (
+            _position_specific_reason_correction(item, reason_choice)
+            or _reason_correction(lesson_kind, reason_choice)
         )
     else:
         misconception = None

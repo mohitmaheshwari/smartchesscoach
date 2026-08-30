@@ -59,6 +59,22 @@ only the order, prompt, help, and explanation are adapted.
   `repertoire evidence`, `board relationship`, `wins material immediately`,
   or the forbidden centipawn-as-material wording.
 
+## Screenshot-driven correction
+
+- Replaced the generic piece-safety gate with the exact board relationship:
+  the reported position now asks which piece needs attention and names the
+  knight on d4 and bishop on a7 when help is requested.
+- Kept “hanging piece” as an internal geometry term. The student sees the
+  plainer phrase “can be taken.”
+- Made wrong reasoning square-specific: the coach names the selected square,
+  redirects attention to the actual danger, and finishes with the reusable
+  scan the player should make next time.
+- Removed the answer-position shortcut by varying choices per position and
+  ensuring the expected choice is never first.
+- Locked the exact production screenshot FEN as a regression case. Help,
+  correction, and success feedback remain tied to d4 and a7 rather than
+  falling back to generic piece-safety language.
+
 ## Boundary
 
 This audit covers the new personalized curriculum path and the canonical copy

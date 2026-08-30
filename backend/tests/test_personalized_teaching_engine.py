@@ -5,6 +5,7 @@ import copy
 
 from services.teaching_engine import (
     PERSONALIZED_LESSON_TYPE,
+    _position_specific_reason_correction,
     get_personalized_lesson,
     process_lesson_move,
     request_personalized_help,
@@ -85,6 +86,7 @@ def _descriptor():
         "intro": "A loose piece gives the opponent a free target.",
         "canonical_source": "backend/data/theory/tactical_patterns.json",
         "content_version": "2.0.0",
+        "schema_version": "personalized_lesson_adapter.v2",
         "items": [{
             "item_id": "p1",
             "fen": "8/8/8/8/8/8/4K3/7k w - - 0 1",
@@ -101,6 +103,14 @@ def _descriptor():
             "source_ref": "p1",
             "board_verified": True,
             "_expected_san": "Kf3",
+            "_help_squares": ["d4", "a7"],
+            "_help_message": (
+                "Your knight on d4 is attacked by the bishop on a7."
+            ),
+            "_coach_question": (
+                "If you ignore your knight on d4, what can your opponent "
+                "take next?"
+            ),
         }],
     }
 
@@ -161,6 +171,31 @@ def test_public_session_hides_answer_and_preserves_personal_why(monkeypatch):
     assert started["learner_state"]["real_game_evidence"] == "not_measured"
 
 
+def test_old_adapter_session_is_superseded_before_new_lesson_starts(monkeypatch):
+    _install(monkeypatch)
+    db = _DB()
+    first = _start(db)
+    db.learning_sessions.docs[0]["descriptor"]["schema_version"] = (
+        "personalized_lesson_adapter.v1"
+    )
+
+    second = asyncio.run(start_lesson(
+        db,
+        "session-2",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {"content_kind": "concept", "content_id": "piece_safety"},
+    ))
+
+    assert first["session_id"] == "session-1"
+    assert second["session_id"] == "session-2"
+    assert len(db.learning_sessions.docs) == 2
+    stale = db.learning_sessions.docs[0]
+    assert stale["status"] == "superseded"
+    assert stale["superseded_by_schema"] == "personalized_lesson_adapter.v2"
+    assert stale["events"][-1]["event_type"] == "lesson_superseded"
+
+
 def test_let_me_try_keeps_independent_credit_and_is_idempotent(monkeypatch):
     _install(monkeypatch)
     db = _DB()
@@ -195,7 +230,7 @@ def test_board_hint_caps_credit_at_with_help(monkeypatch):
     _install(monkeypatch)
     db = _DB()
     _start(db)
-    asyncio.run(request_personalized_help(
+    help_result = asyncio.run(request_personalized_help(
         db,
         "u1",
         "session-1",
@@ -211,6 +246,48 @@ def test_board_hint_caps_credit_at_with_help(monkeypatch):
     ))
 
     assert result["earned_state"] == "can_do_with_help"
+    assert help_result["highlight_squares"] == ["d4", "a7"]
+    assert help_result["message"] == (
+        "Your knight on d4 is attacked by the bishop on a7."
+    )
+
+
+def test_one_question_names_the_exact_piece_without_revealing_the_move(
+    monkeypatch,
+):
+    _install(monkeypatch)
+    db = _DB()
+    _start(db)
+
+    result = asyncio.run(request_personalized_help(
+        db,
+        "u1",
+        "session-1",
+        "ask_one_question",
+        "question-1",
+    ))
+
+    assert result["message"] == (
+        "If you ignore your knight on d4, what can your opponent take next?"
+    )
+    assert "Kf3" not in str(result)
+
+
+def test_wrong_piece_choice_gets_square_specific_correction():
+    misconception, correction = _position_specific_reason_correction(
+        {
+            "_problem_square": "d4",
+            "_problem_piece_name": "knight",
+            "_attacker_labels": ["bishop on a7"],
+        },
+        "piece_in_danger:c4",
+    )
+
+    assert misconception == "wrong_piece_identified"
+    assert "piece on c4" in correction
+    assert "knight on d4" in correction
+    assert "bishop on a7" in correction
+    assert correction.endswith("which of your pieces the opponent can take.")
 
 
 def test_server_checked_reason_blocks_lucky_independent_move(monkeypatch):

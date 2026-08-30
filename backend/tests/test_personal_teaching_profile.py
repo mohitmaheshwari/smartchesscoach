@@ -60,6 +60,20 @@ def test_current_misconception_outranks_stale_skill_history():
     assert "missed defender" in result["why_now"]
 
 
+def test_position_diagnosis_code_is_never_exposed_as_system_language():
+    result = derive_personal_teaching_profile(
+        skill_id="piece_safety",
+        canonical_lesson=LESSON,
+        current_interaction={
+            "event_id": "event-now",
+            "misconception": "wrong_piece_identified",
+        },
+    )
+
+    assert "you focused on the wrong piece" in result["why_now"]
+    assert "wrong_piece_identified" not in result["why_now"]
+
+
 def test_delivery_can_change_while_canonical_truth_stays_identical():
     first = derive_personal_teaching_profile(
         skill_id="piece_safety",

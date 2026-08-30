@@ -82,6 +82,10 @@ _MISCONCEPTION_COPY = {
     "board_relationship_missed": (
         "the important piece or square in the position was missed"
     ),
+    "wrong_piece_identified": "you focused on the wrong piece",
+    "piece_in_danger_not_identified": (
+        "the piece in immediate danger was not clear yet"
+    ),
 }
 
 
