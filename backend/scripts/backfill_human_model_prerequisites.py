@@ -82,6 +82,29 @@ def parse_clocks_seconds(pgn: str) -> List[int]:
     return out
 
 
+def player_clock_series(clocks_s: List[int], user_color: str) -> List[int]:
+    """The PLAYER's own remaining-clock series, from the ply-indexed list.
+
+    clocks_s interleaves both sides: index 0 is White after White's 1st move,
+    index 1 is Black after Black's 1st. Reading it directly mixes the
+    opponent's clock into the player's, which silently corrupts any
+    clock_fraction handed to a human-behaviour model. Values may ASCEND when
+    the time control has an increment -- a fast move adds time.
+    """
+    start = 0 if str(user_color or "").lower().startswith("w") else 1
+    return list(clocks_s or [])[start::2]
+
+
+def clock_fraction(clocks_s: List[int], user_color: str, base_seconds: int) -> List[float]:
+    """Player clock as a fraction of the starting time, clamped to [0, 1]."""
+    if not base_seconds:
+        return []
+    return [
+        max(0.0, min(1.0, value / float(base_seconds)))
+        for value in player_clock_series(clocks_s, user_color)
+    ]
+
+
 def normalise_date(value) -> Optional[str]:
     """YYYY-MM-DD, or None when the value cannot be trusted."""
     if value is None:

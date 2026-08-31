@@ -112,3 +112,24 @@ def test_row_with_nothing_usable_produces_no_write():
     assert fields is None
     assert stats["elo_player_missing"] == 1
     assert stats["date_unparseable"] == 1
+
+
+def test_player_clock_series_deinterleaves_the_two_sides():
+    from scripts.backfill_human_model_prerequisites import player_clock_series
+    plies = [908, 909, 916, 918, 925, 926]      # real row: tc 900+10
+    assert player_clock_series(plies, "white") == [908, 916, 925]
+    assert player_clock_series(plies, "black") == [909, 918, 926]
+
+
+def test_clock_may_ascend_under_increment():
+    from scripts.backfill_human_model_prerequisites import player_clock_series
+    series = player_clock_series([908, 909, 916, 918, 925, 926], "white")
+    assert series == sorted(series)              # increment adds time; not a bug
+
+
+def test_clock_fraction_is_normalised_and_clamped():
+    from scripts.backfill_human_model_prerequisites import clock_fraction
+    fr = clock_fraction([450, 900, 225, 900], "white", base_seconds=900)
+    assert fr == [0.5, 0.25]
+    assert clock_fraction([1800], "white", base_seconds=900) == [1.0]   # clamped
+    assert clock_fraction([100], "white", base_seconds=0) == []
