@@ -89,7 +89,7 @@ describe("Onboarding", () => {
     expect(global.fetch.mock.calls.some(([url]) => url.includes("api.chess.com"))).toBe(false);
 
     click("step1-continue-btn");
-    expect(container.textContent).toContain("Calibrate Your Profile");
+    expect(container.textContent).toContain("What do you want from your chess?");
 
     click("focus-tactics");
     click("motivation-improve");

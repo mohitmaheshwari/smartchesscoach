@@ -60,18 +60,21 @@ export default function PersonalCurriculum({ user }) {
   if (error || !curriculum?.decision?.primary) {
     return (
       <Layout user={user}>
-        <main className="max-w-[620px] mx-auto px-5 py-16">
-          <h1 className="font-serif text-3xl mb-4">Your plan is taking a moment.</h1>
-          <p className="text-muted-foreground mb-6">
-            Your lessons are still available while the coach reconnects.
+        <main className="cg-page max-w-[720px]">
+          <section className="cg-hero">
+          <p className="cg-eyebrow">Your coach</p>
+          <h1 className="cg-title !text-[clamp(2rem,5vw,3.4rem)]">Your plan is taking a moment.</h1>
+          <p className="cg-lede mb-6">
+            I cannot reach your recommendation just now, but nothing you have learned is lost. Your lessons are still ready.
           </p>
           <button
             type="button"
             onClick={() => navigate("/lab")}
-            className="min-h-11 px-5 rounded-xl bg-emerald-700 text-white"
+            className="cg-primary-action"
           >
-            Open Learn
+            Open my lessons
           </button>
+          </section>
         </main>
       </Layout>
     );
@@ -82,51 +85,52 @@ export default function PersonalCurriculum({ user }) {
   return (
     <Layout user={user}>
       <main
-        className="max-w-[820px] mx-auto px-5 sm:px-7 py-11 md:py-16"
+        className="cg-page max-w-[940px]"
         data-testid="personal-curriculum-page"
       >
-        <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300 font-semibold mb-4">
-          Your coaching plan
-        </p>
-        <h1 className="font-serif text-[35px] md:text-[48px] leading-[1.05] tracking-[-0.025em] font-medium mb-5">
-          One lesson at a time.
-        </h1>
-        <p className="text-[16px] leading-relaxed text-muted-foreground mb-9 max-w-[680px]">
-          Your coach keeps the plan focused. You can explore anything without losing your place.
-        </p>
+        <header className="cg-hero mb-10">
+          <p className="cg-eyebrow">Your coaching plan</p>
+          <h1 className="cg-title">One lesson at a time.</h1>
+          <p className="cg-lede">
+            I’ll keep one lesson in focus until it begins showing up in your games. You can still explore anything without losing your place.
+          </p>
+        </header>
 
-        <CurriculumPrimary
-          curriculum={curriculum}
-          surface="learn"
-          onNavigate={navigate}
-        />
+        <section className="cg-panel p-5 sm:p-7">
+          <CurriculumPrimary
+            curriculum={curriculum}
+            surface="learn"
+            onNavigate={navigate}
+          />
+        </section>
 
         {naturallyNext && (
           <section
-            className="mt-10 border-t border-border/70"
+            className="cg-panel mt-5 px-5 sm:px-7"
             aria-label="Next lesson in your coaching plan"
           >
             <div className="grid gap-3 md:grid-cols-[140px_1fr_auto] md:items-center py-6">
-              <p className="text-[12px] font-semibold text-muted-foreground">Naturally next</p>
+              <p className="cg-eyebrow !text-[10px]">When this feels natural</p>
               <div>
                 <h2 className="text-[16px] font-medium mb-1">{naturallyNext.title}</h2>
-                <p className="text-[13px] text-muted-foreground">{naturallyNext.reason}</p>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">{naturallyNext.reason || "We’ll come back to this when your current lesson is settled."}</p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate(naturallyNext.destination.href)}
-                className="min-h-10 px-4 rounded-lg border border-border hover:bg-muted/60 text-[13px]"
+                className="cg-secondary-action"
               >
-                View lesson
+                Take a look
               </button>
             </div>
           </section>
         )}
 
-        <section className="mt-12" aria-labelledby="curriculum-explore-heading">
-          <h2 id="curriculum-explore-heading" className="font-serif text-[27px] mb-2">Explore</h2>
+        <section className="mt-14" aria-labelledby="curriculum-explore-heading">
+          <p className="cg-eyebrow mb-3">Your wider chess education</p>
+          <h2 id="curriculum-explore-heading" className="font-heading text-[30px] md:text-[38px] tracking-[-0.035em] mb-2">Curious about something else?</h2>
           <p className="text-[14px] leading-relaxed text-muted-foreground mb-5">
-            Choose what you are curious about. Your coach's recommendation stays in place.
+            Explore openings, traps, endgames, tactics, and positional ideas. Your main lesson will still be here when you return.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {EXPLORE_DESTINATIONS.map((item) => (
@@ -145,10 +149,10 @@ export default function PersonalCurriculum({ user }) {
                   });
                   navigate(item.href);
                 }}
-                className="min-h-12 px-4 rounded-xl bg-muted/55 hover:bg-muted text-left flex items-center justify-between gap-4 transition-colors"
+                className="cg-panel group min-h-[72px] px-5 text-left flex items-center justify-between gap-4 transition-all hover:-translate-y-0.5 hover:border-emerald-700/25"
               >
                 <span className="text-[14px] font-medium">{item.label}</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground" aria-hidden="true" />
               </button>
             ))}
           </div>

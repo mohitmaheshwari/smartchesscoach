@@ -15,8 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { Sparkles, Swords, ArrowRight } from "lucide-react";
 
-const WINE = "#722F37";
-const GOLD_TEXT = "#8B6F1F";
+const WINE = "#0F5B47";
+const GOLD_TEXT = "#28745D";
 const BORDER = "hsl(35 10% 87%)";
 // This page is deliberately light-mode-only (fixed light background, wine/gold
 // accents) regardless of the user's global theme — Tailwind's theme-aware
@@ -28,7 +28,7 @@ const INK = "hsl(222 47% 11%)";
 const INK_MUTED = "hsl(220 9% 46%)";
 
 const MOTIVATIONS = [
-  { value: "compete", label: "Compete and climb the ratings" },
+  { value: "compete", label: "Prepare for serious games" },
   { value: "improve", label: "Get steadily better" },
   { value: "learn", label: "Learn and enjoy the game" },
   { value: "fun", label: "Just play for fun" },
@@ -64,15 +64,14 @@ const ActivationHub = () => {
   };
 
   return (
-    <div className="experience-page experience-activation-page min-h-screen bg-[hsl(40_30%_98%)] flex items-center justify-center px-6 py-12">
-      <div className="experience-activation-shell w-full max-w-[560px]">
-        <p className="text-[13px] mb-1" style={{ color: INK_MUTED }}>Welcome to ChessGuru 👋</p>
-        <h1 className="experience-coach-copy font-serif text-[28px] md:text-[38px] leading-tight mb-2" style={{ color: INK }}>
-          Let's see how you play.
+    <div className="experience-page experience-activation-page min-h-screen bg-[#F4EFE4] flex items-center justify-center px-6 py-12">
+      <div className="experience-activation-shell w-full max-w-[620px] cg-panel !p-7 md:!p-10">
+        <p className="cg-eyebrow">Welcome to ChessGuru</p>
+        <h1 className="cg-title" style={{ color: INK }}>
+          Let’s build a plan from your chess.
         </h1>
-        <p className="text-[14px] mb-8 leading-relaxed" style={{ color: INK_MUTED }}>
-          No account needed yet — start with a quick check or a game, and your coach
-          gets to work right away.
+        <p className="cg-lede mb-8" style={{ color: INK_MUTED }}>
+          You don’t need to know what is holding you back. That is my job. Show me how you think, and I’ll choose where we begin.
         </p>
 
         {/* PRIMARY — Chess DNA (instant, unlimited) */}
@@ -87,8 +86,8 @@ const ActivationHub = () => {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
               <div>
-                <div className="text-[15px] font-medium" style={{ color: INK }}>Get your free Chess DNA</div>
-                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>About 25 puzzles, no timer — find your level and your weak spots.</div>
+                <div className="text-[15px] font-medium" style={{ color: INK }}>Show me a few positions</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>No timer. I’ll watch what you notice and what you overlook.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
@@ -108,7 +107,7 @@ const ActivationHub = () => {
               <Swords className="w-5 h-5 shrink-0" style={{ color: GOLD_TEXT }} />
               <div>
                 <div className="text-[15px] font-medium" style={{ color: INK }}>Play a game with your coach</div>
-                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Guided game — your coach talks you through it.</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Make the moves yourself; ask for help when you want it.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />

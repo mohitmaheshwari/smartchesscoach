@@ -902,13 +902,10 @@ const Reflect = ({ user }) => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-xl font-bold">Reflect</h1>
-              <Badge variant="destructive" className="animate-pulse">
-                {gamesNeedingReflection.length} game{gamesNeedingReflection.length > 1 ? 's' : ''}
-              </Badge>
+              <h1 className="font-serif text-3xl font-medium">Before the feeling fades.</h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              Capture your thoughts while they're fresh
+              Tell me what the position felt like. Your thought is more useful than a score.
             </p>
           </div>
           
@@ -939,21 +936,10 @@ const Reflect = ({ user }) => {
                   <Badge variant="outline" className="text-xs">
                     {currentGame.time_control}
                   </Badge>
-                  {currentGame.accuracy && (
-                    <span className="text-sm text-muted-foreground">
-                      {currentGame.accuracy.toFixed(0)}% accuracy
-                    </span>
-                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Moment {currentMomentIndex + 1} of {totalMoments}
-                  </span>
-                  <Progress 
-                    value={((currentMomentIndex + 1) / Math.max(totalMoments, 1)) * 100} 
-                    className="w-20 h-2"
-                  />
+                  <span className="text-sm text-muted-foreground">One decision at a time</span>
                 </div>
               </div>
             </CardContent>

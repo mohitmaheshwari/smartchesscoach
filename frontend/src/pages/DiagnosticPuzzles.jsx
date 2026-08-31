@@ -258,7 +258,7 @@ const DiagnosticPuzzles = () => {
       <Layout>
         <div className="min-h-[60vh] flex flex-col items-center justify-center">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Setting up your diagnostic.</p>
+          <p className="mt-3 text-sm text-muted-foreground">Choosing a few positions that will help me understand you.</p>
         </div>
       </Layout>
     );
@@ -284,87 +284,47 @@ const DiagnosticPuzzles = () => {
   // Diagnosis screen (after all puzzles)
   // ──────────────────────────────────────────────────────────────
   if (diagnosis) {
-    const { rating_estimate, per_concept, headline_gap, summary } = diagnosis;
+    const { per_concept, headline_gap, summary } = diagnosis;
 
     // Sort by level: Solid > Developing > Missing
     const levelOrder = { solid: 0, developing: 1, missing: 2 };
     const sortedConcepts = Object.entries(per_concept || {})
       .sort((a, b) => levelOrder[a[1].level] - levelOrder[b[1].level]);
 
-    const levelColor = {
-      solid: "text-emerald-500",
-      developing: "text-amber-500",
-      missing: "text-rose-500",
-    };
-
     const levelLabel = {
-      solid: "Solid ✓",
-      developing: "Developing ◐",
-      missing: "Missing ✗",
+      solid: "This already feels familiar",
+      developing: "This is taking shape",
+      missing: "We’ll learn this together",
     };
 
     return (
       <Layout>
-        <div className="experience-page experience-diagnostic-page min-h-screen px-6 py-10 max-w-2xl mx-auto">
-          <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
-            Your Chess DNA
-          </p>
-          <h1 className="text-2xl font-serif font-medium text-foreground mb-1">
-            Your diagnostic results
-          </h1>
-          <p className="text-sm text-muted-foreground mb-8">
-            A profile of 10 chess concepts. This refines as you play real games and we analyze them.
-          </p>
-
-          {/* Rating estimate */}
-          <div className="rounded-xl border border-border p-5 mb-6 bg-card">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-1">
-              Estimated rating
-            </p>
-            <p className="text-3xl font-serif text-foreground">
-              {rating_estimate?.low}–{rating_estimate?.high}
-            </p>
-            <p className="text-[13px] text-foreground/85 mt-3 leading-snug">
-              {summary}
-            </p>
+        <div className="experience-page experience-diagnostic-page cg-page max-w-3xl">
+          <div className="cg-hero mb-8">
+            <p className="cg-eyebrow">I’ve seen enough to begin</p>
+            <h1 className="cg-title">Here’s what I understand about your chess.</h1>
+            <p className="cg-lede">{summary}</p>
           </div>
 
           {/* Per-concept breakdown */}
           <div className="space-y-3 mb-8">
-            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-3">
-              By concept
+            <p className="cg-eyebrow mb-3">
+              What we’ll build on
             </p>
             {sortedConcepts.map(([key, concept]) => (
               <div
                 key={key}
-                className="rounded-lg border border-border p-4 bg-card"
+                className="cg-panel !p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-start justify-between gap-4">
                       <span className="text-sm font-medium text-foreground">
                         {CONCEPT_DISPLAY[key] || key}
                       </span>
-                      <span className={`text-[11px] font-semibold uppercase tracking-wider ${levelColor[concept.level]}`}>
+                      <span className="text-xs text-muted-foreground text-right">
                         {levelLabel[concept.level]}
                       </span>
-                    </div>
-                    {/* Verdict dots */}
-                    <div className="flex gap-1 mt-2">
-                      {concept.verdicts.map((v, i) => (
-                        <span
-                          key={i}
-                          className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold ${
-                            v === "✓"
-                              ? "bg-emerald-500/20 text-emerald-600"
-                              : v === "◐"
-                                ? "bg-amber-500/20 text-amber-600"
-                                : "bg-rose-500/20 text-rose-600"
-                          }`}
-                        >
-                          {v}
-                        </span>
-                      ))}
                     </div>
                   </div>
                 </div>
@@ -374,16 +334,15 @@ const DiagnosticPuzzles = () => {
 
           {/* Headline gap focus area */}
           {headline_gap && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 mb-8">
+            <div className="cg-coach-card mb-8">
               <div className="flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-amber-700 mb-1">
-                    🎯 Your focus area
+                    Where we’ll start
                   </p>
                   <p className="text-[13px] text-foreground leading-snug">
-                    {CONCEPT_DISPLAY[headline_gap] || headline_gap} needs attention.
-                    Practice this concept to unlock your next rating tier.
+                    We’ll begin with {CONCEPT_DISPLAY[headline_gap] || headline_gap}. I chose it because making this idea feel natural will help the rest of your chess become easier to understand.
                   </p>
                 </div>
               </div>
@@ -393,14 +352,14 @@ const DiagnosticPuzzles = () => {
           <div className="flex gap-3">
             <Button
               variant="default"
-              className="flex-1"
+              className="cg-primary-action flex-1"
               onClick={() => {
                 track(ANALYTICS_EVENTS.DIAGNOSTIC_TRAINING_STARTED, { headline_gap: headline_gap || null });
                 headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training");
               }}
               data-testid="diagnostic-start-training"
             >
-              Start training
+              Start with your coach
               <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
             <Button
@@ -409,7 +368,7 @@ const DiagnosticPuzzles = () => {
               onClick={() => navigate("/home")}
               data-testid="diagnostic-continue-home"
             >
-              Go to home
+              Take me home
             </Button>
           </div>
         </div>
@@ -434,15 +393,15 @@ const DiagnosticPuzzles = () => {
 
   return (
     <Layout>
-      <div className="experience-page experience-diagnostic-page min-h-screen px-4 py-6 max-w-5xl mx-auto">
+      <div className="experience-page experience-diagnostic-page cg-page cg-page--wide">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-5">
           <div>
-            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground">
-              Diagnostic · Puzzle {puzzleNumber} of 25
+            <p className="cg-eyebrow !mb-1">
+              Let me watch how you think
             </p>
             <h1 className="text-xl font-serif font-medium text-foreground mt-0.5">
-              Find the best move in {CONCEPT_DISPLAY[puzzle.concept] || puzzle.concept}
+              What would you play here?
             </h1>
           </div>
           <button
@@ -455,41 +414,6 @@ const DiagnosticPuzzles = () => {
           >
             Finish early
           </button>
-        </div>
-
-        {/* Concept progress chips */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {Object.entries(CONCEPT_DISPLAY).map(([key, label]) => {
-            const progress = conceptProgress[key] || [];
-            return (
-              <div
-                key={key}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium ${
-                  key === puzzle.concept
-                    ? "bg-foreground/10 border border-foreground/30"
-                    : "bg-border/40"
-                }`}
-              >
-                <span className="text-foreground/70">{label}</span>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={`inline-block w-1.5 h-1.5 rounded-full ${
-                        progress[i] === "✓"
-                          ? "bg-emerald-500"
-                          : progress[i] === "◐"
-                            ? "bg-amber-500"
-                            : progress[i] === "✗"
-                              ? "bg-rose-500"
-                              : "bg-border"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
         </div>
 
         {/* Board + side info */}
@@ -536,10 +460,10 @@ const DiagnosticPuzzles = () => {
                     }`}
                   >
                     {verdict.verdict === "UNDERSTOOD"
-                      ? "✓ Correct"
+                      ? "Yes—that idea works"
                       : verdict.verdict === "PARTIAL"
-                        ? "◐ Partially correct"
-                        : "✗ Incorrect"}
+                        ? "You found part of it"
+                        : "Let’s look once more"}
                   </span>
                 </div>
                 <p className="text-[13px] text-foreground leading-snug">
@@ -549,14 +473,13 @@ const DiagnosticPuzzles = () => {
             ) : (
               <div className="rounded-lg border border-border p-4 bg-card">
                 <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
-                  Position
+                  Take your time
                 </p>
                 <p className="text-sm text-foreground/85">
                   {puzzle.side_to_move === "white" ? "White" : "Black"} to move.
                 </p>
                 <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                  Pick the move you'd play. No timer — take as long as you like.
-                  We're measuring your understanding of chess fundamentals.
+                  Pick the move you would really play. There is no timer. I’m listening for how you understand the position, not how quickly you answer.
                 </p>
               </div>
             )}
@@ -574,11 +497,7 @@ const DiagnosticPuzzles = () => {
               Finish the diagnostic?
             </h2>
             <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
-              You've completed {Math.max(0, puzzleNumber - 1)} of about 25 puzzles.
-              Your coach uses the full set to work out what you actually
-              understand, not just what you don't — stopping now means a
-              partial read, and your first training plan will be based on
-              less evidence than it could be.
+              I can already begin a plan from what you’ve shown me. A few more positions will help me distinguish an unfamiliar idea from a simple oversight.
             </p>
             <div className="flex gap-2">
               <Button
@@ -587,7 +506,7 @@ const DiagnosticPuzzles = () => {
                 onClick={() => setShowExitConfirm(false)}
                 data-testid="diagnostic-exit-cancel"
               >
-                Continue diagnostic
+                Show me another position
               </Button>
               <Button
                 variant="outline"

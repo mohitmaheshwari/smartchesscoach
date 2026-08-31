@@ -281,7 +281,7 @@ export default function HomePageNew({ user }) {
   if (!hasGames) {
     return (
       <Layout user={user}>
-        <div className="max-w-[640px] mx-auto px-6 md:px-10 py-12 md:py-16" data-testid="home-page">
+        <div className="cg-page max-w-[860px]" data-testid="home-page">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
             <div className="flex items-baseline justify-between">
               <p className="text-muted-foreground text-[13px]">
@@ -296,20 +296,20 @@ export default function HomePageNew({ user }) {
               return shouldShow;
             })() && (
               <section>
-                <div className="experience-focus-card rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 p-6">
+                <div className="cg-coach-card">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-[16px] font-semibold text-foreground mb-2">Get your Chess DNA</h3>
+                      <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
                       <p className="text-[13px] text-foreground/85 mb-4">
                         {diagnosticStatus.status === "in_progress"
-                          ? `Continue your diagnostic — ${diagnosticStatus.attempts_so_far || 0} puzzles done`
-                          : "Take a 25-puzzle diagnostic to see your strengths and where to focus"}
+                          ? "We have already started. Let’s pick up where you left off."
+                          : "A short set of positions will help me choose the right first lesson for you."}
                       </p>
                       <button
                         onClick={() => navigate("/diagnostic")}
-                        className="experience-primary h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                        className="cg-primary-action"
                       >
-                        {diagnosticStatus.status === "in_progress" ? "Continue" : "Start"} diagnostic
+                        {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
                         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                     </div>
@@ -320,27 +320,25 @@ export default function HomePageNew({ user }) {
             )}
 
             <section>
-              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
-                First session
-              </p>
-              <h1 className="experience-coach-copy font-serif text-[32px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[560px]">
-                I'm your personal chess coach. Let's find out how you play.
-              </h1>
-              <p className="mt-6 text-[14px] text-muted-foreground max-w-[520px] leading-relaxed">
-                Play a game and I'll watch how you think. No preparation — your natural game is what I need to see.
-              </p>
+              <div className="cg-hero">
+                <p className="cg-eyebrow">Our first session</p>
+                <h1 className="cg-title">Let’s begin with your chess—not a generic course.</h1>
+                <p className="cg-lede">
+                  Play naturally. I’ll watch how you make decisions and choose the first idea worth working on together.
+                </p>
 
-              <div className="mt-10 flex flex-wrap items-center gap-5">
+              <div className="mt-8 flex flex-wrap items-center gap-5">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigate("/play-with-coach")}
-                  className="experience-primary h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
+                  className="cg-primary-action"
                 >
                   <Swords className="h-4 w-4" strokeWidth={2} />
                   Play my first game
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </motion.button>
+              </div>
               </div>
             </section>
 
@@ -372,7 +370,7 @@ export default function HomePageNew({ user }) {
         variants={pageEnter}
         initial="initial"
         animate="animate"
-        className="max-w-[880px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        className="cg-page max-w-[980px]"
         data-testid="home-page"
       >
         <motion.div variants={staggerContainer} initial="initial" animate="animate">
@@ -390,7 +388,7 @@ export default function HomePageNew({ user }) {
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
                 Since you last played
               </div>
-              <div className="experience-surface bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
+              <div className="cg-panel p-6">
                 <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
                   <button
@@ -418,7 +416,7 @@ export default function HomePageNew({ user }) {
               and five smaller cards that all competed for "the one thing
               to do today") with a single flow. No cards, no stats. */}
           {coachConversation?.has_conversation || canonicalContext ? (
-            <motion.section variants={fadeInUp} className="experience-home-coach mb-16 md:mb-20 max-w-[660px]">
+            <motion.section variants={fadeInUp} className="cg-coach-card mb-16 md:mb-20 max-w-[720px]">
               {coachConversation?.thinking_signature && (
                 <p className="text-[15px] leading-relaxed text-foreground mb-5">
                   {coachConversation.thinking_signature}
@@ -472,8 +470,7 @@ export default function HomePageNew({ user }) {
                     {pic.instruction_text || "Before you move, check whether the piece will be safe on its new square."}
                   </p>
                   <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-                    I verified {pic.diagnosis?.count || 0} clear example{pic.diagnosis?.count === 1 ? "" : "s"} in your games.
-                    {" "}I am collecting comparable decisions, but I have not claimed improvement yet.
+                    I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button
@@ -517,7 +514,7 @@ export default function HomePageNew({ user }) {
                     ) : pic.focus_game.status === "claimed" ? (
                       <>
                         <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
-                          Focus Game captured. Analysis is measurement only for now.
+                          I found the game. I’ll use it to see whether the new habit appeared.
                         </span>
                         <button
                           disabled={focusGameBusy}
@@ -567,20 +564,20 @@ export default function HomePageNew({ user }) {
                 return shouldShow;
               })() && (
                 <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
-                  <div className="experience-focus-card rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-900/50 p-6">
+                  <div className="cg-coach-card">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-[16px] font-semibold text-foreground mb-2">Get your Chess DNA</h3>
+                        <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
                         <p className="text-[13px] text-foreground/85 mb-4">
                           {diagnosticStatus.status === "in_progress"
-                            ? `Continue your diagnostic — ${diagnosticStatus.attempts_so_far || 0} puzzles done`
-                            : "Take a puzzle diagnostic to see your strengths and where to focus"}
+                            ? "We have already started. Let’s pick up where you left off."
+                            : "A short set of positions will help me choose the right first lesson for you."}
                         </p>
                         <button
                           onClick={() => navigate("/diagnostic")}
-                          className="experience-primary h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                          className="cg-primary-action"
                         >
-                          {diagnosticStatus.status === "in_progress" ? "Continue" : "Start"} diagnostic
+                          {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
                       </div>

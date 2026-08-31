@@ -5,6 +5,8 @@
 // never break the app.
 //
 // Funnel vocabulary (keep names stable — dashboards key on them):
+//   funnel_landing_viewed      — public landing page rendered
+//   funnel_landing_cta_clicked — public landing CTA clicked; props: { source }
 //   funnel_activation_cta      — welcome page primary action clicked
 //   funnel_diagnostic_done     — diagnostic puzzles completed
 //   funnel_import_done         — platform account linked / games synced
@@ -103,6 +105,8 @@
 // Canonical event IDs. Emitters import this object instead of repeating raw
 // strings, so a rename cannot silently split one funnel into two event names.
 export const ANALYTICS_EVENTS = Object.freeze({
+  FUNNEL_LANDING_VIEWED: "funnel_landing_viewed",
+  FUNNEL_LANDING_CTA_CLICKED: "funnel_landing_cta_clicked",
   FUNNEL_ACTIVATION_CTA: "funnel_activation_cta",
   FUNNEL_DIAGNOSTIC_DONE: "funnel_diagnostic_done",
   FUNNEL_IMPORT_DONE: "funnel_import_done",

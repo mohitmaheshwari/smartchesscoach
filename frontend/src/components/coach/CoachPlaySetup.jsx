@@ -10,8 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { scaleIn, staggerContainer, staggerItem } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
 import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import { PreGameStreakPopup } from "@/components/streak";
@@ -40,17 +39,15 @@ const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening })
 
   if (!data || data.total_games === 0) return null;
 
-  const statusColors = {
-    strong: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
-    learning: "text-amber-600 bg-amber-500/10 border-amber-500/20",
-    weak: "text-red-500 bg-red-500/10 border-red-500/20",
-    new: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+  const statusCopy = {
+    strong: "Feels familiar",
+    learning: "Worth another look",
+    weak: "Let’s make this clearer",
+    new: "Try something new",
   };
 
   // Show openings for the selected color
   const colorOpenings = selectedColor === "white" ? data.white : data.black;
-  const colorLabel = selectedColor === "white" ? "As White" : "As Black";
-
   if (!colorOpenings?.length) return null;
 
   // Find best opening
@@ -63,11 +60,14 @@ const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening })
       variants={scaleIn}
       initial="initial"
       animate="animate"
-      className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border"
+      className="space-y-4 cg-panel !p-5"
       data-testid="opening-suggestions"
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-foreground">Pick an opening to practice</p>
+        <div>
+          <p className="cg-eyebrow !mb-1">Choose today’s first conversation</p>
+          <p className="font-serif text-xl text-foreground">Which opening shall we explore?</p>
+        </div>
         {selectedOpening && (
           <button
             onClick={() => onSelectOpening(null)}
@@ -86,35 +86,27 @@ const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening })
             <button
               key={i}
               onClick={() => onSelectOpening(isSelected ? null : o.name)}
-              className={`w-full flex items-center justify-between text-xs p-2 rounded border transition-all ${
+              className={`w-full flex items-center justify-between text-sm p-3 rounded-xl border transition-all ${
                 isSelected
                   ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                   : "border-border hover:border-primary/30 hover:bg-muted/50"
               }`}
             >
               <div className="flex items-center gap-1.5">
-                {isBest && <span className="text-amber-500 text-[10px]">★</span>}
+                {isBest && <span className="text-amber-500 text-xs" aria-label="Coach's pick">★</span>}
                 <span className={`font-medium truncate max-w-[160px] ${isSelected ? "text-primary" : "text-foreground"}`}>
                   {o.name}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">{o.games}g</span>
-                <span className={`font-mono ${o.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                  {o.win_rate}%
-                </span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] border ${statusColors[o.status]}`}>
-                  {o.status_label}
-                </span>
-              </div>
+              <span className="text-xs text-muted-foreground">{statusCopy[o.status] || "Explore this"}</span>
             </button>
           );
         })}
       </div>
 
       {best.games >= 3 && !selectedOpening && (
-        <p className="text-[10px] text-muted-foreground">
-          Coach recommends: <span className="font-medium text-foreground">{best.name}</span> ({best.win_rate}% win rate)
+        <p className="text-xs text-muted-foreground">
+          I’d begin with <span className="font-medium text-foreground">{best.name}</span>. It connects naturally to games you already play.
         </p>
       )}
     </motion.div>
@@ -146,7 +138,7 @@ const CoachPlaySetup = ({
 
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto py-8 px-4" data-testid="coach-play-setup">
+      <div className="cg-page max-w-3xl" data-testid="coach-play-setup">
         <div className="mb-6">
           <CurriculumStateStrip user={user} surface="play_with_coach" />
         </div>
@@ -154,7 +146,7 @@ const CoachPlaySetup = ({
           variant="ghost"
           size="sm"
           onClick={() => navigate("/")}
-          className="mb-6"
+          className="mb-6 rounded-full"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Home
@@ -162,25 +154,20 @@ const CoachPlaySetup = ({
 
         {/* Setup card scales in (0.95 → 1); the sections inside stagger
             via the shared container — fade + scale per the locked spec. */}
+        <div className="cg-hero mb-8">
+          <p className="cg-eyebrow">At the board with your coach</p>
+          <h1 className="cg-title">
+            {practiceMode ? "Let’s replay the moment." : "Let’s play one thoughtful game."}
+          </h1>
+          <p className="cg-lede">
+            {practiceMode
+              ? "You know what happened before. This time, slow the position down and find a better story."
+              : "Choose how you want me beside you. I’ll watch for the habits we’ve been working on."}
+          </p>
+        </div>
+
         <motion.div variants={scaleIn} initial="initial" animate="animate">
-        <Card className="border-primary/20">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Swords className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">
-                  {practiceMode ? "Practice Position" : "Play With Coach"}
-                </CardTitle>
-                <p className="text-muted-foreground">
-                  {practiceMode
-                    ? "Play from a position in your game and see how it could have gone differently"
-                    : "Train against an intelligent opponent"}
-                </p>
-              </div>
-            </div>
-          </CardHeader>
+        <Card className="cg-panel !p-0 overflow-hidden">
           <CardContent className="space-y-6">
             <motion.div
               variants={staggerContainer}
@@ -197,11 +184,10 @@ const CoachPlaySetup = ({
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="w-4 h-4 text-emerald-700" />
-                  <span className="font-medium text-emerald-700">Practice Mode</span>
+                  <span className="font-medium text-emerald-700">A position from your game</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  You'll start from the position where you made a mistake.
-                  Try playing differently and see if you can win!
+                  Start where the game turned. I’ll stay with you while you try a different plan.
                 </p>
               </motion.div>
             )}
@@ -209,7 +195,7 @@ const CoachPlaySetup = ({
             {/* Color Selection */}
             <motion.div variants={staggerItem}>
               <label className="text-sm font-medium mb-3 block">
-                Choose Your Color
+                Which side would you like?
               </label>
               <div className="flex gap-3">
                 <Button
@@ -244,7 +230,7 @@ const CoachPlaySetup = ({
             {!practiceMode && (
               <motion.div variants={staggerItem}>
                 <label className="text-sm font-medium mb-3 block">
-                  Game Type
+                  How close should I stay?
                 </label>
                 <div className="flex gap-3">
                   <Button
@@ -254,8 +240,8 @@ const CoachPlaySetup = ({
                   >
                     <div className="flex flex-col items-center gap-1">
                       <Brain className="w-5 h-5" />
-                      <span className="text-sm font-medium">Coach Mode</span>
-                      <span className="text-[10px] text-inherit opacity-70">Real-time teaching</span>
+                      <span className="text-sm font-medium">Stay with me</span>
+                      <span className="text-[10px] text-inherit opacity-70">Gentle questions while you play</span>
                     </div>
                   </Button>
                   <Button
@@ -265,81 +251,29 @@ const CoachPlaySetup = ({
                   >
                     <div className="flex flex-col items-center gap-1">
                       <Play className="w-5 h-5" />
-                      <span className="text-sm font-medium">Play Mode</span>
-                      <span className="text-[10px] text-inherit opacity-70">Pure chess, no coaching</span>
+                      <span className="text-sm font-medium">Let me think</span>
+                      <span className="text-[10px] text-inherit opacity-70">We’ll talk after the game</span>
                     </div>
                   </Button>
                 </div>
               </motion.div>
             )}
 
-            {/* Past Games Memory */}
+            {/* Coach memory: reassuring context, not a scorecard. */}
             {!practiceMode && pastGamesHistory?.sessions?.length > 0 && (
               <motion.div
                 variants={staggerItem}
-                className="p-4 rounded-lg border border-border bg-muted/30"
+                className="p-5 rounded-2xl border border-emerald-900/10 bg-emerald-50/70 dark:bg-emerald-950/20"
               >
                 <div className="flex items-center gap-2 mb-3">
                   <History className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-sm">Coach Remembers</span>
+                  <span className="font-medium text-sm">I remember your games</span>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                  <div className="p-2 rounded bg-background/50">
-                    <div className="text-lg font-bold text-green-500">
-                      {pastGamesHistory.stats.wins}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Wins</div>
-                  </div>
-                  <div className="p-2 rounded bg-background/50">
-                    <div className="text-lg font-bold text-muted-foreground">
-                      {pastGamesHistory.stats.draws}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Draws</div>
-                  </div>
-                  <div className="p-2 rounded bg-background/50">
-                    <div className="text-lg font-bold text-red-500">
-                      {pastGamesHistory.stats.losses}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Losses</div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  {pastGamesHistory.sessions.slice(0, 3).map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between text-xs p-2 rounded bg-background/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            s.result === "win"
-                              ? "bg-green-500"
-                              : s.result === "loss"
-                              ? "bg-red-500"
-                              : "bg-gray-400"
-                          }`}
-                        />
-                        <span className="capitalize">{s.result || "In progress"}</span>
-                      </div>
-                      <span className="text-muted-foreground">
-                        {s.created_at
-                          ? new Date(s.created_at).toLocaleDateString()
-                          : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {playerIdentityData?.identity_label && (
-                  <div className="mt-3 pt-3 border-t border-border/50 text-xs">
-                    <span className="text-muted-foreground">Your style: </span>
-                    <Badge variant="secondary" className="ml-1">
-                      {playerIdentityData.identity_label}
-                    </Badge>
-                  </div>
-                )}
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {playerIdentityData?.identity_label
+                    ? `You tend to play like ${playerIdentityData.identity_label.toLowerCase()}. I’ll keep that in mind without taking the game away from you.`
+                    : "I’ll connect what happens today with the patterns I’ve already seen—without interrupting every move."}
+                </p>
               </motion.div>
             )}
 
@@ -359,7 +293,7 @@ const CoachPlaySetup = ({
             {!practiceMode && selectedOpening && (
               <motion.div variants={staggerItem}>
                 <label className="text-sm font-medium mb-3 block">
-                  How would you like to practice?
+                  How should I help with this opening?
                 </label>
                 <div className="flex gap-3">
                   <Button
@@ -369,8 +303,8 @@ const CoachPlaySetup = ({
                   >
                     <div className="flex flex-col items-center gap-1">
                       <Navigation className="w-5 h-5" />
-                      <span className="text-sm font-medium">Guide Me</span>
-                      <span className="text-[10px] text-inherit opacity-70">Arrows + ideas</span>
+                      <span className="text-sm font-medium">Show me the ideas</span>
+                      <span className="text-[10px] text-inherit opacity-70">Prompts when the position changes</span>
                     </div>
                   </Button>
                   <Button
@@ -380,8 +314,8 @@ const CoachPlaySetup = ({
                   >
                     <div className="flex flex-col items-center gap-1">
                       <GraduationCap className="w-5 h-5" />
-                      <span className="text-sm font-medium">I Know It</span>
-                      <span className="text-[10px] text-inherit opacity-70">Test from memory</span>
+                      <span className="text-sm font-medium">Let me remember</span>
+                      <span className="text-[10px] text-inherit opacity-70">Step in only when I ask</span>
                     </div>
                   </Button>
                 </div>
@@ -393,7 +327,7 @@ const CoachPlaySetup = ({
             <Button
               onClick={startGame}
               disabled={loading}
-              className="w-full h-12 text-lg"
+              className="cg-primary-action w-full h-12 text-base"
               data-testid="start-game-btn"
             >
               {loading ? (
@@ -404,12 +338,12 @@ const CoachPlaySetup = ({
               ) : practiceMode ? (
                 <>
                   <Target className="w-5 h-5 mr-2" />
-                  Start Practice
+                  Replay this position
                 </>
               ) : (
                 <>
                   <Play className="w-5 h-5 mr-2" />
-                  Start Game
+                  Sit with me at the board
                 </>
               )}
             </Button>
@@ -418,12 +352,10 @@ const CoachPlaySetup = ({
             {/* Info */}
             <motion.div
               variants={staggerItem}
-              className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground"
+              className="p-4 rounded-xl bg-muted/40 text-sm text-muted-foreground"
             >
               <Brain className="w-4 h-4 inline mr-2" />
-              The coach will adapt to your play and help you improve. Future
-              updates will add real-time interventions when you're about to make
-              mistakes.
+              I’ll ask only the questions that matter for this game. You still make every decision.
             </motion.div>
             </motion.div>
           </CardContent>

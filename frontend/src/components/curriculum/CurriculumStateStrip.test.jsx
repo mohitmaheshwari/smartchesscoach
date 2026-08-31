@@ -51,8 +51,9 @@ describe("CurriculumStateStrip", () => {
     });
 
     expect(container.textContent).toContain("Can do alone");
-    expect(container.textContent).toContain("I have not measured this in your games yet");
-    expect(container.textContent).toContain("I have not checked it later yet");
+    expect(container.textContent).toContain("We’re still making this feel natural");
+    expect(container.textContent).toContain("I’ll watch for it the next time you play");
+    expect(container.textContent).not.toContain("measured");
     expect(container.textContent).not.toContain("Reliable");
 
     act(() => container.querySelector("button").click());

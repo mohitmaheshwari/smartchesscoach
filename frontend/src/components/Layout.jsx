@@ -197,8 +197,8 @@ const Layout = ({ children, user }) => {
         {/* Logo */}
         <div className={`flex items-center h-16 px-4 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <Link to="/home" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-lg gradient-gold flex items-center justify-center shadow-md shadow-amber-500/20">
-              <span className="text-sm font-bold text-black">CG</span>
+            <div className="experience-brand-mark w-9 h-9 rounded-xl flex items-center justify-center">
+              <img src="/chessguru-logo.svg" alt="" className="h-7 w-7" />
             </div>
             {!sidebarCollapsed && (
               <span className="text-foreground font-heading font-bold text-[15px] tracking-tight">
@@ -247,7 +247,7 @@ const Layout = ({ children, user }) => {
           <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-0'}`}>
             <Link to="/play-with-coach">
               <div
-                className={`relative w-full flex items-center gap-2.5 px-3 py-3 rounded-lg transition-all duration-200 gradient-gold text-black font-semibold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.02] active:scale-[0.98] ${
+                className={`experience-coach-cta relative w-full flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all duration-200 text-black font-semibold hover:scale-[1.02] active:scale-[0.98] ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 data-testid="nav-play-coach"
@@ -373,8 +373,8 @@ const Layout = ({ children, user }) => {
       <header className="experience-mobile-header md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="flex items-center justify-between h-14 px-4">
           <Link to="/home" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md gradient-gold flex items-center justify-center">
-              <span className="text-xs font-bold text-black">CG</span>
+            <div className="experience-brand-mark w-8 h-8 rounded-xl flex items-center justify-center">
+              <img src="/chessguru-logo.svg" alt="" className="h-6 w-6" />
             </div>
             <span className="font-heading font-bold text-sm text-foreground">ChessGuru</span>
           </Link>
@@ -384,7 +384,7 @@ const Layout = ({ children, user }) => {
                 <Button variant="ghost" size="icon" className="w-8 h-8 relative" data-testid="notifications-bell">
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 gradient-gold text-[10px] font-bold text-black rounded-full flex items-center justify-center">
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 experience-acid-badge text-[10px] font-bold text-black rounded-full flex items-center justify-center">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
@@ -432,7 +432,7 @@ const Layout = ({ children, user }) => {
                 ); })}
                 <div className="border-t border-border my-2" />
                 <Link to="/play-with-coach" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full justify-start gap-3 gradient-gold text-black font-semibold hover:opacity-90 border-0">
+                  <Button className="experience-coach-cta w-full justify-start gap-3 text-black font-semibold hover:opacity-90 border-0">
                     <Swords className="w-4 h-4" /> Play with Coach
                   </Button>
                 </Link>
