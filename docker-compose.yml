@@ -23,7 +23,7 @@ services:
       # Bound to localhost only (2026-07-14 security hardening): the DB was
       # publicly reachable on 0.0.0.0 with root creds. Remote access goes via
       # SSH tunnel (ssh -L 27018:localhost:27017), never a public bind.
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     # The whole dataset is well under a gigabyte; the default cache ceiling of
     # ~half of host RAM was holding mostly air on a shared 15GB machine.
     command: ["mongod", "--wiredTigerCacheSizeGB", "1.5"]
@@ -105,6 +105,11 @@ services:
       - PERSONAL_IMPROVEMENT_CYCLE_ENABLED=${PERSONAL_IMPROVEMENT_CYCLE_ENABLED:-false}
       - PERSONAL_IMPROVEMENT_CYCLE_ROLES=${PERSONAL_IMPROVEMENT_CYCLE_ROLES:-admin,super_admin}
       - PWC_SURVIVING_INSTRUCTION_ENABLED=${PWC_SURVIVING_INSTRUCTION_ENABLED:-false}
+      # Verified puzzle cutover fails closed by default. Run the stored-evidence
+      # backfill before restarting this release. Neither gate invokes Stockfish;
+      # stale or unauthorized rows simply do not serve.
+      - VERIFIED_PUZZLE_ADMISSION_ENFORCED=${VERIFIED_PUZZLE_ADMISSION_ENFORCED:-true}
+      - DETECTOR_QUALITY_GATE_ENFORCED=${DETECTOR_QUALITY_GATE_ENFORCED:-true}
       # PWC central-pipeline migration (2026-06-08). The divergence baseline
       # (commit 22eac125) confirmed a clear win: 100% content agreement where
       # both engines speak, 89% of one-silent cases are central enrichment PWC

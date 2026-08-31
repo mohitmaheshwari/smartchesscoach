@@ -323,6 +323,11 @@ def compute_endgame_thread(
         return None
     try:
         from services.concept_detectors.registry import get_detector
+        from services.detector_quality import (
+            QualitySurface,
+            can_influence,
+            concept_quality_id,
+        )
         board = chess.Board(fen_before)
         move = board.parse_san(played_san)
     except Exception:
@@ -331,6 +336,13 @@ def compute_endgame_thread(
     for skill, say in _ENDGAME_SAY.items():
         key = f"endgame:{skill}"
         if key in threads_pulled:
+            continue
+        # This is a player-facing caption path, so registry membership alone is
+        # never authority to teach. Unknown, Shadow and Disabled detectors must
+        # remain silent here just as they do in the canonical detector runner.
+        # Keep the check before resolving/executing the detector so even a
+        # known-unsafe implementation cannot influence runtime behavior.
+        if not can_influence(concept_quality_id(skill), QualitySurface.CAPTION):
             continue
         fn = get_detector(skill)
         if fn is None:

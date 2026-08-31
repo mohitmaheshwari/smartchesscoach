@@ -38,6 +38,18 @@ from typing import Dict, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from services.puzzle_extraction_service import (
+    verified_issue_type,
+    verified_puzzle_admission_enforced,
+)
+from services.verified_puzzle_admission import (
+    ADMISSION_VERSION,
+    AdmissionStatus,
+    stored_verdict_is_structurally_current,
+)
+from services.verified_puzzle_builder import build_imported_game_verdict
+from services.verified_puzzle_feedback import build_verified_puzzle_feedback
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,6 +160,20 @@ _SKILL_FEN_VALIDATOR = {
 }
 
 
+def _skill_puzzle_is_servable(puzzle: Dict, skill_id: str) -> bool:
+    if puzzle.get("approved") is False:
+        return False
+    if not verified_puzzle_admission_enforced():
+        return True
+    verdict = puzzle.get("verified_admission") or {}
+    return (
+        stored_verdict_is_structurally_current(puzzle)
+        and verdict.get("status") == AdmissionStatus.SPECIFIC.value
+        and verdict.get("concept_id") == skill_id
+        and puzzle.get("skill_id") == skill_id
+    )
+
+
 async def extract_skill_puzzles_for_user(
     db: AsyncIOMotorDatabase,
     user_id: str,
@@ -204,7 +230,7 @@ async def extract_skill_puzzles_for_user(
         # is fine — different shared_by, same puzzle position. But
         # the SAME user inserting twice is a dupe.
         existing = await db.community_puzzles.find_one(
-            {"skill_id": skill_id, "fen": fen, "shared_by": user_id}
+            {"legacy_skill_id": skill_id, "fen": fen, "shared_by": user_id}
         )
         if existing:
             skipped_dupe += 1
@@ -215,7 +241,8 @@ async def extract_skill_puzzles_for_user(
         if gid:
             game = await db.games.find_one(
                 {"game_id": gid},
-                {"_id": 0, "opening_name": 1, "opening_eco": 1,
+                {"_id": 0, "game_id": 1, "pgn": 1,
+                 "opening_name": 1, "opening_eco": 1,
                  "user_color": 1, "result": 1, "date_played": 1}
             )
 
@@ -226,18 +253,47 @@ async def extract_skill_puzzles_for_user(
         engine_best_san = None
         engine_best_uci = None
         cp_loss = None
+        source_move = None
+        verdict = None
         if gid and ev.get("move_number") is not None:
             analysis = await db.game_analyses.find_one(
                 {"game_id": gid},
-                {"_id": 0, "move_evaluations": 1}
+                {"_id": 0, "stockfish_analysis.move_evaluations": 1}
             )
-            for me in (analysis or {}).get("move_evaluations") or []:
+            move_evaluations = (
+                ((analysis or {}).get("stockfish_analysis") or {})
+                .get("move_evaluations") or []
+            )
+            for me in move_evaluations:
                 if (me.get("move_number") == ev.get("move_number")
-                        and me.get("move") == ev.get("move_san")):
-                    engine_best_san = me.get("best_move")
+                        and (me.get("move") or me.get("move_san")) == ev.get("move_san")):
+                    source_move = me
+                    engine_best_san = me.get("best_move_san") or me.get("best_move")
                     engine_best_uci = me.get("best_move_uci")
                     cp_loss = me.get("cp_loss")
                     break
+
+        if game and source_move:
+            verdict = build_imported_game_verdict(
+                game=game,
+                move_evaluation=source_move,
+                broad_category=None,
+            )
+
+        if verdict is None:
+            # Skill evidence without its source analysis cannot prove an
+            # answer. Preserve it as a measured skip instead of manufacturing
+            # a detector-graded puzzle.
+            skipped_wrong_concept += 1
+            continue
+
+        issue_type = verified_issue_type(verdict)
+        specific_skill = (
+            skill_id
+            if verdict.status == AdmissionStatus.SPECIFIC
+            and verdict.concept_id == skill_id
+            else None
+        )
 
         puzzle = {
             "fen": fen,
@@ -247,13 +303,15 @@ async def extract_skill_puzzles_for_user(
             # "detector" doesn't read them.
             "best_move_san": engine_best_san or "",
             "best_move_uci": engine_best_uci,
-            "skill_id": skill_id,
-            "grading_strategy": "detector",
+            "skill_id": specific_skill,
+            "legacy_skill_id": skill_id,
+            "grading_strategy": "verified_answer_set",
             # Tag with the corresponding cognitive gap so existing
             # filters (e.g. by issue_type) still surface these. ROS
             # missed pawn-race usually maps to endgame technique.
-            "issue_type": "endgame_technique",
-            "theme": "endgame",
+            "issue_type": issue_type,
+            "legacy_issue_type": "endgame_technique",
+            "theme": "endgame" if issue_type == "endgame_technique" else "calculation",
             "difficulty": "intermediate",
             "opening_name": (game or {}).get("opening_name"),
             "opening_eco":  (game or {}).get("opening_eco"),
@@ -264,6 +322,9 @@ async def extract_skill_puzzles_for_user(
             "source":       "skill_evidence",
             "description":  prompt,
             "cp_loss":      cp_loss,
+            "pv_after_best": source_move.get("pv_after_best") or [],
+            "pv_after_played": source_move.get("pv_after_played") or [],
+            "verified_admission": verdict.to_document(),
             "attempts":     0,
             "solves":       0,
             "solve_rate":   0.0,
@@ -271,7 +332,7 @@ async def extract_skill_puzzles_for_user(
             "ratings":      [],
             "avg_rating":   0.0,
             "created_at":   datetime.now(timezone.utc),
-            "approved":     True,
+            "approved":     verdict.status != AdmissionStatus.QUARANTINE,
             "featured":     False,
         }
         await db.community_puzzles.insert_one(puzzle)
@@ -334,6 +395,8 @@ async def get_skill_puzzles(
     ).sort("created_at", -1).limit(limit * 2):
         if str(p.get("_id")) in solved_ids:
             continue
+        if not _skill_puzzle_is_servable(p, skill_id):
+            continue
         own.append(_shape(p))
         if len(own) >= limit:
             break
@@ -346,14 +409,17 @@ async def get_skill_puzzles(
         ).sort("created_at", -1).limit(remaining * 3):
             if str(p.get("_id")) in solved_ids:
                 continue
+            if not _skill_puzzle_is_servable(p, skill_id):
+                continue
             community.append(_shape(p))
             if len(community) >= remaining:
                 break
 
+    from services.verified_puzzle_runtime import public_puzzle_payload
     return {
         "skill_id": skill_id,
-        "own_puzzles": own,
-        "community_puzzles": community,
+        "own_puzzles": [public_puzzle_payload(p) for p in own],
+        "community_puzzles": [public_puzzle_payload(p) for p in community],
         "total": len(own) + len(community),
     }
 
@@ -364,26 +430,12 @@ def grade_skill_puzzle_attempt(
     skill_id: str,
     user_color_str: Optional[str] = None,
     engine_best_san: Optional[str] = None,
+    verified_admission: Optional[Dict] = None,
 ) -> Dict:
-    """Run the skill's detector on the user's move and grade.
+    """Grade a skill attempt only from a current server-owned verdict.
 
-    Returns {"correct": bool, "verdict": "applied"|"missed"|"none"|"engine_best",
-             "detail": <human-readable line>}.
-
-    Grading layers (cheapest → most expensive):
-      1. Detector says "applied" → correct.
-      2. Detector says "missed"  → wrong.
-      3. Detector says "none"    → ambiguous; if the move matches the
-                                   engine's best move from the source
-                                   game (passed in by the endpoint),
-                                   accept as "engine_best". Otherwise
-                                   tell the user this move sidesteps
-                                   the rule.
-
-    The engine fallback is what lets users get credit for finding the
-    OBJECTIVELY winning move (a rook check, a tactical capture) in
-    positions where ROS isn't the only path — without it the drill
-    would over-reject and feel unfair on messy endgames.
+    The compatibility arguments remain while callers migrate, but neither a
+    live detector nor a client-provided engine answer may award mastery.
     """
     import chess
     try:
@@ -402,39 +454,55 @@ def grade_skill_puzzle_attempt(
         return {"correct": False, "verdict": "none",
                 "detail": "Not a legal move in this position."}
 
-    if skill_id == "endgame_rule_of_square":
-        from services.concept_detectors.rule_of_the_square import (
-            detect_rule_of_the_square_application,
+    admission = verified_admission or {}
+    if admission.get("admission_version") == ADMISSION_VERSION:
+        if not stored_verdict_is_structurally_current({
+            "fen": fen_before,
+            "verified_admission": admission,
+        }):
+            return {
+                "correct": False,
+                "verdict": "unavailable",
+                "detail": "This position is still being checked and is not ready yet.",
+            }
+        if (
+            admission.get("status") != AdmissionStatus.SPECIFIC.value
+            or admission.get("concept_id") != skill_id
+        ):
+            return {
+                "correct": False,
+                "verdict": "unavailable",
+                "detail": "This position does not yet match this lesson closely enough.",
+            }
+        accepted = set(admission.get("acceptable_moves_uci") or [])
+        primary = next(iter(admission.get("acceptable_moves_uci") or ()), "")
+        coaching = build_verified_puzzle_feedback(
+            {
+                "fen": fen_before,
+                "best_move_uci": primary,
+                "pattern_type": skill_id,
+                "verified_admission": admission,
+            },
+            mv.uci(),
+            correct=mv.uci() in accepted,
+            primary_uci=primary,
         )
-        verdict = detect_rule_of_the_square_application(board, mv, color)
-    else:
-        from services.concept_detectors.registry import DETECTORS
-        det = DETECTORS.get(skill_id)
-        if det is None:
-            return {"correct": False, "verdict": "none",
-                    "detail": f"no detector registered for {skill_id}"}
-        verdict = det(board, mv, color)
+        if mv.uci() in accepted:
+            return {
+                "correct": True,
+                "verdict": "verified_answer",
+                "detail": coaching["feedback"],
+                "coaching_feedback": coaching,
+            }
+        return {
+            "correct": False,
+            "verdict": "verified_miss",
+            "detail": coaching["feedback"],
+            "coaching_feedback": coaching,
+        }
 
-    if verdict == "applied":
-        return {"correct": True, "verdict": "applied",
-                "detail": "Right idea — the king geometry works out."}
-    if verdict == "missed":
-        return {"correct": False, "verdict": "missed",
-                "detail": "Doesn't catch the pawn (or wastes a tempo). "
-                          "Walk the king into the catch zone."}
-
-    # verdict == None — non-ROS move. Engine-best fallback.
-    if engine_best_san:
-        try:
-            user_san = board.san(mv)
-            if user_san == engine_best_san:
-                return {"correct": True, "verdict": "engine_best",
-                        "detail": f"Not the rule-of-the-square idea, but "
-                                  f"{user_san} is the engine's top choice — "
-                                  f"a valid solution to this position."}
-        except Exception:
-            pass
-
-    return {"correct": False, "verdict": "none",
-            "detail": "That move sidesteps the race — try a move that "
-                      "directly tests the catch zone."}
+    return {
+        "correct": False,
+        "verdict": "unavailable",
+        "detail": "This position is still being checked and cannot be graded yet.",
+    }

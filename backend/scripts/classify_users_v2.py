@@ -8,6 +8,7 @@ KNOWN GAPS (flagged, not silent): bad_trade + missed_free_material not yet
 detected (fall into other buckets); opening_knowledge uses a crude move<=8
 heuristic (should be book-based); walked_into_tactic needs FP validation.
 Run: python3 scripts/classify_users_v2.py
+"""
 import os, asyncio, chess
 from collections import Counter, defaultdict
 from motor.motor_asyncio import AsyncIOMotorClient

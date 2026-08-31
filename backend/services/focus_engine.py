@@ -20,6 +20,8 @@ import logging
 from typing import Dict, Optional, List
 from datetime import datetime, timezone
 
+from pymongo import ReturnDocument
+
 logger = logging.getLogger(__name__)
 
 # ─── ENFORCEMENT LEVELS ───────────────────────────────────────────
@@ -179,6 +181,7 @@ async def sync_focus_with_brain(db, user_id: str, brain_focus: str) -> Optional[
         "enforcement_level": "LIGHT",
         "puzzles_required": ENFORCEMENT_LEVELS["LIGHT"]["puzzles_required"],
         "puzzles_completed": 0,
+        "completed_puzzle_ids": [],
         "training_locked": False,
         "score": 1,
         "set_at": datetime.now(timezone.utc).isoformat(),
@@ -233,6 +236,7 @@ async def set_user_focus(db, user_id: str, root_problem: Dict) -> Dict:
         "enforcement_level": level,
         "puzzles_required": enforcement["puzzles_required"],
         "puzzles_completed": 0,
+        "completed_puzzle_ids": [],
         "training_locked": False,  # Coach is never blocked — guidance only
         "score": score,
         "set_at": datetime.now(timezone.utc).isoformat(),
@@ -460,22 +464,44 @@ async def update_focus_after_game(
     return updated
 
 
-async def record_puzzle_completion(db, user_id: str) -> Dict:
-    """Record that user completed one focus puzzle."""
+async def record_puzzle_completion(db, user_id: str, puzzle_id: str) -> Dict:
+    """Count one distinct, server-graded puzzle in the current focus."""
     focus = await get_user_focus(db, user_id)
     if not focus:
         return None
-
-    new_count = focus.get("puzzles_completed", 0) + 1
+    puzzle_id = str(puzzle_id or "").strip()
+    if not puzzle_id:
+        raise ValueError("puzzle_id is required")
     puzzles_needed = focus.get("puzzles_required", 5)
+
+    updated = await db.users.find_one_and_update(
+        {
+            "user_id": user_id,
+            "focus.completed_puzzle_ids": {"$ne": puzzle_id},
+        },
+        {
+            "$addToSet": {"focus.completed_puzzle_ids": puzzle_id},
+            "$inc": {"focus.puzzles_completed": 1},
+        },
+        projection={"_id": 0, "focus": 1},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated:
+        current = await get_user_focus(db, user_id) or focus
+        return {
+            "puzzles_completed": current.get("puzzles_completed", 0),
+            "puzzles_required": current.get("puzzles_required", puzzles_needed),
+            "training_locked": current.get("training_locked", True),
+            "already_counted": True,
+        }
+
+    current_focus = updated.get("focus") or {}
+    new_count = int(current_focus.get("puzzles_completed", 0))
     still_locked = new_count < puzzles_needed
 
     await db.users.update_one(
         {"user_id": user_id},
-        {"$set": {
-            "focus.puzzles_completed": new_count,
-            "focus.training_locked": still_locked,
-        }}
+        {"$set": {"focus.training_locked": still_locked}}
     )
 
     if not still_locked:
@@ -485,6 +511,7 @@ async def record_puzzle_completion(db, user_id: str) -> Dict:
         "puzzles_completed": new_count,
         "puzzles_required": puzzles_needed,
         "training_locked": still_locked,
+        "already_counted": False,
     }
 
 

@@ -218,6 +218,52 @@ def test_approved_personalized_flag_routes_supported_lesson_through_workspace(
     }
 
 
+def test_verified_trap_family_routes_through_personalized_workspace(monkeypatch):
+    db = FakeDB(analyzed_games=7)
+    enabled = {
+        **ENABLED,
+        "PERSONALIZED_TEACHING_ENABLED": "true",
+    }
+
+    async def no_focus(_db, _user_id):
+        return None
+
+    async def knowledge_pick(_db, _user_id):
+        return {
+            "_src": "engine2",
+            "skill_id": "trap_set_italian",
+            "label": "Italian Game traps",
+            "stats": {"seen": 0, "correct": 0, "failed": 0},
+            "e2_kind": "trap_set",
+            "kind": "trap_set",
+            "content_ref": "italian-game",
+        }
+
+    async def rating_band(_db, _user_id):
+        return "intermediate"
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", no_focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", knowledge_pick)
+    monkeypatch.setattr(today_composer, "_detect_band", rating_band)
+
+    result = asyncio.run(build_player_curriculum(
+        db,
+        "u1",
+        generated_at=NOW,
+        env=enabled,
+    ))
+
+    destination = result["decision"]["primary"]["destination"]
+    assert destination["href"] == (
+        "/training?personalized=1&kind=trap_set&lesson=italian-game"
+    )
+    assert destination["lesson_kind"] == "trap_set"
+    assert destination["lesson_id"] == "italian-game"
+
+
 def test_curriculum_reuses_highest_state_proved_by_the_exact_lesson(monkeypatch):
     db = FakeDB(analyzed_games=7)
     db.learning_sessions.docs.append({

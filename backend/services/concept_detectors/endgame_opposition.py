@@ -38,11 +38,18 @@ from typing import Optional
 
 import chess
 
+from services.concept_detectors.evidence import (
+    stored_best_matches,
+    stored_best_move,
+)
+
 
 def detect_endgame_opposition_application(
     board_before: chess.Board,
     move: chess.Move,
     user_color: chess.Color,
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
 ) -> Optional[str]:
     if board_before.turn != user_color:
         return None
@@ -68,17 +75,23 @@ def detect_endgame_opposition_application(
 
     new_user_king = move.to_square
     if _in_direct_opposition(new_user_king, opp_king):
-        return "applied"
+        return "applied" if stored_best_matches(
+            board_before, move, best_move_san, best_move_uci
+        ) else None
 
     # Did the user MISS opposition? Check if any legal king move from
     # the current square would have taken opposition. If yes — and the
     # user picked a different king square — missed. Otherwise: None
     # (opposition wasn't on the board this move).
-    for sq in chess.SquareSet(chess.BB_KING_ATTACKS[user_king]):
-        cand = chess.Move(user_king, sq)
-        if cand not in board_before.legal_moves:
-            continue
-        if _in_direct_opposition(sq, opp_king):
+    best = stored_best_move(board_before, best_move_san, best_move_uci)
+    if best:
+        best_piece = board_before.piece_at(best.from_square)
+        if (
+            best_piece
+            and best_piece.color == user_color
+            and best_piece.piece_type == chess.KING
+            and _in_direct_opposition(best.to_square, opp_king)
+        ):
             return "missed"
     return None
 

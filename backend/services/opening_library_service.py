@@ -124,7 +124,12 @@ class OpeningPosition:
 
 
 def _normalize_text(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+    # Provider labels vary between "King's", "Kings" and Unicode apostrophes.
+    # Treat the possessive spelling as the same token instead of splitting it
+    # into "king s", which previously broke exact family routing.
+    lowered = str(value or "").lower()
+    lowered = re.sub(r"[’']s\b", "s", lowered)
+    return re.sub(r"[^a-z0-9]+", " ", lowered).strip()
 
 
 def _normalize_opening_key(opening_key: str) -> Optional[str]:
@@ -154,6 +159,72 @@ def get_opening_data(opening_key: str) -> Optional[Dict[str, Any]]:
     if not opening:
         return None
     return {**opening, "traps": _verified_traps(opening["canonical_key"])}
+
+
+def resolve_teachable_opening(opening_key: str) -> Optional[Dict[str, str]]:
+    """Resolve a recognized opening record to an honest verified lesson.
+
+    A complete curriculum record is an ``exact_lesson``.  A recognition-only
+    provider variation may reuse a verified base-family lesson, but the caller
+    must present that relationship as ``family_foundation``.  Name-based
+    resolution is intentional: ECO-only fallback is too broad to prove that a
+    variation belongs to the lesson we are about to teach.
+    """
+    requested_key = resolve_opening_key(opening_key)
+    if not requested_key:
+        return None
+
+    source_record = get_unified_source().get_all_openings().get(requested_key)
+    if not isinstance(source_record, dict):
+        return None
+    recognized_name = str(
+        source_record.get("name") or requested_key.replace("_", " ").title()
+    ).strip()
+
+    direct_public_key = _public_key(requested_key)
+    if direct_public_key in OPENING_DATABASE:
+        return {
+            "requested_key": requested_key,
+            "lesson_key": requested_key,
+            "public_lesson_key": direct_public_key,
+            "recognized_opening_name": recognized_name,
+            "lesson_relation": "exact_lesson",
+        }
+
+    # Provider/ECO feeds often give several labels to the same playable
+    # foundation.  Keep that relationship in the canonical curriculum rather
+    # than guessing it again from display text at runtime.
+    foundation_key = str(source_record.get("foundation_key") or "").strip()
+    foundation_public_key = _public_key(foundation_key) if foundation_key else ""
+    foundation = OPENING_DATABASE.get(foundation_public_key)
+    if foundation:
+        return {
+            "requested_key": requested_key,
+            "lesson_key": foundation["canonical_key"],
+            "public_lesson_key": foundation_public_key,
+            "recognized_opening_name": recognized_name,
+            "lesson_relation": "family_foundation",
+        }
+
+    from services.opening_variation_resolver import get_resolver
+
+    resolved_variation = get_resolver().resolve(recognized_name)
+    base_name = (
+        resolved_variation.get("base_opening")
+        if isinstance(resolved_variation, dict)
+        else None
+    )
+    public_lesson_key = match_opening_to_library(base_name or recognized_name)
+    lesson = OPENING_DATABASE.get(public_lesson_key or "")
+    if not lesson:
+        return None
+    return {
+        "requested_key": requested_key,
+        "lesson_key": lesson["canonical_key"],
+        "public_lesson_key": public_lesson_key,
+        "recognized_opening_name": recognized_name,
+        "lesson_relation": "family_foundation",
+    }
 
 
 def get_all_openings() -> List[Dict[str, Any]]:
@@ -372,26 +443,25 @@ async def update_learning_progress(
     trap_learned: str = None,
     practiced: bool = False,
 ) -> Dict[str, str]:
+    """Record lesson exposure without accepting browser-declared mastery."""
     resolved_key = _normalize_opening_key(opening_key)
     if not resolved_key:
         return {"mastery_level": "unknown"}
-
-    update: Dict[str, Any] = {"$set": {"last_practiced": datetime.now(timezone.utc)}}
-    if main_line_progress is not None:
-        update["$set"]["main_line_progress"] = main_line_progress
-    if practiced:
-        update["$inc"] = {"times_practiced": 1}
-    if trap_learned:
-        update["$addToSet"] = {"traps_learned": trap_learned}
-
+    now = datetime.now(timezone.utc)
     await db.opening_learning_progress.update_one(
         {"user_id": user_id, "opening_key": resolved_key},
         {
-            **update,
+            "$set": {
+                "last_viewed": now,
+                "evidence_status": "seen_only",
+                "verification_required": True,
+            },
+            "$inc": {"lesson_views": 1},
             "$setOnInsert": {
                 "user_id": user_id,
                 "opening_key": resolved_key,
-                "created_at": datetime.now(timezone.utc),
+                "created_at": now,
+                "mastery_level": "unknown",
             },
         },
         upsert=True,
@@ -399,22 +469,8 @@ async def update_learning_progress(
     progress = await db.opening_learning_progress.find_one(
         {"user_id": user_id, "opening_key": resolved_key}
     )
-    opening = get_opening_data(resolved_key)
-    total_moves = len(opening["main_line"]) if opening else 1
-    moves_known = progress.get("main_line_progress", 0)
-    times_practiced = progress.get("times_practiced", 0)
-    if moves_known >= total_moves and times_practiced >= 5:
-        mastery = "mastered"
-    elif moves_known >= total_moves * 0.7 and times_practiced >= 3:
-        mastery = "comfortable"
-    elif moves_known >= total_moves * 0.5 or times_practiced >= 2:
-        mastery = "practiced"
-    elif moves_known > 0 or times_practiced > 0:
-        mastery = "learning"
-    else:
-        mastery = "unknown"
-    await db.opening_learning_progress.update_one(
-        {"user_id": user_id, "opening_key": resolved_key},
-        {"$set": {"mastery_level": mastery}},
-    )
-    return {"mastery_level": mastery}
+    return {
+        "mastery_level": progress.get("mastery_level", "unknown"),
+        "evidence_status": "seen_only",
+        "verification_required": True,
+    }

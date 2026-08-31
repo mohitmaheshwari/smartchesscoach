@@ -158,7 +158,7 @@ class TestNoLLMInCoaching:
         import asyncio
         from services.v5_llm_narrator import generate_concise_narrative
         with _LLMTracer() as t:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 generate_concise_narrative(
                     move_san="Nxe5",
                     plan_data={"current_problem": "leaves the knight hanging",

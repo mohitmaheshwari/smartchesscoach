@@ -17,7 +17,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict
+from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 import logging
 import uuid
@@ -80,8 +80,16 @@ class MissionStepRequest(BaseModel):
     payload: Dict = {}
 
 class MissionCompleteRequest(BaseModel):
-    """Request for completing a mission"""
-    score: Dict
+    """Completion carries no score; the server owns the score."""
+    pass
+
+
+class MissionAttemptRequest(BaseModel):
+    """One move submitted against a server-issued mission position."""
+    puzzle_id: str
+    played_uci: str
+    time_taken_ms: Optional[int] = None
+    used_hint: bool = False
 
 
 # ==================== ENDPOINTS ====================
@@ -124,6 +132,12 @@ async def get_today_mission(user: User = Depends(get_current_user)):
 async def start_mission_endpoint(mission_id: str, user: User = Depends(get_current_user)):
     """Start a mission session."""
     global db, _start_mission
+    mission = await db.behavioral_missions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+    })
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
     result = await _start_mission(mission_id, user.user_id, db)
     return result
 
@@ -148,13 +162,61 @@ async def get_mission_positions(mission_id: str, user: User = Depends(get_curren
     focus_pattern = mission.get("focus_pattern", "critical_moment_drift")
     target_count = mission.get("goal_target", 5)
     source_game_id = mission.get("source_game_id")
+
+    from services.verified_puzzle_runtime import (
+        public_puzzle_payload,
+        resolve_verified_puzzle,
+    )
+
+    # Once issued, a mission is immutable. Re-resolve the frozen identities so
+    # a later import or detector change cannot silently swap the work beneath
+    # an active session. A newly invalid item fails closed and is not replaced.
+    issued_ids = mission.get("eligible_puzzle_ids")
+    if isinstance(issued_ids, list):
+        served = []
+        for puzzle_id in issued_ids:
+            resolved = await resolve_verified_puzzle(
+                db, str(puzzle_id), user_id=user.user_id
+            )
+            if not resolved:
+                continue
+            public = public_puzzle_payload(resolved)
+            public.update({
+                "puzzle_id": str(puzzle_id),
+                "position_id": str(puzzle_id),
+                "category": resolved.get("pattern_type") or "calculation_depth",
+                "explanation": "From your game. Find the strongest move without looking at the answer.",
+            })
+            served.append(public)
+        focus_info = (_PATTERN_FOCUS_MAP or {}).get(focus_pattern, {})
+        return {
+            "positions": served,
+            "total": len(served),
+            "focus_pattern": focus_pattern,
+            "focus_label": focus_info.get(
+                "focus_label", mission.get("focus_label")
+            ),
+            "micro_protocol": focus_info.get(
+                "micro_protocol", mission.get("micro_protocol") or []
+            ),
+            "goal": {
+                "target": int(mission.get("goal_target") or len(served)),
+                "success_threshold": int(
+                    mission.get("goal_success_threshold") or len(served)
+                ),
+            },
+            "mission_id": mission_id,
+        }
     
     # Get positions from user's analyzed games
     positions = []
     
     # If mission is from a specific game, prioritize that game
     if source_game_id:
-        source_analysis = await db.game_analyses.find_one({"game_id": source_game_id})
+        source_analysis = await db.game_analyses.find_one({
+            "game_id": source_game_id,
+            "user_id": user.user_id,
+        })
         if source_analysis:
             positions = _extract_drill_positions(source_analysis, focus_pattern, limit=target_count)
     
@@ -172,15 +234,173 @@ async def get_mission_positions(mission_id: str, user: User = Depends(get_curren
             if len(positions) >= target_count:
                 break
     
-    # If still no positions, generate sample positions for the pattern
-    if len(positions) == 0:
-        positions = _get_sample_drill_positions(focus_pattern, target_count)
-    
+    # Legacy authored samples have no stored analysis provenance, so they are
+    # not eligible for a scored mission. Resolve every real-game candidate via
+    # the same verified-admission engine used by all other puzzle surfaces.
+    from services.puzzle_extraction_service import verdict_serves_pattern
+    verified = []
+    fallback = []
+    seen_ids = set()
+    for position in positions:
+        game_id = position.get("game_id")
+        move_number = position.get("move_number")
+        if not game_id or move_number is None:
+            continue
+        puzzle_id = f"{game_id}_m{move_number}"
+        if puzzle_id in seen_ids:
+            continue
+        seen_ids.add(puzzle_id)
+        resolved = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+        if not resolved:
+            continue
+        public = public_puzzle_payload(resolved)
+        public.update({
+            "puzzle_id": puzzle_id,
+            "position_id": puzzle_id,
+            "type": position.get("type"),
+            "category": resolved.get("pattern_type") or "calculation_depth",
+            "explanation": "From your game. Find the strongest move without looking at the answer.",
+        })
+        fallback.append(public)
+        if verdict_serves_pattern(resolved, focus_pattern):
+            verified.append(public)
+
+    # Prefer an exact verified focus match. If the old behavioral mission label
+    # has no provable positions, keep the real content and relabel the mission
+    # to the verified broad category instead of showing an unrelated puzzle or
+    # an unproved sample.
+    served = (verified or fallback)[:target_count]
+    effective_pattern = focus_pattern
+    if served and not verified:
+        effective_pattern = served[0].get("category") or "calculation_depth"
+        focus_info = (_PATTERN_FOCUS_MAP or {}).get(effective_pattern, {})
+        effective_target = len(served)
+        effective_threshold = min(
+            int(mission.get("goal_success_threshold") or effective_target),
+            effective_target,
+        )
+        await db.behavioral_missions.update_one(
+            {"mission_id": mission_id, "user_id": user.user_id},
+            {"$set": {
+                "focus_pattern": effective_pattern,
+                "focus_label": focus_info.get("focus_label", effective_pattern.replace("_", " ").title()),
+                "micro_protocol": focus_info.get("micro_protocol", mission.get("micro_protocol") or []),
+                "eligible_puzzle_ids": [item["puzzle_id"] for item in served],
+                "goal_target": effective_target,
+                "goal_success_threshold": effective_threshold,
+            }},
+        )
+    else:
+        effective_target = len(served)
+        effective_threshold = min(
+            int(mission.get("goal_success_threshold") or effective_target),
+            effective_target,
+        )
+        await db.behavioral_missions.update_one(
+            {"mission_id": mission_id, "user_id": user.user_id},
+            {"$set": {
+                "eligible_puzzle_ids": [item["puzzle_id"] for item in served],
+                "goal_target": effective_target,
+                "goal_success_threshold": effective_threshold,
+            }},
+        )
+
+    effective_info = (_PATTERN_FOCUS_MAP or {}).get(effective_pattern, {})
+
     return {
-        "positions": positions[:target_count],
-        "total": len(positions[:target_count]),
-        "focus_pattern": focus_pattern,
+        "positions": served,
+        "total": len(served),
+        "focus_pattern": effective_pattern,
+        "focus_label": effective_info.get(
+            "focus_label", mission.get("focus_label") if effective_pattern == focus_pattern
+            else effective_pattern.replace("_", " ").title()
+        ),
+        "micro_protocol": effective_info.get(
+            "micro_protocol", mission.get("micro_protocol") or []
+        ),
+        "goal": {
+            "target": effective_target,
+            "success_threshold": effective_threshold,
+        },
         "mission_id": mission_id
+    }
+
+
+@router.post("/{mission_id}/attempt")
+async def grade_mission_attempt(
+    mission_id: str,
+    data: MissionAttemptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Grade one issued mission position from server-owned stored evidence."""
+    mission = await db.behavioral_missions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+    })
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    session = await db.mission_sessions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+        "ended_at": None,
+    })
+    if not session:
+        raise HTTPException(status_code=404, detail="No active session for this mission")
+    if data.puzzle_id not in set(mission.get("eligible_puzzle_ids") or []):
+        raise HTTPException(status_code=400, detail="Position was not issued for this mission")
+    if data.puzzle_id in set(session.get("graded_puzzle_ids") or []):
+        raise HTTPException(status_code=409, detail="Position already scored")
+
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+
+    resolved = await resolve_verified_puzzle(db, data.puzzle_id, user_id=user.user_id)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Position is not ready for training")
+    grade = await record_verified_puzzle_attempt(
+        db,
+        user_id=user.user_id,
+        puzzle_id=data.puzzle_id,
+        puzzle=resolved,
+        played_uci=data.played_uci.strip().lower(),
+        time_taken_ms=data.time_taken_ms,
+        moves_tried=[data.played_uci.strip().lower()],
+        attempt_context=f"mission:{mission_id}",
+    )
+    if grade.get("quality") == "invalid":
+        raise HTTPException(status_code=400, detail=grade.get("feedback"))
+
+    correct = bool(grade.get("correct"))
+    claim = await db.mission_sessions.update_one(
+        {
+            "session_id": session["session_id"],
+            "graded_puzzle_ids": {"$ne": data.puzzle_id},
+        },
+        {
+            "$addToSet": {"graded_puzzle_ids": data.puzzle_id},
+            "$inc": {
+                "score.attempted": 1,
+                "score.correct": 1 if correct else 0,
+            },
+            "$push": {"steps": {
+                "type": "verified_drill_result",
+                "puzzle_id": data.puzzle_id,
+                "correct": correct,
+                "used_hint": bool(data.used_hint),
+                "duration_ms": data.time_taken_ms or 0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }},
+        },
+    )
+    if getattr(claim, "modified_count", 1) == 0:
+        raise HTTPException(status_code=409, detail="Position already scored")
+
+    return {
+        "correct": correct,
+        "quality": grade.get("quality"),
+        "best_move_san": grade.get("best_move_san"),
+        "best_move_uci": grade.get("best_move_uci"),
+        "feedback": grade.get("feedback"),
     }
 
 
@@ -268,7 +488,13 @@ async def record_mission_step(
     if not session:
         raise HTTPException(status_code=404, detail="No active session for this mission")
     
-    # Build step record
+    if data.step_type == "drill_result":
+        raise HTTPException(
+            status_code=400,
+            detail="Use the verified mission-attempt endpoint for scored moves",
+        )
+
+    # Build a non-scoring process step record.
     step = {
         "type": data.step_type,
         "payload": data.payload,
@@ -311,11 +537,26 @@ async def complete_mission_endpoint(
     if not session:
         raise HTTPException(status_code=404, detail="No active session")
     
+    mission = await db.behavioral_missions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+    })
+    eligible = list((mission or {}).get("eligible_puzzle_ids") or [])
+    graded = set(session.get("graded_puzzle_ids") or [])
+    server_score = session.get("score") or {}
+    required_attempts = min(int((mission or {}).get("goal_target") or len(eligible)), len(eligible))
+    if (
+        not eligible
+        or int(server_score.get("attempted") or 0) < required_attempts
+        or not set(eligible).issubset(graded)
+    ):
+        raise HTTPException(status_code=409, detail="Finish the issued positions before completing the mission")
+
     result = await _complete_mission(
         mission_id=mission_id,
         session_id=session["session_id"],
         user_id=user.user_id,
-        score=data.score,
+        score=None,
         db=db,
     )
     
@@ -391,8 +632,10 @@ async def get_mission_history(limit: int = 10, user: User = Depends(get_current_
 @router.get("/focus-mastery")
 async def get_focus_mastery(user: User = Depends(get_current_user)):
     """
-    Get user's comprehensive focus mastery data.
-    Shows mastery scores, trends, and recommendations for cognitive patterns.
+    Get verified mission-practice checkpoints by focus pattern.
+
+    This endpoint deliberately does not claim chess mastery; transfer into
+    later real games and retention are measured elsewhere.
     """
     global db, _PATTERN_FOCUS_MAP
     
@@ -419,24 +662,25 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
         
         # Calculate mastery score (0-100)
         if total == 0:
-            mastery_score = 0
+            practice_score = 0
             status = "not_started"
         elif total < 3:
-            mastery_score = int((passed / total) * 30)  # Max 30 for <3 attempts
-            status = "learning"
+            practice_score = int((passed / total) * 30)  # Max 30 for <3 attempts
+            status = "practising"
         else:
-            mastery_score = int((passed / total) * 100)
-            if mastery_score >= 80:
-                status = "mastered"
-            elif mastery_score >= 50:
-                status = "progressing"
+            practice_score = int((passed / total) * 100)
+            if practice_score >= 80:
+                status = "checkpoint_passed"
+            elif practice_score >= 50:
+                status = "practising"
             else:
                 status = "needs_work"
         
         mastery_data[pattern_key] = {
-            "label": pattern_info.get("label", pattern_key),
+            "label": pattern_info.get("focus_label", pattern_key),
             "description": pattern_info.get("description", ""),
-            "mastery_score": mastery_score,
+            "practice_score": practice_score,
+            "mastery_status": "not_measured",
             "status": status,
             "attempts": total,
             "passed": passed,
@@ -446,11 +690,11 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
     # Get recommendations
     recommendations = []
     for pattern_key, data in mastery_data.items():
-        if data["status"] in ["not_started", "needs_work", "learning"]:
+        if data["status"] in ["not_started", "needs_work", "practising"]:
             recommendations.append({
                 "pattern": pattern_key,
                 "label": data["label"],
-                "reason": "Low mastery - focus on this area",
+                "reason": "More verified practice evidence is needed here",
                 "priority": "high" if data["status"] == "needs_work" else "medium"
             })
     

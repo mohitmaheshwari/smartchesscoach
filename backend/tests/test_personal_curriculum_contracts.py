@@ -118,11 +118,6 @@ def test_flag_on_returns_the_same_pure_contract_shape():
         (CurriculumOutcome.EXPAND, StudentState.NEW, None),
         (CurriculumOutcome.CONTINUE, StudentState.CAN_DO_WITH_HELP, None),
         (CurriculumOutcome.REVIEW, StudentState.CAN_DO_ALONE, None),
-        (
-            CurriculumOutcome.APPLY,
-            StudentState.USED_IN_GAMES,
-            "gap:piece_safety:simple_hang",
-        ),
     ],
 )
 def test_each_signed_outcome_has_a_deterministic_contract(
@@ -138,6 +133,18 @@ def test_each_signed_outcome_has_a_deterministic_contract(
     assert first["primary"]["outcome"] == outcome.value
     assert first["primary"]["state"] == state.value
     assert first["generated_at"] == "2026-08-28T14:30:00+00:00"
+
+
+def test_apply_contract_stays_locked_without_a_plan_grade_detector():
+    with pytest.raises(
+        ContractViolation,
+        match="Application claims require a Plan-grade opportunity detector",
+    ):
+        _candidate(
+            CurriculumOutcome.APPLY,
+            state=StudentState.USED_IN_GAMES,
+            quality_id="gap:piece_safety:simple_hang",
+        )
 
 
 def test_public_decision_contains_one_primary_and_at_most_one_review():
@@ -436,7 +443,7 @@ def test_disabled_detector_cannot_earn_used_in_games():
     assert result.event_dict()["application"]["plan_authorized"] is False
 
 
-def test_plan_grade_detector_can_earn_used_in_games():
+def test_shadow_simple_hang_cannot_earn_used_in_games():
     result = LessonResult(
         content_kind="concept",
         content_id="piece_safety",
@@ -448,7 +455,8 @@ def test_plan_grade_detector_can_earn_used_in_games():
         application_outcome=ApplicationOutcome.APPLIED,
         detector_quality_id="gap:piece_safety:simple_hang",
     )
-    assert result.earned_state() == StudentState.USED_IN_GAMES
+    assert result.earned_state() is None
+    assert result.event_dict()["application"]["plan_authorized"] is False
 
 
 def test_lesson_result_event_is_versioned_and_never_emits_reliable():

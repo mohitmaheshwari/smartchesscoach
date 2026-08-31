@@ -3867,7 +3867,7 @@
       "content_id": "knight_endgames/knight_blockade",
       "position_index": 2,
       "fen": "8/2k5/2P5/8/3n4/8/6K1/8 b - - 0 1",
-      "stored_move_uci": "d4b5",
+      "stored_move_uci": "d4c6",
       "root_category": "draw",
       "move_category_from_opponent_turn": "draw",
       "preserves_wdl": true,

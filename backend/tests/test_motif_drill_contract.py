@@ -12,8 +12,11 @@ These are pure-logic tests — no Mongo, no Stockfish, no live server — so the
 """
 import os
 import sys
+import asyncio
+from types import SimpleNamespace
 
 import chess
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -22,6 +25,7 @@ from services.motif_profile_service import (  # noqa: E402
     get_drills,
     count_unresolved_drills,
     merge_motifs,
+    motif_drill_sequence_is_verified,
 )
 
 
@@ -267,6 +271,82 @@ def test_the_fork_actually_forks_two_pieces():
     ]
     valuable = [p for p in targets if values.get(p.piece_type, 0) >= 3]
     assert len(valuable) >= 2, f"not a two-piece fork: {[p.symbol() for p in targets]}"
+
+
+def test_verified_motif_sequence_requires_two_agreeing_geometry_walks():
+    fork = {
+        "position_fen": FEN_BEFORE,
+        "solution_san": BEST,
+        "user_blunder_move": BLUNDER,
+        "opp_creates_motif": OPP_FORK,
+    }
+    pin = {
+        "position_fen": "4k3/7p/2n5/8/2B5/8/8/4K3 b - - 0 1",
+        "solution_san": "Kd7",
+        "user_blunder_move": "h6",
+        "opp_creates_motif": "Bb5",
+    }
+    skewer = {
+        "position_fen": "k3r3/7p/2q5/8/2B5/8/8/6K1 b - - 0 1",
+        "solution_san": "Kb7",
+        "user_blunder_move": "h6",
+        "opp_creates_motif": "Bb5",
+    }
+
+    assert motif_drill_sequence_is_verified(fork, "fork")
+    assert motif_drill_sequence_is_verified(pin, "pin")
+    assert motif_drill_sequence_is_verified(skewer, "skewer")
+    assert not motif_drill_sequence_is_verified(fork, "pin")
+    assert not motif_drill_sequence_is_verified(
+        {**fork, "opp_creates_motif": "Nf3"},
+        "fork",
+    )
+
+
+def test_enforced_route_serves_individually_verified_own_game_row(monkeypatch):
+    pytest.importorskip("bcrypt")
+    from routes import player
+
+    class _Profiles:
+        async def find_one(self, query, projection=None):
+            return {
+                "motif_profile": _profile([{
+                    "fen": FEN_AFTER,
+                    "fen_before": FEN_BEFORE,
+                    "fen_after": FEN_AFTER,
+                    "solution": BEST,
+                    "user_blunder_move": BLUNDER,
+                    "opp_creates_motif": OPP_FORK,
+                    "provenance": "exact",
+                    "game_id": "g1",
+                    "move_number": 21,
+                }])
+            }
+
+    async def resolve(db, puzzle_id, *, user_id=None):
+        assert puzzle_id == "g1_m21"
+        assert user_id == "u1"
+        return {
+            "fen": FEN_BEFORE,
+            "best_move_san": BEST,
+            "best_move_uci": "d8d5",
+        }
+
+    monkeypatch.setenv("VERIFIED_PUZZLE_ADMISSION_ENFORCED", "true")
+    monkeypatch.setattr(player, "db", SimpleNamespace(player_profiles=_Profiles()))
+    monkeypatch.setattr(
+        "services.verified_puzzle_runtime.resolve_verified_puzzle",
+        resolve,
+    )
+
+    result = asyncio.run(player.get_motif_drill(
+        "fork",
+        user=SimpleNamespace(user_id="u1"),
+    ))
+
+    assert result["gated"] is False
+    assert result["count"] == 1
+    assert result["drills"][0]["source"] == "own_verified"
 
 
 # ─── merge must not drop the new fields ───────────────────────────────────────

@@ -51,25 +51,34 @@ def _load_endgame_tree() -> Dict:
 # ─────────────────────────────────────────────
 
 async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> Dict:
-    """Start a trap practice lesson inside a coach session."""
-    from trick_library_service import get_trap_for_practice
+    """Start a verified trap or opening-plan line inside a coach session."""
+    from trick_library_service import (
+        get_opening_idea_for_practice,
+        get_trap_for_practice,
+    )
 
-    trap_key = params.get("trap_key")
+    lesson_type = str(params.get("lesson_type") or "trap")
+    is_opening_plan = lesson_type == "opening_plan"
+    trap_key = params.get("lesson_key") if is_opening_plan else params.get("trap_key")
     if not trap_key:
-        return {"error": "trap_key is required"}
+        return {
+            "error": "lesson_key is required" if is_opening_plan else "trap_key is required"
+        }
 
-    requested_mode = params.get("mode")
+    requested_mode = params.get("mode") or (
+        "execution" if is_opening_plan else "avoidance"
+    )
     trap = (
-        get_trap_for_practice(trap_key, requested_mode)
-        if requested_mode
-        else get_trap_for_practice(trap_key, "avoidance")
+        get_opening_idea_for_practice(trap_key, requested_mode)
+        if is_opening_plan
+        else get_trap_for_practice(trap_key, requested_mode)
     )
     if not trap:
         return {
             "error": (
-                f"Trap '{trap_key}' does not yet have a verified safe-defense lesson"
-                if not requested_mode
-                else f"Trap '{trap_key}' not found or has no practice data"
+                f"Opening idea '{trap_key}' is not verified for practice"
+                if is_opening_plan
+                else f"Trap '{trap_key}' not found or has no verified {requested_mode} lesson"
             )
         }
 
@@ -89,7 +98,7 @@ async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> 
     # Store teaching state in session
     teaching_state = {
         "teaching_mode": True,
-        "lesson_type": "trap",
+        "lesson_type": lesson_type,
         "lesson_key": trap_key,
         "lesson_name": trap["name"],
         "trap_data": {
@@ -162,7 +171,7 @@ async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> 
 
     return {
         "success": True,
-        "lesson_type": "trap",
+        "lesson_type": lesson_type,
         "lesson_name": trap["name"],
         "lesson_key": trap_key,
         "teaching_fen": teaching_fen,
@@ -516,7 +525,14 @@ def _public_pic_session(session: Dict[str, Any]) -> Dict[str, Any]:
         "current_index": index,
         "total_items": len(items),
         "completed_items": min(index, len(items)),
-        "current_item": current,
+        "current_item": (
+            {
+                key: value
+                for key, value in current.items()
+                if not str(key).startswith("_")
+            }
+            if current else None
+        ),
         "content_version": session.get("content_version"),
         "content_tier": session.get("content_tier"),
         "mastery_eligible": False,
@@ -576,7 +592,7 @@ async def start_pic_piece_safety_lesson(
 
     requested = max(1, min(int((params or {}).get("limit", 5)), 5))
     supply = await get_pattern_training_puzzles(
-        db, user_id, "piece_safety", requested
+        db, user_id, "piece_safety", requested, private=True
     )
     own = [p for p in (supply.get("own_puzzles") or []) if not p.get("already_solved")]
     community = supply.get("community_puzzles") or []
@@ -586,14 +602,14 @@ async def start_pic_piece_safety_lesson(
 
     items = [{
         "item_id": str(item.get("puzzle_id")),
+        "_puzzle_id": str(item.get("puzzle_id")),
         "fen": item.get("fen"),
-        "best_move_san": item.get("best_move_san"),
         "source": item.get("source"),
         "source_game_id": item.get("source_game_id"),
         "difficulty": item.get("difficulty"),
         "content_tier": "verified",
         "mastery_eligible": False,
-    } for item in selected if item.get("fen") and item.get("best_move_san")]
+    } for item in selected if item.get("fen") and item.get("puzzle_id")]
     if not items:
         return {"error": "Available positions are missing board or solution data"}
 
@@ -649,13 +665,22 @@ async def process_pic_piece_safety_move(
         return {**_public_pic_session(session), "complete": True}
     item = items[index]
 
-    from services.puzzle_move_evaluator import evaluate_puzzle_move
-    evaluation = await evaluate_puzzle_move(
-        fen=item["fen"],
-        played_uci=move,
-        known_best_san=item["best_move_san"],
+    from services.verified_puzzle_runtime import (
+        grade_resolved_puzzle,
+        resolve_verified_puzzle,
     )
-    correct = bool(evaluation.get("is_acceptable"))
+
+    puzzle = await resolve_verified_puzzle(
+        db,
+        str(item.get("_puzzle_id") or ""),
+        user_id=str(session.get("user_id") or ""),
+    )
+    if not puzzle:
+        return {"error": "This practice position needs verification before use"}
+    evaluation = grade_resolved_puzzle(puzzle, move)
+    if evaluation.get("quality") == "invalid":
+        return evaluation
+    correct = bool(evaluation.get("correct"))
     next_index = index + 1 if correct else index
     complete = correct and next_index >= len(items)
     now = datetime.now(timezone.utc)
@@ -667,7 +692,14 @@ async def process_pic_piece_safety_move(
         "complete": complete,
         "current_index": next_index,
         "total_items": len(items),
-        "next_item": items[next_index] if next_index < len(items) else None,
+        "next_item": (
+            {
+                key: value
+                for key, value in items[next_index].items()
+                if not str(key).startswith("_")
+            }
+            if next_index < len(items) else None
+        ),
     }
     event = {
         "event_id": str(uuid.uuid4()),
@@ -682,7 +714,7 @@ async def process_pic_piece_safety_move(
             and e.get("item_id") == item["item_id"]
         ),
         "response": {"move_uci": move},
-        "grader_version": "puzzle_move_evaluator.v1",
+        "grader_version": "verified_puzzle_admission.v2",
         "result": "correct" if correct else "wrong",
         "evidence_eligible": False,
         "rejection_reason": "assisted_verified_practice",
@@ -1126,7 +1158,13 @@ async def process_personalized_move(
 
     from services.personalized_lesson_adapter import grade_personalized_move
 
-    grade = await grade_personalized_move(descriptor, item, move)
+    grade = await grade_personalized_move(
+        descriptor,
+        item,
+        move,
+        db=db,
+        user_id=str(session.get("user_id") or ""),
+    )
     correct = bool(grade.get("correct"))
     expected_reason = item.get("_expected_reason")
     if expected_reason:
@@ -1332,6 +1370,8 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
     """Start a lesson of any type."""
     if lesson_type == "trap":
         return await start_trap_lesson(db, session_id, user_id, params)
+    elif lesson_type == "opening_plan":
+        return await start_trap_lesson(db, session_id, user_id, params)
     elif lesson_type == "endgame":
         return await start_endgame_lesson(db, session_id, user_id, params)
     elif lesson_type == PIC_LESSON_TYPE:
@@ -1386,7 +1426,7 @@ async def process_lesson_move(
 
     lesson_type = session_doc.get("lesson_type", "opening")
 
-    if lesson_type == "trap":
+    if lesson_type in {"trap", "opening_plan"}:
         return await process_trap_move(db, session_id, move)
     elif lesson_type == "endgame":
         return await process_endgame_move(db, session_id, move)
@@ -1463,7 +1503,7 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
 
 def get_lesson_catalog() -> Dict:
     """Return available lessons organized by type for the lesson picker UI."""
-    from trick_library_service import get_all_traps
+    from trick_library_service import get_all_opening_ideas, get_all_traps
     from services.curriculum_content_validator import get_defense_ready_trap_ids
 
     # Traps
@@ -1482,6 +1522,20 @@ def get_lesson_catalog() -> Dict:
             "trap_for": trap.get("trap_for", ""),
             "tactical_theme": trap.get("tactical_theme", ""),
         })
+
+    opening_idea_lessons = [
+        {
+            "key": lesson["key"],
+            "name": lesson["name"],
+            "opening": lesson.get("opening", ""),
+            "difficulty": lesson.get("difficulty", "intermediate"),
+            "description": lesson.get("description", ""),
+            "plan_for": lesson.get("trap_for", ""),
+            "learning_goal": lesson.get("learning_goal", ""),
+            "canonical_source": lesson.get("canonical_source"),
+        }
+        for lesson in get_all_opening_ideas()
+    ]
 
     # Endgames — already filtered by the offline truth gate.
     from services.endgame_theory_service import get_all_categories
@@ -1503,5 +1557,6 @@ def get_lesson_catalog() -> Dict:
 
     return {
         "traps": trap_lessons,
+        "opening_ideas": opening_idea_lessons,
         "endgames": endgame_lessons,
     }

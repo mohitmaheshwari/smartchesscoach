@@ -32,10 +32,15 @@ def _skill_records(coach_memory: Mapping[str, Any]) -> Sequence[Mapping[str, Any
 
 def _exact_skill(
     coach_memory: Mapping[str, Any],
-    skill_id: str,
+    skill_ids: Sequence[str] | str,
 ) -> Optional[Mapping[str, Any]]:
+    wanted = (
+        {str(skill_ids)}
+        if isinstance(skill_ids, str)
+        else {str(value) for value in skill_ids}
+    )
     for item in _skill_records(coach_memory):
-        if str(item.get("skill_id") or "") == skill_id:
+        if str(item.get("skill_id") or "") in wanted:
             return item
     return None
 
@@ -146,13 +151,22 @@ def derive_personal_teaching_profile(
     if any(not str(lesson.get(field) or "").strip() for field in required):
         raise ValueError("canonical_lesson identity and version are required")
 
+    from services.engine2_skill_builder import lesson_skill_aliases
+
+    skill_aliases = lesson_skill_aliases(
+        str(lesson["kind"]),
+        str(lesson["id"]),
+        requested_skill_id=skill_id,
+    )
+    canonical_skill_id = skill_aliases[0]
+
     interaction = _mapping(current_interaction)
     memory = _mapping(coach_memory)
     focus = _mapping(active_focus)
     profile = _mapping(player_profile)
     understanding = _mapping(chess_understanding)
     opening = _mapping(repertoire)
-    skill = _mapping(_exact_skill(memory, skill_id))
+    skill = _mapping(_exact_skill(memory, skill_aliases))
     anchors = []
 
     misconception_key = str(interaction.get("misconception") or "").strip()
@@ -211,17 +225,13 @@ def derive_personal_teaching_profile(
                 anchor_type="exact_skill_history",
                 message=message,
                 owner="coach_memory.learning.skills",
-                ref=skill_id,
+                ref=canonical_skill_id,
                 strength="measured",
                 skill_specific=True,
             ))
 
     focus_key = str(focus.get("topic_key") or focus.get("skill_id") or "")
-    if focus_key and (
-        focus_key == skill_id
-        or focus_key in skill_id
-        or skill_id in focus_key
-    ):
+    if focus_key and focus_key in set(skill_aliases):
         anchors.append(_anchor(
             anchor_type="active_focus",
             message="This is the one idea in your current coaching plan.",
@@ -277,7 +287,7 @@ def derive_personal_teaching_profile(
 
     return {
         "schema_version": TEACHING_PROFILE_SCHEMA_VERSION,
-        "skill_id": skill_id,
+        "skill_id": canonical_skill_id,
         "canonical_lesson": lesson,
         "mode": mode,
         "why_now": why_now,
@@ -307,6 +317,14 @@ async def build_personal_teaching_profile(
     current_interaction: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Read existing evidence owners and return a non-persisted projection."""
+    from services.engine2_skill_builder import lesson_skill_aliases
+
+    skill_aliases = lesson_skill_aliases(
+        str(canonical_lesson.get("kind") or ""),
+        str(canonical_lesson.get("id") or ""),
+        requested_skill_id=skill_id,
+    )
+    canonical_skill_id = skill_aliases[0]
     if current_interaction is None:
         sessions = getattr(db, "learning_sessions", None)
         if sessions is not None:
@@ -314,7 +332,7 @@ async def build_personal_teaching_profile(
                 {
                     "user_id": user_id,
                     "lesson_type": "personalized_curriculum",
-                    "skill_id": skill_id,
+                    "skill_id": {"$in": list(skill_aliases)},
                 },
                 {"_id": 0, "events": 1, "updated_at": 1},
                 sort=[("updated_at", -1)],
@@ -364,7 +382,7 @@ async def build_personal_teaching_profile(
         focus = {}
 
     return derive_personal_teaching_profile(
-        skill_id=skill_id,
+        skill_id=canonical_skill_id,
         canonical_lesson=canonical_lesson,
         current_interaction=current_interaction,
         coach_memory=memory,

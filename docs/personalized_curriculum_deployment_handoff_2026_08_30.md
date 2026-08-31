@@ -6,9 +6,9 @@ Worktree: `C:\Users\MIISCO\smartchesscoach\_phase4_worktree`
 
 ## Release state
 
-- Development is complete in the isolated worktree.
-- The branch is based on the local `origin/working-code` reference: **0 behind,
-  3 committed changes ahead**, plus the completed uncommitted Phase 4 work.
+- Development is isolated in the Phase 4 worktree. Before committing, rebase it
+  onto the current `working-code`; do not infer branch freshness by comparing
+  `working-code` with its own `HEAD`.
 - Nothing in this handoff is deployed.
 - Do not collect files from the separate main working tree.
 - No MongoDB migration is required. `learning_sessions` is written lazily.
@@ -73,13 +73,21 @@ were verified locally.
 1. Work only from the Phase 4 worktree above.
 2. Review `git status --short` and commit the complete scoped change together;
    do not omit untracked validators, tests, components, snapshots, or docs.
-3. Push `codex/personal-curriculum-phase4`.
-4. Deploy backend and frontend from that exact commit with both flags enabled
-   only for the invited role list.
-5. Verify backend health and that a flag-off/non-allowed account still receives
+3. Before enabling or restarting any reader with
+   `VERIFIED_PUZZLE_ADMISSION_ENFORCED=true`, take a BSON backup and prove one
+   restore into a scratch database. Run the admission backfill dry-run and
+   inspect every status/reason aggregate.
+4. Apply the reviewed backfill only when (a) historic `approved: false` rows
+   remain false, (b) every cross-pool answer conflict is quarantined with
+   `approved: false`, and (c) the remaining quarantine rate stays within the
+   locked ceiling. Re-read those counts after the write.
+5. Push `codex/personal-curriculum-phase4` and deploy backend and frontend from
+   that exact commit with both curriculum flags enabled only for the invited
+   role list.
+6. Verify backend health and that a flag-off/non-allowed account still receives
    the legacy experience.
-6. Verify an allowed account can open the recommended lesson, choose a reason,
+7. Verify an allowed account can open the recommended lesson, choose a reason,
    request each help type, complete a transfer item, and see the same state on
    Learn, Game Review, Progress, Lab, and Play with Coach.
-7. Hand the deployed build to Mohit and the invited coaches for the final human
+8. Hand the deployed build to Mohit and the invited coaches for the final human
    coaching audit.

@@ -430,7 +430,7 @@ LOCK_HEADLINES = {
     "ACTIVE": "Rule locked for {games} games.",
     "EXTENDED": "Rule extended.",
     "STRICT": "Discipline slipping.",
-    "COMPLETED": "Rule mastered.",
+    "COMPLETED": "Focus checkpoint passed.",
     "FAILED": "Loop not broken.",
 }
 
@@ -439,7 +439,7 @@ LOCK_MESSAGES = {
     "ACTIVE": "{rule_description}",
     "EXTENDED": "Compliance below required level. {extension} more games.",
     "STRICT": "Same mistake repeated. Lock remains active.",
-    "COMPLETED": "{lesson} awareness improved. Lock lifted.",
+    "COMPLETED": "The focus window met its measured checkpoint. Lock lifted.",
     "FAILED": "Deep review required.",
 }
 
@@ -616,8 +616,8 @@ def check_lock_exit(lock: FocusLock) -> Dict[str, Any]:
         return {
             "should_exit": True,
             "exit_type": "success",
-            "headline": "Rule mastered.",
-            "message": f"{lock.lesson_key.replace('_', ' ').title()} awareness improved. Lock lifted.",
+            "headline": "Focus checkpoint passed.",
+            "message": "The focus window met its measured checkpoint. Lock lifted.",
             "next_action": "CONTINUE_TRAINING",
             "reward": "+1 Discipline Level",
         }

@@ -111,7 +111,7 @@ referenced routine with observable behavior, not another caption table.
 | Identify the opponent's immediate threat | CORE | PARTIAL | opponent-threat and practical-routine canon | Diagnose before suggesting a defense |
 | Move the target, add a defender, remove the attacker, block, or counterattack | CORE | PARTIAL | phase_principles.json defensive-response records | Compare resources on the same board |
 | Create king escape squares and avoid back-rank danger | CORE | PARTIAL | tactical/mating canon | Reuse escape-squares evidence |
-| Defend common opening traps | CORE | READY for 23 verified traps | traps.json | Keep defense-first and answer-hidden |
+| Defend common opening traps | CORE | READY for 36 unique verified forced traps; the duplicated QGD line was replaced by a distinct Marshall Defense opening-plan lesson | traps.json | Keep defense-first and answer-hidden |
 | Simplify an attack by trading the right attacker | CORE | PARTIAL | Strategic canon with tactical verification | Teach which attacker matters, not “trade pieces” generically |
 | Find perpetual check, stalemate, fortress, or active counterplay | GROWTH | PARTIAL stalemate; others missing | Endgame/defense canon | Add only with exact or coach-reviewed evidence |
 | Continue accurately after a blunder or in a worse position | CORE | MISSING as a lesson | Practical-play canon | Teach the next decision; never use shame or fake optimism |
@@ -163,13 +163,13 @@ French Advance, Open Sicilian, symmetrical structure, and closed center.
 | Skill family | Priority | Current coverage | Canonical destination | Completion decision |
 | --- | --- | --- | --- | --- |
 | Universal opening habits and exceptions | CORE | PARTIAL; 28 opening-mistake records | opening_mistakes.json | Teach why the move failed in this position, not “never do X” |
-| Personal White repertoire | CORE | 37 verified lessons across catalog | opening_curriculum.json | Select by connected repertoire and actual games |
-| Personal responses to 1.e4 and 1.d4 | CORE | 37 verified lessons across catalog | opening_curriculum.json | Avoid forcing every player into the same repertoire |
+| Personal White repertoire | CORE | 41 verified lessons across catalog | opening_curriculum.json | Select by connected repertoire and actual games |
+| Personal responses to 1.e4 and 1.d4 | CORE | 41 verified lessons across catalog | opening_curriculum.json | Avoid forcing every player into the same repertoire |
 | Plans and pawn structures after the memorized moves | CORE/GROWTH | PARTIAL in authored openings | opening_curriculum.json referencing pawn canon | Make plans transferable and avoid duplicated structure prose |
-| Recognition labels and aliases | SUPPORT | 42 records without distinct lessons | opening alias mapping | Route aliases to a verified family; do not create duplicate cards |
-| Truly distinct missing opening families | GROWTH | Audit required among the 42 records | opening_curriculum.json | Author only when the label represents a different player decision |
-| Trap defense | CORE | 23 READY, defense-first | traps.json | Publish verified lines only |
-| Remaining trap records | SUPPORT/GROWTH | 32 fail truth/content/evidence | traps.json backlog | Repair rather than hide; no public lesson until verified |
+| Recognition labels and aliases | SUPPORT | 38 recognition records route to verified foundations | opening alias mapping | Route aliases to a verified family; do not create duplicate cards |
+| Truly distinct missing opening families | GROWTH | No unresolved alias in the repaired 79-record inventory | opening_curriculum.json | Add only when a new label represents a different player decision |
+| Trap defense | CORE | 36 unique READY, defense-first | traps.json | Publish verified lines only |
+| Opening plans and gambits previously mixed with traps | CORE/GROWTH | 19 READY as honestly named opening ideas | traps.json `lesson_kind=opening_plan` until source migration | Teach the plan; never imply a forced trap |
 
 Opening mastery is not line recall alone. Proof requires recognizing the
 position, choosing a sound move without the answer, explaining the plan when
@@ -181,7 +181,7 @@ All 20 current canonical endgames and their 60 positions are legally and
 analytically verified. They cover queen mate, rook mate, opposition, key
 squares, rule of the square, breakthrough, king centralization, Lucena,
 Philidor, rook activity, stopping promotion, stalemate, good versus bad bishop,
-opposite-color bishops, knight versus bishop, knight blockade, creating a
+opposite-color bishops, knight routes and outposts, knight blockade, creating a
 passed pawn, zugzwang, outside passer, and two pawns versus one.
 
 | Skill family | Priority | Current coverage | Canonical destination | Completion decision |
@@ -237,7 +237,7 @@ not appear as a finished player lesson.
 
 1. Foundation spine: geometry, piece safety, threat scan, opponent reply,
    escape squares, and existing basic mates/endgames.
-2. Existing verified breadth: 17 tactical patterns, 23 traps, 37 openings, and
+2. Existing verified breadth: 17 tactical patterns, 36 forced traps, 19 opening plans, 41 openings, and
    all 20 endgames through the shared personalized workspace.
 3. Strategic core: the 10 strategic imbalances and 10 pawn structures, after
    the positional evidence protocol and compatibility adapter pass.

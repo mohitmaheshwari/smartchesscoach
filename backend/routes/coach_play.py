@@ -1954,8 +1954,8 @@ async def dismiss_trap_warning(
         )
         memory = await get_or_create_memory(db, user.user_id)
 
-        # (1) individual trap
-        record_skill_attempt(memory, trap_id, "trap", "correct")
+        # Acknowledging a warning proves exposure, not recognition or recall.
+        record_skill_attempt(memory, trap_id, "trap", "seen")
 
         # (2) trap_set at the Engine 2 level — look up which set this trap belongs to.
         # trap_id is the opening key (e.g. "italian-game", from TRAP_LIBRARY), or it might
@@ -1978,8 +1978,8 @@ async def dismiss_trap_warning(
                     matched_set_skill = sid
                     break
             if matched_set_skill:
-                record_skill_attempt(memory, matched_set_skill, "trap_set", "correct")
-                logger.info(f"[TRAP] matched trap_set skill {matched_set_skill} — recorded correct")
+                record_skill_attempt(memory, matched_set_skill, "trap_set", "seen")
+                logger.info(f"[TRAP] matched trap_set skill {matched_set_skill} — recorded seen")
         except Exception as _e2:
             logger.debug(f"[TRAP] trap_set lookup non-fatal: {_e2}")
 
@@ -6131,7 +6131,8 @@ async def get_focus_puzzles(user: User = Depends(get_current_user)):
             query,
             {"_id": 0, "position_id": 1, "fen": 1, "best_move_san": 1, "best_move_uci": 1,
              "user_move_san": 1, "cp_loss": 1, "pattern_type": 1, "difficulty": 1,
-             "move_number": 1, "opening_name": 1}
+             "move_number": 1, "opening_name": 1, "approved": 1,
+             "verified_admission": 1}
         ).sort("cp_loss", -1).limit(20).to_list(20)
 
         # If not enough user puzzles, get community ones
@@ -6141,9 +6142,21 @@ async def get_focus_puzzles(user: User = Depends(get_current_user)):
             extra = await db.community_training_positions.find(
                 community_query,
                 {"_id": 0, "position_id": 1, "fen": 1, "best_move_san": 1, "best_move_uci": 1,
-                 "cp_loss": 1, "pattern_type": 1, "difficulty": 1}
+                 "cp_loss": 1, "pattern_type": 1, "difficulty": 1,
+                 "approved": 1, "verified_admission": 1}
             ).sort("cp_loss", -1).limit(20 - len(puzzles)).to_list(20 - len(puzzles))
             puzzles.extend(extra)
+
+        from services.puzzle_extraction_service import verdict_serves_pattern
+        puzzles = [
+            puzzle for puzzle in puzzles
+            if puzzle.get("approved") is not False
+            and verdict_serves_pattern(
+                puzzle, puzzle.get("pattern_type") or "calculation_depth"
+            )
+        ]
+        from services.verified_puzzle_runtime import public_puzzle_payload
+        puzzles = [public_puzzle_payload(puzzle) for puzzle in puzzles]
 
         puzzles_needed = focus.get("puzzles_required", 5)
         puzzles_done = focus.get("puzzles_completed", 0)
@@ -6171,9 +6184,32 @@ async def complete_focus_puzzle(
     """Record that user completed a focus puzzle."""
     global db
     try:
+        puzzle_id = str(request.get("puzzle_id") or "").strip()
+        played_uci = str(request.get("played_uci") or "").strip()
+        if not puzzle_id or not played_uci:
+            raise HTTPException(
+                status_code=400,
+                detail="puzzle_id and played_uci are required",
+            )
+        from services.verified_puzzle_runtime import resolve_verified_puzzle
+        from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+        puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+        if not puzzle:
+            raise HTTPException(status_code=404, detail="verified puzzle not found")
+        grade = await record_verified_puzzle_attempt(
+            db,
+            user_id=user.user_id,
+            puzzle_id=puzzle_id,
+            puzzle=puzzle,
+            played_uci=played_uci,
+        )
+        if not grade.get("correct"):
+            return {"correct": False, "training_locked": True, "feedback": grade.get("feedback")}
         from services.focus_engine import record_puzzle_completion
-        result = await record_puzzle_completion(db, user.user_id)
-        return result or {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
+        result = await record_puzzle_completion(db, user.user_id, puzzle_id)
+        return {**(result or {}), "correct": True, "feedback": grade.get("feedback")}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"Puzzle completion failed: {e}")
         return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
@@ -6196,16 +6232,8 @@ async def opening_line_complete(
         return {"ok": True}
 
     try:
-        # Update mastery with this completion
-        from services.opening_mastery_tracker import update_mastery_after_game
-        mastery = await update_mastery_after_game(
-            db, user.user_id, opening_key,
-            moves_correct=moves_total if played_perfectly else max(0, moves_total - 2),
-            moves_total=moves_total,
-            branch_played=branch_key,
-        )
-
-        # Store play record for progress tracking
+        # Store exposure telemetry only. Client completion fields are not proof
+        # of recall or application and therefore cannot update mastery.
         await db.opening_play_history.insert_one({
             "user_id": user.user_id,
             "session_id": session_id,
@@ -6214,17 +6242,15 @@ async def opening_line_complete(
             "guided_mode": guided_mode,
             "played_perfectly": played_perfectly,
             "moves_total": moves_total,
-            "phase": mastery.get("phase", "introduction"),
-            "games_played": mastery.get("games_played", 1),
+            "evidence_status": "seen_only",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-        logger.info(f"[OPENING] Line complete: {opening_key}/{branch_key} guided={guided_mode} perfect={played_perfectly} phase={mastery.get('phase')}")
+        logger.info(f"[OPENING] Line viewed: {opening_key}/{branch_key} guided={guided_mode}")
         return {
             "ok": True,
-            "phase": mastery.get("phase"),
-            "games_played": mastery.get("games_played"),
-            "branches_seen": mastery.get("branches_seen", []),
+            "evidence_status": "seen_only",
+            "verification_required": True,
         }
     except Exception as e:
         logger.warning(f"[OPENING] Line complete tracking failed: {e}")

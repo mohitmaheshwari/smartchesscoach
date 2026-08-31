@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -3797,12 +3798,30 @@ async def get_opening_quiz(
     
     quiz = teacher.get_quiz_question()
     
-    # Store the answer separately so frontend can check
+    if quiz.get("error"):
+        raise HTTPException(status_code=404, detail=quiz["error"])
+    correct_answer = str(quiz.get("answer") or "")
+    correct_answers = [str(item) for item in (quiz.get("answers") or []) if item]
+    if correct_answer and correct_answer not in correct_answers:
+        correct_answers.append(correct_answer)
+    if not correct_answers:
+        raise HTTPException(status_code=409, detail="Quiz needs content repair")
+    quiz_id = str(uuid.uuid4())
+    await db.opening_quiz_sessions.insert_one({
+        "quiz_id": quiz_id,
+        "user_id": user.user_id,
+        "opening_key": opening_key,
+        "question_type": quiz.get("type"),
+        "correct_answers": correct_answers,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "consumed": False,
+    })
     return {
         "question": quiz.get("question"),
         "type": quiz.get("type"),
         "hint": quiz.get("hint"),
-        "quiz_id": f"{opening_key}_{quiz.get('type')}_{hash(quiz.get('question', ''))}"
+        "quiz_id": quiz_id,
+        "grading": "server_owned",
     }
 
 
@@ -3832,30 +3851,60 @@ async def check_quiz_answer(
     from datetime import datetime, timezone
     
     opening_key = request.get("opening_key")
+    quiz_id = str(request.get("quiz_id") or "").strip()
     user_answer = request.get("answer", "").strip()
-    
-    if not opening_key or not user_answer:
-        raise HTTPException(status_code=400, detail="opening_key and answer are required")
-    
-    progress = await get_user_opening_progress(db, user.user_id, opening_key)
-    teacher = OpeningTeacher(opening_key, progress)
-    
-    # Generate a new quiz to get the answer (simplified - in production store quiz state)
-    quiz = teacher.get_quiz_question()
-    correct_answer = quiz.get("answer", "")
-    correct_answers = quiz.get("answers", [correct_answer])
+
+    if not opening_key or not quiz_id or not user_answer:
+        raise HTTPException(
+            status_code=400,
+            detail="opening_key, quiz_id and answer are required",
+        )
+    quiz = await db.opening_quiz_sessions.find_one({
+        "quiz_id": quiz_id,
+        "user_id": user.user_id,
+        "opening_key": opening_key,
+        "consumed": False,
+    })
+    if not quiz:
+        raise HTTPException(status_code=409, detail="Quiz is missing or already answered")
+    correct_answers = [
+        str(answer) for answer in (quiz.get("correct_answers") or []) if answer
+    ]
+    correct_answer = correct_answers[0] if correct_answers else ""
+    if not correct_answers:
+        raise HTTPException(status_code=409, detail="Quiz needs content repair")
     
     is_correct = user_answer.lower() in [a.lower() for a in correct_answers] if correct_answers else user_answer.lower() == correct_answer.lower()
     
-    # Update progress with quiz result
-    if progress:
-        progress.quiz_scores.append({
-            "question_type": quiz.get("type"),
-            "correct": is_correct,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-        progress.last_practiced_at = datetime.now(timezone.utc)
-        await update_user_opening_progress(db, progress)
+    now = datetime.now(timezone.utc).isoformat()
+    claimed = await db.opening_quiz_sessions.update_one(
+        {"quiz_id": quiz_id, "user_id": user.user_id, "consumed": False},
+        {"$set": {"consumed": True, "answered_at": now, "correct": is_correct}},
+    )
+    if claimed.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Quiz was already answered")
+    await db.user_opening_progress.update_one(
+        {"user_id": user.user_id, "opening_name": opening_key},
+        {
+            "$set": {
+                "last_practiced_at": now,
+                "evidence_status": "quiz_recall",
+                "application_verified": False,
+            },
+            "$push": {"quiz_scores": {
+                "quiz_id": quiz_id,
+                "question_type": quiz.get("question_type"),
+                "correct": is_correct,
+                "timestamp": now,
+            }},
+            "$setOnInsert": {
+                "user_id": user.user_id,
+                "opening_name": opening_key,
+                "mastery_level": "unknown",
+            },
+        },
+        upsert=True,
+    )
     
     return {
         "correct": is_correct,
@@ -3882,43 +3931,34 @@ async def mark_opening_practiced(
     Returns:
         Updated progress.
     """
-    from services.opening_mastery import (
-        get_user_opening_progress,
-        update_user_opening_progress,
-        MasteryLevel
-    )
-    from datetime import datetime, timezone
-    
     opening_key = request.get("opening_key")
-    trap_learned = request.get("trap_learned")
     
     if not opening_key:
         raise HTTPException(status_code=400, detail="opening_key is required")
     
-    progress = await get_user_opening_progress(db, user.user_id, opening_key)
-    if not progress:
-        raise HTTPException(status_code=404, detail="Start learning this opening first")
-    
-    # Update progress
-    progress.times_practiced += 1
-    progress.last_practiced_at = datetime.now(timezone.utc)
-    
-    if progress.mastery_level == MasteryLevel.INTRODUCED:
-        progress.mastery_level = MasteryLevel.LEARNING
-    elif progress.times_practiced >= 3 and progress.mastery_level == MasteryLevel.LEARNING:
-        progress.mastery_level = MasteryLevel.PRACTICED
-    
-    if trap_learned and trap_learned not in progress.traps_learned:
-        progress.traps_learned.append(trap_learned)
-    
-    await update_user_opening_progress(db, progress)
-    
+    now = datetime.now(timezone.utc).isoformat()
+    await db.user_opening_progress.update_one(
+        {"user_id": user.user_id, "opening_name": opening_key},
+        {
+            "$set": {
+                "last_practiced_at": now,
+                "evidence_status": "seen_only",
+                "application_verified": False,
+            },
+            "$inc": {"lesson_views": 1},
+            "$setOnInsert": {
+                "user_id": user.user_id,
+                "opening_name": opening_key,
+                "mastery_level": "unknown",
+            },
+        },
+        upsert=True,
+    )
     return {
         "success": True,
-        "mastery_level": progress.mastery_level.value,
-        "times_practiced": progress.times_practiced,
-        "traps_learned": progress.traps_learned,
-        "message": f"Great practice! You've practiced {progress.opening_name} {progress.times_practiced} times."
+        "evidence_status": "seen_only",
+        "application_verified": False,
+        "message": "Lesson viewed. I will look for this idea in your games."
     }
 
 
@@ -4089,6 +4129,11 @@ async def get_habit_challenge(user: User = Depends(get_current_user)):
     Returns positions from user's past mistakes where they can practice
     finding the correct move. This is the ultimate personalized training.
     """
+    raise HTTPException(
+        status_code=410,
+        detail="Use /api/training/pattern-puzzles/{pattern}; answers are server-owned.",
+    )
+
     global db
     import random
     import chess
@@ -4202,6 +4247,11 @@ async def check_habit_challenge(
     - fen: The position FEN
     - correct_move: The correct move
     """
+    raise HTTPException(
+        status_code=410,
+        detail="Use /api/training/puzzle-attempt with puzzle_id and played_uci.",
+    )
+
     global db
     import chess
     

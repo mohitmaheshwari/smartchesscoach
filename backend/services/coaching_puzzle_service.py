@@ -20,7 +20,30 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
+from services.puzzle_extraction_service import (
+    verified_puzzle_admission_enforced,
+    verdict_serves_pattern,
+)
+from services.verified_puzzle_admission import ADMISSION_VERSION, AdmissionStatus
+from services.verified_puzzle_builder import (
+    build_imported_game_verdict,
+    build_position_verdict,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def _verified_pattern_from_verdict(verdict) -> str:
+    return verdict.broad_category or "calculation_depth"
+
+
+def _verdict_matches_requested(verdict, pattern: str) -> bool:
+    """Match a freshly adjudicated object before it has been persisted."""
+    if not verified_puzzle_admission_enforced():
+        return True
+    if verdict.status in {AdmissionStatus.SPECIFIC, AdmissionStatus.BROAD}:
+        return verdict.broad_category == pattern
+    return verdict.status == AdmissionStatus.GENERIC and pattern == "calculation_depth"
 
 # Map our weakness patterns to Lichess puzzle themes
 # Lichess themes: https://lichess.org/training/themes
@@ -143,7 +166,7 @@ WEAKNESS_TO_PATTERN_TYPES = {
     "calculation_depth":  ["calculation_depth", "short_calculation"],
     "tactical_oversight": ["tactical_miss", "fork", "pin", "skewer", "discovered_attack"],
     "missed_tactic":      ["fork", "pin", "skewer", "tactical_miss", "discovered_attack"],
-    "piece_safety":       ["hanging_piece", "trapped_piece"],
+    "piece_safety":       ["piece_safety", "hanging_piece", "trapped_piece"],
     "king_safety":        ["checkmate_pattern", "back_rank"],
     "pawn_structure":     ["positional"],
     "piece_activity":     ["positional"],
@@ -283,6 +306,26 @@ class CoachingPuzzleService:
         # Get the main theme coaching
         primary_theme = themes[0] if themes else "short"
         theme_coaching = THEME_COACHING_CONTEXT.get(primary_theme, DEFAULT_COACHING)
+        if verified_puzzle_admission_enforced():
+            verified_focus = (
+                "piece_safety"
+                if weakness_pattern in {"piece_safety", "hanging_piece"}
+                else "calculation_depth"
+            )
+            primary_theme = verified_focus
+            theme_coaching = (
+                {
+                    "lesson": "Piece Safety",
+                    "what_to_look_for": "Scan every one of your pieces before you choose a move.",
+                    "why_this_matters": "These positions match the habit your coach wants you to practise now.",
+                }
+                if verified_focus == "piece_safety"
+                else {
+                    "lesson": "Calculate the Reply",
+                    "what_to_look_for": "Calculate their strongest reply before you commit.",
+                    "why_this_matters": "These real-game positions help you practise choosing a safer continuation.",
+                }
+            )
 
         return {
             "weakness": weakness_pattern,
@@ -395,6 +438,12 @@ class CoachingPuzzleService:
         }).sort("analyzed_at", -1).limit(20).to_list(length=20)
         
         for game in games:
+            source_game = await self.db.games.find_one(
+                {"game_id": game.get("game_id"), "user_id": user_id},
+                {"_id": 0},
+            )
+            if not source_game:
+                continue
             sf = game.get("stockfish_analysis", {})
             for move in sf.get("move_evaluations", []):
                 cp_loss = abs(move.get("cp_loss", 0))
@@ -402,6 +451,16 @@ class CoachingPuzzleService:
                 
                 # Check if this move matches the weakness pattern
                 if cp_loss >= 100 and self._move_matches_weakness(move, weakness_pattern):
+                    verdict = build_imported_game_verdict(
+                        game=source_game,
+                        move_evaluation=move,
+                        broad_category=move.get("cognitive_gap") or None,
+                    )
+                    if verdict.status == AdmissionStatus.QUARANTINE:
+                        continue
+                    if not _verdict_matches_requested(verdict, weakness_pattern):
+                        continue
+                    verified_pattern = _verified_pattern_from_verdict(verdict)
                     # Stable id — same format as community_training_positions
                     # so the solved-filter works across both puzzle sources.
                     move_number = move.get("move_number")
@@ -411,7 +470,7 @@ class CoachingPuzzleService:
 
                     # Get UCI moves for arrows
                     your_move_uci = move.get("move_uci", "")
-                    best_move_san = move.get("best_move", "")
+                    best_move_san = move.get("best_move_san") or move.get("best_move", "")
                     best_move_uci = ""
                     
                     # Try to convert best move SAN to UCI
@@ -443,17 +502,19 @@ class CoachingPuzzleService:
                     puzzle = {
                         "puzzle_id": puzzle_id,
                         "source": "your_game",
+                        "from_user_game": True,
                         "game_id": game.get("game_id"),
                         "fen": move.get("fen_before"),
                         "solution": [best_move_uci] if best_move_uci else [best_move_san],
                         "solution_san": best_move_san,
                         "your_move": move.get("move"),
                         "your_move_uci": your_move_uci,
-                        "threat": threat,
                         "cp_loss": cp_loss,
                         "move_number": move_number,
                         "rating": None,  # From your game, not rated
-                        "themes": [weakness_pattern],
+                        "themes": [verified_pattern],
+                        "pattern_type": verified_pattern,
+                        "verified_admission": verdict.to_document(),
                         "context": context_line,
                     }
                     puzzles.append(puzzle)
@@ -481,6 +542,10 @@ class CoachingPuzzleService:
         prescribed pipeline should have used. docs/motif_recognition_card_scope.md"""
         import chess
         from services.motif_profile_service import _move_motifs
+        if verified_puzzle_admission_enforced():
+            # Motif rows re-enter after each motif has an independent proof
+            # family and authorization; until then they remain generic drills.
+            return []
         puzzles = []
         solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
         games = await self.db.game_analyses.find({
@@ -548,6 +613,8 @@ class CoachingPuzzleService:
         """Community puzzles already motif-tagged at extraction (position_allows_motif,
         the same verified detector). Other users' games — the social-proof source."""
         import chess
+        if verified_puzzle_admission_enforced():
+            return []
         out = []
         cursor = self.db.community_puzzles.find(
             {"motif": motif, "shared_by": {"$ne": user_id}},
@@ -596,7 +663,6 @@ class CoachingPuzzleService:
         """
         if limit <= 0:
             return []
-
         solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
 
         pattern_types = WEAKNESS_TO_PATTERN_TYPES.get(weakness_pattern, [weakness_pattern])
@@ -623,6 +689,10 @@ class CoachingPuzzleService:
                 async for p in cursor:
                     pid = p.get("position_id")
                     if not pid or pid in seen_ids:
+                        continue
+                    if p.get("approved") is False:
+                        continue
+                    if not verdict_serves_pattern(p, weakness_pattern):
                         continue
                     seen_ids.add(pid)
                     collected.append(p)
@@ -654,6 +724,7 @@ class CoachingPuzzleService:
             if source_rating
             else "From another player's game — find the best move."
         )
+        verified_pattern = p.get("pattern_type") or "calculation_depth"
         return {
             "puzzle_id": p.get("position_id"),
             "source": "community",
@@ -667,10 +738,11 @@ class CoachingPuzzleService:
             "rating": source_rating,
             "opening": p.get("opening_name") or "",
             "solve_rate": p.get("solve_rate"),
-            "themes": [weakness_pattern],
+            "themes": [verified_pattern],
             "context": context,
-            "pattern_type": p.get("pattern_type"),
+            "pattern_type": verified_pattern,
             "moment_tag": p.get("moment_tag"),
+            "verified_admission": p.get("verified_admission"),
         }
 
     async def _get_lichess_puzzles(
@@ -693,6 +765,8 @@ class CoachingPuzzleService:
         band, popularity ordered, already-solved puzzles excluded.
         """
         if limit <= 0:
+            return []
+        if verified_puzzle_admission_enforced() and weakness_pattern != "calculation_depth":
             return []
         themes = WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern)
         if not themes:
@@ -746,6 +820,30 @@ class CoachingPuzzleService:
                 if first_sol not in board.legal_moves:
                     continue
                 solution_san = board.san(first_sol)
+                verify_board = board.copy()
+                legal_line = True
+                for raw_move in solution_moves:
+                    line_move = chess.Move.from_uci(raw_move)
+                    if line_move not in verify_board.legal_moves:
+                        legal_line = False
+                        break
+                    verify_board.push(line_move)
+                if not legal_line:
+                    continue
+                verdict = build_position_verdict(
+                    source_kind="lichess_import",
+                    source_ref=str(p.get("puzzle_id")),
+                    move_evaluation={
+                        "fen_before": board.fen(),
+                        "move": first_sol.uci(),
+                        "best_move_uci": first_sol.uci(),
+                        "best_move_san": solution_san,
+                        "pv_after_best": solution_moves[1:],
+                    },
+                    broad_category=None,
+                )
+                if verdict.status == AdmissionStatus.QUARANTINE:
+                    continue
 
                 out.append({
                     "puzzle_id": f"lichess_{p['puzzle_id']}",
@@ -754,7 +852,9 @@ class CoachingPuzzleService:
                     "solution": solution_moves,
                     "solution_san": solution_san,
                     "rating": p.get("rating"),
-                    "themes": p.get("themes") or [],
+                    "themes": ["calculation_depth"],
+                    "pattern_type": "calculation_depth",
+                    "verified_admission": verdict.to_document(),
                     "popularity": p.get("popularity"),
                     "opening": (p.get("opening_tags") or [None])[0] if p.get("opening_tags") else "",
                     "context": "Theme-matched from Lichess — find the best move.",
@@ -824,6 +924,35 @@ class CoachingPuzzleService:
         
         This is what makes it COACHING, not just puzzles.
         """
+        verdict = puzzle.get("verified_admission") or {}
+        if verdict.get("admission_version") == ADMISSION_VERSION:
+            pattern = puzzle.get("pattern_type") or "calculation_depth"
+            own_game = puzzle.get("source") == "your_game"
+            move_number = puzzle.get("move_number")
+            if pattern == "piece_safety":
+                coaching = {
+                    "lesson": "Piece Safety",
+                    "what_to_look_for": "Scan every one of your pieces: attacked, defended, or able to move.",
+                    "why_this_matters": (
+                        "Your coach selected this because the same piece-safety habit appeared in your games."
+                        if own_game
+                        else "This position trains the same piece-safety habit your coach is watching."
+                    ),
+                }
+            else:
+                coaching = {
+                    "lesson": "Calculate the Reply",
+                    "what_to_look_for": "Choose a move, then calculate their strongest reply before you commit.",
+                    "why_this_matters": "This real-game position asks you to calculate one safe continuation.",
+                }
+            if own_game:
+                coaching["personal_note"] = (
+                    f"This is move {move_number} from your game. Solve it again without looking at the answer."
+                    if move_number
+                    else "This position is from your game. Solve it again without looking at the answer."
+                )
+            return coaching
+
         themes = puzzle.get("themes", [])
         
         # Get coaching for the primary theme
@@ -836,7 +965,7 @@ class CoachingPuzzleService:
         
         # Add puzzle-specific context
         if puzzle.get("source") == "your_game":
-            coaching["personal_note"] = f"This is from YOUR game. You played {puzzle.get('your_move')} but the correct move was {puzzle.get('solution_san')}."
+            coaching["personal_note"] = "This is from your game. Solve it again without looking at the answer."
             if puzzle.get("threat"):
                 coaching["what_you_missed"] = f"You missed the threat: {puzzle.get('threat')}"
         

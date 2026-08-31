@@ -50,16 +50,23 @@ from typing import List, Optional
 import chess
 import logging
 
+from services.concept_detectors.evidence import (
+    stored_best_matches,
+    stored_best_move,
+)
+
 logger = logging.getLogger(__name__)
 
 
-def detect_trap_application(
+def detect_trap_application_detail(
     board_before: chess.Board,
     move: chess.Move,
     user_color: chess.Color,
     move_number: Optional[int] = None,
     move_history_san: Optional[List[str]] = None,
-) -> Optional[str]:
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
+) -> Optional[dict]:
     """
     Detect if the user's move fell into a known trap (as victim) or
     correctly executed a known trap's punishment (as setter).
@@ -83,7 +90,11 @@ def detect_trap_application(
         return None
 
     try:
-        from services.trap_recognition import detect_trap_setup, match_trap_line_step
+        from services.trap_recognition import (
+            detect_trap_defense_setup,
+            detect_trap_setup,
+            match_trap_line_step,
+        )
     except Exception as e:
         logger.debug(f"Trap detection import failed: {e}")
         return None
@@ -92,6 +103,32 @@ def detect_trap_application(
     n = len(move_history_san)
 
     try:
+        # A victim earns application credit only for the exact authored,
+        # validator-approved defense. Merely deviating from the trap line is
+        # not enough: many deviations are still losing.
+        defense = detect_trap_defense_setup(move_history_san[:-1])
+        if defense:
+            trap_color = str(defense.get("trap_color") or "").lower()
+            defense_line = defense.get("defense_line") or []
+            if (
+                trap_color
+                and mover_color_str != trap_color
+                and defense_line
+                and stored_best_matches(
+                    board_before, move, best_move_san, best_move_uci
+                )
+                and match_trap_line_step(
+                    {"trap_line": defense_line},
+                    move_history_san[-1],
+                    0,
+                )
+            ):
+                return {
+                    "outcome": "applied",
+                    "content_id": defense.get("content_id"),
+                    "family": defense.get("family"),
+                }
+
         # The move being graded is always move_history_san[-1]. Try every
         # possible setup length: does move_history_san[:setup_len] exactly
         # complete some trap's setup, and does everything played since
@@ -119,12 +156,50 @@ def detect_trap_application(
             user_is_victim = mover_color_str != trap_color
 
             if user_is_victim and current_step_index % 2 == 0:
-                return "missed"
+                best = stored_best_move(
+                    board_before, best_move_san, best_move_uci
+                )
+                if best is None or best == move:
+                    return None
+                return {
+                    "outcome": "missed",
+                    "content_id": hit.get("content_id"),
+                    "family": hit.get("family"),
+                }
             if not user_is_victim and current_step_index % 2 == 1:
-                return "applied"
+                if not stored_best_matches(
+                    board_before, move, best_move_san, best_move_uci
+                ):
+                    return None
+                return {
+                    "outcome": "applied",
+                    "content_id": hit.get("content_id"),
+                    "family": hit.get("family"),
+                }
             return None
 
         return None
     except Exception as e:
         logger.debug(f"Trap detection failed: {e}")
         return None
+
+
+def detect_trap_application(
+    board_before: chess.Board,
+    move: chess.Move,
+    user_color: chess.Color,
+    move_number: Optional[int] = None,
+    move_history_san: Optional[List[str]] = None,
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
+) -> Optional[str]:
+    detail = detect_trap_application_detail(
+        board_before,
+        move,
+        user_color,
+        move_number=move_number,
+        move_history_san=move_history_san,
+        best_move_san=best_move_san,
+        best_move_uci=best_move_uci,
+    )
+    return str(detail.get("outcome")) if detail else None

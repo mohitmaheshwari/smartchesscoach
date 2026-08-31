@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Crown,
   Loader2,
+  Lightbulb,
   X,
   Zap,
 } from "lucide-react";
@@ -82,9 +83,19 @@ const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
     if (!userColor || !trap.trap_for) return true;
     return trap.trap_for === userColor;
   });
+  const filteredOpeningIdeas = (catalog.opening_ideas || []).filter((lesson) => {
+    if (!userColor || !lesson.plan_for) return true;
+    return lesson.plan_for === userColor;
+  });
 
   const tabs = [
     { key: "traps", label: "Traps", icon: Zap, count: filteredTraps.length },
+    {
+      key: "opening_ideas",
+      label: "Opening ideas",
+      icon: Lightbulb,
+      count: filteredOpeningIdeas.length,
+    },
     { key: "endgames", label: "Endgames", icon: Crown, count: catalog.endgames?.length || 0 },
   ];
 
@@ -168,6 +179,49 @@ const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
                     {trap.tactical_theme}
                   </Badge>
                 )}
+              </div>
+            </button>
+          ))}
+
+        {activeTab === "opening_ideas" &&
+          filteredOpeningIdeas.map((lesson) => (
+            <button
+              key={lesson.key}
+              onClick={() =>
+                handleStart("opening_plan", { lesson_key: lesson.key })
+              }
+              disabled={starting === lesson.key}
+              className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
+              data-testid={`opening-idea-${lesson.key}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                    {lesson.name}
+                  </span>
+                </div>
+                {starting === lesson.key ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                {lesson.learning_goal || lesson.description}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {lesson.opening && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {lesson.opening}
+                  </span>
+                )}
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] ${difficultyColors[lesson.difficulty] || ""}`}
+                >
+                  {lesson.difficulty}
+                </Badge>
               </div>
             </button>
           ))}

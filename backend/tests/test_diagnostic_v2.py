@@ -9,6 +9,7 @@ is deterministic. The fork fixture is a real curated pool doc
 (lichess_9kjoP) with its true depth-16 multipv baselines.
 """
 
+import copy
 import os
 import sys
 
@@ -16,6 +17,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from services.diagnostic_service import (  # noqa: E402
     DiagnosticGrader,
+    DIAGNOSTIC_GRADE_VERSION,
+    diagnostic_grade_fingerprint,
     next_tier,
     concept_done,
     concept_level,
@@ -73,56 +76,77 @@ MATE_PUZZLE = {
 }
 
 
-def eval_stub(value):
-    """eval_fn that always returns `value` (records calls)."""
-    calls = []
+def frozen(puzzle, grade_by_uci, *, fen=None, solution_uci=None):
+    doc = copy.deepcopy(puzzle)
+    doc["grade_version"] = DIAGNOSTIC_GRADE_VERSION
+    doc["step_grades"] = [{
+        "step": 0,
+        "fen": fen or doc["fen"],
+        "solution_uci": solution_uci or doc["moves"][0],
+        "solution_eval_cp": doc["multipv"][0]["eval_cp"],
+        "grade_by_uci": grade_by_uci,
+    }]
+    doc["grade_fingerprint"] = diagnostic_grade_fingerprint(doc)
+    return doc
 
-    def fn(fen, solver):
-        calls.append(fen)
-        return value
 
-    fn.calls = calls
-    return fn
+def grade(eval_after, verdict, cp_loss):
+    return {
+        "eval_after_cp": eval_after,
+        "verdict": verdict,
+        "cp_loss": cp_loss,
+    }
 
 
 def test_grading():
     print("\n_grade_move_consequence:")
 
-    # 1. Exact solution → UNDERSTOOD, cp_loss 0, NO engine call
-    fn = eval_stub(0)
-    g = DiagnosticGrader(eval_fn=fn)
-    r = g._grade_move_consequence("Qc5+", FORK_PUZZLE)
+    # 1. Exact solution → UNDERSTOOD, cp_loss 0, frozen lookup only
+    g = DiagnosticGrader()
+    exact_fork = frozen(
+        FORK_PUZZLE,
+        {"e7c5": grade(316, "UNDERSTOOD", 0)},
+    )
+    r = g._grade_move_consequence("Qc5+", exact_fork)
     check("exact solution = UNDERSTOOD", r["verdict"] == "UNDERSTOOD", r)
     check("exact solution cp_loss = 0", r["cp_loss"] == 0)
     check("exact solution is_exact", r["is_exact"])
-    check("exact solution: no engine call", len(fn.calls) == 0)
+    check("exact solution uses frozen truth", r["source"] == "offline_frozen")
     check("exact explanation mentions solution", "Qc5+" in r["explanation"], r["explanation"])
     check("exact explanation names the fork", "fork" in r["explanation"], r["explanation"])
 
     # UCI input accepted too
-    r = g._grade_move_consequence("e7c5", FORK_PUZZLE)
+    r = g._grade_move_consequence("e7c5", exact_fork)
     check("UCI input accepted", r["verdict"] == "UNDERSTOOD" and r["is_exact"])
 
     # 2. Equivalent-strength move (eval within 50cp of solution) → UNDERSTOOD
-    g = DiagnosticGrader(eval_fn=eval_stub(280))
-    r = g._grade_move_consequence("f5", FORK_PUZZLE)
+    r = g._grade_move_consequence(
+        "f5",
+        frozen(FORK_PUZZLE, {"f7f5": grade(280, "UNDERSTOOD", 36)}),
+    )
     check("equivalent move = UNDERSTOOD", r["verdict"] == "UNDERSTOOD", r)
     check("equivalent not exact", not r["is_exact"])
 
     # 3. PARTIAL: sign unchanged, cp_loss between thresholds (75..200 @1236)
-    g = DiagnosticGrader(eval_fn=eval_stub(200))  # cp_loss 116
-    r = g._grade_move_consequence("f5", FORK_PUZZLE)
+    r = g._grade_move_consequence(
+        "f5",
+        frozen(FORK_PUZZLE, {"f7f5": grade(200, "PARTIAL", 116)}),
+    )
     check("mid cp_loss = PARTIAL", r["verdict"] == "PARTIAL", r)
     check("partial explanation has better move", "Qc5+" in r["explanation"], r["explanation"])
 
     # 4. MISSING: advantage gone (sign flips) — the puzzle's real 2nd-best
-    g = DiagnosticGrader(eval_fn=eval_stub(17))
-    r = g._grade_move_consequence("f5", FORK_PUZZLE)
+    r = g._grade_move_consequence(
+        "f5",
+        frozen(FORK_PUZZLE, {"f7f5": grade(17, "MISSING", 299)}),
+    )
     check("advantage-gone move = MISSING", r["verdict"] == "MISSING", r)
 
     # 5. MISSING: outright losing move
-    g = DiagnosticGrader(eval_fn=eval_stub(-350))
-    r = g._grade_move_consequence("Kb8", FORK_PUZZLE)
+    r = g._grade_move_consequence(
+        "Kb8",
+        frozen(FORK_PUZZLE, {"c8b8": grade(-350, "MISSING", 666)}),
+    )
     check("losing move = MISSING", r["verdict"] == "MISSING", r)
     check("missing explanation shows the idea", "Qc5+" in r["explanation"], r["explanation"])
 
@@ -134,9 +158,10 @@ def test_grading():
         check("illegal move raises", True)
 
     # 7. Mate puzzle: exact mate → UNDERSTOOD; checkmate branch skips engine
-    fn = eval_stub(-999)
-    g = DiagnosticGrader(eval_fn=fn)
-    r = g._grade_move_consequence("Ra8#", MATE_PUZZLE)
+    r = g._grade_move_consequence(
+        "Ra8#",
+        frozen(MATE_PUZZLE, {"a1a8": grade(9990, "UNDERSTOOD", 0)}),
+    )
     check("exact mate = UNDERSTOOD", r["verdict"] == "UNDERSTOOD", r)
     check("mate explanation says checkmate", "checkmate" in r["explanation"], r["explanation"])
 
@@ -147,9 +172,13 @@ def test_grading():
     b.push(chess.Move.from_uci("e7c5"))
     b.push(chess.Move.from_uci("f3d4"))
     walk_fen = b.fen()
-    fn = eval_stub(300)
-    g = DiagnosticGrader(eval_fn=fn)
-    r = g._grade_move_consequence("exd4", FORK_PUZZLE, walk_fen, "e5d4")
+    later = frozen(
+        FORK_PUZZLE,
+        {"e5d4": grade(300, "UNDERSTOOD", 0)},
+        fen=walk_fen,
+        solution_uci="e5d4",
+    )
+    r = g._grade_move_consequence("exd4", later, walk_fen, "e5d4")
     check("mid-walk exact = UNDERSTOOD", r["verdict"] == "UNDERSTOOD" and r["is_exact"], r)
 
 

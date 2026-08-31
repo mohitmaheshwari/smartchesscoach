@@ -60,12 +60,20 @@ def _augment_openings_from_curriculum(skills: Dict) -> None:
     except Exception as e:
         logger.warning(f"[skill-tree] curriculum augment skipped: {e}")
         return
+    from services.curriculum_content_validator import get_publishable_content_ids
+
+    publishable = get_publishable_content_ids("openings")
     tracked = {
         v.get("content_ref") for v in skills.values()
         if isinstance(v, dict) and v.get("kind") == "opening"
     }
     for ck, co in cur.items():
-        if ck.startswith("_") or not isinstance(co, dict) or ck in tracked:
+        if (
+            ck.startswith("_")
+            or not isinstance(co, dict)
+            or ck in tracked
+            or ck not in publishable
+        ):
             continue
         color = co.get("color", "white")
         name = co.get("name", ck.replace("_", " ").title())
@@ -84,6 +92,129 @@ def _augment_openings_from_curriculum(skills: Dict) -> None:
         logger.info(f"[skill-tree] derived opening skill from curriculum: opening_{ck}")
 
 
+def _augment_trap_sets_from_catalog(skills: Dict) -> None:
+    """Derive one trap-set skill for each verified, teachable opening family.
+
+    Rating and tier are inherited from the matching opening lesson. This adds
+    no new rating threshold and prevents a trap family from being recommended
+    before its opening foundation.
+    """
+    try:
+        from services.curriculum_content_validator import (
+            get_defense_ready_trap_ids,
+            trap_content_id,
+        )
+        from services.trap_library import TRAP_LIBRARY
+    except Exception as exc:
+        logger.warning(f"[skill-tree] trap-set augment skipped: {exc}")
+        return
+
+    ready = get_defense_ready_trap_ids()
+    tracked = {
+        str(node.get("content_ref") or "").replace("_", "-")
+        for node in skills.values()
+        if isinstance(node, dict) and node.get("kind") == "trap_set"
+    }
+    opening_skills = [
+        (skill_id, node)
+        for skill_id, node in skills.items()
+        if isinstance(node, dict) and node.get("kind") == "opening"
+    ]
+    for opening_key, traps in TRAP_LIBRARY.items():
+        if opening_key in tracked:
+            continue
+        publishable = [
+            trap
+            for trap in traps
+            if trap_content_id(opening_key, trap.get("name", "")) in ready
+        ]
+        if not publishable:
+            continue
+        opening_match = next(
+            (
+                (skill_id, node)
+                for skill_id, node in opening_skills
+                if str(node.get("content_ref") or "").replace("_", "-")
+                == opening_key
+            ),
+            None,
+        )
+        if not opening_match:
+            # The trap remains available in Explore. Personalized selection
+            # waits until its opening has a rating-banded foundation.
+            continue
+        prerequisite, opening_node = opening_match
+        skill_id = f"trap_set_{opening_key.replace('-', '_')}"
+        if skill_id in skills:
+            continue
+        opening_label = str(opening_node.get("label") or opening_key).split(" (")[0]
+        skills[skill_id] = {
+            "kind": "trap_set",
+            "label": f"{opening_label} traps",
+            "fixes": f"missing traps in the {opening_label}",
+            "content_ref": opening_key,
+            "prerequisites": [prerequisite],
+            "rating_min": opening_node.get("rating_min", 0),
+            "rating_max": opening_node.get("rating_max", 9999),
+            "tier": opening_node.get("tier", 1),
+        }
+
+
+def _augment_endgames_from_catalog(skills: Dict) -> None:
+    """Derive missing verified endgames using existing category envelopes.
+
+    A category is expanded only when an authored skill already establishes its
+    tier/rating envelope. Bishop and knight categories therefore remain Explore
+    content until their selection range is data-locked.
+    """
+    try:
+        from services.endgame_theory_service import (
+            get_all_categories,
+            resolve_content_ref,
+        )
+    except Exception as exc:
+        logger.warning(f"[skill-tree] endgame augment skipped: {exc}")
+        return
+
+    tracked_ids = set()
+    category_envelopes: Dict[str, Dict] = {}
+    for node in skills.values():
+        if not isinstance(node, dict) or node.get("kind") not in {
+            "endgame", "mate_pattern"
+        }:
+            continue
+        resolved = resolve_content_ref(str(node.get("content_ref") or ""))
+        if not resolved:
+            continue
+        tracked_ids.add(resolved["lesson_id"])
+        category_envelopes.setdefault(resolved["category_key"], node)
+
+    for category in get_all_categories():
+        category_key = str(category["key"])
+        envelope = category_envelopes.get(category_key)
+        if not envelope:
+            continue
+        for lesson in category.get("lessons") or ():
+            lesson_id = str(lesson["lesson_id"])
+            if lesson_id in tracked_ids:
+                continue
+            lesson_key = str(lesson["key"])
+            skill_id = f"endgame_{lesson_key}"
+            if skill_id in skills:
+                continue
+            skills[skill_id] = {
+                "kind": "endgame",
+                "label": lesson["name"],
+                "fixes": lesson["description"],
+                "content_ref": lesson_id,
+                "prerequisites": list(envelope.get("prerequisites") or ()),
+                "rating_min": envelope.get("rating_min", 0),
+                "rating_max": envelope.get("rating_max", 9999),
+                "tier": envelope.get("tier", 1),
+            }
+            tracked_ids.add(lesson_id)
+
+
 def _load_tree() -> Dict:
     """Load and cache the skill tree JSON. Filters out `_meta` and `_*_note` keys."""
     global _TREE_CACHE
@@ -99,6 +230,8 @@ def _load_tree() -> Dict:
             # Auto-derive any curriculum opening missing a tracking skill, so the
             # tree stays in sync with the curriculum without manual edits.
             _augment_openings_from_curriculum(skills)
+            _augment_trap_sets_from_catalog(skills)
+            _augment_endgames_from_catalog(skills)
             _TREE_CACHE = {"skills": skills, "_meta": raw.get("_meta", {})}
         except Exception as e:
             logger.error(f"Failed to load skill tree: {e}")
@@ -110,6 +243,122 @@ def reload_tree() -> None:
     """Force-reload the tree. Mostly for tests."""
     global _TREE_CACHE
     _TREE_CACHE = None
+
+
+def _identity_token(value: object) -> str:
+    """Normalize separators only; never use fuzzy chess-name matching."""
+    return str(value or "").strip().lower().replace("-", "_")
+
+
+def _compatible_skill_kind(requested: str, stored: str) -> bool:
+    requested = str(requested or "").strip().lower()
+    stored = str(stored or "").strip().lower()
+    if requested == stored:
+        return True
+    # Mate lessons use the endgame workspace even though the curriculum keeps
+    # them as a distinct selection kind.
+    return requested == "endgame" and stored == "mate_pattern"
+
+
+def _content_identity_tokens(kind: str, content_ref: object) -> set[str]:
+    """Return canonical identifiers owned by the existing content registry."""
+    raw = str(content_ref or "").strip()
+    if not raw:
+        return set()
+    tokens = {_identity_token(raw)}
+    requested_kind = str(kind or "").strip().lower()
+    if requested_kind == "opening":
+        try:
+            from services.opening_theory_json_service import resolve_opening_key
+
+            resolved = resolve_opening_key(raw)
+            if resolved:
+                tokens.add(_identity_token(resolved))
+        except (KeyError, TypeError, ValueError):
+            pass
+    elif requested_kind == "endgame":
+        try:
+            from services.endgame_theory_service import resolve_content_ref
+
+            resolved = resolve_content_ref(raw)
+            if resolved:
+                tokens.add(_identity_token(resolved.get("lesson_id")))
+                tokens.add(_identity_token(resolved.get("lesson_key")))
+        except (KeyError, TypeError, ValueError):
+            pass
+    return {token for token in tokens if token}
+
+
+def resolve_skill_id(
+    content_kind: str,
+    content_ref: str,
+    *,
+    requested_skill_id: Optional[str] = None,
+) -> str:
+    """Join a canonical lesson identity to its one Engine 2 tracking id.
+
+    The skill tree remains the sole owner of this relationship. Callers may
+    supply an exact skill id, but content ids such as ``london_system`` or
+    ``king_and_pawn/square_rule`` are resolved through the same tree instead
+    of being copied into session history as parallel identities.
+    """
+    tree = _load_tree()
+    skills = tree.get("skills", {})
+    requested = str(requested_skill_id or "").strip()
+    if requested:
+        node = skills.get(requested)
+        if node and _compatible_skill_kind(content_kind, node.get("kind")):
+            return requested
+
+    wanted = _content_identity_tokens(content_kind, content_ref)
+    matches = []
+    for skill_id, node in skills.items():
+        if not _compatible_skill_kind(content_kind, node.get("kind")):
+            continue
+        node_tokens = _content_identity_tokens(content_kind, node.get("content_ref"))
+        if wanted.intersection(node_tokens):
+            matches.append(skill_id)
+    if len(matches) == 1:
+        return matches[0]
+
+    # Engine 1 repair topics (for example piece_safety) intentionally do not
+    # live in the Engine 2 tree. Preserve their exact existing identity.
+    return requested or str(content_ref or "").strip()
+
+
+def lesson_skill_aliases(
+    content_kind: str,
+    content_ref: str,
+    *,
+    requested_skill_id: Optional[str] = None,
+) -> Tuple[str, ...]:
+    """Exact migration aliases for reading pre-canonical lesson history."""
+    canonical = resolve_skill_id(
+        content_kind,
+        content_ref,
+        requested_skill_id=requested_skill_id,
+    )
+    aliases = []
+    for candidate in (canonical, requested_skill_id, content_ref):
+        text = str(candidate or "").strip()
+        if text and text not in aliases:
+            aliases.append(text)
+    node = get_skill_node(canonical)
+    node_ref = str((node or {}).get("content_ref") or "").strip()
+    if node_ref and node_ref not in aliases:
+        aliases.append(node_ref)
+    if str(content_kind or "").strip().lower() == "endgame":
+        try:
+            from services.endgame_theory_service import resolve_content_ref
+
+            for candidate in (content_ref, node_ref):
+                resolved = resolve_content_ref(str(candidate or ""))
+                lesson_id = str((resolved or {}).get("lesson_id") or "")
+                if lesson_id and lesson_id not in aliases:
+                    aliases.append(lesson_id)
+        except (KeyError, TypeError, ValueError):
+            pass
+    return tuple(aliases)
 
 
 def _get_skill_stats(memory, skill_id: str) -> Tuple[int, int, int]:

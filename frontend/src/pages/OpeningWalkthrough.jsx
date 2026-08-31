@@ -44,6 +44,7 @@ const OpeningWalkthrough = ({ user }) => {
   const [challengeActive, setChallengeActive] = useState(false);
   const [challengeResult, setChallengeResult] = useState(null);
   const [challengesSolved, setChallengesSolved] = useState(0);
+  const [gradingChallenge, setGradingChallenge] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,33 +127,83 @@ const OpeningWalkthrough = ({ user }) => {
     }
   };
 
-  const skipChallenge = () => {
-    setChallengeActive(false);
-    setChallengeResult({ skipped: true });
+  const skipChallenge = async () => {
+    if (!current?.puzzle_id || gradingChallenge) return;
+    setGradingChallenge(true);
+    try {
+      const response = await fetch(`${API}/training/reveal-puzzle`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ puzzle_id: current.puzzle_id }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const reveal = await response.json();
+      setChallengeActive(false);
+      setChallengeResult({
+        skipped: true,
+        bestMove: reveal.best_move_san,
+        bestMoveUci: reveal.best_move_uci,
+      });
+      if (reveal.best_move_uci) {
+        setArrows([[
+          reveal.best_move_uci.slice(0, 2),
+          reveal.best_move_uci.slice(2, 4),
+          "green",
+        ]]);
+      }
+    } catch (error) {
+      console.error("Walkthrough reveal failed:", error);
+      toast.error("The coach couldn't reveal this move yet.");
+    } finally {
+      setGradingChallenge(false);
+    }
   };
 
-  const handleChallengeMove = useCallback((moveData) => {
-    if (!challengeActive || !current) return false;
-
-    const userMoveUci = moveData.from + moveData.to;
-    const bestMoveUci = current.best_move_uci || "";
-
-    if (userMoveUci === bestMoveUci || moveData.from + moveData.to === bestMoveUci.slice(0, 4)) {
-      setChallengeResult({ correct: true });
-      setChallengesSolved(prev => prev + 1);
-      setArrows([[moveData.from, moveData.to, "green"]]);
-      toast.success("You found it!");
-      return true;
-    } else {
-      setChallengeResult({ correct: false, userMove: userMoveUci });
-      setArrows([
-        [moveData.from, moveData.to, "red"],
-        [bestMoveUci.slice(0, 2), bestMoveUci.slice(2, 4), "green"],
-      ]);
-      toast.error(`Not quite. The best move was ${current.best_move}.`);
-      return false;
+  const handleChallengeMove = useCallback(async (moveData) => {
+    if (!challengeActive || !current?.puzzle_id || gradingChallenge) return;
+    setGradingChallenge(true);
+    const promotion = /=[QRBN]/i.test(moveData.san || "") ? "q" : "";
+    const userMoveUci = `${moveData.from}${moveData.to}${promotion}`.toLowerCase();
+    try {
+      const response = await fetch(`${API}/training/puzzle-attempt`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          puzzle_id: current.puzzle_id,
+          played_uci: userMoveUci,
+          moves_tried: [userMoveUci],
+        }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const grade = await response.json();
+      setChallengeResult({
+        correct: Boolean(grade.correct),
+        userMove: userMoveUci,
+        bestMove: grade.best_move_san,
+        bestMoveUci: grade.best_move_uci,
+        feedback: grade.feedback,
+      });
+      if (grade.correct) {
+        setChallengesSolved(prev => prev + 1);
+        setArrows([[moveData.from, moveData.to, "green"]]);
+        toast.success("You found it!");
+      } else {
+        const answer = grade.best_move_uci || "";
+        setArrows([
+          [moveData.from, moveData.to, "red"],
+          ...(answer ? [[answer.slice(0, 2), answer.slice(2, 4), "green"]] : []),
+        ]);
+        toast.error("Not quite. Compare your move with the coach's line.");
+      }
+    } catch (error) {
+      console.error("Walkthrough grade failed:", error);
+      toast.error("The coach couldn't grade that move. Please try again.");
+    } finally {
+      setGradingChallenge(false);
     }
-  }, [challengeActive, current]);
+  }, [challengeActive, current, gradingChallenge]);
 
   if (loading) {
     return (
@@ -234,7 +285,7 @@ const OpeningWalkthrough = ({ user }) => {
                     challengeResult.skipped ? "bg-gray-600/90 text-white" :
                     "bg-red-600/90 text-white"
                   }`}>
-                    {challengeResult.correct ? "Correct!" : challengeResult.skipped ? "Skipped" : `Best was ${current?.best_move}`}
+                    {challengeResult.correct ? "Correct!" : challengeResult.skipped ? "Skipped" : `Coach chose ${challengeResult.bestMove || "another move"}`}
                   </div>
                 )}
               </div>
@@ -373,7 +424,7 @@ const OpeningWalkthrough = ({ user }) => {
                         <p className="text-xs text-muted-foreground mb-3">
                           You made a mistake here in your game. Can you find the right move now?
                         </p>
-                        <Button variant="ghost" size="sm" onClick={skipChallenge} className="text-xs">
+                        <Button variant="ghost" size="sm" onClick={skipChallenge} disabled={gradingChallenge} className="text-xs">
                           Show me the answer
                         </Button>
                       </div>
@@ -399,8 +450,11 @@ const OpeningWalkthrough = ({ user }) => {
                               </p>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Best move: <span className="font-mono font-medium text-foreground">{current.best_move}</span>
+                              Coach move: <span className="font-mono font-medium text-foreground">{challengeResult.bestMove || "unavailable"}</span>
                             </p>
+                            {challengeResult.feedback && (
+                              <p className="text-sm text-muted-foreground mt-2">{challengeResult.feedback}</p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -415,11 +469,11 @@ const OpeningWalkthrough = ({ user }) => {
                           </p>
                         </div>
 
-                        {current.type === "mistake" && current.best_move && (
+                        {current.type === "mistake" && challengeResult?.bestMove && (
                           <div className="bg-destructive/5 border border-destructive/20 p-3 rounded">
                             <p className="text-xs text-destructive font-medium mb-1">Better move</p>
                             <p className="text-sm text-foreground">
-                              <span className="font-mono font-medium">{current.best_move}</span> — {current.idea}
+                              <span className="font-mono font-medium">{challengeResult.bestMove}</span> — {challengeResult.feedback || current.idea}
                             </p>
                           </div>
                         )}

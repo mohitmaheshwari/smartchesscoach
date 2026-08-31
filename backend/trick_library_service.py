@@ -20,7 +20,10 @@ from services.curriculum_content_validator import (
     get_publishable_content_ids,
     trap_content_id,
 )
-from services.trap_library import get_all_traps as get_canonical_traps
+from services.trap_library import (
+    get_all_opening_plans as get_canonical_opening_plans,
+    get_all_traps as get_canonical_traps,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -126,6 +129,8 @@ def _adapt_trap(opening_key: str, trap: Dict[str, Any]) -> Dict[str, Any]:
         "why_it_works": trap.get("success_message", ""),
         "success_message": trap.get("success_message", ""),
         "result_type": trap.get("result_type", ""),
+        "lesson_kind": trap.get("lesson_kind", "forced_trap"),
+        "learning_goal": trap.get("learning_goal", ""),
         "trap_for": trap_for,
         "victim_color": victim_color,
         "setup_moves": setup_moves,
@@ -174,6 +179,33 @@ def _build_database() -> Dict[str, Dict[str, Any]]:
 TRAPS_DATABASE: Dict[str, Dict[str, Any]] = _build_database()
 
 
+def _build_opening_ideas_database() -> Dict[str, Dict[str, Any]]:
+    """Verified plans/gambits derived from the same canonical JSON source."""
+    publishable = get_publishable_content_ids("opening_ideas")
+    database: Dict[str, Dict[str, Any]] = {}
+    for opening_key, lessons in get_canonical_opening_plans().items():
+        if str(opening_key).startswith("_") or not isinstance(lessons, list):
+            continue
+        for raw in lessons:
+            if not isinstance(raw, dict):
+                continue
+            content_id = trap_content_id(opening_key, raw.get("name", ""))
+            if content_id not in publishable:
+                continue
+            adapted = _adapt_trap(opening_key, raw)
+            key = adapted["key"]
+            if key in database:
+                key = f"{key}_{_practice_key(opening_key)}"
+                adapted["key"] = key
+            database[key] = adapted
+    return database
+
+
+OPENING_IDEAS_DATABASE: Dict[str, Dict[str, Any]] = (
+    _build_opening_ideas_database()
+)
+
+
 def _build_categories() -> Dict[str, Dict[str, Any]]:
     beginner = [
         key for key, trap in TRAPS_DATABASE.items()
@@ -219,13 +251,14 @@ TRAP_CATEGORIES = _build_categories()
 
 
 def reload_canonical_traps() -> None:
-    global TRAPS_DATABASE, TRAP_CATEGORIES
+    global TRAPS_DATABASE, OPENING_IDEAS_DATABASE, TRAP_CATEGORIES
     from services.curriculum_content_validator import reset_validation_cache
     from services.trap_library import reload_traps
 
     reload_traps()
     reset_validation_cache()
     TRAPS_DATABASE = _build_database()
+    OPENING_IDEAS_DATABASE = _build_opening_ideas_database()
     TRAP_CATEGORIES = _build_categories()
 
 
@@ -233,9 +266,59 @@ def get_all_traps() -> List[Dict[str, Any]]:
     return [dict(trap) for trap in TRAPS_DATABASE.values()]
 
 
+_PUBLIC_TRAP_FIELDS = (
+    "key",
+    "content_id",
+    "name",
+    "opening_key",
+    "opening",
+    "difficulty",
+    "description",
+    "result_type",
+    "lesson_kind",
+    "learning_goal",
+    "trap_for",
+    "victim_color",
+    "trap_position_fen",
+    "danger",
+    "how_to_avoid",
+    "key_squares",
+    "tactical_theme",
+    "canonical_source",
+)
+
+
+def public_trap_metadata(trap: Dict[str, Any]) -> Dict[str, Any]:
+    """Browseable trap identity with every move/answer field removed."""
+    return {
+        field: trap[field]
+        for field in _PUBLIC_TRAP_FIELDS
+        if field in trap
+    } | {
+        "practice_href": (
+            "/training?personalized=1&kind=trap&lesson="
+            + str(trap.get("key") or "")
+        ),
+        "answer_hidden": True,
+    }
+
+
+def get_public_traps() -> List[Dict[str, Any]]:
+    return [public_trap_metadata(trap) for trap in TRAPS_DATABASE.values()]
+
+
+def get_all_opening_ideas() -> List[Dict[str, Any]]:
+    return [dict(lesson) for lesson in OPENING_IDEAS_DATABASE.values()]
+
+
 def get_trap_by_key(trap_key: str) -> Optional[Dict[str, Any]]:
     trap = TRAPS_DATABASE.get(str(trap_key or ""))
     return dict(trap) if trap else None
+
+
+def get_public_trap_by_key(trap_key: str) -> Optional[Dict[str, Any]]:
+    trap = TRAPS_DATABASE.get(str(trap_key or ""))
+    return public_trap_metadata(trap) if trap else None
 
 
 def get_traps_by_opening(opening_name: str) -> List[Dict[str, Any]]:
@@ -285,8 +368,16 @@ def _execution_practice(trap: Dict[str, Any]) -> Dict[str, Any]:
         "engine_moves": engine_moves,
         "total_moves": len(full_sequence),
         "hints": (
-            f"Play as {trap['trap_for'].title()}. Follow the whole line and "
-            "notice which defensive mistake makes the tactic possible."
+            (
+                f"Play as {trap['trap_for'].title()}. Follow the model line "
+                "and notice what each move prepares. This is a plan, not a "
+                "forced sequence."
+            )
+            if trap.get("lesson_kind") == "opening_plan"
+            else (
+                f"Play as {trap['trap_for'].title()}. Follow the whole line "
+                "and notice which defensive mistake makes the tactic possible."
+            )
         ),
     }
 
@@ -350,6 +441,16 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict[str, Any]]:
     if mode == PracticeMode.RECOGNITION.value:
         return _recognition_practice(trap)
     return None
+
+
+def get_opening_idea_for_practice(
+    lesson_key: str,
+    mode: str = PracticeMode.EXECUTION.value,
+) -> Optional[Dict[str, Any]]:
+    lesson = OPENING_IDEAS_DATABASE.get(str(lesson_key or ""))
+    if not lesson or mode != PracticeMode.EXECUTION.value:
+        return None
+    return _execution_practice(lesson)
 
 
 OPENING_TO_LICHESS_THEME = {

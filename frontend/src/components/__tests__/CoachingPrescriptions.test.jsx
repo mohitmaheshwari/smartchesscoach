@@ -1,211 +1,145 @@
-/**
- * CoachingPrescriptions Component Tests
- *
- * Tests for:
- * - Loading, error, and empty states
- * - Prescription card rendering with progress
- * - Next recommendation display and interaction
- * - API integration
- */
-
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import CoachingPrescriptions from "../CoachingPrescriptions";
 
-// Mock the API
-global.fetch = jest.fn();
+jest.mock("react-router-dom", () => ({
+  useNavigate: () => jest.fn(),
+}), { virtual: true });
 
-const mockPrescriptionsResponse = {
-  current_prescriptions: [
-    {
-      prescription_id: "pres-1",
-      plan_id: "plan-1",
-      plan_name: "Piece Safety Fundamentals",
-      status: "active",
-      issue_detected: "piece_safety",
-      reasoning: "You left pieces hanging in 4 games this week",
-      baseline_metric: 2.5,
-      current_metric: 1.8,
-      improvement_pct: 28,
-      puzzles_completed: 12,
-      puzzle_accuracy: 0.85,
-      expected_completion_date: "2026-07-24",
-      modules_completed: ["mod-1", "mod-2"],
-    },
-  ],
-  total_active: 1,
-  highest_priority: null,
+const response = (body, ok = true) => Promise.resolve({
+  ok,
+  json: () => Promise.resolve(body),
+});
+
+const activePrescription = {
+  prescription_id: "pres-1",
+  plan_name: "Piece Safety Fundamentals",
+  priority_order: 1,
+  status: "active",
+  issue_detected: "piece_safety",
+  reasoning: "Your recent games contain repeated loose pieces.",
+  baseline_metric: 2.5,
+  current_metric: 1.8,
+  improvement_pct: 28,
 };
 
-const mockRecommendationResponse = {
+const recommendation = {
   recommended_plan_id: "plan-2",
   plan_name: "Tactical Vision Advanced",
-  reasoning:
-    "Coach detected 3 occurrences of missed_tactic in your last 10 games.",
-  issue_severity: "missed_tactic",
+  description: "Practise the patterns that recur in your games.",
+  reasoning: "This has appeared in several recent games.",
+  issue_severity: "medium",
   occurrence_count: 3,
   trend: "stable",
-  duration_weeks: 4,
-  weekly_commitment_hours: 3,
-  alternatives: [
-    {
-      plan_id: "plan-3",
-      name: "King Safety Essentials",
-      cognitive_gap: "king_safety",
-    },
-  ],
-  urgency: "medium",
-  current_prescriptions_count: 1,
-  can_add_parallel: true,
+  alternatives: [],
 };
 
-describe("CoachingPrescriptions Component", () => {
+describe("CoachingPrescriptions", () => {
+  let container;
+  let root;
+
   beforeEach(() => {
-    fetch.mockClear();
+    global.IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    global.fetch = jest.fn();
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  test("renders loading state initially", () => {
-    fetch.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(
-            () =>
-              resolve({
-                ok: true,
-                json: () => Promise.resolve(mockPrescriptionsResponse),
-              }),
-            100
-          )
-        )
-    );
-
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
-    );
-
-    // Check for skeleton loaders
-    const spinners = document.querySelectorAll(".animate-pulse");
-    expect(spinners.length).toBeGreaterThan(0);
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    delete global.fetch;
+    console.error.mockRestore();
   });
 
-  test("renders active prescriptions", async () => {
-    fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockPrescriptionsResponse),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockRecommendationResponse),
-      });
+  const renderComponent = async () => {
+    await act(async () => {
+      root.render(<CoachingPrescriptions />);
+    });
+  };
 
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
-    );
+  const settle = async () => {
+    await act(async () => {
+      for (let index = 0; index < 6; index += 1) {
+        await Promise.resolve();
+      }
+    });
+  };
 
-    await waitFor(() => {
-      expect(screen.getByText("Piece Safety Fundamentals")).toBeInTheDocument();
+  test("renders the loading state while both coaching requests are pending", async () => {
+    global.fetch.mockReturnValue(new Promise(() => {}));
+
+    await renderComponent();
+
+    expect(container.textContent).toContain("Loading training plans");
+  });
+
+  test("renders the primary prescription and server-owned progress", async () => {
+    global.fetch.mockImplementation((url) => {
+      if (url.includes("current-prescriptions")) {
+        return response({ prescriptions: [activePrescription] });
+      }
+      if (url.includes("next-prescription")) {
+        return response({ recommendation: null });
+      }
+      if (url.includes("/progress")) {
+        return response({
+          improvement_pct: 28,
+          current_metric: 1.8,
+          games_analyzed_since_start: 4,
+          puzzles_completed: 12,
+          puzzle_accuracy: 85,
+          auto_close_eligible: false,
+        });
+      }
+      return response({});
     });
 
-    expect(screen.getByText(/piece_safety/i)).toBeInTheDocument();
-    expect(screen.getByText(/12 puzzles completed/i)).toBeInTheDocument();
+    await renderComponent();
+    await settle();
+
+    expect(container.textContent).toContain("Piece Safety Fundamentals");
+    expect(container.textContent).toContain("piece_safety");
+    expect(container.textContent).toContain("12 solved at 85% accuracy");
   });
 
-  test("renders next recommendation when available", async () => {
-    fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockPrescriptionsResponse),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockRecommendationResponse),
-      });
+  test("renders the next recommendation when there is no active plan", async () => {
+    global.fetch.mockImplementation((url) => (
+      url.includes("current-prescriptions")
+        ? response({ prescriptions: [] })
+        : response({ recommendation })
+    ));
 
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
-    );
+    await renderComponent();
+    await settle();
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("Tactical Vision Advanced")
-      ).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/Coach's recommendation/i)).toBeInTheDocument();
+    expect(container.textContent).toContain("Tactical Vision Advanced");
+    expect(container.textContent).toContain("Why this training plan?");
   });
 
-  test("renders empty state when no prescriptions", async () => {
-    fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ current_prescriptions: [], total_active: 0 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(null),
-      });
+  test("renders the honest empty state", async () => {
+    global.fetch.mockImplementation((url) => (
+      url.includes("current-prescriptions")
+        ? response({ prescriptions: [] })
+        : response({ recommendation: null })
+    ));
 
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
-    );
+    await renderComponent();
+    await settle();
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(/No active coaching plans yet/i)
-      ).toBeInTheDocument();
-    });
+    expect(container.textContent).toContain("No active training plans");
   });
 
-  test("renders error state on fetch failure", async () => {
-    fetch
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockRejectedValueOnce(new Error("Network error"));
+  test("renders the current error contract when loading fails", async () => {
+    global.fetch.mockRejectedValue(new Error("Network error"));
 
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
+    await renderComponent();
+    await settle();
+
+    expect(container.textContent).toContain(
+      "Failed to load coaching plans: Network error"
     );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/Error loading prescriptions/i)
-      ).toBeInTheDocument();
-    });
-  });
-
-  test("handles API response errors gracefully", async () => {
-    fetch
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ detail: "Server error" }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      });
-
-    render(
-      <BrowserRouter>
-        <CoachingPrescriptions />
-      </BrowserRouter>
-    );
-
-    await waitFor(() => {
-      // Component should still render empty state
-      expect(
-        screen.getByText(/No active coaching plans yet/i)
-      ).toBeInTheDocument();
-    });
   });
 });

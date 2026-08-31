@@ -751,7 +751,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         if development_phase.get("phase_key") in ("tactical_discipline", "pattern_control"):
             development_phase["momentum_override"] = {
                 "name": "Building Momentum",
-                "description": f"Your {win_streak_data['current_streak']}-game win streak shows real improvement. Keep this energy going!",
+                "description": f"You're on a {win_streak_data['current_streak']}-game win streak. Keep this energy going!",
                 "color": "emerald",
                 "icon": "trending-up",
             }

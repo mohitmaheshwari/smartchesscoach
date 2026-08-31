@@ -89,7 +89,7 @@ from mistake_card_service import (
 
 class CardAttemptRequest(BaseModel):
     card_id: str
-    correct: bool
+    played_uci: str
 
 
 class SetActiveHabitRequest(BaseModel):
@@ -98,7 +98,7 @@ class SetActiveHabitRequest(BaseModel):
 
 class PuzzleAttemptRequest(BaseModel):
     puzzle_id: str
-    correct: bool
+    played_uci: str
     time_taken_ms: Optional[int] = None
     moves_tried: Optional[List[str]] = []
 
@@ -373,7 +373,8 @@ async def get_training_session_endpoint(user: User = Depends(get_current_user)):
     """
     global db
     session = await get_training_session(db, user.user_id)
-    return session
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    return public_puzzle_payload(session or {})
 
 
 @router.get("/due-cards")
@@ -381,7 +382,11 @@ async def get_due_cards_endpoint(user: User = Depends(get_current_user), limit: 
     """Get cards due for review today."""
     global db
     cards = await get_due_cards(db, user.user_id, limit=limit)
-    return {"cards": cards, "count": len(cards)}
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    return {
+        "cards": [public_puzzle_payload(card) for card in cards],
+        "count": len(cards),
+    }
 
 
 @router.get("/card/{card_id}")
@@ -391,7 +396,8 @@ async def get_training_card(card_id: str, user: User = Depends(get_current_user)
     card = await get_card_by_id(db, card_id, user.user_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
-    return card
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    return public_puzzle_payload(card)
 
 
 @router.post("/attempt")
@@ -401,10 +407,48 @@ async def record_training_attempt(req: CardAttemptRequest, user: User = Depends(
     Updates spaced repetition schedule based on correctness.
     """
     global db
-    result = await record_card_attempt(db, req.card_id, user.user_id, req.correct)
+    card = await get_card_by_id(db, req.card_id, user.user_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    next_review = str(card.get("next_review") or "")
+    if card.get("last_reviewed") and next_review:
+        try:
+            due_at = datetime.fromisoformat(next_review.replace("Z", "+00:00"))
+            if due_at > datetime.now(timezone.utc):
+                raise HTTPException(status_code=409, detail="This card is not due yet")
+        except ValueError:
+            raise HTTPException(status_code=409, detail="This card needs evidence repair")
+    puzzle_id = f"{card.get('game_id')}_m{card.get('move_number')}"
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=409, detail="This card needs verified evidence")
+    grade = await record_verified_puzzle_attempt(
+        db,
+        user_id=user.user_id,
+        puzzle_id=puzzle_id,
+        puzzle=puzzle,
+        played_uci=req.played_uci,
+    )
+    if grade.get("quality") == "invalid":
+        raise HTTPException(status_code=400, detail=grade.get("feedback"))
+    result = await record_card_attempt(
+        db,
+        req.card_id,
+        user.user_id,
+        bool(grade.get("correct")),
+    )
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])
-    return result
+    return {
+        **result,
+        "correct": bool(grade.get("correct")),
+        "feedback": grade.get("feedback"),
+        "best_move_san": grade.get("best_move_san"),
+        "best_move_uci": grade.get("best_move_uci"),
+        "recovery_credit_awarded": grade.get("recovery_credit_awarded", False),
+    }
 
 
 @router.get("/card/{card_id}/why")
@@ -534,6 +578,11 @@ async def get_prescribed_training_endpoint(
     if resolved_focus:
         result["active_focus"] = resolved_focus
 
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    result["puzzles"] = [
+        public_puzzle_payload(puzzle) for puzzle in result.get("puzzles") or []
+    ]
+
     return result
 
 
@@ -547,34 +596,35 @@ async def record_puzzle_attempt_endpoint(
     from datetime import datetime, timezone
 
     puzzle_id = request.get("puzzle_id")
-    correct = request.get("correct", False)
+    played_uci = (request.get("played_uci") or "").strip()
     time_taken_ms = request.get("time_taken_ms")
     moves_tried = request.get("moves_tried", [])
-    weakness_type = request.get("weakness_type", "unknown")
-    # NEW: optional move-quality field from the graduated evaluator.
-    # Tracks whether the user played best / acceptable / wrong, so we can
-    # later distinguish "user is solving puzzles cleanly" from "user is
-    # scraping by with near-best moves".
-    quality = request.get("quality")  # best / excellent / good / inaccuracy / mistake / blunder / None
-
-    attempt = {
-        "user_id": user.user_id,
-        "puzzle_id": puzzle_id,
-        "correct": correct,
-        "time_taken_ms": time_taken_ms,
-        "moves_tried": moves_tried,
-        "weakness_type": weakness_type,
-        "quality": quality,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-
-    await db.puzzle_attempts.insert_one(attempt)
+    if not puzzle_id or not played_uci:
+        raise HTTPException(status_code=400, detail="puzzle_id and played_uci are required")
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+    resolved = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    server_grade = await record_verified_puzzle_attempt(
+        db,
+        user_id=user.user_id,
+        puzzle_id=puzzle_id,
+        puzzle=resolved,
+        played_uci=played_uci,
+        time_taken_ms=time_taken_ms,
+        moves_tried=moves_tried,
+    )
+    if server_grade.get("quality") == "invalid":
+        raise HTTPException(status_code=400, detail=server_grade.get("feedback"))
+    correct = bool(server_grade.get("correct"))
+    quality = server_grade.get("quality")
 
     # A correct solve is recovery credit — refresh the persisted decay state
     # immediately so training visibly moves prioritization (Lab pick, and any
     # consumer of db.user_pattern_decay) without waiting for the next game
     # analysis. Fail-open: recording the attempt never depends on this.
-    if correct:
+    if server_grade.get("recovery_credit_awarded"):
         try:
             from services.pattern_decay_service import refresh_user_pattern_decay
             await refresh_user_pattern_decay(db, user.user_id)
@@ -586,7 +636,16 @@ async def record_puzzle_attempt_endpoint(
     return {
         "success": True,
         "correct": correct,
-        "message": "Attempt recorded"
+        "quality": quality,
+        "recovery_credit_awarded": server_grade.get("recovery_credit_awarded", False),
+        "message": "Attempt recorded",
+        # Released only after a real server-graded attempt. No answer or proof
+        # material is present in the pre-attempt puzzle payload.
+        "best_move_san": server_grade.get("best_move_san"),
+        "best_move_uci": server_grade.get("best_move_uci"),
+        "feedback": server_grade.get("feedback"),
+        "coaching_feedback": server_grade.get("coaching_feedback"),
+        "pattern_type": server_grade.get("pattern_type"),
     }
 
 
@@ -595,85 +654,59 @@ async def evaluate_puzzle_move_endpoint(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
 ):
+    """Grade a move from the puzzle's frozen verified answer set.
+
+    The client supplies only puzzle_id + played_uci. FEN, label, answer and
+    correctness are resolved server-side; no Stockfish or LLM runs here.
     """
-    Grade a user's move in a training puzzle against Stockfish.
-
-    Replaces binary string-match grading with a graduated classification:
-      best / excellent / good / inaccuracy / mistake / blunder.
-
-    Body:
-      fen: position before the user's move (puzzle.fen)
-      played_uci: the user's move in UCI (e.g. "e2e4")
-      known_best_san: optional — the puzzle's stored best move in SAN, used
-                      to confirm exact-match without an extra engine call.
-
-    Returns:
-      { quality, cp_loss, is_best, is_acceptable, best_move_san,
-        user_move_san, feedback }
-    """
-    fen = (request.get("fen") or "").strip()
+    puzzle_id = (request.get("puzzle_id") or "").strip()
     played_uci = (request.get("played_uci") or "").strip()
-    known_best_san = (request.get("known_best_san") or "").strip() or None
-    # Optional context — when the frontend has it, we can pass it
-    # through to puzzle_miss_coaching for richer per-move explanations.
-    themes = request.get("themes") or []
-    cognitive_gap = request.get("cognitive_gap") or None
+    if not puzzle_id or not played_uci:
+        raise HTTPException(status_code=400, detail="puzzle_id and played_uci are required")
 
-    if not fen or not played_uci:
-        raise HTTPException(status_code=400, detail="fen and played_uci are required")
-
-    from services.puzzle_move_evaluator import evaluate_puzzle_move
-    result = await evaluate_puzzle_move(
-        fen=fen,
-        played_uci=played_uci,
-        known_best_san=known_best_san,
+    from services.verified_puzzle_runtime import (
+        grade_resolved_puzzle,
+        resolve_verified_puzzle,
     )
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    return grade_resolved_puzzle(puzzle, played_uci)
 
-    # Bug 2 fix: when the user got it wrong (or just sub-optimal), include
-    # the rich miss-coaching block. The evaluator's "feedback" is one
-    # short line; this adds position_summary, played_critique,
-    # best_move_idea, takeaway — the explanations the tester asked for.
-    # Skip on best moves (no need to explain a correct answer beyond
-    # the existing "You found it" line) and on parse errors.
-    quality = result.get("quality")
-    # Build coaching for BOTH misses and solves. On a solve (quality == "best")
-    # the card should still teach WHAT they found (the fork), not just "You found
-    # it" — so we pass found=True and the lesson reframes to "You found the fork!"
-    if quality and quality != "invalid" and result.get("best_move_san"):
-        try:
-            from services.puzzle_miss_coaching import build_miss_coaching
 
-            best_san = result.get("best_move_san", "")
-            played_san = result.get("user_move_san", "")
-            # Best UCI from SAN parse — the miss-coaching service
-            # tolerates None for played_uci/best_uci, but providing
-            # them yields better critique fields.
-            best_uci = ""
-            try:
-                import chess as _chess
-                _b = _chess.Board(fen)
-                _best = _b.parse_san(best_san)
-                best_uci = _best.uci()
-            except Exception:
-                best_uci = ""
+@router.post("/reveal-puzzle")
+async def reveal_puzzle_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Reveal only after an explicit user action; a reveal earns no credit."""
+    puzzle_id = (request.get("puzzle_id") or "").strip()
+    if not puzzle_id:
+        raise HTTPException(status_code=400, detail="puzzle_id is required")
+    from datetime import datetime, timezone
+    import chess
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
 
-            coaching = build_miss_coaching(
-                fen_before=fen,
-                played_move_san=played_san,
-                best_move_san=best_san,
-                best_move_uci=best_uci,
-                played_move_uci=played_uci,
-                cognitive_gap=cognitive_gap,
-                themes=themes,
-                found=(quality == "best"),
-            )
-            if coaching:
-                result["miss_coaching"] = coaching
-        except Exception as e:
-            # Non-fatal — the basic feedback line still ships
-            logger.debug(f"build_miss_coaching failed: {e}")
-
-    return result
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    verdict = puzzle.get("verified_admission") or {}
+    accepted = tuple(verdict.get("acceptable_moves_uci") or ())
+    primary = puzzle.get("best_move_uci") or (accepted[0] if accepted else "")
+    try:
+        board = chess.Board(puzzle.get("fen"))
+        move = chess.Move.from_uci(primary)
+        if move not in board.legal_moves:
+            raise ValueError("illegal answer")
+        san = board.san(move)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=409, detail="This puzzle needs evidence repair")
+    await db.puzzle_reveals.insert_one({
+        "user_id": user.user_id,
+        "puzzle_id": puzzle_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"best_move_uci": primary, "best_move_san": san}
 
 
 # ==================== ONE-MOVE BLUNDERS ====================
@@ -701,6 +734,12 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
     
     one_move_blunders = []
     for analysis in analyses:
+        source_game = await db.games.find_one(
+            {"game_id": analysis.get("game_id"), "user_id": user.user_id},
+            {"_id": 0},
+        )
+        if not source_game:
+            continue
         sf = analysis.get("stockfish_analysis", {})
         evals = sf.get("move_evaluations", [])
         
@@ -711,7 +750,16 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
             
             # One-move blunder = big loss where opponent's reply is decisive
             if cp_loss >= 200 and len(pv) >= 1:
-                puzzle_id = f"{analysis['game_id']}_{m.get('move_number')}"
+                from services.verified_puzzle_admission import AdmissionStatus
+                from services.verified_puzzle_builder import build_imported_game_verdict
+                verdict = build_imported_game_verdict(
+                    game=source_game,
+                    move_evaluation=m,
+                    broad_category=m.get("cognitive_gap") or None,
+                )
+                if verdict.status == AdmissionStatus.QUARANTINE:
+                    continue
+                puzzle_id = f"{analysis['game_id']}_m{m.get('move_number')}"
                 
                 # Skip already solved
                 if puzzle_id in solved_puzzle_ids:
@@ -722,18 +770,21 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
                     "game_id": analysis["game_id"],
                     "fen": m.get("fen_before", ""),
                     "your_move": m.get("move", ""),
-                    "solution": [m.get("best_move", "")],
+                    "solution": [m.get("best_move_uci") or m.get("best_move", "")],
+                    "solution_san": m.get("best_move_san") or m.get("best_move", ""),
                     "cp_loss": cp_loss,
                     "move_number": m.get("move_number"),
-                    "threat": m.get("threat", ""),
-                    "source": "your_game"
+                    "source": "your_game",
+                    "pattern_type": verdict.broad_category or "calculation_depth",
+                    "verified_admission": verdict.to_document(),
                 })
     
     # Sort by cp_loss (worst blunders first)
     one_move_blunders.sort(key=lambda x: abs(x["cp_loss"]), reverse=True)
     
+    from services.verified_puzzle_runtime import public_puzzle_payload
     return {
-        "puzzles": one_move_blunders[:30],
+        "puzzles": [public_puzzle_payload(p) for p in one_move_blunders[:30]],
         "total": len(one_move_blunders),
         "solved_count": len(solved_puzzle_ids),
         "source": "stockfish_analysis"

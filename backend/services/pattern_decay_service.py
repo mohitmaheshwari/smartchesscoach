@@ -159,10 +159,9 @@ async def get_puzzle_recoveries(
 
     recoveries: Dict[str, int] = {}
     try:
-        cursor = db.puzzle_attempts.find(
+        cursor = db.puzzle_recovery_credits.find(
             {
                 "user_id": user_id,
-                "correct": True,
                 "created_at": {"$gte": cutoff},
             },
             {"_id": 0, "weakness_type": 1},

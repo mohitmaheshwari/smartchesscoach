@@ -40,20 +40,57 @@ def reload_traps() -> None:
 # ── Queries ───────────────────────────────────────────────────────────
 
 
+def is_forced_trap(trap: Dict) -> bool:
+    """True only for lessons that promise a concrete tactical punishment.
+
+    Historical traps.json mixed genuine traps with gambits and opening plans.
+    Missing ``lesson_kind`` remains backwards-compatible as a forced trap;
+    repaired plan records opt out explicitly.
+    """
+    return str(trap.get("lesson_kind") or "forced_trap") == "forced_trap"
+
+
+def is_opening_plan(trap: Dict) -> bool:
+    return str(trap.get("lesson_kind") or "forced_trap") == "opening_plan"
+
+
 def get_traps_for_opening(opening_key: str) -> List[Dict]:
-    """All traps for a specific opening."""
-    return TRAP_LIBRARY.get(opening_key, [])
+    """Forced traps for a specific opening (never gambits/plans)."""
+    return [
+        trap for trap in TRAP_LIBRARY.get(opening_key, [])
+        if is_forced_trap(trap)
+    ]
 
 
 def get_all_traps() -> Dict[str, List[Dict]]:
-    """The entire trap library."""
-    return TRAP_LIBRARY
+    """The forced-trap projection of the canonical mixed curriculum."""
+    return {
+        opening_key: [trap for trap in traps if is_forced_trap(trap)]
+        for opening_key, traps in TRAP_LIBRARY.items()
+    }
+
+
+def get_opening_plans_for_opening(opening_key: str) -> List[Dict]:
+    """Opening plans/gambits authored in the same canonical source."""
+    return [
+        trap for trap in TRAP_LIBRARY.get(opening_key, [])
+        if is_opening_plan(trap)
+    ]
+
+
+def get_all_opening_plans() -> Dict[str, List[Dict]]:
+    return {
+        opening_key: [trap for trap in traps if is_opening_plan(trap)]
+        for opening_key, traps in TRAP_LIBRARY.items()
+    }
 
 
 def get_trap_by_name(trap_name: str) -> Optional[Dict]:
     """Find a trap by name across all openings."""
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             if trap["name"].lower() == trap_name.lower():
                 return {**trap, "opening_key": opening_key}
     return None
@@ -64,6 +101,8 @@ def get_checkmate_traps() -> List[Dict]:
     out = []
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             if trap.get("result_type") == "checkmate":
                 out.append({**trap, "opening_key": opening_key})
     return out
@@ -74,6 +113,8 @@ def get_traps_by_difficulty(difficulty: str) -> List[Dict]:
     out = []
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             if trap.get("difficulty") == difficulty:
                 out.append({**trap, "opening_key": opening_key})
     return out
@@ -125,6 +166,8 @@ def find_relevant_trap(fen: str, move_history: List[str]) -> Optional[Dict]:
 
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             setup_moves = trap.get("setup_moves", [])
             setup_len = len(setup_moves)
             if setup_len - 2 <= history_len <= setup_len:
@@ -149,6 +192,8 @@ def get_trap_for_position(move_history: List[str]) -> Optional[Dict]:
 
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             setup_moves = trap.get("setup_moves", [])
             setup_str = " ".join(setup_moves).lower()
             if setup_str.startswith(history_str):
@@ -175,9 +220,11 @@ def get_all_trap_statistics() -> Dict[str, Any]:
     by_opening: Dict[str, int] = {}
 
     for opening_key, traps in TRAP_LIBRARY.items():
-        by_opening[opening_key] = len(traps)
-        total_traps += len(traps)
-        for trap in traps:
+        forced = [trap for trap in traps if is_forced_trap(trap)]
+        if forced:
+            by_opening[opening_key] = len(forced)
+        total_traps += len(forced)
+        for trap in forced:
             result = trap.get("result_type", "unknown")
             diff = trap.get("difficulty", "unknown")
             if result == "checkmate":
@@ -219,6 +266,8 @@ def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
 
     for opening_key, traps in TRAP_LIBRARY.items():
         for trap in traps:
+            if not is_forced_trap(trap):
+                continue
             setup_moves = trap.get("setup_moves", [])
             trap_line = trap.get("trap_line", [])
 

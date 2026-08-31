@@ -16,6 +16,10 @@ import logging
 from typing import List, Dict
 from datetime import datetime, timezone
 
+from services.puzzle_extraction_service import verified_issue_type
+from services.verified_puzzle_admission import AdmissionStatus
+from services.verified_puzzle_builder import build_position_verdict
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,8 +90,10 @@ async def extract_puzzles_from_coach_session(
         # Validate position
         try:
             board = chess.Board(fen_before)
-            board.parse_san(best_move)
-            best_uci = board.parse_san(best_move).uci()
+            best_obj = board.parse_san(best_move)
+            best_uci = best_obj.uci()
+            played_obj = board.parse_san(move_san)
+            played_uci = played_obj.uci()
         except Exception:
             continue
 
@@ -100,8 +106,25 @@ async def extract_puzzles_from_coach_session(
         if existing:
             continue
 
-        # Classify pattern type
-        pattern_type = _classify_pattern(board, move_san, best_move, cp_loss)
+        legacy_pattern_type = _classify_pattern(board, move_san, best_move, cp_loss)
+        move_evidence = {
+            "fen_before": fen_before,
+            "move": move_san,
+            "best_move_san": best_move,
+            "best_move_uci": best_uci,
+            "cp_loss": cp_loss,
+            "eval_before": eval_before,
+            "eval_after": eval_after,
+            "pv_after_best": move_entry.get("pv_after_best") or [],
+            "pv_after_played": move_entry.get("pv_after_played") or [],
+        }
+        verdict = build_position_verdict(
+            source_kind="coach_session",
+            source_ref=f"{session_id}:{i}",
+            move_evaluation=move_evidence,
+            broad_category=None,
+        )
+        pattern_type = verified_issue_type(verdict)
 
         # Difficulty
         if cp_loss >= 400:
@@ -119,12 +142,13 @@ async def extract_puzzles_from_coach_session(
             "best_move_san": best_move,
             "best_move_uci": best_uci,
             "user_move_san": move_san,
-            "user_move_uci": "",
+            "user_move_uci": played_uci,
             "cp_loss": cp_loss,
             "eval_cp": int(eval_before * 100),
             "eval_before_user": int(eval_before * 100),
             "eval_after_user": int(eval_after * 100),
             "pattern_type": pattern_type,
+            "legacy_pattern_type": legacy_pattern_type,
             "moment_tag": "learning_moment",
             "difficulty": difficulty,
             "move_number": move_number,
@@ -135,6 +159,10 @@ async def extract_puzzles_from_coach_session(
             "source_user_rating": user_rating,
             "source_type": "coach_session",
             "user_color": user_color,
+            "pv_after_best": move_evidence["pv_after_best"],
+            "pv_after_played": move_evidence["pv_after_played"],
+            "verified_admission": verdict.to_document(),
+            "approved": verdict.status != AdmissionStatus.QUARANTINE,
             "attempts": 0,
             "solves": 0,
             "solve_rate": 0.0,

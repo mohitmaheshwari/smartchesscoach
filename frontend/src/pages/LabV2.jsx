@@ -85,32 +85,6 @@ const useChessSounds = () => {
     return audioContextRef.current;
   }, []);
   
-  // Play a "thud" sound for punishing moves
-  const playPunishSound = useCallback(() => {
-    try {
-      const ctx = getAudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      // Low frequency "thud" sound
-      oscillator.frequency.setValueAtTime(80, ctx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.15);
-      oscillator.type = 'sine';
-      
-      // Quick fade out for impact
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.2);
-    } catch (e) {
-      console.log("Could not play sound:", e);
-    }
-  }, [getAudioContext]);
-  
   // Play a "success" sound for correct moves
   const playSuccessSound = useCallback(() => {
     try {
@@ -184,7 +158,7 @@ const useChessSounds = () => {
     }
   }, [getAudioContext]);
   
-  return { playPunishSound, playSuccessSound, playMoveSound, playErrorSound };
+  return { playSuccessSound, playMoveSound, playErrorSound };
 };
 
 // Helper to convert FEN to position object
@@ -373,7 +347,7 @@ const LabV2 = ({ user }) => {
   const navigate = useNavigate();
   
   // Sound effects
-  const { playPunishSound, playSuccessSound, playMoveSound, playErrorSound } = useChessSounds();
+  const { playSuccessSound, playMoveSound, playErrorSound } = useChessSounds();
   
   // Data states
   const [loading, setLoading] = useState(true);
@@ -947,11 +921,11 @@ const LabV2 = ({ user }) => {
     }
   };
   
-  // Start interactive mode for a critical moment - user can try to find the best move
+  // Legacy blind-solve helper. Active Coach Review cards no longer call this
+  // after first displaying the answer; review and practice are kept honest.
   const startInteractiveMoment = (moment) => {
     console.log("Starting interactive moment:", moment);
     console.log("Moment FEN:", moment?.fen);
-    console.log("Best move:", moment?.best_move);
     
     setInteractiveMoment(moment);
     setUserAttemptResult(null);
@@ -995,31 +969,16 @@ const LabV2 = ({ user }) => {
     
     const userMoveUci = from + to;
     
-    // Get the best move in UCI format for local comparison
-    let bestMoveUci = null;
-    try {
-      const chess = new Chess(interactiveMoment.fen);
-      const bestMove = chess.move(interactiveMoment.best_move, { sloppy: true });
-      if (bestMove) {
-        bestMoveUci = bestMove.from + bestMove.to;
-      }
-    } catch (e) {
-      console.log("Could not parse best move:", e);
-    }
-    
-    // Call backend for smart move evaluation
+    // The server owns the position, answer set and verdict. The browser sends
+    // only the stable puzzle id plus the move the learner actually played.
     try {
       const evalResponse = await fetch(`${API}/lab/evaluate-move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          fen: interactiveMoment.fen,
-          user_move: userMoveUci,
-          best_move: interactiveMoment.best_move,
-          // key_moments from /coach-review use `move` for the user's
-          // actually-played move; older callers use `your_move`.
-          original_move: interactiveMoment.your_move || interactiveMoment.move || null
+          puzzle_id: `${gameId}_m${interactiveMoment.move_number}`,
+          user_move: userMoveUci
         })
       });
       
@@ -1044,7 +1003,7 @@ const LabV2 = ({ user }) => {
             feedback: evalResult.feedback,
             comparison: evalResult.comparison_to_original,
             userMove: userMoveUci,
-            bestMove: bestMoveUci
+            bestMove: evalResult.best_move_uci || null
           });
           
           setBoardArrows([[from, to, arrowColor]]);
@@ -1076,76 +1035,13 @@ const LabV2 = ({ user }) => {
           const arrowColor = isOkay ? "rgb(234,179,8)" : "red"; // Yellow for okay, red for bad
           setBoardArrows([[from, to, arrowColor]]);
           
-          // Make the user's move on a temp board to show the position
+          // Show the learner's legal move. Never invent a punishment in the
+          // browser: a plausible check or capture is not verified chess truth.
           try {
             const tempChess = new Chess(interactiveMoment.fen);
             const userMove = tempChess.move({ from, to, promotion: 'q' });
             if (userMove) {
               setInteractiveFen(tempChess.fen());
-              
-              // For bad moves, show punishment animation
-              if (!isOkay) {
-                setTimeout(() => {
-                  try {
-                    const punishChess = new Chess(tempChess.fen());
-                    const allMoves = punishChess.moves({ verbose: true });
-                    let punishMove = null;
-                    let punishMoveNotation = null;
-                    
-                    // Find a punishing move - priority: checkmates > checks > captures
-                    const checkmates = allMoves.filter(m => {
-                      const testChess = new Chess(punishChess.fen());
-                      testChess.move(m);
-                      return testChess.isCheckmate();
-                    });
-                    if (checkmates.length > 0) {
-                      punishMove = punishChess.move(checkmates[0]);
-                      punishMoveNotation = checkmates[0].san;
-                    }
-                    
-                    if (!punishMove) {
-                      const checks = allMoves.filter(m => {
-                        const testChess = new Chess(punishChess.fen());
-                        testChess.move(m);
-                        return testChess.inCheck();
-                      });
-                      if (checks.length > 0) {
-                        punishMove = punishChess.move(checks[0]);
-                        punishMoveNotation = checks[0].san;
-                      }
-                    }
-                    
-                    if (!punishMove) {
-                      const pieceValues = { q: 9, r: 5, b: 3, n: 3, p: 1 };
-                      const captures = allMoves.filter(m => m.captured);
-                      captures.sort((a, b) => (pieceValues[b.captured] || 0) - (pieceValues[a.captured] || 0));
-                      if (captures.length > 0) {
-                        punishMove = punishChess.move(captures[0]);
-                        punishMoveNotation = captures[0].san;
-                      }
-                    }
-                    
-                    if (punishMove) {
-                      playPunishSound();
-                      setInteractiveFen(punishChess.fen());
-                      setBoardArrows([
-                        [from, to, arrowColor],
-                        [punishMove.from, punishMove.to, "orange"]
-                      ]);
-                      
-                      setUserAttemptResult(prev => ({
-                        ...prev,
-                        punishingMove: punishMoveNotation,
-                        showPunishment: true
-                      }));
-                      
-                      toast.error(`Opponent plays ${punishMoveNotation}!`, { duration: 3000 });
-                    }
-                  } catch (e) {
-                    console.log("Could not calculate punishing move:", e);
-                  }
-                }, 1000);
-              }
             }
           } catch (e) {
             console.log("Could not make user move:", e);
@@ -1159,7 +1055,7 @@ const LabV2 = ({ user }) => {
             feedback: evalResult.feedback,
             comparison: evalResult.comparison_to_original,
             userMove: userMoveUci,
-            bestMove: bestMoveUci,
+            bestMove: evalResult.best_move_uci || null,
             showTryAgain: isOkay, // Show try again immediately for okay moves
             showPunishment: false,
             punishingMove: null
@@ -1201,62 +1097,26 @@ const LabV2 = ({ user }) => {
         }
         
         return evalResult.is_correct;
+      } else {
+        throw new Error(`verified grader returned HTTP ${evalResponse.status}`);
       }
     } catch (e) {
-      console.log("Could not evaluate move, falling back to local check:", e);
-    }
-    
-    // Fallback to simple local check if API fails
-    const isCorrect = userMoveUci === bestMoveUci;
-    
-    if (isCorrect) {
-      playSuccessSound();
+      console.log("Could not verify review move:", e);
+      setBoardArrows([]);
+      setInteractiveFen(interactiveMoment.fen);
       setUserAttemptResult({
-        correct: true,
-        quality: "best",
-        symbol: "check",
-        message: "Perfect!",
+        correct: null,
+        quality: "unverified",
+        symbol: "retry",
+        message: "I couldn't verify that move just now.",
+        feedback: "Please try again. This attempt will not count until the coach can verify it.",
         userMove: userMoveUci,
-        bestMove: bestMoveUci
-      });
-      setBoardArrows([[from, to, "green"]]);
-      const momentToPlay = interactiveMoment;
-      setInteractiveMoment(null);
-      setInteractiveFen(null);
-      setTimeout(() => playBestLine(momentToPlay), 1500);
-      toast.success("Correct! Great find!");
-    } else {
-      playErrorSound();
-      setBoardArrows([[from, to, "red"]]);
-      setUserAttemptResult({
-        correct: false,
-        quality: "unknown",
-        symbol: "close",
-        message: "Not the best move",
-        userMove: userMoveUci,
-        bestMove: bestMoveUci,
+        bestMove: null,
         showTryAgain: true
       });
-      toast.error("Not quite right. Try again!");
-
-      // Local-fallback wrong path: no quality dimension, no punishment
-      // animation. Still want the user to SEE the right line so they
-      // understand what they missed.
-      const momentForLine = interactiveMoment;
-      if (wrongAnswerLineTimeoutRef.current) {
-        clearTimeout(wrongAnswerLineTimeoutRef.current);
-      }
-      wrongAnswerLineTimeoutRef.current = setTimeout(() => {
-        wrongAnswerLineTimeoutRef.current = null;
-        if (momentForLine) {
-          setBoardArrows([]);
-          setInteractiveFen(momentForLine.fen);
-          playBestLine(momentForLine);
-        }
-      }, 1500);
+      toast.error("I couldn't verify that move. Please try again.");
+      return false;
     }
-
-    return isCorrect;
   };
   
   // Clear interactive mode
@@ -1780,13 +1640,12 @@ const LabV2 = ({ user }) => {
                         {coachReview.story.opener}
                       </p>
 
-                      {/* Principles — numbered cards, each clickable to jump.
-                         "Try yourself" button ported from the (now removed)
-                         Key Moments section — drops the user into solve mode
-                         at the position before this move. */}
+                      {/* Principles — numbered review cards. The answer is
+                         already part of this review, so the action replays it
+                         on the board; it must not masquerade as a blind solve. */}
                       <div className="space-y-2.5 mb-4">
                         {coachReview.story.principles.map((p) => {
-                          const canSolve = !!p.fen_before && !!p.san_best;
+                          const canReplay = !!p.fen_before && !!p.san_best;
                           return (
                             <div
                               key={p.n}
@@ -1836,12 +1695,12 @@ const LabV2 = ({ user }) => {
                                   {p.principle}
                                 </p>
                               </div>
-                              {canSolve && (
+                              {canReplay && (
                                 <div className="px-3 pb-3">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      startInteractiveMoment({
+                                      playBestLine({
                                         fen: p.fen_before,
                                         best_move: p.san_best,
                                         move: p.san_played,
@@ -1849,9 +1708,9 @@ const LabV2 = ({ user }) => {
                                       });
                                     }}
                                     className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
-                                    data-testid={`principle-try-${p.n}`}
+                                    data-testid={`principle-replay-${p.n}`}
                                   >
-                                    Try yourself →
+                                    Replay the better move →
                                   </button>
                                 </div>
                               )}

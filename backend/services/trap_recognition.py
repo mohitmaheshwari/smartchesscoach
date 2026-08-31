@@ -69,8 +69,18 @@ def _load_traps() -> List[Dict[str, Any]]:
         return _TRAPS_CACHE
 
     flat: List[Dict[str, Any]] = []
+    from services.curriculum_content_validator import (
+        get_publishable_content_ids,
+        trap_content_id,
+    )
+    publishable = get_publishable_content_ids("traps")
     for family, trap_list in (data or {}).items():
+        if str(family).startswith("_"):
+            continue
         for trap in trap_list or []:
+            content_id = trap_content_id(family, trap.get("name", ""))
+            if content_id not in publishable:
+                continue
             setup_raw = trap.get("setup_moves") or []
             line_moves: List[str] = []
             line_steps: List[Dict[str, str]] = []
@@ -85,6 +95,7 @@ def _load_traps() -> List[Dict[str, Any]]:
                     line_moves.append(mv)
                     line_steps.append({"move": mv, "explanation": explanation})
             flat.append({
+                "content_id": content_id,
                 "family": family,
                 "name": trap.get("name", "?"),
                 "description": (trap.get("description") or "").strip(),
@@ -99,6 +110,18 @@ def _load_traps() -> List[Dict[str, Any]]:
                 # across all 43 traps in 2026-05-25. Consumed by V5
                 # to compute user_is_victim for the trap-warning caption.
                 "trap_color": trap.get("trap_color"),
+                "defense_setup_moves": list(
+                    trap.get("defense_setup_moves") or setup_raw
+                ),
+                "defense_setup_moves_norm": [
+                    _strip_san(move)
+                    for move in (trap.get("defense_setup_moves") or setup_raw)
+                ],
+                "defense_line": [
+                    str(step.get("move") if isinstance(step, dict) else step)
+                    for step in (trap.get("defense_line") or [])
+                    if (step.get("move") if isinstance(step, dict) else step)
+                ],
             })
     _TRAPS_CACHE = flat
     logger.info(f"[trap] loaded {len(flat)} traps from {TRAPS_PATH.name}")
@@ -126,6 +149,7 @@ def detect_trap_setup(played_moves_san: List[str]) -> Optional[Dict[str, Any]]:
         if trap["setup_moves_norm"] == normalized:
             return {
                 "name": trap["name"],
+                "content_id": trap.get("content_id"),
                 "family": trap["family"],
                 "description": trap["description"],
                 "completed_by_move": played_moves_san[-1],
@@ -134,7 +158,33 @@ def detect_trap_setup(played_moves_san: List[str]) -> Optional[Dict[str, Any]]:
                 "result_type": trap.get("result_type"),
                 "trap_color": trap.get("trap_color"),
                 "success_message": trap.get("success_message"),
+                "defense_setup_moves": list(
+                    trap.get("defense_setup_moves") or []
+                ),
+                "defense_line": list(trap.get("defense_line") or []),
             }
+    return None
+
+
+def detect_trap_defense_setup(
+    played_moves_san: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Return a publishable trap whose authored defense starts here."""
+    if not played_moves_san:
+        return None
+    normalized = [_strip_san(move) for move in played_moves_san]
+    for trap in _load_traps():
+        if not trap.get("defense_line"):
+            continue
+        if trap.get("defense_setup_moves_norm") != normalized:
+            continue
+        return {
+            "name": trap["name"],
+            "content_id": trap.get("content_id"),
+            "family": trap["family"],
+            "trap_color": trap.get("trap_color"),
+            "defense_line": list(trap.get("defense_line") or []),
+        }
     return None
 
 

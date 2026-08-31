@@ -97,8 +97,12 @@ class TestOpeningDetection:
         assert detect_opening_from_moves(["e4"]) is None, "e4 alone should not detect anything"
         
         # Two moves - only detect openings that are defined by 2 moves
-        assert detect_opening_from_moves(["d4", "d5"]) is None, "d4 d5 should not detect QG"
-        assert detect_opening_from_moves(["e4", "e5"]) is None, "e4 e5 should not detect Italian"
+        queens_pawn = detect_opening_from_moves(["d4", "d5"])
+        assert queens_pawn["opening_key"] == "queens_pawn"
+        assert queens_pawn["opening_key"] != "queens_gambit"
+        kings_pawn = detect_opening_from_moves(["e4", "e5"])
+        assert kings_pawn["opening_key"] == "kings_pawn"
+        assert kings_pawn["opening_key"] != "italian_game"
         
     def test_correct_detection_thresholds(self):
         """Opening should be detected only with sufficient defining moves"""

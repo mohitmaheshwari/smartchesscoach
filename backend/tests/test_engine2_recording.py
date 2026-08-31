@@ -17,6 +17,7 @@ from services.coach_memory import (
     LearningProgress,
     PerformanceTrend,
     record_engine2_skills_from_game,
+    record_concept_applications_from_game,
     record_skill_attempt,
     _normalize_opening_key,
     _opening_outcome,
@@ -41,6 +42,23 @@ def _fresh_memory() -> CoachMemory:
 
 def _find_skill(memory, skill_id):
     return next((s for s in memory.learning.skills if s.skill_id == skill_id), None)
+
+
+def _move_rows(sans):
+    import chess
+
+    board = chess.Board()
+    rows = []
+    for san in sans:
+        move = board.parse_san(san)
+        rows.append({
+            "fen_before": board.fen(),
+            "move": san,
+            "move_number": board.fullmove_number,
+            "best_move_uci": move.uci(),
+        })
+        board.push(move)
+    return rows
 
 
 # ── OPENING KEY NORMALISATION ────────────────────────────────────────
@@ -101,7 +119,9 @@ def test_playing_tracked_opening_records_attempt():
     assert "opening_london_white" in recorded
     skill = _find_skill(mem, "opening_london_white")
     assert skill.seen == 1
-    assert skill.correct == 1
+    assert skill.correct == 0
+    assert skill.wrong == 0
+    assert skill.outcomes == ["seen"]
 
 
 def test_playing_opening_out_of_rating_range_skipped():
@@ -156,8 +176,8 @@ def test_unknown_opening_no_recording():
     assert recorded == []
 
 
-def test_italian_in_intermediate_range():
-    """Italian Game (tier 2) appears for 1400+ players. Clearly bad game → wrong."""
+def test_italian_in_intermediate_range_records_exposure_not_knowledge():
+    """Result and broad accuracy cannot prove opening knowledge."""
     mem = _fresh_memory()
     recorded = record_engine2_skills_from_game(
         memory=mem,
@@ -170,9 +190,169 @@ def test_italian_in_intermediate_range():
         endgame_reached=False,
         opening_played="italian_game",
     )
-    # Bad game in tier 2 → wrong
     assert "opening_italian_white" in recorded
-    assert _find_skill(mem, "opening_italian_white").wrong == 1
+    skill = _find_skill(mem, "opening_italian_white")
+    assert skill.seen == 1
+    assert skill.correct == 0
+    assert skill.wrong == 0
+    assert skill.outcomes == ["seen"]
+
+
+def test_exact_opening_application_maps_to_real_repertoire_skill(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    memory = _fresh_memory()
+    rows = _move_rows(["d4", "d5", "Bf4"])
+    rows[-1].update({
+        "best_move_san": "Bf4",
+        "cp_loss": 0,
+        "evaluation": "best",
+        "eval_before": 18,
+        "eval_after": 18,
+    })
+    recorded = record_concept_applications_from_game(
+        memory,
+        rows,
+        "white",
+        game_id="game-london",
+        opening_name="london_system",
+    )
+    assert ("opening_london_white", "applied") in recorded
+    assert not any(skill.skill_id == "opening_play" for skill in memory.learning.skills)
+    skill = _find_skill(memory, "opening_london_white")
+    assert skill.applied == 1
+    evidence = skill.evidence[-1]
+    assert evidence["detector_quality_id"] == "concept:opening_play"
+    assert evidence["truth_source"] == "stored_stockfish_analysis"
+    assert evidence["stored_best_move_san"] == "Bf4"
+    assert evidence["stored_best_move_uci"] == "c1f4"
+    assert evidence["stored_cp_loss"] == 0
+    assert evidence["stored_evaluation"] == "best"
+    assert evidence["stored_eval_before"] == 18
+    assert evidence["stored_eval_after"] == 18
+    assert evidence["opening_name"] == "london_system"
+
+
+def test_verbose_provider_opening_maps_to_exact_repertoire_skill(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    memory = _fresh_memory()
+    recorded = record_concept_applications_from_game(
+        memory,
+        _move_rows(["d4", "d5", "Bf4"]),
+        "white",
+        game_id="game-london-provider-name",
+        opening_name="Queens Pawn Opening Accelerated London System",
+    )
+
+    assert ("opening_london_white", "applied") in recorded
+
+
+def test_exact_costly_opening_deviation_records_a_miss(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    rows = _move_rows(["d4", "d5", "Nf3"])
+    rows[-1]["best_move_uci"] = "c1f4"
+    memory = _fresh_memory()
+
+    recorded = record_concept_applications_from_game(
+        memory,
+        rows,
+        "white",
+        game_id="game-london-deviation",
+        opening_name="london_system",
+    )
+
+    assert ("opening_london_white", "wrong") in recorded
+
+
+def test_exact_trap_defense_maps_to_canonical_trap_set(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    memory = _fresh_memory()
+    recorded = record_concept_applications_from_game(
+        memory,
+        _move_rows(["e4", "e5", "Bc4", "Nc6", "Qh5", "Qe7"]),
+        "black",
+        game_id="game-scholar-defense",
+        opening_name="italian_game",
+    )
+    assert ("trap_set_italian", "applied") in recorded
+    assert not any(skill.skill_id == "trap_detection" for skill in memory.learning.skills)
+    skill = _find_skill(memory, "trap_set_italian")
+    assert skill.applied == 1
+    assert skill.evidence[-1]["content_id"] == (
+        "italian-game/scholar-s-mate-danger"
+    )
+
+
+def test_non_italian_trap_maps_by_exact_canonical_family(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    memory = _fresh_memory()
+    moves = [
+        "d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7",
+        "cxd5", "exd5", "e3",
+    ]
+    recorded = record_concept_applications_from_game(
+        memory,
+        _move_rows(moves),
+        "white",
+        game_id="game-elephant-defense",
+        opening_name="queens_gambit",
+    )
+    assert ("trap_set_queens_gambit", "applied") in recorded
+    skill = _find_skill(memory, "trap_set_queens_gambit")
+    assert skill.evidence[-1]["content_id"] == "queens-gambit/elephant-trap"
+
+
+def test_exact_endgame_adapter_maps_to_real_curriculum_skill(monkeypatch):
+    monkeypatch.setattr(
+        "services.concept_detectors._runner.is_authorized",
+        lambda *args, **kwargs: True,
+    )
+    from services.endgame_theory_service import get_verified_lesson_data
+
+    position = get_verified_lesson_data(
+        "king_and_pawn", "opposition"
+    )["positions"][0]
+    board_side = position["fen"].split()[1]
+    row = {
+        "fen_before": position["fen"],
+        "move": position["correct_move_san"],
+        "move_number": 40,
+        "best_move_san": position["correct_move_san"],
+        "best_move_uci": position["correct_move_uci"],
+        "cp_loss": 0,
+        "evaluation": "best",
+    }
+    memory = _fresh_memory()
+
+    recorded = record_concept_applications_from_game(
+        memory,
+        [row],
+        "black" if board_side == "b" else "white",
+        game_id="game-opposition-transfer",
+    )
+
+    assert ("endgame_opposition", "applied") in recorded
+    assert not any(
+        skill.skill_id.startswith("endgame_curriculum__")
+        for skill in memory.learning.skills
+    )
+    skill = _find_skill(memory, "endgame_opposition")
+    assert skill.evidence[-1]["content_id"] == "king_and_pawn/opposition"
+    assert skill.evidence[-1]["truth_source"] == "stored_stockfish_analysis"
 
 
 # ── SKILL TREE STRUCTURE ─────────────────────────────────────────────

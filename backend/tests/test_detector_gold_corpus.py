@@ -13,9 +13,31 @@ import json
 from datetime import datetime
 from typing import Dict
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient
 import os
 from services.coordination_detector import detect_coordination_gap
 from services.prophylaxis_detector import detect_prophylaxis_gap
+
+
+def _mongo_available() -> bool:
+    client = MongoClient(
+        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
+        serverSelectionTimeoutMS=300,
+        connectTimeoutMS=300,
+    )
+    try:
+        client.admin.command("ping")
+        return True
+    except Exception:
+        return False
+    finally:
+        client.close()
+
+
+pytestmark = pytest.mark.skipif(
+    not _mongo_available(),
+    reason="Mongo-backed detector corpus audit requires a reachable database",
+)
 
 
 class GoldCorpusAudit:

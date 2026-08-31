@@ -405,6 +405,45 @@ def get_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> List
     return out
 
 
+def motif_drill_sequence_is_verified(drill: Dict[str, Any], motif: str) -> bool:
+    """Require the stored motif detector and an independent geometry walk.
+
+    The best-move answer is verified separately against the original stored
+    game analysis by the route. This function proves only that the recorded
+    blunder/reply sequence is legal and that the reply really creates the
+    named fork, pin, or skewer.
+    """
+    wanted = str(motif or "").strip().lower()
+    if wanted not in {"fork", "pin", "skewer"}:
+        return False
+    try:
+        before = chess.Board(str(drill.get("position_fen") or ""))
+        before.parse_san(str(drill.get("solution_san") or ""))
+        blunder = before.parse_san(str(drill.get("user_blunder_move") or ""))
+        after_blunder = before.copy(stack=False)
+        after_blunder.push(blunder)
+        reply_raw = str(drill.get("opp_creates_motif") or "")
+        reply = after_blunder.parse_san(reply_raw)
+    except (TypeError, ValueError, AssertionError):
+        return False
+
+    detected = position_allows_motif({
+        "fen_after": after_blunder.fen(),
+        "pv_after_played": [reply_raw],
+        "cp_loss": BLUNDER_CP,
+    })
+    if detected != wanted:
+        return False
+    if wanted == "fork":
+        from services.fork_puzzle_proof import verify_created_fork
+
+        return verify_created_fork(after_blunder, reply) is not None
+
+    from services.aligned_tactic_puzzle_proof import verify_created_alignment
+
+    return verify_created_alignment(after_blunder, reply, wanted) is not None
+
+
 def count_unresolved_drills(motif_profile_raw: Optional[Dict[str, Dict]], motif: str) -> int:
     """How many stored rows for this motif get_drills() had to drop. Surfaced on the
     route so a user silently seeing fewer drills is diagnosable."""

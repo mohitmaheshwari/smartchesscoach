@@ -15,8 +15,100 @@ from typing import Dict, List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import chess
 import logging
+import os
+
+from services.verified_puzzle_admission import (
+    ADMISSION_VERSION,
+    AdmissionStatus,
+    stored_verdict_is_structurally_current,
+)
+from services.verified_puzzle_builder import build_imported_game_verdict
 
 logger = logging.getLogger(__name__)
+
+
+def verified_puzzle_admission_enforced() -> bool:
+    """Whether serving is restricted to current verified-admission rows.
+
+    Fail-closed by default. A deployment must explicitly opt into unsafe
+    compatibility during a controlled offline backfill; ordinary starts never
+    serve legacy rows. Enabling it never invokes an engine or an LLM.
+    """
+    return os.getenv("VERIFIED_PUZZLE_ADMISSION_ENFORCED", "true").lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def verified_issue_type(verdict) -> str:
+    if verdict.status in {AdmissionStatus.SPECIFIC, AdmissionStatus.BROAD}:
+        return verdict.broad_category or "calculation_depth"
+    return "calculation_depth"
+
+
+def verdict_serves_pattern(document: Dict, pattern: str) -> bool:
+    """Return whether a stored verdict honestly supports this drill label."""
+    if not verified_puzzle_admission_enforced():
+        return True
+    if not stored_verdict_is_structurally_current(document):
+        return False
+    verdict = document.get("verified_admission") or {}
+    status = verdict.get("status")
+    if status in {AdmissionStatus.SPECIFIC.value, AdmissionStatus.BROAD.value}:
+        return verdict.get("broad_category") == pattern
+    return status == AdmissionStatus.GENERIC.value and pattern == "calculation_depth"
+
+
+def verified_mongo_clause(pattern: str) -> Dict:
+    """Mongo clause equivalent of verdict_serves_pattern for indexed pools."""
+    if not verified_puzzle_admission_enforced():
+        return {}
+    specific_or_broad = {
+        "verified_admission.status": {
+            "$in": [AdmissionStatus.SPECIFIC.value, AdmissionStatus.BROAD.value]
+        },
+        "verified_admission.broad_category": pattern,
+    }
+    supported = [specific_or_broad]
+    if pattern == "calculation_depth":
+        supported.append({
+            "verified_admission.status": AdmissionStatus.GENERIC.value,
+        })
+    return {
+        "approved": True,
+        "verified_admission.admission_version": ADMISSION_VERSION,
+        "verified_admission.reason_codes.0": {"$exists": True},
+        "verified_admission.source_kind": {"$type": "string", "$ne": ""},
+        "verified_admission.source_fingerprint": {"$type": "string", "$ne": ""},
+        "verified_admission.analysis_fingerprint": {"$type": "string", "$ne": ""},
+        "verified_admission.reconstructed_fen": {"$type": "string", "$ne": ""},
+        "verified_admission.played_move_uci": {"$type": "string", "$ne": ""},
+        "verified_admission.acceptable_moves_uci.0": {"$exists": True},
+        "$or": supported,
+    }
+
+
+def verified_pool_mongo_clause() -> Dict:
+    """Filter for any current non-quarantined admission level."""
+    if not verified_puzzle_admission_enforced():
+        return {}
+    return {
+        "approved": True,
+        "verified_admission.admission_version": ADMISSION_VERSION,
+        "verified_admission.reason_codes.0": {"$exists": True},
+        "verified_admission.source_kind": {"$type": "string", "$ne": ""},
+        "verified_admission.source_fingerprint": {"$type": "string", "$ne": ""},
+        "verified_admission.analysis_fingerprint": {"$type": "string", "$ne": ""},
+        "verified_admission.reconstructed_fen": {"$type": "string", "$ne": ""},
+        "verified_admission.played_move_uci": {"$type": "string", "$ne": ""},
+        "verified_admission.acceptable_moves_uci.0": {"$exists": True},
+        "verified_admission.status": {
+            "$in": [
+                AdmissionStatus.SPECIFIC.value,
+                AdmissionStatus.BROAD.value,
+                AdmissionStatus.GENERIC.value,
+            ]
+        },
+    }
 
 
 # ── Quality gates for "is this position worth keeping as a puzzle?" ──
@@ -33,6 +125,22 @@ PUZZLE_MAX_CP_LOSS = 2000
 # usually isn't tactical training material — they need pattern training,
 # not endgame conversion grind.
 ENDGAME_FILTER_RATING = 1500
+
+
+def minimum_extraction_cp_loss(user_rating: int) -> int:
+    """Return the candidate floor; admission still decides if it is teachable.
+
+    This intentionally controls candidate recall, not puzzle truth. A position
+    above this floor is still rejected unless the stored line and deterministic
+    admission/verifier pipeline establish a legal, teachable answer.
+    """
+    if user_rating < 1000:
+        return 75
+    if user_rating < 1400:
+        return 50
+    if user_rating < 1800:
+        return 30
+    return 20
 END_PHASE_PLY = 30  # full-move number, not ply
 
 
@@ -111,7 +219,14 @@ async def extract_puzzles_from_game(
 
     game = await db.games.find_one(
         {"game_id": game_id},
-        {"_id": 0, "user_color": 1, "opening": 1, "opening_eco": 1},
+        {
+            "_id": 0,
+            "game_id": 1,
+            "pgn": 1,
+            "user_color": 1,
+            "opening": 1,
+            "opening_eco": 1,
+        },
     )
     if not game:
         return []
@@ -123,14 +238,7 @@ async def extract_puzzles_from_game(
     # Rating-aware extraction thresholds (centipawns)
     # AGGRESSIVE backfill: extract ALL mistakes, not just big blunders
     # More drill material = more learning opportunity
-    if user_rating < 1000:
-        min_cp_loss = 75   # Include small mistakes for beginners (was 200)
-    elif user_rating < 1400:
-        min_cp_loss = 50   # More puzzles for intermediate (was 150)
-    elif user_rating < 1800:
-        min_cp_loss = 30   # Capture subtle mistakes for advanced (was 100)
-    else:
-        min_cp_loss = 20   # Capture inaccuracies for experts (was 75)
+    min_cp_loss = minimum_extraction_cp_loss(user_rating)
 
     sf = analysis.get("stockfish_analysis", {})
     evals = sf.get("move_evaluations", [])
@@ -156,8 +264,23 @@ async def extract_puzzles_from_game(
         if not fen_before or not best_move:
             continue
 
-        # Quality gate — skip positional/non-teaching positions.
-        if not _is_puzzle_worthy(
+        # A training question belongs to the source player, not their
+        # opponent. New analyses say this explicitly; the FEN turn is the
+        # deterministic fallback for older rows.
+        if ev.get("is_opponent_move") is True or ev.get("is_user_move") is False:
+            continue
+        try:
+            mover_is_white = chess.Board(fen_before).turn == chess.WHITE
+            if mover_is_white != (str(user_color).lower() == "white"):
+                continue
+        except ValueError:
+            continue
+
+        # Keep the legacy forcing-position screen while the verified feed is
+        # dark. Once enforcement is enabled, an objectively answerable quiet
+        # move may still become a generic calculation exercise instead of
+        # disappearing merely because a tactical recognizer does not fire.
+        legacy_worthy = _is_puzzle_worthy(
             fen_before=fen_before,
             best_move_san=best_move,
             best_move_uci=best_move_uci,
@@ -165,23 +288,21 @@ async def extract_puzzles_from_game(
             move_number=move_number,
             user_rating=int(user_rating or 1200),
             cp_loss=int(cp_loss),
-        ):
+        )
+        if not legacy_worthy and not verified_puzzle_admission_enforced():
             skipped_quality += 1
             continue
 
-        # Infer cognitive gap from position if not explicitly tagged
-        if not cognitive_gap:
-            cognitive_gap = _infer_cognitive_gap(fen_before, best_move, cp_loss)
-
-        if not cognitive_gap:
-            cognitive_gap = "calculation_depth"  # Default for unclassified blunders
-
-        # Validate the position and move
-        try:
-            board = chess.Board(fen_before)
-            board.parse_san(best_move)
-        except (ValueError, chess.InvalidMoveError):
-            continue
+        # Do not infer a chess diagnosis from cp_loss or raw attacker counts.
+        # The shared builder reconstructs the source PGN, checks the stored
+        # answer, and runs independent causal proof where one exists.
+        verdict = build_imported_game_verdict(
+            game=game,
+            move_evaluation=ev,
+            broad_category=cognitive_gap or None,
+        )
+        verified_issue = verified_issue_type(verdict)
+        approved = verdict.status != AdmissionStatus.QUARANTINE
 
         # Skip if puzzle already exists (same FEN + best move)
         existing = await db.community_puzzles.find_one({
@@ -202,8 +323,11 @@ async def extract_puzzles_from_game(
         puzzle = {
             "fen": fen_before,
             "best_move_san": best_move,
-            "issue_type": cognitive_gap,
-            "theme": _gap_to_theme(cognitive_gap),
+            "best_move_uci": best_move_uci,
+            "played_move": ev.get("move") or ev.get("move_san") or ev.get("played_move"),
+            "issue_type": verified_issue,
+            "legacy_issue_type": cognitive_gap or None,
+            "theme": _gap_to_theme(verified_issue),
             "difficulty": difficulty,
             "opening_name": game.get("opening"),
             "opening_eco": game.get("opening_eco"),
@@ -212,8 +336,15 @@ async def extract_puzzles_from_game(
             "shared_by": user_id,
             "source_game_id": game_id,
             "source": "auto_extracted",
-            "description": f"From a real game — find the best move (was a {cognitive_gap.replace('_', ' ')} mistake)",
+            "description": (
+                "From a real game — find the move that keeps every piece safe."
+                if verified_issue == "piece_safety"
+                else "From a real game — calculate the best continuation."
+            ),
             "cp_loss": cp_loss,
+            "pv_after_best": pv_after_best if isinstance(pv_after_best, list) else [],
+            "pv_after_played": ev.get("pv_after_played") or [],
+            "verified_admission": verdict.to_document(),
             "attempts": 0,
             "solves": 0,
             "solve_rate": 0.0,
@@ -226,7 +357,7 @@ async def extract_puzzles_from_game(
             "ratings": [],
             "avg_rating": 0.0,
             "created_at": datetime.now(timezone.utc),
-            "approved": True,
+            "approved": approved,
             "featured": False,
         }
 
@@ -298,6 +429,8 @@ async def get_pattern_training_puzzles(
     user_id: str,
     pattern: str,
     limit: int = 15,
+    *,
+    private: bool = False,
 ) -> Dict:
     """
     Get training puzzles for a specific cognitive gap pattern.
@@ -346,11 +479,14 @@ async def get_pattern_training_puzzles(
             "shared_by": user_id,
             "issue_type": pattern,
             "approved": True,
+            **verified_mongo_clause(pattern),
         },
     ).sort("created_at", -1).limit(limit)
 
     own_puzzles = []
     async for p in own_cursor:
+        if not stored_verdict_is_structurally_current(p):
+            continue
         pid = str(p["_id"])
         own_puzzles.append({
             "puzzle_id": pid,
@@ -376,6 +512,7 @@ async def get_pattern_training_puzzles(
         "shared_by": {"$ne": user_id},
         "issue_type": pattern,
         "approved": True,
+        **verified_mongo_clause(pattern),
     }
 
     community_cursor = db.community_puzzles.find(community_query).sort(
@@ -384,6 +521,8 @@ async def get_pattern_training_puzzles(
 
     community_puzzles = []
     async for p in community_cursor:
+        if not stored_verdict_is_structurally_current(p):
+            continue
         pid = str(p["_id"])
         if pid in solved_ids:
             continue
@@ -447,6 +586,8 @@ async def get_pattern_training_puzzles(
                 {"pattern_type": t, "source_user_id": user_id}
             ).sort("created_at", -1).limit(limit)
             async for p in own_pwc:
+                if not verdict_serves_pattern(p, pattern):
+                    continue
                 sh = _shape_pwc(p, "own_coach_game")
                 if sh["fen"] and sh["best_move_san"]:
                     own_puzzles.append(sh)
@@ -460,6 +601,8 @@ async def get_pattern_training_puzzles(
                         break
                     if p.get("source_user_id") == user_id:
                         continue  # own — already added above
+                    if not verdict_serves_pattern(p, pattern):
+                        continue
                     sh = _shape_pwc(p, "coach_game")
                     if sh["puzzle_id"] in solved_ids or not sh["fen"] or not sh["best_move_san"]:
                         continue
@@ -479,14 +622,16 @@ async def get_pattern_training_puzzles(
         # How many more clean games until FADING (score < 1)?
         games_to_next = max(0, int(decay_score - 1.0))
 
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    shape = (lambda item: dict(item)) if private else public_puzzle_payload
     return {
         "pattern": pattern,
         "pattern_label": pattern.replace("_", " ").title(),
         "decay_state": decay_state,
         "decay_score": round(decay_score, 2),
         "games_to_next_state": games_to_next,
-        "own_puzzles": own_puzzles,
-        "community_puzzles": community_puzzles,
+        "own_puzzles": [shape(p) for p in own_puzzles],
+        "community_puzzles": [shape(p) for p in community_puzzles],
         "total_available": total_own + total_community,
         "unsolved_count": unsolved_own + total_community,
         "solved_count": len(solved_ids),

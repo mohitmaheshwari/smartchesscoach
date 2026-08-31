@@ -90,7 +90,8 @@ def _puzzle(puzzle_id, source):
 
 @pytest.fixture
 def puzzle_supply(monkeypatch):
-    async def _supply(db, user_id, pattern, limit):
+    async def _supply(db, user_id, pattern, limit, *, private=False):
+        assert private is True
         return {
             "own_puzzles": [_puzzle("own-1", "own_game")],
             "community_puzzles": [_puzzle("community-1", "community")],
@@ -115,6 +116,7 @@ async def test_pic_lesson_is_own_game_first_resumable_and_never_mastery_eligible
         {"limit": 2},
     )
     assert started["current_item"]["item_id"] == "own-1"
+    assert "best_move_san" not in started["current_item"]
     assert started["mastery_eligible"] is False
     assert [item["item_id"] for item in db.learning_sessions.docs[0]["items"]] == [
         "own-1",
@@ -139,16 +141,27 @@ async def test_pic_move_is_graded_once_through_shared_dispatcher(
     puzzle_supply,
     monkeypatch,
 ):
-    async def _grade(**kwargs):
+    async def _resolve(db, puzzle_id, *, user_id=None):
+        assert puzzle_id == "own-1"
+        assert user_id == "user-1"
+        return {"puzzle_id": puzzle_id}
+
+    def _grade(puzzle, played_uci):
+        assert puzzle == {"puzzle_id": "own-1"}
+        assert played_uci == "e2f3"
         return {
-            "is_acceptable": True,
+            "correct": True,
             "quality": "best",
             "feedback": "Correct.",
             "best_move_san": "Kf3",
         }
 
     monkeypatch.setattr(
-        "services.puzzle_move_evaluator.evaluate_puzzle_move",
+        "services.verified_puzzle_runtime.resolve_verified_puzzle",
+        _resolve,
+    )
+    monkeypatch.setattr(
+        "services.verified_puzzle_runtime.grade_resolved_puzzle",
         _grade,
     )
     db = _DB()

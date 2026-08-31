@@ -16,6 +16,13 @@ LESSON = {
     "content_version": "1",
 }
 
+OPENING_LESSON = {
+    "kind": "opening",
+    "id": "london_system",
+    "canonical_source": "backend/data/opening_curriculum.json",
+    "content_version": "1",
+}
+
 
 def test_sparse_evidence_asks_a_diagnostic_and_invents_no_learner_type():
     result = derive_personal_teaching_profile(
@@ -99,12 +106,37 @@ def test_successful_help_is_remembered_per_skill_not_globally():
     assert "learning_style" not in str(result)
 
 
+def test_content_ref_joins_exact_canonical_skill_history():
+    result = derive_personal_teaching_profile(
+        skill_id="london_system",
+        canonical_lesson=OPENING_LESSON,
+        coach_memory={
+            "learning": {
+                "skills": [{
+                    "skill_id": "opening_london_white",
+                    "seen": 3,
+                    "wrong": 1,
+                }]
+            }
+        },
+    )
+
+    assert result["skill_id"] == "opening_london_white"
+    assert result["mode"] == "personalized"
+    assert any(
+        anchor["type"] == "exact_skill_history"
+        for anchor in result["anchors"]
+    )
+
+
 class _ReadOnlyCollection:
     def __init__(self, doc=None):
         self.doc = copy.deepcopy(doc)
         self.write_calls = 0
+        self.last_query = None
 
     async def find_one(self, query, projection=None, **kwargs):
+        self.last_query = copy.deepcopy(query)
         return copy.deepcopy(self.doc)
 
     async def update_one(self, *args, **kwargs):
@@ -190,3 +222,33 @@ def test_async_builder_remembers_latest_help_and_misconception_for_this_skill(
     )
     assert result["delivery"]["preferred_help"] == "show_on_board"
     assert result["anchors"][0]["provenance"]["ref"] == "prior-answer"
+
+
+def test_async_builder_reads_legacy_session_alias_for_canonical_skill(monkeypatch):
+    async def no_focus(db, user_id):
+        return None
+
+    monkeypatch.setattr(
+        "services.focus_bridge.get_active_focus_bundle",
+        no_focus,
+    )
+    db = _DB()
+    db.coach_memory = _ReadOnlyCollection({
+        "learning": {
+            "skills": [{"skill_id": "opening_london_white", "seen": 2}]
+        }
+    })
+    db.learning_sessions = _ReadOnlyCollection(None)
+
+    result = asyncio.run(build_personal_teaching_profile(
+        db,
+        "u1",
+        skill_id="opening_london_white",
+        canonical_lesson=OPENING_LESSON,
+    ))
+
+    aliases = db.learning_sessions.last_query["skill_id"]["$in"]
+    assert "opening_london_white" in aliases
+    assert "london_system" in aliases
+    assert result["skill_id"] == "opening_london_white"
+    assert result["mode"] == "personalized"

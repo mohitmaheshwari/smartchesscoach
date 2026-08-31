@@ -1,0 +1,160 @@
+{
+  "_meta": {
+    "snapshot_id": "verified_puzzle_detector_corpus_2026-08-30",
+    "database": "production chess_coach",
+    "method": "Full read-only aggregate over stored analysis and puzzle pools; python-chess legality checks; zero Stockfish calls",
+    "privacy": "No users, games, moves, FENs, PGNs, captions, credentials, or free-form production text",
+    "reproduce": "backend/scripts/measure_verified_puzzle_detector_corpus.py",
+    "role": "Derived decision evidence only; not a canonical chess or curriculum source"
+  },
+  "source_counts": {
+    "games": 14404,
+    "games_with_pgn": 14404,
+    "game_analyses": 13744,
+    "move_observations": 432223
+  },
+  "stored_analysis": {
+    "documents": 13744,
+    "documents_with_move_evaluations": 13743,
+    "documents_linked_to_source_pgn": 13744,
+    "move_evaluations": 440155,
+    "user_move_evaluations": 436880,
+    "analysis_version_present": 0,
+    "user_field_coverage": {
+      "played_move": 436880,
+      "move_index": 436880,
+      "fen": 436880,
+      "evaluation": 436880,
+      "cp_loss": 436880,
+      "best_move_nonempty": 436820,
+      "pv_after_best_nonempty": 142355,
+      "pv_after_played_nonempty": 142676,
+      "cognitive_gap_nonempty": 61930
+    },
+    "move_field_presence": {
+      "best_move": 440155,
+      "best_move_uci": 433585,
+      "pv_after_best": 433585,
+      "pv_after_played": 433585,
+      "move_uci": 440122,
+      "fen_before": 440155,
+      "fen_after": 440122,
+      "cp_loss": 440155,
+      "eval_before": 440155,
+      "eval_after": 440155,
+      "is_opponent_move": 261389,
+      "is_user_move": 6537
+    },
+    "move_role_flags": {
+      "is_opponent_move_false": 261389,
+      "is_user_move_false": 3275,
+      "is_user_move_true": 3262,
+      "legacy_implicit_user": 172229
+    },
+    "user_cognitive_gap": {
+      "missing": 374950,
+      "piece_safety": 18070,
+      "king_safety": 14976,
+      "missed_tactic": 10336,
+      "endgame_technique": 6814,
+      "opening_knowledge": 6523,
+      "tactical_oversight": 5211
+    }
+  },
+  "move_observations_v16plus": {
+    "total": 160645,
+    "schema_versions": {"16": 149886, "17": 10759},
+    "missed_patterns": {
+      "piece_safety": 5497,
+      "king_safety": 3558,
+      "missed_tactic": 2592,
+      "opening_knowledge": 1976,
+      "endgame_technique": 1165,
+      "tactical_oversight": 1110,
+      "piece_activity": 800,
+      "pawn_structure": 291,
+      "calculation_depth": 112
+    },
+    "named_subtypes": {
+      "small_slip": 2243,
+      "tactical_seq_loss": 1810,
+      "unverified_hint": 1241,
+      "missed_generic_tactic": 1193,
+      "ignored_king_attack": 1191,
+      "generic_oversight": 1092,
+      "simple_hang": 909,
+      "generic_endgame_slip": 780,
+      "missed_pin": 347,
+      "quiet_blunder": 272,
+      "generic_structure_slip": 269,
+      "weakened_shelter": 252,
+      "missed_fork": 212,
+      "passed_pawn_ignored": 186,
+      "missed_skewer": 151,
+      "tempo_wasted_by_repeat": 147,
+      "missed_discovered_attack": 117,
+      "king_in_center": 83,
+      "piece_parked_on_start": 51,
+      "early_flank_pawn_move": 35,
+      "threat_ignored": 35,
+      "passive_king_in_endgame": 19,
+      "isolated_pawn_created": 19,
+      "ignored_forcing_threat": 5,
+      "overlooked_immediate_reply": 5,
+      "doubled_pawn_created": 3,
+      "generic_calc_gap": 3
+    },
+    "applied_tactical_patterns_total": 1390
+  },
+  "puzzle_pools": {
+    "community_puzzles": {
+      "total": 11560,
+      "approval": {"true": 11433, "false": 127},
+      "with_fen": 11560,
+      "valid_fen": 11560,
+      "with_source_game_id": 11560,
+      "source_game_with_pgn": 11560,
+      "with_answer": 10964,
+      "legal_answer": 10964,
+      "repeated_positions": 2,
+      "conflicting_answer_positions": 2,
+      "labels": {
+        "missed_tactic": 4090,
+        "piece_safety": 3121,
+        "calculation_depth": 2149,
+        "king_safety": 839,
+        "endgame_technique": 529,
+        "opening_knowledge": 518,
+        "tactical_oversight": 155,
+        "endgame_rule_of_square": 133,
+        "piece_activity": 20,
+        "pawn_structure": 4,
+        "endgame_opposition": 2
+      }
+    },
+    "community_training_positions": {
+      "total": 38122,
+      "approval": {"missing": 38122},
+      "with_fen": 38122,
+      "valid_fen": 38122,
+      "with_answer": 38122,
+      "legal_answer": 38122,
+      "source_game_with_pgn": 37776,
+      "source_session": 346,
+      "duplicate_same_answer_rows": 2565,
+      "repeated_positions": 2005,
+      "conflicting_answer_positions": 30,
+      "labels": {
+        "hanging_piece": 10762,
+        "king_safety": 6335,
+        "missed_threat": 5902,
+        "tactical": 5319,
+        "pin": 4805,
+        "tactical_miss": 2491,
+        "calculation_depth": 2231,
+        "tactical_oversight": 198,
+        "piece_safety": 79
+      }
+    }
+  }
+}

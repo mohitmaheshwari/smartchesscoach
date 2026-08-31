@@ -5627,8 +5627,8 @@
             "why_good": "Flexible - prepares for many systems"
           },
           "Nc3": {
-            "idea": "Develop and protect c4",
-            "why_good": "Supports e4 later"
+            "idea": "Develop and add pressure to d5",
+            "why_good": "Controls d5 and supports an e4 expansion later"
           }
         }
       },
@@ -7103,7 +7103,8 @@
     "difficulty": "beginner",
     "summary": "Opening played in 188 games.",
     "from_games": true,
-    "game_count": 188
+    "game_count": 188,
+    "foundation_key": "kings_pawn_opening"
   },
   "kings_pawn_opening_kings_knigh": {
     "name": "Kings Pawn Opening Kings Knight Variation",
@@ -7111,7 +7112,8 @@
     "difficulty": "beginner",
     "summary": "Opening played in 166 games.",
     "from_games": true,
-    "game_count": 166
+    "game_count": 166,
+    "foundation_key": "kings_pawn_opening"
   },
   "caro_kann_defense": {
     "name": "Caro Kann Defense",
@@ -7224,9 +7226,57 @@
     "name": "Kings Pawn Opening",
     "color": "white",
     "difficulty": "intermediate",
-    "summary": "Opening played in 54 games.",
+    "summary": "Build a sound open-game position: claim the center, develop with purpose, and make your king safe before starting an attack.",
     "from_games": true,
-    "game_count": 54
+    "game_count": 54,
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bc4",
+      "Nf6",
+      "d3",
+      "Bc5",
+      "O-O",
+      "O-O"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Claim the center and open paths for the queen and light-square bishop."
+      },
+      "e5": {
+        "idea": "Meet White in the center and keep both bishops free."
+      },
+      "Nf3": {
+        "idea": "Develop a knight, control d4 and e5, and prepare to castle."
+      },
+      "Nc6": {
+        "idea": "Defend e5 while developing a knight toward the center."
+      },
+      "Bc4": {
+        "idea": "Develop the bishop toward f7, the pawn protected only by Black's king."
+      },
+      "Nf6": {
+        "idea": "Develop, attack e4, and move closer to castling."
+      },
+      "d3": {
+        "idea": "Protect e4 and open the c1 bishop without closing the position."
+      },
+      "Bc5": {
+        "idea": "Develop the bishop toward f2 and prepare to castle."
+      },
+      "O-O": {
+        "idea": "Move the king away from the center and connect a rook to the game."
+      }
+    },
+    "white_plan": "Finish development, use c3 and d4 to challenge the center, and check what Black attacks before choosing an aggressive move.",
+    "black_plan": "Finish development, keep e5 defended, and answer White's d4 break without leaving a piece loose.",
+    "common_learnings": [
+      "Develop pieces while doing a second job: attack a pawn, defend a pawn, or prepare castling.",
+      "An early attack is not urgent; a safe king and completed development make the attack stronger.",
+      "Before every forcing move, check captures and attacks against all of your pieces."
+    ]
   },
   "caro_kann_defense_2_nf3_d5_3_e": {
     "name": "Caro Kann Defense 2.Nf3 d5 3.exd5 cxd5",
@@ -7274,7 +7324,8 @@
     "difficulty": "intermediate",
     "summary": "Opening played in 39 games.",
     "from_games": true,
-    "game_count": 39
+    "game_count": 39,
+    "foundation_key": "van_t_kruijs_opening"
   },
   "kings_gambit_declined_queens_k": {
     "name": "Kings Gambit Declined Queens Knight Defense 3.Nf3",
@@ -7465,9 +7516,52 @@
     "name": "Queens Pawn Opening Chigorin Variation",
     "color": "black",
     "difficulty": "intermediate",
-    "summary": "Opening played in 32 games.",
+    "summary": "Develop the queen's knight before c4, support an early e4 center, and learn how Black challenges it without trapping the light-square bishop.",
     "from_games": true,
-    "game_count": 32
+    "game_count": 32,
+    "main_line": [
+      "d4",
+      "d5",
+      "Nc3",
+      "Nf6",
+      "Bg5",
+      "e6",
+      "e4",
+      "Be7"
+    ],
+    "move_ideas": {
+      "d4": {
+        "idea": "Claim central space and open the c1 bishop."
+      },
+      "d5": {
+        "idea": "Match White's center and stop e4 for the moment."
+      },
+      "Nc3": {
+        "idea": "Develop the knight and add support for the e4 pawn push."
+      },
+      "Nf6": {
+        "idea": "Develop toward the center and increase control of e4."
+      },
+      "Bg5": {
+        "idea": "Develop the bishop and make the f6 knight less free to move."
+      },
+      "e6": {
+        "idea": "Support d5 and prepare to develop the dark-square bishop."
+      },
+      "e4": {
+        "idea": "Build the two-pawn center that Nc3 was preparing."
+      },
+      "Be7": {
+        "idea": "Break the pressure on the knight and prepare to castle."
+      }
+    },
+    "white_plan": "Use Nc3 to support e4, develop the dark-square bishop actively, and be ready to protect the center after Black challenges it.",
+    "black_plan": "Attack White's center with c5 or e5 after development, and avoid blocking the light-square bishop without a plan to free it.",
+    "common_learnings": [
+      "Nc3 supports an e4 center but temporarily blocks the c-pawn.",
+      "Black should challenge White's center instead of allowing both central pawns to stand untested.",
+      "Ask which pawn break will free your least active bishop."
+    ]
   },
   "bishops_opening_berlin_defense": {
     "name": "Bishops Opening Berlin Defense",
@@ -7491,7 +7585,8 @@
     "difficulty": "intermediate",
     "summary": "Opening played in 31 games.",
     "from_games": true,
-    "game_count": 31
+    "game_count": 31,
+    "foundation_key": "kings_pawn_opening"
   },
   "scotch_game_3_exd4_4_nxd4_nxd4": {
     "name": "Scotch Game 3...exd4 4.Nxd4 Nxd4 5.Qxd4",
@@ -7513,9 +7608,60 @@
     "name": "Van t Kruijs Opening",
     "color": "white",
     "difficulty": "intermediate",
-    "summary": "Opening played in 28 games.",
+    "summary": "After the quiet first move e3, build a flexible center with c4 and d4 and develop quickly enough that Black cannot take all the central space.",
     "from_games": true,
-    "game_count": 28
+    "game_count": 28,
+    "main_line": [
+      "e3",
+      "e5",
+      "c4",
+      "d6",
+      "Nc3",
+      "Nf6",
+      "Nf3",
+      "g6",
+      "d4",
+      "Bg7"
+    ],
+    "move_ideas": {
+      "e3": {
+        "idea": "Open the light-square bishop and keep the choice of a central pawn setup."
+      },
+      "e5": {
+        "idea": "Take central space before White has committed the d-pawn."
+      },
+      "c4": {
+        "idea": "Attack d5 and prepare to challenge Black's center from the side."
+      },
+      "d6": {
+        "idea": "Support e5 and keep the center steady while pieces develop."
+      },
+      "Nc3": {
+        "idea": "Develop toward the center and add pressure to d5 and e4."
+      },
+      "Nf6": {
+        "idea": "Develop, watch e4, and prepare to castle."
+      },
+      "Nf3": {
+        "idea": "Develop another piece and prepare to castle before opening the center."
+      },
+      "g6": {
+        "idea": "Prepare the bishop for g7, where it can watch the long diagonal."
+      },
+      "d4": {
+        "idea": "Claim central space now that both knights can support the fight."
+      },
+      "Bg7": {
+        "idea": "Develop the bishop toward the center and prepare to castle."
+      }
+    },
+    "white_plan": "Use c4 and d4 to contest the center, develop both knights, and avoid spending several moves on pawns while pieces remain at home.",
+    "black_plan": "Use the extra central space, complete development, and challenge d4 before White's setup becomes comfortable.",
+    "common_learnings": [
+      "A quiet first move is playable, but it does not remove the need to fight for the center.",
+      "If the opponent takes more space, attack the base of the pawn chain rather than pushing random pawns.",
+      "Count developed pieces after the opening; a flexible setup is only useful when the pieces join the game."
+    ]
   },
   "center_game_accepted_normal_va": {
     "name": "Center Game Accepted Normal Variation",
@@ -7523,7 +7669,8 @@
     "difficulty": "intermediate",
     "summary": "Opening played in 27 games.",
     "from_games": true,
-    "game_count": 27
+    "game_count": 27,
+    "foundation_key": "center_game"
   },
   "bishops_opening_2_nc6": {
     "name": "Bishops Opening 2...Nc6",
@@ -7609,9 +7756,68 @@
     "name": "Center Game",
     "color": "white",
     "difficulty": "intermediate",
-    "summary": "Opening played in 22 games.",
+    "summary": "Open the center with d4, recapture with the queen, and learn to develop while Black gains a move by attacking that queen.",
     "from_games": true,
-    "game_count": 22
+    "game_count": 22,
+    "main_line": [
+      "e4",
+      "e5",
+      "d4",
+      "exd4",
+      "Qxd4",
+      "Nc6",
+      "Qe3",
+      "Nf6",
+      "Nc3",
+      "Bb4",
+      "Bd2",
+      "O-O"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Claim the center and open paths for the queen and bishop."
+      },
+      "e5": {
+        "idea": "Meet White in the center and keep both bishops free."
+      },
+      "d4": {
+        "idea": "Challenge e5 immediately and open the center."
+      },
+      "exd4": {
+        "idea": "Accept the challenge and make White decide how to recover the pawn."
+      },
+      "Qxd4": {
+        "idea": "Recover the pawn, knowing the queen will have to answer a developing attack."
+      },
+      "Nc6": {
+        "idea": "Develop a knight while attacking the queen."
+      },
+      "Qe3": {
+        "idea": "Move the queen to safety while keeping support on e4."
+      },
+      "Nf6": {
+        "idea": "Develop and attack e4 before White has completed development."
+      },
+      "Nc3": {
+        "idea": "Defend e4 and bring a new piece toward the center."
+      },
+      "Bb4": {
+        "idea": "Develop with pressure on the c3 knight and the king behind it."
+      },
+      "Bd2": {
+        "idea": "Break the pressure and prepare to develop the queenside."
+      },
+      "O-O": {
+        "idea": "Move the king away from the open center and bring a rook closer to play."
+      }
+    },
+    "white_plan": "Recover the d4 pawn, move the queen only when attacked, and complete development before trying to use the open lines.",
+    "black_plan": "Develop while attacking the exposed queen, pressure e4, and make the king safe before the center opens further.",
+    "common_learnings": [
+      "Bringing the queen out early is a cost only when the opponent can develop by attacking it.",
+      "After Qxd4 Nc6, choose a queen square that protects e4 and does not block another piece.",
+      "An open center makes king safety more urgent for both players."
+    ]
   },
   "queens_gambit_accepted_3_nf3": {
     "name": "Queens Gambit Accepted 3.Nf3",

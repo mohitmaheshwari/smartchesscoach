@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   RotateCcw,
   Home,
-  Eye,
   Lightbulb,
   Brain,
   Dumbbell,
@@ -116,9 +115,10 @@ const MissionRunner = ({ user }) => {
   
   // Drill interaction state
   const [showHint, setShowHint] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
   const [selectedMove, setSelectedMove] = useState(null);
   const [feedback, setFeedback] = useState(null); // "correct" | "incorrect" | null
+  const [answerMove, setAnswerMove] = useState(null);
+  const [submittingMove, setSubmittingMove] = useState(false);
   
   // Timer
   const [startTime, setStartTime] = useState(null);
@@ -163,6 +163,13 @@ const MissionRunner = ({ user }) => {
         if (posRes.ok) {
           const posData = await posRes.json();
           setPositions(posData.positions || []);
+          setMission((current) => current ? ({
+            ...current,
+            focus_pattern: posData.focus_pattern || current.focus_pattern,
+            focus_label: posData.focus_label || current.focus_label,
+            micro_protocol: posData.micro_protocol || current.micro_protocol,
+            goal: posData.goal || current.goal,
+          }) : current);
         }
         setPositionsLoading(false);
       }
@@ -173,73 +180,64 @@ const MissionRunner = ({ user }) => {
     }
   };
 
-  const handleStartDrill = () => {
+  const handleStartDrill = async () => {
+    if (!sessionId) {
+      try {
+        const response = await fetch(`${API}/missions/${missionId}/start`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const started = await response.json();
+        setSessionId(started.session_id);
+      } catch (err) {
+        setError("Could not start this mission");
+        return;
+      }
+    }
     setPhase("drill");
     setStartTime(Date.now());
     setCurrentStep(0);
     setShowHint(false);
-    setShowAnswer(false);
     setFeedback(null);
+    setAnswerMove(null);
   };
 
-  const handleMoveSelect = (move) => {
-    if (feedback) return; // Already answered
+  const handleMoveSelect = async (moveData) => {
+    if (feedback || submittingMove) return;
     
     const currentPosition = positions[currentStep];
     if (!currentPosition) return;
-    
-    const isCorrect = move === currentPosition.best_move;
-    setSelectedMove(move);
-    
-    // Update score
-    const newScore = {
-      ...score,
-      attempted: score.attempted + 1,
-      correct: score.correct + (isCorrect ? 1 : 0),
-    };
-    setScore(newScore);
-    
-    // Record step to backend
-    recordStep(isCorrect);
-    
-    // Delay setting feedback to allow board animation to complete
-    setTimeout(() => {
-      setFeedback(isCorrect ? "correct" : "incorrect");
-    }, 300);
-  };
-
-  const handleShowAnswer = () => {
-    setShowAnswer(true);
-    // Count as incorrect if they needed to see answer
-    if (!feedback) {
-      setFeedback("incorrect");
-      setScore({
-        ...score,
-        attempted: score.attempted + 1,
-      });
-      recordStep(false);
-    }
-  };
-
-  const recordStep = async (correct) => {
+    const playedUci = `${moveData.from || ""}${moveData.to || ""}${moveData.promotion || ""}`.toLowerCase();
+    if (playedUci.length < 4) return;
+    setSelectedMove(moveData.san);
+    setSubmittingMove(true);
     try {
-      await fetch(`${API}/missions/${missionId}/step`, {
+      const response = await fetch(`${API}/missions/${missionId}/attempt`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          step_type: "drill_result",
-          payload: {
-            step_index: currentStep,
-            is_correct: correct,
-            time_taken_ms: Date.now() - startTime,
-            position_id: positions[currentStep]?.position_id,
-            used_hint: showHint,
-          },
+          puzzle_id: currentPosition.puzzle_id,
+          played_uci: playedUci,
+          time_taken_ms: Date.now() - startTime,
+          used_hint: showHint,
         }),
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const grade = await response.json();
+      setScore((current) => ({
+        ...current,
+        attempted: current.attempted + 1,
+        correct: current.correct + (grade.correct ? 1 : 0),
+      }));
+      setAnswerMove(grade.best_move_san || null);
+      setFeedback(grade.correct ? "correct" : "incorrect");
     } catch (err) {
-      console.error("Failed to record step:", err);
+      console.error("Failed to grade mission move:", err);
+      setSelectedMove(null);
+    } finally {
+      setSubmittingMove(false);
     }
   };
 
@@ -247,33 +245,36 @@ const MissionRunner = ({ user }) => {
     const totalSteps = positions.length || mission?.goal?.target || 5;
     
     if (currentStep + 1 >= totalSteps) {
-      handleComplete(score);
+      handleComplete();
     } else {
       setCurrentStep(currentStep + 1);
       setShowHint(false);
-      setShowAnswer(false);
       setFeedback(null);
       setSelectedMove(null);
+      setAnswerMove(null);
     }
   };
 
-  const handleComplete = async (finalScore) => {
-    setPhase("complete");
-    
+  const handleComplete = async () => {
     try {
       const res = await fetch(`${API}/missions/${missionId}/complete`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score: finalScore }),
+        body: JSON.stringify({}),
       });
       
       if (res.ok) {
         const data = await res.json();
         setCompletionResult(data);
+        if (data.score) setScore(data.score);
+        setPhase("complete");
+      } else {
+        throw new Error(`HTTP ${res.status}`);
       }
     } catch (err) {
       console.error("Failed to complete mission:", err);
+      setError("The server could not verify mission completion");
     }
   };
 
@@ -296,8 +297,8 @@ const MissionRunner = ({ user }) => {
     }
     
     // Show best move in green if showing answer or correct
-    if (showAnswer || feedback === "correct") {
-      const bestArrow = sanToArrow(pos.best_move, pos.fen, "green");
+    if (feedback && answerMove) {
+      const bestArrow = sanToArrow(answerMove, pos.fen, "green");
       if (bestArrow) arrows.push(bestArrow);
     }
     
@@ -359,7 +360,9 @@ const MissionRunner = ({ user }) => {
   const protocolSteps = mission.micro_protocol || [];
   const totalSteps = positions.length || mission.goal?.target || 5;
   const threshold = mission.goal?.success_threshold || Math.ceil(totalSteps * 0.8);
-  const passed = score.correct >= threshold;
+  const passed = completionResult
+    ? completionResult.result === "pass"
+    : score.correct >= threshold;
   const currentPosition = positions[currentStep];
 
   return (
@@ -514,7 +517,7 @@ const MissionRunner = ({ user }) => {
                     userColor={currentPosition.fen?.includes(" w ") ? "white" : "black"}
                     interactive={!feedback}
                     expectedMoves={[]}
-                    onUserMove={(moveData) => handleMoveSelect(moveData.san)}
+                    onUserMove={handleMoveSelect}
                     customArrows={getArrows()}
                   />
                 </div>
@@ -553,7 +556,7 @@ const MissionRunner = ({ user }) => {
                           {feedback === "correct" ? "Correct!" : "Not quite"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Best move: <span className="font-mono font-bold">{currentPosition.best_move}</span>
+                          Best move: <span className="font-mono font-bold">{answerMove || "revealed after grading"}</span>
                         </p>
                       </div>
                     </div>
@@ -573,15 +576,6 @@ const MissionRunner = ({ user }) => {
                     >
                       <Lightbulb className="w-4 h-4 mr-2" />
                       {showHint ? "Hide Hint" : "Show Hint"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleShowAnswer}
-                      className="flex-1"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Show Answer
                     </Button>
                   </>
                 ) : (
@@ -682,14 +676,14 @@ const MissionRunner = ({ user }) => {
               </Card>
 
               {/* Reward message */}
-              {completionResult?.message && (
+              {completionResult?.coach_message && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
                   className="p-4 rounded-lg bg-muted/50 text-sm"
                 >
-                  {completionResult.message.text}
+                  {completionResult.coach_message}
                 </motion.div>
               )}
 

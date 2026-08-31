@@ -21,7 +21,32 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 
+from services.verified_puzzle_admission import AdmissionStatus
+from services.verified_puzzle_builder import build_imported_game_verdict
+
 logger = logging.getLogger(__name__)
+
+
+def _verified_challenge(game: Dict, move_evaluation: Dict) -> Optional[Dict]:
+    """Return a public challenge identity only when stored evidence verifies.
+
+    The answer deliberately stays out of this payload. The central training
+    attempt endpoint reconstructs the same game move and grades it server-side.
+    """
+    verdict = build_imported_game_verdict(
+        game=game,
+        move_evaluation=move_evaluation,
+        broad_category=move_evaluation.get("cognitive_gap") or None,
+    )
+    if verdict.status == AdmissionStatus.QUARANTINE:
+        return None
+    move_number = move_evaluation.get("move_number")
+    game_id = game.get("game_id")
+    if game_id in (None, "") or move_number in (None, ""):
+        return None
+    return {
+        "puzzle_id": f"{game_id}_m{move_number}",
+    }
 
 
 async def get_user_top_openings(db, user_id: str, limit: int = 5) -> List[Dict]:
@@ -60,7 +85,11 @@ async def get_user_top_openings(db, user_id: str, limit: int = 5) -> List[Dict]:
 
 
 async def generate_walkthrough(
-    db, user_id: str, opening_name: Optional[str] = None, call_llm_func=None
+    db,
+    user_id: str,
+    opening_name: Optional[str] = None,
+    call_llm_func=None,
+    include_stored_narrative: bool = False,
 ) -> Dict:
     """
     Generate a guided opening walkthrough from the user's actual games.
@@ -154,11 +183,22 @@ async def generate_walkthrough(
         # Determine step type
         if is_user_move and cp_loss >= 150:
             step["type"] = "mistake"
-            step["best_move"] = best_move
-            step["best_move_uci"] = ev.get("best_move_uci", "")
             step["move_uci"] = ev.get("move_uci", "")
-            step["idea"] = _get_mistake_idea(cp_loss, best_move, phase)
-            step["is_challenge"] = True  # Player should try to find the right move
+            challenge = _verified_challenge(best_game, ev)
+            step["is_challenge"] = challenge is not None
+            if challenge:
+                step.update(challenge)
+                step["idea"] = (
+                    "This move changed the game. Recheck every legal move before "
+                    "you compare your answer with the coach's line."
+                )
+            else:
+                # Preserve the personalized moment as guided review, but never
+                # turn incomplete evidence into a scored puzzle or move claim.
+                step["idea"] = (
+                    "This was an important opening decision. It needs evidence "
+                    "repair before the coach can score it as a puzzle."
+                )
         elif is_user_move and cp_loss >= 80:
             step["type"] = "inaccuracy"
             step["best_move"] = best_move
@@ -189,7 +229,7 @@ async def generate_walkthrough(
         for m in opening_mistakes[:2]:
             key_lessons.append({
                 "move_number": m["move_number"],
-                "what_happened": f"You played {m['move_san']} but {m.get('best_move', '?')} was better.",
+                "what_happened": f"Your move {m['move_san']} changed the position sharply.",
                 "why": m["idea"],
             })
 
@@ -200,13 +240,15 @@ async def generate_walkthrough(
     llm_narrative = None
     game_id = best_game.get("game_id", "")
 
-    cached = await db.opening_walkthroughs.find_one(
-        {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "llm_narrative": 1}
-    )
+    cached = None
+    if include_stored_narrative:
+        cached = await db.opening_walkthroughs.find_one(
+            {"game_id": game_id, "user_id": user_id},
+            {"_id": 0, "llm_narrative": 1}
+        )
     if cached and cached.get("llm_narrative"):
         llm_narrative = cached["llm_narrative"]
-    elif call_llm_func:
+    elif include_stored_narrative and call_llm_func:
         llm_narrative = await _generate_walkthrough_narrative(
             chosen["name"], steps, user_color, result, opponent, call_llm_func
         )
@@ -307,7 +349,10 @@ def _generate_remember_lines(opening_name: str, steps: List[Dict], user_color: s
 
     if mistakes:
         first_mistake = mistakes[0]
-        lines.append(f"At move {first_mistake['move_number']}, play {first_mistake.get('best_move', '?')} instead of {first_mistake['move_san']}.")
+        lines.append(
+            f"At move {first_mistake['move_number']}, pause before committing to "
+            f"{first_mistake['move_san']} and compare every legal candidate."
+        )
 
     if not mistakes:
         lines.append("Your opening play was clean. Focus on having a plan after the opening ends.")
