@@ -73,6 +73,29 @@ def _flags(monkeypatch):
     monkeypatch.delenv("COACHING_CONTEXT_V1_ENABLED", raising=False)
     monkeypatch.delenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", raising=False)
     monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+    # These tests exercise the cross-surface contract after a detector has
+    # been promoted. Production simple_hang is deliberately Shadow now, so
+    # grant only this synthetic fixture Plan authority inside this test file.
+    import services.detector_quality as quality
+    real_is_authorized = quality.is_authorized
+    real_can_influence = quality.can_influence
+    test_quality_id = "gap:piece_safety:simple_hang"
+    monkeypatch.setattr(
+        quality,
+        "is_authorized",
+        lambda quality_id, surface: (
+            True if quality_id == test_quality_id
+            else real_is_authorized(quality_id, surface)
+        ),
+    )
+    monkeypatch.setattr(
+        quality,
+        "can_influence",
+        lambda quality_id, surface: (
+            True if quality_id == test_quality_id
+            else real_can_influence(quality_id, surface)
+        ),
+    )
 
 
 def _run(awaitable):
@@ -199,7 +222,9 @@ def test_unknown_primary_fails_closed_even_when_global_quality_gate_is_off(monke
 
     assert context["state"] == "no_focus"
     assert context["primary_focus"] is None
-    assert context["rollout"]["reason"] == "focus_not_plan_authorized"
+    # The lower-level focus reader already removes unauthorized documents, so
+    # this layer sees the same safe shape as a user with no active focus.
+    assert context["rollout"]["reason"] == "enabled"
 
 
 def test_missing_instruction_is_evidence_pending_not_invented(monkeypatch):

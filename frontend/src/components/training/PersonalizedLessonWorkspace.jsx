@@ -97,6 +97,8 @@ export default function PersonalizedLessonWorkspace({
   contentKind,
   contentId,
   reviewMode = false,
+  variation = "",
+  mode = "",
 }) {
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -122,6 +124,8 @@ export default function PersonalizedLessonWorkspace({
             content_kind: contentKind,
             content_id: contentId,
             review: reviewMode,
+            variation: variation || undefined,
+            mode: mode || undefined,
           }),
         });
         const payload = await response.json();
@@ -136,7 +140,7 @@ export default function PersonalizedLessonWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [contentKind, contentId, reviewMode]);
+  }, [contentKind, contentId, reviewMode, variation, mode]);
 
   const pause = async () => {
     if (session?.session_id) {

@@ -28,9 +28,9 @@ from services.concept_detectors.registry import all_detectors
 from services.detector_quality import (
     QualityGrade,
     QualitySurface,
-    can_influence,
     concept_quality_id,
     grade_for,
+    is_authorized,
 )
 
 # Detectors beyond the documented 3-arg contract (board_before, move,
@@ -54,7 +54,13 @@ from services.detector_quality import (
 # history has to be threaded in explicitly, the same way move_number
 # and opening_name already are.
 _EXTRA_KWARG_CACHE: dict = {}
-_EXTRA_KWARGS = ("move_number", "opening_name", "move_history_san")
+_EXTRA_KWARGS = (
+    "move_number",
+    "opening_name",
+    "move_history_san",
+    "best_move_san",
+    "best_move_uci",
+)
 
 
 def _extra_kwargs_accepted(detector) -> set:
@@ -73,6 +79,8 @@ def run_detectors_for_move(
     move_number: Optional[int] = None,
     opening_name: Optional[str] = None,
     move_history_san: Optional[List[str]] = None,
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
     include_shadow: bool = False,
 ) -> List[Tuple[str, str]]:
     """Run every registered detector against a move.
@@ -105,11 +113,18 @@ def run_detectors_for_move(
                 kwargs["opening_name"] = opening_name
             if "move_history_san" in accepted:
                 kwargs["move_history_san"] = move_history_san
+            if "best_move_san" in accepted:
+                kwargs["best_move_san"] = best_move_san
+            if "best_move_uci" in accepted:
+                kwargs["best_move_uci"] = best_move_uci
             verdict = detector(board_before, move, user_color, **kwargs)
         except Exception:
             # Detector bugs must not poison the move pipeline.
             continue
-        if not include_shadow and not can_influence(
+        # Player mastery always fails closed. The legacy rollout switch used by
+        # caption experiments must never let a Shadow detector write learning
+        # evidence. Offline replay opts in explicitly with include_shadow=True.
+        if not include_shadow and not is_authorized(
             quality_id, QualitySurface.MASTERY
         ):
             continue

@@ -12,6 +12,21 @@ import json
 import os
 from typing import Optional, Dict, List
 
+
+def _variation_count(record) -> int:
+    """Read one JSON variation row without assuming tuples survive JSON."""
+    if isinstance(record, (list, tuple)) and len(record) >= 2:
+        try:
+            return int(record[1] or 0)
+        except (TypeError, ValueError):
+            return 0
+    if isinstance(record, dict):
+        try:
+            return int(record.get("games", record.get("count", 0)) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
 class OpeningVariationResolver:
     def __init__(self):
         self.game_to_base = {}
@@ -67,7 +82,7 @@ class OpeningVariationResolver:
                 "is_exact_match": is_exact,
                 "variation_count": len(variations) if isinstance(variations, list) else len(variations),
                 "game_count": sum(
-                    v[1] if isinstance(v, tuple) else v.get("count", 0)
+                    _variation_count(v)
                     for v in (variations if isinstance(variations, list) else variations.values())
                 )
             }
@@ -94,9 +109,9 @@ class OpeningVariationResolver:
 
         result = []
         for var in variations:
-            if isinstance(var, tuple):
+            if isinstance(var, (list, tuple)) and len(var) >= 2:
                 name, count = var
-                result.append({"variation": name, "games": count})
+                result.append({"variation": name, "games": _variation_count(var)})
             elif isinstance(var, dict):
                 result.append(var)
 

@@ -21,7 +21,6 @@ import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic
 import ReviewQueue from "@/pages/ReviewQueue";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
-import TrainingNew from "@/pages/TrainingNew";  // Used by /coach and /focus routes (renamed from aliased `Training` for clarity)
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Canonical training page (all /training/* routes)
 import SkillDrill from "@/pages/SkillDrill";  // Drill positions for an Engine 2 skill (detector-graded)
 import MotifDrill from "@/pages/MotifDrill";  // Drill positions for motif weaknesses (pin/fork/skewer)
@@ -47,7 +46,7 @@ import AdminAuthoring from "@/pages/AdminAuthoring";
 import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
-import EndgameLesson from "@/pages/EndgameLesson";
+import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
 import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
 
 // V1 Plateau Breaker Mode (Enforced Learning)
@@ -239,12 +238,12 @@ function AppRouter() {
       } />
       <Route path="/coach" element={
         <ProtectedRoute>
-          {({ user }) => <TrainingNew user={user} />}
+          {() => <Navigate to="/training?weakness=current" replace />}
         </ProtectedRoute>
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          {({ user }) => <TrainingNew user={user} />}
+          {() => <Navigate to="/training?weakness=current" replace />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
@@ -410,7 +409,7 @@ function AppRouter() {
       } />
       <Route path="/endgames/:categoryKey/:lessonKey" element={
         <ProtectedRoute>
-          {({ user }) => <EndgameLesson user={user} />}
+          {() => <VerifiedEndgameLesson />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

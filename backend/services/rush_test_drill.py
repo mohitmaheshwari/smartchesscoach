@@ -56,22 +56,23 @@ def shape_rush_drill_item(obs: Dict[str, Any], best: Optional[Dict[str, Any]]) -
 
     best = best or {}
     best_uci = best.get("best_move_uci") or best.get("best_move")
-    best_san = best.get("best_move")  # move_evaluations store SAN in `best_move`
     if not best_uci:
         # No gradable correct answer → skip (never ship an ungradeable drill).
         return None
 
+    game_id = obs.get("game_id")
+    move_number = obs.get("move_number")
+    if not game_id or move_number is None:
+        return None
+
     return {
         "drill_type": "rush_test",
+        "puzzle_id": f"{game_id}_m{move_number}",
         "fen": fen,
-        "solution_uci": best_uci,
-        "solution_san": best_san,
-        "played_uci": obs.get("move_uci"),
         "time_spent_seconds": obs.get("time_spent_seconds"),
         "time_left_seconds": obs.get("time_left_seconds"),
-        "cp_loss": obs.get("cp_loss"),
-        "game_id": obs.get("game_id"),
-        "move_number": obs.get("move_number"),
+        "game_id": game_id,
+        "move_number": move_number,
         "prompt": "You rushed here last time. Take your time — find the best move.",
         "teaching": rush_teaching_line(obs.get("time_spent_seconds"), obs.get("cp_loss")),
     }
@@ -98,9 +99,23 @@ async def build_rush_test_drill(db, user_id: str, limit: int = 5) -> List[Dict[s
         fen = obs.get("fen_before")
         if not fen or fen in seen_fens:
             continue
-        best = await _best_move_for(db, obs.get("game_id"), obs.get("move_number"))
+        best = await _best_move_for(
+            db, user_id, obs.get("game_id"), obs.get("move_number")
+        )
         item = shape_rush_drill_item(obs, best)
         if item:
+            # The item is served only when the shared verifier can rebuild its
+            # answer from this user's stored game + analysis.  The result is
+            # deliberately not merged into the public row: it contains the
+            # frozen answer and proof fields that must stay server-side.
+            from services.verified_puzzle_runtime import resolve_verified_puzzle
+            resolved = await resolve_verified_puzzle(
+                db,
+                item["puzzle_id"],
+                user_id=user_id,
+            )
+            if not resolved:
+                continue
             seen_fens.add(fen)
             items.append(item)
         if len(items) >= limit:
@@ -108,13 +123,18 @@ async def build_rush_test_drill(db, user_id: str, limit: int = 5) -> List[Dict[s
     return items
 
 
-async def _best_move_for(db, game_id: Optional[str], move_number: Optional[int]) -> Optional[Dict[str, Any]]:
+async def _best_move_for(
+    db,
+    user_id: str,
+    game_id: Optional[str],
+    move_number: Optional[int],
+) -> Optional[Dict[str, Any]]:
     """Find the engine best move for a given (game, move_number) from the stored
     analysis, so the drill has a gradable correct answer."""
     if not game_id or move_number is None:
         return None
     ga = await db.game_analyses.find_one(
-        {"game_id": game_id},
+        {"game_id": game_id, "user_id": user_id},
         {"stockfish_analysis.move_evaluations": 1},
     )
     if not ga:

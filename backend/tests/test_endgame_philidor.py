@@ -46,14 +46,23 @@ def test_drop_rook_to_first_rank_is_applied():
     2 files from the e-pawn (within the rear-guard window)."""
     board2 = chess.Board(SETUP_PHILIDOR)
     move2 = chess.Move.from_uci("c6c1")
-    assert detect_endgame_philidor_application(board2, move2, chess.BLACK) == "applied"
+    assert detect_endgame_philidor_application(
+        board2, move2, chess.BLACK, best_move_uci=move2.uci()
+    ) == "applied"
 
 
 def test_drop_to_second_rank_is_applied():
     """Drop to c2 also counts — within attacker's first 2 ranks."""
     board2 = chess.Board(SETUP_PHILIDOR)
     move2 = chess.Move.from_uci("c6c2")
-    assert detect_endgame_philidor_application(board2, move2, chess.BLACK) == "applied"
+    assert detect_endgame_philidor_application(
+        board2, move2, chess.BLACK, best_move_uci=move2.uci()
+    ) == "applied"
+
+
+def test_rear_check_geometry_without_stored_best_is_not_credit():
+    board, move = _b(SETUP_PHILIDOR, "Rc1")
+    assert detect_endgame_philidor_application(board, move, chess.BLACK) is None
 
 
 def test_drop_far_from_pawn_does_not_apply():

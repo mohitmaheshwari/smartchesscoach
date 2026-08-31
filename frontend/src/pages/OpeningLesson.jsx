@@ -31,8 +31,6 @@ import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 
-import InteractivePractice from "@/components/openings/InteractivePractice";
-import TrapPractice from "@/components/openings/TrapPractice";
 import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { API } from "@/App";
@@ -398,12 +396,20 @@ const OpeningLesson = () => {
     }
   };
   
-  // Trap practice - use TrapPractice component
   const startTrapPractice = useCallback((trap) => {
-    setSelectedTrap(trap);
-    setTrapPracticeMode(true);
-    setActiveTab("traps");
-  }, []);
+    const contentId = trap?.content_id;
+    if (!contentId) {
+      toast.error("This trap needs a verified lesson before practice.");
+      return;
+    }
+    const params = new URLSearchParams({
+      personalized: "1",
+      kind: "trap",
+      lesson: contentId,
+      mode: "avoidance",
+    });
+    navigate(`/training?${params.toString()}`);
+  }, [navigate]);
   
   const closeTrapPractice = useCallback(() => {
     setSelectedTrap(null);
@@ -485,6 +491,12 @@ const OpeningLesson = () => {
       
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {opening.lesson_relation === "family_foundation" && (
+          <div className="mb-4 rounded-lg border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+            You reached <span className="font-medium">{opening.recognized_opening_name}</span> in your game.
+            This lesson teaches the verified <span className="font-medium">{opening.name}</span> foundation it belongs to.
+          </div>
+        )}
         {/* Variation Selector */}
         {opening.variations?.length > 1 && (
           <div className="mb-4" data-testid="variation-selector">
@@ -684,29 +696,37 @@ const OpeningLesson = () => {
             <div>
               
               <TabsContent value="practice" className="space-y-4">
-                <InteractivePractice
-                  openingKey={openingKey}
-                  openingName={opening.name}
-                  userColor={opening.color}
-                />
+                <Card>
+                  <CardContent className="p-6">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Your coach will ask for the move and the reason behind it,
+                      remember when you use help, and check the line again without help.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          personalized: "1",
+                          kind: "opening",
+                          lesson: opening.content_id || openingKey,
+                        });
+                        if (selectedVariation) params.set("variation", selectedVariation);
+                        navigate(`/training?${params.toString()}`);
+                      }}
+                    >
+                      Practise this opening with your coach
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
               </TabsContent>
               
               <TabsContent value="traps" className="space-y-4">
                 {opening.traps?.length > 0 ? (
                   <>
-                    {/* Active Trap Practice Mode */}
-                    {selectedTrap && trapPracticeMode ? (
-                      <TrapPractice
-                        trap={selectedTrap}
-                        openingKey={openingKey}
-                        onClose={closeTrapPractice}
-                        onComplete={onTrapComplete}
-                      />
-                    ) : (
-                      /* Trap List */
-                      <>
+                    <>
                         <div className="text-sm text-muted-foreground mb-2">
-                          Click a trap to practice executing it against the coach.
+                          Learn to spot and stop the trap first. Your coach will
+                          then help you understand how the attacking line works.
                         </div>
                         {opening.traps.map((trap, i) => (
                           <Card 
@@ -753,8 +773,7 @@ const OpeningLesson = () => {
                             </CardContent>
                           </Card>
                         ))}
-                      </>
-                    )}
+                    </>
                   </>
                 ) : (
                   <Card className="border-dashed">

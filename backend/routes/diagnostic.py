@@ -15,7 +15,6 @@ Endpoints (all under /api/diagnostic, prefixed by api_router in server.py):
                                      (user opted out; we'll re-offer later)
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
@@ -36,6 +35,8 @@ from services.diagnostic_service import (
     TIER_RATING,
     VERDICT_SYMBOL,
     DiagnosticGrader,
+    DIAGNOSTIC_GRADE_VERSION,
+    UnverifiedDiagnosticMove,
     next_tier,
     concept_done,
     concept_level,
@@ -123,7 +124,12 @@ _TIER_FALLBACK = {
 
 async def _v2_pool_ready() -> bool:
     try:
-        return await db.diagnostic_pool.count_documents({}) >= V2_POOL_MIN
+        return await db.diagnostic_pool.count_documents({
+            "pool_version": 2,
+            "grade_version": DIAGNOSTIC_GRADE_VERSION,
+            "grade_fingerprint": {"$exists": True},
+            "step_grades.0": {"$exists": True},
+        }) >= V2_POOL_MIN
     except Exception:
         return False
 
@@ -401,15 +407,15 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
     is_multi = _v2_is_multi_move(puzzle)
     solution_uci = moves[move_idx * 2] if move_idx * 2 < len(moves) else moves[0]
 
-    # Grade (Stockfish eval is blocking — keep it off the event loop).
     try:
-        graded = await asyncio.to_thread(
-            _grader._grade_move_consequence,
+        graded = _grader._grade_move_consequence(
             req.user_move_san,
             puzzle,
             fen_current,
             solution_uci,
         )
+    except UnverifiedDiagnosticMove as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -622,23 +628,39 @@ async def record_attempt(
             detail=f"Puzzle order mismatch. Expected {expected_id}, got {req.puzzle_id}.",
         )
 
-    puzzle = await db.community_puzzles.find_one(
-        {"_id": _to_objid(req.puzzle_id)},
-        {"_id": 0, "fen": 1, "best_move_san": 1, "issue_type": 1,
-         "difficulty": 1},
+    from services.verified_puzzle_runtime import (
+        grade_resolved_puzzle,
+        resolve_verified_puzzle,
+    )
+
+    puzzle = await resolve_verified_puzzle(
+        db,
+        req.puzzle_id,
+        user_id=user.user_id,
     )
     if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found.")
+        raise HTTPException(
+            status_code=409,
+            detail="This diagnostic position needs verification before use.",
+        )
 
-    is_correct = _check_move(
-        puzzle["fen"], req.user_move_san, puzzle["best_move_san"]
-    )
+    try:
+        board = chess.Board(puzzle["fen"])
+        played = DiagnosticGrader.parse_user_move(board, req.user_move_san)
+        if played is None:
+            raise ValueError("illegal move")
+    except (KeyError, ValueError):
+        raise HTTPException(status_code=400, detail="That move is not legal here.")
+    graded = grade_resolved_puzzle(puzzle, played.uci())
+    if graded.get("quality") == "invalid":
+        raise HTTPException(status_code=409, detail=graded.get("feedback"))
+    is_correct = bool(graded.get("correct"))
     attempt_doc = {
         "puzzle_id": req.puzzle_id,
         "issue_type": puzzle.get("issue_type"),
         "difficulty": puzzle.get("difficulty"),
         "user_move_san": req.user_move_san,
-        "best_move_san": puzzle["best_move_san"],
+        "best_move_san": graded.get("best_move_san"),
         "is_correct": is_correct,
         "attempted_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -672,7 +694,7 @@ async def record_attempt(
         return {
             "status": "complete",
             "is_correct": is_correct,
-            "best_move_san": puzzle["best_move_san"],
+            "best_move_san": graded.get("best_move_san"),
             "diagnosis": diagnosis,
         }
 
@@ -688,7 +710,7 @@ async def record_attempt(
     return {
         "status": "in_progress",
         "is_correct": is_correct,
-        "best_move_san": puzzle["best_move_san"],
+        "best_move_san": graded.get("best_move_san"),
         "current_index": attempts_so_far + 2,
         "total": len(puzzle_ids),
         "puzzle": _strip_puzzle_solution(next_puzzle) if next_puzzle else None,

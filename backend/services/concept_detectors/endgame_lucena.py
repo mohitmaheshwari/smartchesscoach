@@ -37,11 +37,18 @@ from typing import Optional
 
 import chess
 
+from services.concept_detectors.evidence import (
+    stored_best_matches,
+    stored_best_move,
+)
+
 
 def detect_endgame_lucena_application(
     board_before: chess.Board,
     move: chess.Move,
     user_color: chess.Color,
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
 ) -> Optional[str]:
     if board_before.turn != user_color:
         return None
@@ -55,30 +62,35 @@ def detect_endgame_lucena_application(
         return None
 
     bridge_rank = 3 if user_color == chess.WHITE else 4
-    # Adjacent file — the file the defender's rook tends to be on.
-    # For c-pawn, bridge file is e (skipping d which is between).
-    bridge_file_offset = +2 if pawn_file < 4 else -2
-    bridge_file = pawn_file + bridge_file_offset
-    if not (0 <= bridge_file <= 7):
-        return None
-    bridge_square = chess.square(bridge_file, bridge_rank)
 
     moved = board_before.piece_at(move.from_square)
     if moved is None:
         return None
 
-    # Classic bridge-builder: rook move to the bridge square.
+    # Classic bridge-builder: a non-capturing rook lift to the player's
+    # fourth rank. The file varies with the real position; stored Stockfish
+    # truth decides which legal fourth-rank lift is correct.
     if (
         moved.piece_type == chess.ROOK
-        and move.to_square == bridge_square
+        and chess.square_rank(move.to_square) == bridge_rank
+        and not board_before.is_capture(move)
     ):
-        return "applied"
+        return "applied" if stored_best_matches(
+            board_before, move, best_move_san, best_move_uci
+        ) else None
 
     # Otherwise — if bridge-building rook move was legal but skipped,
     # missed.
-    for cand_sq in board_before.pieces(chess.ROOK, user_color):
-        cand = chess.Move(cand_sq, bridge_square)
-        if cand in board_before.legal_moves:
+    best = stored_best_move(board_before, best_move_san, best_move_uci)
+    if best:
+        best_piece = board_before.piece_at(best.from_square)
+        if (
+            best_piece
+            and best_piece.color == user_color
+            and best_piece.piece_type == chess.ROOK
+            and chess.square_rank(best.to_square) == bridge_rank
+            and not board_before.is_capture(best)
+        ):
             return "missed"
     return None
 

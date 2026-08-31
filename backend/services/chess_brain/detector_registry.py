@@ -42,6 +42,7 @@ from services.detector_quality import (
 from services.board_concepts import newly_trapped_pieces
 from services.board_state_describer import king_safety_state
 from services.caption_facts import legally_hanging_pieces
+from services.concept_detectors.evidence import require_nonnegative_cp_loss
 from services.game_phase_service import GamePhaseCalculator
 
 logger = logging.getLogger(__name__)
@@ -655,7 +656,7 @@ def detect_hanging_piece(
         if cp_loss_raw is None or not best_move:
             return result
         try:
-            cp_loss = abs(int(cp_loss_raw))
+            cp_loss = require_nonnegative_cp_loss(cp_loss_raw)
         except (TypeError, ValueError):
             return result
         if cp_loss < CAUSAL_MISTAKE_MIN_CP_LOSS:
@@ -765,7 +766,7 @@ def detect_trapped_piece(
         if cp_loss_raw is None:
             return result
         try:
-            cp_loss = abs(int(cp_loss_raw))
+            cp_loss = require_nonnegative_cp_loss(cp_loss_raw)
         except (TypeError, ValueError):
             return result
 
@@ -1589,7 +1590,7 @@ def detect_king_safety(
         if cp_loss_raw is None or not best_move:
             return result
         try:
-            cp_loss = abs(int(cp_loss_raw))
+            cp_loss = require_nonnegative_cp_loss(cp_loss_raw)
         except (TypeError, ValueError):
             return result
         if cp_loss < CAUSAL_MISTAKE_MIN_CP_LOSS:

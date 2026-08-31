@@ -1,0 +1,134 @@
+{
+  "_meta": {
+    "snapshot_id": "current_detector_fires_2026-08-30",
+    "database": "production chess_coach",
+    "method": "Full deterministic PGN replay through deployed detectors joined to existing stored cp_loss; zero Stockfish and LLM calls",
+    "privacy": "Aggregate counts only; no users, games, moves, FENs, or PGNs",
+    "reproduce": "backend/scripts/measure_current_detector_fires.py",
+    "elapsed_seconds": 271.971,
+    "deployed_commit": "82055c02a743eba1258d67054e5a94c6e524715f",
+    "role": "Derived detector-quality evidence only; not a detector authorization source"
+  },
+  "totals": {
+    "games_replayed": 13744,
+    "user_moves_replayed": 436736,
+    "detector_exceptions": 0,
+    "stored_user_move_records_indexed": 436880
+  },
+  "opening_recognition": {
+    "recognized_games": 10189,
+    "unrecognized_games": 3555,
+    "distinct_opening_keys": 64
+  },
+  "authorization": {
+    "shadow_but_currently_allowed_to_influence": [
+      "defend_fried_liver",
+      "defend_scholars_mate",
+      "endgame_lucena",
+      "endgame_opposition",
+      "endgame_philidor",
+      "mate_kq_vs_k",
+      "mate_kr_vs_k",
+      "opening_play",
+      "trap_detection"
+    ],
+    "disabled": ["endgame_rule_of_square"],
+    "reason_shadow_influences": "DETECTOR_QUALITY_GATE_ENFORCED is default-off"
+  },
+  "detectors": {
+    "defend_fried_liver": {
+      "fires": 68, "games": 65, "applied": 44, "missed": 24,
+      "applied_cp": {
+        "median": 0.0, "p75": 20.0,
+        "buckets": {"0_25": 36, "26_50": 2, "101_200": 5, "over_200": 1}
+      },
+      "missed_cp": {
+        "median": 69.5, "p75": 126.0,
+        "buckets": {"26_50": 12, "51_100": 3, "101_200": 4, "over_200": 5}
+      }
+    },
+    "defend_scholars_mate": {
+      "fires": 166, "games": 133, "applied": 159, "missed": 7,
+      "applied_cp": {
+        "median": 0.0, "p75": 8.0,
+        "buckets": {"0_25": 125, "26_50": 8, "51_100": 18, "101_200": 1, "over_200": 7}
+      },
+      "missed_cp": {
+        "median": 9952.0, "p75": 10028.0,
+        "buckets": {"over_200": 7}
+      }
+    },
+    "endgame_lucena": {
+      "fires": 0, "games": 0, "applied": 0, "missed": 0
+    },
+    "endgame_opposition": {
+      "fires": 1041, "games": 340, "applied": 544, "missed": 497,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 458, "26_50": 23, "51_100": 14, "101_200": 12, "over_200": 37}
+      },
+      "missed_cp": {
+        "median": 0.0, "p75": 30.0,
+        "buckets": {"0_25": 363, "26_50": 30, "51_100": 15, "101_200": 18, "over_200": 71}
+      }
+    },
+    "endgame_philidor": {
+      "fires": 11, "games": 4, "applied": 11, "missed": 0,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 10, "26_50": 1}
+      }
+    },
+    "endgame_rule_of_square": {
+      "fires": 424, "games": 104, "applied": 371, "missed": 53,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 334, "26_50": 6, "51_100": 4, "over_200": 27}
+      },
+      "missed_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 47, "101_200": 1, "over_200": 5}
+      }
+    },
+    "mate_kq_vs_k": {
+      "fires": 273, "games": 194, "applied": 183, "missed": 90,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 183}
+      },
+      "missed_cp": {
+        "median": 10.0, "p75": 10.0,
+        "buckets": {"0_25": 76, "26_50": 6, "51_100": 7, "over_200": 1}
+      }
+    },
+    "mate_kr_vs_k": {
+      "fires": 172, "games": 130, "applied": 123, "missed": 49,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 123}
+      },
+      "missed_cp": {
+        "median": 10.0, "p75": 20.0,
+        "buckets": {"0_25": 39, "26_50": 4, "51_100": 6}
+      }
+    },
+    "opening_play": {
+      "fires": 4071, "games": 3912, "applied": 4071, "missed": 0,
+      "applied_cp": {
+        "median": 5.0, "p75": 7.0,
+        "buckets": {"0_25": 3568, "26_50": 362, "51_100": 138, "101_200": 3}
+      }
+    },
+    "trap_detection": {
+      "fires": 234, "games": 151, "applied": 136, "missed": 98,
+      "applied_cp": {
+        "median": 0.0, "p75": 0.0,
+        "buckets": {"0_25": 136}
+      },
+      "missed_cp": {
+        "median": 0.0, "p75": 21.0,
+        "buckets": {"0_25": 82, "26_50": 9, "51_100": 4, "101_200": 3}
+      }
+    }
+  }
+}

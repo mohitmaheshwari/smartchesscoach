@@ -61,7 +61,9 @@ def test_seizing_opposition_is_applied():
     # Same file e, 2 apart. Opposition. APPLIED.
     fen = "8/8/8/4k3/8/3K4/4P3/8 w - - 0 1"
     board, move = _b(fen, "Ke3")
-    assert detect_endgame_opposition_application(board, move, chess.WHITE) == "applied"
+    assert detect_endgame_opposition_application(
+        board, move, chess.WHITE, best_move_uci=move.uci()
+    ) == "applied"
 
 
 # ─── missed ──────────────────────────────────────────────────────────────────
@@ -71,7 +73,15 @@ def test_missing_opposition_when_king_move_available_is_missed():
     # instead plays Kc3 (sideways shuffle).
     fen = "8/8/8/4k3/8/3K4/4P3/8 w - - 0 1"
     board, move = _b(fen, "Kc3")
-    assert detect_endgame_opposition_application(board, move, chess.WHITE) == "missed"
+    assert detect_endgame_opposition_application(
+        board, move, chess.WHITE, best_move_uci="d3e3"
+    ) == "missed"
+
+
+def test_opposition_geometry_without_stored_best_is_not_mastery_evidence():
+    fen = "8/8/8/4k3/8/3K4/4P3/8 w - - 0 1"
+    board, move = _b(fen, "Ke3")
+    assert detect_endgame_opposition_application(board, move, chess.WHITE) is None
 
 
 # ─── not graded ──────────────────────────────────────────────────────────────

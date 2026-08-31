@@ -66,6 +66,7 @@ REAL_FOCUS_DOC = {
     "moments_page_topic": "piece_safety",
     "runners_up": [],
     "rating_band": "intermediate",
+    "detector_quality_id": "gap:piece_safety:simple_hang",
     "instruction_id": "inst_abc123",
     "instruction_text": "Before every move, ask: can this piece be taken?",
     "instruction_version": 1,
@@ -75,6 +76,28 @@ REAL_FOCUS_DOC = {
 @pytest.fixture(autouse=True)
 def _clean_flag_env(monkeypatch):
     monkeypatch.delenv("PWC_SURVIVING_INSTRUCTION_ENABLED", raising=False)
+    # Exercise the rollout contract with a synthetic promoted detector while
+    # production simple_hang remains Shadow pending its sealed blind packet.
+    import services.detector_quality as quality
+    real_is_authorized = quality.is_authorized
+    real_can_influence = quality.can_influence
+    test_quality_id = "gap:piece_safety:simple_hang"
+    monkeypatch.setattr(
+        quality,
+        "is_authorized",
+        lambda quality_id, surface: (
+            True if quality_id == test_quality_id
+            else real_is_authorized(quality_id, surface)
+        ),
+    )
+    monkeypatch.setattr(
+        quality,
+        "can_influence",
+        lambda quality_id, surface: (
+            True if quality_id == test_quality_id
+            else real_can_influence(quality_id, surface)
+        ),
+    )
     yield
 
 

@@ -74,6 +74,8 @@ export default function PrescribedTraining() {
   const personalizedKind = searchParams.get("kind") || "";
   const personalizedId = searchParams.get("lesson") || "";
   const personalizedReview = searchParams.get("review") === "1";
+  const personalizedVariation = searchParams.get("variation") || "";
+  const personalizedMode = searchParams.get("mode") || "";
   // Weakness can come from either:
   //   1. ?weakness=X query param (canonical: /training?weakness=X)
   //   2. :pattern URL segment (legacy: /training/pattern/:pattern)
@@ -114,6 +116,8 @@ export default function PrescribedTraining() {
   // user gets a puzzle wrong. Carries position_summary, played_critique,
   // best_move_idea, takeaway. Cleared on next puzzle / retry.
   const [missCoaching, setMissCoaching] = useState(null);
+  const [verifiedAnswer, setVerifiedAnswer] = useState(null);
+  const [evaluationError, setEvaluationError] = useState("");
 
   // Unified caption from game_decryption_v5 pipeline (for puzzles from user games)
   const { caption: unifiedCaption, loading: unifiedCaptionLoading, fetchCaption } = useMoveCaption();
@@ -391,17 +395,9 @@ export default function PrescribedTraining() {
     setUserMove(move.san);
     const userMoveUci = `${sourceSquare}${targetSquare}${move.promotion || ""}`;
 
-    // Binary-match fallback — used if the graduated evaluator fails. Keeps
-    // the puzzle usable even when Stockfish is slow/unavailable.
-    const solution = currentPuzzle.solution || [];
-    const binaryCorrect =
-      move.san === solution[0] ||
-      move.san === currentPuzzle.solution_san ||
-      userMoveUci === solution[0] ||
-      move.lan?.toLowerCase() === solution[0]?.toLowerCase();
-
-    // Optimistic UI: mark evaluating while Stockfish runs (~100-200ms).
+    // Mark evaluating while the server resolves the frozen verified answer.
     setPuzzleState("evaluating");
+    setEvaluationError("");
 
     let result = null;
     try {
@@ -410,26 +406,32 @@ export default function PrescribedTraining() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          fen: currentPuzzle.fen,
+          puzzle_id: currentPuzzle.puzzle_id || currentPuzzle.game_id,
           played_uci: userMoveUci,
-          known_best_san: currentPuzzle.solution_san || solution[0] || "",
-          // Pass the puzzle's themes (or the focus-session pattern) so the coach
-          // frames the miss as "you missed the fork" — not a generic "stronger
-          // move here". Drives the attacker-vs-defender role in miss coaching.
-          themes: currentPuzzle.themes || (patternFromUrl ? [patternFromUrl] : []),
         }),
       });
       if (res.ok) {
         result = await res.json();
       }
     } catch (_e) {
-      // Network error — we'll fall through to binary-match fallback.
+      result = null;
     }
 
     // If the evaluator returned something usable, route by quality.
     if (result && result.quality && result.quality !== "invalid") {
-      const bestSan = result.best_move_san || currentPuzzle.solution_san || "";
+      const bestSan = result.best_move_san || "";
       const feedback = result.feedback || "";
+      setVerifiedAnswer({ san: bestSan, uci: result.best_move_uci || "" });
+
+      try {
+        await recordAttempt(currentPuzzle, result.quality, userMoveUci);
+      } catch (_e) {
+        game.undo();
+        setGame(new Chess(game.fen()));
+        setPuzzleState("thinking");
+        setEvaluationError("I couldn't save and verify that move. Please try it again.");
+        return false;
+      }
 
       // Capture rich miss-coaching when the backend included it.
       // Cleared automatically on next puzzle / retry. Only meaningful
@@ -445,46 +447,35 @@ export default function PrescribedTraining() {
         setSolvedCount((prev) => prev + 1);
         setStreak((prev) => prev + 1);
         setEncouragement(feedback || getEncouragement("correct", streak + 1));
-        recordAttempt(currentPuzzle, true, result.quality);
       } else if (result.is_acceptable) {
         // Good enough to advance, but name the sharper move. No streak credit —
         // strict lesson: the specific tactic mattered.
         setPuzzleState("acceptable");
         setSolvedCount((prev) => prev + 1);
         setEncouragement(feedback || `Solid. ${bestSan} was sharper.`);
-        recordAttempt(currentPuzzle, true, result.quality);
       } else {
         setPuzzleState("incorrect");
         setStreak(0);
         setEncouragement(feedback || getEncouragement("incorrect"));
         game.undo();
         setGame(new Chess(game.fen()));
-        recordAttempt(currentPuzzle, false, result.quality);
       }
       return true;
     }
 
-    // Fallback: evaluator unavailable → binary-match.
-    if (binaryCorrect) {
-      setPuzzleState("correct");
-      setSolvedCount((prev) => prev + 1);
-      setStreak((prev) => prev + 1);
-      setEncouragement(getEncouragement("correct", streak + 1));
-      recordAttempt(currentPuzzle, true);
-    } else {
-      setPuzzleState("incorrect");
-      setStreak(0);
-      setEncouragement(getEncouragement("incorrect"));
-      game.undo();
-      setGame(new Chess(game.fen()));
-      recordAttempt(currentPuzzle, false);
-    }
-    return true;
+    // Verification is required. A network or server failure never becomes a
+    // guessed success in the browser.
+    game.undo();
+    setGame(new Chess(game.fen()));
+    setPuzzleState("thinking");
+    setEvaluationError("I couldn't verify that move just now. Please try again.");
+    return false;
   };
   
   // Record puzzle attempt. `quality` is optional — set when the graduated
   // evaluator ran; omitted on binary-match fallback.
-  const recordAttempt = async (puzzle, solved, quality = null) => {
+  const recordAttempt = async (puzzle, quality, playedUci) => {
+    const solved = quality === "best" || quality === "excellent";
     try {
       track(ANALYTICS_EVENTS.FUNNEL_TRAINING_SOLVE);
       trackCurriculum(ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT, {
@@ -497,20 +488,21 @@ export default function PrescribedTraining() {
         position_index: currentPuzzleIndex,
         is_recommended: Boolean(planId),
       });
-      await fetch(`${API}/training/puzzle-attempt`, {
+      const response = await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id || puzzle.game_id,
-          correct: solved,
           time_taken_ms: 0, // TODO: track time
-          weakness_type: weakness,
-          quality,
+          played_uci: playedUci,
         }),
       });
+      if (!response.ok) throw new Error("attempt was not accepted");
+      return await response.json();
     } catch (e) {
       console.error("Error recording attempt:", e);
+      throw e;
     }
   };
   
@@ -523,6 +515,8 @@ export default function PrescribedTraining() {
       setUserMove(null);
       setShowSolution(false);
       setMissCoaching(null);
+      setVerifiedAnswer(null);
+      setEvaluationError("");
 
       const nextPuzzle = trainingData.puzzles[nextIdx];
       if (nextPuzzle.fen) {
@@ -543,6 +537,8 @@ export default function PrescribedTraining() {
       setUserMove(null);
       setShowSolution(false);
       setMissCoaching(null);
+      setVerifiedAnswer(null);
+      setEvaluationError("");
     }
   };
 
@@ -560,9 +556,25 @@ export default function PrescribedTraining() {
   }, [currentPuzzle?.game_id, currentPuzzle?.move_number, currentPuzzle?.source, puzzleState, fetchCaption]);
   
   // Show solution
-  const revealSolution = () => {
-    setShowSolution(true);
-    setPuzzleState("revealed");
+  const revealSolution = async () => {
+    setEvaluationError("");
+    try {
+      const response = await fetch(`${API}/training/reveal-puzzle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          puzzle_id: currentPuzzle?.puzzle_id || currentPuzzle?.game_id,
+        }),
+      });
+      if (!response.ok) throw new Error("reveal unavailable");
+      const answer = await response.json();
+      setVerifiedAnswer({ san: answer.best_move_san, uci: answer.best_move_uci });
+      setShowSolution(true);
+      setPuzzleState("revealed");
+    } catch (_e) {
+      setEvaluationError("I couldn't load the answer just now. Please try again.");
+    }
   };
   
   if (personalizedLesson) {
@@ -571,6 +583,8 @@ export default function PrescribedTraining() {
         contentKind={personalizedKind}
         contentId={personalizedId}
         reviewMode={personalizedReview}
+        variation={personalizedVariation}
+        mode={personalizedMode}
       />
     );
   }
@@ -620,7 +634,7 @@ export default function PrescribedTraining() {
   const focusName =
     trainingData.coaching_intro?.lesson ||
     (weakness === "current" ? "Your focus" : weakness.replace(/_/g, " "));
-  const solvedMoves = currentPuzzle?.solution_san || currentPuzzle?.solution?.[0];
+  const solvedMoves = verifiedAnswer?.san;
   // The move the coach actually verified and explains. The puzzle's STORED
   // solution can be stale/wrong (it showed "Rd1"/"c3" — illegal for the side to
   // move); the engine-verified best from build_miss_coaching is ground truth.
@@ -801,10 +815,10 @@ export default function PrescribedTraining() {
                     (showSolution || puzzleState === "incorrect")
                       ? (() => {
                           const arrows = [];
-                          if (currentPuzzle.solution?.[0]) {
+                          if (verifiedAnswer?.uci) {
                             arrows.push([
-                              currentPuzzle.solution[0].slice(0, 2),
-                              currentPuzzle.solution[0].slice(2, 4),
+                              verifiedAnswer.uci.slice(0, 2),
+                              verifiedAnswer.uci.slice(2, 4),
                               "green",
                             ]);
                           }
@@ -870,7 +884,11 @@ export default function PrescribedTraining() {
                     ? `From your own game — you had this position and the coach thought you could do better.`
                     : `This puzzle trains ${weakness.replace(/_/g, " ")}. Keep solving similar patterns and the recognition sticks.`)
                 }
-                question={puzzleState === "evaluating" ? "Checking your move…" : socraticQuestion}
+                question={
+                  puzzleState === "evaluating"
+                    ? "Checking your move…"
+                    : evaluationError || socraticQuestion
+                }
                 toMoveLabel={toMoveLabel}
                 missRateText={
                   currentPuzzle?.source !== "your_game" ? currentPuzzle?.miss_rate_text : null

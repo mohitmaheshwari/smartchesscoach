@@ -19,7 +19,14 @@ from __future__ import annotations
 
 import logging
 import random
+import hashlib
+import json
 from typing import Any, Dict, List, Optional
+
+from services.verified_puzzle_admission import (
+    AdmissionStatus,
+    stored_verdict_is_structurally_current,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,19 +89,27 @@ async def _fetch_approved_pool(
             "_id": 1,
             "fen": 1,
             "best_move_san": 1,
+            "best_move_uci": 1,
             "issue_type": 1,
             "difficulty": 1,
             "user_color": 1,
             "opening_name": 1,
             "move_number": 1,
             "cp_loss": 1,
+            "verified_admission": 1,
         },
     )
     async for p in cursor:
         pid = str(p.get("_id"))
         if pid in attempted_ids:
             continue
-        if not p.get("fen") or not p.get("best_move_san"):
+        if (
+            not p.get("fen")
+            or not p.get("best_move_san")
+            or not stored_verdict_is_structurally_current(p)
+            or (p.get("verified_admission") or {}).get("status")
+            == AdmissionStatus.QUARANTINE.value
+        ):
             continue
         p["puzzle_id"] = pid
         p.pop("_id", None)
@@ -489,40 +504,63 @@ def _eval_sign(cp: float) -> int:
     return 0
 
 
-def evaluate_fen_for_solver(fen: str, solver_color: bool, depth: int = 14) -> int:
-    """Blocking Stockfish eval of `fen`, in cp from `solver_color`'s POV,
-    mates mapped via the shared 10000-|m|*10 convention. Callers in async
-    routes must wrap in asyncio.to_thread."""
-    import chess.engine as _chess_engine
-    from config import STOCKFISH_PATH
+DIAGNOSTIC_GRADE_VERSION = "diagnostic_frozen_grades.v1"
 
-    board = _chess.Board(fen)
-    engine = _chess_engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
-    try:
-        engine.configure({"Threads": 1, "Hash": 64})
-        info = engine.analyse(board, _chess_engine.Limit(depth=depth))
-        s = info["score"].pov(solver_color)
-        if s.is_mate():
-            m = s.mate()
-            cp = _MATE_CP_BASE - abs(m) * 10
-            return cp if m > 0 else -cp
-        return s.score() or 0
-    finally:
-        engine.quit()
+
+def classify_diagnostic_eval(
+    solution_eval: int,
+    eval_after: int,
+    puzzle_rating: Optional[int],
+) -> tuple[str, int]:
+    """Classify an offline engine comparison; safe to share with the builder."""
+    cp_loss = int(solution_eval) - int(eval_after)
+    partial_th, missing_th = _grading_thresholds(puzzle_rating)
+    sign_unchanged = _eval_sign(eval_after) >= _eval_sign(solution_eval)
+    if eval_after >= solution_eval - 50 or (
+        sign_unchanged and cp_loss < partial_th
+    ):
+        verdict = "UNDERSTOOD"
+    elif sign_unchanged and cp_loss < missing_th:
+        verdict = "PARTIAL"
+    else:
+        verdict = "MISSING"
+    return verdict, max(0, cp_loss)
+
+
+def diagnostic_grade_fingerprint(puzzle: Dict[str, Any]) -> str:
+    """Bind frozen grades to the exact position, line, rating, and move map."""
+    payload = {
+        "grade_version": puzzle.get("grade_version"),
+        "puzzle_id": puzzle.get("puzzle_id"),
+        "fen": puzzle.get("fen"),
+        "moves": puzzle.get("moves") or [],
+        "puzzle_rating": puzzle.get("puzzle_rating"),
+        "step_grades": puzzle.get("step_grades") or [],
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def frozen_diagnostic_grades_are_current(puzzle: Dict[str, Any]) -> bool:
+    return bool(
+        puzzle.get("grade_version") == DIAGNOSTIC_GRADE_VERSION
+        and puzzle.get("grade_fingerprint")
+        and puzzle.get("grade_fingerprint") == diagnostic_grade_fingerprint(puzzle)
+        and puzzle.get("step_grades")
+    )
+
+
+class UnverifiedDiagnosticMove(ValueError):
+    """The pool has no content-bound offline truth for this legal move."""
 
 
 class DiagnosticGrader:
-    """Grades a diagnostic attempt by consequence.
-
-    eval_fn(fen, solver_color) -> cp  is injectable for tests; defaults
-    to a live Stockfish eval at depth 14.
-    """
-
-    def __init__(self, eval_fn=None, depth: int = 14):
-        self._depth = depth
-        self._eval_fn = eval_fn or (
-            lambda fen, solver: evaluate_fen_for_solver(fen, solver, depth=self._depth)
-        )
+    """Grade solely from content-bound evaluations produced offline."""
 
     # ── move parsing ────────────────────────────────────────────────
 
@@ -570,62 +608,41 @@ class DiagnosticGrader:
             raise ValueError(f"Illegal or unparseable move: {user_move}")
         user_san = board.san(user_mv)
 
-        # Baseline: precomputed multipv on the starting position, or a
-        # live eval of the solution line when mid-walk.
-        if solution_eval_override is not None:
-            solution_eval = solution_eval_override
-        elif fen == puzzle["fen"] and puzzle.get("multipv"):
-            solution_eval = puzzle["multipv"][0]["eval_cp"]
-        else:
-            after_sol = board.copy()
-            after_sol.push(sol_move)
-            solution_eval = self._eval_fn(after_sol.fen(), solver)
-
-        # Exact match: no engine call needed.
-        if user_mv.uci() == solution_uci:
-            return {
-                "verdict": "UNDERSTOOD",
-                "cp_loss": 0,
-                "eval_after": solution_eval,
-                "is_exact": True,
-                "user_move_san": user_san,
-                "solution_san": solution_san,
-                "explanation": self._generate_verdict_explanation(
-                    puzzle, user_san, solution_san, "UNDERSTOOD",
-                    is_exact=True, eval_after=solution_eval, fen=fen,
-                    solution_uci=solution_uci,
-                ),
-            }
-
-        # Consequence: evaluate the position after the user's move.
-        after_user = board.copy()
-        after_user.push(user_mv)
-        if after_user.is_checkmate():
-            eval_after = _MATE_CP_BASE  # user delivered mate — best possible
-        else:
-            eval_after = self._eval_fn(after_user.fen(), solver)
-
-        cp_loss = solution_eval - eval_after
-        partial_th, missing_th = _grading_thresholds(puzzle.get("puzzle_rating"))
-        sign_unchanged = _eval_sign(eval_after) >= _eval_sign(solution_eval)
-
-        if eval_after >= solution_eval - 50 or (sign_unchanged and cp_loss < partial_th):
-            verdict = "UNDERSTOOD"
-        elif sign_unchanged and cp_loss < missing_th:
-            verdict = "PARTIAL"
-        else:
-            verdict = "MISSING"
+        if not frozen_diagnostic_grades_are_current(puzzle):
+            raise UnverifiedDiagnosticMove(
+                "This diagnostic position needs an offline verification refresh."
+            )
+        wanted_fen = " ".join(board.fen().split()[:4])
+        step = next(
+            (
+                item
+                for item in (puzzle.get("step_grades") or [])
+                if " ".join(str(item.get("fen") or "").split()[:4]) == wanted_fen
+                and item.get("solution_uci") == solution_uci
+            ),
+            None,
+        )
+        frozen = (step or {}).get("grade_by_uci", {}).get(user_mv.uci())
+        if not frozen:
+            raise UnverifiedDiagnosticMove(
+                "This legal move is missing from the offline verification map."
+            )
+        is_exact = user_mv.uci() == solution_uci
+        verdict = "UNDERSTOOD" if is_exact else str(frozen.get("verdict"))
+        cp_loss = 0 if is_exact else int(frozen.get("cp_loss") or 0)
+        eval_after = int(frozen.get("eval_after_cp") or 0)
 
         return {
             "verdict": verdict,
-            "cp_loss": max(0, int(cp_loss)),
+            "cp_loss": cp_loss,
             "eval_after": eval_after,
-            "is_exact": False,
+            "is_exact": is_exact,
+            "source": "offline_frozen",
             "user_move_san": user_san,
             "solution_san": solution_san,
             "explanation": self._generate_verdict_explanation(
                 puzzle, user_san, solution_san, verdict,
-                is_exact=False, eval_after=eval_after, fen=fen,
+                is_exact=is_exact, eval_after=eval_after, fen=fen,
                 solution_uci=solution_uci,
             ),
         }

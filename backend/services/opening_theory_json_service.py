@@ -385,6 +385,132 @@ def _derive_guided_tree_steps(opening: Dict) -> List[Dict[str, str]]:
     return steps
 
 
+def get_all_lesson_move_paths(opening_key: str) -> List[List[Dict[str, str]]]:
+    """Return every legal authored lesson branch from the canonical record."""
+    _load_theory()
+    resolved = resolve_opening_key(opening_key)
+    if not resolved:
+        return []
+    from services.curriculum_content_validator import is_content_publishable
+    if not is_content_publishable("openings", resolved):
+        return []
+    opening = _THEORY_DATA[resolved]
+
+    def legal_identity(path: List[Dict[str, str]]) -> tuple[str, ...]:
+        board = chess.Board()
+        identity: List[str] = []
+        for step in path:
+            try:
+                move = board.parse_san(str(step.get("move") or ""))
+            except ValueError:
+                return ()
+            identity.append(move.uci())
+            board.push(move)
+        return tuple(identity)
+
+    def deduplicate_legal(paths: List[List[Dict[str, str]]]) -> List[List[Dict[str, str]]]:
+        unique: Dict[tuple[str, ...], List[Dict[str, str]]] = {}
+        for path in paths:
+            identity = legal_identity(path)
+            if path and identity:
+                unique[identity] = path
+        return list(unique.values())
+
+    tree = opening.get("tree") or {}
+    if not isinstance(tree, dict) or not tree:
+        variation_keys = list((opening.get("variations") or {}).keys())
+        candidates = variation_keys or [None]
+        paths = [get_lesson_move_steps(resolved, key) for key in candidates]
+        return deduplicate_legal(paths)
+
+    curriculum_color = str(opening.get("color") or "white").lower()
+    curriculum_turn = chess.WHITE if curriculum_color == "white" else chess.BLACK
+    move_ideas = opening.get("move_ideas") or {}
+    completed: List[List[Dict[str, str]]] = []
+
+    def explanation(node: Dict, move_san: str, opponent: bool) -> str:
+        node = node if isinstance(node, dict) else {}
+        text = (
+            node.get("idea_opponent") if opponent else
+            node.get("right_feedback") or node.get("idea") or node.get("hint")
+        )
+        if not text:
+            text = (move_ideas.get(move_san) or {}).get("idea")
+        return str(text or "").strip()
+
+    def walk(board: chess.Board, node: Dict, steps: List[Dict[str, str]], depth: int) -> None:
+        if depth >= 40 or not isinstance(node, dict):
+            completed.append(steps)
+            return
+        current_board = board.copy(stack=False)
+        current_steps = list(steps)
+        if current_board.turn == curriculum_turn and node.get("next"):
+            move_san = str(node["next"])
+            side = "white" if current_board.turn == chess.WHITE else "black"
+            try:
+                current_board.push_san(move_san)
+            except ValueError:
+                return
+            current_steps.append({
+                "move": move_san,
+                "explanation": explanation(node, move_san, False),
+                "side": side,
+            })
+
+        responses = node.get("responses") or {}
+        if not isinstance(responses, dict) or not responses:
+            completed.append(current_steps)
+            return
+        advanced = False
+        for response_san, child in responses.items():
+            candidate = current_board.copy(stack=False)
+            side = "white" if candidate.turn == chess.WHITE else "black"
+            try:
+                candidate.push_san(str(response_san))
+            except ValueError:
+                continue
+            child_data = child if isinstance(child, dict) else {}
+            walk(
+                candidate,
+                child_data,
+                current_steps + [{
+                    "move": str(response_san),
+                    "explanation": explanation(child_data, str(response_san), True),
+                    "side": side,
+                }],
+                depth + 1,
+            )
+            advanced = True
+        if not advanced:
+            completed.append(current_steps)
+
+    for first_san, first_node in tree.items():
+        board = chess.Board()
+        side = "white" if board.turn == chess.WHITE else "black"
+        try:
+            board.push_san(str(first_san))
+        except ValueError:
+            continue
+        node_data = first_node if isinstance(first_node, dict) else {}
+        walk(board, node_data, [{
+            "move": str(first_san),
+            "explanation": explanation(
+                node_data, str(first_san), side != curriculum_color
+            ),
+            "side": side,
+        }], 0)
+
+    # Mature lessons can contain both an interactive response tree and
+    # separately authored variations.  Those variations carry additional
+    # decisions and must be available to replay and proof generation too.
+    for variation_key in (opening.get("variations") or {}):
+        variation_path = get_lesson_move_steps(resolved, variation_key)
+        if variation_path:
+            completed.append(variation_path)
+
+    return deduplicate_legal(completed)
+
+
 def _build_critical_position_index(opening_data: Dict, full_moves: List[str], offset: int) -> Dict[int, Dict]:
     """
     Map critical positions to move indices in the lesson sequence.

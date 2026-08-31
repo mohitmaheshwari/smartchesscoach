@@ -46,8 +46,27 @@ def test_every_published_canonical_lesson_passes_workspace_contract():
         kind: sum(item["kind"] == kind for item in descriptors)
         for kind in ("opening", "trap", "endgame")
     }
-    assert counts == {"opening": 37, "trap": 23, "endgame": 20}
+    assert counts == {"opening": 41, "trap": 36, "endgame": 20}
     for descriptor in descriptors:
+        result = validate_personalized_lesson_descriptor(descriptor)
+        assert result.publishable, result.as_dict()
+
+
+def test_every_personalized_trap_family_passes_workspace_contract():
+    from services.engine2_skill_builder import (
+        get_skill_node,
+        list_skills_by_kind,
+        reload_tree,
+    )
+
+    reload_tree()
+    for skill_id in list_skills_by_kind("trap_set"):
+        node = get_skill_node(skill_id)
+        descriptor = _resolve(
+            "trap_set",
+            node["content_ref"],
+            {"skill_id": skill_id},
+        )
         result = validate_personalized_lesson_descriptor(descriptor)
         assert result.publishable, result.as_dict()
 

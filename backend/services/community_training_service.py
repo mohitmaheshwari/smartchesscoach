@@ -21,6 +21,16 @@ from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from services.puzzle_extraction_service import (
+    verified_issue_type,
+    verified_puzzle_admission_enforced,
+    verdict_serves_pattern,
+)
+from services.verified_puzzle_admission import AdmissionStatus
+from services.verified_puzzle_builder import build_imported_game_verdict
+from services.verified_puzzle_admission import stored_verdict_is_structurally_current
+from services.verified_puzzle_runtime import grade_resolved_puzzle
+
 logger = logging.getLogger(__name__)
 
 # Minimum cp_loss to qualify as a training position
@@ -28,6 +38,35 @@ MIN_CP_LOSS = 150
 
 # Rating range for "similar" players (e.g., +/- 200)
 RATING_RANGE = 200
+
+
+def _servable_positions(positions: List[Dict], requested_pattern: Optional[str], limit: int) -> List[Dict]:
+    """Filter after reads because this production collection has unreliable
+    compound/index behavior. Quarantine is never served; current-verdict
+    enforcement remains default-off until the versioned backfill is complete.
+    """
+    result = []
+    for position in positions:
+        if position.get("approved") is False:
+            continue
+        pattern = requested_pattern or position.get("pattern_type") or "calculation_depth"
+        if not verdict_serves_pattern(position, pattern):
+            continue
+        result.append(position)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _verified_feed_pattern(pattern: Optional[str]) -> Optional[str]:
+    """Map an unverified recommendation to the closest honest feed family."""
+    if not pattern or not verified_puzzle_admission_enforced():
+        return pattern
+    if pattern in {"piece_safety", "hanging_piece"}:
+        return "piece_safety"
+    if pattern == "calculation_depth":
+        return pattern
+    return "calculation_depth"
 
 
 def classify_pattern_type(issue_type: str, critical_detail: str = "", cognitive_gap: str = "", coaching_focus: str = "") -> str:
@@ -182,13 +221,21 @@ async def extract_training_positions(
             continue
 
         fen = move_data.get("fen_before")
-        user_move = move_data.get("move")
-        best_move = move_data.get("best_move")
+        user_move = move_data.get("move") or move_data.get("move_san") or move_data.get("played_move")
+        best_move = move_data.get("best_move_san") or move_data.get("best_move")
         move_number = move_data.get("move_number")
         eval_before = move_data.get("eval_before", 0) or 0
         eval_after = move_data.get("eval_after", 0) or 0
 
         if not all([fen, user_move, best_move]):
+            continue
+
+        if move_data.get("is_opponent_move") is True or move_data.get("is_user_move") is False:
+            continue
+        try:
+            if (chess.Board(fen).turn == chess.WHITE) != (str(user_color).lower() == "white"):
+                continue
+        except ValueError:
             continue
 
         # ── CONTEXT FILTER: Skip positions where the game was already decided ──
@@ -241,7 +288,15 @@ async def extract_training_positions(
         critical_detail = move_data.get("explanation", "")
         cognitive_gap = move_data.get("cognitive_gap", "")
         coaching_focus = move_data.get("coaching_focus", "")
-        pattern_type = classify_pattern_type(issue_type, critical_detail, cognitive_gap, coaching_focus)
+        legacy_pattern_type = classify_pattern_type(
+            issue_type, critical_detail, cognitive_gap, coaching_focus
+        )
+        verdict = build_imported_game_verdict(
+            game=game,
+            move_evaluation=move_data,
+            broad_category=cognitive_gap or None,
+        )
+        pattern_type = verified_issue_type(verdict)
 
         position_id = f"{game_id}_m{move_number}"
 
@@ -264,6 +319,7 @@ async def extract_training_positions(
             "eval_before_user": user_eval_before,
             "eval_after_user": user_eval_after,
             "pattern_type": pattern_type,
+            "legacy_pattern_type": legacy_pattern_type,
             "moment_tag": moment_tag,
             "difficulty": classify_difficulty(cp_loss),
             "move_number": move_number,
@@ -275,6 +331,13 @@ async def extract_training_positions(
             "source_user_name": user_name,
             "source_user_rating": user_rating,
             "user_color": user_color,
+
+            # The answer and label are admitted from stored analysis only.
+            # No engine or LLM is called while extracting or solving.
+            "pv_after_best": move_data.get("pv_after_best") or [],
+            "pv_after_played": move_data.get("pv_after_played") or [],
+            "verified_admission": verdict.to_document(),
+            "approved": verdict.status != AdmissionStatus.QUARANTINE,
 
             # Stats
             "attempts": 0,
@@ -330,6 +393,7 @@ async def get_training_feed(
     recommended_pattern = None
     if not pattern_filter:
         recommended_pattern = await _pick_priority_pattern(db, user_id)
+        recommended_pattern = _verified_feed_pattern(recommended_pattern)
 
     own_limit = max(2, limit * 2 // 5)  # ~40%
     community_limit = max(0, limit - own_limit)
@@ -344,10 +408,14 @@ async def get_training_feed(
     if solved_ids:
         own_query["position_id"] = {"$nin": list(solved_ids)}
     
+    own_fetch_limit = own_limit * (10 if verified_puzzle_admission_enforced() else 1)
     own_positions = await db.community_training_positions.find(
         own_query,
         {"_id": 0}
-    ).sort("created_at", -1).limit(own_limit).to_list(own_limit)
+    ).sort("created_at", -1).limit(own_fetch_limit).to_list(own_fetch_limit)
+    own_positions = _servable_positions(
+        own_positions, pattern_filter or recommended_pattern, own_limit
+    )
     
     # Tag them
     for pos in own_positions:
@@ -368,10 +436,14 @@ async def get_training_feed(
     if solved_ids:
         community_query["position_id"] = {"$nin": list(solved_ids)}
     
+    community_fetch_limit = community_limit * (10 if verified_puzzle_admission_enforced() else 1)
     community_positions = await db.community_training_positions.find(
         community_query,
         {"_id": 0}
-    ).sort("created_at", -1).limit(community_limit).to_list(community_limit)
+    ).sort("created_at", -1).limit(community_fetch_limit).to_list(community_fetch_limit)
+    community_positions = _servable_positions(
+        community_positions, pattern_filter or recommended_pattern, community_limit
+    )
     
     # If not enough community positions in rating range, widen the search
     if len(community_positions) < community_limit:
@@ -385,10 +457,14 @@ async def get_training_feed(
         if pattern_filter:
             wider_query["pattern_type"] = pattern_filter
         
+        wider_fetch_limit = remaining * (10 if verified_puzzle_admission_enforced() else 1)
         wider_positions = await db.community_training_positions.find(
             wider_query,
             {"_id": 0}
-        ).sort("created_at", -1).limit(remaining).to_list(remaining)
+        ).sort("created_at", -1).limit(wider_fetch_limit).to_list(wider_fetch_limit)
+        wider_positions = _servable_positions(
+            wider_positions, pattern_filter or recommended_pattern, remaining
+        )
         community_positions.extend(wider_positions)
     
     # Tag them
@@ -537,6 +613,40 @@ async def _pick_priority_pattern(db, user_id: str) -> Optional[str]:
     return None
 
 
+def _pv_token(item) -> Optional[str]:
+    if isinstance(item, str):
+        return item.strip() or None
+    if isinstance(item, dict):
+        value = item.get("move") or item.get("uci") or item.get("san")
+        return str(value).strip() if value else None
+    return None
+
+
+def _legal_move_from_token(board: chess.Board, token: str) -> Optional[chess.Move]:
+    try:
+        move = chess.Move.from_uci(token)
+        if move in board.legal_moves:
+            return move
+    except ValueError:
+        pass
+    try:
+        return board.parse_san(token)
+    except ValueError:
+        return None
+
+
+def _first_legal_pv_move(board: chess.Board, stored_pv: List) -> Optional[str]:
+    """Read the next legal move from an already-stored principal variation."""
+    for item in stored_pv:
+        token = _pv_token(item)
+        if not token:
+            continue
+        move = _legal_move_from_token(board, token)
+        if move is not None:
+            return board.san(move)
+    return None
+
+
 async def record_solve_attempt(
     db: AsyncIOMotorDatabase,
     user_id: str,
@@ -554,14 +664,22 @@ async def record_solve_attempt(
     if not position:
         return {"error": "Position not found"}
     
-    # Check if move is correct
-    best_move_san = position["best_move_san"]
-    best_move_uci = position["best_move_uci"]
-    fen = position["fen"]
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    resolved = await resolve_verified_puzzle(db, position_id, user_id=user_id)
+    if not resolved:
+        return {"error": "This position is being checked and is not ready yet."}
+    best_move_san = resolved.get("best_move_san") or position.get("best_move_san") or ""
+    best_move_uci = resolved.get("best_move_uci") or position.get("best_move_uci") or ""
+    fen = resolved.get("fen") or position.get("fen")
+    admission = resolved.get("verified_admission") or {}
+    has_current_verdict = True
+    accepted_moves = set(admission.get("acceptable_moves_uci") or [])
     
     solved = False
     near_miss = False  # Player's move is good (top 2-3) but not THE best
     user_move_uci = None
+    verified_grade = None
 
     try:
         board = chess.Board(fen)
@@ -569,7 +687,7 @@ async def record_solve_attempt(
         try:
             move_obj = board.parse_san(user_move)
             user_move_uci = move_obj.uci()
-        except chess.InvalidMoveError:
+        except (ValueError, AssertionError):
             # Try as UCI
             try:
                 move_obj = chess.Move.from_uci(user_move)
@@ -578,9 +696,18 @@ async def record_solve_attempt(
             except Exception:
                 pass
 
-        # Check if correct (compare both SAN and UCI)
         if user_move_uci:
-            solved = (user_move_uci == best_move_uci) or (user_move == best_move_san)
+            verified_grade = await record_verified_puzzle_attempt(
+                db,
+                user_id=user_id,
+                puzzle_id=position_id,
+                puzzle=resolved,
+                played_uci=user_move_uci,
+                time_taken_ms=max(0, int(time_taken_seconds or 0)) * 1000,
+            )
+            if verified_grade.get("quality") == "invalid":
+                return {"error": verified_grade.get("feedback")}
+            solved = bool(verified_grade.get("correct"))
     except Exception as e:
         logger.warning(f"Error checking move: {e}")
     
@@ -659,121 +786,79 @@ async def record_solve_attempt(
     except Exception as e:
         logger.warning(f"Error computing miss rate: {e}")
     
-    # Generate candidate moves analysis for rich feedback
+    # Build answer cards from the answer set and PV stored during the original
+    # analysis. Never re-run Stockfish while the player is solving.
     candidates = []
     try:
         board = chess.Board(fen)
-        from services.game_decryption_v5_service import _get_stockfish_candidates
-
-        sf_candidates = await _get_stockfish_candidates(board, num_moves=3, depth=14)
-        
-        # Analyze each candidate with explanation
-        if sf_candidates:
-            user_color_bool = board.turn  # whose turn it is = user
-            if user_move_uci:
-                try:
-                    chess.Move.from_uci(user_move_uci)
-                except Exception:
-                    pass
-            
-            for sf in sf_candidates:
-                move_san = sf.get("move", "")
-                eval_cp = sf.get("eval_cp", 0)
-                pv = sf.get("pv", [])
-                is_best = sf.get("is_best", False)
-                
-                # Explain the idea behind this move
-                idea = ""
-                move_type = "engine_choice"
-                try:
-                    from services.game_decryption_v5_service import _explain_move_idea
-                    idea_data = _explain_move_idea(board, move_san, user_color_bool)
-                    if idea_data:
-                        idea = idea_data.get("explanation", "")
-                        move_type = idea_data.get("type", "engine_choice")
-                except Exception:
-                    pass
-                
-                if not idea:
-                    # Use concrete explanation instead of generic
-                    concrete = _build_concrete_explanation(board, move_san)
-                    idea = concrete if concrete else f"{move_san}"
-                
-                candidates.append({
-                    "move": move_san,
-                    "eval_cp": eval_cp,
-                    "idea": idea,
-                    "type": move_type,
-                    "is_best": is_best,
-                    "pv": pv[:3],
-                })
+        ordered_answers = [best_move_uci] + sorted(accepted_moves - {best_move_uci})
+        for answer_uci in ordered_answers:
+            if not answer_uci:
+                continue
+            answer_obj = chess.Move.from_uci(answer_uci)
+            if answer_obj not in board.legal_moves:
+                continue
+            answer_san = board.san(answer_obj)
+            concrete = _build_concrete_explanation(board, answer_san)
+            candidates.append({
+                "move": answer_san,
+                "move_uci": answer_uci,
+                "eval_cp": None,
+                "idea": concrete or (
+                    f"Calculate {answer_san}, then check the opponent's strongest reply."
+                ),
+                "type": "verified_answer",
+                "is_best": answer_uci == best_move_uci,
+                "pv": (position.get("pv_after_best") or [])[:3]
+                if answer_uci == best_move_uci else [],
+            })
     except Exception as e:
-        logger.warning(f"Could not generate candidates: {e}")
-
-    # Check if user's move is a candidate (near miss — good but not best)
-    if not solved and user_move_uci and candidates:
-        try:
-            board_check = chess.Board(fen)
-            user_san = board_check.san(chess.Move.from_uci(user_move_uci))
-            for cand in candidates:
-                if cand["move"] == user_san and not cand["is_best"]:
-                    # User played a top engine move, just not THE best
-                    best_eval = max((c["eval_cp"] for c in candidates if c["is_best"]), default=0)
-                    user_eval = cand["eval_cp"]
-                    eval_diff = abs(best_eval - user_eval)
-                    # If within 50cp of best, it's a near miss (good move)
-                    if eval_diff <= 50:
-                        near_miss = True
-                    break
-        except Exception:
-            pass
+        logger.warning(f"Could not build stored answer cards: {e}")
 
     # Generate WHY explanation tied to the pattern/focus
-    pattern_type = position.get("pattern_type", "tactical")
-    explanation = _get_pattern_explanation(pattern_type, best_move_san, fen, solved or near_miss)
+    pattern_type = position.get("pattern_type", "calculation_depth")
+    explanation = _get_pattern_explanation(
+        pattern_type,
+        best_move_san,
+        fen,
+        solved or near_miss,
+        position.get("pv_after_best") or [],
+    )
 
     # Analyze the user's wrong move — what's bad about it + opponent's punishment
     your_move_analysis = None
     if not solved and not near_miss and user_move_uci:
         try:
-            from services.move_intent_analyzer import analyze_move_intent
             board_copy = chess.Board(fen)
-            user_san = board_copy.san(chess.Move.from_uci(user_move_uci))
-
-            # What your move does
-            intent = analyze_move_intent(fen, user_san, best_move_san, 200)
-
-            # What opponent does after your move
-            board_copy.push(chess.Move.from_uci(user_move_uci))
-            opponent_response = None
-            try:
-                from stockfish_service import StockfishEngine
-                engine = StockfishEngine()
-                engine.start()
-                best_reply = engine.get_best_move(board_copy, depth=12)
-                if best_reply and best_reply.get("move"):
-                    reply_san = board_copy.san(best_reply["move"])
-                    reply_intent = analyze_move_intent(board_copy.fen(), reply_san)
-                    opponent_response = {
-                        "move": reply_san,
-                        "description": reply_intent.description,
-                        "threat": reply_intent.feedback,
-                    }
-                engine.stop()
-            except Exception:
-                pass
+            user_obj = chess.Move.from_uci(user_move_uci)
+            user_san = board_copy.san(user_obj)
+            move_description = _build_concrete_explanation(board_copy, user_san)
+            board_copy.push(user_obj)
+            reply_san = _first_legal_pv_move(
+                board_copy, position.get("pv_after_played") or []
+            )
+            opponent_response = ({
+                "move": reply_san,
+                "description": f"The stored continuation begins with {reply_san}.",
+                "threat": "Calculate this reply before committing to your move.",
+            } if reply_san else None)
 
             your_move_analysis = {
                 "your_move": user_san,
-                "what_it_does": intent.description,
-                "why_bad": intent.feedback,
+                "what_it_does": move_description or f"You played {user_san}.",
+                "why_bad": (
+                    ((verified_grade or {}).get("coaching_feedback") or {}).get("why")
+                    or "That move does not solve the board problem this lesson is testing."
+                ),
                 "opponent_punishes": opponent_response,
             }
         except Exception as e:
             logger.warning(f"User move analysis failed: {e}")
 
-    # Check if this position matches a KNOWN TRAP
-    known_trap = _match_known_trap(fen)
+    # A trap name is shown only after a trap detector and its independent
+    # verifier have earned a specific admission verdict.
+    concept_id = str(admission.get("concept_id") or "")
+    known_trap = _match_known_trap(fen) if "trap" in concept_id else None
 
     # Build side-by-side comparison for wrong answers
     comparison = None
@@ -792,57 +877,22 @@ async def record_solve_attempt(
             ),
         }
 
-    # ── WHY + REMEMBER — LLM-powered, cached per position ──
-    coaching_feedback = None
-    try:
-        # Check cache first — same position + same best move = same explanation
-        cache_key = f"{fen}_{best_move_san}"
-        cached = await db.coaching_feedback_cache.find_one(
-            {"cache_key": cache_key},
-            {"_id": 0, "feedback": 1}
-        )
-        if cached and cached.get("feedback"):
-            coaching_feedback = cached["feedback"]
-            # Add behavior line (user-specific, not cached)
-            if not solved and not near_miss:
-                PATTERN_BEHAVIORS = {
-                    "tactical_miss": "not scanning the board for tactics before moving",
-                    "hanging_piece": "not checking if pieces are protected",
-                    "calculation_depth": "not checking what the opponent will do next",
-                    "piece_safety": "not asking 'is anything I own under attack?'",
-                    "missed_tactic": "not looking for captures, checks, and threats",
-                    "tactical_oversight": "not checking the opponent's reply",
-                    "positional": "moving pieces without a plan",
-                }
-                behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
-                coaching_feedback = {**coaching_feedback, "behavior": f"This happened because you were {behavior_desc}. That's your pattern."}
-            else:
-                coaching_feedback = {**coaching_feedback, "behavior": ""}
-        else:
-            # Generate and cache
-            coaching_feedback = await _generate_coaching_feedback(
-                fen=fen,
-                user_move=user_move,
-                best_move=best_move_san,
-                pattern_type=pattern_type,
-                solved=solved,
-                near_miss=near_miss,
-                your_move_analysis=your_move_analysis,
-                explanation=explanation,
-            )
-            if coaching_feedback:
-                try:
-                    # Cache without the behavior line (that's user-specific)
-                    cache_data = {"why": coaching_feedback.get("why", ""), "remember": coaching_feedback.get("remember", "")}
-                    await db.coaching_feedback_cache.update_one(
-                        {"cache_key": cache_key},
-                        {"$set": {"cache_key": cache_key, "feedback": cache_data, "fen": fen, "best_move": best_move_san}},
-                        upsert=True
-                    )
-                except Exception:
-                    pass
-    except Exception as cf_err:
-        logger.debug(f"Coaching feedback generation failed (non-fatal): {cf_err}")
+    coaching_feedback = (
+        (verified_grade or {}).get("coaching_feedback")
+        if has_current_verdict
+        else None
+    ) or {
+        "why": (explanation or {}).get("why_best") or (explanation or {}).get("move_description") or "",
+        "remember": (explanation or {}).get("lesson") or (
+            "Before you commit, calculate the opponent's strongest legal reply."
+        ),
+        "behavior": (
+            "Name the board clue you used, then look for the same clue in your next game."
+            if solved else
+            "Try the position again and say the opponent's strongest reply before moving."
+        ),
+        "source": "legacy_rollout",
+    }
 
     return {
         "solved": solved,
@@ -861,219 +911,6 @@ async def record_solve_attempt(
         "known_trap": known_trap,
         "coaching_feedback": coaching_feedback,
     }
-
-
-async def _generate_coaching_feedback(
-    fen: str,
-    user_move: str,
-    best_move: str,
-    pattern_type: str,
-    solved: bool,
-    near_miss: bool,
-    your_move_analysis: Optional[Dict],
-    explanation: Optional[Dict],
-) -> Optional[Dict]:
-    """
-    Generate LLM-powered coaching feedback for a training puzzle.
-
-    Returns:
-    {
-        "why": "Your queen and rook were on the same diagonal. That's why the bishop pin works here.",
-        "remember": "When your heavy pieces line up on a diagonal, check for bishop pins.",
-        "behavior": "You didn't scan the board before moving. That's your pattern."
-    }
-    """
-    try:
-        from llm_service import call_llm
-        from services.position_intelligence import _extract_board_facts
-    except ImportError:
-        return None
-
-    # ── EXTRACT EVERY CONCRETE FACT ──
-    board_facts = ""
-    move_facts = ""
-    try:
-        board = chess.Board(fen)
-        user_color = board.turn
-        board_facts = _extract_board_facts(board, user_color, not user_color)
-
-        PIECE_NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
-                       chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
-
-        # Describe the BEST MOVE exactly
-        try:
-            best_obj = board.parse_san(best_move)
-            from_sq = chess.square_name(best_obj.from_square)
-            to_sq = chess.square_name(best_obj.to_square)
-            piece = board.piece_at(best_obj.from_square)
-            piece_name = PIECE_NAMES.get(piece.piece_type, "piece") if piece else "piece"
-
-            best_desc = f"The correct move is {best_move}: move {piece_name} from {from_sq} to {to_sq}."
-
-            if board.is_capture(best_obj):
-                captured = board.piece_at(best_obj.to_square)
-                if captured:
-                    cap_name = PIECE_NAMES.get(captured.piece_type, "piece")
-                    best_desc += f" This captures their {cap_name} on {to_sq}."
-
-            # What does the moved piece attack from the new square?
-            sim = board.copy()
-            sim.push(best_obj)
-            if sim.is_check():
-                best_desc += " This gives check."
-
-            attacks_from_new = sim.attacks(best_obj.to_square)
-            new_attacks = []
-            for sq in attacks_from_new:
-                target = sim.piece_at(sq)
-                if target and target.color != user_color and target.piece_type != chess.KING:
-                    new_attacks.append(f"{PIECE_NAMES.get(target.piece_type, 'piece')} on {chess.square_name(sq)}")
-            if new_attacks:
-                best_desc += f" From {to_sq}, it attacks: {', '.join(new_attacks[:3])}."
-
-            move_facts += f"\n{best_desc}"
-        except Exception:
-            move_facts += f"\nThe correct move is {best_move}."
-
-        # Add concrete explanation for the best move (opens lines, attacks, defends)
-        concrete_best = _build_concrete_explanation(board, best_move)
-        if concrete_best:
-            move_facts += f"\nFull analysis of correct move: {concrete_best}"
-
-        # Describe the USER'S MOVE exactly (if wrong)
-        if user_move and user_move != best_move and not solved and not near_miss:
-            try:
-                user_obj = board.parse_san(user_move)
-                u_from = chess.square_name(user_obj.from_square)
-                u_to = chess.square_name(user_obj.to_square)
-                u_piece = board.piece_at(user_obj.from_square)
-                u_piece_name = PIECE_NAMES.get(u_piece.piece_type, "piece") if u_piece else "piece"
-
-                user_desc = f"The player played {user_move}: moved {u_piece_name} from {u_from} to {u_to}."
-
-                if board.is_capture(user_obj):
-                    u_captured = board.piece_at(user_obj.to_square)
-                    if u_captured:
-                        u_cap_name = PIECE_NAMES.get(u_captured.piece_type, "piece")
-                        user_desc += f" This captures their {u_cap_name} on {u_to}."
-
-                # Concrete explanation for user's move too
-                concrete_user = _build_concrete_explanation(board, user_move)
-                if concrete_user:
-                    user_desc += f" Full analysis: {concrete_user}"
-
-                move_facts += f"\n{user_desc}"
-            except Exception:
-                move_facts += f"\nThe player played {user_move}."
-
-        # Add continuation if available
-        if explanation and explanation.get("continuation"):
-            cont = explanation["continuation"]
-            cont_str = " → ".join([f"{c['move']} ({'you' if c.get('by') == 'you' else 'opponent'})" for c in cont[:3]])
-            move_facts += f"\nAfter the correct move, the likely continuation is: {cont_str}"
-
-    except Exception:
-        pass
-
-    # Pattern context
-    PATTERN_BEHAVIORS = {
-        "tactical_miss": "not scanning the board for tactics before moving",
-        "hanging_piece": "not checking if pieces are protected",
-        "calculation_depth": "not checking what the opponent will do next",
-        "piece_safety": "not asking 'is anything I own under attack?'",
-        "missed_tactic": "not looking for captures, checks, and threats",
-        "tactical_oversight": "not checking the opponent's reply",
-        "positional": "moving pieces without a plan",
-    }
-    behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
-
-    system = (
-        "You are a chess coach. Be brief but complete.\n\n"
-        "RULES:\n"
-        "- ONLY use facts provided below. Do NOT invent squares, pieces, or moves.\n"
-        "- WHY: 1-2 sentences, max 30 words total. Explain the IDEA behind the move — what it achieves, what threat it creates, what it forces the opponent to do. Use the continuation if provided.\n"
-        "- REMEMBER: ONE sentence, max 15 words. A specific pattern to look for in similar positions.\n"
-        "- No engine terms (eval, centipawns). Describe in chess terms (attacks, defends, threatens, forces).\n\n"
-        "Format:\n"
-        "WHY: [the idea behind the move]\n"
-        "REMEMBER: [pattern to look for]"
-    )
-
-    if solved or near_miss:
-        user_msg = (
-            f"The player FOUND the right move.\n\n"
-            f"Move details:\n{move_facts}\n\n"
-            f"Using ONLY the facts above, explain in max 20 words WHY this move is good. "
-            f"Focus on what the move DOES (attacks, opens lines, defends). "
-            f"Then give a REMEMBER in max 15 words."
-        )
-    else:
-        user_msg = (
-            f"The player MISSED the right move.\n\n"
-            f"Move details:\n{move_facts}\n\n"
-            f"Using ONLY the facts above, explain in max 20 words the DIFFERENCE between what the player played and the correct move. "
-            f"What does the correct move do that the player's move doesn't? "
-            f"Then give a REMEMBER in max 15 words."
-        )
-
-    try:
-        response = await call_llm(system, user_msg)
-        if not response or len(response.strip()) < 20:
-            return None
-
-        # Parse response — try to split into WHY and REMEMBER
-        text = response.strip()
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
-
-        why_text = ""
-        remember_text = ""
-
-        # Look for REMEMBER/Remember/remember marker
-        remember_idx = -1
-        for i, line in enumerate(lines):
-            lower = line.lower()
-            if lower.startswith("remember:") or lower.startswith("remember ") or lower.startswith("**remember"):
-                remember_idx = i
-                remember_text = line.split(":", 1)[-1].strip() if ":" in line else line.replace("**", "").replace("Remember", "").strip()
-                break
-            if "remember" in lower and i > 0:
-                remember_idx = i
-                remember_text = line.replace("**", "").strip()
-                break
-
-        if remember_idx > 0:
-            why_text = " ".join(lines[:remember_idx]).strip()
-        elif remember_idx == 0 and len(lines) > 1:
-            why_text = " ".join(lines[1:]).strip()
-            remember_text = lines[0].split(":", 1)[-1].strip() if ":" in lines[0] else lines[0]
-        else:
-            # No clear split — use first part as why, last sentence as remember
-            if len(lines) >= 2:
-                why_text = " ".join(lines[:-1]).strip()
-                remember_text = lines[-1].strip()
-            else:
-                why_text = text
-                remember_text = ""
-
-        # Clean up any remaining markers
-        for prefix in ["WHY:", "Why:", "**WHY**:", "**Why**:", "REMEMBER:", "**REMEMBER**:"]:
-            why_text = why_text.replace(prefix, "").strip()
-            remember_text = remember_text.replace(prefix, "").strip()
-
-        # Behavior connection
-        behavior_line = ""
-        if not solved and not near_miss:
-            behavior_line = f"This happened because you were {behavior_desc}. That's your pattern."
-
-        return {
-            "why": why_text,
-            "remember": remember_text,
-            "behavior": behavior_line,
-        }
-
-    except Exception as e:
-        logger.debug(f"LLM coaching feedback failed: {e}")
-        return None
 
 
 async def get_training_progress(
@@ -1157,29 +994,24 @@ async def get_user_pattern_stats(
     return stats
 
 
-
-def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved: bool) -> Dict:
+def _get_pattern_explanation(
+    pattern_type: str,
+    best_move: str,
+    fen: str,
+    solved: bool,
+    stored_pv: Optional[List] = None,
+) -> Dict:
     """
     Generate a position-specific WHY explanation.
     Key improvement: explains what the best move DOES on the board, not abstract concepts.
     """
     import chess
-    from services.move_intent_analyzer import analyze_move_intent
-
     board = chess.Board(fen)
 
     # 1. What does the best move actually do on THIS board?
-    move_explanation = ""
-    try:
-        intent = analyze_move_intent(fen, best_move)
-        move_explanation = intent.description
-    except Exception:
-        move_explanation = f"The best move is {best_move}."
-
-    # Make the explanation concrete — what piece, what square, what it attacks/defends
-    concrete_why = _build_concrete_explanation(board, best_move)
-    if concrete_why:
-        move_explanation = concrete_why
+    move_explanation = _build_concrete_explanation(board, best_move)
+    if not move_explanation:
+        move_explanation = f"The move to learn here is {best_move}."
 
     # 2. What happens AFTER the best move? (the continuation)
     continuation = ""
@@ -1189,54 +1021,36 @@ def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved
         best_move_obj = board_sim.parse_san(best_move)
         board_sim.push(best_move_obj)
 
-        from stockfish_service import StockfishEngine
-        engine = StockfishEngine()
-        engine.start()
-        try:
-            reply_info = engine.get_best_move(board_sim, depth=10)
-            if reply_info and reply_info.get("move"):
-                reply_san = board_sim.san(reply_info["move"])
-                continuation_moves.append({"move": best_move, "by": "you"})
-                continuation_moves.append({"move": reply_san, "by": "opponent"})
-
-                board_sim.push(reply_info["move"])
-                follow_info = engine.get_best_move(board_sim, depth=10)
-                if follow_info and follow_info.get("move"):
-                    follow_san = board_sim.san(follow_info["move"])
-                    continuation_moves.append({"move": follow_san, "by": "you"})
-                    continuation = f"After {best_move}, they play {reply_san}, then you play {follow_san}."
-                else:
-                    continuation = f"After {best_move}, they respond with {reply_san}."
-        finally:
-            engine.stop()
+        continuation_moves.append({"move": best_move, "by": "you"})
+        for item in stored_pv or []:
+            token = _pv_token(item)
+            if not token:
+                continue
+            next_move = _legal_move_from_token(board_sim, token)
+            if next_move is None:
+                continue
+            next_san = board_sim.san(next_move)
+            by = "opponent" if len(continuation_moves) == 1 else "you"
+            continuation_moves.append({"move": next_san, "by": by})
+            board_sim.push(next_move)
+            if len(continuation_moves) >= 3:
+                break
+        if len(continuation_moves) == 3:
+            continuation = (
+                f"The stored line continues {continuation_moves[1]['move']}, "
+                f"then {continuation_moves[2]['move']}."
+            )
+        elif len(continuation_moves) == 2:
+            continuation = f"The stored reply is {continuation_moves[1]['move']}."
     except Exception:
         pass
 
-    # 3. What was the "trap" — the tempting but wrong move?
-    trap_explanation = ""
-    try:
-        board_trap = chess.Board(fen)
-        legal = list(board_trap.legal_moves)
-        captures = [m for m in legal if board_trap.is_capture(m)]
-        checks = [m for m in legal if board_trap.gives_check(m)]
-        tempting = captures + checks
-
-        tempting_sans = [board_trap.san(m) for m in tempting]
-        if best_move in tempting_sans:
-            tempting_sans.remove(best_move)
-
-        if tempting_sans:
-            trap_move = tempting_sans[0]
-            trap_intent = analyze_move_intent(fen, trap_move, best_move, 200)
-            trap_explanation = f"{trap_move} looks tempting, but {trap_intent.feedback}"
-    except Exception:
-        pass
-
-    # Pattern-specific lesson (concrete, actionable)
+    # Pattern-specific lesson with a universal habit ending.
     lessons = {
-        "tactical_miss": "Before each move, check: are there any captures, checks, or threats I'm missing?",
-        "hanging_piece": "Before moving a piece, count: how many of their pieces attack this square? How many of mine defend it?",
-        "calculation_depth": "Don't stop at your move. Ask: what will they do next? Then what do I do?",
+        "piece_safety": "Before every move, scan each of your pieces once: attacked, defended, or able to move.",
+        "hanging_piece": "Before every move, scan each of your pieces once: attacked, defended, or able to move.",
+        "tactical_miss": "Before every move, check their strongest reply before you commit.",
+        "calculation_depth": "Before every move, calculate their strongest reply before you commit.",
         "checkmate_pattern": "When their king is exposed, look at every possible check. One of them might be checkmate.",
         "positional": "Not every good move is a tactic. Sometimes the best move improves your worst-placed piece.",
         "winning_position_collapse": "When you're ahead in material, trade pieces. Fewer pieces = easier to win.",
@@ -1249,9 +1063,13 @@ def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved
         "move_description": move_explanation,
         "why_best": f"{move_explanation} {continuation}" if continuation else move_explanation,
         "continuation": continuation_moves,
-        "trap": trap_explanation,
-        "lesson": lessons.get(pattern_type, "Look at the whole board. Which piece can do the most from a new square?"),
-        "what_to_look_for": "Checks, captures, threats — in that order.",
+        "trap": "",
+        "lesson": lessons.get(pattern_type, "Before every move, calculate their strongest reply before you commit."),
+        "what_to_look_for": (
+            "Scan every one of your pieces before choosing the move."
+            if pattern_type in {"piece_safety", "hanging_piece"}
+            else "Calculate their strongest reply before choosing the move."
+        ),
         "pattern_type": pattern_type,
     }
 

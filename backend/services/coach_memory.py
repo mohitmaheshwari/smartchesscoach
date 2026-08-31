@@ -887,11 +887,9 @@ def record_engine2_skills_from_game(
     scans mistake_types for forks/pins/etc.
 
     Per game we record:
-      - Opening exposure: if the played opening matches an Engine 2 opening
-        node, that node gets +1 seen, +correct if played well, +wrong if
-        played badly.
-      - Failing-hard in an opening: big blunders in a tracked opening count
-        as wrong (we're exposing weakness in that repertoire).
+      - Opening recognition records exposure only.
+      - Exact canonical move application is recorded separately by the
+        opening detector with move-level evidence.
 
     Endgame lessons, traps, mate patterns, and concepts are recorded
     elsewhere (teaching-engine flows in Play with Coach). This function
@@ -923,8 +921,7 @@ def record_engine2_skills_from_game(
             # Rating gate
             if not (node.get("rating_min", 0) <= user_rating <= node.get("rating_max", 9999)):
                 continue
-            outcome = _opening_outcome(accuracy, blunders, game_result, node.get("tier", 1))
-            record_skill_attempt(memory, sid, "opening", outcome, timestamp)
+            record_skill_attempt(memory, sid, "opening", "seen", timestamp)
             recorded.append(sid)
 
     return recorded
@@ -961,7 +958,10 @@ def record_concept_applications_from_game(
     try:
         import chess
         from services.concept_detectors._runner import run_detectors_for_move
-        from services.engine2_skill_builder import get_skill_node
+        from services.engine2_skill_builder import (
+            get_skill_node,
+            list_skills_by_kind,
+        )
     except Exception as e:
         logger.debug(f"[CONCEPT_DETECTORS] import failed: {e}")
         return []
@@ -1002,17 +1002,119 @@ def record_concept_applications_from_game(
                 move_number=me.get("move_number"),
                 opening_name=opening_name,
                 move_history_san=list(history_san),
+                best_move_san=me.get("best_move_san") or me.get("best_move"),
+                best_move_uci=me.get("best_move_uci"),
             ):
-                latest_grade[skill_id] = (
-                    outcome,
-                    {
+                target_skill_ids = [skill_id]
+                detail = None
+                if skill_id == "opening_play":
+                    from services.concept_detectors.opening_play import (
+                        detect_opening_play_detail,
+                        resolve_opening_curriculum_key,
+                    )
+                    opening_slug = resolve_opening_curriculum_key(opening_name, uc)
+                    detail = detect_opening_play_detail(
+                        board,
+                        move,
+                        uc,
+                        move_number=me.get("move_number"),
+                        opening_name=opening_name,
+                        move_history_san=list(history_san),
+                        best_move_san=me.get("best_move_san") or me.get("best_move"),
+                        best_move_uci=me.get("best_move_uci"),
+                    )
+                    target_skill_ids = []
+                    color_word = "white" if uc == chess.WHITE else "black"
+                    for candidate_id in list_skills_by_kind("opening"):
+                        node = get_skill_node(candidate_id) or {}
+                        if node.get("content_ref") != opening_slug:
+                            continue
+                        candidate_lower = candidate_id.lower()
+                        label_lower = str(node.get("label") or "").lower()
+                        if (
+                            ("_white" in candidate_lower or "(white" in label_lower)
+                            and color_word != "white"
+                        ):
+                            continue
+                        if (
+                            ("_black" in candidate_lower or "(black" in label_lower)
+                            and color_word != "black"
+                        ):
+                            continue
+                        target_skill_ids.append(candidate_id)
+                elif skill_id == "trap_detection":
+                    from services.concept_detectors.trap_detection import (
+                        detect_trap_application_detail,
+                    )
+
+                    detail = detect_trap_application_detail(
+                        board,
+                        move,
+                        uc,
+                        move_number=me.get("move_number"),
+                        move_history_san=list(history_san),
+                        best_move_san=me.get("best_move_san") or me.get("best_move"),
+                        best_move_uci=me.get("best_move_uci"),
+                    )
+                    content_id = str((detail or {}).get("content_id") or "")
+                    # A verified trap identity is ``family/trap``. Attribute it
+                    # only to the trap-set whose canonical content_ref exactly
+                    # matches that family. Fuzzy substring matching could credit
+                    # the wrong repertoire when names overlap.
+                    trap_family = content_id.split("/", 1)[0].replace("_", "-")
+                    target_skill_ids = []
+                    for candidate_id in list_skills_by_kind("trap_set"):
+                        node = get_skill_node(candidate_id) or {}
+                        content_ref = str(node.get("content_ref") or "").replace(
+                            "_", "-"
+                        )
+                        if trap_family and content_ref == trap_family:
+                            target_skill_ids.append(candidate_id)
+                elif skill_id.startswith("endgame_curriculum__"):
+                    # Exact-position adapters are internal detector identities,
+                    # not skills the player should ever see. Map the verified
+                    # lesson identity back to the real endgame/mate node.
+                    from services.endgame_theory_service import resolve_content_ref
+
+                    encoded = skill_id[len("endgame_curriculum__"):]
+                    parts = encoded.split("__", 1)
+                    content_id = "/".join(parts) if len(parts) == 2 else ""
+                    detail = {"content_id": content_id, "content_ref": content_id}
+                    target_skill_ids = []
+                    for kind in ("endgame", "mate_pattern"):
+                        for candidate_id in list_skills_by_kind(kind):
+                            node = get_skill_node(candidate_id) or {}
+                            resolved = resolve_content_ref(
+                                str(node.get("content_ref") or "")
+                            )
+                            if (
+                                resolved
+                                and resolved.get("lesson_id") == content_id
+                            ):
+                                target_skill_ids.append(candidate_id)
+
+                for target_skill_id in target_skill_ids:
+                    latest_grade[target_skill_id] = (
+                        outcome,
+                        {
                         "game_id": game_id,
                         "move_number": me.get("move_number"),
                         "fen_before": fen_before,
                         "move_san": san,
+                        "stored_best_move_san": me.get("best_move_san") or me.get("best_move"),
+                        "stored_best_move_uci": me.get("best_move_uci"),
+                        "stored_cp_loss": me.get("cp_loss"),
+                        "stored_evaluation": me.get("evaluation"),
+                        "stored_eval_before": me.get("eval_before"),
+                        "stored_eval_after": me.get("eval_after"),
+                        "opening_name": opening_name,
                         "source": "detector",
-                    },
-                )
+                        "truth_source": "stored_stockfish_analysis",
+                        "detector_quality_id": f"concept:{skill_id}",
+                        "content_id": (detail or {}).get("content_id"),
+                        "content_ref": (detail or {}).get("content_ref"),
+                        },
+                    )
         except Exception:
             continue
 

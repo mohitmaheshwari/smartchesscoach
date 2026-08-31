@@ -120,6 +120,42 @@
       "rating_max": 1499,
       "tier": 1
     },
+    "endgame_king_centralization": {
+      "kind": "endgame",
+      "label": "Bring the king into the endgame",
+      "fixes": "leaving the king passive after the queens come off",
+      "content_ref": "king_centralization",
+      "prerequisites": [
+        "endgame_opposition"
+      ],
+      "rating_min": 1000,
+      "rating_max": 1499,
+      "tier": 1
+    },
+    "endgame_stop_promotion": {
+      "kind": "endgame",
+      "label": "Stop a pawn before it promotes",
+      "fixes": "reacting one move too late to a passed pawn",
+      "content_ref": "stop_promotion",
+      "prerequisites": [
+        "endgame_rule_of_square"
+      ],
+      "rating_min": 1000,
+      "rating_max": 1499,
+      "tier": 1
+    },
+    "endgame_create_passed_pawn": {
+      "kind": "endgame",
+      "label": "Create a passed pawn",
+      "fixes": "trading pawns without seeing which pawn can run",
+      "content_ref": "creating_passed_pawn",
+      "prerequisites": [
+        "endgame_opposition"
+      ],
+      "rating_min": 1000,
+      "rating_max": 1499,
+      "tier": 1
+    },
     "defend_fried_liver": {
       "kind": "trap",
       "label": "Defend against Fried Liver",
@@ -232,6 +268,18 @@
       "label": "Philidor position (drawing R+P)",
       "fixes": "not drawing defendable rook endgames",
       "content_ref": "philidor_position",
+      "prerequisites": [
+        "endgame_opposition"
+      ],
+      "rating_min": 1400,
+      "rating_max": 1799,
+      "tier": 2
+    },
+    "endgame_active_rook": {
+      "kind": "endgame",
+      "label": "Keep the rook active",
+      "fixes": "defending passively with the rook",
+      "content_ref": "active_rook",
       "prerequisites": [
         "endgame_opposition"
       ],

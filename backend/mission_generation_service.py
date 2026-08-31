@@ -595,24 +595,37 @@ async def complete_mission(
     mission_id: str,
     session_id: str,
     user_id: str,
-    score: Dict,
+    score: Optional[Dict],
     db,
 ) -> Dict:
     """Complete a mission and calculate result."""
     now = datetime.now(timezone.utc)
     
     # Get mission for threshold
-    mission = await db.behavioral_missions.find_one({"mission_id": mission_id})
+    mission = await db.behavioral_missions.find_one({
+        "mission_id": mission_id,
+        "user_id": user_id,
+    })
     if not mission:
         return {"error": "Mission not found"}
     
+    session = await db.mission_sessions.find_one({
+        "session_id": session_id,
+        "mission_id": mission_id,
+        "user_id": user_id,
+    })
+    if not session:
+        return {"error": "Mission session not found"}
+    # The browser score is deliberately ignored. Only server-graded attempts
+    # update this session score through /missions/{id}/attempt.
+    score = dict(session.get("score") or {})
     threshold = mission.get("goal_success_threshold", 3)
-    correct = score.get("correct", 0)
+    correct = int(score.get("correct") or 0)
     passed = correct >= threshold
     
     # Update mission
     await db.behavioral_missions.update_one(
-        {"mission_id": mission_id},
+        {"mission_id": mission_id, "user_id": user_id},
         {"$set": {
             "status": "completed",
             "completed_at": now.isoformat(),
@@ -628,22 +641,6 @@ async def complete_mission(
             "score": {**score, "result": "pass" if passed else "fail"},
         }}
     )
-    
-    # Update focus mastery
-    pattern = mission.get("focus_pattern")
-    if pattern:
-        mastery_id = f"fm_{user_id}_{pattern}"
-        mastery_delta = 8 if passed else 3
-        
-        await db.focus_mastery.update_one(
-            {"mastery_id": mastery_id, "user_id": user_id},
-            {
-                "$inc": {"mastery_score": mastery_delta},
-                "$push": {"recent_mission_results": {"$each": ["pass" if passed else "fail"], "$slice": -10}},
-                "$set": {"updated_at": now.isoformat(), "pattern": pattern},
-            },
-            upsert=True,
-        )
     
     return {
         "mission_id": mission_id,

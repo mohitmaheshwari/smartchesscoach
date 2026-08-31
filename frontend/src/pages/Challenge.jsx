@@ -30,6 +30,7 @@ const Challenge = ({ user }) => {
   const [puzzleState, setPuzzleState] = useState("waiting"); // waiting, playing, solved, failed
   const [attempts, setAttempts] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [revealedMove, setRevealedMove] = useState(null);
   const [stats, setStats] = useState({ solved: 0, attempted: 0, streak: 0 });
   const [selectedPattern, setSelectedPattern] = useState(null);
 
@@ -57,6 +58,7 @@ const Challenge = ({ user }) => {
   const generatePuzzle = async (pattern = null) => {
     setGenerating(true);
     setShowHint(false);
+    setRevealedMove(null);
     setPuzzleState("waiting");
     
     const targetPattern = pattern || selectedPattern || (patterns.length > 0 ? patterns[0] : null);
@@ -98,7 +100,7 @@ const Challenge = ({ user }) => {
   };
 
   // Handle piece drop (make a move)
-  const onDrop = useCallback((sourceSquare, targetSquare) => {
+  const onDrop = useCallback(async (sourceSquare, targetSquare) => {
     if (puzzleState !== "playing") return false;
 
     try {
@@ -110,12 +112,21 @@ const Challenge = ({ user }) => {
 
       if (move === null) return false;
 
-      // Check if this is the correct move
-      const isCorrect = currentPuzzle?.solution?.some(
-        sol => sol.from === sourceSquare && sol.to === targetSquare
-      ) || (currentPuzzle?.solution_san === move.san);
+      const playedUci = `${move.from}${move.to}${move.promotion || ""}`.toLowerCase();
+      const response = await fetch(`${API}/training/puzzle-attempt`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          puzzle_id: currentPuzzle?.puzzle_id,
+          played_uci: playedUci,
+          moves_tried: [playedUci],
+        }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const grade = await response.json();
 
-      if (isCorrect) {
+      if (grade.correct) {
         // Correct move!
         setPuzzleState("solved");
         setStats(prev => ({
@@ -126,17 +137,32 @@ const Challenge = ({ user }) => {
         toast.success("Correct! Well done!");
       } else {
         // Wrong move
-        setAttempts(prev => prev + 1);
+        const nextAttempts = attempts + 1;
+        setAttempts(nextAttempts);
         
-        if (attempts >= 2) {
+        if (nextAttempts >= 3) {
           // Too many attempts
+          try {
+            const revealResponse = await fetch(`${API}/training/reveal-puzzle`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ puzzle_id: currentPuzzle?.puzzle_id }),
+            });
+            if (revealResponse.ok) {
+              const reveal = await revealResponse.json();
+              setRevealedMove(reveal.best_move_san || null);
+            }
+          } catch (revealError) {
+            console.error("Challenge reveal failed:", revealError);
+          }
           setPuzzleState("failed");
           setStats(prev => ({
             ...prev,
             attempted: prev.attempted + 1,
             streak: 0
           }));
-          toast.error("Not quite. The solution was: " + (currentPuzzle?.solution_san || "hidden"));
+          toast.error("Not quite. Review the answer, then try a fresh position.");
         } else {
           // Allow retry
           game.undo();
@@ -149,6 +175,10 @@ const Challenge = ({ user }) => {
       return true;
 
     } catch (e) {
+      console.error("Challenge grade failed:", e);
+      try { game.undo(); } catch { /* ignore */ }
+      setGame(new Chess(game.fen()));
+      toast.error("Couldn't grade that move. Please try again.");
       return false;
     }
   }, [game, puzzleState, currentPuzzle, attempts]);
@@ -337,7 +367,7 @@ const Challenge = ({ user }) => {
                               <XCircle className="w-16 h-16 text-red-500 mx-auto" />
                               <p className="text-xl font-bold text-red-500">Not quite</p>
                               <p className="text-sm text-muted-foreground">
-                                Solution: {currentPuzzle.solution_san}
+                                {revealedMove ? `Answer: ${revealedMove}` : "Answer unavailable"}
                               </p>
                             </>
                           )}

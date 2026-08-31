@@ -33,6 +33,10 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 CANONICAL_SOURCES = {
     "openings": BACKEND_ROOT / "data" / "opening_curriculum.json",
     "traps": BACKEND_ROOT / "data" / "traps.json",
+    # Opening ideas are deliberately co-authored in traps.json while the old
+    # mixed inventory is being repaired.  ``lesson_kind`` separates a forced
+    # trap from a gambit/plan without creating a fourth source of truth.
+    "opening_ideas": BACKEND_ROOT / "data" / "traps.json",
     "endgames": BACKEND_ROOT / "data" / "coaching" / "endgame_theory_tree.json",
 }
 ENDGAME_TABLEBASE_SNAPSHOT = (
@@ -495,12 +499,79 @@ def _material_balance(board: chess.Board, color: chess.Color) -> int:
     return own - opponent
 
 
+def _has_passed_pawn(board: chess.Board, color: chess.Color) -> bool:
+    """Return whether ``color`` has a geometrically passed pawn.
+
+    This is intentionally board-only.  A pawn is passed when no opposing pawn
+    remains ahead of it on the same or either adjacent file; evaluation and
+    promotion chances are separate questions.
+    """
+    enemy_pawns = board.pieces(chess.PAWN, not color)
+    for square in board.pieces(chess.PAWN, color):
+        pawn_file = chess.square_file(square)
+        pawn_rank = chess.square_rank(square)
+        ahead_ranks = (
+            range(pawn_rank + 1, 8)
+            if color == chess.WHITE
+            else range(pawn_rank - 1, -1, -1)
+        )
+        blocking_files = range(max(0, pawn_file - 1), min(7, pawn_file + 1) + 1)
+        if not any(
+            chess.square(file_index, rank_index) in enemy_pawns
+            for file_index in blocking_files
+            for rank_index in ahead_ranks
+        ):
+            return True
+    return False
+
+
+def _claims_passed_pawn(payload: Mapping[str, Any]) -> bool:
+    """Detect positive player-visible passed-pawn claims, not corrections."""
+    pattern = re.compile(r"\bpassed(?:[- ][a-z]+)?[- ]pawn\b", re.IGNORECASE)
+    negation = re.compile(
+        r"\b(?:not|isn't|isn’t|is not|not yet)\s+(?:an?\s+)?$",
+        re.IGNORECASE,
+    )
+    for _location, text in _iter_text(payload):
+        for match in pattern.finditer(text):
+            prefix = text[max(0, match.start() - 24):match.start()]
+            if not negation.search(prefix):
+                return True
+    return False
+
+
+def _claims_unique_reply(text: str) -> bool:
+    """Return whether step copy says the authored move is legally forced."""
+    lower = str(text or "").lower()
+    if re.search(
+        r"(?:\bnot\b|rather than).{0,20}\bforced\b|"
+        r"\b(?:other|more) (?:replies|moves) (?:are|remain) legal\b|"
+        r"\bis also legal\b",
+        lower,
+    ):
+        return False
+    return bool(
+        re.search(
+            r"\bforced\b|\bonly legal\b|\bmust (?:take|capture|recapture|play|move)\b",
+            lower,
+        )
+    )
+
+
 def validate_trap_record(
     opening_key: str,
     trap: Mapping[str, Any],
 ) -> RecordValidation:
     content_id = trap_content_id(opening_key, str(trap.get("name") or ""))
-    record = RecordValidation("traps", content_id)
+    lesson_kind = str(trap.get("lesson_kind") or "forced_trap").lower()
+    subject = "opening_ideas" if lesson_kind == "opening_plan" else "traps"
+    record = RecordValidation(subject, content_id)
+    if lesson_kind not in {"forced_trap", "opening_plan"}:
+        record.error(
+            "content.lesson_kind_invalid",
+            "lesson_kind must be forced_trap or opening_plan.",
+            "lesson_kind",
+        )
     if trap.get("publication_status") == "quarantined":
         record.error(
             "content.quarantined",
@@ -566,9 +637,66 @@ def validate_trap_record(
     )
     if board is None:
         return record
+    setup_board = _validate_sequence(
+        [str(move) for move in setup_moves],
+        record,
+        "setup_line",
+    )
+    if setup_board is None:
+        return record
+
+    if lesson_kind == "opening_plan":
+        step_board = setup_board.copy(stack=False)
+        for index, step in enumerate(trap_line):
+            explanation = str(step.get("explanation") or "")
+            if _claims_unique_reply(explanation) and step_board.legal_moves.count() != 1:
+                record.error(
+                    "opening_idea.reply_not_forced",
+                    (
+                        "The lesson calls this reply forced, but the position "
+                        "contains more than one legal move."
+                    ),
+                    f"trap_line[{index}].explanation",
+                )
+            # Legality was already established by _validate_sequence above.
+            step_board.push_san(str(step.get("move") or ""))
 
     result_type = str(trap.get("result_type") or "").lower()
-    if result_type in {"mate", "checkmate"}:
+    if lesson_kind == "opening_plan":
+        if result_type != "opening_plan":
+            record.error(
+                "opening_idea.result_type_invalid",
+                "An opening plan must use result_type opening_plan, not promise a forced result.",
+                "result_type",
+            )
+        if not str(trap.get("learning_goal") or "").strip():
+            record.error(
+                "opening_idea.learning_goal_missing",
+                "An opening plan needs one concrete learning goal.",
+                "learning_goal",
+            )
+        player_claim = " ".join(
+            str(trap.get(field) or "")
+            for field in ("description", "success_message", "learning_goal")
+        ).lower()
+        if re.search(r"\b(forced|winning|wins material|crushing|decisive)\b", player_claim):
+            record.error(
+                "opening_idea.forced_claim",
+                "An opening plan cannot promise a forced tactical result.",
+                "success_message",
+            )
+        if trap_color_name in {"white", "black"} and _claims_passed_pawn(trap):
+            plan_color = chess.WHITE if trap_color_name == "white" else chess.BLACK
+            if not _has_passed_pawn(board, plan_color):
+                record.error(
+                    "opening_idea.passed_pawn_claim_false",
+                    (
+                        "The lesson calls a pawn passed, but an opposing pawn "
+                        "still stands ahead on the same or an adjacent file."
+                    ),
+                    "description",
+                )
+    elif result_type in {"mate", "checkmate"}:
         if not board.is_checkmate():
             record.error(
                 "trap.outcome_not_demonstrated",
@@ -578,10 +706,29 @@ def validate_trap_record(
     elif result_type in {"wins_material", "wins_piece", "wins_queen"}:
         if trap_color_name in {"white", "black"}:
             winner = chess.WHITE if trap_color_name == "white" else chess.BLACK
-            if _material_balance(board, winner) <= 0:
+            before_balance = _material_balance(setup_board, winner)
+            after_balance = _material_balance(board, winner)
+            if after_balance <= 0 or after_balance <= before_balance:
                 record.error(
                     "trap.outcome_not_demonstrated",
-                    "The authored line claims a material win but does not finish with a material advantage.",
+                    (
+                        "The authored line claims a material win but does not "
+                        "increase the named side's material balance."
+                    ),
+                    "result_type",
+                )
+    elif result_type == "keeps_material_advantage":
+        if trap_color_name in {"white", "black"}:
+            winner = chess.WHITE if trap_color_name == "white" else chess.BLACK
+            before_balance = _material_balance(setup_board, winner)
+            after_balance = _material_balance(board, winner)
+            if before_balance <= 0 or after_balance < before_balance:
+                record.error(
+                    "trap.outcome_not_demonstrated",
+                    (
+                        "The authored line claims the extra material is kept, "
+                        "but the named side does not preserve its setup advantage."
+                    ),
                     "result_type",
                 )
     elif result_type == "king_exposed":
@@ -620,7 +767,12 @@ def validate_trap_record(
             isinstance(defense_line, list) and bool(defense_line),
         )
     )
-    if not defense_ready:
+    if lesson_kind == "opening_plan":
+        # Plans teach a repeatable setup and decision, not a forced threat that
+        # requires one authored escape.  Legal replay + explained moves + an
+        # honest learning goal are the publication contract for this subject.
+        pass
+    elif not defense_ready:
         record.warning(
             "trap.defense_lesson_missing",
             "Keep this as recognition data until danger, defense, and safe line are authored.",
@@ -751,8 +903,52 @@ def validate_endgame_lesson(
                     f"{location}.correct_move_san",
                 )
 
+        wrong_san = _clean_san(str(position.get("wrong_example_san") or ""))
+        if not wrong_san:
+            record.error(
+                "endgame.wrong_example_missing",
+                "A player-visible wrong example is required.",
+                f"{location}.wrong_example_san",
+            )
+        else:
+            try:
+                wrong_move = board.parse_san(wrong_san)
+            except (ValueError, AssertionError):
+                record.error(
+                    "endgame.wrong_example_illegal",
+                    f"{wrong_san!r} is not legal from the stored FEN.",
+                    f"{location}.wrong_example_san",
+                )
+            else:
+                canonical_wrong_san = board.san(wrong_move)
+                if wrong_san != canonical_wrong_san:
+                    record.error(
+                        "endgame.wrong_example_not_canonical",
+                        (
+                            f"Stored wrong-example SAN is {wrong_san!r}; "
+                            f"the position requires {canonical_wrong_san!r}."
+                        ),
+                        f"{location}.wrong_example_san",
+                    )
+                if wrong_move == uci_move:
+                    record.error(
+                        "endgame.wrong_example_matches_answer",
+                        "The wrong example cannot be the lesson's correct answer.",
+                        f"{location}.wrong_example_san",
+                    )
+
         if len(board.piece_map()) <= 7:
             evidence = evidence_index.get((content_id, index))
+            expected_result = str(position.get("expected_result") or "").lower()
+            if expected_result not in {"win", "draw", "loss"}:
+                record.error(
+                    "endgame.expected_result_missing",
+                    (
+                        "Every tablebase-covered lesson position must declare "
+                        "whether the side to move wins, draws, or loses."
+                    ),
+                    f"{location}.expected_result",
+                )
             if evidence is None:
                 record.error(
                     "endgame.tablebase_evidence_missing",
@@ -767,6 +963,15 @@ def validate_endgame_lesson(
                     "endgame.tablebase_evidence_stale",
                     "Committed Syzygy evidence does not match this position and answer.",
                     location,
+                )
+            elif expected_result != str(evidence.get("root_category") or "").lower():
+                record.error(
+                    "endgame.claimed_result_mismatch",
+                    (
+                        f"The lesson claims {expected_result!r}, but the committed "
+                        f"tablebase result is {evidence.get('root_category')!r}."
+                    ),
+                    f"{location}.expected_result",
                 )
             elif not evidence.get("preserves_wdl"):
                 record.error(
@@ -836,10 +1041,10 @@ def validate_personalized_lesson_descriptor(
                 field_name,
             )
 
-    if kind not in {"opening", "trap", "endgame", "concept"}:
+    if kind not in {"opening", "trap", "trap_set", "endgame", "concept"}:
         record.error(
             "personalized.kind_invalid",
-            "kind must be opening, trap, endgame, or concept.",
+            "kind must be opening, trap, trap_set, endgame, or concept.",
             "kind",
         )
 
@@ -1041,14 +1246,18 @@ def validate_all_content() -> Dict[str, Any]:
     ]
 
     trap_records: List[RecordValidation] = []
+    opening_idea_records: List[RecordValidation] = []
     for opening_key, traps in traps_data.items():
         if opening_key.startswith("_") or not isinstance(traps, list):
             continue
-        trap_records.extend(
-            validate_trap_record(opening_key, trap)
-            for trap in traps
-            if isinstance(trap, dict)
-        )
+        for trap in traps:
+            if not isinstance(trap, dict):
+                continue
+            validated = validate_trap_record(opening_key, trap)
+            if validated.subject == "opening_ideas":
+                opening_idea_records.append(validated)
+            else:
+                trap_records.append(validated)
 
     endgame_records: List[RecordValidation] = []
     for category_key, category in endgames_data.items():
@@ -1068,11 +1277,17 @@ def validate_all_content() -> Dict[str, Any]:
     subjects = {
         "openings": _subject_summary(opening_records),
         "traps": _subject_summary(trap_records),
+        "opening_ideas": _subject_summary(opening_idea_records),
         "endgames": _subject_summary(endgame_records),
     }
     all_issues = [
         issue.as_dict()
-        for record in opening_records + trap_records + endgame_records
+        for record in (
+            opening_records
+            + trap_records
+            + opening_idea_records
+            + endgame_records
+        )
         for issue in record.issues
     ]
     return {

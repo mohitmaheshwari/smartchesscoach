@@ -32,6 +32,12 @@ _CONTENT_REF_INDEX = {
     "rule_of_square": ("king_and_pawn", "square_rule"),
     "lucena_position": ("rook_endgames", "lucena"),
     "philidor_position": ("rook_endgames", "philidor"),
+    "key_squares": ("king_and_pawn", "key_squares"),
+    "pawn_breakthrough": ("king_and_pawn", "breakthrough"),
+    "king_centralization": ("king_and_pawn", "king_centralization"),
+    "active_rook": ("rook_endgames", "active_rook"),
+    "stop_promotion": ("queen_vs_pawn", "stop_promotion"),
+    "creating_passed_pawn": ("practical_endgames", "creating_passed_pawn"),
 }
 
 _endgame_tree: Optional[Dict[str, Any]] = None
@@ -152,7 +158,12 @@ def get_lesson(category_key: str, lesson_key: str) -> Optional[Dict[str, Any]]:
 
 
 def resolve_content_ref(content_ref: str) -> Optional[Dict[str, str]]:
-    identity = _CONTENT_REF_INDEX.get(str(content_ref or ""))
+    raw_ref = str(content_ref or "")
+    identity = _CONTENT_REF_INDEX.get(raw_ref)
+    if identity is None and "/" in raw_ref:
+        category_key, lesson_key = raw_ref.split("/", 1)
+        if get_lesson(category_key, lesson_key) is not None:
+            identity = (category_key, lesson_key)
     if not identity:
         return None
     category_key, lesson_key = identity
@@ -160,7 +171,7 @@ def resolve_content_ref(content_ref: str) -> Optional[Dict[str, str]]:
         return None
     lesson_id = _lesson_id(category_key, lesson_key)
     return {
-        "content_ref": str(content_ref),
+        "content_ref": raw_ref,
         "category_key": category_key,
         "lesson_key": lesson_key,
         "lesson_id": lesson_id,

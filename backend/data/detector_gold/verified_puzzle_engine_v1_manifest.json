@@ -1,0 +1,71 @@
+{
+  "manifest_id": "verified_puzzle_engine_v1_2026_08_30",
+  "baseline_commit": "82055c02a743eba1258d67054e5a94c6e524715f",
+  "purpose": "Freeze existing positive, negative and adversarial truth before the shared admission engine changes detector behavior.",
+  "policy": "A referenced file change requires an explicit manifest-version bump and a new blind-review packet.",
+  "families": {
+    "piece_safety": {
+      "release_role": "first_chess_family",
+      "independent_truth": "legal board-mutating exchange plus causal before/best/after comparison",
+      "sources": [
+        {
+          "path": "backend/tests/test_hanging_piece_truth.py",
+          "git_blob": "0cf870703c5b6c643ccca9333e53ed2ea8306604",
+          "coverage": [
+            "moved-piece hang",
+            "other-piece exposure",
+            "defended exchange negative",
+            "x-ray recapture adversarial",
+            "pawn-only coaching-floor negative",
+            "pre-existing-hang attribution negative",
+            "missing causal engine-evidence abstention"
+          ]
+        },
+        {
+          "path": "backend/tests/test_piece_safety_hang_see.py",
+          "git_blob": "fe74e4243ffb48a6215e9c2d8e372b4f691cb597",
+          "coverage": [
+            "real free hang",
+            "safe development negative",
+            "attacker-count false-positive adversarial",
+            "illegal-input abstention"
+          ]
+        }
+      ]
+    },
+    "rule_of_square": {
+      "release_role": "repair_gold",
+      "source": {
+        "path": "backend/data/detector_gold/rule_of_square_v1.json",
+        "git_blob": "b6ee9ccd2f72465f8bff4c769548ed4b3e9dbfe7"
+      },
+      "coverage": [
+        "both pawn colours",
+        "immediate capture",
+        "double push",
+        "full-position-versus-race claim boundary",
+        "mutual-passer abstention",
+        "extra-piece abstention"
+      ],
+      "promotion_blocker": "Current corpus replay found 47/53 misses at 0-25cp; detector remains disabled until the claim is tightened and re-reviewed."
+    },
+    "traps": {
+      "release_role": "structural_controls_only",
+      "sources": [
+        {"path": "backend/tests/test_canonical_trap_practice.py", "git_blob": "9ddc51cdb9ab89ed6d1cf8d80b0185e895073387"},
+        {"path": "backend/tests/test_verified_opening_traps.py", "git_blob": "952f9c5732c53cef0598159b256e056c857482d6"}
+      ],
+      "promotion_blocker": "Existing cases prove legal canonical sequences and branch matching, not tactical mechanism, soundness, or correct victim escapes."
+    },
+    "endgame_shapes": {
+      "release_role": "repair_inputs_only",
+      "sources": [
+        {"path": "backend/tests/test_endgame_opposition.py", "git_blob": "0b38372a31bf744b65e073ea9a2081da0a75d328"},
+        {"path": "backend/tests/test_endgame_lucena.py", "git_blob": "ebd664019d4a83c5c38f6e3bedecd42d9f5c8c0c"},
+        {"path": "backend/tests/test_endgame_philidor.py", "git_blob": "438fedc032448e85d0502b858d7c041722a36d55"},
+        {"path": "backend/tests/test_endgame_lessons.py", "git_blob": "8e116f34814a1eefe00fc1ede5d5d1e7bc466546"}
+      ],
+      "promotion_blocker": "Shape tests must be augmented by tablebase/canonical WDL and adversarial near-positions before they authorize a failure or mastery claim."
+    }
+  }
+}

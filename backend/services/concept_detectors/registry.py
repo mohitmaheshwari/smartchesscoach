@@ -60,6 +60,35 @@ from services.concept_detectors.trap_detection import (
 )
 from services.concept_detectors.opening_play import (
     detect_opening_play_application,
+    detect_sound_opening_deviation_application,
+)
+from services.concept_detectors.opening_principles import (
+    detect_opening_castling_application,
+    detect_opening_center_application,
+    detect_opening_development_with_tempo_application,
+)
+from services.concept_detectors.opening_plan_play import (
+    detect_opening_plan_application,
+)
+from services.concept_detectors.coach_principles import (
+    detect_coached_development_application,
+    detect_endgame_active_rook_application,
+    detect_endgame_create_passed_pawn_application,
+    detect_endgame_king_centralization_application,
+    detect_endgame_stop_promotion_application,
+)
+from services.concept_detectors.positional_patterns import (
+    detect_central_pawn_break_application,
+    detect_iqp_play_application,
+    detect_knight_outpost_application,
+    detect_luft_application,
+    detect_minority_attack_application,
+    detect_prophylactic_king_tuck_application,
+    detect_rook_open_file_application,
+    detect_rook_seventh_application,
+)
+from services.concept_detectors.endgame_curriculum_positions import (
+    curriculum_endgame_detectors,
 )
 
 
@@ -80,7 +109,31 @@ DETECTORS: Dict[str, DetectorFn] = {
     # Trap and opening detection (Tier 2-3 wiring)
     "trap_detection":         detect_trap_application,
     "opening_play":           detect_opening_play_application,
+    "opening_sound_deviation": detect_sound_opening_deviation_application,
+    "opening_castling":       detect_opening_castling_application,
+    "opening_center":         detect_opening_center_application,
+    "opening_development_with_tempo": detect_opening_development_with_tempo_application,
+    "opening_plan_play":      detect_opening_plan_application,
+    "coached_development":    detect_coached_development_application,
+    "endgame_king_centralization": detect_endgame_king_centralization_application,
+    "endgame_create_passed_pawn": detect_endgame_create_passed_pawn_application,
+    "endgame_active_rook":    detect_endgame_active_rook_application,
+    "endgame_stop_promotion": detect_endgame_stop_promotion_application,
+    # Broader coach-level positional candidates. These reuse the canonical
+    # middlegame recognizers and are authorization-gated as Shadow.
+    "concept_knight_outpost": detect_knight_outpost_application,
+    "concept_rook_open_file": detect_rook_open_file_application,
+    "concept_rook_seventh": detect_rook_seventh_application,
+    "concept_central_pawn_break": detect_central_pawn_break_application,
+    "concept_minority_attack": detect_minority_attack_application,
+    "concept_iqp": detect_iqp_play_application,
+    "concept_luft": detect_luft_application,
+    "concept_prophylactic_king_tuck": detect_prophylactic_king_tuck_application,
 }
+
+# One exact-position transfer detector is derived from each publishable
+# canonical endgame lesson. No lesson IDs, FENs, or answers are copied here.
+DETECTORS.update(curriculum_endgame_detectors())
 
 
 def has_detector(skill_id: str) -> bool:

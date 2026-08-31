@@ -20,9 +20,15 @@ def _codes(record):
 def test_real_canonical_sources_are_reported_together():
     report = validate_all_content()
 
-    assert set(report["subjects"]) == {"openings", "traps", "endgames"}
+    assert set(report["subjects"]) == {
+        "openings",
+        "traps",
+        "opening_ideas",
+        "endgames",
+    }
     assert report["subjects"]["openings"]["total"] == 79
-    assert report["subjects"]["traps"]["total"] == 55
+    assert report["subjects"]["traps"]["total"] == 36
+    assert report["subjects"]["opening_ideas"]["total"] == 19
     assert report["subjects"]["endgames"]["total"] == 20
     assert report["canonical_sources"]["openings"].endswith(
         "backend/data/opening_curriculum.json"
@@ -57,6 +63,10 @@ def test_completed_flat_opening_lessons_are_publishable():
         "queens_indian",
         "sicilian_dragon",
         "sicilian_najdorf",
+        "kings_pawn_opening",
+        "van_t_kruijs_opening",
+        "queens_pawn_opening_chigorin_v",
+        "center_game",
     }
 
     assert all(records[key]["publishable"] for key in completed)
@@ -203,6 +213,87 @@ def test_real_legal_mate_line_passes():
     assert record.publishable is True
 
 
+def test_opening_plan_requires_an_honest_goal_not_a_forced_result():
+    lesson = {
+        "name": "Center plan",
+        "lesson_kind": "opening_plan",
+        "learning_goal": "Use d4 to build a two-pawn center.",
+        "description": "A model line for gaining central space.",
+        "success_message": "The center gives both bishops room to develop.",
+        "result_type": "opening_plan",
+        "trap_color": "white",
+        "setup_moves": ["e4", "e5"],
+        "trap_line": [
+            {"move": "d4", "explanation": "Challenge e5 and open the c1 bishop."},
+        ],
+    }
+
+    record = validate_trap_record("open-game", lesson)
+    assert record.subject == "opening_ideas"
+    assert record.publishable is True
+
+    broken = deepcopy(lesson)
+    broken["success_message"] = "This is a forced winning plan."
+    broken_record = validate_trap_record("open-game", broken)
+    assert "opening_idea.forced_claim" in _codes(broken_record)
+
+
+def test_opening_plan_cannot_call_an_advanced_pawn_passed():
+    lesson = {
+        "name": "False passer",
+        "lesson_kind": "opening_plan",
+        "learning_goal": "Develop while supporting the center.",
+        "description": "White has a strong passed pawn on d5.",
+        "success_message": "The d5-pawn gives White more room.",
+        "result_type": "opening_plan",
+        "trap_color": "white",
+        "setup_moves": ["d4", "Nf6", "d5", "e6"],
+        "trap_line": [
+            {"move": "Nc3", "explanation": "Develop and support the center."},
+        ],
+    }
+
+    record = validate_trap_record("queen-pawn", lesson)
+
+    assert "opening_idea.passed_pawn_claim_false" in _codes(record)
+    assert record.publishable is False
+
+    corrected = deepcopy(lesson)
+    corrected["description"] = (
+        "The d5-pawn is not a passed pawn because Black's e6-pawn can capture it."
+    )
+    corrected_record = validate_trap_record("queen-pawn", corrected)
+    assert "opening_idea.passed_pawn_claim_false" not in _codes(corrected_record)
+
+
+def test_opening_plan_cannot_call_one_of_many_legal_replies_forced():
+    lesson = {
+        "name": "False forced reply",
+        "lesson_kind": "opening_plan",
+        "learning_goal": "Develop a knight.",
+        "description": "A model development line.",
+        "success_message": "Both sides have developed a piece.",
+        "result_type": "opening_plan",
+        "trap_color": "white",
+        "setup_moves": ["e4", "e5"],
+        "trap_line": [
+            {"move": "Nf3", "explanation": "Forced — this is the only legal move."},
+        ],
+    }
+
+    record = validate_trap_record("open-game", lesson)
+
+    assert "opening_idea.reply_not_forced" in _codes(record)
+    assert record.publishable is False
+
+    corrected = deepcopy(lesson)
+    corrected["trap_line"][0]["explanation"] = (
+        "White chooses Nf3 to develop and attack e5."
+    )
+    corrected_record = validate_trap_record("open-game", corrected)
+    assert "opening_idea.reply_not_forced" not in _codes(corrected_record)
+
+
 def test_exposed_king_claim_requires_the_line_to_remove_castling_and_move_king():
     trap = {
         "name": "King chase",
@@ -239,9 +330,11 @@ def test_endgame_fen_and_answer_must_agree():
             {
                 "fen": "8/8/8/8/8/8/4K3/6k1 w - - 0 1",
                 "side_to_move": "white",
+                "expected_result": "draw",
                 "prompt": "Move closer.",
                 "correct_move_san": "Ke3",
                 "correct_move_uci": "e2e3",
+                "wrong_example_san": "Kd2",
                 "idea": "The king approaches.",
                 "on_correct": "Good.",
                 "on_wrong": "Try a king step.",
@@ -263,10 +356,31 @@ def test_endgame_fen_and_answer_must_agree():
 
     assert record.publishable is True
 
+    false_claim = deepcopy(lesson)
+    false_claim["positions"][0]["expected_result"] = "win"
+    false_claim_record = validate_endgame_lesson(
+        "kings", "king_step", false_claim, evidence
+    )
+    assert "endgame.claimed_result_mismatch" in _codes(false_claim_record)
+
+    missing_claim = deepcopy(lesson)
+    del missing_claim["positions"][0]["expected_result"]
+    missing_claim_record = validate_endgame_lesson(
+        "kings", "king_step", missing_claim, evidence
+    )
+    assert "endgame.expected_result_missing" in _codes(missing_claim_record)
+
     broken = deepcopy(lesson)
     broken["positions"][0]["correct_move_uci"] = "e2e4"
     broken_record = validate_endgame_lesson("kings", "broken", broken, evidence)
     assert "endgame.move_illegal" in _codes(broken_record)
+
+    illegal_wrong = deepcopy(lesson)
+    illegal_wrong["positions"][0]["wrong_example_san"] = "Ke4"
+    illegal_wrong_record = validate_endgame_lesson(
+        "kings", "king_step", illegal_wrong, evidence
+    )
+    assert "endgame.wrong_example_illegal" in _codes(illegal_wrong_record)
 
 
 def test_repaired_tablebase_lessons_preserve_the_exact_result():

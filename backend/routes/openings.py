@@ -200,30 +200,28 @@ async def get_opening_lesson(
     """
     from services.curriculum_content_validator import (
         get_defense_ready_trap_ids,
-        is_content_publishable,
         trap_content_id,
     )
+    from services.opening_library_service import resolve_teachable_opening
     from services.opening_theory_json_service import (
         get_available_variations,
         get_lesson_move_steps,
         get_opening_theory,
-        resolve_opening_key,
     )
     from services.trap_library import get_traps_for_opening
     
-    canonical_key = resolve_opening_key(opening_key)
-    theory = get_opening_theory(opening_key)
-    if (
-        not theory
-        or not canonical_key
-        or not is_content_publishable("openings", canonical_key)
-    ):
+    lesson_resolution = resolve_teachable_opening(opening_key)
+    if not lesson_resolution:
         raise HTTPException(
             status_code=404,
             detail="Verified opening lesson not found",
         )
+    canonical_key = lesson_resolution["lesson_key"]
+    theory = get_opening_theory(canonical_key)
+    if not theory:
+        raise HTTPException(status_code=404, detail="Verified opening lesson not found")
     
-    variations = get_available_variations(opening_key)
+    variations = get_available_variations(canonical_key)
     trap_opening_key = canonical_key.replace("_", "-")
     traps = get_traps_for_opening(trap_opening_key)
     publishable_traps = get_defense_ready_trap_ids()
@@ -234,7 +232,7 @@ async def get_opening_lesson(
     # Default to the authored primary response tree. A named variation is
     # loaded only when the player explicitly selects it.
     target_variation_key = variation
-    main_line = get_lesson_move_steps(opening_key, target_variation_key)
+    main_line = get_lesson_move_steps(canonical_key, target_variation_key)
     
     # Build trap details.
     # trap.full_line = setup_moves + trap-only moves. TrapPractice.jsx
@@ -247,6 +245,10 @@ async def get_opening_lesson(
         if trap_content_id(trap_opening_key, trap.get("name", "")) not in publishable_traps:
             continue
         trap_details.append({
+            "content_id": trap_content_id(
+                trap_opening_key,
+                trap.get("name", ""),
+            ),
             "name": trap["name"],
             "description": trap.get("description", ""),
             "setup_moves": trap.get("setup_moves", []),
@@ -257,10 +259,11 @@ async def get_opening_lesson(
         })
     
     lesson_data = {
+        "content_id": canonical_key,
         "name": theory.get("name", opening_key.replace("_", " ").title()),
         "eco": ", ".join(theory.get("eco_prefix", [])),
         "description": theory.get("white_plan", "") + " / " + theory.get("black_plan", ""),
-        "color": "black" if "defense" in theory.get("name", "").lower() or "indian" in theory.get("name", "").lower() else "white",
+        "color": str(theory.get("color") or "white").lower(),
         "first_moves": theory.get("main_line", [])[:5],
         "main_line": main_line,
         # common_learnings is populated for a minority of openings; fall
@@ -281,12 +284,19 @@ async def get_opening_lesson(
             "total_moves": v["total_moves"],
         } for v in variations],
         "active_variation": target_variation_key,
+        "requested_content_id": lesson_resolution["requested_key"],
+        "recognized_opening_name": lesson_resolution["recognized_opening_name"],
+        "lesson_relation": lesson_resolution["lesson_relation"],
     }
     
     # Add user-specific progress data
     progress_doc = await db.user_opening_progress.find_one({
         "user_id": user.user_id,
-        "opening_key": opening_key
+        "opening_key": {"$in": [
+            opening_key,
+            canonical_key,
+            lesson_resolution["public_lesson_key"],
+        ]},
     })
 
     user_progress = {}
@@ -298,7 +308,7 @@ async def get_opening_lesson(
             "last_practiced": progress_doc.get("last_practiced")
         }
 
-    user_mistakes = await _compute_opening_mistakes(user.user_id, opening_key)
+    user_mistakes = await _compute_opening_mistakes(user.user_id, canonical_key)
 
     return {
         "opening": lesson_data,
@@ -760,13 +770,7 @@ async def make_practice_move(
             "coach_explanation": coach_move_data["explanation"],
             "move_number": (final_idx // 2) + 1,
             "is_user_turn": True,
-            # Add dynamic coaching if available
-            "dynamic_coaching": await _get_dynamic_coaching_for_practice(
-                board=board,
-                move_history=new_history,
-                user_id=user.user_id,
-                opening_name=session["opening_name"]
-            )
+            "dynamic_coaching": None,
         }
     
     else:
@@ -964,55 +968,13 @@ async def generate_socratic_feedback(
     Instead of just saying "wrong", ask questions that guide
     the student to understand why the expected move is better.
     """
-    global call_llm
-    
-    # Build context
-    fen = board.fen()
-    
-    # Try to use LLM for personalized Socratic feedback
-    if call_llm:
-        try:
-            prompt = f"""You are a friendly chess coach teaching the {opening_name}.
-
-The student is at this position (FEN): {fen}
-
-They played: {played_move}
-The correct move is: {expected_move}
-Why the correct move is good: {explanation}
-
-Generate a SHORT Socratic response (2-3 sentences max) that:
-1. Acknowledges their move without being harsh
-2. Asks ONE guiding question that helps them discover the right move
-3. Keep it simple and encouraging
-
-Example good responses:
-- "Interesting idea! But what square is really weak in Black's position right now? What piece could target it?"
-- "That develops a piece, good instinct! But look at the center - is there a way to control it more directly?"
-
-Don't reveal the answer directly. Just guide them to think.
-Be warm and use simple language.
-"""
-            response = await call_llm(prompt)
-            if response:
-                return {
-                    "type": "socratic",
-                    "message": response,
-                    "encouragement": True
-                }
-        except Exception as e:
-            logger.error(f"Error generating Socratic feedback: {e}")
-    
-    # Fallback to template-based feedback
-    questions = [
-        f"Good try! But think about this - {explanation.split('.')[0]}. What move accomplishes that?",
-        f"That's a reasonable idea. But in the {opening_name}, we want to {explanation.split('.')[0].lower()}. Can you find that move?",
-        f"Not quite! Ask yourself: what's the key idea in this opening? {explanation}",
-        f"Think about what square or piece we're targeting here. {explanation.split('.')[0]}.",
-    ]
-    
+    first_clause = str(explanation or "Continue the plan").split(".")[0]
     return {
         "type": "socratic",
-        "message": random.choice(questions),
+        "message": (
+            f"You chose {played_move}. Before moving again, look at the plan "
+            f"we are practising: {first_clause.lower()}. Which legal move does that now?"
+        ),
         "encouragement": True
     }
 

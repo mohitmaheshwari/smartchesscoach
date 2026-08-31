@@ -25,8 +25,10 @@ from services.teaching_engine import (
     get_lesson_catalog,
     process_endgame_move,
     start_endgame_lesson,
+    start_lesson,
     start_trap_lesson,
 )
+from trick_library_service import get_all_opening_ideas, get_all_traps
 
 
 class FakeCollection:
@@ -160,7 +162,7 @@ def test_play_with_coach_catalog_is_truth_gated():
     report = validate_all_content()["subjects"]
 
     assert len(catalog["traps"]) == len(get_defense_ready_trap_ids())
-    assert len(catalog["traps"]) == 23
+    assert len(catalog["traps"]) == report["traps"]["publishable"]
     assert {
         "scholars_mate",
         "legals_mate",
@@ -171,6 +173,40 @@ def test_play_with_coach_catalog_is_truth_gated():
     }.issubset({item["key"] for item in catalog["traps"]})
     assert len(catalog["endgames"]) == report["endgames"]["publishable"]
     assert all(item.get("canonical_source") for item in catalog["endgames"])
+    assert len(catalog["opening_ideas"]) == report["opening_ideas"]["publishable"]
+    assert len(catalog["opening_ideas"]) == 19
+    assert all(item.get("canonical_source") for item in catalog["opening_ideas"])
+    assert len(get_all_opening_ideas()) == 19
+    assert all(
+        lesson.get("lesson_kind") == "opening_plan"
+        for lesson in get_all_opening_ideas()
+    )
+    assert all(
+        trap.get("lesson_kind") != "opening_plan"
+        for trap in get_all_traps()
+    )
+
+
+def test_opening_idea_starts_as_a_model_line_not_a_trap_defense():
+    db = FakeDB()
+    result = asyncio.run(
+        start_lesson(
+            db,
+            "session-1",
+            "user-1",
+            "opening_plan",
+            {
+                "lesson_type": "opening_plan",
+                "lesson_key": "wing_gambit",
+            },
+        )
+    )
+
+    assert result["success"] is True
+    assert result["lesson_type"] == "opening_plan"
+    assert result["mode"] == "execution"
+    assert result["instruction"]["answer_hidden"] is False
+    assert db.coach_sessions.document["lesson_type"] == "opening_plan"
 
 
 def test_play_with_coach_endgame_starts_question_first():

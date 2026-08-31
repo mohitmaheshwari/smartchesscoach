@@ -20,7 +20,7 @@ from services.realtime_coaching_feedback import (
     _classify_move_quality,
     _generate_coaching_message
 )
-from services.puzzle_extraction_service import extract_puzzles_from_game
+from services.puzzle_extraction_service import minimum_extraction_cp_loss
 
 
 class TestClassifyMoveQuality:
@@ -299,21 +299,22 @@ class TestGenerateCoachingMessage:
 class TestPuzzleExtractionThresholds:
     """Test rating-aware puzzle extraction thresholds"""
     
-    def test_threshold_values_documented(self):
-        """Verify the documented threshold values are correct in the code"""
-        # These are the documented thresholds from the problem statement:
-        # 800 player: min 200cp
-        # 1600 player: min 100cp
-        
-        # We can't easily test the async function directly, but we can verify
-        # the threshold logic by checking the code structure
-        import inspect
-        source = inspect.getsource(extract_puzzles_from_game)
-        
-        # Check that rating-aware thresholds are present
-        assert "user_rating < 1000" in source, "Missing beginner threshold check"
-        assert "min_cp_loss = 200" in source, "Missing 200cp threshold for beginners"
-        assert "min_cp_loss = 100" in source, "Missing 100cp threshold for intermediate"
+    @pytest.mark.parametrize(
+        ("rating", "expected"),
+        [
+            (600, 75),
+            (999, 75),
+            (1000, 50),
+            (1399, 50),
+            (1400, 30),
+            (1799, 30),
+            (1800, 20),
+            (2200, 20),
+        ],
+    )
+    def test_candidate_floor_by_rating(self, rating, expected):
+        """The recall floor is deterministic; admission still gates truth."""
+        assert minimum_extraction_cp_loss(rating) == expected
 
 
 class TestRatingBandThresholds:

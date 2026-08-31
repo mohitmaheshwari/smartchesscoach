@@ -85,8 +85,18 @@ async def generate_coach_action(
     # 2. DRILL POSITIONS — from this game + same pattern from other games
     fix_pattern = diag_info.get("fix_pattern")
     drill_positions = []
+    from services.puzzle_extraction_service import (
+        verified_puzzle_admission_enforced,
+        verdict_serves_pattern,
+    )
+    requested_drill_pattern = fix_pattern
+    if verified_puzzle_admission_enforced():
+        requested_drill_pattern = {
+            "hanging_piece": "piece_safety",
+            "calculation_depth": "calculation_depth",
+        }.get(fix_pattern)
 
-    if fix_pattern:
+    if requested_drill_pattern:
         # Get positions from THIS game's mistakes
         game_id = game.get("game_id", "")
         own_positions = await db.community_training_positions.find(
@@ -97,7 +107,7 @@ async def generate_coach_action(
         # If not enough from this game, get same pattern from other games
         if len(own_positions) < 3:
             more = await db.community_training_positions.find(
-                {"source_user_id": user_id, "pattern_type": fix_pattern, "source_game_id": {"$ne": game_id}},
+                {"source_user_id": user_id, "pattern_type": requested_drill_pattern, "source_game_id": {"$ne": game_id}},
                 {"_id": 0}
             ).sort("created_at", -1).limit(3 - len(own_positions)).to_list(3)
             own_positions.extend(more)
@@ -105,12 +115,16 @@ async def generate_coach_action(
         # If still not enough, get community positions
         if len(own_positions) < 3:
             community = await db.community_training_positions.find(
-                {"pattern_type": fix_pattern, "source_user_id": {"$ne": user_id}},
+                {"pattern_type": requested_drill_pattern, "source_user_id": {"$ne": user_id}},
                 {"_id": 0}
             ).limit(3 - len(own_positions)).to_list(3)
             own_positions.extend(community)
 
         for p in own_positions:
+            if p.get("approved") is False:
+                continue
+            if not verdict_serves_pattern(p, requested_drill_pattern):
+                continue
             drill_positions.append({
                 "position_id": p.get("position_id", ""),
                 "fen": p.get("fen", ""),
@@ -144,7 +158,7 @@ async def generate_coach_action(
             "worst_move": worst_move,
         },
         "drill": {
-            "pattern": fix_pattern,
+            "pattern": requested_drill_pattern,
             "positions": drill_positions,
             "count": len(drill_positions),
         },

@@ -444,6 +444,7 @@ def _knowledge_destination(
     canonical_source = {
         "opening": "backend/data/opening_curriculum.json",
         "trap": "backend/data/traps.json",
+        "trap_set": "backend/data/traps.json",
         "concept": "backend/data/theory/tactical_patterns.json",
     }.get(kind, "backend/data/coaching/skill_tree.json")
     return CurriculumDestination(
@@ -538,6 +539,7 @@ def _personalized_candidate(
         "concept",
         "opening",
         "trap",
+        "trap_set",
         "endgame",
     }:
         return candidate

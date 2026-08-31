@@ -1,43 +1,8 @@
-/**
- * Opening Quiz Page
- * 
- * Wrapper page for the OpeningQuiz component.
- * Handles routing and navigation.
- */
+/** Compatibility route for the retired answer-bearing opening quiz. */
+import { Navigate, useParams } from "react-router-dom";
 
-import React from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import Layout from "@/components/Layout";
-import OpeningQuiz from "@/components/OpeningQuiz";
-
-const OpeningQuizPage = ({ user }) => {
+export default function OpeningQuizPage() {
   const { openingKey } = useParams();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  const openingName = searchParams.get("name") || openingKey?.replace(/_/g, " ");
-
-  const handleClose = () => {
-    navigate("/training");
-  };
-
-  const handleComplete = (result) => {
-    console.log("Quiz completed:", result);
-    // Could show a toast or navigate based on result
-  };
-
-  return (
-    <Layout user={user}>
-      <div className="experience-page experience-learning-page experience-quiz-page container max-w-5xl mx-auto py-8 px-4">
-        <OpeningQuiz
-          openingKey={openingKey}
-          openingName={openingName}
-          onClose={handleClose}
-          onComplete={handleComplete}
-        />
-      </div>
-    </Layout>
-  );
-};
-
-export default OpeningQuizPage;
+  const target = `/training?personalized=1&kind=opening&lesson=${encodeURIComponent(openingKey || "")}`;
+  return <Navigate to={target} replace />;
+}

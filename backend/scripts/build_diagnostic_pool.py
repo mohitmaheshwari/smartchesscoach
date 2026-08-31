@@ -49,11 +49,16 @@ import chess.engine
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from config import STOCKFISH_PATH
+from services.diagnostic_service import (
+    DIAGNOSTIC_GRADE_VERSION,
+    classify_diagnostic_eval,
+    diagnostic_grade_fingerprint,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("build_diagnostic_pool")
 
-POOL_VERSION = 1
+POOL_VERSION = 2
 
 # Mate scores use the same convention as stockfish_service:
 # cp = 10000 - |mate_in| * 10, signed toward the mating side.
@@ -239,6 +244,97 @@ def _engine_gate(engine: chess.engine.SimpleEngine, cand: Dict[str, Any],
     return {"multipv": lines, "eval_before": round(best["eval_cp"] / 100.0, 2)}
 
 
+def _freeze_step_grades(
+    engine: chess.engine.SimpleEngine,
+    cand: Dict[str, Any],
+    puzzle_rating: Optional[int],
+    depth: int,
+) -> Optional[List[Dict[str, Any]]]:
+    """Evaluate every legal user reply once, offline, at each lesson step."""
+    board = chess.Board(cand["solve_fen"])
+    solution = cand["solution"]
+    frozen_steps: List[Dict[str, Any]] = []
+    n_user_moves = (len(solution) + 1) // 2
+
+    for step_index in range(n_user_moves):
+        solution_index = step_index * 2
+        if solution_index >= len(solution):
+            return None
+        try:
+            solution_move = chess.Move.from_uci(solution[solution_index])
+        except ValueError:
+            return None
+        if solution_move not in board.legal_moves:
+            return None
+
+        legal_moves = list(board.legal_moves)
+        try:
+            raw_infos = engine.analyse(
+                board,
+                chess.engine.Limit(depth=depth),
+                multipv=len(legal_moves),
+            )
+        except Exception as exc:
+            logger.warning(f"offline legal-move grading failed: {exc}")
+            return None
+        infos = raw_infos if isinstance(raw_infos, list) else [raw_infos]
+        eval_by_uci: Dict[str, int] = {}
+        for info in infos:
+            pv = info.get("pv") or []
+            if not pv:
+                continue
+            root_move = pv[0]
+            eval_cp, _ = _score_to_cp(info["score"], board.turn)
+            eval_by_uci[root_move.uci()] = int(eval_cp)
+        if len(eval_by_uci) != len(legal_moves):
+            logger.warning(
+                "offline grading map incomplete: "
+                f"{len(eval_by_uci)}/{len(legal_moves)} legal moves"
+            )
+            return None
+
+        solution_eval = eval_by_uci.get(solution_move.uci())
+        if solution_eval is None:
+            return None
+        grade_by_uci: Dict[str, Dict[str, Any]] = {}
+        for legal_move in legal_moves:
+            move_uci = legal_move.uci()
+            eval_after = eval_by_uci[move_uci]
+            verdict, cp_loss = classify_diagnostic_eval(
+                solution_eval,
+                eval_after,
+                puzzle_rating,
+            )
+            if move_uci == solution_move.uci():
+                verdict, cp_loss = "UNDERSTOOD", 0
+            grade_by_uci[move_uci] = {
+                "eval_after_cp": eval_after,
+                "cp_loss": cp_loss,
+                "verdict": verdict,
+            }
+
+        frozen_steps.append({
+            "step": step_index,
+            "fen": board.fen(),
+            "solution_uci": solution_move.uci(),
+            "solution_eval_cp": solution_eval,
+            "grade_by_uci": grade_by_uci,
+        })
+
+        board.push(solution_move)
+        opponent_index = solution_index + 1
+        if opponent_index < len(solution):
+            try:
+                opponent_move = chess.Move.from_uci(solution[opponent_index])
+            except ValueError:
+                return None
+            if opponent_move not in board.legal_moves:
+                return None
+            board.push(opponent_move)
+
+    return frozen_steps
+
+
 async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
     curated: List[Dict[str, Any]] = []
     used_ids: set = set()
@@ -290,13 +386,22 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
                         engine_calls += 1
                         if not gate:
                             continue
+                        step_grades = _freeze_step_grades(
+                            engine,
+                            cand,
+                            raw.get("rating"),
+                            depth,
+                        )
+                        engine_calls += (len(cand["solution"]) + 1) // 2
+                        if not step_grades:
+                            continue
 
                         used_ids.add(pid)
                         subtype = (
                             _piece_safety_subtype(themes)
                             if concept == "piece_safety" else None
                         )
-                        curated.append({
+                        document = {
                             "puzzle_id": f"lichess_{pid}",
                             "lichess_id": pid,
                             "concept": concept,
@@ -321,7 +426,13 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
                             "game_url": raw.get("game_url"),
                             "curated_at": datetime.now(timezone.utc).isoformat(),
                             "pool_version": POOL_VERSION,
-                        })
+                            "grade_version": DIAGNOSTIC_GRADE_VERSION,
+                            "step_grades": step_grades,
+                        }
+                        document["grade_fingerprint"] = (
+                            diagnostic_grade_fingerprint(document)
+                        )
+                        curated.append(document)
                         accepted += 1
                 if accepted == 0:
                     logger.warning(

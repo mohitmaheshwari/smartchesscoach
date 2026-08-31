@@ -48,11 +48,15 @@ from typing import Optional
 
 import chess
 
+from services.concept_detectors.evidence import stored_best_matches
+
 
 def detect_endgame_philidor_application(
     board_before: chess.Board,
     move: chess.Move,
     user_color: chess.Color,
+    best_move_san: Optional[str] = None,
+    best_move_uci: Optional[str] = None,
 ) -> Optional[str]:
     if board_before.turn != user_color:
         return None
@@ -80,7 +84,9 @@ def detect_endgame_philidor_application(
     if abs(rook_file - pawn_file) > 2:
         return None
 
-    return "applied"
+    return "applied" if stored_best_matches(
+        board_before, move, best_move_san, best_move_uci
+    ) else None
 
 
 def _philidor_test_setup(board: chess.Board, defender_color: chess.Color) -> Optional[tuple]:

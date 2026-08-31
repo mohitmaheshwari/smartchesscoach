@@ -619,7 +619,7 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
         for r in resolved[:5]:
             resolved_habits.append({
                 "name": r.get("name", ""),
-                "message": f"Fixed: {r.get('name', '')}",
+                "message": f"Checkpoint recorded: {r.get('name', '')}",
                 "resolved_at": r.get("resolved_at")
             })
 
@@ -629,7 +629,7 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
             stats = r.get("final_stats", {})
             resolved_habits.append({
                 "name": r.get("habit", "").replace("_", " ").title(),
-                "message": f"Mastered via reflection ({stats.get('correct_attempts', 0)}/{stats.get('total_attempts', 0)} correct)",
+                "message": f"Reflection checkpoint ({stats.get('correct_attempts', 0)}/{stats.get('total_attempts', 0)} correct)",
                 "resolved_at": r.get("resolved_at")
             })
 
@@ -868,9 +868,12 @@ async def get_motif_recognition(user: User = Depends(get_current_user)):
 
 @router.get("/motif-drill/{motif}")
 async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
-    """Drill positions for a motif weakness — the user's OWN games first, then community
-    (motif-tagged community puzzles). Each: find the move that avoids the motif."""
-    from services.motif_profile_service import get_drills, count_unresolved_drills
+    """Serve only source-verified motif sequences from the user's own games."""
+    from services.motif_profile_service import (
+        count_unresolved_drills,
+        get_drills,
+        motif_drill_sequence_is_verified,
+    )
 
     # ── GATE (2026-08-23) ────────────────────────────────────────────────
     # The legacy motif drill tells the user, verbatim:
@@ -895,7 +898,9 @@ async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
         for m in os.environ.get("MOTIF_DRILL_ENABLED_MOTIFS", "").split(",")
         if m.strip()
     }
-    if motif.lower() not in _enabled:
+    from services.puzzle_extraction_service import verified_puzzle_admission_enforced
+    enforced = verified_puzzle_admission_enforced()
+    if not enforced and motif.lower() not in _enabled:
         return {
             "motif": motif,
             "count": 0,
@@ -932,32 +937,74 @@ async def get_motif_drill(motif: str, user: User = Depends(get_current_user)):
 
     prof = await db.player_profiles.find_one(
         {"user_id": user.user_id}, {"_id": 0, "motif_profile": 1}) or {}
-    drills = get_drills(prof.get("motif_profile"), motif)
+    candidate_drills = get_drills(prof.get("motif_profile"), motif)
     unresolved = count_unresolved_drills(prof.get("motif_profile"), motif)
-    # then community (motif-tagged) — appended own-first; tag backfill is the next step.
-    # Community rows have always been self-consistent (best_move_san IS legal in fen);
-    # they are re-keyed to the normalized names so every row in `drills` has the same
-    # shape and a consumer can never pair the wrong fen with the wrong move.
-    async for p in db.community_puzzles.find(
-            {"motif": motif}, {"_id": 0, "fen": 1, "best_move_san": 1}).limit(20):
-        if not p.get("fen") or not p.get("best_move_san"):
-            continue
-        drills.append({
-            "position_fen": p.get("fen"),
-            "solution_san": p.get("best_move_san"),
-            "fen_after": None,
-            "user_blunder_move": None,
-            "opp_creates_motif": None,
-            "game_id": None,
-            "move_number": None,
-            "source": "community",
-        })
+    drills = []
+    if enforced:
+        import chess
+        from services.verified_puzzle_runtime import resolve_verified_puzzle
+
+        for candidate in candidate_drills:
+            game_id = candidate.get("game_id")
+            move_number = candidate.get("move_number")
+            if candidate.get("provenance") != "exact" or not game_id or move_number is None:
+                unresolved += 1
+                continue
+            resolved = await resolve_verified_puzzle(
+                db,
+                f"{game_id}_m{move_number}",
+                user_id=user.user_id,
+            )
+            if not resolved:
+                unresolved += 1
+                continue
+            try:
+                candidate_board = chess.Board(str(candidate.get("position_fen") or ""))
+                resolved_board = chess.Board(str(resolved.get("fen") or ""))
+                if candidate_board.fen().split()[:4] != resolved_board.fen().split()[:4]:
+                    unresolved += 1
+                    continue
+                solution = str(resolved.get("best_move_san") or "")
+                if not solution and resolved.get("best_move_uci"):
+                    solution = candidate_board.san(
+                        chess.Move.from_uci(str(resolved["best_move_uci"]))
+                    )
+            except (TypeError, ValueError, AssertionError):
+                unresolved += 1
+                continue
+            verified = {**candidate, "solution_san": solution, "source": "own_verified"}
+            if not motif_drill_sequence_is_verified(verified, motif):
+                unresolved += 1
+                continue
+            drills.append(verified)
+            if len(drills) >= 20:
+                break
+    else:
+        drills = candidate_drills
+        # Unsafe compatibility mode remains explicitly opt-in and is used only
+        # for rollback. Community rows do not carry the defensive sequence, so
+        # they are never mixed into the verified motif lesson.
+        async for p in db.community_puzzles.find(
+                {"motif": motif}, {"_id": 0, "fen": 1, "best_move_san": 1}).limit(20):
+            if not p.get("fen") or not p.get("best_move_san"):
+                continue
+            drills.append({
+                "position_fen": p.get("fen"),
+                "solution_san": p.get("best_move_san"),
+                "fen_after": None,
+                "user_blunder_move": None,
+                "opp_creates_motif": None,
+                "game_id": None,
+                "move_number": None,
+                "source": "community_legacy",
+            })
 
     return {
         "motif": motif,
         "count": len(drills),
         "unresolved_own_positions": unresolved,
         "drills": drills,
+        "gated": False,
         "coaching_intro": {
             "lesson": coaching["lesson"],
             "what_to_look_for": coaching["what_to_look_for"],
@@ -1141,19 +1188,14 @@ async def record_challenge_result_endpoint(
     req: RecordChallengeResultRequest,
     user: User = Depends(get_current_user)
 ):
-    """Record a challenge result and potentially resolve weakness"""
-    result = await record_challenge_result(
-        db,
-        user.user_id,
-        req.weakness_category,
-        req.weakness_subcategory,
-        req.success
+    """Retired: browser-asserted success may not mutate weakness state."""
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "This legacy challenge recorder is retired. Submit the puzzle ID "
+            "and played move to /api/training/puzzle-attempt instead."
+        ),
     )
-
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-
-    return result
 
 
 # ==================== LOSS STREAK + BLIND SPOTS + RECOMMENDATIONS ====================
@@ -1532,7 +1574,24 @@ async def get_training_puzzles(
     """
     from interactive_training_service import get_user_puzzles
 
-    puzzles = await get_user_puzzles(db, user.user_id, limit)
+    candidates = await get_user_puzzles(db, user.user_id, limit * 3)
+    from services.verified_puzzle_runtime import (
+        public_puzzle_payload,
+        resolve_verified_puzzle,
+    )
+    puzzles = []
+    for candidate in candidates:
+        puzzle_id = f"{candidate.get('game_id')}_m{candidate.get('move_number')}"
+        resolved = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+        if not resolved:
+            continue
+        puzzles.append(public_puzzle_payload({
+            **resolved,
+            "puzzle_id": puzzle_id,
+            "context": candidate.get("principle") or candidate.get("critical_detail"),
+        }))
+        if len(puzzles) >= limit:
+            break
 
     return {
         "puzzles": puzzles,
@@ -1543,40 +1602,30 @@ async def get_training_puzzles(
 @router.post("/training/puzzles/{puzzle_index}/solve")
 async def submit_puzzle_solution(
     puzzle_index: int,
-    solution: str,
-    time_taken_seconds: int,
+    puzzle_id: str,
+    played_uci: str,
+    time_taken_seconds: int = 0,
     user: User = Depends(get_current_user)
 ):
     """
     Submit a puzzle solution and track progress.
     """
-    # Record puzzle attempt
-    puzzle_attempt = {
-        "user_id": user.user_id,
-        "puzzle_index": puzzle_index,
-        "solution_submitted": solution,
-        "time_taken_seconds": time_taken_seconds,
-        "attempted_at": datetime.now(timezone.utc).isoformat()
-    }
-
-    await db.puzzle_attempts.insert_one(puzzle_attempt)
-
-    # Update profile stats
-    await db.player_profiles.update_one(
-        {"user_id": user.user_id},
-        {
-            "$inc": {
-                "puzzles_attempted": 1,
-                "total_puzzle_time_seconds": time_taken_seconds
-            }
-        },
-        upsert=True
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Verified puzzle not found")
+    grade = await record_verified_puzzle_attempt(
+        db,
+        user_id=user.user_id,
+        puzzle_id=puzzle_id,
+        puzzle=puzzle,
+        played_uci=played_uci,
+        time_taken_ms=max(0, time_taken_seconds) * 1000,
     )
-
-    return {
-        "message": "Solution recorded",
-        "time_taken_seconds": time_taken_seconds
-    }
+    if grade.get("quality") == "invalid":
+        raise HTTPException(status_code=400, detail=grade.get("feedback"))
+    return grade
 
 
 # ==================== PROGRESS PLAYER PROFILE ====================

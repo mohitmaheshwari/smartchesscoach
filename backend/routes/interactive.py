@@ -735,133 +735,79 @@ class GeneratePuzzleRequest(BaseModel):
 
 @router.post("/generate-puzzle")
 async def generate_puzzle(req: GeneratePuzzleRequest, user: User = Depends(get_current_user)):
-    """Generate a puzzle based on user's weakness pattern from PlayerProfile"""
-    import json
+    """Select one verified, answer-hidden puzzle for the requested weakness.
 
-    # Get player profile for context
-    profile = await db.player_profiles.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-
-    # Determine which weakness to target
-    weakness_context = ""
-    target_category = req.category
-    target_subcategory = req.subcategory
-
+    The historical endpoint generated a new chess position with an LLM and
+    returned its solution to the browser.  Challenge now reuses the same
+    stored-game/community supply and deterministic admission gate as Training.
+    No LLM or chess engine runs here, and no answer leaves the server before an
+    attempt or explicit reveal.
+    """
+    target = str(req.subcategory or "").strip().lower()
     if req.pattern_id:
-        # Use specified pattern
         pattern = await db.mistake_patterns.find_one(
             {"pattern_id": req.pattern_id, "user_id": user.user_id},
-            {"_id": 0}
+            {"_id": 0, "category": 1, "subcategory": 1},
         )
         if pattern:
-            target_category, target_subcategory = categorize_weakness(
-                pattern.get("category", "tactical"),
-                pattern.get("subcategory", "one_move_blunders")
-            )
-            weakness_context = f"The player struggles with: {target_subcategory.replace('_', ' ')} ({target_category}). {pattern.get('description', '')}"
-    elif profile and profile.get("top_weaknesses"):
-        # Use top weakness from profile
-        top_weakness = profile["top_weaknesses"][0]
-        target_category = top_weakness.get("category", "tactical")
-        target_subcategory = top_weakness.get("subcategory", "one_move_blunders")
-        weakness_context = f"Player's #1 weakness: {target_subcategory.replace('_', ' ')} ({target_category}). Score: {top_weakness.get('decayed_score', 1)}"
-    else:
-        weakness_context = f"Focus on {req.subcategory.replace('_', ' ')} in the {req.category} category."
+            target = str(pattern.get("subcategory") or target).strip().lower()
 
-    # Get player level for difficulty calibration
-    player_level = "intermediate"
-    if profile:
-        player_level = profile.get("estimated_level", "intermediate")
+    aliases = {
+        "general": "piece_safety",
+        "one_move_blunder": "piece_safety",
+        "one_move_blunders": "piece_safety",
+        "hanging_piece": "piece_safety",
+        "tactical_miss": "missed_tactic",
+        "missed_fork": "missed_tactic",
+        "missed_pin": "missed_tactic",
+        "missed_skewer": "missed_tactic",
+        "short_calculation": "calculation_depth",
+        "calculation_error": "calculation_depth",
+        "positional_miss": "piece_activity",
+    }
+    canonical = aliases.get(target, target)
+    supported = {
+        "piece_safety",
+        "missed_tactic",
+        "tactical_oversight",
+        "calculation_depth",
+        "king_safety",
+        "pawn_structure",
+        "piece_activity",
+        "opening_knowledge",
+        "endgame_technique",
+    }
+    if canonical not in supported:
+        canonical = "piece_safety"
 
-    system_prompt = f"""You are a chess puzzle creator. Create a tactical puzzle for training.
+    from services.puzzle_extraction_service import get_pattern_training_puzzles
 
-Player Level: {player_level.upper()}
-Target Weakness: {weakness_context}
-
-Create a puzzle that specifically targets this weakness. The puzzle should:
-1. Have a clear winning move or sequence
-2. Be instructive for the specific weakness
-3. Difficulty appropriate for {player_level} level ({"1 move" if player_level == "beginner" else "1-3 moves"})
-
-Respond in JSON format ONLY:
-{{
-    "title": "Short descriptive title",
-    "description": "Brief description of what to look for",
-    "fen": "Valid FEN position string",
-    "player_color": "white" or "black",
-    "solution_san": "The correct move in SAN notation (e.g., Nxf7)",
-    "solution": [{{"from": "e4", "to": "f7"}}],
-    "hint": "A subtle hint without giving away the answer",
-    "theme": "{target_subcategory}",
-    "explanation": {{
-        "thinking_error": "What thinking error does this puzzle train against",
-        "one_repeatable_rule": "The rule this puzzle teaches"
-    }}
-}}
-
-Make sure the FEN is valid and the solution is correct for that position."""
-
-    try:
-        response = await call_llm_fn(
-            system_message=system_prompt,
-            user_message=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}",
-            model="gpt-4o-mini"
+    supply = await get_pattern_training_puzzles(
+        db,
+        user.user_id,
+        canonical,
+        limit=5,
+    )
+    available = [
+        *[row for row in supply.get("own_puzzles") or [] if not row.get("already_solved")],
+        *(supply.get("community_puzzles") or []),
+    ]
+    if not available:
+        raise HTTPException(
+            status_code=404,
+            detail="No verified challenge is ready for this focus yet",
         )
 
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
-
-        puzzle = json.loads(response_clean)
-
-        # Store puzzle with target weakness for feedback loop
-        puzzle_doc = {
-            "puzzle_id": f"puzzle_{uuid.uuid4().hex[:12]}",
-            "user_id": user.user_id,
-            "pattern_id": req.pattern_id,
-            "target_category": target_category,
-            "target_subcategory": target_subcategory,
-            "solved": None,  # Will be updated when user submits result
-            "solve_time_seconds": None,
-            **puzzle,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.puzzles.insert_one(puzzle_doc)
-        puzzle_doc.pop('_id', None)
-
-        return puzzle_doc
-
-    except Exception as e:
-        logger.error(f"Puzzle generation error: {e}")
-        # Return a fallback puzzle with proper tracking fields
-        fallback_puzzle = {
-            "puzzle_id": f"puzzle_{uuid.uuid4().hex[:12]}",
-            "user_id": user.user_id,
-            "target_category": target_category,
-            "target_subcategory": target_subcategory,
-            "title": "Tactical Training",
-            "description": f"Find the best move in this {target_subcategory.replace('_', ' ')} position",
-            "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
-            "player_color": "white",
-            "solution_san": "Qxf7#",
-            "solution": [{"from": "h5", "to": "f7"}],
-            "hint": "Look for a forcing move that attacks multiple pieces",
-            "theme": target_subcategory,
-            "explanation": {
-                "thinking_error": "Missing forcing moves that end the game",
-                "one_repeatable_rule": "Always check for checkmate threats first"
-            },
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.puzzles.insert_one(fallback_puzzle)
-        fallback_puzzle.pop('_id', None)
-        return fallback_puzzle
+    puzzle = available[0]
+    return {
+        **puzzle,
+        "title": supply.get("pattern_label") or canonical.replace("_", " ").title(),
+        "description": puzzle.get("description")
+        or "Find the move that solves the problem in this position.",
+        "target_category": str(req.category or "tactical"),
+        "target_subcategory": canonical,
+        "hint": "Start with checks, captures, threats, and what your opponent can do next.",
+    }
 
 
 # ============================================================================

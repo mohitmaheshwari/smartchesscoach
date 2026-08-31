@@ -23,6 +23,7 @@ export default function DailyFixDrill({ user }) {
   const [elapsed, setElapsed] = useState(0);
   const [streakResult, setStreakResult] = useState(null);
   const [boardFen, setBoardFen] = useState(null);
+  const [completionError, setCompletionError] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -73,12 +74,30 @@ export default function DailyFixDrill({ user }) {
         return false; // illegal move — reject the drop (piece snaps back, correct)
       }
       setBoardFen(newFen); // reflect the move so the piece STAYS on the board
-      const sol = (drill.solution_uci || "").toLowerCase();
-      const correct = uci === sol || uci.slice(0, 4) === sol.slice(0, 4);
-      setPhase(correct ? "correct" : "wrong");
+      fetch(`${API}/training/puzzle-attempt`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            puzzle_id: drill.puzzle_id,
+            played_uci: uci,
+            time_taken_ms: elapsed * 1000,
+            moves_tried: [uci],
+          }),
+        })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((grade) => setPhase(grade.correct ? "correct" : "wrong"))
+        .catch((error) => {
+          console.error("daily-fix grade failed:", error);
+          setBoardFen(drill.fen);
+          setPhase("solving");
+        });
       return true;
     },
-    [drill, phase]
+    [drill, phase, elapsed]
   );
 
   const next = useCallback(async () => {
@@ -89,11 +108,16 @@ export default function DailyFixDrill({ user }) {
     }
     try {
       const res = await fetch(`${API}/daily-fix/complete`, { method: "POST", credentials: "include" });
-      if (res.ok) setStreakResult((await res.json()).streak);
+      if (!res.ok) {
+        const problem = await res.json().catch(() => ({}));
+        throw new Error(problem.detail || `HTTP ${res.status}`);
+      }
+      setStreakResult((await res.json()).streak);
+      setPhase("done");
     } catch (e) {
       console.error("daily-fix complete failed:", e);
+      setCompletionError(e.message || "The coach could not verify completion yet.");
     }
-    setPhase("done");
   }, [idx, drills.length]);
 
   if (loading) {
@@ -177,6 +201,11 @@ export default function DailyFixDrill({ user }) {
           <div className="mt-4 rounded-lg border-l-4 border-l-emerald-500 bg-emerald-500/10 p-4">
             <p className="text-[14px] font-medium text-foreground mb-1">That's it — with time, you found it.</p>
             <p className="text-[12px] text-muted-foreground mb-3">{drill.teaching}</p>
+            {completionError && (
+              <p className="text-[12px] text-red-600 dark:text-red-400 mb-3" role="alert">
+                {completionError}
+              </p>
+            )}
             <button
               onClick={next}
               className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] inline-flex items-center gap-2"
@@ -192,18 +221,15 @@ export default function DailyFixDrill({ user }) {
             <p className="text-[12px] text-muted-foreground mb-3">{drill.teaching}</p>
             <div className="flex gap-2">
               <button
-                onClick={() => { setBoardFen(drill.fen); setPhase("solving"); }}
+                onClick={() => { setBoardFen(drill.fen); setPhase("solving"); setCompletionError(null); }}
                 className="h-9 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[13px]"
               >
                 Try again
               </button>
-              <button
-                onClick={next}
-                className="h-9 px-4 rounded-lg border border-border text-foreground text-[13px]"
-              >
-                Skip
-              </button>
             </div>
+            {completionError && (
+              <p className="text-[12px] text-red-600 dark:text-red-400 mt-2">{completionError}</p>
+            )}
           </div>
         )}
       </div>

@@ -83,6 +83,10 @@ def supports_personalized_lesson_identity(
                 get_trap_for_practice(lesson_id, "avoidance")
                 or get_trap_for_practice(lesson_id, "execution")
             )
+        if kind == "trap_set":
+            from trick_library_service import get_traps_by_opening
+
+            return bool(get_traps_by_opening(lesson_id))
         if kind == "endgame":
             from services.endgame_theory_service import get_lesson
 
@@ -100,6 +104,21 @@ def supports_personalized_lesson_identity(
     except (KeyError, TypeError, ValueError):
         return False
     return False
+
+
+def _lesson_skill_id(
+    kind: str,
+    content_id: str,
+    params: Mapping[str, Any],
+) -> str:
+    """Resolve tracking identity through the canonical skill tree owner."""
+    from services.engine2_skill_builder import resolve_skill_id
+
+    return resolve_skill_id(
+        kind,
+        content_id,
+        requested_skill_id=str(params.get("skill_id") or "") or None,
+    )
 
 
 def _stage(index: int, total: int) -> str:
@@ -182,7 +201,7 @@ def _opening_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "kind": "opening",
         "id": resolved,
-        "skill_id": str(params.get("skill_id") or resolved),
+        "skill_id": _lesson_skill_id("opening", resolved, params),
         "title": str(opening.get("name") or resolved.replace("_", " ").title()),
         "rule": str(
             (opening.get("golden_rules") or ["Develop with a clear plan."])[0]
@@ -262,7 +281,7 @@ def _trap_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, An
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "kind": "trap",
         "id": content_id,
-        "skill_id": str(params.get("skill_id") or content_id),
+        "skill_id": _lesson_skill_id("trap", content_id, params),
         "title": str(trap.get("name") or content_id.replace("_", " ").title()),
         "rule": str(trap.get("how_to_avoid") or trap.get("description") or ""),
         "intro": str(trap.get("danger") or trap.get("description") or ""),
@@ -272,6 +291,77 @@ def _trap_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, An
         "player_color": str(trap.get("user_color") or "white"),
         "mastery_capability": (
             "independent" if len(candidates) > 1 else "guided"
+        ),
+    }
+
+
+def _trap_set_descriptor(
+    content_id: str,
+    params: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Build one verified defensive decision per trap in an opening family."""
+    from trick_library_service import get_traps_by_opening
+
+    traps = get_traps_by_opening(content_id)
+    if not traps:
+        raise LessonUnavailable("Verified trap family not found")
+
+    items = []
+    included = []
+    seen_positions = set()
+    for trap in traps:
+        trap_key = str(trap.get("key") or "")
+        if not trap_key:
+            continue
+        try:
+            descriptor = _trap_descriptor(
+                trap_key,
+                {**dict(params), "mode": "avoidance"},
+            )
+        except LessonUnavailable:
+            continue
+        # The first user decision is the moment the defender must recognise.
+        # Later moves in the authored line explain the consequence, but they do
+        # not become extra mastery credit for the same trap.
+        item = dict(descriptor["items"][0])
+        position_key = " ".join(str(item["fen"]).split()[:4])
+        if position_key in seen_positions:
+            continue
+        seen_positions.add(position_key)
+        item["prompt"] = f"What move avoids {descriptor['title']}?"
+        item["source"] = "canonical_trap_family"
+        items.append(item)
+        included.append({
+            "key": trap_key,
+            "content_id": trap.get("content_id"),
+            "content_version": descriptor["content_version"],
+        })
+
+    if not items:
+        raise LessonUnavailable("Trap family has no verified defensive positions")
+    for index, item in enumerate(items):
+        item["stage"] = _stage(index, len(items))
+
+    family_name = str(content_id or "").replace("-", " ").replace("_", " ").title()
+    return {
+        "schema_version": ADAPTER_SCHEMA_VERSION,
+        "kind": "trap_set",
+        "id": content_id,
+        "skill_id": _lesson_skill_id("trap_set", content_id, params),
+        "title": f"{family_name} trap defenses",
+        "rule": "Find the opponent's immediate threat before starting your own plan.",
+        "intro": (
+            "These are different dangers from the same opening family. "
+            "Recognise each threat, then choose the verified defensive move."
+        ),
+        "canonical_source": "backend/data/traps.json",
+        "content_version": _content_version({
+            "family": content_id,
+            "traps": included,
+        }),
+        "items": items,
+        "mastery_capability": (
+            "independent" if len(items) > 1 else "guided"
         ),
     }
 
@@ -310,7 +400,7 @@ def _endgame_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "kind": "endgame",
         "id": content_id,
-        "skill_id": str(params.get("skill_id") or content_id),
+        "skill_id": _lesson_skill_id("endgame", content_id, params),
         "title": lesson["name"],
         "rule": lesson["rule"],
         "intro": str(lesson.get("intro") or lesson.get("description") or ""),
@@ -348,6 +438,7 @@ async def _concept_descriptor(
         user_id,
         "piece_safety" if pattern_key == "undefended_piece" else pattern_key,
         requested,
+        private=True,
     )
     own = [
         item for item in (supply.get("own_puzzles") or [])
@@ -357,7 +448,7 @@ async def _concept_descriptor(
     items = []
     seen_fens = set()
     for item in selected:
-        if not item.get("fen") or not item.get("best_move_san"):
+        if not item.get("fen") or not item.get("puzzle_id"):
             continue
         normalized_fen = " ".join(str(item["fen"]).split()[:4])
         if normalized_fen in seen_fens:
@@ -387,7 +478,7 @@ async def _concept_descriptor(
                 item.get("source_game_id") or item.get("puzzle_id")
             ),
             "board_verified": True,
-            "_expected_san": item["best_move_san"],
+            "_puzzle_id": str(item["puzzle_id"]),
             "_puzzle_evaluator": True,
         })
     if not items:
@@ -399,7 +490,7 @@ async def _concept_descriptor(
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "kind": "concept",
         "id": content_id,
-        "skill_id": str(params.get("skill_id") or content_id),
+        "skill_id": _lesson_skill_id("concept", content_id, params),
         "title": str(pattern.get("name") or "Piece safety"),
         "rule": str(pattern.get("prevention") or pattern.get("rule") or ""),
         "intro": str(pattern.get("explanation") or ""),
@@ -430,6 +521,8 @@ async def resolve_personalized_lesson(
         return _opening_descriptor(lesson_id, options)
     if kind == "trap":
         return _trap_descriptor(lesson_id, options)
+    if kind == "trap_set":
+        return _trap_set_descriptor(lesson_id, options)
     if kind == "endgame":
         return _endgame_descriptor(lesson_id, options)
     if kind == "concept":
@@ -470,6 +563,9 @@ async def grade_personalized_move(
     descriptor: Mapping[str, Any],
     item: Mapping[str, Any],
     supplied_move: str,
+    *,
+    db=None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     kind = descriptor["kind"]
     if kind == "endgame":
@@ -493,19 +589,35 @@ async def grade_personalized_move(
             "grader_version": "endgame_theory_service.v1",
         }
     if item.get("_puzzle_evaluator"):
-        from services.puzzle_move_evaluator import evaluate_puzzle_move
+        if db is None or not item.get("_puzzle_id"):
+            return {
+                "correct": False,
+                "feedback": "This position is still being checked.",
+                "answer_san": None,
+                "answer_uci": None,
+                "grader_version": "verified_puzzle_admission.unavailable",
+            }
+        from services.verified_puzzle_runtime import (
+            grade_resolved_puzzle,
+            resolve_verified_puzzle,
+        )
 
-        result = await evaluate_puzzle_move(
-            fen=item["fen"],
-            played_uci=supplied_move,
-            known_best_san=item["_expected_san"],
+        resolved = await resolve_verified_puzzle(
+            db,
+            str(item["_puzzle_id"]),
+            user_id=user_id,
+        )
+        result = (
+            grade_resolved_puzzle(resolved, supplied_move)
+            if resolved
+            else {"quality": "invalid", "feedback": "This position is still being checked."}
         )
         return {
-            "correct": bool(result.get("is_acceptable")),
+            "correct": bool(result.get("correct")),
             "feedback": result.get("feedback"),
             "answer_san": result.get("best_move_san"),
-            "answer_uci": None,
-            "grader_version": "puzzle_move_evaluator.v1",
+            "answer_uci": result.get("best_move_uci"),
+            "grader_version": "verified_puzzle_admission.v2",
         }
 
     parsed = _parse_move(item["fen"], supplied_move)

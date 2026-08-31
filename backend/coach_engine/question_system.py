@@ -82,9 +82,12 @@ def generate_opening_plan_question(opening: OpeningPlan, move_number: int, curre
         )
     elif teaching_for_move:
         # We have specific teaching for this move - USE IT!
+        teaching_text = teaching_for_move
+        if not is_identifying_move:
+            teaching_text = f"We're in the {opening.name}. {teaching_text}"
         return CoachQuestion(
             question_type=QuestionType.UNDERSTANDING,
-            text=teaching_for_move,
+            text=teaching_text,
             options=["I see the idea", "Tell me more", "What should I do?"],
             correct_option_idx=None,  # No wrong answer
             accepts_free_response=True,

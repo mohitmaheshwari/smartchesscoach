@@ -40,13 +40,22 @@ def test_returns_none_when_not_users_turn():
 def test_bridge_rook_move_is_applied():
     """Re1 -> e4 lifts the rook to the 4th rank, ready to interpose."""
     board, move = _b(SETUP_LUCENA, "Re4")
-    assert detect_endgame_lucena_application(board, move, chess.WHITE) == "applied"
+    assert detect_endgame_lucena_application(
+        board, move, chess.WHITE, best_move_uci=move.uci()
+    ) == "applied"
 
 
 def test_skipping_bridge_move_is_missed():
     """Premature king move when the bridge-builder Re4 was legal."""
     board, move = _b(SETUP_LUCENA, "Kd8")  # king step ignoring the bridge
-    assert detect_endgame_lucena_application(board, move, chess.WHITE) == "missed"
+    assert detect_endgame_lucena_application(
+        board, move, chess.WHITE, best_move_uci="e1e4"
+    ) == "missed"
+
+
+def test_fourth_rank_lift_without_stored_best_is_not_credit():
+    board, move = _b(SETUP_LUCENA, "Re4")
+    assert detect_endgame_lucena_application(board, move, chess.WHITE) is None
 
 
 def test_rook_pawn_lucena_returns_none():

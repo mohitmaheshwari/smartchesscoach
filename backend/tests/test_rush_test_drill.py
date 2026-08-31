@@ -52,9 +52,10 @@ def test_shape_valid_item():
     assert item is not None
     assert item["drill_type"] == "rush_test"
     assert item["fen"] == OBS["fen_before"]
-    assert item["solution_uci"] == "e1g1"
-    assert item["solution_san"] == "O-O"
-    assert item["played_uci"] == "f3g5"
+    assert item["puzzle_id"] == "g1_m7"
+    assert "solution_uci" not in item
+    assert "solution_san" not in item
+    assert "played_uci" not in item
     assert item["time_spent_seconds"] == 2.3
     assert item["teaching"]  # non-empty
 
@@ -74,7 +75,8 @@ def test_shape_skips_ungradeable():
 def test_shape_accepts_uci_only_best():
     item = shape_rush_drill_item(OBS, {"best_move_uci": "e1g1"})
     assert item is not None
-    assert item["solution_uci"] == "e1g1"
+    assert item["puzzle_id"] == "g1_m7"
+    assert "solution_uci" not in item
 
 
 if __name__ == "__main__":

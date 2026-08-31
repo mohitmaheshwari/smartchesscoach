@@ -1935,6 +1935,10 @@ async def get_skill_puzzles_endpoint(
         {"skill_id": skill_id, "shared_by": user.user_id}
     )
     if own_count == 0:
+        own_count = await db.community_puzzles.count_documents(
+            {"legacy_skill_id": skill_id, "shared_by": user.user_id}
+        )
+    if own_count == 0:
         try:
             await extract_skill_puzzles_for_user(db, user.user_id, skill_id)
         except Exception as e:
@@ -1957,48 +1961,32 @@ async def record_skill_puzzle_attempt(
     Returns:
       {correct, verdict, detail, puzzle_id}
     """
-    from services.skill_puzzle_extraction import grade_skill_puzzle_attempt
-    from bson import ObjectId
-    from datetime import datetime, timezone
-
     puzzle_id = request.get("puzzle_id")
     move_uci  = request.get("move_uci")
     if not puzzle_id or not move_uci:
         raise HTTPException(status_code=400, detail="puzzle_id and move_uci required")
 
-    try:
-        oid = ObjectId(puzzle_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="invalid puzzle_id")
-
-    puzzle = await db.community_puzzles.find_one({"_id": oid})
-    if puzzle is None:
-        raise HTTPException(status_code=404, detail="puzzle not found")
-
-    skill_id = puzzle.get("skill_id")
-    if not skill_id:
-        raise HTTPException(status_code=400, detail="not a skill puzzle")
-
-    result = grade_skill_puzzle_attempt(
-        fen_before=puzzle.get("fen"),
-        move_uci=move_uci,
-        skill_id=skill_id,
-        user_color_str=puzzle.get("user_color"),
-        engine_best_san=puzzle.get("best_move_san") or None,
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+    from services.verified_puzzle_attempt_service import record_verified_puzzle_attempt
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    grade = await record_verified_puzzle_attempt(
+        db,
+        user_id=user.user_id,
+        puzzle_id=puzzle_id,
+        puzzle=puzzle,
+        played_uci=move_uci,
+        time_taken_ms=request.get("time_taken_ms"),
+        moves_tried=[move_uci],
     )
-
-    await db.puzzle_attempts.insert_one({
-        "user_id":       user.user_id,
-        "puzzle_id":     puzzle_id,
-        "correct":       bool(result["correct"]),
-        "time_taken_ms": request.get("time_taken_ms"),
-        "moves_tried":   [move_uci],
-        "weakness_type": skill_id,
-        "verdict":       result["verdict"],
-        "created_at":    datetime.now(timezone.utc).isoformat(),
-    })
-    result["puzzle_id"] = puzzle_id
-    return result
+    if grade.get("quality") == "invalid":
+        raise HTTPException(status_code=400, detail=grade.get("feedback"))
+    return {
+        **grade,
+        "puzzle_id": puzzle_id,
+        "detail": grade.get("feedback"),
+    }
 
 
 @router.post("/lab/{game_id}/complete-review")
@@ -2009,12 +1997,22 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
     """
     from datetime import datetime, timezone
 
-    body = await request.json()
-    concepts_learned = body.get("concepts_learned", 0)
-    drills_solved = body.get("drills_solved", 0)
-    tabs_visited = body.get("tabs_visited", [])
-    moves_viewed = body.get("moves_viewed", 0)
-    total_moves = body.get("total_moves", 0)
+    # Review completion is an explicit user action, but learning and solve
+    # counts are not browser facts. Derive verified drill evidence from the
+    # server attempt log; real-game application/retention remain unmeasured.
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    attempts = await db.puzzle_attempts.find({
+        "user_id": user.user_id,
+        "puzzle_id": {"$regex": f"^{game_id}_m"},
+        "attempt_context": "game_review",
+    }, {"_id": 0, "puzzle_id": 1, "correct": 1}).to_list(200)
+    attempted_ids = {str(item.get("puzzle_id")) for item in attempts}
+    solved_ids = {
+        str(item.get("puzzle_id")) for item in attempts if item.get("correct")
+    }
 
     now = datetime.now(timezone.utc).isoformat()
 
@@ -2025,11 +2023,16 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
             "reviewed": True,
             "reviewed_at": now,
             "review_stats": {
-                "concepts_learned": concepts_learned,
-                "drills_solved": drills_solved,
-                "tabs_visited": tabs_visited,
-                "moves_viewed": moves_viewed,
-                "total_moves": total_moves,
+                "concepts_learned": "not_measured",
+                "drills_attempted_verified": len(attempted_ids),
+                "drills_solved_verified": len(solved_ids),
+                "real_game_application": "not_measured",
+                "retention": "not_measured",
+                "client_activity": {
+                    "tabs_visited": body.get("tabs_visited", []),
+                    "moves_viewed": body.get("moves_viewed", 0),
+                    "total_moves": body.get("total_moves", 0),
+                },
                 "completed_at": now,
             },
         }}
@@ -2076,8 +2079,11 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
             "lesson_label": lesson_label,
             "lesson": lesson,
             "takeaway": takeaway,
-            "concepts_learned": concepts_learned,
-            "drills_solved": drills_solved,
+            "concepts_learned": "not_measured",
+            "drills_attempted_verified": len(attempted_ids),
+            "drills_solved_verified": len(solved_ids),
+            "real_game_application": "not_measured",
+            "retention": "not_measured",
         },
         "next_game": next_rec,
     }
@@ -2525,42 +2531,13 @@ async def validate_puzzle_answer(
 
     Returns feedback with explanation and teaching point.
     """
-    from interactive_training_service import validate_puzzle_answer as validate_answer
-
-    result = await validate_answer(
-        db,
-        user.user_id,
-        data.get("puzzle_id"),
-        data.get("user_answer"),
-        data.get("correct_move"),
-        data.get("fen")
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "This legacy grader is retired. Use /api/training/"
+            "evaluate-puzzle-move with puzzle_id and played_uci."
+        ),
     )
-
-    # Update puzzle progression rating
-    if result.get("correct") is not None:
-        from puzzle_progression_service import record_puzzle_attempt
-
-        difficulty = data.get("difficulty", "intermediate")
-        progression = await record_puzzle_attempt(
-            db,
-            user.user_id,
-            data.get("puzzle_id", "unknown"),
-            difficulty,
-            result.get("correct", False)
-        )
-
-        # Include progression info in result
-        result["progression"] = {
-            "old_rating": progression["old_rating"],
-            "new_rating": progression["new_rating"],
-            "rating_change": progression["rating_change"],
-            "leveled_up": progression["leveled_up"],
-            "new_level": progression["new_level"] if progression["leveled_up"] else None,
-            "current_streak": progression["current_streak"],
-            "new_achievements": progression["new_achievements"]
-        }
-
-    return result
 
 
 @router.get("/training/puzzle-progress")
@@ -2673,10 +2650,21 @@ async def get_opening_quiz(opening_key: str, user: User = Depends(get_current_us
     from opening_trainer_service import get_opening_quiz
 
     questions = await get_opening_quiz(db, user.user_id, opening_key)
+    public_questions = []
+    for index, question in enumerate(questions):
+        public_questions.append({
+            key: value
+            for key, value in {
+                **question,
+                "question_id": f"{opening_key}:{index}",
+            }.items()
+            if key not in {"correct_answer", "correct_move", "explanation"}
+        })
 
     return {
         "opening": opening_key,
-        "questions": questions
+        "questions": public_questions,
+        "grading": "server_owned",
     }
 
 
@@ -2710,8 +2698,13 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
             # Check if user found the winning move
             is_correct = user_answer and user_answer.lower() == q["correct_move"].lower()
         elif q["type"] == "concept":
-            # Check if answer is in the options
-            is_correct = user_answer in q.get("options", [q["correct_answer"]])
+            # Only the authored answer is correct. Distractors are choices,
+            # not alternative proof of this opening's plan.
+            is_correct = bool(
+                user_answer
+                and user_answer.strip().casefold()
+                == str(q.get("correct_answer") or "").strip().casefold()
+            )
         elif q["type"] == "move_order":
             # Check if user got the main line
             is_correct = user_answer and user_answer.lower().replace(" ", "") == q["correct_answer"].lower().replace(" ", "")
@@ -2751,7 +2744,9 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
             "$set": {
                 "last_quiz_score": score,
                 "last_quiz_date": datetime.now(timezone.utc).isoformat(),
-                "mastery_level": new_level
+                "knowledge_check_level": new_level,
+                "evidence_status": "quiz_recall",
+                "application_verified": False,
             },
             "$push": {
                 "quiz_scores": {
@@ -2765,45 +2760,9 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
         upsert=True
     )
 
-    # Verify route (Mohit 2026-06-09): passing the quiz at a strong bar (>=80%) marks
-    # the opening KNOWN (VERIFIED) — the honest "studied" signal the progress page
-    # reads (skill_id in openings_learned). This is the ONLY way to become "studied"
-    # without the full lesson: you PROVED you know it (we don't infer it from play).
-    # Best-effort; maps the quiz key -> skill via content_ref. Never blocks the result.
+    # A quiz proves recall in this question set, not application in a game.
+    # Do not add the opening to openings_learned or write mastery here.
     marked_known = False
-    if score >= 80:
-        try:
-            from datetime import datetime as _dt, timezone as _tz
-            from services.engine2_skill_builder import _load_tree
-            _skills = _load_tree().get("skills", {})
-            _ref_to_sid = {
-                v.get("content_ref"): k for k, v in _skills.items()
-                if isinstance(v, dict) and v.get("kind") == "opening" and v.get("content_ref")
-            }
-            skill_id = _ref_to_sid.get(opening_key)
-            if skill_id:
-                from services.coach_memory import (
-                    get_or_create_memory, _memory_to_doc, SkillProgress,
-                )
-                memory = await get_or_create_memory(db, user.user_id)
-                ol = list(memory.learning.openings_learned or [])
-                if skill_id not in ol:
-                    ol.append(skill_id)
-                    memory.learning.openings_learned = ol
-                now_iso = _dt.now(_tz.utc).isoformat()
-                sk = next((s for s in memory.learning.skills
-                           if s.skill_id == skill_id and s.skill_type == "opening"), None)
-                if sk is None:
-                    sk = SkillProgress(skill_id=skill_id, skill_type="opening", first_seen=now_iso)
-                    memory.learning.skills.append(sk)
-                sk.learned_at = now_iso
-                sk.last_seen = now_iso
-                await db.coach_memory.update_one(
-                    {"user_id": user.user_id}, {"$set": _memory_to_doc(memory)}, upsert=True
-                )
-                marked_known = True
-        except Exception as e:
-            logger.warning(f"[opening-quiz] mark-known failed for {opening_key}: {e}")
 
     return {
         "opening": opening_key,
@@ -2814,6 +2773,8 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
         "mastery_level": new_level,
         "mastery_feedback": mastery_feedback,
         "marked_known": marked_known,
+        "evidence_status": "quiz_recall",
+        "application_verified": False,
         "results": results
     }
 
@@ -2948,9 +2909,9 @@ async def get_all_tricks():
     """
     Get all traps in the trick library with metadata.
     """
-    from trick_library_service import get_all_traps, get_trap_statistics, TRAP_CATEGORIES
+    from trick_library_service import get_public_traps, get_trap_statistics, TRAP_CATEGORIES
 
-    traps = get_all_traps()
+    traps = get_public_traps()
     stats = get_trap_statistics()
 
     return {
@@ -2986,21 +2947,13 @@ async def record_trap_attempt_endpoint(request: Request, data: dict, user: User 
     """
     Record a user's attempt on a trap practice mode.
     """
-    from trap_stats_service import record_trap_attempt
-
-    trap_key = data.get("trap_key")
-    mode = data.get("mode")
-    success = data.get("success")
-    details = data.get("details", {})
-
-    if not trap_key or not mode or success is None:
-        raise HTTPException(status_code=400, detail="Missing required fields: trap_key, mode, success")
-
-    if mode not in ["execution", "avoidance", "recognition"]:
-        raise HTTPException(status_code=400, detail="Invalid mode")
-
-    result = await record_trap_attempt(db, user.user_id, trap_key, mode, success, details)
-    return result
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "Client-declared trap results are retired. Use the personalized "
+            "trap lesson session, which grades the verified move on the server."
+        ),
+    )
 
 
 @router.get("/training/tricks/stats")
@@ -3032,9 +2985,9 @@ async def get_trick_details(trap_key: str):
     """
     Get detailed information about a specific trap.
     """
-    from trick_library_service import get_trap_by_key
+    from trick_library_service import get_public_trap_by_key
 
-    trap = get_trap_by_key(trap_key)
+    trap = get_public_trap_by_key(trap_key)
     if not trap:
         raise HTTPException(status_code=404, detail="Trap not found")
 
@@ -3051,225 +3004,44 @@ async def get_trick_for_practice(trap_key: str, mode: str = "execution"):
     - avoidance: Player tries to avoid falling into the trap
     - recognition: Player identifies if there's a trap in the position
     """
-    from trick_library_service import get_trap_for_practice
-
     if mode not in ["execution", "avoidance", "recognition"]:
         raise HTTPException(status_code=400, detail="Invalid mode. Use: execution, avoidance, recognition")
-
-    practice_data = get_trap_for_practice(trap_key, mode)
-    if not practice_data:
-        raise HTTPException(status_code=404, detail="Trap not found")
-
-    return practice_data
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "message": (
+                "This answer-bearing practice endpoint is retired. Use the "
+                "verified personalized trap lesson."
+            ),
+            "href": (
+                "/training?personalized=1&kind=trap&lesson=" + trap_key
+            ),
+        },
+    )
 
 
 @router.post("/training/tricks/validate-avoidance")
 async def validate_avoidance_move(data: dict):
-    """
-    Validate a move in avoidance mode.
-
-    Checks if the user's move avoids the trap or falls into it.
-    Uses Stockfish to evaluate if the move is safe.
-    """
-    import chess
-    from stockfish_service import StockfishEngine
-
-    fen = data.get("fen")
-    user_move = data.get("user_move")
-    data.get("trap_key")
-    winning_move = data.get("winning_move")  # The trap move opponent would play if allowed
-
-    if not fen or not user_move:
-        raise HTTPException(status_code=400, detail="Missing fen or user_move")
-
-    try:
-        board = chess.Board(fen)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid FEN")
-
-    # Parse user's move
-    try:
-        move_obj = board.parse_san(user_move)
-        move_san = board.san(move_obj)
-    except Exception:
-        return {"valid": False, "fell_into_trap": False, "message": f"Invalid move: {user_move}"}
-
-    # Make the user's move
-    board.push(move_obj)
-    new_fen = board.fen()
-
-    # Check if opponent can still play the winning/trap move after user's move
-    try:
-        if winning_move:
-            try:
-                trap_move_obj = board.parse_san(winning_move)
-                # If the trap move is still legal, check if it's still winning
-                if trap_move_obj in board.legal_moves:
-                    pass
-            except Exception:
-                pass
-
-        # Use Stockfish to evaluate the position after user's move
-        engine = StockfishEngine()
-        engine.start()
-
-        try:
-            # First, evaluate the position BEFORE the user's move
-            board_before = chess.Board(fen)
-            eval_before, mate_before = engine.evaluate_position(board_before, depth=12)
-
-            # Now evaluate AFTER the user's move
-            eval_after, mate_after = engine.evaluate_position(board, depth=12)
-
-            # Determine who is the victim
-            is_victim_white = data.get("user_color", "black") == "white"
-
-            # Adjust evals to be from the victim's perspective
-            # Positive = good for victim, Negative = bad for victim
-            if is_victim_white:
-                victim_eval_before = eval_before
-                victim_eval_after = eval_after
-            else:
-                victim_eval_before = -eval_before
-                victim_eval_after = -eval_after
-
-            # Calculate how much the position changed
-            eval_change = victim_eval_after - victim_eval_before
-
-            # Check for mate threats after the move
-            if mate_after is not None:
-                if (is_victim_white and mate_after < 0) or (not is_victim_white and mate_after > 0):
-                    # User is getting mated - fell into trap!
-                    return {
-                        "valid": True,
-                        "fell_into_trap": True,
-                        "is_safe": False,
-                        "evaluation": eval_after,
-                        "mate_in": mate_after,
-                        "message": f"Oops! After {move_san}, you're getting mated in {abs(mate_after)}!",
-                        "new_fen": new_fen
-                    }
-
-            # If there was a mate threat BEFORE and now there isn't, the move avoided the trap!
-            if mate_before is not None and mate_after is None:
-                return {
-                    "valid": True,
-                    "fell_into_trap": False,
-                    "is_safe": True,
-                    "evaluation": eval_after,
-                    "message": f"Excellent! {move_san} avoids the checkmate threat!",
-                    "new_fen": new_fen
-                }
-
-            # If the position got significantly WORSE (>200cp loss), they fell into trap
-            if eval_change < -200:
-                return {
-                    "valid": True,
-                    "fell_into_trap": True,
-                    "is_safe": False,
-                    "evaluation": eval_after,
-                    "eval_change": eval_change,
-                    "message": f"That move makes things worse! After {move_san}, your position deteriorated.",
-                    "new_fen": new_fen
-                }
-
-            # If they're still in a very bad position (>500cp worse) AND didn't improve
-            if victim_eval_after < -500 and eval_change < 100:
-                return {
-                    "valid": True,
-                    "fell_into_trap": True,
-                    "is_safe": False,
-                    "evaluation": eval_after,
-                    "message": f"Your position is still critical. {move_san} doesn't fully avoid the danger.",
-                    "new_fen": new_fen
-                }
-
-            # Move is safe - position either improved or stayed stable
-            if eval_change > 50:
-                return {
-                    "valid": True,
-                    "fell_into_trap": False,
-                    "is_safe": True,
-                    "evaluation": eval_after,
-                    "message": f"Great! {move_san} improves your position and avoids the trap!",
-                    "new_fen": new_fen
-                }
-            else:
-                return {
-                    "valid": True,
-                    "fell_into_trap": False,
-                    "is_safe": True,
-                    "evaluation": eval_after,
-                    "message": f"Good! {move_san} is a solid defensive move.",
-                    "new_fen": new_fen
-                }
-
-        finally:
-            engine.stop()
-
-    except Exception as e:
-        logger.error(f"Error validating avoidance move: {e}")
-        return {"valid": True, "fell_into_trap": False, "is_safe": True, "message": "Move accepted", "new_fen": new_fen}
+    """Retired; verified trap sessions grade exact stored defenses."""
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "This legacy grader is retired. Use the personalized trap lesson "
+            "session, which grades exact verified defense decisions."
+        ),
+    )
 
 
 @router.post("/training/tricks/validate-recognition")
 async def validate_recognition_answer(data: dict):
-    """
-    Validate user's answer in recognition mode.
-
-    User must identify:
-    1. Whether there's a trap (yes/no)
-    2. What the winning move is (if yes)
-    """
-    trap_key = data.get("trap_key")
-    user_answer_has_trap = data.get("has_trap")  # Boolean: does user think there's a trap?
-    user_winning_move = data.get("winning_move")  # What move does user think wins?
-
-    from trick_library_service import get_trap_by_key
-
-    trap = get_trap_by_key(trap_key)
-    if not trap:
-        raise HTTPException(status_code=404, detail="Trap not found")
-
-    correct_has_trap = True  # All positions in our DB have traps
-    correct_winning_move = trap.get("winning_move", "")
-
-    # Check if user correctly identified trap presence
-    recognized_trap = user_answer_has_trap == correct_has_trap
-
-    # Check if user found the correct winning move (normalize notation)
-    found_move = False
-    if user_winning_move and correct_winning_move:
-        # Normalize move notation for comparison
-        user_move_clean = user_winning_move.replace("+", "").replace("#", "").replace("=", "")
-        correct_move_clean = correct_winning_move.replace("+", "").replace("#", "").replace("=", "")
-        found_move = user_move_clean.lower() == correct_move_clean.lower()
-
-    # Calculate score
-    if recognized_trap and found_move:
-        score = "perfect"
-        message = f"Excellent! You correctly identified the trap and found {correct_winning_move}!"
-    elif recognized_trap and not user_winning_move:
-        score = "good"
-        message = f"Good! You spotted the danger. The winning move is {correct_winning_move}."
-    elif recognized_trap and not found_move:
-        score = "partial"
-        message = f"You spotted the trap but missed the key move. The winning move is {correct_winning_move}."
-    else:
-        score = "missed"
-        message = f"There IS a trap here! The winning move is {correct_winning_move}."
-
-    return {
-        "correct_has_trap": correct_has_trap,
-        "correct_winning_move": correct_winning_move,
-        "recognized_trap": recognized_trap,
-        "found_winning_move": found_move,
-        "score": score,
-        "message": message,
-        "explanation": trap.get("explanation", ""),
-        "why_it_works": trap.get("why_it_works", ""),
-        "key_squares": trap.get("key_squares", [])
-    }
+    """Retired; answer-bearing recognition quizzes cannot grade learning."""
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "This legacy answer-bearing quiz is retired. Use the personalized "
+            "trap lesson session."
+        ),
+    )
 
 
 @router.get("/training/tricks/opening/{opening_name}")
@@ -3277,7 +3049,11 @@ async def get_tricks_for_opening(opening_name: str):
     """
     Get traps relevant to a specific opening.
     """
-    from trick_library_service import get_traps_by_opening, get_recommended_traps_for_opening
+    from trick_library_service import (
+        get_traps_by_opening,
+        get_recommended_traps_for_opening,
+        public_trap_metadata,
+    )
 
     # Get direct matches
     direct_traps = get_traps_by_opening(opening_name)
@@ -3287,7 +3063,7 @@ async def get_tricks_for_opening(opening_name: str):
 
     return {
         "opening": opening_name,
-        "traps": direct_traps,
+        "traps": [public_trap_metadata(trap) for trap in direct_traps],
         "recommendations": recommendations
     }
 
@@ -3297,12 +3073,15 @@ async def get_tricks_by_difficulty(difficulty: str):
     """
     Get traps by difficulty level (beginner, intermediate, advanced).
     """
-    from trick_library_service import get_traps_by_difficulty
+    from trick_library_service import get_traps_by_difficulty, public_trap_metadata
 
     if difficulty not in ["beginner", "intermediate", "advanced"]:
         raise HTTPException(status_code=400, detail="Invalid difficulty. Use: beginner, intermediate, advanced")
 
-    traps = get_traps_by_difficulty(difficulty)
+    traps = [
+        public_trap_metadata(trap)
+        for trap in get_traps_by_difficulty(difficulty)
+    ]
 
     return {
         "difficulty": difficulty,
@@ -3458,7 +3237,9 @@ async def get_training_feed_endpoint(
     Optionally filter by pattern_type.
     """
     from services.community_training_service import get_training_feed
-    return await get_training_feed(db, user.user_id, limit, pattern_filter=pattern)
+    from services.verified_puzzle_runtime import public_puzzle_payload
+    result = await get_training_feed(db, user.user_id, limit, pattern_filter=pattern)
+    return public_puzzle_payload(result)
 
 
 class SolveAttemptRequest(BaseModel):
@@ -3530,37 +3311,15 @@ async def check_endgame_move(
     req: EndgameCheckMoveRequest,
     user: User = Depends(get_current_user),
 ):
-    """Check if the user's move is correct for the given endgame position.
+    """Compatibility grader only; canonical lessons use personalized sessions.
 
-    Also records completion on Engine 2's skill tree when a lesson ends:
-      - Last position answered correctly → skill marked "correct"
-      - Any wrong answer → skill marked "wrong"
-    Because endgame/mate skills graduate on 1 correct (kind-aware is_learned),
-    a clean first-time completion graduates the skill immediately.
+    This endpoint never writes mastery or recovery evidence. A stateless final
+    answer cannot prove that the full lesson was completed cleanly.
     """
     from services.endgame_theory_service import check_move
     result = check_move(req.category_key, req.lesson_key, req.position_index, req.user_move_uci)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
-
-    # Record to Engine 2 skill progress when a lesson-level signal fires.
-    # Signals:
-    #   - is_last=True AND correct=True → "correct" once
-    #   - correct=False at any position → "wrong" once
-    try:
-        should_record = (
-            (result.get("correct") and result.get("is_last"))
-            or (result.get("correct") is False)
-        )
-        if should_record:
-            await _record_endgame_lesson_outcome(
-                user_id=user.user_id,
-                category_key=req.category_key,
-                lesson_key=req.lesson_key,
-                correct=bool(result.get("correct")),
-            )
-    except Exception as e:
-        logger.debug(f"[engine2] endgame lesson recording non-fatal: {e}")
 
     return result
 
@@ -3726,9 +3485,14 @@ async def engine2_skill_completed(
     graduates the skill. `just_graduated: true` in the response lets the
     UI celebrate.
     """
-    outcome = req.outcome or "correct"
+    outcome = req.outcome
     if outcome not in ("correct", "wrong"):
         raise HTTPException(status_code=400, detail="outcome must be 'correct' or 'wrong'")
+    if outcome == "correct":
+        # Page completion is exposure, not proof of recall or application.
+        # Correct mastery comes from a server-graded puzzle/game evidence row.
+        seen = await _record_engine2_skill(user.user_id, req.skill_id, "seen")
+        return {**seen, "verification_required": True, "learned": False}
     return await _record_engine2_skill(user.user_id, req.skill_id, outcome)
 
 
