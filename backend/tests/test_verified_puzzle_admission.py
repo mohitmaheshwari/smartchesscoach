@@ -4,6 +4,7 @@ import inspect
 
 import chess
 
+from services.detector_quality import QualitySurface, is_authorized
 from services.verified_puzzle_admission import (
     AdmissionReason,
     AdmissionStatus,
@@ -90,7 +91,11 @@ def test_independent_proof_stays_broad_until_quality_is_blind_authorized():
 
     assert verdict.status == AdmissionStatus.BROAD
     assert verdict.concept_id is None
-    assert verdict.quality_grade == "shadow"
+    # simple_hang is Caption-grade since 2026-08-31. Specificity is gated
+    # on the PROMPT surface, which it has NOT earned, so the safety
+    # property this test protects -- BROAD status, no concept_id -- holds.
+    assert not is_authorized("gap:piece_safety:simple_hang", QualitySurface.PROMPT)
+    assert verdict.quality_grade == "caption"
     assert verdict.detector_id != verdict.verifier_id
     assert verdict.detector_facts == ({"piece": "pawn", "square": "e4"},)
     assert verdict.verifier_facts == ({"legal": True},)
