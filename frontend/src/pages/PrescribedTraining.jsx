@@ -67,7 +67,11 @@ const getEncouragement = (type, streak = 0) => {
   return messages[Math.floor(Math.random() * messages.length)];
 };
 
-export default function PrescribedTraining() {
+export default function PrescribedTraining({ user = null }) {
+  // `user` is threaded to PersonalizedLessonWorkspace so it can wrap
+  // itself in Layout. App.js already passes it; the prop was simply not
+  // destructured here, which made `user={user}` below a ReferenceError
+  // and blanked the whole /training?personalized=1 route.
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const personalizedLesson = searchParams.get("personalized") === "1";
