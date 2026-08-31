@@ -8,21 +8,28 @@ from services.shape_patterns import PATTERNS_BY_ID
 from scripts.report_detector_quality import build_report
 
 
-def test_unknown_ids_are_shadow_but_rollout_is_default_off(monkeypatch):
+def test_unknown_ids_are_shadow_and_rollout_fails_closed_by_default(monkeypatch):
     monkeypatch.delenv("DETECTOR_QUALITY_GATE_ENFORCED", raising=False)
     assert quality.grade_for("shape:new_pattern") == quality.QualityGrade.SHADOW
-    assert quality.can_influence(
+    assert not quality.can_influence(
         "shape:new_pattern", quality.QualitySurface.CAPTION
     )
 
 
-def test_enforcement_fails_closed_and_plan_grade_reaches_plan(monkeypatch):
+def test_enforcement_fails_closed_for_unpromoted_detectors(monkeypatch):
     monkeypatch.setenv("DETECTOR_QUALITY_GATE_ENFORCED", "true")
     assert not quality.can_influence(
         "shape:new_pattern", quality.QualitySurface.CAPTION
     )
+    # simple_hang was promoted to Caption-grade on 2026-08-31 against the
+    # locked bar (docs/simple_hang_caption_promotion_2026_08_31.md), so it is
+    # no longer an example of an UNPROMOTED detector on the caption surface.
+    # The fail-closed property is still asserted on the surfaces it has not
+    # earned: Plan needs a >=60% recall floor it does not meet, and mastery
+    # was never granted.
     simple_hang = quality.gap_quality_id("piece_safety", "simple_hang")
-    assert quality.can_influence(simple_hang, quality.QualitySurface.PLAN)
+    assert not quality.can_influence(simple_hang, quality.QualitySurface.PLAN)
+    assert not quality.can_influence(simple_hang, quality.QualitySurface.MASTERY)
     assert quality.can_influence(simple_hang, quality.QualitySurface.CAPTION)
 
 
@@ -54,7 +61,7 @@ def test_plan_sanitizer_keeps_evidence_but_hides_shadow_gap(monkeypatch):
     assert safe["detector_quality_shadow"]["gap"]["missed_pattern"] == "king_safety"
 
 
-def test_plan_sanitizer_keeps_promoted_simple_hang(monkeypatch):
+def test_plan_sanitizer_hides_simple_hang_until_blind_promotion(monkeypatch):
     monkeypatch.setenv("DETECTOR_QUALITY_GATE_ENFORCED", "true")
     raw = {
         "missed_pattern": "piece_safety",
@@ -62,8 +69,9 @@ def test_plan_sanitizer_keeps_promoted_simple_hang(monkeypatch):
         "severity": "critical",
     }
     safe = quality.sanitize_plan_observation(raw)
-    assert safe["missed_pattern"] == "piece_safety"
-    assert safe["subtype"] == "simple_hang"
+    assert safe["missed_pattern"] is None
+    assert safe["subtype"] is None
+    assert safe["detector_quality_shadow"]["gap"]["subtype"] == "simple_hang"
 
 
 def test_legacy_focus_fails_closed_but_versioned_pic_focus_passes(monkeypatch):
@@ -71,7 +79,7 @@ def test_legacy_focus_fails_closed_but_versioned_pic_focus_passes(monkeypatch):
     assert not quality.focus_document_is_authorized(
         {"topic_key": "king_safety", "status": "active"}
     )
-    assert quality.focus_document_is_authorized({
+    assert not quality.focus_document_is_authorized({
         "topic_key": "piece_safety",
         "focus_kind": "piece_safety/simple_hang",
         "diagnosis_detector_id": "move_observation.simple_hang.v16_plus",
@@ -91,6 +99,32 @@ def test_mastery_runner_keeps_shadow_diagnostics_out_of_product(monkeypatch):
     assert _runner.run_detectors_for_move(
         board, move, chess.WHITE, include_shadow=True
     ) == [("new_skill", "applied")]
+
+
+def test_shadow_mastery_cannot_leak_when_legacy_rollout_gate_is_off(monkeypatch):
+    monkeypatch.delenv("DETECTOR_QUALITY_GATE_ENFORCED", raising=False)
+    monkeypatch.setattr(
+        _runner,
+        "all_detectors",
+        lambda: {"new_skill": lambda board, move, color: "applied"},
+    )
+    board = chess.Board()
+    move = chess.Move.from_uci("e2e4")
+
+    assert _runner.run_detectors_for_move(board, move, chess.WHITE) == []
+    assert _runner.run_detectors_for_move(
+        board, move, chess.WHITE, include_shadow=True
+    ) == [("new_skill", "applied")]
+
+
+def test_derived_exact_endgame_detectors_have_explicit_shadow_policy():
+    authorization = quality.get_authorization(
+        "concept:endgame_curriculum__king_and_pawn__opposition"
+    )
+
+    assert authorization.grade == quality.QualityGrade.SHADOW
+    assert "Exact canonical position only" in authorization.limitations[0]
+    assert "tablebase" in authorization.evidence_ref
 
 
 def test_disabled_mastery_detector_does_not_execute(monkeypatch):
