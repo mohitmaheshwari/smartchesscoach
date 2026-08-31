@@ -163,17 +163,11 @@ const MomentCard = ({ moment, index }) => {
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">Engine's best</div>
+            <div className="text-xs text-muted-foreground">A better continuation</div>
             <div className="text-lg font-mono font-semibold text-green-700">
               {moment.best_move || "—"}
             </div>
           </div>
-          {moment.cp_loss !== undefined && (
-            <div>
-              <div className="text-xs text-muted-foreground">Cost</div>
-              <div className="text-sm">{moment.cp_loss} centipawns dropped</div>
-            </div>
-          )}
           <div className="pt-2 border-t">
             <p className="text-[14px] leading-snug text-gray-800">{moment.why}</p>
           </div>

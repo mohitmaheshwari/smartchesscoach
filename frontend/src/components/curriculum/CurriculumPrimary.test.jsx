@@ -95,7 +95,7 @@ describe("CurriculumPrimary", () => {
     ));
 
     expect(container.querySelectorAll("button")).toHaveLength(2);
-    expect(container.textContent).toContain("One quick review");
+    expect(container.textContent).toContain("Before you move on");
   });
 
   test("explains personalization without inventing application evidence", () => {
@@ -117,10 +117,10 @@ describe("CurriculumPrimary", () => {
       />
     ));
 
-    expect(container.textContent).toContain("Why this lesson is for you");
-    expect(container.textContent).toContain("Used in your games");
-    expect(container.textContent).toContain("Remembered later");
-    expect(container.textContent.match(/Not measured/g)).toHaveLength(2);
+    expect(container.textContent).toContain("What I noticed in your games");
+    expect(container.textContent).toContain("I’ll keep watching");
+    expect(container.textContent).not.toContain("Not measured");
+    expect(container.textContent).not.toContain("Used in your games");
     expect(container.textContent).not.toContain("Reliable");
   });
 });

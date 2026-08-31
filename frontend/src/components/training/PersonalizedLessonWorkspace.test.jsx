@@ -150,8 +150,8 @@ describe("PersonalizedLessonWorkspace", () => {
     expect(JSON.parse(helpCall[1].body).action).toBe("show_on_board");
     expect(JSON.parse(answerCall[1].body).reason_choice).toBe("keeps_piece_safe");
     expect(container.textContent).toContain("Can do alone");
-    expect(container.textContent).toContain("I have not yet seen you use it in a game");
-    expect(container.textContent).toContain("Remembered laterNot measured");
+    expect(container.textContent).toContain("Now I want to see whether the same thought appears");
+    expect(container.textContent).not.toContain("Not measured");
     expect(container.textContent).not.toContain("Reliable");
   });
 });

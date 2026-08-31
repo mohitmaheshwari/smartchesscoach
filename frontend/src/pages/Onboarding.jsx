@@ -220,11 +220,8 @@ const Onboarding = () => {
   // ANALYSIS COMPLETE SCREEN (legacy fallback)
   // ──────────────────────────────────────────────────
   if (analysisResult) {
-    const tsi = analysisResult.thinking_stability_index;
     const primaryPattern = Object.entries(analysisResult.patterns || {})
       .sort((a, b) => b[1].weighted_score - a[1].weighted_score)[0];
-    const tsiLabel = tsi >= 80 ? "Stable" : tsi >= 65 ? "Moderate instability" : tsi >= 50 ? "Frequent lapses" : "High volatility";
-    const tsiColor = tsi >= 80 ? "#16a34a" : tsi >= 65 ? GOLD : tsi >= 50 ? "#ea580c" : WINE;
 
     return (
       <Shell>
@@ -232,19 +229,10 @@ const Onboarding = () => {
           <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(22,163,74,0.1)" }}>
             <CheckCircle2 className="w-7 h-7 text-emerald-600" />
           </div>
-          <h1 className="text-2xl text-foreground tracking-tight font-heading">Analysis Complete</h1>
+          <h1 className="text-2xl text-foreground tracking-tight font-heading">I found where we should begin.</h1>
           <p className="text-sm text-muted-foreground font-light mt-1">
-            We analyzed {analysisResult.games_analyzed} of your recent games
+            Your games already tell a useful story. We’ll keep refining it as we work together.
           </p>
-        </div>
-
-        {/* TSI Score */}
-        <div className="text-center p-6 rounded-sm border mb-5" style={{ borderColor: BORDER }}>
-          <p className="text-[10px] uppercase tracking-[0.2em] font-mono mb-2" style={{ color: GOLD_TEXT }}>
-            Thinking Stability Index
-          </p>
-          <p className="text-5xl font-light font-heading" style={{ color: tsiColor }}>{tsi}</p>
-          <p className="text-xs mt-1 font-mono" style={{ color: tsiColor }}>{tsiLabel}</p>
         </div>
 
         {/* Primary Weakness */}
@@ -252,14 +240,12 @@ const Onboarding = () => {
           <div className="p-4 rounded-sm border mb-6" style={{ borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: WINE }}>
             <div className="flex items-center gap-2 mb-1.5">
               <Target className="w-3.5 h-3.5" style={{ color: WINE }} />
-              <p className="text-[10px] uppercase tracking-[0.15em] font-mono" style={{ color: WINE }}>Primary Focus Area</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] font-mono" style={{ color: WINE }}>Where we’ll start</p>
             </div>
             <p className="text-base text-foreground font-heading">
               {primaryPattern[0].replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
             </p>
-            <p className="text-xs text-muted-foreground font-light mt-1">
-              Found in {primaryPattern[1].frequency} positions across your games
-            </p>
+            <p className="text-xs text-muted-foreground font-light mt-1">I’ve seen this decision more than once, so it is worth making natural.</p>
           </div>
         )}
 
@@ -268,7 +254,7 @@ const Onboarding = () => {
           const pattern = primaryPattern ? primaryPattern[0] : "";
           navigate(pattern ? `/training?focus=${pattern}` : "/training");
         }} testId="start-training-btn">
-          Start Training This <ArrowRight className="w-4 h-4 ml-1.5" />
+          Start with your coach <ArrowRight className="w-4 h-4 ml-1.5" />
         </WineButton>
       </Shell>
     );
@@ -283,14 +269,9 @@ const Onboarding = () => {
         <div className="text-center py-6">
           <Loader2 className="w-10 h-10 animate-spin mx-auto mb-5" style={{ color: GOLD }} />
           <h2 className="text-xl text-foreground tracking-tight mb-1 font-heading">
-            Analyzing Your Games
+            I’m reading your games
           </h2>
-          <p className="text-sm text-muted-foreground font-light mb-6">This usually takes 15–30 seconds...</p>
-
-          <div className="w-full h-1.5 rounded-full mb-2" style={{ background: "rgba(0,0,0,0.05)" }}>
-            <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${analysisProgress}%`, background: GOLD }} />
-          </div>
-          <p className="text-[10px] text-muted-foreground font-mono">{analysisProgress}%</p>
+          <p className="text-sm text-muted-foreground font-light mb-6">I’m looking for decisions that repeat, not judging a single result.</p>
 
           {analysisProgress > 60 && (
             <button
@@ -311,20 +292,13 @@ const Onboarding = () => {
   // ──────────────────────────────────────────────────
   return (
     <Shell>
-      {/* Progress */}
-      <div className="flex items-center justify-between mb-5">
-        <span className="text-[10px] text-muted-foreground font-mono">Step {step} of 2</span>
-        <div className="flex gap-1">
-          <div className="w-8 h-1 rounded-full" style={{ background: GOLD }} />
-          <div className="w-8 h-1 rounded-full" style={{ background: step >= 2 ? GOLD : "rgba(0,0,0,0.06)" }} />
-        </div>
-      </div>
+      <p className="cg-eyebrow">A short conversation before we begin</p>
 
       <h1 className="text-xl text-foreground tracking-tight mb-1 font-heading">
-        {step === 1 ? "Link Your Chess Account" : "Calibrate Your Profile"}
+        {step === 1 ? "Show me where you play." : "What do you want from your chess?"}
       </h1>
       <p className="text-sm text-muted-foreground font-light mb-6">
-        {step === 1 ? "Connect at least one account to analyze your games" : "Help us understand your current level"}
+        {step === 1 ? "Your real games are the best way for me to understand you." : "Your rating is context, not your curriculum. Tell me what matters to you."}
       </p>
 
       {error && (
@@ -366,14 +340,14 @@ const Onboarding = () => {
 
           <div className="pt-3 space-y-2.5">
             <WineButton onClick={handleStep1Continue} disabled={!hasLinkedAccount} testId="step1-continue-btn">
-              Continue <ArrowRight className="w-4 h-4 ml-1.5" />
+              Tell me what you want next <ArrowRight className="w-4 h-4 ml-1.5" />
             </WineButton>
             <button
               onClick={handleDemoMode}
               className="w-full py-2.5 text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors font-light"
               data-testid="demo-mode-btn"
             >
-              Explore Demo Mode Instead
+              Start without connecting a game account
             </button>
           </div>
         </div>
@@ -382,29 +356,18 @@ const Onboarding = () => {
       {/* ── STEP 2: Calibrate ── */}
       {step === 2 && (
         <div className="space-y-5">
-          {/* Detected Rating */}
+          {/* Account context: acknowledge it without turning onboarding into a rating report. */}
           {detectedRating && (
             <div className="p-4 rounded-sm border" style={{ borderColor: BORDER }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-                    {gamesAnalyzed > 0
-                      ? `Live ${detectedPlatform} Rating · ${gamesAnalyzed} games available`
-                      : `Live ${detectedPlatform} Rating`}
-                  </p>
-                  <p className="text-2xl text-foreground font-light mt-0.5 font-heading">
-                    {detectedRating}
-                  </p>
-                </div>
-                <RatingBadge rating={detectedRating} />
-              </div>
+              <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Your {detectedPlatform} games are connected</p>
+              <p className="text-sm text-foreground mt-1">I’ll build your plan from the decisions inside those games—not from the number beside your name.</p>
             </div>
           )}
 
           {/* FIDE Rating */}
           <div>
             <label className="text-xs text-muted-foreground font-mono uppercase tracking-wider block mb-1.5" style={{ color: GOLD_TEXT }}>
-              FIDE Rating (Optional)
+              Official FIDE rating (only if you want to share it)
             </label>
             <input
               type="number"
@@ -421,7 +384,7 @@ const Onboarding = () => {
           {/* Focus Intent */}
           <div>
             <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: GOLD_TEXT }}>
-              What do you want to improve most?
+              What would you most like to understand better?
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -454,7 +417,7 @@ const Onboarding = () => {
             </label>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { value: "compete", label: "Compete and climb the ratings" },
+                { value: "compete", label: "Prepare for serious games" },
                 { value: "improve", label: "Get steadily better" },
                 { value: "learn", label: "Learn and enjoy the game" },
                 { value: "fun", label: "Just play for fun" },
@@ -492,7 +455,7 @@ const Onboarding = () => {
               style={{ background: WINE, opacity: isLoading ? 0.6 : 1 }}
               data-testid="complete-onboarding-btn"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Analyze My Games <ArrowRight className="w-4 h-4" /></>}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Build my first plan <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
@@ -505,7 +468,7 @@ const Onboarding = () => {
 
 const Shell = ({ children }) => (
   <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
-    <div className="experience-onboarding-shell w-full max-w-lg bg-card border border-border rounded-2xl p-8 shadow-sm">
+    <div className="experience-onboarding-shell cg-panel w-full max-w-lg !p-8">
       {children}
     </div>
   </div>
@@ -559,18 +522,5 @@ const WineButton = ({ children, onClick, disabled, testId }) => (
     {children}
   </button>
 );
-
-const RatingBadge = ({ rating }) => {
-  const config = rating >= 2000 ? { label: "Expert", color: WINE }
-    : rating >= 1800 ? { label: "Advanced", color: GOLD_TEXT }
-    : rating >= 1400 ? { label: "Intermediate", color: GOLD_TEXT }
-    : rating >= 1000 ? { label: "Developing", color: "#16a34a" }
-    : { label: "Beginner", color: "#888" };
-  return (
-    <span className="text-[10px] px-2 py-1 rounded-sm font-mono" style={{ color: config.color, background: `${config.color}15` }}>
-      {config.label}
-    </span>
-  );
-};
 
 export default Onboarding;

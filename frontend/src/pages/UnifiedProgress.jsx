@@ -448,25 +448,23 @@ const UnifiedProgress = ({ user }) => {
     // Reads the category-matched activeReductionPct so the message
     // text tracks the actual bucket, not whichever bucket happens to
     // be the global primary.
-    let headline = "You're building your pattern library.";
+    let headline = "I’m still learning what deserves our attention next.";
     let subhead =
-      "The coach is watching for consistency. When a weakness stays quiet for 5 games, we archive it and move on.";
+      "Keep playing naturally. I’ll tell you when a decision becomes clear enough to teach.";
     if (active && active.streak >= 3) {
-      headline = `You've had ${active.streak} clean games of ${active.name.toLowerCase()} — ${5 - active.streak} more and we close the chapter.`;
-      if (activeReductionPct > 0) {
-        subhead = `Your ${active.name.toLowerCase()} mistakes are down ${activeReductionPct}% from 90 days ago. The coach is watching for a 5-game streak before archiving this weakness and moving to the next.`;
-      }
+      headline = `You’re beginning to catch ${active.name.toLowerCase()} before it hurts you.`;
+      subhead = "I’m seeing the new habit more often, but I want to watch it hold under pressure before we move on.";
     } else if (active) {
-      headline = `${active.name} is the pattern we're breaking right now.`;
+      headline = `${active.name} is the habit we’re changing right now.`;
       if (activeReductionPct > 0) {
-        subhead = `Already ${activeReductionPct}% fewer mistakes than 90 days ago. Stay on it — consistency is what closes the chapter.`;
+        subhead = "The old mistake is appearing less often. Stay with the same thought until it feels natural.";
       } else {
         subhead = active.desc || subhead;
       }
     } else if (archived.length > 0) {
-      headline = "Clean sheet. The coach has nothing urgent to flag.";
+      headline = "Some of your old mistakes are no longer running the game.";
       subhead =
-        "Keep playing — the next weakness will surface when it's ready.";
+        "That is real progress. Keep playing and I’ll choose the next lesson when the evidence is clear.";
     }
 
     // Sparkline — use any time-series on proof if it exists
@@ -503,30 +501,27 @@ const UnifiedProgress = ({ user }) => {
     return (
       <Layout user={user}>
         <div
-          className="max-w-[640px] mx-auto px-6 md:px-10 py-16 md:py-24"
+          className="cg-page max-w-[760px]"
           data-testid="progress-page"
         >
           <div className="mb-8">
             <CurriculumStateStrip user={user} surface="progress" />
           </div>
-          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
-            Progress · the ledger
-          </p>
-          <h1 className="font-serif text-[32px] md:text-[40px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground mb-4">
-            Nothing to track yet.
-          </h1>
-          <p className="text-[13.5px] text-muted-foreground mb-10 max-w-[480px] leading-relaxed">
-            Play a few games with the coach — once we've seen enough, your
-            weaknesses and the pattern-decay ledger start filling in.
+          <section className="cg-hero">
+          <p className="cg-eyebrow">A note from your coach</p>
+          <h1 className="cg-title !text-[clamp(2rem,5vw,3.4rem)]">I need to see a little more of your chess.</h1>
+          <p className="cg-lede mb-8">
+            Play naturally with me. Once I see a decision repeat, I’ll explain what it means and choose the right lesson.
           </p>
           <button
             onClick={() => navigate("/play-with-coach")}
-            className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+            className="cg-primary-action"
           >
             <Swords className="h-4 w-4" strokeWidth={2} />
             Play with Coach
             <ArrowRight className="h-4 w-4" strokeWidth={2} />
           </button>
+          </section>
         </div>
       </Layout>
     );
@@ -539,21 +534,19 @@ const UnifiedProgress = ({ user }) => {
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="experience-page experience-progress-page max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        className="experience-page experience-progress-page cg-page max-w-[980px]"
         data-testid="progress-page"
       >
         <div className="mb-9">
           <CurriculumStateStrip user={user} surface="progress" />
         </div>
         {/* ─── Page head ─── */}
-        <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
-          <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
-            Progress · the ledger
-          </p>
-          <h1 className="experience-coach-copy font-serif text-[28px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[640px]">
+        <motion.div variants={fadeInUp} className="cg-hero mb-12 md:mb-16">
+          <p className="cg-eyebrow">What I’m seeing in your games</p>
+          <h1 className="cg-title !text-[clamp(2rem,5vw,3.6rem)]">
             {derived.headline}
           </h1>
-          <p className="mt-5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[520px]">
+          <p className="cg-lede">
             {derived.subhead}
           </p>
         </motion.div>
@@ -564,7 +557,7 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ─── Sparkline — only when we have real data ─── */}
         {derived.spark && derived.spark.length >= 3 && (
-          <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
+          <motion.section variants={fadeInUp} className="hidden mb-16 md:mb-20" aria-hidden="true">
             <div className="flex items-baseline justify-between mb-4">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                 Blunders per game · recent window
@@ -592,7 +585,7 @@ const UnifiedProgress = ({ user }) => {
              Play with Coach. The blindspot number is the coaching lever:
              real mistakes the player called "Good". */}
         {calibration && (
-          <motion.section variants={fadeInUp} className="mb-12">
+          <motion.section variants={fadeInUp} className="hidden mb-12" aria-hidden="true">
             <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
               Self-awareness · how you grade your own moves
             </div>
@@ -629,23 +622,17 @@ const UnifiedProgress = ({ user }) => {
              uses — a real join, not a coincidence match. */}
         {proof?.training_causal?.length > 0 && (
           <motion.section variants={fadeInUp} className="mb-12">
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-400 font-semibold mb-4">
-              Trained → measured
-            </div>
+            <div className="cg-eyebrow mb-4">What is beginning to change</div>
             <div className="space-y-3">
               {proof.training_causal.slice(0, 3).map((c) => (
                 <div key={c.cognitive_gap}
-                     className="rounded-2xl border border-emerald-400/25 bg-gradient-to-b from-emerald-500/[0.04] to-transparent p-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                  <div className="font-serif text-[18px] text-foreground">{c.label}</div>
-                  <div className="text-[13px] text-muted-foreground tabular-nums">
-                    {Math.round(c.baseline_per_game)} → {Math.round(c.current_per_game)} per game
-                  </div>
-                  <div className={`text-[15px] font-semibold tabular-nums ${c.improvement_pct >= 40 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
-                    {c.improvement_pct > 0 ? `−${c.improvement_pct}%` : "no change yet"}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    since you started training it ({c.games_measured} games measured)
-                  </div>
+                     className="cg-coach-card">
+                  <div className="font-heading text-[20px] text-foreground">{c.label}</div>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+                    {c.improvement_pct > 0
+                      ? "I’m seeing the old mistake less often since we worked on it. Keep using the same thought in your next game."
+                      : "This lesson has not settled into your games yet. We’ll keep the instruction simple and stay with it a little longer."}
+                  </p>
                 </div>
               ))}
             </div>
@@ -658,7 +645,7 @@ const UnifiedProgress = ({ user }) => {
             voice with no picker; the full plan picker with its confidence/
             elo-gain numbers lives here, where a page about the numbers is
             the right context for them. */}
-        <motion.section variants={fadeInUp} className="mb-16">
+        <motion.section variants={fadeInUp} className="hidden mb-16" aria-hidden="true">
           <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
             Choose your training plan
           </div>
@@ -668,8 +655,8 @@ const UnifiedProgress = ({ user }) => {
         {/* ─── Active pattern ─── */}
         {derived.active && (
           <motion.section variants={fadeInUp} className="mb-12">
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold mb-5">
-              Currently working on
+            <div className="cg-eyebrow mb-5">
+              Our one focus right now
             </div>
             {/* Card scales in; hover lifts with a teal data-accent glow */}
             <motion.div
@@ -691,7 +678,7 @@ const UnifiedProgress = ({ user }) => {
                       {derived.active.desc}
                     </p>
                   )}
-                  <div className="mt-6 flex items-center gap-3 flex-wrap">
+                  <div className="hidden mt-6 items-center gap-3 flex-wrap" aria-hidden="true">
                     <Pips
                       streak={derived.active.streak}
                       target={derived.active.target}
@@ -709,17 +696,14 @@ const UnifiedProgress = ({ user }) => {
                   {/* ─── V2: What you keep doing (Formula C top concept) ─── */}
                   {derived.topConcept && (
                     <div className="mt-6 pt-5 border-t border-violet-400/15">
-                      <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500/80 dark:text-violet-300/80 font-semibold mb-2">
-                        What you keep doing
+                      <div className="cg-eyebrow !text-[10px] mb-2">
+                        The decision I keep noticing
                       </div>
                       <p className="text-[14px] text-foreground/90 leading-snug mb-2">
                         {derived.topConcept.headline}
                       </p>
                       <p className="text-[12px] text-muted-foreground">
-                        Seen {derived.topConcept.recurrence} times across your recent games
-                        {derived.topConcept.most_recent_opponent
-                          ? ` — last time vs ${derived.topConcept.most_recent_opponent}`
-                          : ""}.
+                        This has appeared in different positions, which is why it belongs in your plan.
                       </p>
                       {derived.topConcept.most_recent_game_id && (
                         <button
@@ -727,7 +711,7 @@ const UnifiedProgress = ({ user }) => {
                             navigate(`/game/${derived.topConcept.most_recent_game_id}`)
                           }
                           data-testid="review-game-cta"
-                          className="mt-3 h-9 px-4 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-300 font-medium text-[12.5px] transition-colors inline-flex items-center gap-1.5"
+                          className="cg-secondary-action mt-3"
                         >
                           Review the game
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
@@ -742,13 +726,13 @@ const UnifiedProgress = ({ user }) => {
                       training, not a generic page. */}
                   <button
                     onClick={() => navigate(`/training/pattern/${derived.active.trained_pattern}`)}
-                    className="experience-primary h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                    className="cg-primary-action"
                   >
                     <Target className="h-3.5 w-3.5" strokeWidth={2} />
-                    Practice this pattern
+                    Practise this with me
                   </button>
                   {derived.active.decay > 0 && (
-                    <div className="md:text-right">
+                    <div className="hidden md:text-right" aria-hidden="true">
                       <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                         Decay
                       </div>
@@ -769,8 +753,8 @@ const UnifiedProgress = ({ user }) => {
         {/* ─── Tracked patterns ─── */}
         {derived.tracked.length > 0 && (
           <motion.section variants={fadeInUp} className="mb-16 md:mb-20">
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
-              Also tracking
+            <div className="cg-eyebrow mb-5">
+              I’m watching these too
             </div>
             {/* Rows stagger in at the dense-list step (40ms/row) */}
             <motion.div
@@ -782,7 +766,7 @@ const UnifiedProgress = ({ user }) => {
                 <motion.div
                   key={i}
                   variants={rowStaggerItem}
-                  className="group grid grid-cols-[1fr_auto] md:grid-cols-[1fr_180px_110px_80px] gap-4 md:gap-8 items-center py-4 md:py-5 border-b border-border/50 hover:bg-muted/20 -mx-3 px-3 transition-colors"
+                  className="cg-panel group grid grid-cols-[1fr_auto] gap-4 items-center mb-3 px-5 py-4 transition-all hover:-translate-y-0.5"
                 >
                   {/* Name + desc */}
                   <div className="min-w-0">
@@ -790,11 +774,6 @@ const UnifiedProgress = ({ user }) => {
                       <span className="font-serif text-[16px] md:text-[18px] text-foreground leading-snug">
                         {p.name}
                       </span>
-                      {p.last && (
-                        <span className="text-[10.5px] text-muted-foreground tabular-nums">
-                          last miss · {p.last}
-                        </span>
-                      )}
                     </div>
                     {p.desc && (
                       <div className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
@@ -804,7 +783,7 @@ const UnifiedProgress = ({ user }) => {
                   </div>
 
                   {/* Pips (desktop) */}
-                  <div className="hidden md:block">
+                  <div className="hidden" aria-hidden="true">
                     <Pips streak={p.streak} target={p.target} />
                     <div className="text-[10.5px] text-muted-foreground mt-1.5 tabular-nums">
                       {p.streak} / {p.target} clean
@@ -816,7 +795,7 @@ const UnifiedProgress = ({ user }) => {
                       this pattern's root bucket. Showing "0%" was
                       misleading: it implied no progress when really we
                       just hadn't computed it for tracked patterns. */}
-                  <div className="hidden md:block text-right">
+                  <div className="hidden text-right" aria-hidden="true">
                     {p.decay != null ? (
                       <>
                         <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
@@ -845,9 +824,9 @@ const UnifiedProgress = ({ user }) => {
                   {/* Direct link to the specific training for this pattern. */}
                   <button
                     onClick={() => navigate(`/training/pattern/${p.pattern}`)}
-                    className="text-[11.5px] text-muted-foreground hover:text-violet-500 dark:hover:text-violet-300 transition-colors text-right"
+                    className="cg-secondary-action"
                   >
-                    Practice →
+                    Practise →
                   </button>
                 </motion.div>
               ))}
@@ -858,8 +837,8 @@ const UnifiedProgress = ({ user }) => {
         {/* ─── Archived — you beat these (below fold → reveal on scroll) ─── */}
         {derived.archived.length > 0 && (
           <motion.section {...revealOnScroll}>
-            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70 font-semibold mb-5">
-              Archived · you've been consistent at
+            <div className="cg-eyebrow mb-5">
+              Habits you have already changed
             </div>
             <div className="opacity-70">
               {derived.archived.map((a, i) => (
@@ -876,12 +855,12 @@ const UnifiedProgress = ({ user }) => {
                       {a.name}
                     </div>
                     <div className="text-[11px] text-muted-foreground/70 mt-0.5">
-                      {a.meta}
+                      This has started to hold in your games.
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
-                    <span className="text-[10.5px] text-muted-foreground/60 font-mono tabular-nums">
-                      {a.beaten ? "beaten" : "stable"}
+                    <span className="text-[10.5px] text-muted-foreground/60">
+                      {a.beaten ? "You changed this" : "Holding steady"}
                     </span>
                     {a.beaten && (
                       <FocusGraduationPreview focusLabel={a.name} evidence={a.meta} />
@@ -900,9 +879,8 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ─── Empty-patterns fallback ─── */}
         {!derived.active && derived.tracked.length === 0 && (
-          <div className="py-12 text-[13.5px] text-muted-foreground">
-            The coach is still building your profile. Keep playing — the
-            ledger fills in as patterns stabilize.
+          <div className="cg-coach-card py-8 text-[13.5px] leading-relaxed text-muted-foreground">
+            I’m still learning how you play. Keep going—the right next lesson will become clear from your decisions.
           </div>
         )}
       </motion.div>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { API } from "../../App";
 import LichessBoard from "../LichessBoard";
+import Layout from "../Layout";
 import {
   curriculumStateLabel,
   invalidatePersonalCurriculum,
@@ -32,13 +33,6 @@ const STAGE_LABELS = {
   retain: "Check that it stayed with you",
 };
 
-const SOURCE_LABELS = {
-  current_learning_interaction: "Your answer in this lesson",
-  "coach_memory.learning.skills": "Your lesson history",
-  "user_active_focus via services/focus_bridge.py": "Your analyzed games",
-  user_opening_progress: "Your repertoire",
-};
-
 const HELP_ACTIONS = [
   { id: "show_on_board", label: "Show it on the board", icon: Eye },
   { id: "ask_one_question", label: "Ask me one question", icon: MessageCircleQuestion },
@@ -55,7 +49,7 @@ function EvidencePanel({ session, evidence, onLoadEvidence }) {
       }}
     >
       <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-        Why this lesson is for you
+        What I noticed in your games
         <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </summary>
       <div className="border-t border-border/70 px-4 py-4 space-y-4">
@@ -65,27 +59,14 @@ function EvidencePanel({ session, evidence, onLoadEvidence }) {
         {(profile.anchors || []).map((anchor, index) => (
           <div key={`${anchor.type}-${index}`} className="text-xs leading-relaxed">
             <p className="text-foreground">{anchor.message}</p>
-            <p className="mt-1 text-muted-foreground">
-              Source: {SOURCE_LABELS[anchor.provenance?.owner] || "Your coaching evidence"}
-            </p>
           </div>
         ))}
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-muted-foreground">Used in your games</p>
-            <p className="mt-1 font-medium text-foreground">Not measured</p>
-          </div>
-          <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-muted-foreground">Remembered later</p>
-            <p className="mt-1 font-medium text-foreground">Not measured</p>
-          </div>
-        </div>
         {evidence === undefined && (
-          <p className="text-xs text-muted-foreground">Loading lesson evidence…</p>
+          <p className="text-xs text-muted-foreground">I’m checking the games that led me here…</p>
         )}
         {Array.isArray(evidence) && evidence.length > 0 && (
           <p className="text-xs text-muted-foreground">
-            {evidence.length} checked position{evidence.length === 1 ? "" : "s"} in this lesson.
+            I chose this lesson from decisions I have already seen in your chess.
           </p>
         )}
       </div>
@@ -99,6 +80,7 @@ export default function PersonalizedLessonWorkspace({
   reviewMode = false,
   variation = "",
   mode = "",
+  user = null,
 }) {
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -277,12 +259,12 @@ export default function PersonalizedLessonWorkspace({
           <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold mb-2">
             {curriculumStateLabel(state)}
           </p>
-          <h1 className="font-serif text-3xl text-foreground mb-3">Lesson complete</h1>
+          <h1 className="font-heading text-3xl text-foreground mb-3">You found the idea.</h1>
           <p className="text-sm leading-relaxed text-muted-foreground mb-6">
-            I am only counting what you showed me here. I have not yet seen you use it in a game or remember it later.
+            Now I want to see whether the same thought appears when nobody tells you this is the lesson.
           </p>
           <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
-          <button onClick={() => navigate("/learn")} className="mt-6 min-h-11 px-6 rounded-xl bg-emerald-700 text-white font-medium">
+          <button onClick={() => navigate("/learn")} className="cg-primary-action mt-6">
             Return to your plan
           </button>
         </div>
@@ -298,9 +280,9 @@ export default function PersonalizedLessonWorkspace({
     left.id === preferredHelp ? -1 : right.id === preferredHelp ? 1 : 0
   ));
 
-  return (
-    <div className="min-h-screen bg-background">
-      <main className="max-w-6xl mx-auto px-5 py-6 md:py-10">
+  const workspace = (
+    <div className="experience-page experience-lesson-page min-h-screen bg-background">
+      <main className="cg-page cg-page--wide">
         <button onClick={pause} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-7">
           <ArrowLeft className="h-4 w-4" /> Continue later
         </button>
@@ -324,11 +306,11 @@ export default function PersonalizedLessonWorkspace({
             )}
           </div>
 
-          <aside>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold mb-2">
+          <aside className="cg-panel p-5 md:p-6">
+            <p className="cg-eyebrow mb-2">
               {STAGE_LABELS[stage] || "Work through the position"}
             </p>
-            <h1 className="font-serif text-3xl leading-tight text-foreground mb-3">
+            <h1 className="font-heading text-3xl leading-tight tracking-[-0.03em] text-foreground mb-3">
               {session?.lesson?.title}
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground mb-4">
@@ -340,8 +322,9 @@ export default function PersonalizedLessonWorkspace({
             </div>
             <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
             <p className="text-xs text-muted-foreground mb-4">
-              Position {(session?.current_index || 0) + 1} of {session?.total_items}
-              {item?.source === "own_game" ? " · from your game" : " · checked for accuracy"}
+              {item?.source === "own_game"
+                ? "This position comes from one of your games."
+                : "This is a new position chosen for the same idea."}
             </p>
 
             <fieldset className="mb-5">
@@ -355,7 +338,7 @@ export default function PersonalizedLessonWorkspace({
                     onClick={() => setReasonChoice(choice.id)}
                     className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
                       reasonChoice === choice.id
-                        ? "border-emerald-700 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                        ? "border-[#B7F34A] bg-[#B7F34A]/15 text-foreground"
                         : "border-border hover:bg-muted/60 text-foreground"
                     }`}
                   >
@@ -375,7 +358,7 @@ export default function PersonalizedLessonWorkspace({
                   className="min-h-9 px-3 rounded-lg border border-border hover:bg-muted/60 disabled:opacity-50 text-xs font-medium inline-flex items-center gap-1.5"
                 >
                   <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
-                  {id === preferredHelp ? " · worked before" : ""}
+                  {id === preferredHelp ? " · try this first" : ""}
                 </button>
               ))}
             </div>
@@ -405,11 +388,13 @@ export default function PersonalizedLessonWorkspace({
             <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
             <div className="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-muted-foreground">
               <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
-              Help is remembered for this idea only. It changes today’s support, not your permanent learning style.
+              I’ll use this help for today’s lesson only. You can choose a different kind of help whenever you need it.
             </div>
           </aside>
         </div>
       </main>
     </div>
   );
+
+  return user ? <Layout user={user}>{workspace}</Layout> : workspace;
 }

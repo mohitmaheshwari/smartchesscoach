@@ -409,7 +409,7 @@ function AppRouter() {
       } />
       <Route path="/endgames/:categoryKey/:lessonKey" element={
         <ProtectedRoute>
-          {() => <VerifiedEndgameLesson />}
+          {({ user }) => <VerifiedEndgameLesson user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

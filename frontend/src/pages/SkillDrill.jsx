@@ -199,13 +199,12 @@ const SkillDrill = ({ user }) => {
     );
   }
   if (done) {
-    const pct = stats.attempted ? Math.round((stats.correct / stats.attempted) * 100) : 0;
     return (
-      <div className="experience-page experience-learning-page max-w-xl mx-auto p-10 text-center">
-        <h2 className="font-serif text-2xl mb-3">Drill complete</h2>
+      <div className="experience-page experience-learning-page cg-page max-w-xl text-center">
+        <p className="cg-eyebrow">A useful first pass</p>
+        <h2 className="font-serif text-3xl mb-3">You’ve worked through the idea.</h2>
         <p className="text-[15px] text-muted-foreground mb-6">
-          You got <span className="text-foreground font-semibold">{stats.correct}</span> out
-          of <span className="text-foreground font-semibold">{stats.attempted}</span> ({pct}%).
+          The next proof is not a score here. It is whether you recognise the same decision in your own game.
         </p>
         <div className="flex gap-3 justify-center">
           <button
@@ -236,13 +235,13 @@ const SkillDrill = ({ user }) => {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="text-[12px] text-muted-foreground tabular-nums">
-          {idx + 1} / {total} · {stats.correct}/{stats.attempted} correct
+          Stay with the thought, not the clock.
         </div>
       </div>
 
       <div className="mb-6">
         <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-          Skill drill
+          Practise with your coach
         </div>
         <h1 className="font-serif text-[26px] text-foreground mt-1">{copy.title}</h1>
         <p className="text-[14px] text-muted-foreground mt-1">{copy.prompt}</p>
@@ -310,7 +309,7 @@ const SkillDrill = ({ user }) => {
                 }`}>
                   {verdict.correct
                     ? (verdict.verdict === "engine_best"
-                        ? "Engine-best — works"
+                        ? "That move holds the idea together"
                         : "Right idea")
                     : verdict.verdict === "missed" ? "Missed the rule" : "Doesn't engage the rule"}
                 </span>

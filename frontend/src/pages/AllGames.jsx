@@ -87,10 +87,10 @@ const AllGames = ({ user }) => {
   const GameRow = ({ g }) => {
     const isExpanded = expandedGameId === g.game_id;
     return (
-      <div className="rounded-xl overflow-hidden border border-border/40">
+      <div className="cg-panel overflow-hidden">
         <div
           onClick={() => setExpandedGameId(isExpanded ? null : g.game_id)}
-          className="flex items-center justify-between p-3 hover:bg-muted/40 cursor-pointer transition-all group"
+          className="flex items-center justify-between p-4 hover:bg-emerald-500/[0.045] cursor-pointer transition-all group"
         >
           <div className="flex items-center gap-3 min-w-0">
             <Swords className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/60" strokeWidth={2} />
@@ -117,7 +117,7 @@ const AllGames = ({ user }) => {
         {isExpanded && (
           <div className="px-3 pb-3 pt-1 bg-muted/20 border-t border-muted/30">
             {g.coach_take && (
-              <p className="text-xs text-foreground/80 italic mb-2">{g.coach_take}</p>
+              <p className="text-sm leading-relaxed text-foreground/85 mb-3">{g.coach_take}</p>
             )}
             {g.coach_line ? (
               <p className="text-[11px] text-muted-foreground/60 mb-2">
@@ -125,14 +125,14 @@ const AllGames = ({ user }) => {
               </p>
             ) : g.critical_move ? (
               <p className="text-[11px] text-muted-foreground/60 mb-2">
-                Critical moment: move {g.critical_move}.
+                There is a turning point in this game worth looking at together.
               </p>
             ) : null}
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
-              className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition"
+              className="cg-primary-action !min-h-9 !px-4 !py-2 text-xs"
             >
-              Review game
+              Review this with me
             </button>
           </div>
         )}
@@ -142,11 +142,12 @@ const AllGames = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="experience-page experience-utility-page experience-games-page max-w-3xl mx-auto px-4 py-8" data-testid="all-games-page">
+      <div className="experience-page experience-utility-page experience-games-page cg-page max-w-[920px]" data-testid="all-games-page">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
           <CurriculumStateStrip user={user} surface="game_review" />
 
+          <div className="cg-hero">
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(CURRICULUM_ROUTES.home)}
@@ -155,7 +156,12 @@ const AllGames = ({ user }) => {
             >
               <ChevronLeft className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
             </button>
-            <h1 className="text-lg font-heading font-semibold text-foreground">Game Review</h1>
+            <p className="cg-eyebrow">Your games</p>
+          </div>
+          <h1 className="cg-title !text-[clamp(2rem,5vw,3.6rem)]">Let’s find the moment worth understanding.</h1>
+          <p className="cg-lede">
+            You do not need to study every move. Choose a game and I’ll take you to the decision that can teach you something useful.
+          </p>
           </div>
 
           <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/30 border border-border/40">
@@ -165,7 +171,7 @@ const AllGames = ({ user }) => {
                 tab === "imported" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Your games {importedGames.length > 0 && <span className="text-muted-foreground/60">· {importedGames.length}</span>}
+              Games from your accounts
             </button>
             <button
               onClick={() => { setTab("coach"); setExpandedGameId(null); }}
@@ -173,24 +179,26 @@ const AllGames = ({ user }) => {
                 tab === "coach" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              With Coach {coachGames.length > 0 && <span className="text-muted-foreground/60">· {coachGames.length}</span>}
+              Games with your coach
             </button>
           </div>
 
           {activeGames.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-sm text-muted-foreground/70 mb-4">
-                {tab === "coach" ? "No games with Coach yet." : "No imported games yet."}
+            <div className="cg-coach-card text-center py-10">
+              <p className="text-sm text-muted-foreground/80 mb-4">
+                {tab === "coach"
+                  ? "We have not played together yet. One natural game is enough to begin."
+                  : "Connect the place where you already play and I’ll start looking through your games."}
               </p>
               <button
                 onClick={() => navigate(tab === "coach" ? "/play-with-coach" : "/import")}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted/40 transition"
+                className="cg-primary-action text-xs"
               >
                 {tab === "coach" ? <><Swords className="w-3.5 h-3.5" />Play with Coach</> : <><Import className="w-3.5 h-3.5" />Import games</>}
               </button>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               {activeGames.map(g => <GameRow key={g.game_id} g={g} />)}
             </div>
           )}

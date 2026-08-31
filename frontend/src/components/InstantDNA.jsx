@@ -7,10 +7,7 @@
  */
 
 import { motion } from "framer-motion";
-import {
-  Zap, Shield, Crown, Target, BookOpen, Swords,
-  TrendingUp, TrendingDown, Minus, Clock, ChevronRight
-} from "lucide-react";
+import { Zap, Shield, Crown, Target, BookOpen, Swords, ChevronRight } from "lucide-react";
 
 const ARCHETYPE_ICONS = {
   tactical_attacker: Swords,
@@ -27,12 +24,9 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
   if (!data || !data.has_data) return null;
 
   const arch = data.archetype || {};
-  const record = data.record || {};
   const style = data.playing_style || {};
   const safety = data.king_safety || {};
   const openings = data.opening_repertoire || {};
-  const rating = data.rating || {};
-  const time = data.time_management;
   const insights = data.insights || [];
   const ArchIcon = ARCHETYPE_ICONS[data.archetype_key] || Target;
 
@@ -48,30 +42,13 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
         <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20">
           <ArchIcon className="w-7 h-7 text-black" strokeWidth={2} />
         </div>
-        <p className="text-xs font-mono text-primary mb-2">
-          {data.games_analyzed} games analyzed in {(data.generation_time_ms / 1000).toFixed(1)}s
-        </p>
-        <h1 className="text-2xl sm:text-3xl font-heading font-bold text-foreground tracking-tight mb-1">
-          {arch.label || "Chess Player"}
+        <p className="cg-eyebrow">My first impression</p>
+        <h1 className="text-2xl sm:text-3xl font-heading font-bold text-foreground tracking-tight mb-2">
+          You play like {String(arch.label || "a thoughtful chess player").toLowerCase()}.
         </h1>
         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
           {arch.description}
         </p>
-      </motion.div>
-
-      {/* ── WIN RATES ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="grid grid-cols-3 gap-3 mb-6"
-      >
-        <StatBox value={`${record.win_rate || 0}%`} label="Win Rate"
-          color={record.win_rate >= 55 ? "text-emerald-500" : record.win_rate >= 45 ? "text-foreground" : "text-red-400"} />
-        <StatBox value={`${record.white_win_rate || 0}%`} label="As White"
-          color={record.white_win_rate >= 55 ? "text-emerald-500" : "text-foreground"} />
-        <StatBox value={`${record.black_win_rate || 0}%`} label="As Black"
-          color={record.black_win_rate >= 55 ? "text-emerald-500" : "text-foreground"} />
       </motion.div>
 
       {/* ── BEST OPENING ── */}
@@ -80,27 +57,20 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-card border border-border rounded-xl p-4 mb-4"
+          className="cg-panel !p-4 mb-4"
         >
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold mb-2">Strongest Opening</p>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-base font-semibold text-foreground">{openings.best_opening.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {openings.best_opening.games} games as {openings.best_opening.color}
-              </p>
-            </div>
-            <span className="text-lg font-mono font-bold text-emerald-500">{openings.best_opening.win_rate}%</span>
-          </div>
+          <p className="cg-eyebrow !mb-2">An opening that already feels like yours</p>
+          <p className="text-base font-semibold text-foreground">{openings.best_opening.name}</p>
+          <p className="text-xs text-muted-foreground mt-1">You seem comfortable reaching this kind of position as {openings.best_opening.color}.</p>
         </motion.div>
       )}
 
-      {/* ── KEY NUMBERS ── */}
+      {/* Translate stored signals into coaching language; the numbers remain evidence. */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="grid grid-cols-2 gap-3 mb-6"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"
       >
         {/* Game length */}
         <div className="bg-card border border-border rounded-xl p-4">
@@ -108,8 +78,8 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
             <Swords className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Avg Game</p>
           </div>
-          <p className="text-xl font-mono font-bold text-foreground">{style.avg_game_length || 0} moves</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{style.style_label} style</p>
+          <p className="text-base font-semibold text-foreground">{style.style_label || "Your own"} style</p>
+          <p className="text-xs text-muted-foreground mt-1">We’ll keep the plan recognisable to the way you like to play.</p>
         </div>
 
         {/* Castling */}
@@ -118,43 +88,11 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
             <Shield className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">King Safety</p>
           </div>
-          <p className="text-xl font-mono font-bold text-foreground">
-            {safety.avg_castle_move > 0 ? `Move ${safety.avg_castle_move}` : "Rare"}
+          <p className="text-base font-semibold text-foreground">
+            {safety.castle_rate >= 80 ? "You usually give your king a home" : safety.castle_rate >= 50 ? "Your king safety changes from game to game" : "Your king often waits too long"}
           </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {safety.castle_rate >= 80 ? "Castles consistently" : safety.castle_rate >= 50 ? `${safety.castle_rate}% of games` : "Often skips castling"}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">I’ll watch what happens just before you commit to a plan.</p>
         </div>
-
-        {/* Rating */}
-        {rating.current && (
-          <div className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Rating</p>
-            </div>
-            <p className="text-xl font-mono font-bold text-foreground">{rating.current}</p>
-            {rating.change !== null && rating.change !== undefined && (
-              <p className={`text-[10px] mt-0.5 font-medium ${rating.change > 0 ? "text-emerald-500" : rating.change < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                {rating.change > 0 ? "+" : ""}{rating.change} recent trend
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Time management */}
-        {time && time.avg_time_per_move && (
-          <div className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Avg Move Time</p>
-            </div>
-            <p className="text-xl font-mono font-bold text-foreground">{time.avg_time_per_move}s</p>
-            {time.rushed_move_pct > 20 && (
-              <p className="text-[10px] text-amber-400 mt-0.5">{time.rushed_move_pct}% rushed</p>
-            )}
-          </div>
-        )}
       </motion.div>
 
       {/* ── INSIGHTS ── */}
@@ -187,7 +125,7 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
         <div className="bg-card border border-border/50 rounded-lg p-3 flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
           <p className="text-xs text-muted-foreground">
-            Deep analysis running in background. Full insights will appear on your Progress page.
+            I’m still reading the deeper moments. I’ll bring them into your plan when they are ready.
           </p>
         </div>
       </motion.div>
@@ -203,21 +141,13 @@ const InstantDNA = ({ data, onContinue, ctaLabel }) => {
           onClick={onContinue}
           className="w-full px-6 py-4 text-base font-semibold text-black rounded-xl gradient-gold hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
         >
-          {ctaLabel || "Start Training"}
+          {ctaLabel || "Start with your coach"}
           <ChevronRight className="w-4 h-4" />
         </button>
       </motion.div>
     </div>
   );
 };
-
-
-const StatBox = ({ value, label, color = "text-foreground" }) => (
-  <div className="bg-card border border-border rounded-xl p-3 text-center">
-    <p className={`text-2xl font-mono font-bold ${color}`}>{value}</p>
-    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">{label}</p>
-  </div>
-);
 
 
 export default InstantDNA;

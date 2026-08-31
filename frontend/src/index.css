@@ -1037,3 +1037,384 @@
     scale: 0.7;
   }
 }
+
+/* ─── Inner Product Experience V2: the coaching room ────────────────
+   Extends the landing page's emerald / cream / acid visual language
+   through the authenticated product. Functionality stays page-owned;
+   these are the shared relationship and hierarchy primitives. */
+.experience-v1 {
+  --background: 42 41% 96%;
+  --foreground: 157 48% 6%;
+  --card: 42 48% 99%;
+  --card-foreground: 157 48% 6%;
+  --popover: 42 48% 99%;
+  --popover-foreground: 157 48% 6%;
+  --primary: 82 87% 62%;
+  --primary-foreground: 157 48% 6%;
+  --secondary: 39 30% 91%;
+  --secondary-foreground: 157 38% 12%;
+  --muted: 40 26% 91%;
+  --muted-foreground: 159 14% 35%;
+  --accent: 158 65% 70%;
+  --accent-foreground: 158 58% 15%;
+  --border: 42 20% 82%;
+  --input: 42 20% 82%;
+  --ring: 82 87% 62%;
+  --success: 158 56% 39%;
+  --warning: 38 92% 54%;
+  --critical: 10 100% 70%;
+  --experience-ink: 157 48% 6%;
+  --experience-teal: 158 56% 39%;
+  --experience-rose: 10 100% 70%;
+  --experience-shadow: 157 46% 6%;
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 92% -5%, rgb(183 243 74 / 0.16), transparent 30rem),
+    radial-gradient(circle at 14% 102%, rgb(126 231 194 / 0.12), transparent 28rem),
+    #f4efe4;
+}
+
+.dark .experience-v1 {
+  --background: 157 48% 5%;
+  --foreground: 42 33% 94%;
+  --card: 156 42% 9%;
+  --card-foreground: 42 33% 94%;
+  --popover: 156 42% 9%;
+  --popover-foreground: 42 33% 94%;
+  --primary: 82 87% 62%;
+  --primary-foreground: 157 48% 6%;
+  --secondary: 157 30% 13%;
+  --secondary-foreground: 42 33% 94%;
+  --muted: 157 27% 13%;
+  --muted-foreground: 154 12% 66%;
+  --accent: 158 65% 70%;
+  --accent-foreground: 157 48% 6%;
+  --border: 155 23% 18%;
+  --input: 155 23% 18%;
+  --ring: 82 87% 62%;
+  background:
+    radial-gradient(circle at 92% -5%, rgb(183 243 74 / 0.10), transparent 32rem),
+    radial-gradient(circle at 10% 105%, rgb(126 231 194 / 0.08), transparent 30rem),
+    #071411;
+}
+
+.experience-v1 .experience-sidebar {
+  color: #f4efe4;
+  background:
+    radial-gradient(circle at 30% 0%, rgb(183 243 74 / 0.10), transparent 14rem),
+    linear-gradient(180deg, #0d211b 0%, #071411 100%);
+  border-right: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow: 24px 0 70px rgb(7 20 17 / 0.12);
+}
+
+.experience-v1 .experience-sidebar .text-foreground {
+  color: #f4efe4;
+}
+
+.experience-v1 .experience-sidebar .text-muted-foreground {
+  color: rgb(244 239 228 / 0.58);
+}
+
+.experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
+.experience-v1 .experience-sidebar button:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
+  color: #dfffa7;
+  background: rgb(183 243 74 / 0.12);
+}
+
+.experience-v1 .experience-brand-mark {
+  border: 1px solid rgb(183 243 74 / 0.22);
+  background: rgb(183 243 74 / 0.10);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+}
+
+.experience-v1 .experience-coach-cta,
+.experience-v1 .experience-primary {
+  color: #071411;
+  background: #b7f34a;
+  border: 1px solid rgb(183 243 74 / 0.72);
+  box-shadow: 0 16px 38px rgb(183 243 74 / 0.18);
+}
+
+.experience-v1 .experience-coach-cta:hover,
+.experience-v1 .experience-primary:hover {
+  background: #c6ff62;
+  box-shadow: 0 20px 48px rgb(183 243 74 / 0.25);
+}
+
+.experience-v1 .experience-acid-badge {
+  background: #b7f34a;
+}
+
+.experience-v1 .experience-mobile-header {
+  color: hsl(var(--foreground));
+  background: rgb(244 239 228 / 0.88);
+  border-color: rgb(7 20 17 / 0.10);
+  box-shadow: 0 12px 40px rgb(7 20 17 / 0.06);
+}
+
+.dark .experience-v1 .experience-mobile-header {
+  color: hsl(var(--foreground));
+  background: rgb(7 20 17 / 0.88);
+  border-color: rgb(255 255 255 / 0.08);
+}
+
+.experience-v1 .experience-main {
+  position: relative;
+  background: transparent;
+}
+
+.experience-v1 .experience-main::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: 4rem;
+  right: 4vw;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  background: rgb(183 243 74 / 0.07);
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+.experience-v1 .experience-surface,
+.experience-v1 .surface {
+  border-color: rgb(7 20 17 / 0.10);
+  background:
+    linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(248 244 235 / 0.92));
+  box-shadow: 0 24px 68px rgb(7 20 17 / 0.075);
+}
+
+.dark .experience-v1 .experience-surface,
+.dark .experience-v1 .surface {
+  border-color: rgb(255 255 255 / 0.09);
+  background:
+    linear-gradient(145deg, rgb(16 39 31 / 0.98), rgb(9 27 21 / 0.94));
+  box-shadow: 0 26px 72px rgb(0 0 0 / 0.24);
+}
+
+.experience-v1 .experience-focus-card {
+  border-color: rgb(183 243 74 / 0.42);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(183 243 74 / 0.18), transparent 15rem),
+    linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(238 255 208 / 0.48));
+}
+
+.dark .experience-v1 .experience-focus-card {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(183 243 74 / 0.13), transparent 15rem),
+    linear-gradient(145deg, #10271f, #0b2019);
+}
+
+.experience-v1 .experience-eyebrow {
+  color: #287a61;
+  font-weight: 750;
+  letter-spacing: 0.20em;
+}
+
+.dark .experience-v1 .experience-eyebrow {
+  color: #7ee7c2;
+}
+
+.experience-v1 .experience-coach-copy {
+  color: hsl(var(--foreground));
+}
+
+.experience-v1 .experience-page h1,
+.experience-v1 .experience-page h2 {
+  text-wrap: balance;
+}
+
+.experience-v1 .experience-page button,
+.experience-v1 .experience-page a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.experience-v1 .experience-page button:focus-visible,
+.experience-v1 .experience-page a:focus-visible {
+  outline: 2px solid #88bd2c;
+  outline-offset: 3px;
+}
+
+.experience-v1 .experience-mobile-nav {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-color: rgb(255 255 255 / 0.10);
+  background: rgb(7 20 17 / 0.94);
+  box-shadow: 0 24px 65px rgb(7 20 17 / 0.28);
+}
+
+.experience-v1 .experience-mobile-nav a {
+  color: rgb(244 239 228 / 0.55);
+}
+
+.experience-v1 .experience-mobile-nav a.is-active {
+  color: #dfffa7;
+  background: rgb(183 243 74 / 0.12);
+}
+
+.experience-v1 .experience-mobile-nav a.experience-mobile-coach {
+  color: #071411;
+  background: #b7f34a;
+  box-shadow: 0 10px 28px rgb(183 243 74 / 0.20);
+}
+
+/* New shared page primitives. These let the canonical pages migrate without
+   inventing a bespoke visual system for every route. */
+.cg-page {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(0.25rem, 2vw, 1.5rem) 5rem;
+}
+
+.cg-page--wide {
+  width: min(100%, 1320px);
+}
+
+.cg-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid rgb(7 20 17 / 0.10);
+  border-radius: clamp(1.5rem, 3vw, 2.25rem);
+  background:
+    radial-gradient(circle at 92% 0%, rgb(183 243 74 / 0.22), transparent 18rem),
+    linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(244 239 228 / 0.88));
+  box-shadow: 0 32px 90px rgb(7 20 17 / 0.09);
+}
+
+.dark .experience-v1 .cg-hero {
+  border-color: rgb(255 255 255 / 0.09);
+  background:
+    radial-gradient(circle at 92% 0%, rgb(183 243 74 / 0.13), transparent 18rem),
+    linear-gradient(145deg, #10271f, #0b2019);
+  box-shadow: 0 32px 90px rgb(0 0 0 / 0.24);
+}
+
+.cg-eyebrow {
+  color: #287a61;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+}
+
+.dark .experience-v1 .cg-eyebrow {
+  color: #7ee7c2;
+}
+
+.cg-title {
+  max-width: 48rem;
+  margin-top: 0.8rem;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.cg-lede {
+  max-width: 42rem;
+  margin-top: 1.15rem;
+  color: hsl(var(--muted-foreground));
+  font-size: clamp(0.95rem, 1.8vw, 1.08rem);
+  line-height: 1.75;
+}
+
+.cg-coach-card {
+  position: relative;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(126 231 194 / 0.45);
+  border-radius: 1.5rem;
+  background: rgb(126 231 194 / 0.13);
+}
+
+.cg-coach-card::before {
+  content: "Your coach";
+  display: block;
+  margin-bottom: 0.75rem;
+  color: #287a61;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dark .experience-v1 .cg-coach-card::before {
+  color: #7ee7c2;
+}
+
+.cg-panel {
+  border: 1px solid rgb(7 20 17 / 0.10);
+  border-radius: 1.5rem;
+  background: hsl(var(--card) / 0.92);
+  box-shadow: 0 18px 55px rgb(7 20 17 / 0.06);
+}
+
+.dark .experience-v1 .cg-panel {
+  border-color: rgb(255 255 255 / 0.09);
+}
+
+.cg-primary-action {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1.35rem;
+  border: 1px solid rgb(183 243 74 / 0.72);
+  border-radius: 999px;
+  color: #071411;
+  background: #b7f34a;
+  font-size: 0.86rem;
+  font-weight: 800;
+  box-shadow: 0 16px 38px rgb(183 243 74 / 0.18);
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.cg-primary-action:hover {
+  transform: translateY(-2px);
+  background: #c6ff62;
+  box-shadow: 0 20px 48px rgb(183 243 74 / 0.25);
+}
+
+.cg-secondary-action {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card) / 0.72);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.cg-secondary-action:hover {
+  transform: translateY(-1px);
+  border-color: rgb(40 122 97 / 0.40);
+  background: hsl(var(--card));
+}
+
+@media (max-width: 767px) {
+  .experience-v1 .experience-main > div {
+    padding-inline: 1rem;
+  }
+
+  .cg-page {
+    padding-top: 1.25rem;
+    padding-bottom: 6.5rem;
+  }
+
+  .cg-hero {
+    border-radius: 1.5rem;
+  }
+}

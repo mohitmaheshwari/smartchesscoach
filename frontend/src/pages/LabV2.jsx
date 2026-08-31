@@ -1246,27 +1246,10 @@ const LabV2 = ({ user }) => {
               </Button>
               
               <div className="flex items-center gap-3">
-                {/* Accuracy ring — shrunk to a peripheral indicator, not the headline */}
-                {accuracy != null && (
-                  <div className="relative w-8 h-8 shrink-0" data-testid="accuracy-ring">
-                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border" />
-                      <circle
-                        cx="18" cy="18" r="15.5" fill="none" strokeWidth="2" strokeLinecap="round"
-                        stroke={accuracy >= 80 ? '#10B981' : accuracy >= 60 ? '#F59E0B' : '#EF4444'}
-                        strokeDasharray={`${accuracy * 0.975} 97.5`}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium font-mono tabular-nums text-muted-foreground">
-                      {accuracy.toFixed(0)}
-                    </span>
-                  </div>
-                )}
-
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-                      Review
+                    <span className="cg-eyebrow !mb-0">
+                      Let’s look at this together
                     </span>
                     <span className="font-serif text-[15px] text-foreground/90">
                       vs {game?.opponent_name || "Opponent"}
@@ -1276,9 +1259,8 @@ const LabV2 = ({ user }) => {
                       <TerminationTag termination={game.termination} result={result} userColor={userColor} />
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono tabular-nums truncate">
-                    {game?.opening_name || game?.opening || ""}
-                    {game?.time_control && <span className="ml-2 opacity-70">· {game.time_control}s</span>}
+                  <p className="text-[12px] text-muted-foreground/80 mt-0.5 truncate">
+                    {game?.opening_name || game?.opening || "I found the moment that shaped this game."}
                   </p>
                 </div>
               </div>
@@ -1288,8 +1270,8 @@ const LabV2 = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
                 {[
-                  { key: "decrypt", label: "Review", icon: BookOpen },
-                  { key: "habits", label: "Insights", icon: Target },
+                  { key: "decrypt", label: "The game", icon: BookOpen },
+                  { key: "habits", label: "Carry forward", icon: Target },
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
@@ -1321,20 +1303,20 @@ const LabV2 = ({ user }) => {
                   ) : (
                     <Check className="w-3 h-3" />
                   )}
-                  Done reviewing
+                  I’m done
                 </Button>
               )}
             </div>
           </div>
           
-          {/* Coach's verdict — one sentence, both tabs. Lead with the story. */}
+          {/* One coach sentence leads; detailed analysis stays behind the game. */}
           {coachSummary?.key_observation && (
             <div className="px-5 pb-4 pt-1">
               <p
                 className="experience-coach-copy font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
                 data-testid="coach-narrative-strip"
               >
-                "{coachSummary.key_observation}"
+                {coachSummary.key_observation}
               </p>
             </div>
           )}

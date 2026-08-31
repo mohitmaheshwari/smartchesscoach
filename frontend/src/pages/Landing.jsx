@@ -1,1037 +1,357 @@
-import { useTheme } from "@/context/ThemeContext";
-import { ChevronRight, Code, Zap, Brain, Target, TrendingUp, MessageSquare, Crown, Eye, Swords, FlaskConical, BarChart3, ArrowRight, Check, X as XIcon, Shield, BookOpen, Sparkles } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  ArrowRight, BookOpen, BrainCircuit, Check, ChevronDown, ChevronRight,
+  Clock3, Code, Crosshair, Eye, Flag, Gamepad2, GraduationCap,
+  LineChart, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Target,
+  TimerReset, TrendingDown, Zap,
+} from "lucide-react";
 import { API } from "@/App";
-import { pageEnter, navFade, heroHeadline, wordRise, MOTION_TIMING } from "@/lib/motion";
-import { AnimatedButton } from "@/components/AnimatedButton";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
-const Landing = () => {
-  const { theme } = useTheme();
+const ACID = "#B7F34A";
+const MINT = "#7EE7C2";
+const CORAL = "#FF8066";
+const ease = [0.22, 1, 0.36, 1];
+
+const scrollToId = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+function Reveal({ children, className = "", delay = 0 }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.7, delay, ease }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function PrimaryButton({ children, onClick, testId, className = "" }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      whileHover={reduceMotion ? undefined : { y: -2, scale: 1.01 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+      className={`group inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#0A1712] shadow-[0_18px_55px_rgba(183,243,74,0.2)] transition-shadow hover:shadow-[0_22px_70px_rgba(183,243,74,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B7F34A] focus-visible:ring-offset-2 focus-visible:ring-offset-[#071411] ${className}`}
+      style={{ background: ACID }}
+    >
+      {children}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+    </motion.button>
+  );
+}
+
+function PlanPreview() {
+  const reduceMotion = useReducedMotion();
+  const stages = ["Learn", "Practise", "Blind test", "Play", "Verify"];
+  return (
+    <div className="relative mx-auto w-full max-w-[520px]">
+      <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { rotate: [0, 3, 0], y: [0, -7, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} className="absolute -right-6 top-12 h-32 w-32 rounded-[32px] border border-[#B7F34A]/20 bg-[#B7F34A]/10" />
+      <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { rotate: [0, -4, 0], y: [0, 8, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} className="absolute -bottom-6 -left-5 h-28 w-28 rounded-full border border-[#7EE7C2]/20 bg-[#7EE7C2]/10" />
+      <div className="relative overflow-hidden rounded-[30px] border border-white/15 bg-[#0D211B]/95 shadow-[0_36px_100px_rgba(0,0,0,0.38)] backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
+          <div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#B7F34A]">A sample coaching conversation</p><p className="mt-1 font-heading text-xl font-semibold text-white">Your path to 1200</p></div>
+          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[#B7F34A]/25 bg-[#B7F34A]/10"><Target className="h-5 w-5 text-[#B7F34A]" /></div>
+        </div>
+        <div className="p-5 sm:p-6">
+          <p className="mb-4 text-sm leading-6 text-white/65">I’ve been looking through your games. You already see plenty of tactical chances. The part holding you back happens when your opponent attacks one of your pieces.</p>
+          <div className="rounded-2xl border border-[#FF8066]/25 bg-[#FF8066]/[0.07] p-4">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#FF9B86]"><Crosshair className="h-3.5 w-3.5" /> Here’s where we start</div>
+            <p className="mt-2.5 font-heading text-xl font-semibold leading-tight text-white">Slow down when a piece is attacked.</p>
+            <ul className="mt-4 space-y-2 text-xs leading-relaxed text-white/60">
+              <li className="flex gap-2"><span className="text-[#FF8066]">•</span>You often save the attacked piece but forget what it was protecting.</li>
+              <li className="flex gap-2"><span className="text-[#FF8066]">•</span>It happens most when you answer quickly.</li>
+              <li className="flex gap-2"><span className="text-[#FF8066]">•</span>Fixing this will help more than learning another opening line.</li>
+            </ul>
+          </div>
+          <div className="mt-5">
+            <div className="mb-3 flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">This week</p><p className="text-[10px] text-[#7EE7C2]">Adapts after every game</p></div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {stages.map((stage, index) => <div key={stage} className="min-w-0"><div className={`h-1.5 rounded-full ${index < 2 ? "bg-[#B7F34A]" : "bg-white/10"}`} /><p className={`mt-2 truncate text-[9px] ${index < 2 ? "text-white/75" : "text-white/35"}`}>{stage}</p></div>)}
+            </div>
+          </div>
+        </div>
+      </div>
+      <motion.div animate={reduceMotion ? undefined : { y: [0, -6, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="absolute -bottom-7 right-5 flex items-center gap-3 rounded-2xl border border-white/15 bg-[#F4EFE4] px-4 py-3 text-[#071411] shadow-2xl sm:-right-7">
+        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#DDFCA4]"><TrendingDown className="h-4 w-4" /></div>
+        <div><p className="text-[10px] uppercase tracking-[0.15em] text-[#355047]">Your coach is noticing</p><p className="text-sm font-bold">You’re checking first more often.</p></div>
+      </motion.div>
+    </div>
+  );
+}
+
+function SkillProfile() {
+  return (
+    <div className="rounded-[28px] border border-[#16372C] bg-[#0B2019] p-5 shadow-[0_30px_70px_rgba(7,20,17,0.16)] sm:p-7">
+      <div className="flex items-start justify-between">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7EE7C2]">What your coach sees</p><h3 className="mt-2 font-heading text-2xl font-semibold text-white">You don’t need more opening theory right now.</h3></div>
+        <BrainCircuit className="h-6 w-6 text-[#B7F34A]" />
+      </div>
+      <div className="mt-7 space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#B7F34A]">What you already do well</p><p className="mt-2 text-sm leading-6 text-white/65">You notice attacking chances and usually understand what your opening is trying to achieve.</p></div>
+        <div className="rounded-2xl border border-[#FF8066]/20 bg-[#FF8066]/[0.06] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#FF9B86]">What keeps getting in the way</p><p className="mt-2 text-sm leading-6 text-white/70">When your opponent attacks something, you react to that piece and stop looking at the rest of the board.</p></div>
+      </div>
+      <div className="mt-6 rounded-2xl bg-[#B7F34A] p-4 text-[#071411]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em]">Our one rule for now</p>
+        <p className="mt-1.5 text-sm font-semibold leading-relaxed">Before moving an attacked piece, ask what it is protecting. We’ll make that check feel automatic.</p>
+      </div>
+    </div>
+  );
+}
+
+function LearningCard() {
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_30px_70px_rgba(7,20,17,0.12)] sm:p-8">
+      <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#FF8066]/10 blur-3xl" />
+      <div className="relative">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#B94D37]"><Eye className="h-4 w-4" /> Personal lesson</div>
+        <h3 className="mt-3 max-w-md font-heading text-3xl font-semibold leading-[1.08] text-[#071411]">The lesson starts with what <em className="font-normal text-[#B94D37]">you</em> misunderstood.</h3>
+        <div className="mt-7 grid gap-3">
+          <div className="rounded-2xl bg-[#F4EFE4] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#62756E]">From your game</p><p className="mt-2 text-sm leading-relaxed text-[#203D34]">You moved the attacked knight, but that knight was the only piece defending e4.</p></div>
+          <div className="rounded-2xl border border-[#B7F34A] bg-[#EEFFD0] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#466513]">Your coach</p><p className="mt-2 text-sm font-medium leading-relaxed text-[#17300F]">Before moving an attacked piece, look at what it protects. I’ve seen this same blind spot in your recent games, so we’re going to slow the moment down together.</p></div>
+          <div className="flex items-center justify-between rounded-2xl border border-black/10 p-4">
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#62756E]">Today’s practice</p><p className="mt-1 text-sm font-semibold text-[#071411]">A short set of new defender positions</p></div>
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#B7F34A]"><ArrowRight className="h-5 w-5" /></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProofCard() {
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#10271F] p-6 sm:p-8">
+      <div className="flex items-start justify-between gap-4">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7EE7C2]">A sample message from your coach</p><h3 className="mt-3 font-heading text-3xl font-semibold leading-tight text-white">I’m not asking you to memorize the practice positions.</h3></div>
+        <LineChart className="h-6 w-6 shrink-0 text-[#B7F34A]" />
+      </div>
+      <div className="mt-7 space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-black/10 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">When we started</p><p className="mt-2 text-sm leading-6 text-white/65">When one of your pieces was attacked, you usually moved it at once. That was when another piece got left behind.</p></div>
+        <div className="rounded-2xl border border-[#B7F34A]/25 bg-[#B7F34A]/[0.07] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#B7F34A]/75">What I’m seeing now</p><p className="mt-2 text-sm font-medium leading-6 text-white/80">You’re beginning to pause and check what the piece protects before you move it. That is the habit we’re building.</p></div>
+        <div className="flex items-start gap-3 rounded-2xl bg-black/15 p-4"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-[#7EE7C2]" /><p className="text-sm leading-6 text-white/60"><strong className="font-semibold text-[#7EE7C2]">What comes next:</strong> I’ll keep watching your games. When this holds under pressure, we’ll move on together.</p></div>
+      </div>
+    </div>
+  );
+}
+
+const PROCESS = [
+  ["01", "Evaluate", "Connect Chess.com or Lichess. ChessGuru studies recurring decisions across games—not one dramatic blunder.", Crosshair, CORAL],
+  ["02", "Build your plan", "Tell me where you want to go and how much time you have. I’ll choose the one thing that deserves your attention first.", Target, ACID],
+  ["03", "Learn and apply", "Understand the idea, practise with help, pass an unseen test, then carry one instruction into a real game.", GraduationCap, MINT],
+  ["04", "See it in your games", "I’ll watch what happens when you play again. Once the new habit holds, we’ll choose your next lesson.", LineChart, "#FFD37E"],
+];
+
+const CURRICULUM = [
+  ["Openings", BookOpen, "Plans selected from the structures you actually reach."],
+  ["Traps", Zap, "Patterns taught when they matter in your games—not as tricks to memorize."],
+  ["Endgames", Flag, "Exact technique matched to the endings you mishandle or are ready to learn."],
+  ["Tactics", Crosshair, "Unlabelled positions that test recognition, not theme memorization."],
+  ["Position play", BrainCircuit, "Weak squares, exchanges, pawn breaks, and piece relationships."],
+  ["Decision habits", Clock3, "Threat response, candidate generation, calculation, and time use."],
+];
+
+const FAQS = [
+  ["Does ChessGuru guarantee a rating jump by a deadline?", "No. Your rating also depends on how often you play, who you face, and the kind of games you choose. ChessGuru gives you a clear plan, teaches one important habit at a time, and watches your later games to see whether it is sticking."],
+  ["How is this different from a game review?", "A game review explains one game. ChessGuru remembers what keeps happening, chooses the habit hurting you most, teaches it in different positions, and checks whether it returns when you play again."],
+  ["Will I only get puzzles from my own games?", "Your games are the starting point, not the limit. ChessGuru can combine your positions with verified openings, traps, endgames, tactical geometry, and related positions selected for the same underlying skill."],
+  ["Who is ChessGuru for?", "It is designed for 600–1500-rated players who are playing regularly, feel stuck, and want a clear answer to what they should learn next instead of another large content catalogue."],
+];
+
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "ChessGuru",
+      applicationCategory: "EducationalApplication",
+      operatingSystem: "Web",
+      description: "A personalized chess improvement system for 600–1500-rated players that builds training from their games and tracks recurring weaknesses.",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map(([question, answer]) => ({
+        "@type": "Question",
+        name: question,
+        acceptedAnswer: { "@type": "Answer", text: answer },
+      })),
+    },
+  ],
+};
+
+export default function Landing() {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const [devMode, setDevMode] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
-
-  // Subtle scroll parallax for the hero background blobs (25px amplitude),
-  // fading out as the user scrolls past the bottom of the hero.
-  const { scrollY } = useScroll();
-  const blobY = useTransform(scrollY, [0, 500], [0, -25]);
-  const blobOpacity = useTransform(scrollY, [400, 800], [1, 0]);
-  // Hero visual (coaching demo) drifts 25px the other way and fades out
-  // below the hero — locked parallax spec (scope §"Landing Parallax").
-  const heroVisualY = useTransform(scrollY, [0, 500], [0, 25], { clamp: true });
-
-  const getPostAuthRedirect = () => window.sessionStorage.getItem("post_auth_redirect") || "/dashboard";
+  const [openFaq, setOpenFaq] = useState(0);
 
   useEffect(() => {
-    const checkDevMode = async () => {
-      try {
-        const response = await fetch(`${API}/auth/status`);
-        const data = await response.json();
-        setDevMode(data.dev_mode === true);
-      } catch (e) {}
-    };
-    checkDevMode();
+    track(ANALYTICS_EVENTS.FUNNEL_LANDING_VIEWED);
+    fetch(`${API}/auth/status`).then((response) => response.json()).then((data) => setDevMode(data.dev_mode === true)).catch(() => {});
   }, []);
 
-  const handleLogin = async () => {
+  const startPlan = async (source = "hero") => {
+    track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
+    window.sessionStorage.setItem("post_auth_redirect", "/welcome");
     try {
-      const response = await fetch(`${API}/auth/google/login`);
+      const response = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}`);
       const data = await response.json();
-      if (data.auth_url) window.location.href = data.auth_url;
-      else alert("Login failed. Please try again.");
-    } catch (error) {
-      alert("Login failed. Please try again.");
-    }
+      if (data.auth_url) { window.location.href = data.auth_url; return; }
+    } catch (_) { /* The normal login page remains the safe fallback. */ }
+    navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`);
   };
 
   const handleDevLogin = async () => {
     setDevLoading(true);
+    window.sessionStorage.setItem("post_auth_redirect", "/welcome");
     try {
       const response = await fetch(`${API}/auth/dev-login`, { credentials: "include" });
       const data = await response.json();
-      if (data.status === "ok") window.location.href = getPostAuthRedirect();
-      else alert("Dev login failed");
-    } catch (error) {
-      alert("Dev login failed.");
-    } finally {
-      setDevLoading(false);
-    }
+      if (data.status === "ok") window.location.href = "/welcome";
+    } finally { setDevLoading(false); }
   };
 
   return (
-    <motion.div variants={pageEnter} initial="initial" animate="animate"
-      className="experience-page experience-landing-page min-h-screen bg-[#06060B] text-gray-100 overflow-hidden">
-
-      {/* ═══ NAVBAR ═══ */}
-      <motion.header variants={navFade} initial="initial" animate="animate"
-        className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#06060B]/80 backdrop-blur-2xl">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2.5">
-              <img src="/chessguru-logo.svg" alt="ChessGuru" className="w-7 h-7" />
-              <span className="text-[15px] font-heading font-bold tracking-tight text-white">ChessGuru</span>
-            </div>
-            <nav className="hidden md:flex items-center gap-8">
-              {["Features", "How it works", "Compare", "FAQ"].map((item) => (
-                <button key={item} onClick={() => document.getElementById(item.toLowerCase().replace(/\s/g, "-"))?.scrollIntoView({ behavior: "smooth" })}
-                  className="text-sm text-gray-500 hover:text-white transition-colors">{item}</button>
-              ))}
-              <button onClick={() => navigate("/pricing")}
-                className="text-sm text-gray-500 hover:text-white transition-colors">Pricing</button>
-            </nav>
-            <div className="flex items-center gap-3">
-              {devMode && (
-                <button onClick={handleDevLogin} disabled={devLoading}
-                  className="px-4 py-2 text-sm border border-white/10 text-gray-400 rounded-lg hover:border-white/20 hover:text-white transition-all flex items-center gap-1.5"
-                  data-testid="dev-login-button">
-                  <Code className="w-3.5 h-3.5" />{devLoading ? "..." : "Dev"}
-                </button>
-              )}
-              <button onClick={() => navigate("/login")} data-testid="signin-link"
-                className="hidden sm:inline-flex px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors">
-                Sign in
-              </button>
-              <button onClick={() => navigate("/login")} data-testid="login-button"
-                className="px-5 py-2 text-sm font-semibold text-black rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-lg shadow-amber-500/20">
-                Get Started Free
-              </button>
-            </div>
+    <div className="experience-page experience-landing-page min-h-screen overflow-hidden bg-[#071411] text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#071411]/80 backdrop-blur-2xl">
+        <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B7F34A]">
+            <img src="/chessguru-logo.svg" alt="" className="h-8 w-8" /><span className="font-heading text-[17px] font-bold tracking-tight">ChessGuru</span>
+          </button>
+          <nav aria-label="Main navigation" className="hidden items-center gap-7 lg:flex">
+            {[["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#B7F34A]">{label}</button>)}
+            <button type="button" onClick={() => navigate("/pricing")} className="text-sm text-white/55 transition-colors hover:text-white">Pricing</button>
+          </nav>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {devMode && <button type="button" onClick={handleDevLogin} disabled={devLoading} data-testid="dev-login-button" className="hidden rounded-full border border-white/15 px-3 py-2 text-xs text-white/60 sm:inline-flex"><Code className="mr-1.5 h-3.5 w-3.5" />{devLoading ? "…" : "Dev"}</button>}
+            <button type="button" onClick={() => navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`)} data-testid="signin-link" className="hidden px-2 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white sm:inline-flex">Sign in</button>
+            <button type="button" onClick={() => startPlan("nav")} data-testid="login-button" className="rounded-full bg-[#F4EFE4] px-4 py-2.5 text-xs font-bold text-[#071411] transition-transform hover:-translate-y-0.5 sm:px-5 sm:text-sm">Build my plan</button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
-      {/* ═══ HERO ═══ */}
-      <section className="relative min-h-[100vh] flex items-center pt-16">
-        {/* Background effects */}
-        <div className="absolute inset-0">
-          <motion.div style={{ y: blobY, opacity: blobOpacity }}
-            className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[180px] bg-amber-500/[0.07]" />
-          <motion.div style={{ y: blobY, opacity: blobOpacity }}
-            className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[150px] bg-amber-600/[0.05]" />
-          {/* Grid */}
-          <div className="absolute inset-0 opacity-[0.03]"
-            style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        </div>
-
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left: Copy */}
-            <div>
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs font-mono mb-6">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                AI Chess Coach for 600–1500 Rated Players
+      <main>
+        <section className="relative isolate flex min-h-[900px] items-center overflow-hidden pb-28 pt-32 lg:min-h-screen lg:pb-24 lg:pt-28">
+          <div aria-hidden="true" className="absolute inset-0 -z-10">
+            <div className="absolute left-[-12%] top-[5%] h-[540px] w-[540px] rounded-full bg-[#2C705A]/25 blur-[130px]" />
+            <div className="absolute right-[-8%] top-[18%] h-[500px] w-[500px] rounded-full bg-[#B7F34A]/10 blur-[140px]" />
+            <div className="absolute inset-0 opacity-[0.045]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.45) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px)", backgroundSize: "72px 72px", maskImage: "linear-gradient(to bottom, black, transparent 88%)" }} />
+          </div>
+          <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-12">
+            <div className="max-w-[680px]">
+              <motion.div initial={reduceMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#7EE7C2]/25 bg-[#7EE7C2]/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9DF0D3]"><Sparkles className="h-3.5 w-3.5" /> Personal improvement for 600–1500 players</motion.div>
+              <motion.h1 initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.08, ease }} className="font-heading text-[clamp(3.2rem,7vw,6.8rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#F4EFE4]">Your next rating milestone needs a plan built from <span className="text-[#B7F34A]">your games.</span></motion.h1>
+              <motion.p initial={reduceMotion ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.18, ease }} className="mt-7 max-w-[610px] text-base leading-7 text-white/62 sm:text-lg sm:leading-8">ChessGuru discovers what is actually holding you back, teaches the chess you need next, and tracks whether the weakness disappears from your real games.</motion.p>
+              <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.28, ease }} className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <PrimaryButton onClick={() => startPlan("hero")} testId="hero-cta-button" className="sm:px-7">Build my improvement plan</PrimaryButton>
+                <button type="button" onClick={() => scrollToId("personal-plan")} data-testid="learn-more-button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3.5 text-sm font-semibold text-white/75 transition-colors hover:border-white/30 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">See a real example <ChevronRight className="h-4 w-4" /></button>
               </motion.div>
-
-              {/* Headline rises word by word — heroHeadline staggers children
-                  by STAGGER_STEP, each word uses the wordRise variant. */}
-              <motion.h1 variants={heroHeadline} initial="hidden" animate="visible"
-                className="text-[3.2rem] sm:text-[4rem] font-heading font-bold tracking-[-0.04em] leading-[0.95] text-white mb-3">
-                {"The AI chess coach".split(" ").map((word, i) => (
-                  <motion.span key={`l1-${i}`} variants={wordRise} className="inline-block mr-[0.22em]">
-                    {word}
-                  </motion.span>
-                ))}
-                <br />
-                {"that knows".split(" ").map((word, i) => (
-                  <motion.span key={`l2-${i}`} variants={wordRise} className="inline-block mr-[0.22em]">
-                    {word}
-                  </motion.span>
-                ))}
-                <br />
-                <span className="relative inline-block">
-                  {"your mistakes.".split(" ").map((word, i) => (
-                    <motion.span key={`l3-${i}`} variants={wordRise}
-                      className="inline-block mr-[0.22em] last:mr-0 bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">
-                      {word}
-                    </motion.span>
-                  ))}
-                  <motion.div className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-amber-400/60 to-transparent"
-                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-                    transition={{ delay: 0.8, duration: MOTION_TIMING.page.duration / 1000, ease: MOTION_TIMING.page.easing }}
-                    style={{ transformOrigin: "left" }} />
-                </span>
-              </motion.h1>
-
-              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="text-base text-gray-500 italic mb-6">
-                Stop making the same ones.
-              </motion.p>
-
-              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                className="text-lg text-gray-400 leading-relaxed max-w-lg mb-10">
-                ChessGuru is a personalized AI chess coach for players rated 600–1500. We watch every game you play, find the patterns behind your losses, and train you on positions from <em>your own games</em> — until the pattern breaks.
-              </motion.p>
-
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-                className="flex flex-col sm:flex-row gap-4 mb-8">
-                <AnimatedButton variant="primary" onClick={handleLogin} data-testid="hero-cta-button"
-                  className="group px-8 py-4 text-base rounded-xl hover:from-amber-300 hover:to-amber-400 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center gap-2">
-                  Start Free with Google
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </AnimatedButton>
-                <AnimatedButton variant="secondary"
-                  onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-                  className="px-8 py-4 text-base rounded-xl hover:border-white/20 hover:text-white"
-                  data-testid="learn-more-button">
-                  See what it does
-                </AnimatedButton>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-                className="flex items-center gap-6 text-xs text-gray-600">
-                <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500/60" /> Free to start</span>
-                <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500/60" /> Works with Chess.com & Lichess</span>
+              <motion.div initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.48, duration: 0.8 }} className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs text-white/45">
+                <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Chess.com + Lichess</span><span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Free to start</span><span className="flex items-center gap-2"><LockKeyhole className="h-3.5 w-3.5 text-[#7EE7C2]" /> No credit card</span>
               </motion.div>
             </div>
-
-            {/* Right: Coaching Demo — outer div handles the entrance, inner
-                div carries the scroll parallax (25px drift, fades below hero)
-                so the two opacity animations don't fight. */}
-            <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 0.7 }}
-              className="hidden lg:block">
-              <motion.div style={{ y: heroVisualY, opacity: blobOpacity }}>
-                <CoachingDemo />
-              </motion.div>
-            </motion.div>
+            <motion.div initial={reduceMotion ? false : { opacity: 0, x: 34 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.9, delay: 0.2, ease }} className="pb-6 lg:pb-0"><PlanPreview /></motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ═══ TRUSTED BY BAR ═══ */}
-      <section className="py-10 border-y border-white/[0.04]">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex flex-wrap items-center justify-center gap-10 sm:gap-16">
-            {[
-              { value: "600-1500", label: "Target ELO Range" },
-              { value: "6", label: "Strength Domains Tracked" },
-              { value: "<2s", label: "Per-Move Analysis" },
-              { value: "28+", label: "Lesson Types" },
-            ].map((s, i) => (
-              <FadeIn key={s.label} delay={i * 0.05}>
-                <div className="text-center">
-                  <p className="text-2xl sm:text-3xl font-heading font-bold text-white">{s.value}</p>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-gray-600 mt-1">{s.label}</p>
-                </div>
-              </FadeIn>
-            ))}
+        <section className="border-y border-white/10 bg-[#0A1B16] py-6">
+          <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-9 gap-y-4 px-5 text-[10px] font-bold uppercase tracking-[0.17em] text-white/40 sm:px-8">
+            <span className="text-[#B7F34A]">Not another analysis tool</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>One personal focus</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Knowledge selected for you</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Measured in future games</span>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ═══ PROBLEM STATEMENT ═══ */}
-      <section className="py-28 relative">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase font-mono text-gray-600 mb-6">The real problem</p>
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white leading-snug mb-6">
-              Chess.com tells you <em className="text-red-400 not-italic">what</em> went wrong.
-              <br />
-              Nobody tells you <em className="text-amber-400 not-italic">why it keeps happening.</em>
-            </h2>
-            <p className="text-base text-gray-500 leading-relaxed max-w-xl mx-auto">
-              You review your games. You see the blunder. You move on. Next game — same mistake, different position.
-              That's because analysis tools show you the move. ChessGuru shows you the <strong className="text-gray-300">thinking error</strong> behind it.
-            </p>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ═══ FEATURE SHOWCASES ═══ */}
-      <section id="features" className="py-16 relative">
-        <div className="max-w-6xl mx-auto px-6">
-
-          {/* Feature 1: Play with Coach */}
-          <FeatureRow
-            badge="Play with Coach"
-            title="A coach that talks to you while you play."
-            description="Play against an adaptive engine while your AI coach watches every move. Get real-time feedback calibrated to your rating — an 800 player gets encouragement, a 1600 gets Socratic questions."
-            points={["Rating-aware feedback thresholds", "Pre-move warnings on dangerous positions", "Celebrates brilliant sacrifices", "Adapts coaching intensity to your momentum"]}
-            visual={<FadeIn><CoachingDemo /></FadeIn>}
-          />
-
-          {/* Feature 2: Pattern Memory */}
-          <FeatureRow
-            badge="Pattern Memory"
-            title={<>Your coach remembers what you <span className="text-amber-400">keep forgetting.</span></>}
-            description="Not just 'you blundered.' ChessGuru tracks recurring thinking errors across all your games with a decay-weighted model. Recent mistakes matter more. Recovery streaks earn credit."
-            points={["Tracks 10+ cognitive gap types", "Decay model: recent mistakes weigh more", "Named rules: 'Piece Safety Check', 'Threat Awareness'", "Compares recent pattern frequency with earlier games"]}
-            visual={<MockPatternCard />}
-            reverse
-          />
-
-          {/* Feature 3: Lab — Game Review */}
-          <FeatureRow
-            badge="The Lab"
-            title="Your coach picks which game to review."
-            description="Not a random game list. The Lab uses behavioral AI to find the game with the most to teach you — thrown wins, recurring patterns, one-move blunders that decided everything."
-            points={["Smart pick: best unreviewed game to study", "Behavioral diagnosis for every game", "Move-by-move story of what happened", "One-click training from any mistake"]}
-            visual={<MockLabCard />}
-          />
-
-          {/* Feature 4: Training from YOUR games */}
-          <FeatureRow
-            badge="Targeted Training"
-            title="Puzzles extracted from your own blunders."
-            description="Every time you blunder, ChessGuru extracts the position as a training puzzle. You don't practice random tactics — you practice the exact situations where you fail."
-            points={["Auto-extracted from your analyzed games", "Grouped by weakness pattern", "Difficulty scales with your rating", "Community puzzles from similar-rated players"]}
-            visual={<MockTrainingCard />}
-            reverse
-          />
-
-          {/* Feature 5: Progress & Strength Profile */}
-          <FeatureRow
-            badge="Progress Tracking"
-            title="Six domains. One clear picture."
-            description="Your strength profile tracks tactical vision, calculation depth, positional sense, endgame technique, opening knowledge, and pressure handling — across every game you play."
-            points={["Strength profile across 6 domains", "Weekly trend comparison", "Phase accuracy: opening vs middlegame vs endgame", "Pattern frequency over time"]}
-            visual={<MockStrengthProfile />}
-          />
-
-          {/* Feature 6: Escape Square Awareness */}
-          <FeatureRow
-            badge="Unique to ChessGuru"
-            title={<>Learn to <span className="text-amber-400">trap pieces</span>, not just attack them.</>}
-            description="No other chess app teaches escape square awareness. Your coach counts escape squares for opponent pieces, shows you which squares to block, and celebrates when you execute the trap."
-            points={["Detects trap opportunities for any piece", "Shows escape squares on the board", "Suggests blocking moves", "Tracks your trap awareness over time"]}
-            visual={<MockEscapeSquares />}
-            reverse
-          />
-        </div>
-      </section>
-
-      {/* ═══ MORE FEATURES GRID ═══ */}
-      <section className="py-24 relative">
-        <div className="max-w-5xl mx-auto px-6">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">And there's more</p>
-            <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-14">
-              Everything a personal chess coach would do.
-            </h2>
-          </FadeIn>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { icon: BookOpen, title: "Opening Repertoire", desc: "Build your opening library. Track win rates per opening. Get taught variations from your own games." },
-              { icon: Shield, title: "Trap & Endgame Lessons", desc: "18 verified traps and 10 endgame lessons. Interactive — you play the moves, the coach validates." },
-              { icon: MessageSquare, title: "Coach Personality", desc: "Your coach develops a relationship. Formal at first. Familiar after 20 games. Blunt when it matters." },
-              { icon: Swords, title: "Post-Loss Recovery", desc: "After a tough loss, your coach walks you through what happened and gives you one thing to fix." },
-              { icon: Brain, title: "Chess DNA", desc: "Instant analysis of your playing style — aggressive vs. positional, time management, castling habits." },
-              { icon: Sparkles, title: "Brilliant Move Detection", desc: "Detects sacrifices that only work with deep calculation. Celebrates what you're actually good at." },
-            ].map((item, i) => (
-              <FadeIn key={item.title} delay={i * 0.06}>
-                <div className="group p-5 rounded-xl border border-white/[0.04] bg-white/[0.015] hover:border-amber-500/15 hover:bg-amber-500/[0.02] transition-all duration-300 h-full">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center mb-3 group-hover:bg-amber-500/15 transition-colors">
-                    <item.icon className="w-4.5 h-4.5 text-amber-400" strokeWidth={1.5} />
-                  </div>
-                  <h3 className="text-[15px] font-heading font-semibold text-white mb-1.5">{item.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ COMPARISON TABLE ═══ */}
-      <section id="compare" className="py-24 relative">
-        <div className="max-w-3xl mx-auto px-6">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">How we compare</p>
-            <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-12">
-              How ChessGuru compares to Chess.com lessons and other coaching apps.
-            </h2>
-          </FadeIn>
-
-          <FadeIn delay={0.1}>
-            <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="text-left text-xs text-gray-500 font-mono uppercase tracking-wider p-4 w-1/2">Feature</th>
-                    <th className="text-center text-xs text-gray-500 font-mono uppercase tracking-wider p-4">Chess.com / Aimchess</th>
-                    <th className="text-center text-xs font-mono uppercase tracking-wider p-4 text-amber-400">ChessGuru</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["Shows you the best move", true, true],
-                    ["Explains why your move was bad", false, true],
-                    ["Tracks recurring mistake patterns", false, true],
-                    ["Adapts coaching to your rating", false, true],
-                    ["Trains you on YOUR positions", false, true],
-                    ["Remembers across games", false, true],
-                    ["Real-time coaching during play", false, true],
-                    ["Detects behavioral patterns", false, true],
-                    ["Teaches escape square awareness", false, true],
-                  ].map(([feature, others, cg], i) => (
-                    <tr key={i} className="border-b border-white/[0.03] last:border-0">
-                      <td className="p-4 text-sm text-gray-300">{feature}</td>
-                      <td className="p-4 text-center">
-                        {others ? <Check className="w-4 h-4 text-gray-600 mx-auto" /> : <XIcon className="w-4 h-4 text-gray-700 mx-auto" />}
-                      </td>
-                      <td className="p-4 text-center">
-                        <Check className="w-4 h-4 text-amber-400 mx-auto" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <section id="personal-plan" className="scroll-mt-20 bg-[#F4EFE4] py-24 text-[#071411] sm:py-32">
+          <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+            <div className="grid items-end gap-8 lg:grid-cols-[.8fr_1.2fr]">
+              <Reveal><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#28745D]">Why generic training fails</p><h2 className="mt-4 font-heading text-[clamp(2.7rem,5vw,5.4rem)] font-semibold leading-[0.93] tracking-[-0.045em]">One rating does not explain your chess.</h2></Reveal>
+              <Reveal delay={0.08}><p className="max-w-2xl text-base leading-7 text-[#39564C] sm:text-lg sm:leading-8">Two players can share the same rating and need completely different lessons. ChessGuru listens to what your games are saying, then chooses the next thing that will make the biggest difference to you.</p></Reveal>
             </div>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ═══ HOW IT WORKS ═══ */}
-      <section id="how-it-works" className="py-28 relative">
-        <div className="max-w-5xl mx-auto px-6">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">Getting started</p>
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white text-center mb-16">
-              Three minutes to your first insight.
-            </h2>
-          </FadeIn>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { step: "01", title: "Connect your account", desc: "Link your Chess.com or Lichess username. We import and analyze every game automatically with Stockfish + behavioral AI.", icon: Target },
-              { step: "02", title: "Meet your coach", desc: "Your AI coach scans your games, finds your patterns, and builds a profile of how you think. Not just what you play — why you play it.", icon: Brain },
-              { step: "03", title: "Start improving", desc: "Play coached games. Train on your own mistakes. Track progress across 6 strength domains. Watch the same patterns finally stop appearing.", icon: TrendingUp },
-            ].map((item, i) => (
-              <FadeIn key={item.step} delay={i * 0.12}>
-                <div className="relative">
-                  {i < 2 && <div className="hidden md:block absolute top-8 left-[calc(100%+1rem)] w-[calc(100%-2rem)] h-px border-t border-dashed border-white/10" />}
-                  <div className="text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/10 flex items-center justify-center mx-auto mb-5">
-                      <item.icon className="w-7 h-7 text-amber-400" strokeWidth={1.5} />
-                    </div>
-                    <span className="text-amber-400/30 font-mono text-xs font-bold">{item.step}</span>
-                    <h3 className="text-lg font-heading font-semibold text-white mt-1 mb-2">{item.title}</h3>
-                    <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
-                  </div>
-                </div>
-              </FadeIn>
-            ))}
+            <div className="mt-14 grid gap-6 lg:grid-cols-2"><Reveal><SkillProfile /></Reveal><Reveal delay={0.08}><LearningCard /></Reveal></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ═══ FAQ ═══ */}
-      {/* FAQ section serves three roles: (1) resolves common pre-signup
-          questions before the final CTA, (2) feeds Google FAQPage rich
-          results (collapsible Q&A in search), (3) gives AI engines
-          (ChatGPT, Claude, Perplexity) clean Q&A pairs to cite when
-          users ask about chess coaching apps. The JSON-LD schema below
-          mirrors the visible questions so the rendered HTML and the
-          structured data stay in sync. */}
-      <section id="faq" className="py-24 relative">
-        <div className="max-w-3xl mx-auto px-6">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">Frequently asked</p>
-            <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-12">
-              Questions players ask before signing up.
-            </h2>
-          </FadeIn>
-
-          <div className="space-y-3">
-            {[
-              {
-                q: "What rating range is ChessGuru for?",
-                a: "ChessGuru is built for players rated 600–1500 stuck on a plateau. The coaching gets calibrated to your rating: an 800-rated player gets encouragement and pattern reinforcement, a 1500 gets Socratic questions and deeper calculation prompts. We've optimized every signal — feedback thresholds, puzzle difficulty, lesson order — for that range.",
-              },
-              {
-                q: "How is ChessGuru different from Chess.com or Lichess analysis?",
-                a: "Chess.com and Lichess show you what move was wrong. ChessGuru shows you why you keep making the same kind of mistake — and trains you specifically on it. We track recurring thinking errors across every game (forks you miss, hangs you create, pawn breaks you ignore), then build training puzzles from your own positions. It's the difference between a report card and a coach.",
-              },
-              {
-                q: "Does ChessGuru work with Chess.com and Lichess?",
-                a: "Yes. Connect your Chess.com or Lichess username and we import your full game history automatically. Every analyzed game feeds your coaching profile, your weakness patterns, and your training puzzle pool. You don't need to leave the platform you already play on.",
-              },
-              {
-                q: "Is ChessGuru free?",
-                a: "Free to start with no credit card. The free tier includes game import, automatic analysis, your coaching profile, and pattern training. Paid tiers unlock deeper coaching features, but the core 'watches your games and trains you on your weaknesses' loop is free.",
-              },
-              {
-                q: "How does the AI chess coach actually work?",
-                a: "Three layers. Stockfish evaluates every move for material truth. A behavioral analyzer detects the pattern category — was this a fork miss, a hung piece, a positional drift, a time-pressure error? An LLM-grounded coach voice converts that data into coaching that names what you did and why it kept happening. The coach is rating-aware, history-aware, and pattern-aware.",
-              },
-              {
-                q: "Can ChessGuru help me break my rating plateau?",
-                a: "That's exactly what it's designed for. Plateaus happen when you keep losing to the same handful of mistakes — the ones generic puzzle apps don't drill. ChessGuru identifies your two or three recurring mistake patterns, runs targeted puzzles extracted from your own losses, and tracks the decay of each pattern over time. When a pattern stops appearing in your games, the system knows.",
-              },
-            ].map((item, i) => (
-              <FadeIn key={i} delay={i * 0.04}>
-                <details className="group rounded-xl border border-white/[0.06] bg-white/[0.015] hover:border-amber-500/15 transition-all">
-                  <summary className="cursor-pointer p-5 list-none flex items-start justify-between gap-4">
-                    <h3 className="text-base font-heading font-semibold text-white">{item.q}</h3>
-                    <ChevronRight className="w-4 h-4 text-amber-400/60 mt-0.5 flex-shrink-0 transition-transform group-open:rotate-90" />
-                  </summary>
-                  <div className="px-5 pb-5 -mt-1">
-                    <p className="text-sm text-gray-400 leading-relaxed">{item.a}</p>
-                  </div>
-                </details>
-              </FadeIn>
-            ))}
-          </div>
-
-          {/* JSON-LD FAQPage schema — mirrors the questions above. */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "FAQPage",
-                "mainEntity": [
-                  {
-                    "@type": "Question",
-                    "name": "What rating range is ChessGuru for?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "ChessGuru is built for players rated 600–1500 stuck on a plateau. The coaching gets calibrated to your rating: an 800-rated player gets encouragement and pattern reinforcement, a 1500 gets Socratic questions and deeper calculation prompts."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "How is ChessGuru different from Chess.com or Lichess analysis?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Chess.com and Lichess show you what move was wrong. ChessGuru shows you why you keep making the same kind of mistake and trains you specifically on it. We track recurring thinking errors across every game and build training puzzles from your own positions."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "Does ChessGuru work with Chess.com and Lichess?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Yes. Connect your Chess.com or Lichess username and we import your full game history automatically. Every analyzed game feeds your coaching profile, your weakness patterns, and your training puzzle pool."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "Is ChessGuru free?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Free to start with no credit card. The free tier includes game import, automatic analysis, your coaching profile, and pattern training. Paid tiers unlock deeper coaching features, but the core loop is free."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "How does the AI chess coach actually work?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Three layers. Stockfish evaluates every move for material truth. A behavioral analyzer detects the pattern category. An LLM-grounded coach voice converts that data into coaching that names what you did and why it kept happening. The coach is rating-aware, history-aware, and pattern-aware."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "Can ChessGuru help me break my rating plateau?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Yes. Plateaus happen when you keep losing to the same handful of mistakes — the ones generic puzzle apps don't drill. ChessGuru identifies your recurring mistake patterns, runs targeted puzzles extracted from your own losses, and tracks the decay of each pattern over time."
-                    }
-                  }
-                ]
-              })
-            }}
-          />
-        </div>
-      </section>
-
-      {/* ═══ COACH QUOTE ═══ */}
-      <section className="py-20 relative">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <FadeIn>
-            <div className="w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center mx-auto mb-8 border border-amber-500/15">
-              <img src="/chessguru-logo.svg" alt="" className="w-7 h-7" />
+        <section id="how-it-works" className="scroll-mt-20 bg-[#071411] py-24 sm:py-32">
+          <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+            <Reveal className="max-w-3xl"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7EE7C2]">How your coach works</p><h2 className="mt-4 font-heading text-[clamp(2.7rem,5vw,5.2rem)] font-semibold leading-[0.94] tracking-[-0.045em] text-[#F4EFE4]">We work on one thing until it feels different in a real game.</h2><p className="mt-6 max-w-2xl text-base leading-7 text-white/55 sm:text-lg">I start with what your games keep showing me. I teach it, watch you try it, and change the plan when you are ready.</p></Reveal>
+            <div className="mt-14 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {PROCESS.map(([number, title, body, Icon, accent], index) => <Reveal key={number} delay={index * 0.06}><div className="group relative min-h-[300px] overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.035] p-6 transition-colors hover:bg-white/[0.06]"><div className="absolute -right-12 -top-12 h-32 w-32 rounded-full opacity-10 blur-2xl group-hover:opacity-20" style={{ background: accent }} /><div className="relative flex items-center justify-between"><span className="font-mono text-xs text-white/30">{number}</span><div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10" style={{ color: accent, background: `${accent}12` }}><Icon className="h-5 w-5" /></div></div><h3 className="relative mt-16 font-heading text-2xl font-semibold text-white">{title}</h3><p className="relative mt-3 text-sm leading-6 text-white/50">{body}</p></div></Reveal>)}
             </div>
-            <blockquote className="text-2xl sm:text-3xl font-heading italic text-gray-300 leading-snug mb-6">
-              "You didn't lose because of many mistakes.
-              <br />
-              <span className="text-amber-400 not-italic font-semibold">You lost in one moment</span> of inattention."
-            </blockquote>
-            <p className="text-sm text-gray-600">
-              Your coach finds that moment. Then trains you to never repeat it.
-            </p>
-          </FadeIn>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* ═══ FINAL CTA ═══ */}
-      <section className="py-28 relative">
-        <div className="absolute inset-0">
-          <div className="absolute bottom-0 left-1/3 w-[500px] h-[400px] rounded-full blur-[160px] bg-amber-500/[0.06]" />
-        </div>
-        <div className="relative z-10 max-w-2xl mx-auto px-6 text-center">
-          <FadeIn>
-            <h2 className="text-4xl sm:text-5xl font-heading font-bold tracking-[-0.03em] text-white mb-6 leading-tight">
-              Your mistakes have a pattern.
-              <br />
-              <span className="text-amber-400">Let's break it.</span>
-            </h2>
-          </FadeIn>
-          <FadeIn delay={0.1}>
-            <p className="text-base text-gray-500 mb-10 max-w-md mx-auto">
-              Import your games from Chess.com or Lichess. Your coach starts learning who you are from game one.
-            </p>
-          </FadeIn>
-          <FadeIn delay={0.2}>
-            <AnimatedButton variant="primary" onClick={handleLogin} data-testid="cta-button"
-              className="group px-10 py-4 text-base rounded-xl hover:from-amber-300 hover:to-amber-400 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 inline-flex items-center gap-2">
-              Start Free with Google
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </AnimatedButton>
-          </FadeIn>
-          <FadeIn delay={0.3}>
-            <p className="text-xs text-gray-700 mt-6">No credit card required. Free tier available.</p>
-          </FadeIn>
-        </div>
-      </section>
+        <section id="proof" className="scroll-mt-20 bg-[#DDE9DF] py-24 text-[#071411] sm:py-32">
+          <div className="mx-auto grid max-w-[1240px] items-center gap-12 px-5 sm:px-8 lg:grid-cols-[.85fr_1.15fr]">
+            <Reveal>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#28745D]">The standard that matters</p>
+              <h2 className="mt-4 font-heading text-[clamp(2.8rem,5vw,5.4rem)] font-semibold leading-[0.93] tracking-[-0.045em]">Did the mistake stop happening?</h2>
+              <p className="mt-6 max-w-lg text-base leading-7 text-[#39564C] sm:text-lg sm:leading-8">Solving a practice position is encouraging. Using the idea in your next difficult game is what matters. Your coach keeps watching until the better decision begins to feel natural.</p>
+              <div className="mt-8 space-y-3">
+                {[[ShieldCheck, "I show you the games that taught me this"], [TimerReset, "I check again after you have had time to play"], [RefreshCw, "I change the focus when the new habit holds"]].map(([Icon, text]) => <div key={text} className="flex items-center gap-3 text-sm font-medium text-[#203D34]"><div className="grid h-9 w-9 place-items-center rounded-xl bg-white/60"><Icon className="h-4 w-4 text-[#28745D]" /></div>{text}</div>)}
+              </div>
+            </Reveal>
+            <Reveal delay={0.08}><ProofCard /></Reveal>
+          </div>
+        </section>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="py-10 border-t border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-6 space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <img src="/chessguru-logo.svg" alt="" className="w-4 h-4 opacity-40" />
-              <span className="text-xs text-gray-600 font-heading">ChessGuru</span>
+        <section className="bg-[#F4EFE4] py-24 text-[#071411] sm:py-32">
+          <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+            <Reveal className="mx-auto max-w-3xl text-center"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B94D37]">A complete chess curriculum</p><h2 className="mt-4 font-heading text-[clamp(2.7rem,5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.045em]">ChessGuru can teach the whole game. Your games tell your coach what comes next.</h2></Reveal>
+            <div className="mt-14 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {CURRICULUM.map(([title, Icon, body], index) => <Reveal key={title} delay={index * 0.04}><div className="h-full rounded-[24px] border border-[#071411]/10 bg-white/55 p-5 transition-all hover:-translate-y-1 hover:bg-white hover:shadow-[0_20px_50px_rgba(7,20,17,0.1)]"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#B7F34A]"><Icon className="h-5 w-5" /></div><h3 className="mt-5 font-heading text-xl font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#536A62]">{body}</p></div></Reveal>)}
             </div>
-            <p className="text-xs text-gray-700">Built for chess players stuck on a plateau.</p>
           </div>
-          {/* Policy links — required for Razorpay compliance. */}
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-gray-600">
-            <a href="/terms" className="hover:text-gray-400">Terms</a>
-            <a href="/privacy" className="hover:text-gray-400">Privacy</a>
-            <a href="/refund" className="hover:text-gray-400">Refunds</a>
-            <a href="/contact" className="hover:text-gray-400">Contact</a>
-            <a href="/pricing" className="hover:text-gray-400">Pricing</a>
+        </section>
+
+        <section className="relative overflow-hidden bg-[#0B1F19] py-24 sm:py-32">
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(183,243,74,.12),transparent_45%)]" />
+          <div className="relative mx-auto max-w-[1060px] px-5 sm:px-8">
+            <Reveal className="grid items-center gap-10 rounded-[34px] border border-white/10 bg-white/[0.04] p-7 backdrop-blur sm:p-10 lg:grid-cols-[1fr_.72fr] lg:p-12">
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7EE7C2]">Free to start</p><h2 className="mt-4 font-heading text-4xl font-semibold leading-[0.98] tracking-[-0.035em] text-white sm:text-5xl">Meet the coach before you pay for the program.</h2><p className="mt-5 max-w-xl text-sm leading-7 text-white/55 sm:text-base">Import games, receive your first diagnosis, and experience personal training on the Free plan. Pro opens ongoing coaching only after the complete lifecycle is verified.</p></div>
+              <div className="rounded-[24px] bg-[#F4EFE4] p-6 text-[#071411]">
+                <div className="flex items-baseline justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#537066]">Free</p><p className="mt-2 font-heading text-4xl font-semibold">₹0</p></div><Gamepad2 className="h-7 w-7 text-[#28745D]" /></div>
+                <ul className="mt-5 space-y-2.5 text-sm text-[#365047]">{["Import Chess.com and Lichess games", "Receive your coaching focus", "Start personal pattern training"].map((text) => <li key={text} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#28745D]" />{text}</li>)}</ul>
+                <button type="button" onClick={() => navigate("/pricing")} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#071411] underline decoration-[#B7F34A] decoration-2 underline-offset-4">See Free and Pro <ArrowRight className="h-4 w-4" /></button>
+              </div>
+            </Reveal>
           </div>
+        </section>
+
+        <section id="faq" className="bg-[#F4EFE4] py-24 text-[#071411] sm:py-32">
+          <div className="mx-auto grid max-w-[1060px] gap-12 px-5 sm:px-8 lg:grid-cols-[.65fr_1fr]">
+            <Reveal><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#28745D]">Questions before you begin</p><h2 className="mt-4 font-heading text-4xl font-semibold leading-none tracking-[-0.035em] sm:text-5xl">Straight answers. No engine fog.</h2></Reveal>
+            <div className="divide-y divide-[#071411]/10 border-y border-[#071411]/10">
+              {FAQS.map(([question, answer], index) => {
+                const isOpen = openFaq === index;
+                return <Reveal key={question} delay={index * 0.03}><div><button type="button" aria-expanded={isOpen} onClick={() => setOpenFaq(isOpen ? -1 : index)} className="flex w-full items-center justify-between gap-6 py-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#28745D]"><span className="font-heading text-lg font-semibold sm:text-xl">{question}</span><motion.span animate={{ rotate: isOpen ? 180 : 0 }}><ChevronDown className="h-5 w-5 shrink-0" /></motion.span></button><AnimatePresence initial={false}>{isOpen && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.28 }} className="overflow-hidden"><p className="max-w-2xl pb-6 text-sm leading-7 text-[#536A62] sm:text-base">{answer}</p></motion.div>}</AnimatePresence></div></Reveal>;
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="relative overflow-hidden bg-[#B7F34A] py-24 text-[#071411] sm:py-32">
+          <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { x: [0, 24, 0], rotate: [0, 5, 0] }} transition={{ duration: 9, repeat: Infinity }} className="absolute -right-24 -top-32 h-[400px] w-[400px] rounded-full border-[60px] border-[#071411]/[0.06]" />
+          <div className="relative mx-auto max-w-[900px] px-5 text-center sm:px-8">
+            <Reveal><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#35510B]">Your games already contain the answer</p><h2 className="mt-5 font-heading text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.05em]">Stop guessing what to study next.</h2><p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#29420B]/80 sm:text-lg">Connect your games. Choose your goal. Let ChessGuru build the plan—and keep measuring until your chess changes.</p><button type="button" onClick={() => startPlan("final_cta")} className="group mt-9 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-[#071411] px-8 py-4 text-sm font-bold text-white shadow-[0_20px_50px_rgba(7,20,17,0.25)] transition-transform hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#071411] focus-visible:ring-offset-4 focus-visible:ring-offset-[#B7F34A]">Build my improvement plan <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><p className="mt-5 text-xs text-[#35510B]/70">Free to start · No credit card · Your plan changes as your chess changes</p></Reveal>
+          </div>
+        </section>
+      </main>
+      <footer className="border-t border-white/10 bg-[#071411] py-9">
+        <div className="mx-auto flex max-w-[1240px] flex-col items-center justify-between gap-6 px-5 text-xs text-white/40 sm:px-8 md:flex-row">
+          <div className="flex items-center gap-2.5"><img src="/chessguru-logo.svg" alt="" className="h-7 w-7" /><span className="font-heading text-sm font-semibold text-white">ChessGuru</span><span>Built for players stuck on a plateau.</span></div>
+          <nav aria-label="Footer navigation" className="flex flex-wrap justify-center gap-x-5 gap-y-2"><a href="/pricing" className="hover:text-white">Pricing</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a><a href="/refund" className="hover:text-white">Refunds</a><a href="/contact" className="hover:text-white">Contact</a></nav>
         </div>
       </footer>
-    </motion.div>
-  );
-};
-
-
-// ═══════════════════════════════════════════════════════════════
-// MOCK UI COMPONENTS — These look like real app screenshots
-// ═══════════════════════════════════════════════════════════════
-
-// ── Coaching Sidebar Demo (Hero) ──
-const CoachingDemo = () => {
-  const [step, setStep] = useState(0);
-  const totalSteps = 5;
-
-  useEffect(() => {
-    const durations = [2000, 3000, 4000, 3500, 3000];
-    let timeout;
-    const advance = (current) => {
-      timeout = setTimeout(() => {
-        const next = (current + 1) % totalSteps;
-        setStep(next);
-        advance(next);
-      }, durations[current]);
-    };
-    advance(0);
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return (
-    <div className="relative">
-      <div className="absolute -inset-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-transparent to-amber-600/10 blur-2xl" />
-      <div className="relative rounded-2xl border border-white/[0.08] bg-[#0A0A12] overflow-hidden shadow-2xl shadow-black/60">
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-white/[0.04] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500/25 to-amber-600/15 flex items-center justify-center">
-                <Brain className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0A0A12]" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Your Coach</p>
-              <p className="text-[10px] text-emerald-400/80 font-mono">Game #14 together</p>
-            </div>
-          </div>
-          <div className="flex gap-1">
-            <div className="w-2 h-2 rounded-full bg-white/[0.06]" />
-            <div className="w-2 h-2 rounded-full bg-white/[0.06]" />
-            <div className="w-2 h-2 rounded-full bg-white/[0.06]" />
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="p-4 space-y-2.5 min-h-[320px]">
-          {/* User move */}
-          <motion.div animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center"><span className="text-sm">&#9822;</span></div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">You played</span>
-              <span className="text-sm font-mono font-bold text-white bg-white/5 px-2 py-0.5 rounded">Nf3</span>
-            </div>
-          </motion.div>
-
-          {/* Step 0: Thinking */}
-          {step === 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-gray-500 text-xs py-2">
-              <div className="flex gap-1">
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0 }} className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              </div>
-              Coach is analyzing...
-            </motion.div>
-          )}
-
-          {/* Step 1: Good move */}
-          {step === 1 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
-              <div className="flex items-center gap-2 mb-1">
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Good Move</span>
-              </div>
-              <p className="text-xs text-gray-300 leading-relaxed">Solid development. You're getting your pieces out before attacking — that's the right instinct.</p>
-            </motion.div>
-          )}
-
-          {/* Step 2: Mistake + pattern */}
-          {step === 2 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-              <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-4 h-4 rounded bg-red-500/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-red-400">!</span>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Mistake</span>
-                  <span className="text-[10px] text-gray-600 ml-auto font-mono">Best: Bd5</span>
-                </div>
-                <p className="text-xs text-gray-300 leading-relaxed">Your knight is unprotected on that square. Their bishop covers it.</p>
-              </div>
-              <div className="p-2.5 rounded-lg border border-amber-500/15 bg-amber-500/[0.03]">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-3 h-3 text-amber-400" />
-                  <span className="text-[10px] text-amber-400 font-medium">This is the 4th time — piece safety.</span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 3: Escape squares */}
-          {step === 3 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.03]">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Target className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Escape Square Control</span>
-              </div>
-              <p className="text-xs text-gray-300 leading-relaxed">Their bishop has only 2 escape squares. Block one — it gets trapped.</p>
-              <div className="flex items-center gap-2 mt-2">
-                {["f7", "d5"].map((sq) => (
-                  <motion.span key={sq} animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}
-                    className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/15">{sq}</motion.span>
-                ))}
-                <div className="flex-1" />
-                <span className="text-[10px] text-gray-600 font-mono">2/6 squares</span>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 4: Brilliant */}
-          {step === 4 && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="p-3 rounded-lg border border-amber-400/25 bg-gradient-to-r from-amber-500/10 to-amber-600/5">
-              <div className="flex items-center gap-2 mb-1.5">
-                <motion.div animate={{ rotate: [0, 15, -15, 0] }} transition={{ duration: 0.5 }}>
-                  <Zap className="w-3.5 h-3.5 text-amber-400" strokeWidth={2.5} />
-                </motion.div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Brilliant Sacrifice!</span>
-              </div>
-              <p className="text-xs text-amber-200/80 leading-relaxed">That only works if you saw three moves ahead. You did. This is the level you're capable of.</p>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-4 py-2.5 border-t border-white/[0.04] flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[10px] text-gray-600 font-mono"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50" />78% accuracy</span>
-          <span className="flex items-center gap-1.5 text-[10px] text-gray-600 font-mono"><Eye className="w-2.5 h-2.5 text-amber-500/40" />3 patterns</span>
-          <span className="flex items-center gap-1.5 text-[10px] text-gray-600 font-mono ml-auto"><Zap className="w-2.5 h-2.5 text-amber-500/40" />1 brilliant</span>
-        </div>
-      </div>
     </div>
   );
-};
-
-
-// ── Mock Pattern Memory Card ──
-const MockPatternCard = () => (
-  <MockFrame>
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-4">
-        <Brain className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-bold text-white uppercase tracking-wider">Pattern Memory</span>
-      </div>
-
-      {[
-        { name: "Piece Safety", count: 7, trend: "active", rule: "Before moving, check: is anything I own under attack?" },
-        { name: "Missed Tactic", count: 4, trend: "declining", rule: "Look for forcing moves: checks, captures, threats." },
-        { name: "Time Pressure", count: 2, trend: "fading", rule: "Slow down when the position is complex." },
-      ].map((p) => (
-        <div key={p.name} className="p-3 rounded-lg border border-white/[0.04] bg-white/[0.02]">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-sm font-medium text-white">{p.name}</span>
-            <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-              p.trend === "active" ? "text-red-400 bg-red-500/10" :
-              p.trend === "declining" ? "text-amber-400 bg-amber-500/10" :
-              "text-emerald-400 bg-emerald-500/10"
-            }`}>{p.count}x &middot; {p.trend}</span>
-          </div>
-          <p className="text-[11px] text-gray-500 italic">"{p.rule}"</p>
-          {/* Decay bar */}
-          <div className="mt-2 h-1 bg-white/[0.04] rounded-full overflow-hidden">
-            <motion.div className={`h-full rounded-full ${
-              p.trend === "active" ? "bg-red-400" : p.trend === "declining" ? "bg-amber-400" : "bg-emerald-400"
-            }`} initial={{ width: 0 }} whileInView={{ width: `${p.count * 14}%` }} transition={{ duration: 1, delay: 0.3 }} viewport={{ once: true }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  </MockFrame>
-);
-
-
-// ── Mock Lab Card ──
-const MockLabCard = () => (
-  <MockFrame>
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-1">
-        <FlaskConical className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-bold text-white uppercase tracking-wider">Coach's Pick</span>
-      </div>
-      <p className="text-[11px] text-amber-400/80 mb-3">This game has the most to teach you right now.</p>
-
-      <div className="p-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.03]">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full bg-red-400 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white">vs GrandMaster42</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20 font-bold">LOST</span>
-            </div>
-            <p className="text-[11px] text-gray-500 mt-0.5">Sicilian Defense &middot; 78% accuracy</p>
-          </div>
-        </div>
-        <div className="mt-3 p-2 rounded bg-white/[0.02] border border-white/[0.03]">
-          <p className="text-xs text-gray-400 leading-relaxed">"You were +2.1 at move 18 and collapsed. Same piece safety issue — 5th game in a row."</p>
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        {["vs chess_ninja99  W  91%", "vs KnightRider  L  64%", "vs TheRook  W  82%"].map((g, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.015] border border-white/[0.03]">
-            <div className={`w-2 h-2 rounded-full ${g.includes(" W ") ? "bg-emerald-400" : "bg-red-400"}`} />
-            <span className="text-xs text-gray-400 font-mono flex-1">{g}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </MockFrame>
-);
-
-
-// ── Mock Training Card ──
-const MockTrainingCard = () => (
-  <MockFrame>
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <Target className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-bold text-white uppercase tracking-wider">Training: Piece Safety</span>
-      </div>
-
-      {/* Puzzle preview */}
-      <div className="rounded-lg border border-white/[0.04] overflow-hidden">
-        <div className="aspect-square bg-gradient-to-br from-[#779556] to-[#ebecd0] p-4 flex items-center justify-center relative">
-          {/* Simplified chess grid */}
-          <div className="grid grid-cols-4 gap-0 w-full h-full opacity-70">
-            {Array(16).fill(0).map((_, i) => (
-              <div key={i} className={`${(Math.floor(i/4) + i%4) % 2 === 0 ? 'bg-[#ebecd0]' : 'bg-[#779556]'}`} />
-            ))}
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-4xl">&#9822;</span>
-          </div>
-        </div>
-        <div className="p-3 bg-[#0D0D15]">
-          <p className="text-xs text-gray-400 mb-1">From your game vs KnightRider, Move 23</p>
-          <p className="text-sm text-white font-medium">Your knight is hanging. Find the safe square.</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono">
-        <span>12 puzzles from your games</span>
-        <span className="text-gray-700">&middot;</span>
-        <span>8 community puzzles</span>
-      </div>
-    </div>
-  </MockFrame>
-);
-
-
-// ── Mock Strength Profile ──
-const MockStrengthProfile = () => {
-  const domains = [
-    { name: "Tactical Vision", score: 72, color: "text-amber-400" },
-    { name: "Calculation", score: 58, color: "text-blue-400" },
-    { name: "Positional Sense", score: 65, color: "text-emerald-400" },
-    { name: "Endgame", score: 41, color: "text-purple-400" },
-    { name: "Openings", score: 78, color: "text-cyan-400" },
-    { name: "Pressure", score: 55, color: "text-rose-400" },
-  ];
-
-  return (
-    <MockFrame>
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-4 h-4 text-amber-400" />
-          <span className="text-xs font-bold text-white uppercase tracking-wider">Strength Profile</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          {domains.map((d) => (
-            <div key={d.name} className="p-2.5 rounded-lg border border-white/[0.04] bg-white/[0.015]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-gray-400">{d.name}</span>
-                <span className={`text-sm font-mono font-bold ${d.color}`}>{d.score}</span>
-              </div>
-              <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-                <motion.div className={`h-full rounded-full ${
-                  d.score >= 70 ? "bg-emerald-400" : d.score >= 50 ? "bg-amber-400" : "bg-red-400"
-                }`} initial={{ width: 0 }} whileInView={{ width: `${d.score}%` }} transition={{ duration: 1, delay: 0.2 }} viewport={{ once: true }} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-3 p-2.5 rounded-lg border border-amber-500/10 bg-amber-500/[0.02]">
-          <p className="text-[11px] text-gray-400"><span className="text-amber-400 font-medium">Focus area:</span> Endgame technique is your biggest opportunity for growth.</p>
-        </div>
-      </div>
-    </MockFrame>
-  );
-};
-
-
-// ── Mock Escape Squares ──
-const MockEscapeSquares = () => (
-  <MockFrame>
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <Crown className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-bold text-white uppercase tracking-wider">Escape Square Control</span>
-      </div>
-
-      {/* Mini board with highlights */}
-      <div className="rounded-lg border border-white/[0.04] overflow-hidden mb-3">
-        <div className="relative aspect-square bg-gradient-to-br from-[#779556] to-[#ebecd0]">
-          <div className="grid grid-cols-5 gap-0 w-full h-full">
-            {Array(25).fill(0).map((_, i) => {
-              const isTarget = i === 12;
-              const isEscape = i === 7 || i === 17;
-              const isBlocked = i === 6 || i === 8 || i === 11 || i === 13 || i === 16 || i === 18;
-              return (
-                <div key={i} className={`relative flex items-center justify-center ${(Math.floor(i/5) + i%5) % 2 === 0 ? 'bg-[#ebecd0]' : 'bg-[#779556]'}`}>
-                  {isTarget && <div className="absolute inset-0.5 rounded bg-red-500/30 border border-red-400/40" />}
-                  {isTarget && <span className="relative text-lg z-10">&#9821;</span>}
-                  {isEscape && <div className="absolute inset-0.5 rounded bg-emerald-500/25 border border-emerald-400/30" />}
-                  {isEscape && <span className="relative text-[10px] font-mono text-emerald-300 z-10 font-bold">{i === 7 ? "f7" : "d5"}</span>}
-                  {isBlocked && <div className="absolute inset-1 rounded bg-red-500/10"><XIcon className="w-full h-full text-red-400/20" /></div>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="p-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.03]">
-        <p className="text-xs text-gray-300 leading-relaxed mb-2">Their bishop has <strong className="text-white">2 escape squares</strong> left. Block <span className="text-amber-400 font-mono">f7</span> and it's trapped.</p>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-600">Escapes:</span>
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">f7</span>
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">d5</span>
-          <span className="text-[10px] text-gray-700 font-mono ml-auto">2/6</span>
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <ArrowRight className="w-3 h-3 text-amber-400" />
-        <span className="text-[11px] text-amber-400/80 font-medium">Try: Bc4 blocks one escape</span>
-      </div>
-    </div>
-  </MockFrame>
-);
-
-
-// ── Mock Frame wrapper ──
-const MockFrame = ({ children }) => (
-  <FadeIn>
-    <div className="relative">
-      <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-amber-500/[0.06] via-transparent to-amber-600/[0.04] blur-xl" />
-      <div className="relative rounded-2xl border border-white/[0.06] bg-[#0A0A12] p-5 shadow-2xl shadow-black/40">
-        {children}
-      </div>
-    </div>
-  </FadeIn>
-);
-
-
-// ── Feature Row: alternating text + visual ──
-const FeatureRow = ({ badge, title, description, points, visual, reverse = false }) => (
-  <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-16 ${reverse ? '' : ''}`}>
-    <div className={reverse ? 'lg:order-2' : ''}>
-      <FadeIn>
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/15 mb-4">
-          {badge}
-        </span>
-        <h3 className="text-2xl sm:text-3xl font-heading font-bold tracking-tight text-white leading-snug mb-4">{title}</h3>
-        <p className="text-sm text-gray-400 leading-relaxed mb-6">{description}</p>
-        <ul className="space-y-2">
-          {points.map((p, i) => (
-            <li key={i} className="flex items-start gap-2.5 text-sm text-gray-500">
-              <Check className="w-4 h-4 text-amber-400/60 mt-0.5 flex-shrink-0" strokeWidth={2} />
-              {p}
-            </li>
-          ))}
-        </ul>
-      </FadeIn>
-    </div>
-    <div className={reverse ? 'lg:order-1' : ''}>
-      {visual}
-    </div>
-  </div>
-);
-
-
-// ── Scroll-triggered fade-in ──
-// Timing comes from motion.js (standard tier) — no inline magic numbers.
-const FadeIn = ({ children, delay = 0, className = "" }) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-60px" });
-  return (
-    <motion.div ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-      transition={{
-        duration: MOTION_TIMING.standard.duration / 1000,
-        delay,
-        ease: MOTION_TIMING.standard.easing,
-      }}
-      className={className}>
-      {children}
-    </motion.div>
-  );
-};
-
-export default Landing;
+}

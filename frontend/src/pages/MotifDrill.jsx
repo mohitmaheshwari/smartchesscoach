@@ -162,8 +162,8 @@ const MotifDrill = ({ user }) => {
   }
 
   return (
-    <div className="experience-page experience-learning-page experience-drill-page min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-      <div className="max-w-5xl mx-auto p-6">
+    <div className="experience-page experience-learning-page experience-drill-page min-h-screen">
+      <div className="cg-page cg-page--wide">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -179,10 +179,7 @@ const MotifDrill = ({ user }) => {
               <p className="text-muted-foreground mt-1">{copy.prompt}</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-primary">{done ? total : idx + 1}</p>
-            <p className="text-sm text-muted-foreground">of {total}</p>
-          </div>
+          <p className="text-sm text-muted-foreground">Take the positions one at a time.</p>
         </div>
 
         {done ? (
@@ -192,7 +189,7 @@ const MotifDrill = ({ user }) => {
             </div>
             <h2 className="font-serif text-2xl mb-3">Drill complete!</h2>
             <p className="text-muted-foreground mb-6">
-              You've reviewed all {total} positions where you walked into {copy.title.toLowerCase()}.
+              You have seen this geometry from several angles. Now watch for it before it appears in a real game.
             </p>
             <button
               onClick={() => setIdx(0)}
@@ -206,8 +203,8 @@ const MotifDrill = ({ user }) => {
             {/* Boards */}
             <div className="lg:col-span-2 space-y-6">
               {/* Position before */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6">
-                <h3 className="text-lg font-bold mb-4">Your position</h3>
+              <div className="cg-panel">
+                <h3 className="font-serif text-xl font-medium mb-4">Read the position first</h3>
                 <p className="text-sm text-muted-foreground mb-4">{copy.lesson}</p>
                 {chess && (
                   <div className="flex justify-center mb-6">
@@ -227,7 +224,7 @@ const MotifDrill = ({ user }) => {
                         engine's best sometimes ACCEPTS the motif because it is
                         best overall (2 of 18 stratified fork positions). We can
                         only claim what we verified: it is the strongest move. */}
-                    The engine's strongest move in this position.
+                    This is a strong move because it keeps the opponent’s idea from taking over the position.
                   </p>
                 </div>
               </div>
@@ -269,7 +266,7 @@ const MotifDrill = ({ user }) => {
             {/* Sidebar */}
             <div className="space-y-4">
               <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                <p className="text-xs font-medium text-muted-foreground uppercase mb-3">Position {idx + 1} of {total}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-3">Look once without moving</p>
                 <div className="aspect-square bg-white dark:bg-slate-900 rounded mb-4 overflow-hidden">
                   {chess && (
                     <LichessBoard fen={chess.fen()} orientation={orientation} interactive={false} size="small" />
@@ -299,7 +296,7 @@ const MotifDrill = ({ user }) => {
                 <p className="font-medium mb-2">How to use:</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>Study each position</li>
-                  <li>Memorize the best move</li>
+                  <li>Understand why the move works</li>
                   <li>See how opponent creates the trap</li>
                   <li>Apply in your games</li>
                 </ul>

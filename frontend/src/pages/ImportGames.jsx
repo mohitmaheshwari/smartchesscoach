@@ -72,7 +72,7 @@ const ImportGames = ({ user }) => {
         throw new Error(result.detail || 'Import failed');
       }
 
-      toast.success(`Imported ${result.imported} games from ${platform}`);
+      toast.success(`I found new games on ${platform}. I’ll start learning from them now.`);
 
       // Refresh games list
       const gamesResponse = await fetch(`${API}/games`, {
@@ -93,10 +93,11 @@ const ImportGames = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="experience-page experience-utility-page experience-import-page space-y-8" data-testid="import-games-page">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Import Games</h1>
-          <p className="text-muted-foreground">
-            Connect your chess accounts and import games for AI analysis
+        <div className="cg-hero">
+          <p className="cg-eyebrow">Help your coach know you</p>
+          <h1 className="cg-title">Show me where you play.</h1>
+          <p className="cg-lede">
+            Bring in your real games. I’ll notice what keeps happening and turn the right moments into lessons made for you.
           </p>
         </div>
 
@@ -108,7 +109,7 @@ const ImportGames = ({ user }) => {
           </TabsList>
           
           <TabsContent value="chess.com" className="mt-6">
-            <Card>
+            <Card className="cg-panel !p-0">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -116,7 +117,7 @@ const ImportGames = ({ user }) => {
                   </div>
                   <div>
                     <CardTitle>Chess.com</CardTitle>
-                    <CardDescription>Import your recent games from Chess.com</CardDescription>
+                    <CardDescription>Let me learn from the games you already play.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -146,14 +147,14 @@ const ImportGames = ({ user }) => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  We'll import your last 30 games from the past 3 months
+                  Your newest games will join the same coaching story as everything we’ve already worked on.
                 </p>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="lichess" className="mt-6">
-            <Card>
+            <Card className="cg-panel !p-0">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
@@ -161,7 +162,7 @@ const ImportGames = ({ user }) => {
                   </div>
                   <div>
                     <CardTitle>Lichess</CardTitle>
-                    <CardDescription>Import your recent games from Lichess</CardDescription>
+                    <CardDescription>Connect once, then keep your coaching story together.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -208,7 +209,7 @@ const ImportGames = ({ user }) => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  We'll import your last 30 games
+                  You can connect securely or bring games in by username.
                 </p>
               </CardContent>
             </Card>
@@ -218,7 +219,7 @@ const ImportGames = ({ user }) => {
         {/* Games List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Your Games ({games.length})</h2>
+            <h2 className="font-serif text-2xl font-medium">Games I can learn from</h2>
           </div>
 
           {loadingGames ? (
@@ -230,7 +231,7 @@ const ImportGames = ({ user }) => {
               {games.map((game) => (
                 <Card 
                   key={game.game_id}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                  className="cg-panel !p-0 cursor-pointer hover:-translate-y-0.5 transition-all"
                   onClick={() => navigate(`/game/${game.game_id}`)}
                   data-testid={`game-card-${game.game_id}`}
                 >
@@ -276,7 +277,7 @@ const ImportGames = ({ user }) => {
               <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Import className="w-12 h-12 text-muted-foreground" />
                 <p className="text-muted-foreground text-center">
-                  No games imported yet. Enter your username above to get started.
+                  I don’t know your games yet. Connect an account above and I’ll begin with the moments that can help you most.
                 </p>
               </CardContent>
             </Card>

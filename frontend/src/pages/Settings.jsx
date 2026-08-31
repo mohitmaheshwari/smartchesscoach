@@ -161,18 +161,14 @@ const Settings = ({ user }) => {
       <div className="experience-page experience-utility-page experience-settings-page max-w-[760px] mx-auto px-6 md:px-10 py-12 md:py-16" data-testid="settings-page">
 
         {/* Head */}
-        <div className="mb-16">
-          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
-            Settings
-          </p>
-          <h1 className="font-serif text-[36px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
-            Preferences
-          </h1>
-          <p className="text-[13.5px] text-muted-foreground mt-2">{joinLine}</p>
+        <div className="cg-hero mb-16">
+          <p className="cg-eyebrow">Your space</p>
+          <h1 className="cg-title">Make the coaching feel right for you.</h1>
+          <p className="cg-lede">Choose how I reach you and how this room should feel. {joinLine}</p>
         </div>
 
         {/* ─── You ─── */}
-        <Section title="You" desc="Who the coach is talking to.">
+        <Section title="You" desc="The person I’m getting to know through the board.">
           <Row
             title="Display name"
             desc="Appears in games and the coach's notes."
@@ -232,7 +228,7 @@ const Settings = ({ user }) => {
         </Section>
 
         {/* ─── The coach ─── */}
-        <Section title="The coach" desc="How we reach you about your chess.">
+        <Section title="The coach" desc="Choose when you want to hear from me away from the board.">
           {loadingEmail ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -251,8 +247,8 @@ const Settings = ({ user }) => {
                 />
               </Row>
               <Row
-                title="Weekly summary"
-                desc="One email a week — what you practiced, what's fading."
+                title="A weekly coaching note"
+                desc="One calm note about what feels better and what we should revisit."
               >
                 <Switch
                   checked={emailSettings.weekly_summary}

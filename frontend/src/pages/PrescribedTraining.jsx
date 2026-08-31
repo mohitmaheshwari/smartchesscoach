@@ -580,6 +580,7 @@ export default function PrescribedTraining() {
   if (personalizedLesson) {
     return (
       <PersonalizedLessonWorkspace
+        user={user}
         contentKind={personalizedKind}
         contentId={personalizedId}
         reviewMode={personalizedReview}
@@ -681,11 +682,9 @@ export default function PrescribedTraining() {
     }
   })();
 
-  const puzzleRating = currentPuzzle?.rating || currentPuzzle?.avg_rating;
-
   return (
     <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
-      <div className="max-w-[1080px] mx-auto px-6 md:px-10 py-8 md:py-12">
+      <div className="cg-page cg-page--wide">
 
         {/* Back nav — subtle */}
         <button
@@ -700,14 +699,15 @@ export default function PrescribedTraining() {
 
         {/* [PART C] Module selector — shown when viewing a training plan */}
         {modules && modules.modules && modules.modules.length > 0 && (
-          <div className="mb-10 p-5 rounded-lg border border-blue-200 bg-blue-50">
+          <div className="cg-panel mb-10 p-5">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">{modules.plan_name}</h2>
-              <p className="text-sm text-gray-600 mt-1">{modules.description}</p>
+              <p className="cg-eyebrow mb-2">Choose where we begin</p>
+              <h2 className="text-lg font-semibold text-foreground">{modules.plan_name}</h2>
+              <p className="text-sm text-muted-foreground mt-1">{modules.description}</p>
             </div>
 
             <div className="mb-4">
-              <p className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Module</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-3">Pick the part you want to work through now.</p>
               <div className="flex flex-wrap gap-2">
                 {modules.modules.map((mod, i) => (
                   <button
@@ -715,8 +715,8 @@ export default function PrescribedTraining() {
                     onClick={() => setSelectedModule(mod)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selectedModule?.module_id === mod.module_id
-                        ? "bg-blue-600 text-white"
-                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        ? "bg-[#B7F34A] text-[#071411]"
+                        : "bg-card border border-border text-foreground hover:bg-muted/50"
                     }`}
                   >
                     {mod.title}
@@ -726,32 +726,23 @@ export default function PrescribedTraining() {
             </div>
 
             {selectedModule && (
-              <div className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200">
+              <div className="text-sm text-foreground bg-card/70 p-4 rounded-2xl border border-border">
                 <p className="font-medium mb-1">{selectedModule.title}</p>
                 <p>{selectedModule.description}</p>
-                {selectedModule.duration_minutes && (
-                  <p className="text-xs text-gray-600 mt-2">
-                    Estimated time: {selectedModule.duration_minutes} min
-                  </p>
-                )}
               </div>
             )}
           </div>
         )}
 
         {/* ─── Page head: focus + progress pips ─── */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-10 md:mb-14">
-          <div className="flex items-baseline gap-4 md:gap-5 flex-wrap">
-            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-              Training · focus session
-            </p>
-            <span className="text-[13px] text-foreground font-medium capitalize">{focusName}</span>
-          </div>
+        <div className="cg-hero mb-10 md:mb-14">
+          <p className="cg-eyebrow">Today with your coach</p>
+          <h1 className="mt-3 font-heading text-[clamp(2rem,5vw,3.6rem)] font-semibold leading-[1.04] tracking-[-0.04em] capitalize">
+            Let’s practise {focusName}.
+          </h1>
+          <p className="cg-lede">Take one position at a time. I’m more interested in what you check than how quickly you move.</p>
           <div className="flex items-center gap-5">
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {Math.min(currentPuzzleIndex + 1, totalPuzzles)} of {totalPuzzles}
-            </span>
-            <Pips pips={pips} />
+            <div className="hidden" aria-hidden="true"><Pips pips={pips} /></div>
           </div>
         </div>
 
@@ -890,10 +881,8 @@ export default function PrescribedTraining() {
                     : evaluationError || socraticQuestion
                 }
                 toMoveLabel={toMoveLabel}
-                missRateText={
-                  currentPuzzle?.source !== "your_game" ? currentPuzzle?.miss_rate_text : null
-                }
-                rating={puzzleRating}
+                missRateText={null}
+                rating={null}
                 onReveal={revealSolution}
                 onSkip={nextPuzzle}
                 isFromOwnGame={currentPuzzle?.source === "your_game"}
@@ -977,8 +966,6 @@ function PuzzlePrompt({
   framing,
   question,
   toMoveLabel,
-  missRateText,
-  rating,
   onReveal,
   onSkip,
   isFromOwnGame,
@@ -1015,12 +1002,6 @@ function PuzzlePrompt({
 
       {/* Footer: community signal + escape hatches */}
       <div className="pt-8 mt-8 border-t border-border/60 space-y-5">
-        {missRateText && (
-          <div className="flex items-center gap-2.5">
-            <span className="h-1 w-1 rounded-full bg-amber-500/80" />
-            <span className="text-[11.5px] text-muted-foreground">{missRateText}</span>
-          </div>
-        )}
         <div className="flex items-center gap-5 text-[12.5px] flex-wrap">
           <button
             onClick={onReveal}
@@ -1036,11 +1017,6 @@ function PuzzlePrompt({
           >
             Skip this one
           </button>
-          {rating && (
-            <span className="ml-auto text-[11px] text-muted-foreground/70 font-mono tabular-nums">
-              rated {Math.round(rating)}
-            </span>
-          )}
         </div>
       </div>
     </>

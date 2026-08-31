@@ -23,7 +23,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
@@ -35,8 +34,9 @@ import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
+import Layout from "@/components/Layout";
 
-const OpeningLesson = () => {
+const OpeningLesson = ({ user }) => {
   const { openingKey } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -426,21 +426,22 @@ const OpeningLesson = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <Layout user={user}><div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      </div></Layout>
     );
   }
   
   if (!lesson) return null;
   
-  const { opening, user_stats, user_mistakes, learning_progress } = lesson;
+  const { opening, user_mistakes } = lesson;
   
   return (
-    <div className="experience-page experience-lesson-page min-h-screen bg-background">
+    <Layout user={user}>
+    <div className="experience-page experience-lesson-page cg-page cg-page--wide">
       {/* Header */}
-      <div className="border-b border-border/50 bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="cg-hero">
+        <div>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -456,9 +457,10 @@ const OpeningLesson = () => {
               <BookOpen className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{opening.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                {opening.eco} • {opening.color === "white" ? "White Opening" : "Black Defense"}
+              <p className="cg-eyebrow mb-2">Opening lesson</p>
+              <h1 className="font-heading text-[clamp(2rem,5vw,3.6rem)] font-semibold leading-[1.04] tracking-[-0.04em]">{opening.name}</h1>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Learn what you are trying to achieve, what can go wrong, and how to find the next move without memorising.
               </p>
             </div>
             <div className="ml-auto">
@@ -475,22 +477,12 @@ const OpeningLesson = () => {
               />
             </div>
             
-            {user_stats && (
-              <div className="flex items-center gap-4">
-                <Badge variant={user_stats.win_rate >= 50 ? "default" : "destructive"}>
-                  {user_stats.win_rate?.toFixed(0)}% win rate
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {user_stats.games_played} games
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </div>
       
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="mt-7">
         {opening.lesson_relation === "family_foundation" && (
           <div className="mb-4 rounded-lg border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
             You reached <span className="font-medium">{opening.recognized_opening_name}</span> in your game.
@@ -514,7 +506,6 @@ const OpeningLesson = () => {
                   data-testid={`variation-btn-${v.key}`}
                 >
                   {v.name}
-                  <span className="text-zinc-600 ml-1">({v.total_moves})</span>
                 </button>
               ))}
             </div>
@@ -531,11 +522,6 @@ const OpeningLesson = () => {
             </TabsTrigger>
             <TabsTrigger value="traps">
               Traps
-              {opening.traps?.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5">
-                  {opening.traps.length}
-                </Badge>
-              )}
             </TabsTrigger>
             <TabsTrigger value="mistakes">Your Mistakes</TabsTrigger>
           </TabsList>
@@ -763,9 +749,6 @@ const OpeningLesson = () => {
                                     <Badge variant="secondary" className="text-xs">
                                       {trap.result_type?.replace(/_/g, " ")}
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {trap.trap_line?.length || 0} moves
-                                    </span>
                                   </div>
                                 </div>
                                 <Play className="w-4 h-4 text-amber-400" />
@@ -871,14 +854,11 @@ const OpeningLesson = () => {
                                 Principle: {mistake.coach.principle}
                               </p>
                             )}
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Loss: {Math.abs(mistake.cp_loss)} cp
-                              {mistake.cognitive_gap && (
-                                <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-foreground/70 uppercase tracking-wide text-[10px]">
-                                  {String(mistake.cognitive_gap).replace(/_/g, " ")}
-                                </span>
-                              )}
-                            </p>
+                            {mistake.cognitive_gap && (
+                              <p className="text-xs text-muted-foreground mt-2">
+                                The lesson here is {String(mistake.cognitive_gap).replace(/_/g, " ")}.
+                              </p>
+                            )}
                             {mistake.fen_before && (
                               <div className="flex gap-2 mt-3">
                                 {mistake.your_move_uci && (
@@ -931,6 +911,7 @@ const OpeningLesson = () => {
         </Tabs>
       </div>
     </div>
+    </Layout>
   );
 };
 

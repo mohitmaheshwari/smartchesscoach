@@ -468,12 +468,12 @@ const Dashboard = ({ user }) => {
     "Let's find something to work on.";
 
   // Secondary line: the move-specific supporting sentence from the summary,
-  // or (if missing) the cross-game count. Numbers only when they're real.
+  // or a natural cross-game observation. Counts stay in evidence, not copy.
   const verdictSub =
     featuredGame?.subline ||
     activeFocus?.reason ||
     (primaryProblem && primaryProblem.count
-      ? `Showing up in ${primaryProblem.count} of your recent games.`
+      ? "I’ve seen the same decision in more than one of your recent games."
       : null);
 
   const pickResult = resultLetter(featuredGame);
@@ -526,13 +526,13 @@ const Dashboard = ({ user }) => {
             <CurriculumStateStrip user={user} surface="lab" />
           </div>
           {/* ─── Page head ─── */}
-          <div className="flex items-baseline justify-between mb-10 md:mb-14">
+          <div className="cg-hero mb-10 md:mb-14">
             <div>
               <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-                Learn
+                Your coaching room
               </p>
               <h1 className="experience-coach-copy font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
-                Your learning path
+                Let’s choose what will help next.
               </h1>
             </div>
           </div>
@@ -731,7 +731,7 @@ const Dashboard = ({ user }) => {
               className="mb-16 md:mb-24"
             >
               <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
-                Coach's Pick · most educational
+                A game worth understanding
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-12 items-start">
@@ -794,9 +794,6 @@ const Dashboard = ({ user }) => {
                           : pickResult === "W"
                             ? "Win"
                             : "Draw"}
-                        {featuredGame.accuracy
-                          ? ` · ${featuredGame.accuracy}% acc`
-                          : ""}
                       </span>
                     )}
                   </div>
@@ -936,7 +933,7 @@ const Dashboard = ({ user }) => {
                   </div>
                 )}
                 <p className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground/70 pt-2 border-t border-teal-500/10">
-                  Based on your rating ({openingFit.rating_used}) and recent patterns
+                  Chosen from the way these openings meet the patterns in your games
                 </p>
               </div>
             </motion.section>
@@ -963,9 +960,6 @@ const Dashboard = ({ user }) => {
                       repeatMistakes.top_pattern.piece_name && (
                         <> — left a {repeatMistakes.top_pattern.piece_name} undefended</>
                       )}
-                    {repeatMistakes.top_pattern.example_games.length > 1 && (
-                      <> · {repeatMistakes.top_pattern.example_games.length} examples</>
-                    )}
                   </p>
                 )}
                 <button

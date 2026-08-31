@@ -1,370 +1,242 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  BookOpen, 
-  ChevronRight, 
-  Trophy,
-  Target,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Loader2,
+import {
+  BookOpen,
+  ChevronRight,
   Crown,
+  Loader2,
+  Sparkles,
   Swords,
-  X
+  Target,
+  X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API } from "@/App";
 
-const OpeningCard = ({ opening, onClick }) => {
-  const winRate = opening.win_rate || 0;
-  const isGoodWinRate = winRate >= 50;
-  
+function OpeningCard({ opening, onClick }) {
   return (
-    <motion.div
+    <motion.button
+      type="button"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      className="cursor-pointer"
+      whileHover={{ y: -3 }}
       onClick={onClick}
+      className="cg-panel group w-full p-5 text-left"
     >
-      <Card className={`border-border/50 hover:border-primary/50 transition-all ${
-        opening.in_library ? "bg-card" : "bg-card/50"
-      }`}>
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              <h3 className="font-semibold text-sm">{opening.name}</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                {opening.games_played} games played
-              </p>
-            </div>
-            {opening.in_library && (
-              <Badge variant="secondary" className="text-xs">
-                <BookOpen className="w-3 h-3 mr-1" />
-                In Library
-              </Badge>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-4 mt-3">
-            <div className="flex items-center gap-1">
-              {isGoodWinRate ? (
-                <TrendingUp className="w-4 h-4 text-green-400" />
-              ) : (
-                <TrendingDown className="w-4 h-4 text-red-400" />
-              )}
-              <span className={`text-sm font-medium ${
-                isGoodWinRate ? "text-green-400" : "text-red-400"
-              }`}>
-                {winRate.toFixed(0)}%
-              </span>
-            </div>
-            
-            {opening.learning_progress > 0 && (
-              <div className="flex-1">
-                <Progress 
-                  value={opening.learning_progress * 10} 
-                  className="h-1.5"
-                />
-              </div>
-            )}
-          </div>
-          
-          {opening.traps_learned?.length > 0 && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-amber-400">
-              <Target className="w-3 h-3" />
-              {opening.traps_learned.length} trap{opening.traps_learned.length > 1 ? 's' : ''} learned
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="font-heading text-base font-semibold text-foreground">{opening.name}</h3>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            I’ve seen this opening in your games. Let’s make the plan behind it easier to recognise.
+          </p>
+        </div>
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {opening.in_library && (
+          <span className="rounded-full bg-[#B7F34A]/20 px-2.5 py-1 text-[10px] font-bold text-emerald-900 dark:text-[#DFFFA7]">
+            Lesson ready
+          </span>
+        )}
+        {opening.traps_learned?.length > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF8066]/10 px-2.5 py-1 text-[10px] font-semibold text-[#B94D37] dark:text-[#FF9B86]">
+            <Target className="h-3 w-3" /> You’ve met a trap here
+          </span>
+        )}
+      </div>
+    </motion.button>
   );
-};
+}
 
-const RecommendedCard = ({ opening, onClick }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    whileHover={{ scale: 1.02 }}
-    className="cursor-pointer"
-    onClick={onClick}
-  >
-    <Card className="border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-primary/20">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-sm">{opening.name}</h3>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {opening.description}
-            </p>
-            <p className="text-xs text-primary mt-2">
+function RecommendedCard({ opening, onClick }) {
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3 }}
+      onClick={onClick}
+      className="experience-focus-card group w-full rounded-2xl border p-5 text-left"
+    >
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-[#B7F34A]/20 p-2">
+          <Sparkles className="h-4 w-4 text-emerald-800 dark:text-[#B7F34A]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-heading text-base font-semibold">{opening.name}</h3>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{opening.description}</p>
+          {opening.reason && (
+            <p className="mt-3 text-xs font-medium leading-relaxed text-emerald-800 dark:text-emerald-200">
               {opening.reason}
             </p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )}
         </div>
-      </CardContent>
-    </Card>
-  </motion.div>
-);
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+      </div>
+    </motion.button>
+  );
+}
 
-const OpeningRepertoire = () => {
+export default function OpeningRepertoire({ user }) {
   const navigate = useNavigate();
   const [repertoire, setRepertoire] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("white");
   const [showAllOpenings, setShowAllOpenings] = useState(false);
   const [allOpenings, setAllOpenings] = useState([]);
-  
+
   useEffect(() => {
     const fetchRepertoire = async () => {
       try {
-        const res = await fetch(`${API}/openings/repertoire`, {
-          credentials: "include"
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setRepertoire(data);
+        const res = await fetch(`${API}/openings/repertoire`, { credentials: "include" });
+        if (res.ok) setRepertoire(await res.json());
+
+        const libraryResponse = await fetch(`${API}/openings/library`, { credentials: "include" });
+        if (libraryResponse.ok) {
+          const data = await libraryResponse.json();
+          setAllOpenings(data.openings || []);
         }
-        
-        // Also fetch all openings for the browse modal
-        const libRes = await fetch(`${API}/openings/library`, {
-          credentials: "include"
-        });
-        if (libRes.ok) {
-          const libData = await libRes.json();
-          setAllOpenings(libData.openings || []);
-        }
-      } catch (err) {
-        console.error("Error fetching repertoire:", err);
+      } catch (error) {
+        console.error("Error fetching repertoire:", error);
       } finally {
         setLoading(false);
       }
     };
     fetchRepertoire();
   }, []);
-  
-  const handleOpeningClick = (opening) => {
-    if (opening.library_key || opening.key) {
-      navigate(`/openings/${opening.library_key || opening.key}`);
-    }
+
+  const openLesson = (opening) => {
+    const key = opening.library_key || opening.key;
+    if (key) navigate(`/openings/${key}`);
   };
-  
+
   if (loading) {
     return (
-      <div className="experience-page experience-learning-page min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <Layout user={user}>
+        <div className="grid min-h-[60vh] place-items-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        </div>
+      </Layout>
     );
   }
-  
+
+  const sections = {
+    white: {
+      recommendations: repertoire?.recommended_white || [],
+      played: repertoire?.white_repertoire || [],
+      empty: "Play naturally as White. I’ll build this part of your repertoire from the positions you reach.",
+    },
+    black: {
+      recommendations: repertoire?.recommended_black || [],
+      played: repertoire?.black_repertoire || [],
+      empty: "Play naturally as Black. I’ll build this part of your repertoire from the positions you reach.",
+    },
+  };
+  const current = sections[activeTab];
+
   return (
-    <div className="experience-page experience-learning-page experience-repertoire-page min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border/50 bg-card/50">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-primary/20">
-              <BookOpen className="w-6 h-6 text-primary" />
+    <Layout user={user}>
+      <main className="experience-page experience-learning-page experience-repertoire-page cg-page" data-testid="opening-repertoire-page">
+        <header className="cg-hero">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#B7F34A]/20 p-2.5">
+              <BookOpen className="h-5 w-5 text-emerald-800 dark:text-[#B7F34A]" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">Opening Training Lab</h1>
-              <p className="text-sm text-muted-foreground">
-                Master your openings with personalized lessons
-              </p>
-            </div>
+            <p className="cg-eyebrow">Openings with your coach</p>
           </div>
-          
-          {/* Stats */}
-          <div className="flex gap-4 mt-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span>{repertoire?.total_openings_played || 0} openings played</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <BookOpen className="w-4 h-4 text-primary" />
-              <span>{repertoire?.library_openings_available || 0} lessons available</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="white" className="gap-2">
-              <Crown className="w-4 h-4" />
-              White Repertoire
+          <h1 className="cg-title">Build openings you understand.</h1>
+          <p className="cg-lede">
+            We’ll learn the plans behind the positions you actually reach—not memorise a tree of moves you may never play.
+          </p>
+        </header>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+          <TabsList className="mb-8 grid w-full max-w-md grid-cols-2 rounded-2xl bg-muted/60 p-1.5">
+            <TabsTrigger value="white" className="gap-2 rounded-xl">
+              <Crown className="h-4 w-4" /> As White
             </TabsTrigger>
-            <TabsTrigger value="black" className="gap-2">
-              <Swords className="w-4 h-4" />
-              Black Repertoire
+            <TabsTrigger value="black" className="gap-2 rounded-xl">
+              <Swords className="h-4 w-4" /> As Black
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="white" className="space-y-6">
-            {/* Recommended for White */}
-            {repertoire?.recommended_white?.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Recommended for You
-                </h2>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {repertoire.recommended_white.map((opening, i) => (
-                    <RecommendedCard 
-                      key={i} 
-                      opening={opening}
-                      onClick={() => handleOpeningClick(opening)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Your White Openings */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Your White Openings</h2>
-              {repertoire?.white_repertoire?.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {repertoire.white_repertoire.map((opening, i) => (
-                    <OpeningCard 
-                      key={i} 
-                      opening={opening}
-                      onClick={() => handleOpeningClick(opening)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card className="border-dashed">
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">
-                      Play some games as White to build your repertoire!
-                    </p>
-                  </CardContent>
-                </Card>
+
+          {["white", "black"].map((color) => (
+            <TabsContent key={color} value={color} className="space-y-10">
+              {current.recommendations.length > 0 && (
+                <section>
+                  <p className="cg-eyebrow mb-4">What I’d teach next</p>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {current.recommendations.map((opening, index) => (
+                      <RecommendedCard key={opening.key || index} opening={opening} onClick={() => openLesson(opening)} />
+                    ))}
+                  </div>
+                </section>
               )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="black" className="space-y-6">
-            {/* Recommended for Black */}
-            {repertoire?.recommended_black?.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Recommended for You
-                </h2>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {repertoire.recommended_black.map((opening, i) => (
-                    <RecommendedCard 
-                      key={i} 
-                      opening={opening}
-                      onClick={() => handleOpeningClick(opening)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Your Black Openings */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Your Black Openings</h2>
-              {repertoire?.black_repertoire?.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {repertoire.black_repertoire.map((opening, i) => (
-                    <OpeningCard 
-                      key={i} 
-                      opening={opening}
-                      onClick={() => handleOpeningClick(opening)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card className="border-dashed">
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">
-                      Play some games as Black to build your repertoire!
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
+
+              <section>
+                <h2 className="font-heading text-2xl font-semibold tracking-tight">Openings I’ve seen in your games</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Choose one and we’ll work on the idea that matters most.</p>
+                {current.played.length > 0 ? (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {current.played.map((opening, index) => (
+                      <OpeningCard key={opening.key || index} opening={opening} onClick={() => openLesson(opening)} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cg-coach-card mt-5 text-sm leading-relaxed text-muted-foreground">{current.empty}</div>
+                )}
+              </section>
+            </TabsContent>
+          ))}
         </Tabs>
-        
-        {/* Browse All Openings */}
-        <div className="mt-8 pt-6 border-t border-border/50">
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => setShowAllOpenings(true)}
-          >
-            <BookOpen className="w-4 h-4 mr-2" />
-            Browse All Opening Lessons
-          </Button>
-        </div>
-        
-        {/* All Openings Modal */}
+
+        <button type="button" className="cg-secondary-action mt-10 w-full" onClick={() => setShowAllOpenings(true)}>
+          <BookOpen className="h-4 w-4" /> Explore every opening lesson
+        </button>
+
         {showAllOpenings && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-background rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden">
-              <div className="p-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-semibold">All Opening Lessons</h2>
-                <Button variant="ghost" size="sm" onClick={() => setShowAllOpenings(false)}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="p-4 overflow-y-auto max-h-[60vh]">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="fixed inset-0 z-50 grid place-items-center bg-[#071411]/70 p-4 backdrop-blur-sm">
+            <section className="cg-panel max-h-[82vh] w-full max-w-3xl overflow-hidden">
+              <header className="flex items-center justify-between border-b border-border p-5">
+                <div>
+                  <p className="cg-eyebrow mb-1">Explore</p>
+                  <h2 className="font-heading text-xl font-semibold">Opening lessons</h2>
+                </div>
+                <button type="button" onClick={() => setShowAllOpenings(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Close opening lessons">
+                  <X className="h-4 w-4" />
+                </button>
+              </header>
+              <div className="max-h-[65vh] overflow-y-auto p-5">
+                <div className="grid gap-3 md:grid-cols-2">
                   {allOpenings.map((opening) => (
-                    <Card 
+                    <button
                       key={opening.key}
-                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      type="button"
+                      className="group rounded-2xl border border-border bg-card/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-700/25"
                       onClick={() => {
                         navigate(`/openings/${opening.key}`);
                         setShowAllOpenings(false);
                       }}
                     >
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-medium text-sm">{opening.name}</h3>
-                            <p className="text-xs text-muted-foreground">{opening.eco}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={opening.color === "white" ? "outline" : "secondary"}>
-                              {opening.color}
-                            </Badge>
-                            {opening.trap_count > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                {opening.trap_count} traps
-                              </Badge>
-                            )}
-                          </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-medium">{opening.name}</h3>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            Learn the plan, the danger, and the positions to aim for.
+                          </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         )}
-      </div>
-    </div>
+      </main>
+    </Layout>
   );
-};
-
-export default OpeningRepertoire;
+}
