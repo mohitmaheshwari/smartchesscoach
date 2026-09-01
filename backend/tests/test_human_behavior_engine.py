@@ -144,3 +144,39 @@ def test_predict_across_elos_probes_each_rating_without_mutating_context():
     assert seen == [1100, 1300, 1500]
     assert set(out) == {1100, 1300, 1500}
     assert ctx.player_elo == 1265          # original untouched
+
+
+def test_maia_provider_uses_unrounded_research_inference(monkeypatch):
+    from services import human_behavior_engine as module
+
+    seen = {}
+
+    class Fake(Maia2Provider):
+        def available(self):
+            return True
+
+        def _load(self):
+            return "model", "prepared"
+
+    def unrounded(model, prepared, fen, player_elo, opponent_elo):
+        seen.update(
+            model=model,
+            prepared=prepared,
+            fen=fen,
+            player_elo=player_elo,
+            opponent_elo=opponent_elo,
+        )
+        return ({"e5e4": 0.00003125, "g4f3": 0.49996875}, 0.6)
+
+    monkeypatch.setattr(module, "_maia2_inference_each_unrounded", unrounded)
+    distribution = Fake().predict(_ctx())
+
+    assert distribution is not None
+    assert distribution.probability_of("e5e4") == 0.00003125
+    assert seen == {
+        "model": "model",
+        "prepared": "prepared",
+        "fen": FEN,
+        "player_elo": 1265,
+        "opponent_elo": 1344,
+    }

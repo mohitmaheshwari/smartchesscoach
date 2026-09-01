@@ -114,17 +114,25 @@ async def get_curriculum_coach_move(db, session_doc: Dict, user_color: str) -> O
     return None
 
 
-async def get_simple_coach_move(db, fen: str, user_rating: int) -> Optional[str]:
+async def get_simple_coach_move(
+    db,
+    fen: str,
+    user_rating: int,
+    *,
+    move_history=None,
+) -> Optional[str]:
     """
     Simple Stockfish move at low depth.
     Used as fallback when curriculum doesn't have a move.
     """
     try:
-        from coach_play.coach_opponent import CoachOpponent
+        from coach_play.coach_opponent import CoachOpponent, session_history_to_uci
         opponent = CoachOpponent(user_rating=user_rating)
         opponent.depth = 6
         opponent.skill_level = min(opponent.skill_level, 8)
-        move = await opponent.get_move(fen)
+        move = await opponent.get_move(
+            fen, session_history_to_uci(move_history or [], fen)
+        )
         logger.info(f"[SIMPLE] Coach plays: {move}")
         return move
     except Exception as e:

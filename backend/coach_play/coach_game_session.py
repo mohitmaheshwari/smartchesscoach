@@ -964,7 +964,11 @@ async def _make_coach_move(
     
     # Fallback to regular opponent if no pedagogical move
     if not coach_move:
-        coach_move = await opponent.get_move(session.current_fen)
+        from coach_play.coach_opponent import session_history_to_uci
+        coach_move = await opponent.get_move(
+            session.current_fen,
+            session_history_to_uci(session.move_history, session.current_fen),
+        )
     
     if not coach_move:
         # No legal moves - game might be over

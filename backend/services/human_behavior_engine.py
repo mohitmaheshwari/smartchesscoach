@@ -21,6 +21,9 @@ than breaking analysis.
 from __future__ import annotations
 
 import math
+import hashlib
+import importlib.metadata
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -73,6 +76,10 @@ class HumanBehaviorProvider:
     name = "abstract"
     version = "0"
 
+    @property
+    def artifact_sha256(self) -> Optional[str]:
+        return None
+
     def available(self) -> bool:
         raise NotImplementedError
 
@@ -96,15 +103,36 @@ class HumanBehaviorProvider:
         return out
 
 
+def _sha256_file(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    artifact = Path(path).expanduser()
+    if not artifact.is_file():
+        return None
+    digest = hashlib.sha256()
+    with artifact.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class OtterProvider(HumanBehaviorProvider):
     """Otter (MIT). Conditions on move history and clock as well as Elo."""
 
     name = "otter"
 
-    def __init__(self, device: str = "cpu") -> None:
+    def __init__(self, device: str = "cpu", checkpoint_path: Optional[str] = None) -> None:
         self._device = device
+        self._checkpoint_path = checkpoint_path
         self._model: Any = None
-        self.version = "otter-chess"
+        try:
+            self.version = importlib.metadata.version("otter-chess")
+        except importlib.metadata.PackageNotFoundError:
+            self.version = "unavailable"
+
+    @property
+    def artifact_sha256(self) -> Optional[str]:
+        return _sha256_file(self._checkpoint_path)
 
     def available(self) -> bool:
         try:
@@ -116,7 +144,12 @@ class OtterProvider(HumanBehaviorProvider):
     def _load(self) -> Any:
         if self._model is None:
             from otter_chess import OtterModel
-            self._model = OtterModel(device=self._device)
+            if not self._checkpoint_path:
+                raise RuntimeError("OTTER_MODEL_PATH is required for governed runtime inference")
+            self._model = OtterModel(
+                checkpoint_path=str(Path(self._checkpoint_path).resolve()),
+                device=self._device,
+            )
         return self._model
 
     def predict(self, ctx: MoveContext, top_k: int = 10) -> Optional[MoveDistribution]:
@@ -153,12 +186,26 @@ class Maia2Provider(HumanBehaviorProvider):
 
     name = "maia2"
 
-    def __init__(self, model_type: str = "rapid", device: str = "cpu") -> None:
+    def __init__(
+        self,
+        model_type: str = "rapid",
+        device: str = "cpu",
+        model_path: Optional[str] = None,
+    ) -> None:
         self._model_type = model_type
         self._device = device
+        self._model_path = model_path
         self._model: Any = None
         self._prepared: Any = None
-        self.version = f"maia2-{model_type}"
+        try:
+            package_version = importlib.metadata.version("maia2")
+        except importlib.metadata.PackageNotFoundError:
+            package_version = "unavailable"
+        self.version = f"{package_version}:{model_type}"
+
+    @property
+    def artifact_sha256(self) -> Optional[str]:
+        return _sha256_file(self._model_path)
 
     def available(self) -> bool:
         try:
@@ -170,8 +217,14 @@ class Maia2Provider(HumanBehaviorProvider):
     def _load(self):
         if self._model is None:
             from maia2 import model as maia_model, inference
+            if not self._model_path:
+                raise RuntimeError("MAIA2_MODEL_PATH is required for governed runtime inference")
+            model_path = Path(self._model_path).resolve()
             self._model = maia_model.from_pretrained(
-                type=self._model_type, device=self._device)
+                type=self._model_type,
+                device=self._device,
+                save_root=str(model_path.parent),
+            )
             self._prepared = inference.prepare()
         return self._model, self._prepared
 
@@ -179,11 +232,13 @@ class Maia2Provider(HumanBehaviorProvider):
         if not self.available():
             return None
         try:
-            from maia2 import inference
             model, prepared = self._load()
-            raw = inference.inference_each(
-                model, prepared, ctx.fen,
-                int(ctx.player_elo), int(ctx.opponent_elo),
+            raw = _maia2_inference_each_unrounded(
+                model,
+                prepared,
+                ctx.fen,
+                int(ctx.player_elo),
+                int(ctx.opponent_elo),
             )
         except Exception:
             return None
@@ -191,6 +246,53 @@ class Maia2Provider(HumanBehaviorProvider):
         if not probs:
             return None
         return MoveDistribution(self.name, self.version, probs)
+
+
+def _maia2_inference_each_unrounded(
+    model: Any,
+    prepared: Any,
+    fen: str,
+    elo_self: int,
+    elo_opponent: int,
+) -> Any:
+    """Run Maia-2 0.11.0 without its display-only four-decimal rounding.
+
+    This is the exact inference path used by the locked Stage 1/3 bake-offs.
+    Package preprocessing, masks and move maps remain authoritative; only the
+    final probability rounding in the public helper is omitted.
+    """
+    import torch
+    from maia2.inference import _masked_softmax, preprocessing
+    from maia2.utils import mirror_move
+
+    all_moves, elo_map, reversed_moves = prepared
+    board_input, self_bucket, opponent_bucket, legal_moves = preprocessing(
+        fen, elo_self, elo_opponent, elo_map, all_moves
+    )
+    device = next(model.parameters()).device
+    model.eval()
+    with torch.no_grad():
+        policy_logits, _, value_logits = model(
+            board_input.unsqueeze(0).to(device),
+            torch.tensor([self_bucket]).to(device),
+            torch.tensor([opponent_bucket]).to(device),
+        )
+        probabilities = _masked_softmax(
+            policy_logits, legal_moves.unsqueeze(0).to(device)
+        )[0]
+
+    value = (value_logits / 2 + 0.5).clamp(0, 1).item()
+    black_to_move = fen.split()[1] == "b"
+    if black_to_move:
+        value = 1 - value
+    ranked = []
+    for index in legal_moves.nonzero(as_tuple=True)[0].tolist():
+        move = reversed_moves[index]
+        if black_to_move:
+            move = mirror_move(move)
+        ranked.append((move, float(probabilities[index].item())))
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return dict(ranked), value
 
 
 def _normalise_provider_output(raw: Any) -> Dict[str, float]:

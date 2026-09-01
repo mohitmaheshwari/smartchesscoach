@@ -157,6 +157,22 @@ services:
       # to grab it — one-move SEE-verified, ~one calc per move. Without this, the
       # student's mistakes go unpunished and the lesson never lands.
       - PWC_TEACHING_OPPONENT=true
+      # Human Chess Runtime: default-off, local artifacts only, no downloads
+      # during a request. Enable only after the in-container verifier passes.
+      - EXACT_ENDGAME_ENGINE_ENABLED=${EXACT_ENDGAME_ENGINE_ENABLED:-false}
+      - EXACT_ENDGAME_REVIEW_ENABLED=${EXACT_ENDGAME_REVIEW_ENABLED:-false}
+      - HUMAN_POLICY_EVIDENCE_ENABLED=${HUMAN_POLICY_EVIDENCE_ENABLED:-false}
+      - PWC_HUMAN_POLICY_OPPONENT_ENABLED=${PWC_HUMAN_POLICY_OPPONENT_ENABLED:-false}
+      - PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED=${PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED:-false}
+      - HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED=${HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED:-false}
+      - FATHOM_BINARY_PATH=/opt/chessguru/human_chess/bin/fathom
+      - FATHOM_BINARY_SHA256=${FATHOM_BINARY_SHA256:-}
+      - SYZYGY_TABLEBASE_PATH=/opt/chessguru/human_chess/syzygy
+      - SYZYGY_TABLEBASE_BUNDLE_ID=${SYZYGY_TABLEBASE_BUNDLE_ID:-}
+      - SYZYGY_TABLEBASE_MANIFEST_SHA256=${SYZYGY_TABLEBASE_MANIFEST_SHA256:-}
+      - SYZYGY_MAX_MEN=${SYZYGY_MAX_MEN:-0}
+      - OTTER_MODEL_PATH=/opt/chessguru/human_chess/models/otter-0.2.0-eb8dc98b.safetensors
+      - MAIA2_MODEL_PATH=/opt/chessguru/human_chess/models/rapid_model.pt
       # GEOMETRY ARROWS (2026-07-10, docs/coach_geometry_arrows_scope.md): living
       # plan overlay on the PWC board — green=your plan, amber=coach's plan,
       # every arrow board-verified. Phase 1.
@@ -215,6 +231,8 @@ services:
       # Razorpay — values come from the project-root .env (see scripts/set-env.sh)
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+    volumes:
+      - ${HUMAN_CHESS_RUNTIME_DIR:-./backend/data/human_chess_runtime}:/opt/chessguru/human_chess:ro
     depends_on:
       mongodb:
         condition: service_healthy
@@ -263,6 +281,20 @@ services:
       - MONGO_URL=${MONGO_URL:?set MONGO_URL in .env}
       - DB_NAME=chess_coach
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - EXACT_ENDGAME_ENGINE_ENABLED=${EXACT_ENDGAME_ENGINE_ENABLED:-false}
+      - HUMAN_POLICY_EVIDENCE_ENABLED=${HUMAN_POLICY_EVIDENCE_ENABLED:-false}
+      - PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED=${PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED:-false}
+      - HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED=${HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED:-false}
+      - FATHOM_BINARY_PATH=/opt/chessguru/human_chess/bin/fathom
+      - FATHOM_BINARY_SHA256=${FATHOM_BINARY_SHA256:-}
+      - SYZYGY_TABLEBASE_PATH=/opt/chessguru/human_chess/syzygy
+      - SYZYGY_TABLEBASE_BUNDLE_ID=${SYZYGY_TABLEBASE_BUNDLE_ID:-}
+      - SYZYGY_TABLEBASE_MANIFEST_SHA256=${SYZYGY_TABLEBASE_MANIFEST_SHA256:-}
+      - SYZYGY_MAX_MEN=${SYZYGY_MAX_MEN:-0}
+      - OTTER_MODEL_PATH=/opt/chessguru/human_chess/models/otter-0.2.0-eb8dc98b.safetensors
+      - MAIA2_MODEL_PATH=/opt/chessguru/human_chess/models/rapid_model.pt
+    volumes:
+      - ${HUMAN_CHESS_RUNTIME_DIR:-./backend/data/human_chess_runtime}:/opt/chessguru/human_chess:ro
     depends_on:
       mongodb:
         condition: service_healthy

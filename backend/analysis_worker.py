@@ -1356,6 +1356,35 @@ def process_job(db, job):
         # Update heartbeat after CCT pass
         update_job_heartbeat(db, game_id)
 
+        # Human Chess Runtime: enrich the already-produced analysis only.
+        # No Stockfish rerun. Exact tablebase truth and human-policy priors are
+        # optional, fail-closed fields consumed later by the canonical V5 path.
+        try:
+            from services.human_chess_analysis_enrichment import (
+                enrich_move_evaluations_with_human_chess,
+            )
+            move_evaluations, _human_chess_summary = (
+                enrich_move_evaluations_with_human_chess(
+                    move_evaluations,
+                    pgn=pgn,
+                    user_color=user_color,
+                    user_rating=exact_user_rating,
+                )
+            )
+            logger.info(
+                "[HUMAN_CHESS] %s exact=%s human=%s mismatches=%s disabled=%s",
+                game_id,
+                _human_chess_summary["exact_evidence"],
+                _human_chess_summary["human_policy_evidence"],
+                _human_chess_summary["position_mismatch"],
+                _human_chess_summary.get("disabled", 0),
+            )
+        except Exception as _human_chess_error:
+            logger.warning(
+                "[HUMAN_CHESS] enrichment failed closed (non-fatal): %s",
+                _human_chess_error,
+            )
+
         # Create/update analysis record
         analysis_doc = {
             "game_id": game_id,

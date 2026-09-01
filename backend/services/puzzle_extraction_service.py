@@ -12,6 +12,7 @@ weakness pattern get served.
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import chess
 import logging
@@ -360,6 +361,28 @@ async def extract_puzzles_from_game(
             "approved": approved,
             "featured": False,
         }
+
+        # Maia is metadata only: it estimates how findable the already-proven
+        # answer is on the measured 800/1000/1200/1400 grid.  It cannot approve,
+        # reject, relabel, reorder or change this puzzle's answer/difficulty.
+        try:
+            from services.puzzle_human_difficulty_shadow import (
+                build_puzzle_human_difficulty_shadow,
+            )
+
+            shadow_answer_uci = best_move_uci
+            if not shadow_answer_uci:
+                shadow_answer_uci = chess.Board(fen_before).parse_san(best_move).uci()
+            human_shadow, human_shadow_reason = await asyncio.to_thread(
+                build_puzzle_human_difficulty_shadow,
+                fen=fen_before,
+                answer_uci=shadow_answer_uci,
+            )
+            puzzle["human_difficulty_shadow_reason"] = human_shadow_reason
+            if human_shadow is not None:
+                puzzle["human_difficulty_shadow"] = human_shadow.contract_dict()
+        except Exception:
+            puzzle["human_difficulty_shadow_reason"] = "runtime_failure"
 
         # Motif tag (fork; pin/skewer later) — the tactical motif the blunder walked into,
         # via the verified detector. Lets weakness drills filter by motif (own→community).

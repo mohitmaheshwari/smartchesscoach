@@ -49,5 +49,8 @@ Thumbs.db
 # Mobile app (not needed for web deployment)
 mobile/
 
+# Mounted at runtime; keep model weights/tablebases out of the image context.
+backend/data/human_chess_runtime/
+
 # Memory files (development artifacts)
 memory/

@@ -139,6 +139,7 @@ def select_sound_coach_move(
     multipv: int = 12,
     depth: int = 14,
     time_limit: float = 0.4,
+    human_policy_evidence=None,
 ) -> Tuple[chess.Move, bool]:
     """The coach soundness floor. Returns (move_to_play, was_guarded).
 
@@ -175,7 +176,9 @@ def select_sound_coach_move(
     except Exception:
         # No analysis available → fall back to the static one-move floor only.
         if move_is_free_hang(board, proposed_move, one_move_floor):
-            return proposed_move, False
+            for fallback in board.legal_moves:
+                if not move_is_free_hang(board, fallback, one_move_floor):
+                    return fallback, fallback != proposed_move
         return proposed_move, False
 
     cands: List[Tuple[chess.Move, int]] = []
@@ -189,6 +192,27 @@ def select_sound_coach_move(
     best_cp = cands[0][1]
 
     prop_cp = _eval_of(cp_map, proposed_move)
+
+    # Human likelihood may order only the candidates that this full-strength
+    # analysis has already accepted. It cannot add a move to the safe set.
+    if human_policy_evidence is not None:
+        verified_safe = [
+            (move, cp)
+            for move, cp in cands
+            if not _is_catastrophe(move, cp, best_cp)
+        ]
+        try:
+            ranked = human_policy_evidence.rank_verified_candidates(
+                tuple(move.uci() for move, _ in verified_safe)
+            )
+            if ranked:
+                by_uci = {move.uci(): move for move, _ in verified_safe}
+                selected = by_uci.get(ranked[0])
+                if selected is not None:
+                    return selected, selected != proposed_move
+        except Exception:
+            pass
+
     if not _is_catastrophe(proposed_move, prop_cp, best_cp):
         return proposed_move, False
 

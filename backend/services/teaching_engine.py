@@ -14,6 +14,7 @@ Each lesson type implements:
 """
 
 import logging
+import asyncio
 import json
 import os
 import uuid
@@ -412,6 +413,14 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
         else "guided_try"
     )
 
+    board = None
+    user_move = None
+    try:
+        board = chess.Board(pos["fen"])
+        user_move = board.parse_san(move)
+    except (KeyError, ValueError):
+        pass
+
     # Normalize comparison
     move_clean = move.replace("+", "").replace("#", "").strip()
     correct_clean = correct_san.replace("+", "").replace("#", "").strip()
@@ -421,12 +430,39 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
     # Also check UCI match
     if not is_correct and correct_uci:
         try:
-            board = chess.Board(pos["fen"])
-            user_move = board.parse_san(move)
-            if user_move.uci() == correct_uci:
+            if user_move is not None and user_move.uci() == correct_uci:
                 is_correct = True
         except Exception:
             pass
+
+    # Exact tablebase truth grades chess correctness.  It may accept a move
+    # different from the authored teaching move, but that alternative does not
+    # prove the named technique was demonstrated.
+    exact_evidence = None
+    exact_reason = "not_probed"
+    authored_move_matched = is_correct
+    if board is not None and user_move is not None:
+        try:
+            from services.exact_endgame_service import probe_configured_fathom
+
+            exact_evidence, exact_reason = await asyncio.to_thread(
+                probe_configured_fathom, pos["fen"]
+            )
+            if (
+                exact_evidence is not None
+                and exact_evidence.root_outcome in {"win", "draw"}
+            ):
+                is_correct = (
+                    user_move.uci() in exact_evidence.result_preserving_moves_uci
+                )
+            elif exact_evidence is not None:
+                # Preserving an already-lost result does not prove a lesson move
+                # correct. Keep the authored constraint for loss/ambiguous WDL.
+                exact_reason = "non_teachable_root_outcome"
+                exact_evidence = None
+        except Exception:
+            exact_evidence = None
+            exact_reason = "runtime_failure"
 
     if not is_correct:
         await db.coach_sessions.update_one(
@@ -444,7 +480,10 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
             "stage": stage,
             "answer_hidden": stage == "independent_proof",
             "demonstrated": False,
+            "exact_endgame_probe_reason": exact_reason,
         }
+        if exact_evidence is not None:
+            response["exact_endgame_evidence"] = exact_evidence.contract_dict()
         if stage == "guided_try":
             response["expected_move"] = correct_san
             response["explanation"] = pos.get("idea", "")
@@ -453,7 +492,7 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
     # Correct! Apply the move to get new FEN
     try:
         board = chess.Board(pos["fen"])
-        board.push_san(correct_san)
+        board.push(user_move if user_move is not None else board.parse_san(correct_san))
         new_fen = board.fen()
     except Exception:
         new_fen = pos["fen"]
@@ -477,14 +516,24 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
 
     # Check if lesson complete
     if next_idx >= len(positions):
-        return {
+        response = {
             "correct": True,
             "complete": True,
             "teaching_fen": new_fen,
             "message": f"Excellent! You've completed the {session_doc.get('lesson_name', 'endgame')} lesson. Rule: {eg_data.get('rule', '')}",
             "stage": "independent_proof",
-            "demonstrated": True,
+            "demonstrated": authored_move_matched,
+            "result_preserved": bool(exact_evidence is not None),
+            "exact_endgame_probe_reason": exact_reason,
         }
+        if exact_evidence is not None:
+            response["exact_endgame_evidence"] = exact_evidence.contract_dict()
+            if not authored_move_matched:
+                response["message"] = (
+                    "That move also keeps the result. It works, although "
+                    "it does not demonstrate the lesson's authored technique."
+                )
+        return response
 
     # Next position
     next_pos = positions[next_idx]
@@ -493,7 +542,7 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
         if next_idx == len(positions) - 1
         else "guided_try"
     )
-    return {
+    response = {
         "correct": True,
         "complete": False,
         "teaching_fen": next_pos["fen"],
@@ -509,7 +558,18 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
             "rule_reminder": pos.get("rule_reminder", ""),
             "idea": pos.get("idea", ""),
         },
+        "demonstrated": authored_move_matched,
+        "result_preserved": bool(exact_evidence is not None),
+        "exact_endgame_probe_reason": exact_reason,
     }
+    if exact_evidence is not None:
+        response["exact_endgame_evidence"] = exact_evidence.contract_dict()
+        if not authored_move_matched:
+            response["message"] = (
+                "That move also keeps the result. The lesson move shows "
+                "the named technique more directly, but your move is not wrong."
+            )
+    return response
 
 
 # ─────────────────────────────────────────────
