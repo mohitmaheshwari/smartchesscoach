@@ -9,20 +9,22 @@ The user/profile schema has accumulated several rating fields over time:
   users.rating_source         — which of the above should win
   player_profiles.current_rating — most-recent value used by the coach
 
-There's no single canonical accessor today, so different services pick
-different fields. This module is the one source of truth: import
-`get_current_rating(user, profile)` everywhere a "current rating"
-is needed.
+There's no single canonical stored field, so this module is the source of
+truth. Product code with database access must use ``get_coaching_rating`` or
+``resolve_coaching_rating``. ``get_current_rating`` remains the synchronous
+fallback for pure helpers and migration compatibility.
 
-Resolution order (first non-None wins):
-  1) player_profiles.current_rating  (most recently computed value)
-  2) users[users.rating_source]      (explicitly preferred source)
+Synchronous fallback resolution order (first non-None wins):
+  1) users[users.rating_source]      (explicitly preferred source)
+  2) player_profiles.current_rating  (legacy computed fallback)
   3) users.detected_rating           (platform-imported value)
   4) users.lichess_rating
   5) users.assessed_rating           (self-assessment)
   6) DEFAULT_RATING from config      (1200)
 """
+from datetime import datetime, timezone
 import re
+from statistics import median
 from typing import Optional, Any, Dict
 
 try:
@@ -43,17 +45,27 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
     user = user or {}
     profile = profile or {}
 
-    # 1) profile.current_rating (most authoritative — re-derived per game)
-    pr = profile.get("current_rating")
-    if isinstance(pr, (int, float)) and pr > 0:
-        return int(pr)
-
-    # 2) users[rating_source] — if the user explicitly told us which one to use
+    # 1) The user's explicitly selected platform/source always wins.
     src = user.get("rating_source")
     if src and src in user:
         v = user.get(src)
         if isinstance(v, (int, float)) and v > 0:
             return int(v)
+    normalized_source = str(src or "").lower().replace("_", "")
+    if "lichess" in normalized_source:
+        value = user.get("lichess_rating")
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+    if "chess.com" in normalized_source or "chesscom" in normalized_source:
+        value = user.get("detected_rating")
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+
+    # 2) Legacy computed profile fallback. The async coaching resolver prefers
+    # dated game evidence; this remains for callers without database access.
+    pr = profile.get("current_rating")
+    if isinstance(pr, (int, float)) and pr > 0:
+        return int(pr)
 
     # 3-5) fall through preferred order
     for field in ("detected_rating", "lichess_rating", "assessed_rating"):
@@ -62,6 +74,124 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
             return int(v)
 
     return int(DEFAULT_RATING)
+
+
+COACHING_RATING_WINDOW_GAMES = 3
+
+
+def _parse_game_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return None
+    raw = str(value).strip().replace("Z", "+00:00")
+    # Historic imports use YYYY.MM.DD. Replace only those date separators;
+    # replacing every dot corrupts valid fractional-second ISO timestamps.
+    if re.match(r"^\d{4}\.\d{2}\.\d{2}", raw):
+        raw = raw[:10].replace(".", "-") + raw[10:]
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        try:
+            parsed = datetime.fromisoformat(raw[:10])
+        except ValueError:
+            return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _normalized_platform(value: Any) -> str:
+    raw = str(value or "unknown").strip().lower().replace("_", "")
+    if "lichess" in raw:
+        return "lichess"
+    if "chess.com" in raw or "chesscom" in raw:
+        return "chess.com"
+    return raw or "unknown"
+
+
+async def resolve_coaching_rating(
+    db,
+    user_id: str,
+    *,
+    user: Optional[Dict[str, Any]] = None,
+    profile: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Resolve a stable, platform-correct rating with provenance.
+
+    The selected platform follows ``users.rating_source`` when it names a
+    platform. Within that platform, the median of the three most recent dated
+    game ratings is used. The three-game window won the 2026-09-01 production
+    bake-off for next-game error while remaining much less jumpy than one game.
+    """
+    user = user or await db.users.find_one({"user_id": user_id}) or {}
+    profile = profile or await db.player_profiles.find_one(
+        {"user_id": user_id}
+    ) or {}
+    projection = {
+        "_id": 0,
+        "date_played": 1,
+        "platform": 1,
+        "source": 1,
+        "user_rating": 1,
+        "user_rating_at_time": 1,
+        "user_color": 1,
+        "white_rating": 1,
+        "black_rating": 1,
+        "white": 1,
+        "black": 1,
+        "pgn": 1,
+    }
+    games = await db.games.find({"user_id": user_id}, projection).to_list(
+        length=5000
+    )
+    by_platform: Dict[str, list[tuple[datetime, int]]] = {}
+    for game in games:
+        played_at = _parse_game_datetime(game.get("date_played"))
+        rating = resolve_game_user_rating(game).get("rating")
+        if played_at is None or rating is None:
+            continue
+        platform = _normalized_platform(game.get("platform") or game.get("source"))
+        by_platform.setdefault(platform, []).append((played_at, int(rating)))
+    for sequence in by_platform.values():
+        sequence.sort(key=lambda row: row[0], reverse=True)
+
+    preferred = _normalized_platform(user.get("rating_source"))
+    if preferred not in by_platform:
+        preferred = ""
+    if not preferred and by_platform:
+        preferred = max(
+            by_platform,
+            key=lambda platform: by_platform[platform][0][0],
+        )
+    if preferred:
+        sequence = by_platform[preferred]
+        sample = sequence[:COACHING_RATING_WINDOW_GAMES]
+        return {
+            "rating": int(median([rating for _, rating in sample])),
+            "source": "recent_game_median",
+            "platform": preferred,
+            "sample_games": len(sample),
+            "as_of": sequence[0][0].isoformat(),
+        }
+
+    return {
+        "rating": get_current_rating(user, profile),
+        "source": "stored_fallback",
+        "platform": None,
+        "sample_games": 0,
+        "as_of": None,
+    }
+
+
+async def get_coaching_rating(
+    db,
+    user_id: str,
+    *,
+    user: Optional[Dict[str, Any]] = None,
+    profile: Optional[Dict[str, Any]] = None,
+) -> int:
+    return int((await resolve_coaching_rating(
+        db, user_id, user=user, profile=profile
+    ))["rating"])
 
 
 def _positive_int(value: Any) -> Optional[int]:

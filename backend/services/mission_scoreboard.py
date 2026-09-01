@@ -242,6 +242,7 @@ def is_focus_moment(
     is_critical: bool = False,
     time_spent_seconds: Optional[float] = None,
     focus_subtype: Optional[str] = None,
+    cp_loss: Optional[float] = None,
 ) -> bool:
     """Dispatch to the topic-specific rule.
 
@@ -257,6 +258,20 @@ def is_focus_moment(
     if focus_topic == "king_safety":
         return _is_king_safety_moment(fen_before, user_color)
     if focus_topic == "piece_safety":
+        if focus_subtype == "destination_safety_exact":
+            from services.destination_safety_detector import (
+                derive_destination_safety_exact,
+            )
+            fact = derive_destination_safety_exact({
+                "fen_before": fen_before,
+                "move_uci": move_uci,
+                "cp_loss": cp_loss,
+                # A live decision has no stored analysis reply yet. The exact
+                # fact deliberately keeps it measurable (eligible/outcome)
+                # while withholding the stronger diagnostic fire.
+                "pv_after_played": [],
+            })
+            return fact.get("eligible") is True
         if not _is_piece_safety_moment(fen_before, move_uci):
             return False
         if focus_subtype == "simple_hang":
@@ -301,6 +316,7 @@ def update_scoreboard(
         focus_topic, fen_before, move_uci, user_color,
         is_critical=is_critical, time_spent_seconds=time_spent_seconds,
         focus_subtype=scoreboard.get("focus_subtype"),
+        cp_loss=cp_loss,
     )
     if not matched:
         return scoreboard
@@ -311,7 +327,20 @@ def update_scoreboard(
     # a MISTAKE (cp_loss >= 100) played FAST (<3s) is the impulse signal.
     # No need for critical-moment complexity gating; the mistake itself
     # is the evidence that thinking would have helped.
-    if focus_topic == "time_management":
+    if (
+        focus_topic == "piece_safety"
+        and scoreboard.get("focus_subtype") == "destination_safety_exact"
+    ):
+        from services.destination_safety_detector import derive_destination_safety_exact
+        exact_fact = derive_destination_safety_exact({
+            "fen_before": fen_before,
+            "move_uci": move_uci,
+            "cp_loss": cp_loss,
+            "pv_after_played": [],
+        })
+        handled = exact_fact.get("outcome") == "handled"
+        missed = exact_fact.get("outcome") == "miss"
+    elif focus_topic == "time_management":
         handled = (time_spent_seconds is not None and time_spent_seconds >= 5)
         missed = (time_spent_seconds is not None and time_spent_seconds < 3
                   and cp_loss >= 100)
@@ -437,7 +466,7 @@ def build_instruction_verdict(mission_scoreboard: Optional[Dict[str, Any]]) -> O
     subtype = sb.get("focus_subtype")
     matched = sb.get("matched_moments", 0)
 
-    if subtype != "simple_hang":
+    if subtype not in ("simple_hang", "destination_safety_exact"):
         return {
             "instruction_id": instruction_id,
             "instruction_text": instruction_text,
@@ -455,7 +484,12 @@ def build_instruction_verdict(mission_scoreboard: Optional[Dict[str, Any]]) -> O
             "has_measured_outcome": True,
             "outcome": "missed",
             "matched_moments": matched,
-            "message": f"A piece was left hanging{move_clause}. Same instruction next game: {instruction_text}",
+            "message": (
+                f"The piece you moved could be taken{move_clause}. "
+                f"Same instruction next game: {instruction_text}"
+                if subtype == "destination_safety_exact"
+                else f"A piece was left hanging{move_clause}. Same instruction next game: {instruction_text}"
+            ),
         }
 
     return {
@@ -464,7 +498,11 @@ def build_instruction_verdict(mission_scoreboard: Optional[Dict[str, Any]]) -> O
         "has_measured_outcome": True,
         "outcome": "no_hang_detected",
         "matched_moments": 0,
-        "message": f"No hang detected this game. Same instruction next game: {instruction_text}",
+        "message": (
+            f"No destination-safety miss detected this game. Same instruction next game: {instruction_text}"
+            if subtype == "destination_safety_exact"
+            else f"No hang detected this game. Same instruction next game: {instruction_text}"
+        ),
     }
 
 
@@ -602,6 +640,7 @@ def _subject_for(subtype: str) -> str:
         "time_pressure_blunder":  "time-pressure blunder",
         "slow_paralysis":         "slow-paralysis moment",
         "simple_hang":            "simple hang",
+        "destination_safety_exact":"destination-safety miss",
         "threat_ignored":         "ignored threat",
         "tactical_seq_loss":      "tactical-sequence loss",
         "quiet_blunder":          "quiet-position blunder",

@@ -1,0 +1,35 @@
+{
+  "audit": "destination_safety_exact_plan_promotion",
+  "candidate_claim": "The player moved a non-pawn piece where the opponent can take it immediately for a verified exchange loss; the stored Stockfish continuation starts with that exact capture.",
+  "packet": {
+    "case_details_retained_on_database_host": true,
+    "fingerprint_sha256": "783e0d2c86cffec0a60b9ea0cf0d0cbb3aec722ac17a8d89dc83a12ff2974406",
+    "seed": "20260901-destination-safety-plan-v1"
+  },
+  "plan_promotion_gate_passed": true,
+  "population": {
+    "candidate_fires": 1896,
+    "independent_non_opportunities": 22803,
+    "independent_positive_opportunities": 2320,
+    "observations_scanned": 166681,
+    "valid_positions": 100527
+  },
+  "production_data_exported": false,
+  "read_only": true,
+  "review": {
+    "adversarial_cases": 60,
+    "candidate_fires_in_true_negatives": 0,
+    "critical_adversarial_errors": 0,
+    "distinct_review_games": 200,
+    "distinct_review_players": 31,
+    "opportunity_hits": 165,
+    "reviewed_fires": 200,
+    "reviewed_opportunities": 200,
+    "semantic_precision_pct": 100.0,
+    "semantic_recall_pct": 82.5,
+    "true_fires": 200,
+    "true_negative_cases": 60,
+    "wilson_lower_pct": 98.12
+  },
+  "stockfish_rerun": false
+}

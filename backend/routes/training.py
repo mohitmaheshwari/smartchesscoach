@@ -155,15 +155,22 @@ async def start_pic_training_session(
     user: User = Depends(get_current_user),
 ):
     """Start or resume the verified, own-game-first piece-safety lesson."""
-    await _require_pic_training_user(user)
+    projection = await _require_pic_training_user(user)
     from services.teaching_engine import PIC_LESSON_TYPE, start_lesson
+
+    proof_detector_id = (
+        (projection.get("evidence") or {}).get("proof_detector_id")
+    )
 
     result = await start_lesson(
         db,
         str(uuid.uuid4()),
         user.user_id,
         PIC_LESSON_TYPE,
-        {"limit": request.limit},
+        {
+            "limit": request.limit,
+            "proof_detector_id": proof_detector_id,
+        },
     )
     return _raise_pic_lesson_error(result)
 
@@ -515,17 +522,22 @@ async def get_prescribed_training_endpoint(
     """
     global db
     from services.coaching_puzzle_service import CoachingPuzzleService
-    from services.focus_resolver import get_active_focus
+    from services.focus_bridge import get_active_focus_bundle
 
-    # If client asks for `current`, resolve to the coach's active focus
+    # Read the canonical focus even when the URL contains its explicit topic;
+    # Home/Training links use `/piece_safety`, while older callers use
+    # `/current`. Both must carry the same exact detector identity.
+    active_focus = await get_active_focus_bundle(db, user.user_id)
     resolved_focus = None
     if weakness in ("current", "auto", "focus"):
-        resolved_focus = await get_active_focus(db, user.user_id, top_problems=None)
-        if resolved_focus and resolved_focus.get("gap"):
-            weakness = resolved_focus["gap"]
+        resolved_focus = active_focus
+        if resolved_focus and resolved_focus.get("topic_key"):
+            weakness = resolved_focus["topic_key"]
         else:
             # No focus known yet — safe default for beginners
             weakness = "piece_safety"
+    elif active_focus and active_focus.get("topic_key") == weakness:
+        resolved_focus = active_focus
 
     puzzle_service = CoachingPuzzleService(db)
 
@@ -545,12 +557,8 @@ async def get_prescribed_training_endpoint(
         logger.debug(f"Auto-backfill skipped for {user.user_id}: {_backfill_err}")
 
     # Get user's rating for difficulty calibration
-    player_profile = await db.player_profiles.find_one({"user_id": user.user_id})
-    user_rating = 1200
-    if player_profile:
-        lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
-        chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
-        user_rating = max(lichess_rating, chesscom_rating, 1200)
+    from services.rating_resolver import get_coaching_rating
+    user_rating = await get_coaching_rating(db, user.user_id)
 
     # Set rating range for puzzles (user rating +/- 200)
     rating_range = (max(600, user_rating - 200), user_rating + 200)
@@ -573,6 +581,9 @@ async def get_prescribed_training_endpoint(
         rating_range=rating_range,
         strong_openings=_strong,
         player_style=_style,
+        required_quality_id=(
+            resolved_focus.get("detector_quality_id") if resolved_focus else None
+        ),
     )
 
     if resolved_focus:

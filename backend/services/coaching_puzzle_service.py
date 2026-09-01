@@ -195,6 +195,7 @@ class CoachingPuzzleService:
         *,
         strong_openings: Optional[set] = None,
         player_style: Optional[Dict] = None,
+        required_quality_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get a set of puzzles prescribed for a specific weakness.
@@ -229,14 +230,21 @@ class CoachingPuzzleService:
 
         # Source 1: user's own mistakes — cap at 40% of the session so other
         # sources still show up even when a user has many own-puzzles.
-        own_limit = max(2, (num_puzzles * 2) // 5)
+        exact_focus = required_quality_id == (
+            "gap:piece_safety:destination_safety_exact"
+        )
+        own_limit = num_puzzles if exact_focus else max(2, (num_puzzles * 2) // 5)
         if is_motif:
             user_puzzles = await self._get_motif_puzzles_from_user_games(
                 user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
             )
         else:
             user_puzzles = await self._get_puzzles_from_user_games(
-                user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
+                user_id,
+                weakness_pattern,
+                limit=own_limit,
+                solved_ids=solved_ids,
+                required_quality_id=required_quality_id,
             )
         puzzles.extend(user_puzzles)
 
@@ -259,13 +267,19 @@ class CoachingPuzzleService:
                 limit=community_limit,
                 solved_ids=solved_ids,
             )
+            if required_quality_id:
+                community_puzzles = [
+                    puzzle for puzzle in community_puzzles
+                    if ((puzzle.get("verified_admission") or {}).get("quality_id"))
+                    == required_quality_id
+                ]
         puzzles.extend(community_puzzles)
 
         # Source 3: Lichess puzzle DB — theme-matched, rating-banded,
         # 4M+ verified puzzles. Fills whatever own + community didn't
         # cover. Serves the bulk of the prescription.
         remaining = num_puzzles - len(puzzles)
-        if remaining > 0:
+        if remaining > 0 and not required_quality_id:
             lichess_puzzles = await self._get_lichess_puzzles(
                 user_id=user_id,
                 weakness_pattern=weakness_pattern,
@@ -418,6 +432,7 @@ class CoachingPuzzleService:
         weakness_pattern: str,
         limit: int = 3,
         solved_ids: Optional[set] = None,
+        required_quality_id: Optional[str] = None,
     ) -> List[Dict]:
         """
         Create puzzles from user's OWN games where they made this type of mistake.
@@ -457,6 +472,11 @@ class CoachingPuzzleService:
                         broad_category=move.get("cognitive_gap") or None,
                     )
                     if verdict.status == AdmissionStatus.QUARANTINE:
+                        continue
+                    if (
+                        required_quality_id
+                        and verdict.quality_id != required_quality_id
+                    ):
                         continue
                     if not _verdict_matches_requested(verdict, weakness_pattern):
                         continue

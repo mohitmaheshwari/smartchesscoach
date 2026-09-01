@@ -202,7 +202,10 @@ async def get_pic_mastery_projection(
     game_cursor = db.games.find(
         {
             "user_id": user_id,
-            "pic_evidence.proof_detector_id": "piece_safety.d_live.v1",
+            "pic_evidence.proof_detector_id": {"$in": [
+                "piece_safety.d_live.v1",
+                "piece_safety.destination_safety_exact.v1",
+            ]},
         },
         {"_id": 0, "pic_evidence": 1, "date_played": 1},
     )

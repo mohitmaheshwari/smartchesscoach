@@ -75,11 +75,14 @@ class _Users:
 
 
 class _Games:
+    def __init__(self, rows=None):
+        self.rows = list(rows or [])
+
     async def distinct(self, field, query):
         return ["g1"]
 
     def find(self, query, projection=None):
-        return _AsyncRows([])
+        return _AsyncRows(self.rows)
 
 
 class _LearningSessions:
@@ -143,6 +146,38 @@ async def test_admin_projection_uses_only_see_backed_and_exact_fact(monkeypatch)
     assert projection["learner_state"]["label"] == "Learning"
     assert any(q.get("schema_version") == {"$gte": 16} for q in db.move_observations.queries if isinstance(q, dict))
     assert any(q.get("piece_safety_decision.version") == "piece_safety.d_live.v1" for q in db.move_observations.queries if isinstance(q, dict))
+
+
+@pytest.mark.asyncio
+async def test_exact_plan_focus_uses_v18_fact_and_normalized_game_dates(monkeypatch):
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    db = _DB(role="admin")
+    db.games = _Games([
+        {"game_id": "old", "date_played": "2026.07.31"},
+        {"game_id": "new", "date_played": "2026.08.02"},
+    ])
+    focus = {
+        **FOCUS,
+        "focus_kind": "piece_safety/destination_safety_exact",
+        "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+    }
+    projection = await get_pic_focus_projection(db, "u1", focus=focus)
+
+    assert projection["focus_kind"] == "piece_safety/destination_safety_exact"
+    assert projection["diagnosis"]["detector_id"] == (
+        "piece_safety.destination_safety_exact.v1"
+    )
+    assert projection["evidence"]["proof_detector_id"] == (
+        "piece_safety.destination_safety_exact.v1"
+    )
+    exact_queries = [
+        query for query in db.move_observations.queries
+        if isinstance(query, dict)
+        and "destination_safety_exact.version" in query
+    ]
+    assert exact_queries
+    assert all(query["schema_version"] == {"$gte": 18} for query in exact_queries)
+    assert any(query.get("game_id") == {"$in": ["new"]} for query in exact_queries)
 
 
 def test_pic_flag_can_authorize_same_canonical_instruction(monkeypatch):

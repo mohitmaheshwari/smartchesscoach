@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 17  # v17 (2026-08-25): additive piece_safety.d_live.v1 fact.
+SCHEMA_VERSION = 18  # v18 (2026-09-01): exact destination-safety planning fact.
 # v16 introduced strict SEE for simple_hang. Schemas <16 are pre-SEE and must
 # never enter PIC diagnosis/proof. v17 retains that detector and adds the
 # comparable-decision fact validated in docs/simple_hang_corpus_evidence.md.
@@ -30,7 +30,7 @@ SCHEMA_VERSION = 17  # v17 (2026-08-25): additive piece_safety.d_live.v1 fact.
 D_LIVE_FACT_VERSION = "piece_safety.d_live.v1"
 D_LIVE_SEE_FLOOR_CP = 150
 D_LIVE_CP_LOSS_FLOOR = 150
-DERIVER_SEMANTIC_VERSION = "move_observation_deriver.17.1"
+DERIVER_SEMANTIC_VERSION = "move_observation_deriver.18.0"
 
 
 @lru_cache(maxsize=1)
@@ -741,6 +741,15 @@ def derive_observations_for_game(
             and mv.get("evaluation") == "best"
         )
 
+        from services.destination_safety_detector import (
+            derive_destination_safety_exact,
+        )
+        destination_safety_exact = derive_destination_safety_exact(mv)
+        if destination_safety_exact.get("fires"):
+            missed_pattern = "piece_safety"
+            subtype = "destination_safety_exact"
+            severity = "critical"
+
         obs = {
             "user_id": user_id,
             "game_id": game_id,
@@ -792,6 +801,9 @@ def derive_observations_for_game(
             # PIC comparable decision. Exact nested version is mandatory for
             # proof queries; schemas <16 are never eligible for PIC evidence.
             "piece_safety_decision": _derive_d_live_fact(mv),
+            # Plan-authorized exact fact. This is additive; D_live remains for
+            # historic measurement compatibility until its rollout concludes.
+            "destination_safety_exact": destination_safety_exact,
         }
 
         # v9: time management signals from PGN clocks

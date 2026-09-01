@@ -172,6 +172,32 @@ def test_authorized_primary_is_identical_on_all_core_surfaces(monkeypatch):
     }
 
 
+def test_real_exact_focus_projects_one_instruction_to_all_core_surfaces(monkeypatch):
+    monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
+    focus = dict(
+        PRIMARY,
+        focus_kind="piece_safety/destination_safety_exact",
+        detector_quality_id="gap:piece_safety:destination_safety_exact",
+        instruction_text=(
+            "After choosing your move, ask: can they take the piece I just moved?"
+        ),
+        instruction_version=2,
+    )
+    contexts = [
+        _run(build_coaching_context(_DB(focus), "u1", surface=surface))
+        for surface in ("home", "review", "training", "coach_play")
+    ]
+    assert {context["state"] for context in contexts} == {"primary_only"}
+    assert {
+        context["primary_focus"]["detector_quality_id"]
+        for context in contexts
+    } == {"gap:piece_safety:destination_safety_exact"}
+    assert {
+        context["primary_focus"]["instruction_text"]
+        for context in contexts
+    } == {focus["instruction_text"]}
+
+
 def test_support_is_strictly_authorized_and_capped_at_one(monkeypatch):
     monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
     focus = dict(PRIMARY)

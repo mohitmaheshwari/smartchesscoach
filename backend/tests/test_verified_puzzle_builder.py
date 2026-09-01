@@ -132,6 +132,27 @@ def test_trusted_coach_position_quarantines_illegal_stored_answer():
     assert verdict.status == AdmissionStatus.QUARANTINE
 
 
+def test_exact_destination_safety_position_is_specific_and_plan_authorized():
+    verdict = build_position_verdict(
+        source_kind="coach_session",
+        source_ref="destination-safety",
+        move_evaluation={
+            "fen_before": "3rk3/8/8/8/8/8/8/3QK3 w - - 0 1",
+            "move": "Qd5",
+            "move_uci": "d1d5",
+            "best_move": "d1a4",
+            "cp_loss": 500,
+            "pv_after_played": ["Rxd5"],
+        },
+        broad_category="piece_safety",
+    )
+
+    assert verdict.status == AdmissionStatus.SPECIFIC
+    assert verdict.quality_id == "gap:piece_safety:destination_safety_exact"
+    assert verdict.concept_id == "piece_safety.destination_safety_exact"
+    assert verdict.acceptable_moves_uci == ("d1a4",)
+
+
 def test_failed_high_priority_candidate_cannot_mask_verified_lower_proof(monkeypatch):
     invalid_fork = SimpleNamespace(
         detector=DetectorProof(

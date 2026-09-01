@@ -176,6 +176,7 @@ _PS_SUBTYPE_PHRASING = {
     "chronic_timeout":        "games you lost on the clock instead of on the board",
     # piece_safety subtypes (from move_observation_deriver piece_safety classifier)
     "simple_hang":       "board-verified piece drops (attackers > defenders on the destination)",
+    "destination_safety_exact": "moves where the opponent could immediately take the exact piece you just moved",
     "threat_ignored":    "missed opponent threats you had time to see",
     "tactical_seq_loss": "miscalculations inside your own forcing sequences",
     "quiet_blunder":     "non-forcing high-cost mistakes that weren't literal hangs",
@@ -224,6 +225,7 @@ _PS_SUBTYPE_PLURAL = {
     "slow_paralysis":         "slow-paralysis blunders",
     "chronic_timeout":        "games lost on time",
     "simple_hang":            "simple hangs",
+    "destination_safety_exact":"pieces left for an immediate capture",
     "threat_ignored":         "ignored threats",
     "tactical_seq_loss":      "tactical-sequence losses",
     "quiet_blunder":          "quiet-position blunders",
@@ -264,7 +266,7 @@ _PS_SUBTYPE_PLURAL = {
 # even after the template changes. Editing text without bumping this is
 # the one way this contract can silently break -- new assignments keep
 # citing the old version number for wording they never actually showed.
-INSTRUCTION_TEMPLATE_VERSION = 1
+INSTRUCTION_TEMPLATE_VERSION = 2
 
 _CLOSING_BY_SUBTYPE = {
     # time_management
@@ -274,6 +276,7 @@ _CLOSING_BY_SUBTYPE = {
     "chronic_timeout":        "You're losing more games on the clock than to your opponent's moves. That's a habit fix — play faster on quiet moves, save clock for real decisions.",
     # piece_safety
     "simple_hang":            "Before every move, ask: can this piece be taken?",
+    "destination_safety_exact":"After choosing your move, ask: can they take the piece I just moved?",
     "tactical_seq_loss":      "You start a forcing sequence without seeing the last move. Walk every capture to the end.",
     "threat_ignored":         "When the opponent moves, first ask: what does this threaten?",
     "quiet_blunder":          "Not all mistakes are hanging pieces — sometimes it's a strategic misjudgment. Notice when the position looks 'quiet' and slow down.",
@@ -511,10 +514,12 @@ async def _resolve_user_rating(db, user_id: str) -> Optional[int]:
     """Get the user's current rating for band classification.
     Prefers rating_resolver if available, falls back to user_doc + profile."""
     try:
-        from services.rating_resolver import get_current_rating
+        from services.rating_resolver import get_coaching_rating
         user_doc = await db.users.find_one({"user_id": user_id}) or {}
         profile_doc = await db.player_profiles.find_one({"user_id": user_id}) or {}
-        return get_current_rating(user_doc, profile_doc)
+        return await get_coaching_rating(
+            db, user_id, user=user_doc, profile=profile_doc
+        )
     except Exception:
         # Fallback: median of recent user_rating on games
         ratings = []
@@ -889,21 +894,21 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         detector_quality_id
     ).value
 
-    simple_hang_count = int(
-        ((picked.get("subtype_histogram") or {}).get("simple_hang") or {}).get(
+    destination_safety_count = int(
+        ((picked.get("subtype_histogram") or {}).get("destination_safety_exact") or {}).get(
             "count", 0
         )
     )
-    if pic_enabled and picked["topic"] == "piece_safety" and simple_hang_count > 0:
-        from services.focus_bridge import get_d_live_evidence_summary
+    if pic_enabled and picked["topic"] == "piece_safety" and destination_safety_count > 0:
+        from services.focus_bridge import get_destination_safety_evidence_summary
         focus.update({
             "cycle_version": 1,
-            "focus_kind": "piece_safety/simple_hang",
+            "focus_kind": "piece_safety/destination_safety_exact",
             "proof_eligibility": "verified",
-            "diagnosis_detector_id": "move_observation.simple_hang.v16_plus",
-            "proof_detector_id": "piece_safety.d_live.v1",
+            "diagnosis_detector_id": "piece_safety.destination_safety_exact.v1",
+            "proof_detector_id": "piece_safety.destination_safety_exact.v1",
             "evidence_summary": {
-                "baseline": await get_d_live_evidence_summary(db, user_id),
+                "baseline": await get_destination_safety_evidence_summary(db, user_id),
                 "recent": {"decisions": 0, "misses": 0, "handled": 0},
                 "last_verdict": "measurement_pending",
                 "measured_at": now,
@@ -981,7 +986,11 @@ async def check_focus_outcome(db, focus: Dict[str, Any]) -> Dict[str, Any]:
 
 async def close_focus(db, focus: Dict[str, Any], outcome: Dict[str, Any]) -> None:
     """Mark a focus completed with outcome data."""
-    now = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    use_bson_time = isinstance(focus.get("locked_until"), datetime) or bool(
+        focus.get("cycle_version")
+    )
+    now = now_dt if use_bson_time else now_dt.isoformat()
     status = "completed" if outcome["action"] == "celebrate" else \
              "escalated" if outcome["action"] == "escalate" else "active"
     update = {
@@ -996,8 +1005,13 @@ async def close_focus(db, focus: Dict[str, Any], outcome: Dict[str, Any]) -> Non
         update["$set"]["status"] = status
         update["$set"]["closed_at"] = now
     else:
-        # Extend the lock by another 7 days
-        new_until = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        # PIC's locked calendar backstop is a check-in, never an evidence
+        # verdict. Preserve BSON timestamps and its configured backstop.
+        extension_days = int(
+            focus.get("calendar_backstop_days") or (21 if use_bson_time else 7)
+        )
+        new_until_dt = now_dt + timedelta(days=extension_days)
+        new_until = new_until_dt if use_bson_time else new_until_dt.isoformat()
         update["$set"]["locked_until"] = new_until
     await db[COLLECTION].update_one({"_id": focus["_id"]}, update)
 
