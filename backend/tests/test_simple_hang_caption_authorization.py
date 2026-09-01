@@ -61,6 +61,7 @@ def test_caption_surface_admits_only_evidence_backed_ids():
     allowed = {
         QUALITY_ID,
         "review:verified_single_game_cause",
+        "review:exact_endgame_result_change",
     }
     caption = {
         qid for qid in explicit_authorizations()
@@ -77,6 +78,13 @@ def test_evidence_ref_points_at_the_promotion_document():
     auth = explicit_authorizations()[QUALITY_ID]
     assert auth.evidence_ref == "docs/simple_hang_caption_promotion_2026_08_31.md"
     assert (BACKEND_ROOT.parent / auth.evidence_ref).exists()
+
+    exact = explicit_authorizations()["review:exact_endgame_result_change"]
+    assert exact.evidence_ref == "docs/exact_endgame_result_caption_evidence_2026_09_01.md"
+    assert (BACKEND_ROOT.parent / exact.evidence_ref).exists()
+    assert is_authorized("review:exact_endgame_result_change", QualitySurface.CAPTION)
+    assert not is_authorized("review:exact_endgame_result_change", QualitySurface.PLAN)
+    assert not is_authorized("review:exact_endgame_result_change", QualitySurface.MASTERY)
 
 
 def test_packet_meets_the_locked_non_opportunity_bar(packet):

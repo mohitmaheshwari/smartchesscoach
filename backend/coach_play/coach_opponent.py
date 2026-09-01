@@ -24,7 +24,7 @@ import chess.engine
 import asyncio
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor
@@ -38,12 +38,51 @@ STOCKFISH_PATH = "/usr/games/stockfish"
 # weaker than that. The env flag below gates the migration so we can
 # A/B feel vs the existing Skill Level behaviour.
 PWC_COACH_USE_UCI_ELO_FLAG = "PWC_COACH_USE_UCI_ELO"
+PWC_HUMAN_POLICY_OPPONENT_FLAG = "PWC_HUMAN_POLICY_OPPONENT_ENABLED"
 UCI_ELO_MIN = 1320
 UCI_ELO_MAX = 3190
 
 
 def _pwc_coach_uci_elo_enabled() -> bool:
     return os.environ.get(PWC_COACH_USE_UCI_ELO_FLAG, "false").lower() == "true"
+
+
+def _pwc_human_policy_opponent_enabled() -> bool:
+    return os.environ.get(PWC_HUMAN_POLICY_OPPONENT_FLAG, "false").lower() == "true"
+
+
+def session_history_to_uci(
+    entries: Sequence[Any], expected_fen: str
+) -> Tuple[str, ...]:
+    """Replay a PWC session history and return UCI only if it reaches the FEN."""
+    board = chess.Board()
+    moves = []
+    try:
+        for entry in entries or ():
+            raw = entry
+            if isinstance(entry, Mapping):
+                raw = (
+                    entry.get("move_uci")
+                    or entry.get("uci")
+                    or entry.get("move")
+                    or entry.get("move_san")
+                    or entry.get("san")
+                )
+            if not raw:
+                return ()
+            try:
+                move = chess.Move.from_uci(str(raw))
+                if move not in board.legal_moves:
+                    raise ValueError
+            except ValueError:
+                move = board.parse_san(str(raw))
+            moves.append(move.uci())
+            board.push(move)
+        reached = " ".join(board.fen().split()[:4])
+        expected = " ".join(chess.Board(expected_fen).fen().split()[:4])
+        return tuple(moves) if reached == expected else ()
+    except (ValueError, TypeError):
+        return ()
 
 
 # ── Teaching opponent (docs/teaching_opponent_scope.md) ──────────────────────
@@ -144,8 +183,12 @@ class CoachOpponent:
         # over Skill Level. Below 1320 we leave self.uci_elo=None and
         # fall back to Skill Level transparently.
         self.uci_elo = rating_to_uci_elo(_strength_rating) if _pwc_coach_uci_elo_enabled() else None
+        self.last_human_policy_reason = "not_requested"
+        self.last_human_policy_evidence = None
     
-    async def get_move(self, fen: str) -> Optional[str]:
+    async def get_move(
+        self, fen: str, history_uci: Sequence[str] = ()
+    ) -> Optional[str]:
         """
         Get the coach's move for a given position.
         
@@ -160,7 +203,8 @@ class CoachOpponent:
             move = await loop.run_in_executor(
                 _executor,
                 self._get_move_sync,
-                fen
+                fen,
+                tuple(history_uci or ()),
             )
             return move
         except Exception as e:
@@ -191,7 +235,9 @@ class CoachOpponent:
             print(f"Evaluation error: {e}")
             return (0.0, None)
     
-    def _get_move_sync(self, fen: str) -> Optional[str]:
+    def _get_move_sync(
+        self, fen: str, history_uci: Sequence[str] = ()
+    ) -> Optional[str]:
         """Synchronous Stockfish call with skill level.
 
         Uses the shared warm engine pool (services.engine_pool) — avoids ~200ms
@@ -253,7 +299,10 @@ class CoachOpponent:
         # a piece/queen (inhuman, trust-breaking). The guard replaces a catastrophe
         # with a sound move while leaving the coach's calibrated, beatable mistakes
         # intact. Behind PWC_COACH_BLUNDER_GUARD (default off).
-        proposed = self._apply_blunder_guard(board, proposed)
+        human_evidence = self._derive_human_policy(board, history_uci)
+        proposed = self._apply_blunder_guard(
+            board, proposed, human_policy_evidence=human_evidence
+        )
         # ─── PUNISH-OVERRIDE (the mirror of the blunder guard) ───
         # If the student left material hanging and the weak engine ignored it,
         # take it — that consequence is where the learning lives.
@@ -297,18 +346,62 @@ class CoachOpponent:
             logger.warning(f"[punish_override] failed, keeping proposed move: {e}")
             return proposed
 
-    def _apply_blunder_guard(self, board: chess.Board, proposed: chess.Move) -> chess.Move:
+    def _derive_human_policy(
+        self, board: chess.Board, history_uci: Sequence[str]
+    ):
+        self.last_human_policy_reason = "disabled"
+        self.last_human_policy_evidence = None
+        if not _pwc_human_policy_opponent_enabled():
+            return None
+        try:
+            from services.human_behavior_engine import MoveContext
+            from services.human_policy_runtime import derive_human_policy_evidence
+            evidence, reason = derive_human_policy_evidence(
+                MoveContext(
+                    fen=board.fen(),
+                    player_elo=int(self.user_rating),
+                    opponent_elo=int(self.user_rating),
+                    time_control="pwc",
+                    history_uci=tuple(history_uci or ()),
+                    clock_seconds=None,
+                    clock_fraction=None,
+                    move_number=board.fullmove_number,
+                )
+            )
+            self.last_human_policy_reason = reason
+            self.last_human_policy_evidence = evidence
+            return evidence
+        except Exception as exc:
+            self.last_human_policy_reason = "runtime_failure"
+            logger.warning(f"[human_policy] PWC inference failed; using legacy move: {exc}")
+            return None
+
+    def _apply_blunder_guard(
+        self,
+        board: chess.Board,
+        proposed: chess.Move,
+        *,
+        human_policy_evidence=None,
+    ) -> chess.Move:
         """If enabled, veto a catastrophic coach move (free piece hang / forced
         rook+ loss / walk into mate) and substitute a sound one. Uses a FULL-STRENGTH
         analysis (not the weakened engine) so the eval is accurate."""
-        if os.environ.get("PWC_COACH_BLUNDER_GUARD", "false").lower() != "true":
+        if (
+            os.environ.get("PWC_COACH_BLUNDER_GUARD", "false").lower() != "true"
+            and human_policy_evidence is None
+        ):
             return proposed
         try:
             from coach_play.coach_blunder_guard import select_sound_coach_move
             from services.engine_pool import warm_engine_scope
             # No skill_level/uci_elo → full strength, so the guard's eval is the truth.
             with warm_engine_scope() as strong:
-                final, guarded = select_sound_coach_move(strong, board, proposed)
+                final, guarded = select_sound_coach_move(
+                    strong,
+                    board,
+                    proposed,
+                    human_policy_evidence=human_policy_evidence,
+                )
             if guarded:
                 logger.info(
                     f"[blunder_guard] vetoed {board.san(proposed)} -> {board.san(final)}"
@@ -628,6 +721,11 @@ class PedagogicalOpponent(CoachOpponent):
                     "move_type": "opening_guide",
                     "v2": True,  # Use v2 path so explanation is intent-driven
                     "v2_breakdown": {},
+                    "human_policy": {
+                        "used": False,
+                        "reason": "scripted_opening",
+                        "chess_authority": False,
+                    },
                 }
                 print(f"[CoachOpponent] Using opening guide move: {guided_move} for FEN: {fen[:50]}...")
                 return guided_move
@@ -674,20 +772,66 @@ class PedagogicalOpponent(CoachOpponent):
                 "opportunity_details": result.opportunity_details,
             }
 
+            selected_san = result.selected_san
+            try:
+                proposed = board.parse_san(selected_san)
+                history_uci = session_history_to_uci(self.move_history, fen)
+                human_evidence = self._derive_human_policy(board, history_uci)
+                human_selected = self._apply_blunder_guard(
+                    board,
+                    proposed,
+                    human_policy_evidence=human_evidence,
+                )
+                selected = self._apply_punish_override(board, human_selected)
+                selected_san = board.san(selected)
+                human_used = bool(
+                    human_evidence is not None and human_selected != proposed
+                )
+                self.last_teaching_context["human_policy"] = {
+                    "used": human_used,
+                    "reason": self.last_human_policy_reason,
+                    "provider": (human_evidence.provider if human_evidence else None),
+                    "provider_version": (
+                        human_evidence.provider_version if human_evidence else None
+                    ),
+                    "chess_authority": False,
+                }
+                if selected != proposed:
+                    # The selector's intent/explanation describes `proposed`, not
+                    # the safety/punish override. Never attach stale chess claims
+                    # or a stale created-opportunity contract to the new move.
+                    self.last_teaching_context.update({
+                        "teaching_goal": "safe_human_like_reply",
+                        "intent_reason": "This move keeps the position sound.",
+                        "why_instructive": "The coach chose a natural move without giving away material.",
+                        "concept_taught": None,
+                        "is_best_move": None,
+                        "move_type": "safe_human_like_reply",
+                        "eval_rank": None,
+                        "created_opportunity": None,
+                        "opportunity_details": {},
+                    })
+            except Exception as _human_select_exc:
+                logger.warning(
+                    f"[human_policy] pedagogical selector fallback: {_human_select_exc}"
+                )
+
             print(
-                f"[CoachOpponent] V2 selected: {result.selected_san} "
+                f"[CoachOpponent] V2 selected: {selected_san} "
                 f"(intent={result.intent.value}, "
                 f"score={result.score_breakdown.final_score:.2f}, "
                 f"rank={result.eval_rank})"
             )
-            return result.selected_san
+            return selected_san
 
         except Exception as e:
             print(f"Teaching Move Selector v2 error: {e}")
             import traceback
             traceback.print_exc()
             # Fallback to regular Stockfish move
-            return await super().get_move(fen)
+            return await super().get_move(
+                fen, session_history_to_uci(self.move_history, fen)
+            )
     
     def get_teaching_context(self) -> dict:
         """Get the teaching context from the last move selection."""

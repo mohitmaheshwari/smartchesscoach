@@ -68,12 +68,21 @@ from services.caption_facts import (
     build_legal_material_loss_cause,
     build_verified_line_cause,
 )
+from services.exact_endgame_service import (
+    ExactEndgameCause,
+    ExactEndgameEvidence,
+    build_exact_endgame_cause,
+    render_exact_endgame_cause,
+)
 
 logger = logging.getLogger(__name__)
 
 # Locked by the 2026-09-01 Quality V2 evidence packet. This is the same
 # legal-exchange floor used to measure 913 verified simple-hang causes.
 REVIEW_LEGAL_LOSS_FLOOR_CP = 150
+_EXACT_ENDGAME_REVIEW_ENABLED = os.environ.get(
+    "EXACT_ENDGAME_REVIEW_ENABLED", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -297,6 +306,12 @@ class MoveInputs:
     # stays byte-for-byte on the base caption until the Stage 4 flag is on.
     # Live PWC leaves this False to preserve its existing conductor rollout.
     player_context_shadow_only: bool = False
+
+    # Optional evidence packets are produced by their owning services. The
+    # caption pipeline validates and consumes them; it never invokes a model
+    # or tablebase subprocess itself.
+    exact_endgame_evidence: Optional[Dict[str, Any]] = None
+    human_policy_evidence: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -548,6 +563,9 @@ class MoveTeachingDecision:
     # 4 renderer it never replaces that explanation.
     # Shape: {"kind","motif","side","text"}. None when no thread fired.
     conductor_thread: Optional[Dict[str, Any]] = None
+    # Auditable derived evidence. Neither field is parsed from prose.
+    exact_endgame_evidence: Optional[Dict[str, Any]] = None
+    human_policy_evidence: Optional[Dict[str, Any]] = None
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -3867,6 +3885,32 @@ def build_move_teaching_decision(
             skip_reason=f"invalid SAN or FEN: {inputs.played_san!r}",
         )
 
+    _exact_endgame: Optional[ExactEndgameEvidence] = None
+    _exact_endgame_cause: Optional[ExactEndgameCause] = None
+    if inputs.exact_endgame_evidence:
+        try:
+            _exact_endgame = ExactEndgameEvidence.from_contract(
+                inputs.exact_endgame_evidence
+            )
+            if " ".join(_exact_endgame.fen.split()[:4]) != " ".join(
+                board_before.fen().split()[:4]
+            ):
+                raise ValueError("exact evidence belongs to a different position")
+            _exact_endgame_cause = build_exact_endgame_cause(
+                _exact_endgame,
+                played_san=inputs.played_san,
+                preferred_best_san=inputs.best_move_san,
+            )
+            if not (_EXACT_ENDGAME_REVIEW_ENABLED and inputs.mover_is_user):
+                _exact_endgame_cause = None
+        except Exception:
+            logger.warning(
+                "[exact_endgame] rejected stale or incomplete evidence on move %s",
+                inputs.full_move_number,
+            )
+            _exact_endgame = None
+            _exact_endgame_cause = None
+
     # ─── 1-2. Base caption_facts + practical severity ─────────────
     practical = classify_severity_practical(
         int(inputs.cp_loss or 0),
@@ -4888,6 +4932,29 @@ def build_move_teaching_decision(
         except Exception as _ct_exc:
             logger.warning(f"[conductor] thread compute failed m{inputs.full_move_number}: {_ct_exc!r}")
 
+    # Exact WDL truth outranks approximate engine prose, but only for a fully
+    # validated result change. It deliberately names no unpromoted technique.
+    _exact_transferable_instruction = ""
+    if (
+        _exact_endgame is not None
+        and _exact_endgame_cause is not None
+    ):
+        (
+            _exact_headline,
+            _exact_caption,
+            _exact_transferable_instruction,
+        ) = render_exact_endgame_cause(_exact_endgame_cause)
+        caption_payload["caption"] = _exact_caption
+        caption_payload["rule_name"] = "R_EXACT_ENDGAME_RESULT"
+        caption_payload["arrows"] = []
+        caption_payload["highlight_squares"] = []
+        caption_facts["exact_endgame_evidence"] = _exact_endgame.contract_dict()
+        caption_facts["exact_endgame_headline"] = _exact_headline
+        _board_explanation = _exact_caption
+        _player_connection = ""
+        _personal_evidence = None
+        _rendered_personalization = False
+
     # Stage 4's final truth boundary runs AFTER personalization.  The older
     # boundary above protected the base caption but conductor text was appended
     # later and could bypass it.  If the composed text fails, first retain the
@@ -4950,6 +5017,10 @@ def build_move_teaching_decision(
     )
 
     _provenance = [caption_payload.get("rule_name") or "R_FALLBACK"]
+    if _exact_endgame_cause is not None:
+        _provenance.append(
+            f"exact_endgame:{_exact_endgame_cause.evidence_fingerprint}"
+        )
     _primary_reason = caption_facts.get("primary_reason") or {}
     if isinstance(_primary_reason, dict) and _primary_reason.get("category"):
         _provenance.append(f"reason:{_primary_reason['category']}")
@@ -4963,7 +5034,11 @@ def build_move_teaching_decision(
     # reuse the matching cue from the canonical principle catalog.  Otherwise
     # a strict best-move purpose fact can become a position-specific next-game
     # scan.  If none of those facts exists, stay empty and honest.
-    _transferable_instruction = caption_facts.get("principle_cue") or ""
+    _transferable_instruction = (
+        _exact_transferable_instruction
+        or caption_facts.get("principle_cue")
+        or ""
+    )
     if not _transferable_instruction and _conductor_thread:
         _motif_principle = {
             "fork": "TAC_FORK_PATTERN",
@@ -5114,6 +5189,10 @@ def build_move_teaching_decision(
         coach_extras=coach_extras,
         socratic_extras=socratic_extras,
         explanation=explanation,
-        cause=legal_material_loss_cause,
+        cause=_exact_endgame_cause or legal_material_loss_cause,
         conductor_thread=_conductor_thread,
+        exact_endgame_evidence=(
+            _exact_endgame.contract_dict() if _exact_endgame is not None else None
+        ),
+        human_policy_evidence=inputs.human_policy_evidence,
     )

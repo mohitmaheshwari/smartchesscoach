@@ -53,6 +53,22 @@ services:
       # green(you)/amber(coach) arrows on the PWC board.
       - PWC_GEOMETRY_ARROWS=true
       - MOTIF_RECOGNITION_CARD=true
+      - EXACT_ENDGAME_ENGINE_ENABLED=${EXACT_ENDGAME_ENGINE_ENABLED:-false}
+      - EXACT_ENDGAME_REVIEW_ENABLED=${EXACT_ENDGAME_REVIEW_ENABLED:-false}
+      - HUMAN_POLICY_EVIDENCE_ENABLED=${HUMAN_POLICY_EVIDENCE_ENABLED:-false}
+      - PWC_HUMAN_POLICY_OPPONENT_ENABLED=${PWC_HUMAN_POLICY_OPPONENT_ENABLED:-false}
+      - PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED=${PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED:-false}
+      - HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED=${HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED:-false}
+      - FATHOM_BINARY_PATH=/opt/chessguru/human_chess/bin/fathom
+      - FATHOM_BINARY_SHA256=${FATHOM_BINARY_SHA256:-}
+      - SYZYGY_TABLEBASE_PATH=/opt/chessguru/human_chess/syzygy
+      - SYZYGY_TABLEBASE_BUNDLE_ID=${SYZYGY_TABLEBASE_BUNDLE_ID:-}
+      - SYZYGY_TABLEBASE_MANIFEST_SHA256=${SYZYGY_TABLEBASE_MANIFEST_SHA256:-}
+      - SYZYGY_MAX_MEN=${SYZYGY_MAX_MEN:-0}
+      - OTTER_MODEL_PATH=/opt/chessguru/human_chess/models/otter-0.2.0-eb8dc98b.safetensors
+      - MAIA2_MODEL_PATH=/opt/chessguru/human_chess/models/rapid_model.pt
+    volumes:
+      - ${HUMAN_CHESS_RUNTIME_DIR:-./backend/data/human_chess_runtime}:/opt/chessguru/human_chess:ro
     depends_on:
       mongodb:
         condition: service_healthy

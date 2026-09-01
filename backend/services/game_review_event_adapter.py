@@ -14,6 +14,10 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 from services.caption_pipeline import MoveTeachingDecision
 from services.caption_facts import LegalMaterialLossCause, VerifiedLineCause
+from services.exact_endgame_service import (
+    ExactEndgameCause,
+    render_exact_endgame_cause,
+)
 from services.detector_quality import QualitySurface
 from services.game_review_contracts import (
     ConceptReference,
@@ -127,6 +131,17 @@ def _practical_frame(
 ) -> PracticalFrame:
     meta = decision.teaching_meta
     cause = decision.cause
+    if isinstance(cause, ExactEndgameCause):
+        headline, _, _ = render_exact_endgame_cause(cause)
+        before = "won" if cause.outcome_before == "win" else "a draw"
+        after = "a draw" if cause.outcome_after == "draw" else "a loss"
+        return PracticalFrame(
+            kind=PracticalFrameKind.STATE_CHANGED,
+            state_before=cause.outcome_before,
+            state_after=cause.outcome_after,
+            headline=headline,
+            lead=f"Before {san}, this exact ending was {before}; afterward it was {after}.",
+        )
     if meta.stayed_winning:
         return PracticalFrame(
             kind=PracticalFrameKind.STAYED_WINNING,
@@ -420,6 +435,15 @@ def _cause_teaching(
         return _material_cause_teaching(decision, san, frame)
     if isinstance(cause, VerifiedLineCause):
         return _verified_line_teaching(cause, san, frame)
+    if isinstance(cause, ExactEndgameCause):
+        _, caption, principle = render_exact_endgame_cause(cause)
+        return TeachingReference(
+            caption=caption,
+            principle=principle,
+            headline=frame.headline,
+            practical_lead=frame.lead,
+            cause_fingerprint=cause.fingerprint,
+        )
     raise ReviewContractViolation("V2 cause teaching requires a supported cause")
 
 

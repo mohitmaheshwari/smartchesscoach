@@ -2601,7 +2601,13 @@ async def trigger_coach_move_endpoint(
         else:
             coach = CoachOpponent(user_rating=user_rating)
             # Get coach's move using FEN - returns SAN notation
-            coach_move = await coach.get_move(current_fen)
+            from coach_play.coach_opponent import session_history_to_uci
+            coach_move = await coach.get_move(
+                current_fen,
+                session_history_to_uci(
+                    session_doc.get("move_history", []), current_fen
+                ),
+            )
 
         if not coach_move:
             raise HTTPException(status_code=500, detail="Coach couldn't find a move")
@@ -7949,8 +7955,14 @@ async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_ratin
     from coach_play.coach_opponent import CoachOpponent
 
     try:
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        move_history = session_doc.get("move_history", []) if session_doc else []
         coach = CoachOpponent(user_rating=user_rating)
-        coach_move_san = await coach.get_move(fen_after_user)
+        from coach_play.coach_opponent import session_history_to_uci
+        coach_move_san = await coach.get_move(
+            fen_after_user,
+            session_history_to_uci(move_history, fen_after_user),
+        )
         if not coach_move_san:
             logger.error(f"[PLAY MODE] Coach found no move for session {session_id[:8]}")
             await db.coach_sessions.update_one(
@@ -7958,8 +7970,6 @@ async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_ratin
             )
             publish_session_event(session_id, {"type": "coach_turn_failed"})
             return
-        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
-        move_history = session_doc.get("move_history", []) if session_doc else []
         await _apply_coach_move(db, session_id, fen_after_user, coach_move_san, move_history)
 
         # If the coach's own move just ended the game (checkmate/stalemate),
@@ -8027,7 +8037,12 @@ async def _process_move_and_respond(
             
             # Fallback to simple Stockfish
             if not coach_move_san:
-                coach_move_san = await get_simple_coach_move(db, fen_after_user, user_rating)
+                coach_move_san = await get_simple_coach_move(
+                    db,
+                    fen_after_user,
+                    user_rating,
+                    move_history=session_doc.get("move_history", []),
+                )
             
             if coach_move_san:
                 await _asyncio.sleep(1.5)  # Brief pause for UX

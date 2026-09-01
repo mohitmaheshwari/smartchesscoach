@@ -1,0 +1,4 @@
+# Pinned human-policy runtime layer. Feature flags remain default-off, and the
+# model artifacts themselves are mounted read-only rather than baked in.
+maia2==0.11.0
+otter-chess==0.2.0

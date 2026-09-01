@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy and install Python dependencies
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+COPY backend/requirements.txt backend/requirements-human-policy.txt ./
+RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/ \
+    && pip install --no-cache-dir -r requirements-human-policy.txt
 
 # Copy backend source code
 COPY backend/ ./backend/

@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 139  # v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md. v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
+V5_COACHING_VERSION = 140  # v140 (2026-09-01): optional pinned Fathom/Syzygy evidence can attach an exact result-change cause for enrolled Quality V2 reviews. Incomplete/unsupported probes abstain; all legacy behavior remains the fallback. v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -126,6 +126,38 @@ except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _CaptionCrossMoveState = None
     logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
     CAPTION_V5_PIPELINE_ENABLED = False
+
+try:
+    from services.exact_endgame_service import (
+        ExactEndgameEvidence as _ExactEndgameEvidence,
+        exact_endgame_review_enabled as _exact_endgame_review_enabled,
+        probe_configured_fathom,
+    )
+except Exception as _exact_endgame_import_exc:  # pragma: no cover - defensive
+    _ExactEndgameEvidence = None
+    _exact_endgame_review_enabled = None
+    probe_configured_fathom = None
+    logger.warning(
+        f"[exact_endgame] import failed; exact review disabled: {_exact_endgame_import_exc}"
+    )
+
+try:
+    from services.human_behavior_engine import MoveContext as _HumanMoveContext
+    from services.human_policy_runtime import (
+        HumanPolicyEvidence as _HumanPolicyEvidence,
+        derive_human_policy_evidence as _derive_human_policy_evidence,
+        human_policy_evidence_matches_context as _human_policy_matches_context,
+        human_policy_evidence_enabled as _human_policy_evidence_enabled,
+    )
+except Exception as _human_policy_import_exc:  # pragma: no cover - defensive
+    _HumanMoveContext = None
+    _HumanPolicyEvidence = None
+    _derive_human_policy_evidence = None
+    _human_policy_matches_context = None
+    _human_policy_evidence_enabled = None
+    logger.warning(
+        f"[human_policy] import failed; evidence disabled: {_human_policy_import_exc}"
+    )
 
 # Trap recognition (named opening traps from data/traps.json). Stateful:
 # fires on setup-completing move and again on each move that follows the
@@ -2927,6 +2959,18 @@ async def generate_game_decryption_v5(
             return []
         
         moves = list(game.mainline_moves())
+        _pgn_time_control = str(game.headers.get("TimeControl") or "")
+        try:
+            _white_header_rating = int(game.headers.get("WhiteElo") or 0) or None
+        except (TypeError, ValueError):
+            _white_header_rating = None
+        try:
+            _black_header_rating = int(game.headers.get("BlackElo") or 0) or None
+        except (TypeError, ValueError):
+            _black_header_rating = None
+        _v5_opponent_rating = (
+            _black_header_rating if user_color == "white" else _white_header_rating
+        )
 
         # Resolve the game owner's rating ONCE per render (Q1, 2026-07-14).
         # The pipeline's rating-band caption gate (suppress sub-threshold
@@ -2935,6 +2979,7 @@ async def generate_game_decryption_v5(
         # 800 and an 1800 got identical framing on every review. Canonical
         # accessor per single-source rule: rating_resolver.get_current_rating.
         _v5_user_rating = None
+        _u_doc = None
         try:
             from services.rating_resolver import get_current_rating
             _u_doc = await db.users.find_one({"user_id": user_id}) if user_id else None
@@ -2944,6 +2989,33 @@ async def generate_game_decryption_v5(
                 logger.info(f"[DECRYPTION V5] user_rating resolved: {_v5_user_rating}")
         except Exception as _rr_exc:
             logger.info(f"[DECRYPTION V5] rating resolve failed (band gate stays off): {_rr_exc}")
+
+        _exact_endgame_visible_for_user = False
+        _human_policy_for_user = False
+        try:
+            from services.game_review_contracts import (
+                personalized_game_review_access,
+                personalized_review_quality_v2_enabled,
+            )
+            _exact_endgame_visible_for_user = bool(
+                _u_doc
+                and personalized_game_review_access(_u_doc).enabled
+                and personalized_review_quality_v2_enabled()
+                and _exact_endgame_review_enabled is not None
+                and _exact_endgame_review_enabled()
+                and probe_configured_fathom is not None
+            )
+            _human_policy_for_user = bool(
+                _u_doc
+                and personalized_game_review_access(_u_doc).enabled
+                and _derive_human_policy_evidence is not None
+                and _human_policy_evidence_enabled is not None
+                and _human_policy_evidence_enabled()
+            )
+        except Exception as _exact_access_exc:
+            logger.info(
+                f"[exact_endgame] access resolution failed; staying silent: {_exact_access_exc}"
+            )
 
         # Detect opening
         opening_name, eco_code = detect_opening_from_pgn(pgn)
@@ -3541,6 +3613,10 @@ async def generate_game_decryption_v5(
                 "rendered_personalization": False,
                 "rollout_mode": "shadow",
             }
+            _exact_endgame_evidence = None
+            _exact_endgame_probe_reason = "not_requested"
+            _human_policy_evidence = None
+            _human_policy_reason = "not_requested"
             if CAPTION_V5_PIPELINE_ENABLED and _build_move_teaching_decision is not None:
                 try:
                     # SAN history (excluding current — central layer
@@ -3575,6 +3651,32 @@ async def generate_game_decryption_v5(
                         _ea = opp_eval_after
                         _cpl = max(0, opp_cp_loss)
 
+                    if _exact_endgame_visible_for_user and is_user:
+                        _exact_probe = None
+                        _stored_exact = eval_data.get("exact_endgame_evidence")
+                        if _stored_exact and _ExactEndgameEvidence is not None:
+                            try:
+                                _candidate_exact = _ExactEndgameEvidence.from_contract(
+                                    _stored_exact
+                                )
+                                if (
+                                    " ".join(_candidate_exact.fen.split()[:4])
+                                    == " ".join(chess.Board(fen_before).fen().split()[:4])
+                                ):
+                                    _exact_probe = _candidate_exact
+                                    _exact_endgame_probe_reason = "stored_exact"
+                            except Exception:
+                                _exact_endgame_probe_reason = "stored_exact_rejected"
+                        if _exact_probe is None:
+                            (
+                                _exact_probe,
+                                _exact_endgame_probe_reason,
+                            ) = await asyncio.to_thread(
+                                probe_configured_fathom, fen_before
+                            )
+                        if _exact_probe is not None:
+                            _exact_endgame_evidence = _exact_probe.contract_dict()
+
                     _inputs = _CaptionMoveInputs(
                         fen_before=fen_before,
                         played_san=move_san,
@@ -3605,6 +3707,7 @@ async def generate_game_decryption_v5(
                         player_identity=_v5_player_caption_context.get("player_identity"),
                         session_focus=_v5_player_caption_context.get("session_focus"),
                         player_context_shadow_only=True,
+                        exact_endgame_evidence=_exact_endgame_evidence,
                     )
                     _state = _CaptionCrossMoveState(
                         fired_principles=set(principles_fired_this_game),
@@ -3648,6 +3751,59 @@ async def generate_game_decryption_v5(
                     # (R15 good-move, opening intro, silent).
                     _caption_severity_word = _decision.teaching_meta.caption_severity_word
                     _caption_explanation = asdict(_decision.explanation)
+                    _exact_endgame_evidence = _decision.exact_endgame_evidence
+                    if (
+                        _human_policy_for_user
+                        and is_user
+                        and _decision.teaching_meta.has_teaching_content
+                    ):
+                        if _v5_user_rating is None or _v5_opponent_rating is None:
+                            _human_policy_reason = "missing_measured_rating"
+                        else:
+                            _human_context = _HumanMoveContext(
+                                fen=fen_before,
+                                player_elo=int(_v5_user_rating),
+                                opponent_elo=int(_v5_opponent_rating),
+                                time_control=_pgn_time_control,
+                                history_uci=tuple(
+                                    history_move.uci()
+                                    for history_move in board.move_stack
+                                ),
+                                clock_seconds=None,
+                                clock_fraction=None,
+                                move_number=full_move_number,
+                            )
+                            _human_evidence = None
+                            _stored_human = eval_data.get("human_policy_evidence")
+                            if (
+                                _stored_human
+                                and _HumanPolicyEvidence is not None
+                                and _human_policy_matches_context is not None
+                            ):
+                                try:
+                                    _candidate_human = _HumanPolicyEvidence.from_contract(
+                                        _stored_human
+                                    )
+                                    if _human_policy_matches_context(
+                                        _candidate_human, _human_context
+                                    ):
+                                        _human_evidence = _candidate_human
+                                        _human_policy_reason = "stored_evidence"
+                                    else:
+                                        _human_policy_reason = "stored_evidence_mismatch"
+                                except Exception:
+                                    _human_policy_reason = "stored_evidence_rejected"
+                            if _human_evidence is None:
+                                (
+                                    _human_evidence,
+                                    _human_policy_reason,
+                                ) = await asyncio.to_thread(
+                                    _derive_human_policy_evidence,
+                                    _human_context,
+                                )
+                            if _human_evidence is not None:
+                                _human_policy_evidence = _human_evidence.contract_dict()
+                                _decision.human_policy_evidence = _human_policy_evidence
                     principles_fired_last_move = set(_decision.state_mutations.fired_principles_added)
 
                     # ─── DATA-RICHNESS (Mohit 2026-05-27) ──────────────
@@ -4287,6 +4443,10 @@ async def generate_game_decryption_v5(
                 # `player_connection` can be audited but
                 # `rendered_personalization` remains false.
                 "caption_explanation": _caption_explanation,
+                "exact_endgame_evidence": _exact_endgame_evidence,
+                "exact_endgame_probe_reason": _exact_endgame_probe_reason,
+                "human_policy_evidence": _human_policy_evidence,
+                "human_policy_reason": _human_policy_reason,
 
                 # ── CAPTION CLASSIFICATION (v86) ─────────────────────
                 # Per Mohit 2026-05-25: many context/silent captions

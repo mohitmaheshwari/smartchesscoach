@@ -64,6 +64,22 @@ _EXACT_ENDGAME_CURRICULUM = Authorization(
 # registry does not grant it product authority. Promotion is a separate,
 # evidence-reviewed edit here.
 _AUTHORIZATIONS: Mapping[str, Authorization] = {
+    "review:exact_endgame_result_change": Authorization(
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "docs/exact_endgame_result_caption_evidence_2026_09_01.md"
+        ),
+        rationale=(
+            "The caption names only an exact win/draw/loss transition from a "
+            "pinned local Fathom/Syzygy probe whose buckets partition every "
+            "legal move. The renderer accepts no model or detector inference."
+        ),
+        limitations=(
+            "Single-position Caption authority only; no technique name or recurrence.",
+            "CursedWin and BlessedLoss abstain from simple result language.",
+            "Plan, mastery, prescription and psychological claims remain unauthorized.",
+        ),
+    ),
     "review:verified_single_game_cause": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref=(

@@ -88,6 +88,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import chess
 
+from services.exact_endgame_service import ExactEndgameCause
+
 from services.caption_config import (
     MAX_CP_LOSS_FOR_TACTIC_CELEBRATION,
     MIN_THREAT_SEE_CP,
@@ -380,7 +382,7 @@ class VerifiedLineCause:
         return payload
 
 
-ReviewTeachingCause = LegalMaterialLossCause | VerifiedLineCause
+ReviewTeachingCause = LegalMaterialLossCause | VerifiedLineCause | ExactEndgameCause
 
 # Phase boundary thresholds (mirrors detect_phase in game_decryption_v5_service)
 _OPENING_MAX_MOVE_HIGH_PIECES = 10  # if piece_count >= 28

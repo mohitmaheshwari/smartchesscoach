@@ -37,8 +37,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Python requirements and install
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/requirements.txt backend/requirements-human-policy.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt \
+    && pip install --no-cache-dir -r backend/requirements-human-policy.txt
 
 # Copy backend source code
 COPY backend/ ./backend/

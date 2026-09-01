@@ -25,6 +25,7 @@ from services.caption_facts import (
     ReviewTeachingCause,
     VerifiedLineCause,
 )
+from services.exact_endgame_service import ExactEndgameCause
 
 
 FEATURE_FLAG = "PERSONALIZED_GAME_REVIEW_COACH_ENABLED"
@@ -475,7 +476,7 @@ class TeachableEvent:
         if not isinstance(self.teaching, TeachingReference):
             raise ReviewContractViolation("teaching must be TeachingReference")
         if self.cause is not None and not isinstance(
-            self.cause, (LegalMaterialLossCause, VerifiedLineCause)
+            self.cause, (LegalMaterialLossCause, VerifiedLineCause, ExactEndgameCause)
         ):
             raise ReviewContractViolation("cause must be a supported ReviewTeachingCause")
         if self.practical is not None and not isinstance(
@@ -556,7 +557,7 @@ class TeachableEvent:
                         RelationshipArrowRole.SAFE_MOVE,
                     ),
                 )
-            else:
+            elif isinstance(self.cause, VerifiedLineCause):
                 expected = tuple(
                     RelationshipArrow(
                         item.origin,
@@ -565,6 +566,8 @@ class TeachableEvent:
                     )
                     for item in self.cause.relationships
                 )
+            else:
+                expected = ()
             if self.teaching.visual.relationship_arrows != expected:
                 raise ReviewContractViolation(
                     "relationship arrows disagree with the cause"

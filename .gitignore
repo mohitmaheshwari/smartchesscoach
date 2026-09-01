@@ -254,3 +254,7 @@ frontend/.codex-ui-review.*.log
 
 # Playwright-generated test artifacts
 tests/test-results/
+
+# Licensed/large runtime artifacts are mounted read-only in production.
+# Never commit Fathom binaries, Maia/Otter weights, or Syzygy tablebases.
+backend/data/human_chess_runtime/

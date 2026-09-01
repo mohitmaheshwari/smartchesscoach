@@ -13,6 +13,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from services.caption_pipeline import MoveTeachingDecision
 from services.caption_facts import LegalMaterialLossCause, VerifiedLineCause
+from services.exact_endgame_service import ExactEndgameCause
 from services.detector_quality import QualitySurface, gap_quality_id
 from services.game_review_contracts import (
     EventActor,
@@ -43,6 +44,7 @@ MINIMUM_SIMPLE_HANG_SCHEMA = 16
 SIMPLE_HANG_PATTERN = "piece_safety"
 SIMPLE_HANG_SUBTYPE = "simple_hang"
 VERIFIED_CAUSE_QUALITY_ID = "review:verified_single_game_cause"
+EXACT_ENDGAME_CAUSE_QUALITY_ID = "review:exact_endgame_result_change"
 
 
 def _has_current_deriver_identity(observation: Mapping[str, Any]) -> bool:
@@ -160,18 +162,25 @@ def adapt_verified_cause_event(
     """Adapt one position-specific cause; never diagnose recurrence/mastery."""
     if not personalized_review_quality_v2_enabled(env):
         return None
-    if not isinstance(decision.cause, (LegalMaterialLossCause, VerifiedLineCause)):
+    if not isinstance(
+        decision.cause,
+        (LegalMaterialLossCause, VerifiedLineCause, ExactEndgameCause),
+    ):
         return None
     central_provenance = tuple(
         str(item)
         for item in decision.explanation.provenance
         if str(item).strip()
     )
-    concept_id = (
-        "calculation.legal_material_loss"
-        if isinstance(decision.cause, LegalMaterialLossCause)
-        else "calculation.verified_stored_line"
-    )
+    if isinstance(decision.cause, LegalMaterialLossCause):
+        concept_id = "calculation.legal_material_loss"
+        quality_id = VERIFIED_CAUSE_QUALITY_ID
+    elif isinstance(decision.cause, VerifiedLineCause):
+        concept_id = "calculation.verified_stored_line"
+        quality_id = VERIFIED_CAUSE_QUALITY_ID
+    else:
+        concept_id = "endgame.exact_result_change"
+        quality_id = EXACT_ENDGAME_CAUSE_QUALITY_ID
     event = adapt_move_teaching_decision(
         decision,
         MoveEventContext(
@@ -182,13 +191,13 @@ def adapt_verified_cause_event(
             actor=EventActor.USER,
             concept_id=concept_id,
             outcome=EventOutcome.MISSED,
-            quality_id=VERIFIED_CAUSE_QUALITY_ID,
+            quality_id=quality_id,
             provenance=(
                 f"typed_cause:{decision.cause.fingerprint}",
             ) + central_provenance,
             opportunity_eligible=True,
             requested_surface=QualitySurface.CAPTION,
-            reflection_requested=True,
+            reflection_requested=not isinstance(decision.cause, ExactEndgameCause),
             quality_v2_requested=True,
             source_version=f"{SHADOW_RUNTIME_VERSION}+verified_cause.v1",
         ),
