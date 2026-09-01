@@ -1,7 +1,9 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 
-import PersonalizedReviewCoach from "./PersonalizedReviewCoach";
+import PersonalizedReviewCoach, {
+  boardArrowsForReviewVisual,
+} from "./PersonalizedReviewCoach";
 
 
 jest.mock("framer-motion", () => {
@@ -117,6 +119,39 @@ describe("PersonalizedReviewCoach", () => {
     expect(
       container.querySelector("[data-testid='personalized-reflection-option-not_sure']").tagName
     ).toBe("BUTTON");
+  });
+
+  test("shows practical framing before reflection and maps cause roles to board colors", () => {
+    const v2Event = {
+      ...event,
+      teaching: {
+        ...event.teaching,
+        headline: "You kept control — but left one piece behind",
+        practical_lead: "You were already winning and Bh6 did not throw the game away.",
+        visual: {
+          arrows: [["c2", "a1"], ["a1", "d1"]],
+          highlights: ["a1"],
+          relationship_arrows: [
+            { from: "c2", to: "a1", role: "threat" },
+            { from: "a1", to: "d1", role: "safe_move" },
+            { from: "d5", to: "f6", role: "opportunity" },
+          ],
+        },
+      },
+    };
+    renderCoach({ events: [v2Event] });
+    act(() => {
+      container.querySelector("[data-testid='personalized-review-start']")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.textContent).toContain("You kept control");
+    expect(container.textContent).toContain("did not throw the game away");
+    expect(container.textContent).not.toContain(v2Event.teaching.caption);
+    expect(boardArrowsForReviewVisual(v2Event.teaching.visual)).toEqual([
+      ["c2", "a1", "amber"],
+      ["a1", "d1", "green"],
+      ["d5", "f6", "blue"],
+    ]);
   });
 
   test("submits exact server option IDs before revealing and shows visuals", async () => {

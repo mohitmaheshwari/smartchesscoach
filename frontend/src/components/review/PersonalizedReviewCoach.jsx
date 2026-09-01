@@ -30,6 +30,22 @@ const eventMap = (events) => new Map(
 );
 
 
+export const boardArrowsForReviewVisual = (visual = {}) => {
+  if (visual.relationship_arrows?.length) {
+    return visual.relationship_arrows.map((arrow) => [
+      arrow.from,
+      arrow.to,
+      arrow.role === "safe_move"
+        ? "green"
+        : arrow.role === "opportunity"
+          ? "blue"
+          : "amber",
+    ]);
+  }
+  return (visual.arrows || []).map(([from, to]) => [from, to, "amber"]);
+};
+
+
 export default function PersonalizedReviewCoach({
   gameId,
   plan,
@@ -221,7 +237,11 @@ export default function PersonalizedReviewCoach({
   )?.label;
   const canReveal = !prompt || Boolean(answer);
   const visual = event.teaching?.visual || {};
-  const hasVisual = Boolean(visual.arrows?.length || visual.highlights?.length);
+  const hasVisual = Boolean(
+    visual.relationship_arrows?.length
+    || visual.arrows?.length
+    || visual.highlights?.length
+  );
 
   return (
     <section
@@ -250,6 +270,21 @@ export default function PersonalizedReviewCoach({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -8 }}
           >
+            {event.teaching?.headline && (
+              <div className="mb-6 rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white px-5 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
+                  Your position
+                </p>
+                <h2 className="mt-2 font-serif text-2xl leading-snug text-slate-950">
+                  {event.teaching.headline}
+                </h2>
+                {event.teaching.practical_lead && (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {event.teaching.practical_lead}
+                  </p>
+                )}
+              </div>
+            )}
             <h2 className="font-serif text-2xl leading-snug text-slate-950 md:text-[30px]">
               {prompt.question}
             </h2>
@@ -284,6 +319,18 @@ export default function PersonalizedReviewCoach({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
           >
+            {event.teaching?.headline && (
+              <div className="mb-5">
+                <h2 className="font-serif text-3xl leading-tight text-slate-950">
+                  {event.teaching.headline}
+                </h2>
+                {event.teaching.practical_lead && (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {event.teaching.practical_lead}
+                  </p>
+                )}
+              </div>
+            )}
             {selectedLabel && (
               <div className="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">

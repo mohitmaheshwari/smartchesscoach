@@ -62,8 +62,18 @@ from services.severity import (
     classify_severity_practical,
     PracticalSeverity,
 )
+from services.caption_facts import (
+    LegalMaterialLossCause,
+    ReviewTeachingCause,
+    build_legal_material_loss_cause,
+    build_verified_line_cause,
+)
 
 logger = logging.getLogger(__name__)
+
+# Locked by the 2026-09-01 Quality V2 evidence packet. This is the same
+# legal-exchange floor used to measure 913 verified simple-hang causes.
+REVIEW_LEGAL_LOSS_FLOOR_CP = 150
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -225,6 +235,10 @@ class MoveInputs:
     #     "phase": "opening" | "middlegame" | "endgame",
     #   }
     socratic_context: Optional[Dict[str, Any]] = None
+    # Offline corpus audits replay stored Stockfish evidence and must never
+    # initialize a fresh engine verifier. Runtime callers retain the deployed
+    # behavior unless they explicitly opt out.
+    allow_fresh_engine_verification: bool = True
 
     # ─── Coach Conductor: the player-model digest (docs/pwc_coach_conductor_scope.md).
     # The output of coach_conductor.player_motif_threads() — which motifs are THIS
@@ -526,6 +540,9 @@ class MoveTeachingDecision:
     # Stage 4: typed causal/personal explanation.  Both Review and PWC
     # receive the same shape; callers no longer need to parse caption prose.
     explanation: CaptionExplanation = field(default_factory=CaptionExplanation)
+    # Canonical, typed position cause. Downstream surfaces may project this
+    # value but must not rebuild it from prose or rerun chess inference.
+    cause: Optional[ReviewTeachingCause] = None
     # Coach Conductor: the player-model thread that fired this move, if any.
     # Personal context frames the verified chess explanation; under the Stage
     # 4 renderer it never replaces that explanation.
@@ -1983,6 +2000,7 @@ def inject_socratic_user_facts(
     move_history_san: Optional[List[str]],
     user_rating: int,
     socratic_context: Optional[Dict[str, Any]],
+    allow_fresh_engine_verification: bool = True,
 ) -> None:
     """Stamp the deterministic facts the central layer needs to produce
     the PWC socratic_question / socratic_hint / narrative / focus_plan
@@ -2250,11 +2268,13 @@ def inject_socratic_user_facts(
     if severity == "blunder":
         try:
             from services.move_comparison import _find_opponent_threats
-            try:
-                from services.threat_verifier import _get_singleton_engine
-                verify_engine = _get_singleton_engine()
-            except Exception:
-                verify_engine = None
+            verify_engine = None
+            if allow_fresh_engine_verification:
+                try:
+                    from services.threat_verifier import _get_singleton_engine
+                    verify_engine = _get_singleton_engine()
+                except Exception:
+                    verify_engine = None
             post = board_before.copy()
             post.push(move)
             user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
@@ -4013,6 +4033,9 @@ def build_move_teaching_decision(
         move_history_san=list(inputs.move_history_san or []),
         user_rating=int(inputs.user_rating or 1200),
         socratic_context=_effective_socratic_ctx,
+        allow_fresh_engine_verification=bool(
+            inputs.allow_fresh_engine_verification
+        ),
     )
 
     # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──
@@ -5053,6 +5076,31 @@ def build_move_teaching_decision(
     # replacement for smart_coaching.generate_smart_user_feedback.
     socratic_extras = populate_socratic_extras(caption_facts)
 
+    legal_material_loss_cause = None
+    if inputs.mover_is_user and inputs.best_move_san:
+        exact_line_cause = build_verified_line_cause(
+            fen_before=inputs.fen_before,
+            played_san=inputs.played_san,
+            best_move_san=inputs.best_move_san,
+            pv_after_played=tuple(inputs.pv_after_played or ()),
+            pv_after_best=tuple(inputs.pv_after_best or ()),
+            cp_loss=int(inputs.cp_loss or 0),
+        )
+        board_cause = build_legal_material_loss_cause(
+            fen_before=inputs.fen_before,
+            played_san=inputs.played_san,
+            best_move_san=inputs.best_move_san,
+            minimum_gain_cp=REVIEW_LEGAL_LOSS_FLOOR_CP,
+        )
+        if (
+            exact_line_cause is not None
+            and exact_line_cause.lesson_kind
+            in {"missed_forced_mate", "allowed_forced_mate"}
+        ):
+            legal_material_loss_cause = exact_line_cause
+        else:
+            legal_material_loss_cause = board_cause or exact_line_cause
+
     return MoveTeachingDecision(
         text=text,
         visual=visual,
@@ -5066,5 +5114,6 @@ def build_move_teaching_decision(
         coach_extras=coach_extras,
         socratic_extras=socratic_extras,
         explanation=explanation,
+        cause=legal_material_loss_cause,
         conductor_thread=_conductor_thread,
     )

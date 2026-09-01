@@ -45,3 +45,39 @@ def test_material_payoff_is_from_initiator_perspective():
     )
     assert replay.complete is True
     assert replay.net_material_gain_cp == 300
+    assert replay.replayed_san == ("e5", "Qd7", "exf6")
+    assert [item.contract_dict() for item in replay.captures] == [
+        {
+            "ply": 3,
+            "actor": "initiator",
+            "move_san": "exf6",
+            "origin": "e5",
+            "destination": "f6",
+            "capturing_piece": "pawn",
+            "captured_piece": "knight",
+            "captured_square": "f6",
+            "captured_value_cp": 300,
+        }
+    ]
+
+
+def test_capture_ledger_keeps_every_recapture_in_order():
+    replay = replay_stored_line(
+        chess.Board("r1bqk2r/pppp1ppp/2n5/2b1p3/2B1P1n1/2NP1N2/PPP2PPP/R1BQ1RK1 b kq - 2 6"),
+        "Nxf2",
+        ("Rxf2", "Bxf2+", "Kxf2", "d6"),
+    )
+    assert replay.complete is True
+    assert replay.net_material_gain_cp == 0
+    assert tuple(item.move_san for item in replay.captures) == (
+        "Nxf2",
+        "Rxf2",
+        "Bxf2+",
+        "Kxf2",
+    )
+    assert tuple(item.actor for item in replay.captures) == (
+        "initiator",
+        "opponent",
+        "initiator",
+        "opponent",
+    )

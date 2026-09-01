@@ -101,6 +101,51 @@ def build_pic_simple_hang_reflection_prompt(
         cp_loss=float(cp_loss),
         move_number=int(move_number),
         include_honest_escapes=True,
+        reflection_context=(
+            event.cause.contract_dict()
+            if event.cause is not None
+            else None
+        ),
+    )
+    return build_reflection_prompt(event, quick_tags)
+
+
+def build_review_event_reflection_prompt(
+    event: TeachableEvent,
+    *,
+    fen_before: str,
+    user_move: str,
+    best_move: str,
+    rating: int,
+    cp_loss: float,
+    move_number: int,
+) -> ReflectionPrompt:
+    """Build options for any authorized typed Review cause."""
+    if event.cause is None:
+        raise ReviewContractViolation("typed Review reflection requires a cause")
+    if (event.cause.contract_dict().get("kind") == "legal_material_loss"):
+        mistake_category = PIC_SIMPLE_HANG_REFLECTION_CATEGORY
+    else:
+        lesson_kind = str(
+            event.cause.contract_dict().get("lesson_kind") or ""
+        )
+        mistake_category = (
+            "ignored_opponent_forcing"
+            if lesson_kind == "allowed_forced_mate"
+            else "missed_forcing_move"
+        )
+    from quick_tag_registry import generate_quick_tags
+
+    quick_tags = generate_quick_tags(
+        fen_before=fen_before,
+        user_move=user_move,
+        best_move=best_move,
+        mistake_category=mistake_category,
+        rating=int(rating),
+        cp_loss=float(cp_loss),
+        move_number=int(move_number),
+        include_honest_escapes=True,
+        reflection_context=event.cause.contract_dict(),
     )
     return build_reflection_prompt(event, quick_tags)
 

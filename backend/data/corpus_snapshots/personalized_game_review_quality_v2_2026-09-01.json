@@ -1,0 +1,424 @@
+{
+  "approved_reference_regression": {
+    "best_move": "Rd1",
+    "cause": {
+      "affected_piece": "rook",
+      "affected_square": "a1",
+      "attacker_piece": "knight",
+      "attacker_square": "c2",
+      "best_move_purpose": "moves_affected_piece",
+      "best_move_purpose_verified": true,
+      "best_move_san": "Rd1",
+      "material_loss_cp": 500,
+      "punishment_san": "Nxa1",
+      "verified": true
+    },
+    "current_reflection_option_ids": [
+      "missed_check",
+      "thought_piece_safe",
+      "thought_protected",
+      "missed_capture",
+      "none_of_these",
+      "not_sure"
+    ],
+    "current_rule": "distilled:missed_mate",
+    "current_visual": {
+      "arrows": [],
+      "highlights": [
+        "h6"
+      ]
+    },
+    "move": "Bh6",
+    "practical": {
+      "after": "winning",
+      "before": "winning",
+      "decisiveness_changed": false,
+      "stayed_winning": true,
+      "winprob_delta": -0.046
+    },
+    "purposes": {
+      "attacks_opponent_piece": false,
+      "captures": false,
+      "develops": false,
+      "gives_check": false,
+      "pressures_king_ring": true
+    }
+  },
+  "caption_cause_conflicts": {
+    "caption_mentions_forcing_or_checks": {
+      "count": 23,
+      "pct_of_joined": 2.44
+    },
+    "distilled_missed_mate": {
+      "count": 1,
+      "pct_of_joined": 0.11
+    },
+    "forcing_language_without_best_check_or_capture": {
+      "count": 6,
+      "pct_of_joined": 0.64
+    },
+    "missed_mate_best_not_check_or_capture": {
+      "count": 1,
+      "pct_of_joined": 0.11
+    }
+  },
+  "cause_verification": {
+    "best_move_purpose_verified": {
+      "count": 465,
+      "pct_of_joined": 49.31
+    },
+    "best_purpose:adds_defender": {
+      "count": 193,
+      "pct_of_joined": 20.47
+    },
+    "best_purpose:moves_affected_piece": {
+      "count": 204,
+      "pct_of_joined": 21.63
+    },
+    "best_purpose:removes_attacker": {
+      "count": 68,
+      "pct_of_joined": 7.21
+    },
+    "best_purpose:unproved": {
+      "count": 448,
+      "pct_of_joined": 47.51
+    },
+    "failure:invalid_move": {
+      "count": 2,
+      "pct_of_joined": 0.21
+    },
+    "failure:no_legal_exchange_hang": {
+      "count": 28,
+      "pct_of_joined": 2.97
+    },
+    "verified": {
+      "count": 913,
+      "pct_of_joined": 96.82
+    }
+  },
+  "counts": {
+    "games": 813,
+    "join_failures": {
+      "missing_v5_game": 4
+    },
+    "joined_v5_events": 943,
+    "multi_event_games": 106,
+    "simple_hang_observations": 947
+  },
+  "database_writes": 0,
+  "deriver_identity": {
+    "coverage_pct": 0.0,
+    "current_schema_observations": 166417,
+    "observations_with_any_explicit_deriver_identity": 0
+  },
+  "detector_promotion_candidates": {
+    "ranking_rule": "shadow grade, then games reached, then users reached; quality evidence still controls promotion",
+    "top_20": [
+      {
+        "games": 1717,
+        "grade": "shadow",
+        "observations": 2303,
+        "quality_id": "gap:piece_safety:small_slip",
+        "users": 38
+      },
+      {
+        "games": 1533,
+        "grade": "shadow",
+        "observations": 1854,
+        "quality_id": "gap:piece_safety:tactical_seq_loss",
+        "users": 43
+      },
+      {
+        "games": 1498,
+        "grade": "shadow",
+        "observations": 2088,
+        "quality_id": "gap:king_safety:*",
+        "users": 39
+      },
+      {
+        "games": 992,
+        "grade": "shadow",
+        "observations": 1232,
+        "quality_id": "gap:missed_tactic:missed_generic_tactic",
+        "users": 40
+      },
+      {
+        "games": 915,
+        "grade": "shadow",
+        "observations": 1226,
+        "quality_id": "gap:king_safety:ignored_king_attack",
+        "users": 42
+      },
+      {
+        "games": 913,
+        "grade": "shadow",
+        "observations": 1033,
+        "quality_id": "gap:opening_knowledge:*",
+        "users": 43
+      },
+      {
+        "games": 736,
+        "grade": "shadow",
+        "observations": 1138,
+        "quality_id": "gap:tactical_oversight:generic_oversight",
+        "users": 37
+      },
+      {
+        "games": 709,
+        "grade": "shadow",
+        "observations": 800,
+        "quality_id": "gap:opening_knowledge:unverified_hint",
+        "users": 41
+      },
+      {
+        "games": 542,
+        "grade": "shadow",
+        "observations": 588,
+        "quality_id": "gap:missed_tactic:*",
+        "users": 34
+      },
+      {
+        "games": 493,
+        "grade": "shadow",
+        "observations": 830,
+        "quality_id": "gap:endgame_technique:generic_endgame_slip",
+        "users": 32
+      },
+      {
+        "games": 333,
+        "grade": "shadow",
+        "observations": 453,
+        "quality_id": "gap:piece_activity:unverified_hint",
+        "users": 18
+      },
+      {
+        "games": 309,
+        "grade": "shadow",
+        "observations": 357,
+        "quality_id": "gap:missed_tactic:missed_pin",
+        "users": 31
+      },
+      {
+        "games": 255,
+        "grade": "shadow",
+        "observations": 258,
+        "quality_id": "gap:king_safety:weakened_shelter",
+        "users": 32
+      },
+      {
+        "games": 254,
+        "grade": "shadow",
+        "observations": 277,
+        "quality_id": "gap:piece_safety:quiet_blunder",
+        "users": 26
+      },
+      {
+        "games": 236,
+        "grade": "shadow",
+        "observations": 296,
+        "quality_id": "gap:piece_activity:*",
+        "users": 13
+      },
+      {
+        "games": 225,
+        "grade": "shadow",
+        "observations": 230,
+        "quality_id": "gap:piece_safety:*",
+        "users": 33
+      },
+      {
+        "games": 215,
+        "grade": "shadow",
+        "observations": 269,
+        "quality_id": "gap:pawn_structure:generic_structure_slip",
+        "users": 12
+      },
+      {
+        "games": 197,
+        "grade": "shadow",
+        "observations": 218,
+        "quality_id": "gap:missed_tactic:missed_fork",
+        "users": 30
+      },
+      {
+        "games": 145,
+        "grade": "shadow",
+        "observations": 184,
+        "quality_id": "gap:endgame_technique:*",
+        "users": 29
+      },
+      {
+        "games": 145,
+        "grade": "shadow",
+        "observations": 151,
+        "quality_id": "gap:opening_knowledge:tempo_wasted_by_repeat",
+        "users": 28
+      }
+    ]
+  },
+  "distributions": {
+    "cp_loss": {
+      "median": 453.0,
+      "p25": 322.0,
+      "p75": 638.5,
+      "p90": 891.0
+    },
+    "winprob_loss": {
+      "median": 0.244,
+      "p25": 0.165,
+      "p75": 0.335,
+      "p90": 0.469
+    }
+  },
+  "engine_runs": 0,
+  "generated_at": "2026-09-01",
+  "llm_calls": 0,
+  "locks": {
+    "best_move_purpose": "Name a best-move purpose only when it moves the affected piece, removes the exact attacker, or adds a defender; otherwise abstain.",
+    "cause": "A simple_hang visible cause requires a legal stored-PV capture of the exact undefended player piece; each named square and piece is rebuilt from the board.",
+    "deriver_identity": "Use a versioned manifest hash covering detector implementation plus semantic dependencies, stored alongside the human-readable semantic version.",
+    "practical_framing": "Use mover_state_before/after, decisiveness_changed, stayed_winning, and mover_winprob_delta; raw cp_loss never supplies turning-point language by itself.",
+    "ranking": "Keep the deployed ranking for visible V1; measure practical-state candidates in validation because proxy metrics cannot establish coaching importance.",
+    "reflection": "Offer only independently board-possible purposes plus not_sure and none_of_these; self-report does not mutate board truth."
+  },
+  "moment_ranking_bakeoff": {
+    "candidate_metrics": {
+      "D_teaching_then_critical": {
+        "games": 106,
+        "mean_selected_cp_loss": 1212.53,
+        "mean_selected_winprob_loss": 0.3372,
+        "selected_decisiveness_changed_pct": 83.02,
+        "selected_stayed_winning_pct": 1.89
+      },
+      "E_transition_then_teaching": {
+        "games": 106,
+        "mean_selected_cp_loss": 874.84,
+        "mean_selected_winprob_loss": 0.3419,
+        "selected_decisiveness_changed_pct": 91.51,
+        "selected_stayed_winning_pct": 0.0
+      },
+      "F_teaching_then_transition": {
+        "games": 106,
+        "mean_selected_cp_loss": 874.84,
+        "mean_selected_winprob_loss": 0.3419,
+        "selected_decisiveness_changed_pct": 91.51,
+        "selected_stayed_winning_pct": 0.0
+      }
+    },
+    "final_formula_locked": false,
+    "pairwise_disagreement": {
+      "D_teaching_then_critical__vs__E_transition_then_teaching": {
+        "common_games": 106,
+        "different_top_event_pct": 12.26
+      },
+      "D_teaching_then_critical__vs__F_teaching_then_transition": {
+        "common_games": 106,
+        "different_top_event_pct": 12.26
+      },
+      "E_transition_then_teaching__vs__F_teaching_then_transition": {
+        "common_games": 106,
+        "different_top_event_pct": 0.0
+      }
+    },
+    "population": "games with at least two joined current-schema simple_hang events",
+    "reason_not_locked": "No independent human importance labels exist for this population; candidates must enter blinded validation rather than be promoted by proxy metrics."
+  },
+  "practical_state": {
+    "decisiveness_changed": {
+      "count": 715,
+      "pct_of_joined": 75.82
+    },
+    "severity:blunder": {
+      "count": 459,
+      "pct_of_joined": 48.67
+    },
+    "severity:good": {
+      "count": 2,
+      "pct_of_joined": 0.21
+    },
+    "severity:inaccuracy": {
+      "count": 18,
+      "pct_of_joined": 1.91
+    },
+    "severity:mistake": {
+      "count": 96,
+      "pct_of_joined": 10.18
+    },
+    "severity:serious": {
+      "count": 368,
+      "pct_of_joined": 39.02
+    },
+    "state:balanced->balanced": {
+      "count": 16,
+      "pct_of_joined": 1.7
+    },
+    "state:balanced->losing": {
+      "count": 417,
+      "pct_of_joined": 44.22
+    },
+    "state:losing->losing": {
+      "count": 188,
+      "pct_of_joined": 19.94
+    },
+    "state:winning->balanced": {
+      "count": 124,
+      "pct_of_joined": 13.15
+    },
+    "state:winning->losing": {
+      "count": 174,
+      "pct_of_joined": 18.45
+    },
+    "state:winning->winning": {
+      "count": 24,
+      "pct_of_joined": 2.55
+    },
+    "stayed_winning": {
+      "count": 24,
+      "pct_of_joined": 2.55
+    }
+  },
+  "privacy": {
+    "aggregate_only_except_approved_regression": true,
+    "contains_credentials": false,
+    "contains_user_ids": false
+  },
+  "provenance": {
+    "measurement_script_sha256": "8e3acbec3dd6398cc0075de0dc2da89c83ae9dc6ded07c68617659eb3e30aa08"
+  },
+  "read_only": true,
+  "reflection_purpose_coverage": {
+    "attack_option_coverage_gap": {
+      "count": 464,
+      "pct_of_joined": 49.2
+    },
+    "board_possible_attack_intent": {
+      "count": 734,
+      "pct_of_joined": 77.84
+    },
+    "current_attack_option_shown": {
+      "count": 339,
+      "pct_of_joined": 35.95
+    },
+    "purpose:attacks_opponent_piece": {
+      "count": 694,
+      "pct_of_joined": 73.59
+    },
+    "purpose:captures": {
+      "count": 1,
+      "pct_of_joined": 0.11
+    },
+    "purpose:develops": {
+      "count": 110,
+      "pct_of_joined": 11.66
+    },
+    "purpose:gives_check": {
+      "count": 0,
+      "pct_of_joined": 0.0
+    },
+    "purpose:pressures_king_ring": {
+      "count": 291,
+      "pct_of_joined": 30.86
+    }
+  },
+  "schema_version": "personalized_game_review_quality_v2.data_lock.v1"
+}

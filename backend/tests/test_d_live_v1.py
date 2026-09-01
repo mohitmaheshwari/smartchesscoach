@@ -6,9 +6,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from services.move_observation_deriver import (
+    DERIVER_SEMANTIC_VERSION,
     D_LIVE_FACT_VERSION,
     SCHEMA_VERSION,
     _derive_d_live_fact,
+    current_deriver_identity,
     derive_observations_for_game,
 )
 
@@ -89,5 +91,28 @@ def test_game_derivation_embeds_exact_versioned_fact():
 
     assert len(observations) == 1
     assert observations[0]["schema_version"] == 17
+    assert observations[0]["deriver_identity"] == current_deriver_identity()
     assert observations[0]["piece_safety_decision"]["version"] == D_LIVE_FACT_VERSION
     assert observations[0]["piece_safety_decision"]["outcome"] == "miss"
+
+
+def test_deriver_identity_is_deterministic_complete_and_defensively_copied():
+    first = current_deriver_identity()
+    second = current_deriver_identity()
+
+    assert first == second
+    assert first is not second
+    assert first["semantic_version"] == DERIVER_SEMANTIC_VERSION
+    assert first["schema_version"] == SCHEMA_VERSION
+    assert len(first["manifest_sha256"]) == 64
+    assert set(first["dependencies"]) == {
+        "move_observation_deriver",
+        "material_safety",
+        "opponent_threat",
+    }
+    assert all(
+        len(item["sha256"]) == 64
+        for item in first["dependencies"].values()
+    )
+    first["manifest_sha256"] = "mutated"
+    assert current_deriver_identity()["manifest_sha256"] != "mutated"

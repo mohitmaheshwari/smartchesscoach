@@ -55,7 +55,9 @@ import {
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { API } from "@/App";
-import PersonalizedReviewCoach from "@/components/review/PersonalizedReviewCoach";
+import PersonalizedReviewCoach, {
+  boardArrowsForReviewVisual,
+} from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
 
 /**
@@ -1196,7 +1198,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               if (Number.isInteger(moveIndex)) goToMove(moveIndex);
             }}
             onShowVisual={(visual) => {
-              setArrows((visual?.arrows || []).map(([from, to]) => [from, to, "amber"]));
+              setArrows(boardArrowsForReviewVisual(visual));
               setHighlights(visual?.highlights || []);
             }}
             onNavigate={(href) => navigate(href)}

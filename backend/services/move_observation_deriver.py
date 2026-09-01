@@ -16,6 +16,10 @@ Usage (pure function):
     # obs_list is a list of dicts, one per user move.
 """
 from datetime import datetime, timezone
+from functools import lru_cache
+import hashlib
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 SCHEMA_VERSION = 17  # v17 (2026-08-25): additive piece_safety.d_live.v1 fact.
@@ -26,6 +30,48 @@ SCHEMA_VERSION = 17  # v17 (2026-08-25): additive piece_safety.d_live.v1 fact.
 D_LIVE_FACT_VERSION = "piece_safety.d_live.v1"
 D_LIVE_SEE_FLOOR_CP = 150
 D_LIVE_CP_LOSS_FLOOR = 150
+DERIVER_SEMANTIC_VERSION = "move_observation_deriver.17.1"
+
+
+@lru_cache(maxsize=1)
+def _deriver_identity_json() -> str:
+    """Return the canonical semantic manifest once per process."""
+    backend_root = Path(__file__).resolve().parent.parent
+    dependency_paths = {
+        "move_observation_deriver": Path(__file__).resolve(),
+        "material_safety": backend_root
+        / "coach_play"
+        / "coach_blunder_guard.py",
+        "opponent_threat": backend_root
+        / "services"
+        / "opponent_threat_detector.py",
+    }
+    dependencies = {}
+    for name, path in sorted(dependency_paths.items()):
+        dependencies[name] = {
+            "path": path.relative_to(backend_root).as_posix(),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+    manifest = {
+        "semantic_version": DERIVER_SEMANTIC_VERSION,
+        "schema_version": SCHEMA_VERSION,
+        "dependencies": dependencies,
+    }
+    canonical = json.dumps(
+        manifest,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    identity = {
+        **manifest,
+        "manifest_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    }
+    return json.dumps(identity, sort_keys=True, separators=(",", ":"))
+
+
+def current_deriver_identity() -> Dict[str, Any]:
+    """Return a defensive copy of the current deterministic identity."""
+    return json.loads(_deriver_identity_json())
 
 
 # ---------------- Small helpers -----------------------------------------
@@ -703,6 +749,7 @@ def derive_observations_for_game(
             "color": user_color,
             "derived_at": derived_at,
             "schema_version": SCHEMA_VERSION,
+            "deriver_identity": current_deriver_identity(),
 
             # Position context
             "fen_before": mv.get("fen_before"),

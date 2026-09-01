@@ -49,14 +49,27 @@ def test_plan_and_mastery_stay_unauthorized():
     assert not is_authorized(QUALITY_ID, QualitySurface.MASTERY)
 
 
-def test_it_is_the_only_caption_authorised_detector():
-    caption = [
+def test_caption_surface_admits_only_evidence_backed_ids():
+    """Nothing reaches captions without its own reviewed promotion packet.
+
+    Updated 2026-09-01: Quality V2 added review:verified_single_game_cause,
+    promoted against the same locked bar (70/70 reviewed positives, Wilson
+    lower bound ~94.8%, 30/30 abstentions, zero critical false claims). The
+    guard's purpose is that every caption-authorised id is listed here
+    deliberately -- not that the list has exactly one entry.
+    """
+    allowed = {
+        QUALITY_ID,
+        "review:verified_single_game_cause",
+    }
+    caption = {
         qid for qid in explicit_authorizations()
         if is_authorized(qid, QualitySurface.CAPTION)
-    ]
-    assert caption == [QUALITY_ID], (
-        "another detector reached the caption surface without its own packet: "
-        f"{caption}"
+    }
+    unexpected = caption - allowed
+    assert not unexpected, (
+        "a detector reached the caption surface without being listed here; "
+        f"add it only with its evidence packet: {sorted(unexpected)}"
     )
 
 

@@ -1,5 +1,5 @@
 {
-  "description": "Promotion ladder priority — encodes the order in which V5 service tries the promoted (non-R-rule) caption sources. First entry whose `when` matches the facts wins. Tier 1 entries (trap_setup, trap_defense, opening) OVERRIDE any existing caption. Tier 2 entries (shape, principle, basic_mistake) FILL only when caption_empty=true. The `source_template` is the rule_name suffix written into the move record so authoring tools can attribute each fired caption to a specific rule.",
+  "description": "Promotion ladder priority — encodes the order in which V5 service tries the promoted (non-R-rule) caption sources. First entry whose `when` matches the facts wins. Trap events may own the move caption. Opening knowledge enriches elsewhere and fills the move caption only when no concrete move explanation exists. Shape, principle and basic-mistake paths also fill only when caption_empty=true. The `source_template` is the rule_name suffix written into the move record so authoring tools can attribute each fired caption to a specific rule.",
   "fact_glossary": {
     "caption_empty": "true when the R-rule layer left no caption — gates the Tier 2 fill paths",
     "is_user": "true when the just-moved side is the user",
@@ -49,17 +49,17 @@
     },
     {
       "rule": "R_PROMOTED_opening",
-      "when": {"opening_record.name": "present", "opening_record.summary": "present"},
+      "when": {"caption_empty": true, "opening_record.name": "present", "opening_record.summary": "present"},
       "source_template": "R_PROMOTED_opening:{opening_name_slug}"
     },
     {
       "rule": "R_PROMOTED_opening_intro",
-      "when": {"opening_theory_name": "present"},
+      "when": {"caption_empty": true, "opening_theory_name": "present"},
       "source_template": "R_PROMOTED_opening_intro:theory"
     },
     {
       "rule": "R_PROMOTED_opening_intro",
-      "when": {"opening_intro_idea": "present"},
+      "when": {"caption_empty": true, "opening_intro_idea": "present"},
       "source_template": "R_PROMOTED_opening_intro"
     },
     {
