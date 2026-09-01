@@ -4,9 +4,13 @@
 FROM python:3.11-slim
 
 # Install system dependencies including Stockfish chess engine
+# build-essential is required: maia2/otter-chess pull in fastchess, which
+# has no wheel for this platform and compiles from source. Without gcc the
+# image build fails at `pip install -r requirements-human-policy.txt`.
 RUN apt-get update && apt-get install -y \
     stockfish \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
