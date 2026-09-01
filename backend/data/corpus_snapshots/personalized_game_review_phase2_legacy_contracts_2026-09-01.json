@@ -1,0 +1,65 @@
+{
+  "snapshot_version": "personalized_game_review.phase2.legacy_contracts.v1",
+  "captured_at": "2026-09-01T00:00:00+00:00",
+  "purpose": "Synthetic, credential-free response fixtures captured before Phase 2 adapter wiring. These preserve public response shape; they are not chess-content authority.",
+  "sources": {
+    "game_review": "backend/routes/coach.py:get_game_decryption_v5",
+    "reflect_quick_tags": "backend/routes/reflect.py:get_quick_tags_v1",
+    "reflect_submit": "backend/routes/reflect.py:submit_reflection_v1",
+    "play_with_coach": "backend/routes/coach_play.py:get_move_feedback"
+  },
+  "fixtures": {
+    "game_review_complete": {
+      "decryption_data": [
+        {
+          "move_number": 1,
+          "move_san": "e4",
+          "is_user_move": true,
+          "caption": "You claimed space in the centre.",
+          "rule_name": "R_GOOD_MOVE",
+          "caption_arrows": [],
+          "caption_highlight_squares": [],
+          "principle_id_used": null,
+          "caption_explanation": null
+        }
+      ],
+      "status": "complete",
+      "generated_at": "2026-09-01T00:00:00+00:00",
+      "concepts_to_acknowledge": [],
+      "habits_report": null,
+      "cct_narrative": null,
+      "truth_line": null,
+      "player_decryption": null,
+      "decryption_block": null,
+      "pattern_evidence": null,
+      "motif_blindspot": null
+    },
+    "reflect_quick_tags": {
+      "tags": [
+        {"id": "played_fast", "label": "I played too fast", "priority": 3},
+        {"id": "not_sure", "label": "Not sure what to do", "priority": 1}
+      ],
+      "shown_tag_ids": ["played_fast", "not_sure"],
+      "max_selections": 3,
+      "neutral_option_id": "not_sure",
+      "intent_options": [],
+      "confidence_options": [],
+      "max_quick_tags": 5,
+      "friction_budget_taps": 3,
+      "rule_version": "v1"
+    },
+    "reflect_submit": {
+      "success": true,
+      "reflection_id": "r_fixture",
+      "awareness_gap": {"gap_type": "unknown", "reason_codes": []},
+      "reward": "Reflection saved."
+    },
+    "play_with_coach_feedback": {
+      "feedback": {
+        "coaching_message": "Before you move on, check every piece once.",
+        "severity": "mistake"
+      }
+    },
+    "play_with_coach_feedback_empty": {"feedback": null}
+  }
+}

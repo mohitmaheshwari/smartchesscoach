@@ -43,6 +43,7 @@ def set_db(database):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from services.access_scope import user_scope_filter
 
 # Import reflection services (note: these are in the backend root, not services/)
 from reflect_service import (
@@ -133,6 +134,17 @@ class ReflectSessionSubmitRequest(BaseModel):
     move_number: int = 0
     completed_in_seconds: int = 0
     game_ended_at: Optional[str] = None
+
+
+class GameReviewEventReflectionRequest(BaseModel):
+    """Options-only response to a server-stored Game Review prompt."""
+    game_id: str
+    event_id: str
+    prompt_id: str
+    shown_option_ids: List[str]
+    selected_option_id: str
+    elapsed_ms: int = 0
+    answered_before_reveal: bool = True
 
 
 # ==================== CORE ENDPOINTS ====================
@@ -503,6 +515,95 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
         "is_fresh": is_fresh,
         "freshness_badge": "Fresh Memory" if is_fresh else None,
     }
+
+
+@router.post("/v2/game-review-event")
+async def submit_game_review_event_reflection(
+    data: GameReviewEventReflectionRequest,
+    user: User = Depends(get_current_user),
+):
+    """Store one answer against the exact authorized prompt the user saw."""
+    global db
+    from services.game_review_contracts import (
+        ReviewContractViolation,
+        personalized_game_review_access,
+    )
+    from services.review_reflection_service import (
+        build_document_from_stored_contracts,
+        public_reflection_receipt,
+        store_event_reflection,
+    )
+
+    review_user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "feature_flags.personalized_game_review_coach": 1},
+    ) or {}
+    if not personalized_game_review_access(review_user_doc).enabled:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    owned_game = await db.games.find_one(
+        {"game_id": data.game_id, **user_scope_filter(user)},
+        {"_id": 0, "game_id": 1},
+    )
+    if not owned_game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": data.game_id},
+        {"_id": 0, "decryption_v5_data": 1},
+    )
+    stored_event = None
+    stored_prompt = None
+    for move in (analysis or {}).get("decryption_v5_data") or []:
+        candidate_event = move.get("teachable_event") or {}
+        candidate_prompt = move.get("reflection_prompt") or {}
+        if (
+            candidate_event.get("event_id") == data.event_id
+            and candidate_prompt.get("prompt_id") == data.prompt_id
+        ):
+            stored_event = candidate_event
+            stored_prompt = candidate_prompt
+            break
+    if stored_event is None or stored_prompt is None:
+        raise HTTPException(status_code=404, detail="Reflection prompt not found")
+
+    try:
+        document = build_document_from_stored_contracts(
+            user_id=user.user_id,
+            game_id=data.game_id,
+            event_contract=stored_event,
+            prompt_contract=stored_prompt,
+            shown_option_ids=data.shown_option_ids,
+            selected_option_id=data.selected_option_id,
+            elapsed_ms=data.elapsed_ms,
+            answered_before_reveal=data.answered_before_reveal,
+        )
+    except ReviewContractViolation as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    stored = await store_event_reflection(db.reflection_sessions, document)
+    try:
+        from services.review_learning_adapter import (
+            build_shadow_learning_event,
+            lesson_result_from_review_reflection,
+            store_shadow_lesson_results,
+        )
+        _lesson_result = lesson_result_from_review_reflection(stored)
+        _learning_event = build_shadow_learning_event(
+            _lesson_result,
+            origin="game_review_reflection",
+        )
+        await store_shadow_lesson_results(
+            db.learning_sessions,
+            user_id=user.user_id,
+            events=(_learning_event,),
+        )
+    except Exception as _learning_exc:
+        logger.warning(
+            "[review-learning-shadow] reflection adaptation failed: %s",
+            _learning_exc,
+        )
+    return public_reflection_receipt(stored)
 
 
 @router.get("/v1/post-loss/{game_id}")

@@ -44,6 +44,15 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from services.engine2_skill_builder import _load_tree
+from services.personal_curriculum import (
+    ContractViolation,
+    LessonResult,
+    PIC_CANONICAL_SOURCE,
+    PIC_CONTENT_ID,
+    PIC_CONTENT_KIND,
+    PIC_SKILL_ID,
+    StudentState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +67,6 @@ STALE_DAYS = 30
 # learned_at is older — they're keeping it sharp.
 RECENT_REINFORCEMENT_DAYS = 14
 
-PIC_SKILL_ID = "piece_safety_simple_hang"
 PIC_STATE_LABELS = {
     "learning": "Learning",
     "remembered": "Remembered",
@@ -222,6 +230,110 @@ async def get_pic_mastery_projection(
             ),
         })
     return reduce_pic_mastery(events, diagnosed=diagnosed)
+
+
+_SHADOW_STATE_ORDER = {
+    StudentState.NEW: 0,
+    StudentState.LEARNING: 1,
+    StudentState.CAN_DO_WITH_HELP: 2,
+    StudentState.CAN_DO_ALONE: 3,
+    StudentState.USED_IN_GAMES: 4,
+}
+
+
+def reduce_review_learning_shadow(
+    events: Iterable[Dict[str, Any]],
+    *,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Project canonical LessonResult events without changing visible mastery."""
+    state = StudentState.LEARNING if diagnosed else StudentState.NEW
+    accepted = 0
+    rejected = 0
+    by_attempt: Dict[str, int] = {}
+    source_event_ids = set()
+
+    for event in sorted(
+        list(events or []),
+        key=lambda item: str(item.get("occurred_at") or ""),
+    ):
+        if (
+            event.get("event_type") not in ("lesson_result", "answer_submitted")
+            or event.get("rollout_mode") != "shadow"
+        ):
+            continue
+        try:
+            result = LessonResult.from_event_dict(
+                event.get("lesson_result") or {}
+            )
+        except (ContractViolation, TypeError, ValueError):
+            rejected += 1
+            continue
+        if (
+            result.content_kind != PIC_CONTENT_KIND
+            or result.content_id != PIC_CONTENT_ID
+            or result.canonical_source != PIC_CANONICAL_SOURCE
+        ):
+            rejected += 1
+            continue
+        if (
+            not result.source_event_id
+            or result.source_event_id in source_event_ids
+        ):
+            rejected += 1
+            continue
+        source_event_ids.add(result.source_event_id)
+        accepted += 1
+        by_attempt[result.attempt_kind.value] = (
+            by_attempt.get(result.attempt_kind.value, 0) + 1
+        )
+        earned = result.earned_state()
+        if (
+            earned is not None
+            and _SHADOW_STATE_ORDER[earned] > _SHADOW_STATE_ORDER[state]
+        ):
+            state = earned
+
+    return {
+        "skill_id": PIC_SKILL_ID,
+        "rollout_mode": "shadow",
+        "state": state.value,
+        "visible_mastery_changed": False,
+        "evidence": {
+            "accepted_events": accepted,
+            "rejected_events": rejected,
+            "by_attempt": dict(sorted(by_attempt.items())),
+        },
+    }
+
+
+async def get_review_learning_shadow_comparison(
+    db,
+    user_id: str,
+    *,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Compare the inherited PIC projection to review evidence, privately."""
+    events: List[Dict[str, Any]] = []
+    sessions = db.learning_sessions.find(
+        {
+            "user_id": user_id,
+            "skill_id": PIC_SKILL_ID,
+        },
+        {"_id": 0, "events": 1},
+    )
+    async for session in sessions:
+        events.extend(session.get("events") or [])
+    return {
+        "schema_version": "review_learning_shadow_comparison.v1",
+        "current_projection": await get_pic_mastery_projection(
+            db, user_id, diagnosed=diagnosed
+        ),
+        "review_shadow_projection": reduce_review_learning_shadow(
+            events, diagnosed=diagnosed
+        ),
+        "visible_mastery_changed": False,
+    }
 
 
 def _parse_iso(ts: Optional[str]) -> Optional[datetime]:

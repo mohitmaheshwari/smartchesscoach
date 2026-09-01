@@ -1448,6 +1448,8 @@ def process_job(db, job):
             mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
             db_name = os.environ.get("DB_NAME", "chess_coach")
 
+            _game_teaching_plan = {}
+
             async def _run_v5_for_new_game():
                 async_client = AsyncIOMotorClient(mongo_url)
                 async_db = async_client[db_name]
@@ -1463,6 +1465,7 @@ def process_job(db, job):
                         # get best_move + PV on first analysis (the doc isn't
                         # in db yet here, so the fallback query would miss).
                         opponent_move_evaluations=stockfish_result.get("opponent_moves", []),
+                        game_teaching_plan_output=_game_teaching_plan,
                     )
                 finally:
                     async_client.close()
@@ -1472,6 +1475,8 @@ def process_job(db, job):
                 analysis_doc["decryption_v5_data"] = v5_data
                 analysis_doc["decryption_v5_version"] = V5_COACHING_VERSION
                 analysis_doc["decryption_v5_generated_at"] = datetime.now(timezone.utc).isoformat()
+                if _game_teaching_plan:
+                    analysis_doc["game_teaching_plan"] = _game_teaching_plan
                 logger.info(f"[V5] Generated {len(v5_data)} move records for {game_id}")
             else:
                 logger.warning(f"[V5] Empty result for {game_id} (non-fatal)")
@@ -1812,6 +1817,45 @@ def process_job(db, job):
                     )
             except Exception as pic_err:
                 logger.warning(f"[PIC] Evidence write failed (non-fatal): {pic_err}")
+
+            # Phase 4: append only verified positive simple-hang misses to the
+            # existing learning ledger. Handled/clean games are deliberately
+            # absent until the independent application proof rule is locked.
+            # The nested LessonResult remains shadow-only and cannot alter the
+            # current mastery projection.
+            try:
+                from services.review_learning_adapter import (
+                    application_results_from_observations,
+                    build_shadow_learning_event,
+                    store_shadow_lesson_results_sync,
+                )
+                _application_results = application_results_from_observations(
+                    game_id=game_id,
+                    observations=obs_list,
+                    occurred_at=(
+                        game.get("date_played")
+                        or game.get("imported_at")
+                        or datetime.now(timezone.utc)
+                    ),
+                )
+                if _application_results:
+                    _application_events = [
+                        build_shadow_learning_event(
+                            result,
+                            origin="external_game_observation",
+                        )
+                        for result in _application_results
+                    ]
+                    store_shadow_lesson_results_sync(
+                        db.learning_sessions,
+                        user_id=user_id,
+                        events=_application_events,
+                    )
+            except Exception as learning_err:
+                logger.warning(
+                    "[review-learning-shadow] application adaptation failed: %s",
+                    learning_err,
+                )
 
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE

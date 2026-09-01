@@ -24,6 +24,20 @@ CURRICULUM_SCHEMA_VERSION = "personal_curriculum.v1"
 LESSON_RESULT_SCHEMA_VERSION = "lesson_result.v2"
 CURRICULUM_SURFACE_SCHEMA_VERSION = "personal_curriculum.surface.v1"
 ROLLOUT_ROLES_ENV = "PERSONAL_CURRICULUM_ROLES"
+PIC_SKILL_ID = "piece_safety_simple_hang"
+
+PIC_CONTENT_KIND = "concept"
+
+PIC_CONTENT_ID = "piece_safety.simple_hang"
+
+PIC_CANONICAL_SOURCE = "personal_curriculum.piece_safety.v1"
+
+# Version of the canonical PIC concept identity above. LessonResult v2
+# requires the content version to travel with every evidence event so stored
+# attempts cannot silently attach to a later lesson revision.
+PIC_CONTENT_VERSION = "1"
+
+PIC_LESSON_ID = "pic-piece-safety-v1"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
@@ -990,6 +1004,8 @@ class LessonResult:
             raise ContractViolation("stage must be a TeachingStage")
         if not isinstance(self.source_type, EvidenceSourceType):
             raise ContractViolation("source_type must be an EvidenceSourceType")
+        if self.source_event_id is not None:
+            _require_text(self.source_event_id, "source_event_id")
         if self.attempt_kind in (
             AttemptKind.GUIDED,
             AttemptKind.INDEPENDENT,
@@ -1105,3 +1121,72 @@ class LessonResult:
             "source_event_id": self.source_event_id,
             "earned_state": earned.value if earned else None,
         }
+
+    @classmethod
+    def from_event_dict(cls, payload: Mapping[str, Any]) -> "LessonResult":
+        """Rehydrate stored evidence and reject forged earned-state claims."""
+        if payload.get("schema_version") != LESSON_RESULT_SCHEMA_VERSION:
+            raise ContractViolation("unsupported lesson result schema")
+        lesson = payload.get("lesson")
+        attempt = payload.get("attempt")
+        application = payload.get("application")
+        if not all(isinstance(item, Mapping) for item in (lesson, attempt, application)):
+            raise ContractViolation("lesson result sections are incomplete")
+        occurred_at = str(payload.get("occurred_at") or "")
+        try:
+            parsed_at = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise ContractViolation("lesson result occurred_at is invalid") from exc
+        try:
+            provenance = payload.get("provenance")
+            if not isinstance(provenance, Mapping):
+                provenance = {}
+            result = cls(
+                content_kind=str(lesson.get("kind") or ""),
+                content_id=str(lesson.get("id") or ""),
+                canonical_source=str(lesson.get("canonical_source") or ""),
+                content_version=str(lesson.get("content_version") or ""),
+                skill_id=lesson.get("skill_id"),
+                primary_skill_id=lesson.get("primary_skill_id"),
+                attempt_kind=AttemptKind(str(attempt.get("kind") or "")),
+                occurred_at=parsed_at,
+                stage=TeachingStage(str(attempt.get("stage") or "")),
+                correct=attempt.get("correct"),
+                assistance=tuple(
+                    AssistanceKind(str(item))
+                    for item in (attempt.get("assistance") or [])
+                ),
+                requested_help=tuple(
+                    HelpAction(str(item))
+                    for item in (attempt.get("requested_help") or [])
+                ),
+                position_id=attempt.get("position_id"),
+                board_verified=bool(attempt.get("board_verified")),
+                distinct_position=bool(attempt.get("distinct_position")),
+                prediction_correct=attempt.get("prediction_correct"),
+                reason_choice=attempt.get("reason_choice"),
+                reasoning_consistent=attempt.get("reasoning_consistent"),
+                misconception=attempt.get("misconception"),
+                corrective_action=attempt.get("corrective_action"),
+                grader_version=attempt.get("grader_version"),
+                source_type=EvidenceSourceType(
+                    str(application.get("source_type") or "")
+                ),
+                application_outcome=ApplicationOutcome(
+                    str(application.get("outcome") or "")
+                ),
+                detector_quality_id=application.get("detector_quality_id"),
+                detector_version=application.get("detector_version"),
+                evidence_owner=provenance.get("owner"),
+                evidence_ref=provenance.get("ref"),
+                time_control=application.get("time_control"),
+                under_time_pressure=application.get("under_time_pressure"),
+                source_event_id=payload.get("source_event_id"),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ContractViolation("lesson result enum value is invalid") from exc
+        earned = result.earned_state()
+        recomputed = earned.value if earned else None
+        if payload.get("earned_state") != recomputed:
+            raise ContractViolation("stored earned_state does not match evidence")
+        return result

@@ -1,0 +1,314 @@
+{
+  "snapshot_id": "personalized_game_review_phase0_2026-09-01",
+  "schema_version": 1,
+  "generated_at": "2026-09-01",
+  "purpose": "Aggregate-only evidence lock for the personalized game review coach. This is an audit snapshot, not a chess-content authority.",
+  "privacy": {
+    "production_query_mode": "aggregate_only",
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_fens": false,
+    "contains_moves": false,
+    "contains_credentials": false
+  },
+  "production_corpus": {
+    "users": 120,
+    "games": 14542,
+    "game_analyses": 13877,
+    "move_observations_at_initial_count": 437462,
+    "move_observations_at_detector_query": 437545,
+    "learning_sessions": 3,
+    "reflection_sessions": 0,
+    "notes": [
+      "The production corpus is live, so counts moved slightly between aggregate queries.",
+      "Zero reflection sessions means no production behavior can yet justify a final question budget or reflection completion threshold."
+    ]
+  },
+  "stored_v5_review_sweep": {
+    "games": 13630,
+    "user_moves": 437022,
+    "per_game": {
+      "user_mistakes": {
+        "mean": 6.27,
+        "median": 5,
+        "p25": 3,
+        "p75": 8.75,
+        "p90": 13,
+        "max": 42,
+        "zero_pct": 5.2
+      },
+      "teaching_moves": {
+        "mean": 12.28,
+        "median": 11,
+        "p25": 7,
+        "p75": 16,
+        "p90": 22,
+        "max": 60,
+        "zero_pct": 0.1
+      },
+      "concept_rich_raw": {
+        "mean": 24.6,
+        "median": 23,
+        "p25": 16,
+        "p75": 31,
+        "p90": 41,
+        "max": 91,
+        "zero_pct": 0
+      },
+      "reflection_structural_candidates": {
+        "mean": 1.88,
+        "median": 2,
+        "p25": 0,
+        "p75": 3,
+        "p90": 4,
+        "max": 11,
+        "zero_pct": 25.9
+      },
+      "legacy_selected_moments": {
+        "mean": 0.02,
+        "median": 0,
+        "p90": 0,
+        "max": 4,
+        "zero_pct": 99.1
+      },
+      "positive_demonstrations": {
+        "mean": 12.76,
+        "median": 12,
+        "p25": 7,
+        "p75": 17,
+        "p90": 23,
+        "max": 62,
+        "zero_pct": 0.4
+      },
+      "opening_events_raw": {
+        "mean": 29.9,
+        "median": 28,
+        "p25": 18,
+        "p75": 40,
+        "p90": 55,
+        "max": 121,
+        "zero_pct": 5.3
+      },
+      "trap_events_raw": {
+        "mean": 0.04,
+        "median": 0,
+        "p90": 0,
+        "max": 5,
+        "zero_pct": 97.6
+      },
+      "endgame_events_raw": {
+        "mean": 7.94,
+        "median": 3,
+        "p25": 0,
+        "p75": 13,
+        "p90": 24,
+        "max": 79,
+        "zero_pct": 39.7
+      },
+      "personal_connections_legacy": {
+        "mean": 0.01,
+        "median": 0,
+        "p90": 0,
+        "max": 5,
+        "zero_pct": 99.1
+      }
+    },
+    "at_least_k_pct": {
+      "user_mistakes": {
+        "1": 94.8,
+        "2": 87.3,
+        "3": 78.2,
+        "4": 67.8,
+        "5": 57.4,
+        "6": 47.3
+      },
+      "reflection_structural_candidates": {
+        "1": 74.1,
+        "2": 51.3,
+        "3": 30.9,
+        "4": 16.9,
+        "5": 8.6,
+        "6": 3.8
+      },
+      "concept_rich_raw": {
+        "1": 100.0,
+        "2": 100.0,
+        "3": 99.8,
+        "4": 99.6,
+        "5": 99.2,
+        "6": 98.4
+      }
+    },
+    "interpretation": [
+      "Raw principle, shape and phase fields are abundant but are not equivalent to authorized player-facing claims.",
+      "Legacy selected moments and personal connections are effectively absent from stored production reviews.",
+      "A three-question reflection requirement would structurally exclude 69.1% of current reviews before behavior is considered."
+    ]
+  },
+  "move_observation_sweep": {
+    "games_with_observations": 13665,
+    "users_with_observations": 56,
+    "schema_versions": {
+      "9": 2555,
+      "11": 12,
+      "12": 43,
+      "15": 268968,
+      "16": 149886,
+      "17": 16081
+    },
+    "plan_authorized_simple_hang": {
+      "events": 2087,
+      "games": 1825,
+      "users": 54,
+      "game_reach_pct": 13.4,
+      "user_reach_pct": 96.4,
+      "events_by_schema": {
+        "9": 19,
+        "12": 2,
+        "15": 1124,
+        "16": 858,
+        "17": 84
+      },
+      "per_game_including_zero": {
+        "mean": 0.153,
+        "median": 0,
+        "p75": 0,
+        "p90": 1,
+        "max": 4,
+        "at_least_1_pct": 13.4,
+        "at_least_2_pct": 1.6,
+        "at_least_3_pct": 0.3
+      },
+      "per_affected_game": {
+        "mean": 1.144,
+        "median": 1,
+        "p75": 1,
+        "p90": 2,
+        "max": 4
+      },
+      "per_user_including_zero": {
+        "median": 16,
+        "p25": 5,
+        "p75": 53.25,
+        "p90": 103.5,
+        "max": 207
+      },
+      "interpretation": "The detector has broad longitudinal user reach but sparse per-game reach. It can support recurrence and a piece-safety plan; it cannot by itself populate a rich multi-chapter game review."
+    },
+    "top_named_subtypes": [
+      {"subtype": "small_slip", "events": 8125, "games": 5457, "users": 53},
+      {"subtype": "tactical_seq_loss", "events": 5540, "games": 4316, "users": 55},
+      {"subtype": "unverified_hint", "events": 5150, "games": 3877, "users": 54},
+      {"subtype": "generic_oversight", "events": 3521, "games": 2238, "users": 52},
+      {"subtype": "missed_generic_tactic", "events": 3218, "games": 2553, "users": 55},
+      {"subtype": "ignored_king_attack", "events": 3139, "games": 2359, "users": 55},
+      {"subtype": "simple_hang", "events": 2087, "games": 1825, "users": 54},
+      {"subtype": "generic_structure_slip", "events": 1791, "games": 1493, "users": 43},
+      {"subtype": "generic_endgame_slip", "events": 1768, "games": 1100, "users": 45},
+      {"subtype": "quiet_blunder", "events": 1542, "games": 1379, "users": 53}
+    ]
+  },
+  "detector_authorization": {
+    "registry": "backend/services/detector_quality.py",
+    "explicit_authorizations": 12,
+    "grade_counts": {
+      "plan": 1,
+      "caption": 0,
+      "shadow": 6,
+      "disabled": 5
+    },
+    "plan_ids": [
+      "gap:piece_safety:simple_hang"
+    ],
+    "shadow_ids": [
+      "brain:hanging_piece_detector",
+      "principle:TAC_FORK_PATTERN",
+      "principle:TAC_HANGING_PIECE",
+      "shape:free_piece",
+      "shape:pin",
+      "shape:skewer"
+    ],
+    "disabled_ids": [
+      "brain:king_safety_detector",
+      "brain:trapped_piece_detector",
+      "concept:endgame_rule_of_square",
+      "legacy_endgame:rule_of_square",
+      "principle:END_RULE_OF_SQUARE"
+    ],
+    "unknown_policy": "shadow_fail_closed"
+  },
+  "content_source_comparison": {
+    "openings": {
+      "canonical_file": "backend/data/opening_curriculum.json",
+      "entries": 79,
+      "with_main_line": 28,
+      "with_variations": 25,
+      "with_critical_positions": 24,
+      "with_middlegame_plans": 23,
+      "with_endgame_tips": 23,
+      "with_demands": 14,
+      "decision": "Keep opening_unified_source as the only consumer entry point and treat other lookup/naming services as adapters pending migration."
+    },
+    "traps": {
+      "canonical_file": "backend/data/traps.json",
+      "families": 28,
+      "entries": 54,
+      "with_setup": 54,
+      "with_line": 54,
+      "with_explanation": 54,
+      "decision": "Keep traps.json plus trap_library as content authority; scanners and recognizers may emit evidence but may not define competing lesson content."
+    },
+    "legacy_endgames": {
+      "file": "backend/data/endgames.json",
+      "lessons": 6,
+      "practice_positions": 0,
+      "legal_full_solution_lines": 2,
+      "illegal_solution_lines": [
+        "rook_checkmate",
+        "opposition",
+        "lucena_position",
+        "philidor_position"
+      ]
+    },
+    "theory_endgames": {
+      "canonical_file": "backend/data/coaching/endgame_theory_tree.json",
+      "categories": 6,
+      "lessons": 18,
+      "positions": 54,
+      "legal_correct_moves": 54,
+      "invalid_positions": [],
+      "with_rule": 18,
+      "decision": "Canonical. Legacy stable public identifiers must resolve through an adapter beside endgame_theory_service."
+    }
+  },
+  "source_hashes": {
+    "backend/data/opening_curriculum.json": "3d9b3cf144b4d911f569639d5ee5821b9d72cb8c64c0211fe48d3f60083e9601",
+    "backend/data/traps.json": "aa6e445f086d5c59aea686e81f457bcd5d8e1af1d1f4dbd6749a1bbb697b5e69",
+    "backend/data/endgames.json": "0bc996fc0cd6182e8e17f90d4cd2c7b4c068f03f316042004199681520a77ebc",
+    "backend/data/coaching/endgame_theory_tree.json": "68ff630437f6a3943d016149bb169b1ff30054f7da8b7d9977ad98d004445348",
+    "backend/services/detector_quality.py": "e73c8fba8bd3479a7074340b59f9a38c0af8788092c1b736a00e3ca0aeb0b99c",
+    "backend/services/personal_curriculum.py": "8e6be09db05e11850dc604b8022b7a72451d189a5f92eaf349ec3a77c443d626",
+    "frontend/src/components/GameDecryptionV5.jsx": "51d4c78ffd9a6eafb48acef08d816bf1e13c1cc4b14c6375722f1272e27afee0",
+    "backend/quick_tag_registry.py": "833851bfe55d323dfc51b35d32553b6c6833d203e88c60e6ffebdf88e109323f",
+    "backend/routes/reflect.py": "7db29d585d9f837101184cc939db15aaeb2d22c9fb64dd845a69df8f632214fd"
+  },
+  "locks": {
+    "endgame_canonical_owner": "backend/data/coaching/endgame_theory_tree.json",
+    "reflection_option_owner": "backend quick-tag/reflection contract; frontend must render, not invent",
+    "intent_owner_direction": "one backend move-intent contract; current duplicate engines require Phase 2 consolidation",
+    "review_admission_order": [
+      "hard truth and authorization gate",
+      "evidence-backed event role",
+      "personal recurrence connection",
+      "story and diversity selection"
+    ],
+    "historical_review_policy": "lazy regeneration first"
+  },
+  "not_locked_due_to_missing_evidence": {
+    "final_review_moment_cap": "Requires planner shadow bake-off and coach review.",
+    "final_reflection_question_budget": "Production has zero reflection sessions. Test one versus two questions; do not lock three.",
+    "planner_numeric_weights": "Cannot be evaluated honestly until normalized TeachableEvent shadow output exists.",
+    "mastery_transition_counts": "Only three learning sessions exist; insufficient behavioral evidence.",
+    "retention_thresholds": "Require post-review practice and subsequent-game cohorts."
+  }
+}

@@ -62,6 +62,17 @@ TAG_DEFINITIONS = {
         "bands": ["A", "B", "C", "D", "E"],
         "category_boost": [],
     },
+
+    QuickTagId.NONE_OF_THESE: {
+        "labels": {
+            "default": "None of these",
+            "advanced": "None of these",
+        },
+        "predicates": [],  # Honest escape when the coach's guesses do not fit
+        "priority": 0,
+        "bands": ["A", "B", "C", "D", "E"],
+        "category_boost": [],
+    },
     
     # === THREAT-RELATED TAGS ===
     QuickTagId.MISSED_CHECK: {
@@ -314,7 +325,9 @@ class QuickTagEngine:
     def generate_tags(
         self,
         facts: BoardFacts,
-        mistake_category: str
+        mistake_category: str,
+        *,
+        include_honest_escapes: bool = False,
     ) -> Dict:
         """
         Generate quick tags for a reflection moment.
@@ -334,6 +347,10 @@ class QuickTagEngine:
         
         # 2. Evaluate all tags
         for tag_id, definition in TAG_DEFINITIONS.items():
+            # Preserve the shipped V1 response exactly. The second honest
+            # escape belongs to the default-off event-reflection contract.
+            if tag_id == QuickTagId.NONE_OF_THESE and not include_honest_escapes:
+                continue
             # Check if this band can see this tag
             if self.rating_band.value not in definition["bands"]:
                 continue
@@ -382,23 +399,59 @@ class QuickTagEngine:
         max_tags = self.adaptive_config.get("max_quick_tags", 5)
         final_tags = candidate_tags[:max_tags]
         
-        # 5. Ensure neutral option is always available
-        neutral_present = any(t["id"] == QuickTagId.NOT_SURE.value for t in final_tags)
-        if not neutral_present and len(final_tags) >= max_tags:
-            # Replace lowest priority with neutral
-            final_tags[-1] = {
-                "id": QuickTagId.NOT_SURE.value,
-                "label": TAG_DEFINITIONS[QuickTagId.NOT_SURE]["labels"]["default"],
-                "priority": 1,
-                "predicate_match": True,
-            }
-        elif not neutral_present:
-            final_tags.append({
-                "id": QuickTagId.NOT_SURE.value,
-                "label": TAG_DEFINITIONS[QuickTagId.NOT_SURE]["labels"]["default"],
-                "priority": 1,
-                "predicate_match": True,
-            })
+        if not include_honest_escapes:
+            # Original V1 logic, intentionally unchanged for flag-off parity.
+            neutral_present = any(
+                t["id"] == QuickTagId.NOT_SURE.value for t in final_tags
+            )
+            if not neutral_present and len(final_tags) >= max_tags:
+                final_tags[-1] = {
+                    "id": QuickTagId.NOT_SURE.value,
+                    "label": TAG_DEFINITIONS[QuickTagId.NOT_SURE]["labels"]["default"],
+                    "priority": 1,
+                    "predicate_match": True,
+                }
+            elif not neutral_present:
+                final_tags.append({
+                    "id": QuickTagId.NOT_SURE.value,
+                    "label": TAG_DEFINITIONS[QuickTagId.NOT_SURE]["labels"]["default"],
+                    "priority": 1,
+                    "predicate_match": True,
+                })
+        else:
+            # "Not sure" means the player cannot explain the move; "None
+            # of these" means the coach's candidate explanations did not
+            # fit. They are different evidence.
+            required_escape_ids = (
+                QuickTagId.NOT_SURE,
+                QuickTagId.NONE_OF_THESE,
+            )
+            for required_id in required_escape_ids:
+                if any(t["id"] == required_id.value for t in final_tags):
+                    continue
+                definition = TAG_DEFINITIONS[required_id]
+                advanced = self.adaptive_config.get("show_advanced_labels", False)
+                escape_tag = {
+                    "id": required_id.value,
+                    "label": definition["labels"]["advanced" if advanced else "default"],
+                    "priority": definition["priority"],
+                    "predicate_match": True,
+                }
+                if len(final_tags) < max_tags:
+                    final_tags.append(escape_tag)
+                    continue
+                required_values = {item.value for item in required_escape_ids}
+                replace_at = next(
+                    (
+                        index
+                        for index in range(len(final_tags) - 1, -1, -1)
+                        if final_tags[index]["id"] not in required_values
+                    ),
+                    None,
+                )
+                if replace_at is None:
+                    raise RuntimeError("max_quick_tags cannot hold required escape options")
+                final_tags[replace_at] = escape_tag
         
         # Clean output for frontend
         output_tags = [
@@ -406,12 +459,18 @@ class QuickTagEngine:
             for t in final_tags
         ]
         
-        return {
+        result = {
             "tags": output_tags,
             "shown_tag_ids": [t["id"] for t in output_tags],
             "max_selections": 3,  # Max tags user can select
             "neutral_option_id": QuickTagId.NOT_SURE.value,
         }
+        if include_honest_escapes:
+            result["escape_option_ids"] = [
+                QuickTagId.NOT_SURE.value,
+                QuickTagId.NONE_OF_THESE.value,
+            ]
+        return result
 
 
 def generate_quick_tags(
@@ -423,6 +482,8 @@ def generate_quick_tags(
     cp_loss: float = 0,
     time_remaining_sec: Optional[int] = None,
     move_number: int = 0,
+    *,
+    include_honest_escapes: bool = False,
 ) -> Dict:
     """
     Main entry point for quick tag generation.
@@ -440,4 +501,8 @@ def generate_quick_tags(
     
     # Generate tags
     engine = QuickTagEngine(rating=rating)
-    return engine.generate_tags(facts, mistake_category)
+    return engine.generate_tags(
+        facts,
+        mistake_category,
+        include_honest_escapes=include_honest_escapes,
+    )

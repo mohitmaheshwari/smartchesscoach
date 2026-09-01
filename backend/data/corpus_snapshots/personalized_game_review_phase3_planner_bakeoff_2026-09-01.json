@@ -1,0 +1,120 @@
+{
+  "schema_version": "personalized_game_review.phase3_planner_bakeoff.v2",
+  "generated_at": "2026-09-01",
+  "read_only": true,
+  "engine_runs": 0,
+  "llm_calls": 0,
+  "database_writes": 0,
+  "privacy": {
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_fens": false,
+    "contains_moves": false,
+    "aggregate_only": true
+  },
+  "authority": {
+    "quality_id": "gap:piece_safety:simple_hang",
+    "required_schema_version": 16,
+    "required_caption_final_verified": true,
+    "shadow_formula": "D_teaching_then_critical",
+    "shadow_moment_cap": 2,
+    "shadow_reflection_question_budget": 1,
+    "final_formula_locked": false,
+    "final_visible_cap_locked": false
+  },
+  "counts": {
+    "observations": 947,
+    "games_with_observation": 813,
+    "eligible_verified_events": 947,
+    "eligible_affected_games": 813,
+    "all_stored_v5_games": 13637,
+    "eligible_game_reach_pct": 5.96,
+    "regeneration": {"final_verified": 947},
+    "regeneration_error_types": {}
+  },
+  "eligible_events_per_affected_game": {
+    "mean": 1.165,
+    "median": 1,
+    "max": 4,
+    "at_least_k_pct": {"1": 100.0, "2": 13.16, "3": 2.95, "4": 0.37}
+  },
+  "candidate_formulas": {
+    "A_chronology": "earliest verified event",
+    "B_largest_loss": "largest stored cp_loss, then earliest",
+    "C_critical_then_loss": "stored critical flag, then largest cp_loss, then earliest",
+    "D_teaching_then_critical": "teaching completeness, critical flag, cp_loss, then earliest"
+  },
+  "candidate_metrics": {
+    "A_chronology": {
+      "games": 813,
+      "mean_selected_cp_loss": 893.28,
+      "selected_critical_pct": 100.0,
+      "selected_full_teaching_pct": 67.65,
+      "selected_is_earliest_pct": 100.0
+    },
+    "B_largest_loss": {
+      "games": 813,
+      "mean_selected_cp_loss": 964.46,
+      "selected_critical_pct": 100.0,
+      "selected_full_teaching_pct": 68.39,
+      "selected_is_earliest_pct": 92.74
+    },
+    "C_critical_then_loss": {
+      "games": 813,
+      "mean_selected_cp_loss": 964.46,
+      "selected_critical_pct": 100.0,
+      "selected_full_teaching_pct": 68.39,
+      "selected_is_earliest_pct": 92.74
+    },
+    "D_teaching_then_critical": {
+      "games": 813,
+      "mean_selected_cp_loss": 950.45,
+      "selected_critical_pct": 100.0,
+      "selected_full_teaching_pct": 70.23,
+      "selected_is_earliest_pct": 92.74
+    }
+  },
+  "pairwise_disagreement": {
+    "A_chronology__vs__B_largest_loss": {"common_games": 813, "different_top_event_pct": 7.26},
+    "A_chronology__vs__C_critical_then_loss": {"common_games": 813, "different_top_event_pct": 7.26},
+    "A_chronology__vs__D_teaching_then_critical": {"common_games": 813, "different_top_event_pct": 7.26},
+    "B_largest_loss__vs__C_critical_then_loss": {"common_games": 813, "different_top_event_pct": 0.0},
+    "B_largest_loss__vs__D_teaching_then_critical": {"common_games": 813, "different_top_event_pct": 1.85},
+    "C_critical_then_loss__vs__D_teaching_then_critical": {"common_games": 813, "different_top_event_pct": 1.85}
+  },
+  "reflection_structural_evidence_from_phase0": {
+    "at_least_1_candidate_pct": 74.1,
+    "at_least_2_candidates_pct": 51.3,
+    "at_least_3_candidates_pct": 30.9,
+    "production_reflection_sessions": 0
+  },
+  "shadow_locks": {
+    "formula": {
+      "value": "D_teaching_then_critical",
+      "reason": "It selected fully teachable events in 70.23% of games versus 68.39% for loss/critical-first and 67.65% for chronology, while retaining 98.15% agreement with the strongest-loss formula."
+    },
+    "moment_cap": {
+      "value": 2,
+      "reason": "Only 2.95% of affected games contain more than two eligible events, so cap two retains the complete verified set in 97.05% of affected games."
+    },
+    "reflection_question_budget": {
+      "value": 1,
+      "reason": "One structural candidate reaches 74.1% of reviews; requiring two drops reach to 51.3%, a 22.8-point cliff, and there are no production reflection outcomes to justify extra interruption."
+    }
+  },
+  "provenance": {
+    "measurement_script_sha256": "c7d2506bc4e70b3dd95328fd6fbc7aa51e748f22314105910b06959d9bcaad18",
+    "caption_pipeline_sha256": "18a84a364a7a427fb4ae012188eb8d293d48cedfc03206e4a8122848e32c2d09",
+    "coach_conductor_sha256": "fad89cc89ba57f60796a23f4da1768c8e868187031095fe47accd8da09fa6ce3",
+    "principle_bank_sha256": "4db6d7ac0cce27fe0d1d37827556521d50f3201b99429586cfbb2b2cf072fc0a",
+    "socratic_rules_sha256": "851365a06158937f30fef787f1080d696cc8d886791cf9238a1bc46673f019b8",
+    "temporary_overlay": true,
+    "production_application_files_changed": false
+  },
+  "interpretation": [
+    "Current stored V5 final_verified fields are stale; deterministic decisions were regenerated in memory from stored engine evidence.",
+    "The shadow locks configure measurement only. They do not authorize a visible release.",
+    "Human importance labels are absent, so the final formula and final visible cap remain unlocked.",
+    "The only Plan-grade detector reaches 5.96% of current stored V5 games after strict final verification; Phase 3 will truthfully be sparse."
+  ]
+}
