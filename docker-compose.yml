@@ -100,6 +100,14 @@ services:
       - PERSONAL_CURRICULUM_ENABLED=${PERSONAL_CURRICULUM_ENABLED:-false}
       - PERSONAL_CURRICULUM_ROLES=${PERSONAL_CURRICULUM_ROLES:-admin,super_admin}
       - PERSONALIZED_TEACHING_ENABLED=${PERSONALIZED_TEACHING_ENABLED:-false}
+      # Personalized game review coach (Phases 0-6). Fail-closed: the master
+      # switch always wins, and rollout=validation enables only accounts that
+      # carry both per-user feature flags. Declared here because the backend
+      # takes an explicit environment list -- a value set only in .env is
+      # silently ignored.
+      - PERSONALIZED_GAME_REVIEW_COACH_ENABLED=${PERSONALIZED_GAME_REVIEW_COACH_ENABLED:-false}
+      - PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT=${PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT:-validation}
+      - CAUSAL_PERSONAL_CAPTIONS_ENABLED=${CAUSAL_PERSONAL_CAPTIONS_ENABLED:-0}
       - COACHING_CONTEXT_V1_ENABLED=${COACHING_CONTEXT_V1_ENABLED:-false}
       - COACHING_CONTEXT_V1_ROLES=${COACHING_CONTEXT_V1_ROLES:-admin,super_admin}
       - PERSONAL_IMPROVEMENT_CYCLE_ENABLED=${PERSONAL_IMPROVEMENT_CYCLE_ENABLED:-false}
