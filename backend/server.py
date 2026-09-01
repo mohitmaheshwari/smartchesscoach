@@ -103,14 +103,18 @@ async def focus_outcome_loop():
     await asyncio.sleep(300)  # wait 5 min after startup before first pass
     while True:
         try:
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
             n_processed = 0
             n_improved = 0
             n_regressed = 0
             n_stuck = 0
             async for f in db[COLLECTION].find({
                 "type": "weakness", "status": "active",
-                "locked_until": {"$lte": now_iso},
+                "$or": [
+                    {"locked_until": {"$type": "date", "$lte": now}},
+                    {"locked_until": {"$type": "string", "$lte": now_iso}},
+                ],
             }):
                 try:
                     outcome = await check_focus_outcome(db, f)

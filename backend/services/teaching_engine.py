@@ -597,6 +597,7 @@ def _public_pic_session(session: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "content_version": session.get("content_version"),
         "content_tier": session.get("content_tier"),
+        "proof_detector_id": session.get("proof_detector_id"),
         "mastery_eligible": False,
     }
 
@@ -626,11 +627,19 @@ async def start_pic_piece_safety_lesson(
     db, session_id: str, user_id: str, params: Dict
 ) -> Dict:
     """Start or resume a finite, own-game-first PIC lesson."""
-    existing = await db.learning_sessions.find_one({
+    proof_detector_id = str((params or {}).get("proof_detector_id") or "")
+    exact_focus = (
+        proof_detector_id == "piece_safety.destination_safety_exact.v1"
+    )
+    existing_query = {
         "user_id": user_id,
         "lesson_type": PIC_LESSON_TYPE,
         "status": {"$in": ["active", "paused"]},
-    })
+    }
+    if exact_focus:
+        # Never resume an older broad-piece-safety session into an exact plan.
+        existing_query["proof_detector_id"] = proof_detector_id
+    existing = await db.learning_sessions.find_one(existing_query)
     if existing:
         if existing.get("status") == "paused":
             now = datetime.now(timezone.utc)
@@ -650,15 +659,29 @@ async def start_pic_piece_safety_lesson(
             existing["status"] = "active"
         return _public_pic_session(existing)
 
-    from services.puzzle_extraction_service import get_pattern_training_puzzles
-
     requested = max(1, min(int((params or {}).get("limit", 5)), 5))
-    supply = await get_pattern_training_puzzles(
-        db, user_id, "piece_safety", requested, private=True
-    )
-    own = [p for p in (supply.get("own_puzzles") or []) if not p.get("already_solved")]
-    community = supply.get("community_puzzles") or []
-    selected = (own + community)[:requested]
+    if exact_focus:
+        from services.coaching_puzzle_service import CoachingPuzzleService
+
+        supply = await CoachingPuzzleService(db).get_prescribed_training(
+            user_id=user_id,
+            weakness_pattern="piece_safety",
+            num_puzzles=requested,
+            required_quality_id="gap:piece_safety:destination_safety_exact",
+        )
+        selected = list(supply.get("puzzles") or [])[:requested]
+    else:
+        from services.puzzle_extraction_service import get_pattern_training_puzzles
+
+        supply = await get_pattern_training_puzzles(
+            db, user_id, "piece_safety", requested, private=True
+        )
+        own = [
+            p for p in (supply.get("own_puzzles") or [])
+            if not p.get("already_solved")
+        ]
+        community = supply.get("community_puzzles") or []
+        selected = (own + community)[:requested]
     if not selected:
         return {"error": "No piece-safety practice positions are available yet"}
 
@@ -670,6 +693,7 @@ async def start_pic_piece_safety_lesson(
         "source_game_id": item.get("source_game_id"),
         "difficulty": item.get("difficulty"),
         "content_tier": "verified",
+        "proof_detector_id": proof_detector_id or None,
         "mastery_eligible": False,
     } for item in selected if item.get("fen") and item.get("puzzle_id")]
     if not items:
@@ -684,6 +708,7 @@ async def start_pic_piece_safety_lesson(
         "skill_id": PIC_SKILL_ID,
         "content_version": PIC_CONTENT_VERSION,
         "content_tier": "verified",
+        "proof_detector_id": proof_detector_id or None,
         "cohort_role": "admin",
         "status": "active",
         "current_index": 0,

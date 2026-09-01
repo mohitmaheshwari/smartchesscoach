@@ -1,0 +1,33 @@
+{
+  "audit": "canonical_rating_resolution_bakeoff",
+  "coverage": {
+    "games_scanned": 14564,
+    "games_without_usable_date_and_rating": 257,
+    "rated_dated_games": 14307
+  },
+  "selected_window_games": 3,
+  "selected": {
+    "estimate_step_change": {
+      "mean": 12.25,
+      "median": 2.0,
+      "n": 14067,
+      "p75": 8.0,
+      "p90": 8.0
+    },
+    "next_game_absolute_error": {
+      "mean": 27.82,
+      "median": 8.0,
+      "n": 14126,
+      "p75": 15.0,
+      "p90": 18.0
+    }
+  },
+  "target_account": {
+    "email": "bhutramohit@gmail.com",
+    "preferred_platform": "chess.com",
+    "latest_game_date": "2026-08-29",
+    "latest_game_rating": 887,
+    "median_last_3": 887,
+    "profile_current_rating_before_fix": 1199
+  }
+}

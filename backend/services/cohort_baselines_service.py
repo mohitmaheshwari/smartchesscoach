@@ -27,7 +27,7 @@ from services.move_observation_deriver import aggregate_user_signals
 from services.primary_weakness_picker import (
     _classify_band, RATING_BANDS,
 )
-from services.rating_resolver import get_current_rating
+from services.rating_resolver import get_coaching_rating
 
 
 COLLECTION = "cohort_baselines"
@@ -76,7 +76,9 @@ async def _iter_user_metrics(db) -> List[Tuple[str, Dict[str, float]]]:
         # Resolve rating + band
         user_doc = await db.users.find_one({"user_id": uid}) or {}
         profile_doc = await db.player_profiles.find_one({"user_id": uid}) or {}
-        rating = get_current_rating(user_doc, profile_doc)
+        rating = await get_coaching_rating(
+            db, uid, user=user_doc, profile=profile_doc
+        )
         band = _classify_band(rating)
 
         # Pull observations (cap at 25000 — matches picker)

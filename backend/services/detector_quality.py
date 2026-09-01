@@ -293,6 +293,27 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "One solve is evidence, not a general endgame-mastery claim.",
         ),
     ),
+    "gap:piece_safety:destination_safety_exact": Authorization(
+        grade=QualityGrade.PLAN,
+        evidence_ref=(
+            "docs/destination_safety_exact_plan_promotion_2026_09_01.md"
+        ),
+        rationale=(
+            "The claim is limited to one exact board fact: after the player's "
+            "move, exhaustive legal exchange analysis says the moved piece is "
+            "lost on its destination, stored Stockfish consequence is at least "
+            "150cp, and the stored first reply captures that exact piece. The "
+            "sealed full-corpus audit passed 200/200 reviewed fires, 82.5% "
+            "recall over 200 independently rebuilt opportunities, 60/60 true "
+            "negatives, and 60/60 adversarial cases."
+        ),
+        limitations=(
+            "Only knights, bishops, rooks, and queens moved onto a legally capturable destination.",
+            "Promotion-capture exchanges are measured but remain silent pending a separate reviewed packet.",
+            "It does not infer carelessness, time pressure, blindness, or lack of knowledge.",
+            "It does not name a broader tactical motif or claim every piece-safety mistake is covered.",
+        ),
+    ),
     "gap:piece_safety:simple_hang": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref="docs/simple_hang_caption_promotion_2026_08_31.md",

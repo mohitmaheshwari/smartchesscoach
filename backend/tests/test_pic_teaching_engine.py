@@ -209,3 +209,45 @@ async def test_pic_reader_enforces_user_ownership(puzzle_supply):
     assert (
         await get_pic_piece_safety_lesson(db, "user-2", "pic-session-3")
     ) == {"error": "Session not found"}
+
+
+@pytest.mark.asyncio
+async def test_exact_focus_uses_only_exact_canonical_puzzle_supply(monkeypatch):
+    async def _exact_supply(
+        self,
+        user_id,
+        weakness_pattern,
+        num_puzzles=10,
+        rating_range=(800, 1400),
+        *,
+        strong_openings=None,
+        player_style=None,
+        required_quality_id=None,
+    ):
+        assert user_id == "user-1"
+        assert weakness_pattern == "piece_safety"
+        assert required_quality_id == "gap:piece_safety:destination_safety_exact"
+        return {"puzzles": [_puzzle("exact-own-1", "your_game")]}
+
+    monkeypatch.setattr(
+        "services.coaching_puzzle_service.CoachingPuzzleService.get_prescribed_training",
+        _exact_supply,
+    )
+    db = _DB()
+    started = await start_lesson(
+        db,
+        "pic-exact-session",
+        "user-1",
+        PIC_LESSON_TYPE,
+        {
+            "limit": 5,
+            "proof_detector_id": "piece_safety.destination_safety_exact.v1",
+        },
+    )
+    assert started["proof_detector_id"] == (
+        "piece_safety.destination_safety_exact.v1"
+    )
+    assert started["current_item"]["item_id"] == "exact-own-1"
+    stored = db.learning_sessions.docs[0]
+    assert stored["proof_detector_id"] == started["proof_detector_id"]
+    assert [item["item_id"] for item in stored["items"]] == ["exact-own-1"]

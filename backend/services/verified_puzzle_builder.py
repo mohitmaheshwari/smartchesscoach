@@ -17,6 +17,7 @@ from services.canonical_curriculum_puzzle_proof import (
 )
 from services.aligned_tactic_puzzle_proof import build_aligned_tactic_proof
 from services.discovered_attack_puzzle_proof import build_discovered_attack_proof
+from services.destination_safety_puzzle_proof import build_destination_safety_proof
 from services.forced_mate_puzzle_proof import build_forced_mate_proof
 from services.free_piece_puzzle_proof import build_free_piece_proof
 from services.fork_puzzle_proof import build_fork_proof
@@ -205,6 +206,9 @@ def _proof_fields(
             piece_safety = build_piece_safety_proof(
                 board, str(played), str(best), move_evaluation.get("cp_loss")
             )
+            destination_safety = build_destination_safety_proof(
+                board, dict(move_evaluation), played, best
+            )
             trapped_piece = build_trapped_piece_proof(
                 board, str(played), str(best), move_evaluation.get("cp_loss")
             )
@@ -218,6 +222,7 @@ def _proof_fields(
             discovered = None
             removal = None
             piece_safety = None
+            destination_safety = None
             trapped_piece = None
 
         choices = list(curriculum)
@@ -292,6 +297,15 @@ def _proof_fields(
                 broad_category="piece_safety",
                 acceptable_moves=piece_safety.verifier.acceptable_moves,
                 priority=200,
+            ))
+        if destination_safety:
+            choices.append(CurriculumProofBundle(
+                detector=destination_safety.detector,
+                verifier=destination_safety.verifier,
+                quality_id=destination_safety.quality_id,
+                broad_category="piece_safety",
+                acceptable_moves=destination_safety.verifier.acceptable_moves,
+                priority=250,
             ))
         if trapped_piece:
             choices.append(CurriculumProofBundle(

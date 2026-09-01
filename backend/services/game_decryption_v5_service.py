@@ -2981,11 +2981,16 @@ async def generate_game_decryption_v5(
         _v5_user_rating = None
         _u_doc = None
         try:
-            from services.rating_resolver import get_current_rating
+            from services.rating_resolver import get_coaching_rating
             _u_doc = await db.users.find_one({"user_id": user_id}) if user_id else None
             _p_doc = await db.player_profiles.find_one({"user_id": user_id}) if user_id else None
             if _u_doc or _p_doc:
-                _v5_user_rating = int(get_current_rating(_u_doc or {}, _p_doc))
+                _v5_user_rating = await get_coaching_rating(
+                    db,
+                    user_id,
+                    user=_u_doc or {},
+                    profile=_p_doc or {},
+                )
                 logger.info(f"[DECRYPTION V5] user_rating resolved: {_v5_user_rating}")
         except Exception as _rr_exc:
             logger.info(f"[DECRYPTION V5] rating resolve failed (band gate stays off): {_rr_exc}")

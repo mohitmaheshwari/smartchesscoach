@@ -29,6 +29,7 @@ from services.mission_scoreboard import (  # noqa: E402
     build_instruction_verdict,
     is_focus_moment,
     rebuild_scoreboard_from_history,
+    update_scoreboard,
 )
 from services.session_greeting_service import build_session_greeting  # noqa: E402
 
@@ -260,6 +261,34 @@ class TestSubtypeAwareMatching:
         )
         assert matched is False
 
+    def test_exact_subtype_measures_contested_destination(self):
+        matched = is_focus_moment(
+            "piece_safety", self.HUNG_QUEEN_FEN, "d1d5", "white",
+            focus_subtype="destination_safety_exact", cp_loss=300,
+        )
+        assert matched is True
+
+    def test_exact_subtype_uses_exact_outcome_not_generic_cp_loss(self):
+        # Bf1-b5 is legally capturable, but the bishop recaptures and the
+        # exhaustive exchange is safe. A high unrelated cp_loss must not turn
+        # this into a destination-safety miss.
+        scoreboard = {
+            "focus_topic": "piece_safety",
+            "focus_subtype": "destination_safety_exact",
+        }
+        update_scoreboard(
+            scoreboard,
+            move_number=1,
+            move_san="Bb5",
+            move_uci="f1b5",
+            fen_before="4k3/8/2b5/8/P7/8/8/4KB2 w - - 0 1",
+            user_color="white",
+            cp_loss=300,
+        )
+        assert scoreboard["matched_moments"] == 1
+        assert scoreboard["handled_correctly"] == 1
+        assert scoreboard.get("handled_incorrectly", 0) == 0
+
     def test_no_subtype_keeps_topic_level_behavior_unchanged(self):
         # focus_subtype=None must behave exactly as before this change --
         # zero regression risk claim from the scope, directly tested.
@@ -355,6 +384,19 @@ class TestBuildInstructionVerdict:
         }
         verdict = build_instruction_verdict(sb)
         assert "on move" not in verdict["message"]
+
+    def test_exact_destination_safety_verdict_is_measured(self):
+        sb = {
+            "instruction_id": "inst_exact",
+            "instruction_text": "After choosing your move, ask: can they take the piece I just moved?",
+            "focus_subtype": "destination_safety_exact",
+            "matched_moments": 1,
+            "events": [{"move_number": 9, "move": "Qd5", "outcome": "missed"}],
+        }
+        verdict = build_instruction_verdict(sb)
+        assert verdict["has_measured_outcome"] is True
+        assert verdict["outcome"] == "missed"
+        assert "could be taken on move 9" in verdict["message"]
 
 
 class _FakeSessionsCollection:

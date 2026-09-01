@@ -13,29 +13,53 @@ from typing import Any, Dict, Iterable, Optional
 
 from pymongo import ReturnDocument
 
-from services.focus_bridge import PIC_FACT_VERSION, _pic_fields_eligible, _to_dt
-from services.detector_quality import focus_document_is_authorized
+from services.focus_bridge import (
+    DESTINATION_SAFETY_FACT_VERSION,
+    PIC_FACT_VERSION,
+    _pic_fields_eligible,
+    _to_dt,
+)
+from services.detector_quality import (
+    focus_document_is_authorized,
+    quality_id_for_focus_document,
+)
+
+
+DESTINATION_SAFETY_QUALITY_ID = "gap:piece_safety:destination_safety_exact"
 
 
 FOCUS_COLLECTION = "user_active_focus"
 
 
-def summarize_pic_observations(observations: Iterable[Dict[str, Any]]) -> Dict[str, int]:
-    """Reduce current-schema observations without treating absence as proof."""
+def summarize_pic_observations(
+    observations: Iterable[Dict[str, Any]],
+    *,
+    proof_detector_id: str = PIC_FACT_VERSION,
+) -> Dict[str, int]:
+    """Reduce only observations comparable to the focus's proof detector.
+
+    The validation-only legacy cycle keeps its D_live evidence. New exact
+    cycles count the Plan-authorized destination-safety fact instead. Mixing
+    the two would make a player's diagnosis, practice, and measurement disagree.
+    """
+    exact = proof_detector_id == DESTINATION_SAFETY_FACT_VERSION
+    minimum_schema = 18 if exact else 16
+    fact_field = "destination_safety_exact" if exact else "piece_safety_decision"
+    diagnosis_subtype = "destination_safety_exact" if exact else "simple_hang"
     decisions = 0
     misses = 0
     diagnoses = 0
     for observation in observations or []:
-        if int(observation.get("schema_version") or 0) < 16:
+        if int(observation.get("schema_version") or 0) < minimum_schema:
             continue
         if (
             observation.get("missed_pattern") == "piece_safety"
-            and observation.get("subtype") == "simple_hang"
+            and observation.get("subtype") == diagnosis_subtype
         ):
             diagnoses += 1
-        fact = observation.get("piece_safety_decision") or {}
+        fact = observation.get(fact_field) or {}
         if (
-            fact.get("version") != PIC_FACT_VERSION
+            fact.get("version") != proof_detector_id
             or fact.get("derivation_status") != "ok"
             or fact.get("eligible") is not True
         ):
@@ -43,12 +67,18 @@ def summarize_pic_observations(observations: Iterable[Dict[str, Any]]) -> Dict[s
         decisions += 1
         if fact.get("outcome") == "miss":
             misses += 1
-    return {
+    result = {
         "decisions": decisions,
         "misses": misses,
         "handled": max(0, decisions - misses),
-        "positive_simple_hang_diagnoses": diagnoses,
+        "positive_piece_safety_diagnoses": diagnoses,
     }
+    result[
+        "positive_destination_safety_diagnoses"
+        if exact
+        else "positive_simple_hang_diagnoses"
+    ] = diagnoses
+    return result
 
 
 async def _require_pic_focus(db, user_id: str) -> Dict[str, Any]:
@@ -209,11 +239,23 @@ def record_pic_game_evidence_sync(
         pending.get("status") == "claimed"
         and pending.get("game_id") == game_id
     )
-    summary = summarize_pic_observations(observations)
+    exact_focus = (
+        quality_id_for_focus_document(focus) == DESTINATION_SAFETY_QUALITY_ID
+    )
+    proof_detector_id = (
+        DESTINATION_SAFETY_FACT_VERSION if exact_focus else PIC_FACT_VERSION
+    )
+    observation_version = 18 if exact_focus else 17
+    summary = summarize_pic_observations(
+        observations,
+        proof_detector_id=proof_detector_id,
+    )
     measured_at = datetime.now(timezone.utc)
     envelope = {
         "version": 1,
-        "idempotency_key": f"pic:{focus['_id']}:{game_id}:move-observation-v17",
+        "idempotency_key": (
+            f"pic:{focus['_id']}:{game_id}:move-observation-v{observation_version}"
+        ),
         "focus_id": str(focus["_id"]),
         "instruction_id": focus.get("instruction_id"),
         "environment": "external",
@@ -221,7 +263,7 @@ def record_pic_game_evidence_sync(
         "assisted": False,
         "pre_committed": committed,
         "commitment_id": pending.get("commitment_id") if committed else None,
-        "proof_detector_id": PIC_FACT_VERSION,
+        "proof_detector_id": proof_detector_id,
         "summary": summary,
         "mastery_eligible": False,
         "demotion_eligible": False,

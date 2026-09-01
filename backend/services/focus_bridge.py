@@ -31,6 +31,7 @@ COLLECTION = "user_active_focus"
 # to forget to check.
 _INSTRUCTION_ROLLOUT_ROLES = ("admin", "super_admin")
 PIC_FACT_VERSION = "piece_safety.d_live.v1"
+DESTINATION_SAFETY_FACT_VERSION = "piece_safety.destination_safety_exact.v1"
 COACHING_CONTEXT_SCHEMA_VERSION = "coaching_context.v1"
 COACHING_CONTEXT_SURFACES = frozenset({"home", "review", "training", "coach_play"})
 COACHING_CONTEXT_STATES = frozenset({
@@ -151,6 +152,46 @@ async def get_d_live_evidence_summary(
     }
 
 
+async def get_destination_safety_evidence_summary(
+    db, user_id: str, game_ids: Optional[list[str]] = None
+) -> Dict[str, int]:
+    """Aggregate the Plan-authorized exact comparable-decision fact."""
+    if game_ids is not None and not game_ids:
+        return {"decisions": 0, "misses": 0, "handled": 0}
+    match: Dict[str, Any] = {
+        "user_id": user_id,
+        "schema_version": {"$gte": 18},
+        "destination_safety_exact.version": DESTINATION_SAFETY_FACT_VERSION,
+        "destination_safety_exact.derivation_status": "ok",
+        "destination_safety_exact.eligible": True,
+    }
+    if game_ids is not None:
+        match["game_id"] = {"$in": game_ids}
+    rows = await db.move_observations.aggregate([
+        {"$match": match},
+        {"$group": {
+            "_id": None,
+            "decisions": {"$sum": 1},
+            "misses": {"$sum": {
+                "$cond": [
+                    {"$eq": ["$destination_safety_exact.outcome", "miss"]},
+                    1,
+                    0,
+                ]
+            }},
+        }},
+    ]).to_list(length=1)
+    if not rows:
+        return {"decisions": 0, "misses": 0, "handled": 0}
+    decisions = int(rows[0].get("decisions") or 0)
+    misses = int(rows[0].get("misses") or 0)
+    return {
+        "decisions": decisions,
+        "misses": misses,
+        "handled": max(0, decisions - misses),
+    }
+
+
 async def get_pic_focus_projection(
     db,
     user_id: str,
@@ -187,11 +228,19 @@ async def get_pic_focus_projection(
             "reason": "piece_safety_focus_required",
         }
 
+    exact_focus = (
+        focus.get("focus_kind") == "piece_safety/destination_safety_exact"
+        or focus.get("detector_quality_id")
+        == "gap:piece_safety:destination_safety_exact"
+    )
+    diagnosis_subtype = (
+        "destination_safety_exact" if exact_focus else "simple_hang"
+    )
     diagnosis_query = {
         "user_id": user_id,
-        "schema_version": {"$gte": 16},
+        "schema_version": {"$gte": 18 if exact_focus else 16},
         "missed_pattern": "piece_safety",
-        "subtype": "simple_hang",
+        "subtype": diagnosis_subtype,
     }
     diagnosis_count = await db.move_observations.count_documents(diagnosis_query)
     example_cursor = db.move_observations.find(
@@ -206,19 +255,39 @@ async def get_pic_focus_projection(
     ).sort("derived_at", -1).limit(2)
     examples = await example_cursor.to_list(length=2)
 
-    all_available = await get_d_live_evidence_summary(db, user_id)
+    evidence_reader = (
+        get_destination_safety_evidence_summary
+        if exact_focus
+        else get_d_live_evidence_summary
+    )
+    all_available = await evidence_reader(db, user_id)
     started_dt = _to_dt(focus.get("started_at"))
     recent_game_ids: list[str] = []
     if started_dt is not None:
-        recent_game_ids = await db.games.distinct(
-            "game_id",
-            {
-                "user_id": user_id,
-                "is_analyzed": True,
-                "date_played": {"$gte": started_dt.isoformat()},
-            },
-        )
-    recent = await get_d_live_evidence_summary(db, user_id, recent_game_ids)
+        if exact_focus:
+            from services.prescription_tracking_service import _normalize_game_date
+            started_day = started_dt.date().isoformat()
+            games = await db.games.find(
+                {"user_id": user_id, "is_analyzed": True},
+                {"_id": 0, "game_id": 1, "date_played": 1},
+            ).to_list(length=None)
+            recent_game_ids = [
+                str(game.get("game_id"))
+                for game in games
+                if game.get("game_id")
+                and (_normalize_game_date(game.get("date_played")) or "") >= started_day
+            ]
+        else:
+            # Compatibility for the validation-only D_live projection.
+            recent_game_ids = await db.games.distinct(
+                "game_id",
+                {
+                    "user_id": user_id,
+                    "is_analyzed": True,
+                    "date_played": {"$gte": started_dt.isoformat()},
+                },
+            )
+    recent = await evidence_reader(db, user_id, recent_game_ids)
     stored_baseline = ((focus.get("evidence_summary") or {}).get("baseline"))
     from services.concept_mastery_service import get_pic_mastery_projection
     learner_state = await get_pic_mastery_projection(
@@ -241,7 +310,11 @@ async def get_pic_focus_projection(
         "enabled": True,
         "eligible": diagnosis_count > 0,
         "cycle_version": 1,
-        "focus_kind": "piece_safety/simple_hang",
+        "focus_kind": (
+            "piece_safety/destination_safety_exact"
+            if exact_focus
+            else "piece_safety/simple_hang"
+        ),
         "state": state,
         "focus_label": "Keeping your pieces safe",
         "instruction_id": focus.get("instruction_id"),
@@ -250,12 +323,18 @@ async def get_pic_focus_projection(
         "focus_game": focus.get("pending_focus_game"),
         "learner_state": learner_state,
         "diagnosis": {
-            "detector_id": "move_observation.simple_hang.v16_plus",
+            "detector_id": (
+                DESTINATION_SAFETY_FACT_VERSION
+                if exact_focus
+                else "move_observation.simple_hang.v16_plus"
+            ),
             "count": diagnosis_count,
             "examples": examples,
         },
         "evidence": {
-            "proof_detector_id": PIC_FACT_VERSION,
+            "proof_detector_id": (
+                DESTINATION_SAFETY_FACT_VERSION if exact_focus else PIC_FACT_VERSION
+            ),
             "available": all_available,
             "baseline": stored_baseline,
             "since_focus": recent,
