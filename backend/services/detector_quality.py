@@ -64,6 +64,23 @@ _EXACT_ENDGAME_CURRICULUM = Authorization(
 # registry does not grant it product authority. Promotion is a separate,
 # evidence-reviewed edit here.
 _AUTHORIZATIONS: Mapping[str, Authorization] = {
+    "review:verified_single_game_cause": Authorization(
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "docs/verified_single_game_cause_caption_promotion_2026_09_01.md"
+        ),
+        rationale=(
+            "Caption text is limited to one fully reconstructed board cause: "
+            "legal exchange truth or two complete legal stored continuations. "
+            "The ten-game reviewed packet and expanded structural/adversarial "
+            "gates contain zero critical false claims."
+        ),
+        limitations=(
+            "Single-move Caption authority only; no recurrence or learner diagnosis.",
+            "It may not name an opening, trap, tactic motif, or endgame technique.",
+            "Plan, mastery, prescription, and persistent prompts remain unauthorized.",
+        ),
+    ),
     "gap:piece_safety:trapped_piece_exact": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="backend/tests/test_trapped_piece_puzzle_proof.py",

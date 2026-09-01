@@ -8,8 +8,22 @@ import json
 
 import pytest
 
-from quick_tag_registry import QuickTagEngine, generate_quick_tags
-from services.caption_pipeline import CaptionExplanation, MoveTeachingDecision, TextSurface
+from quick_tag_registry import (
+    QuickTagEngine,
+    _cause_context_tags,
+    generate_quick_tags,
+)
+from services.caption_pipeline import (
+    CaptionExplanation,
+    MoveTeachingDecision,
+    TeachingMeta,
+    TextSurface,
+)
+from services.caption_facts import (
+    LegalMaterialLossCause,
+    PieceOnSquare,
+    build_verified_line_cause,
+)
 from services.detector_quality import QualitySurface
 from services.game_review_contracts import (
     EventActor,
@@ -29,6 +43,7 @@ from services.review_reflection_service import (
     build_document_from_stored_contracts,
     build_event_reflection_document,
     build_pic_simple_hang_reflection_prompt,
+    build_review_event_reflection_prompt,
     build_reflection_prompt,
     public_reflection_history,
     public_reflection_receipt,
@@ -39,15 +54,35 @@ from services.review_reflection_service import (
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
 
 
-def _event(*, reflection_requested: bool = True):
+def _event(*, reflection_requested: bool = True, quality_v2: bool = False):
+    cause = (
+        LegalMaterialLossCause(
+            affected=PieceOnSquare("rook", "a1"),
+            attacker=PieceOnSquare("knight", "c2"),
+            punishment_san="Nxa1",
+            material_loss_cp=500,
+            best_move_san="Rd1",
+            best_move_purpose="moves_affected_piece",
+            best_move_from="a1",
+            best_move_to="d1",
+            played_purposes=("pressures_king_ring",),
+        )
+        if quality_v2 else None
+    )
     decision = MoveTeachingDecision(
         text=TextSurface(caption="Your bishop could be taken."),
+        teaching_meta=TeachingMeta(
+            mover_state_before="winning",
+            mover_state_after="winning",
+            stayed_winning=True,
+        ),
         explanation=CaptionExplanation(
             board_explanation="Your bishop could be taken.",
             transferable_instruction="Check every piece before you move.",
             final_verified=True,
             confidence="verified",
         ),
+        cause=cause,
     )
     context = MoveEventContext(
         game_id="fixture-game",
@@ -64,6 +99,7 @@ def _event(*, reflection_requested: bool = True):
         reflection_requested=reflection_requested,
         content_ref=PIC_CONTENT_ID,
         canonical_source=PIC_CANONICAL_SOURCE,
+        quality_v2_requested=quality_v2,
     )
     return adapt_move_teaching_decision(decision, context)
 
@@ -134,6 +170,115 @@ def test_pic_prompt_uses_the_canonical_registry_with_honest_escapes():
         move_number=1,
     )
     assert {"not_sure", "none_of_these"}.issubset(prompt.option_ids)
+
+
+def test_v2_reflection_uses_position_specific_options_from_the_typed_cause():
+    prompt = build_pic_simple_hang_reflection_prompt(
+        _event(quality_v2=True),
+        fen_before=(
+            "2r3k1/ppN1Qp1p/6p1/2N3B1/8/8/PPn1B1PP/"
+            "R4K1R w - - 3 25"
+        ),
+        user_move="Bh6",
+        best_move="Rd1",
+        rating=1500,
+        cp_loss=8701,
+        move_number=25,
+    )
+    labels = {item.option_id: item.label for item in prompt.options}
+    assert set(labels) == {
+        "thought_piece_safe",
+        "thought_protected",
+        "chose_attack_over_safety",
+        "attacked_ignored_threat",
+        "not_sure",
+        "none_of_these",
+    }
+    assert labels["thought_piece_safe"] == (
+        "I did not notice the knight on c2 attacking my rook on a1"
+    )
+    assert labels["chose_attack_over_safety"] == (
+        "I was trying to continue the attack"
+    )
+    assert labels["attacked_ignored_threat"] == (
+            "I saw the rook on a1 was attacked, but expected my attack to come first"
+    )
+
+
+def test_verified_line_reflection_asks_about_the_exact_mate_miss():
+    cause = build_verified_line_cause(
+        fen_before="8/p1p2p1p/6p1/6Pk/2Q5/P6P/KPP2q2/3r4 b - - 4 30",
+        played_san="Rd2",
+        best_move_san="Qf3",
+        pv_after_played=("Qg4#",),
+        pv_after_best=("Qxc7", "Rf1", "Qc4", "Rf2"),
+        cp_loss=10608,
+    )
+    assert cause is not None
+    decision = MoveTeachingDecision(
+        text=TextSurface(caption="Legacy caption"),
+        teaching_meta=TeachingMeta(
+            mover_state_before="winning",
+            mover_state_after="losing",
+            decisiveness_changed=True,
+        ),
+        explanation=CaptionExplanation(
+            board_explanation="Legacy caption",
+            transferable_instruction="Legacy principle",
+            final_verified=True,
+            confidence="verified",
+        ),
+        cause=cause,
+    )
+    event = adapt_move_teaching_decision(
+        decision,
+        MoveEventContext(
+            game_id="mate-game",
+            ply=60,
+            move_number=30,
+            san="Rd2",
+            actor=EventActor.USER,
+            concept_id="calculation.verified_stored_line",
+            outcome=EventOutcome.MISSED,
+            quality_id="review:verified_single_game_cause",
+            provenance=(f"typed_cause:{cause.fingerprint}",),
+            opportunity_eligible=True,
+            requested_surface=QualitySurface.CAPTION,
+            reflection_requested=True,
+            quality_v2_requested=True,
+        ),
+    )
+    prompt = build_review_event_reflection_prompt(
+        event,
+        fen_before="8/p1p2p1p/6p1/6Pk/2Q5/P6P/KPP2q2/3r4 b - - 4 30",
+        user_move="Rd2",
+        best_move="Qf3",
+        rating=1200,
+        cp_loss=10608,
+        move_number=30,
+    )
+    labels = {item.option_id: item.label for item in prompt.options}
+    assert labels["missed_check"] == (
+        "I did not check their next move for checkmate"
+    )
+    assert labels["played_fast"] == (
+        "I moved before checking all of their checks"
+    )
+    assert {"not_sure", "none_of_these"}.issubset(labels)
+
+
+def test_verified_line_reflection_keeps_board_possible_attack_intent():
+    context_tags = _cause_context_tags(
+        {
+            "kind": "verified_stored_line",
+            "lesson_kind": "missed_forced_mate",
+            "played_purposes": ["pressures_king_ring"],
+        }
+    )
+    labels = {item["id"]: item["label"] for item in context_tags}
+    assert labels["chose_attack_over_safety"] == (
+        "I was focused on continuing my attack"
+    )
 
 
 def test_prompt_rejects_diagnostic_or_non_reflection_event():

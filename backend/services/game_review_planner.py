@@ -27,6 +27,7 @@ from services.game_review_contracts import (
 
 PLANNER_VERSION = "personalized_game_review_planner.v1"
 SHADOW_FORMULA = "D_teaching_then_critical"
+QUALITY_V2_FORMULA = "E_transition_then_teaching"
 SHADOW_MOMENT_CAP = 2
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 
@@ -36,6 +37,9 @@ class PlannerEventFeatures:
     event_id: str
     was_critical_moment: bool
     cp_loss: float
+    decisiveness_changed: bool = False
+    stayed_winning: bool = False
+    mover_winprob_delta: float = 0.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.event_id, str) or not self.event_id.strip():
@@ -48,6 +52,12 @@ class PlannerEventFeatures:
             raise ReviewContractViolation(
                 "planner cp_loss must be a non-negative number"
             )
+        if not isinstance(self.decisiveness_changed, bool):
+            raise ReviewContractViolation("decisiveness_changed must be boolean")
+        if not isinstance(self.stayed_winning, bool):
+            raise ReviewContractViolation("stayed_winning must be boolean")
+        if not isinstance(self.mover_winprob_delta, (int, float)):
+            raise ReviewContractViolation("mover_winprob_delta must be numeric")
 
 
 @dataclass(frozen=True)
@@ -84,6 +94,7 @@ def _teaching_completeness(event: TeachableEvent) -> int:
             bool(
                 event.teaching.visual.arrows
                 or event.teaching.visual.highlights
+                or event.teaching.visual.relationship_arrows
             )
         )
     )
@@ -92,14 +103,25 @@ def _teaching_completeness(event: TeachableEvent) -> int:
 def _rank_key(
     event: TeachableEvent,
     features: PlannerEventFeatures,
+    formula_id: str,
 ) -> Tuple[float, ...]:
-    """Measured Formula D: completeness, critical, loss, then earliest."""
-    return (
-        float(_teaching_completeness(event)),
-        float(features.was_critical_moment),
-        float(features.cp_loss),
-        float(-event.move.ply),
-    )
+    if formula_id == SHADOW_FORMULA:
+        return (
+            float(_teaching_completeness(event)),
+            float(features.was_critical_moment),
+            float(features.cp_loss),
+            float(-event.move.ply),
+        )
+    if formula_id == QUALITY_V2_FORMULA:
+        return (
+            float(features.decisiveness_changed),
+            float(not features.stayed_winning),
+            float(_teaching_completeness(event)),
+            max(0.0, -float(features.mover_winprob_delta)),
+            float(features.cp_loss),
+            float(-event.move.ply),
+        )
+    raise ReviewContractViolation("unknown review ranking formula")
 
 
 def _chapter_role(
@@ -118,6 +140,8 @@ def _chapter_role(
         return ChapterRole.MISSED_OPPORTUNITY
     if event.outcome.value == "introduced":
         return ChapterRole.KNOWLEDGE_GAP
+    if event.outcome.value == "allowed":
+        return ChapterRole.MISSED_OPPORTUNITY
     return ChapterRole.TURNING_POINT
 
 
@@ -140,6 +164,7 @@ def build_shadow_game_teaching_plan(
     generated_at: datetime,
     next_actions: Optional[Mapping[str, ReviewNextAction]] = None,
     recurring_event_ids: Sequence[str] = (),
+    formula_id: str = SHADOW_FORMULA,
 ) -> ShadowPlannerResult:
     """Build the measured shadow candidate without inventing causality."""
     if not isinstance(game_id, str) or not game_id.strip():
@@ -176,14 +201,14 @@ def build_shadow_game_teaching_plan(
 
     ranked = sorted(
         eligible,
-        key=lambda item: _rank_key(item[0], item[1]),
+        key=lambda item: _rank_key(item[0], item[1], formula_id),
         reverse=True,
     )
     selected_ranked = ranked[:SHADOW_MOMENT_CAP]
     if not selected_ranked:
         return ShadowPlannerResult(
             plan=None,
-            formula_id=SHADOW_FORMULA,
+            formula_id=formula_id,
             selected_event_ids=(),
             selected_reflection_event_ids=(),
             rejected_event_ids=tuple(rejected),
@@ -235,7 +260,7 @@ def build_shadow_game_teaching_plan(
 
     fingerprint = _fingerprint(selected)
     plan_id_seed = (
-        f"{game_id}:{PLANNER_VERSION}:{SHADOW_FORMULA}:"
+        f"{game_id}:{PLANNER_VERSION}:{formula_id}:"
         f"{SHADOW_MOMENT_CAP}:{fingerprint}"
     ).encode("utf-8")
     plan = GameTeachingPlan(
@@ -252,7 +277,7 @@ def build_shadow_game_teaching_plan(
     plan.validate_against(index)
     return ShadowPlannerResult(
         plan=plan,
-        formula_id=SHADOW_FORMULA,
+        formula_id=formula_id,
         selected_event_ids=selected_ids,
         selected_reflection_event_ids=reflection_ids,
         rejected_event_ids=tuple(rejected),

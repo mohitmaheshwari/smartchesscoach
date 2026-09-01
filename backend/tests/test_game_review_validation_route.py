@@ -59,6 +59,18 @@ def test_review_get_resolves_account_access_before_honoring_query_mode():
     assert "except HTTPException:" in function
 
 
+def test_v5_regeneration_clears_the_stale_plan_with_the_stale_captions():
+    function = _function_source("get_game_decryption_v5")
+    assert "personalized_review_quality_v2_enabled()" in function
+    assert "review_formula_stale" in function
+    stale_branch = function[
+        function.index("stored_version < V5_COACHING_VERSION"):
+        function.index("# If V5 data exists, return it")
+    ]
+    assert '"decryption_v5_data": ""' in stale_branch
+    assert '"game_teaching_plan": ""' in stale_branch
+
+
 def test_scorecard_route_rechecks_access_and_server_plan_before_storage():
     function = _function_source("submit_game_review_validation")
     access = function.index("personalized_game_review_access(user_doc)")
@@ -74,6 +86,8 @@ def test_scorecard_route_rechecks_access_and_server_plan_before_storage():
     assert "request.plan_id" not in function
     assert "request.presentation_mode" not in function
     assert "request.critical_truth_failure" not in function
+    assert "QUALITY_V2_FEATURE_FLAG" in function
+    assert "personalized_review_quality_v2_enabled()" in function
 
 
 def test_validation_route_uses_one_canonical_collection_and_service():

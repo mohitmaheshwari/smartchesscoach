@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 138  # v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md. v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
+V5_COACHING_VERSION = 139  # v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md. v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -3709,8 +3709,8 @@ async def generate_game_decryption_v5(
             # evidence can survive the adapter's authorization gate.
             if is_user and _decision is not None and _review_shadow_observations:
                 try:
-                    from services.game_review_shadow_runtime import adapt_simple_hang_event
-                    _review_pair = adapt_simple_hang_event(
+                    from services.game_review_shadow_runtime import adapt_review_event
+                    _review_pair = adapt_review_event(
                         decision=_decision,
                         observation=_review_shadow_observations.get(full_move_number, {}),
                         game_id=game_id,
@@ -3726,10 +3726,10 @@ async def generate_game_decryption_v5(
                         if _review_event.reflection_eligible:
                             try:
                                 from services.review_reflection_service import (
-                                    build_pic_simple_hang_reflection_prompt,
+                                    build_review_event_reflection_prompt,
                                 )
                                 _review_prompt = (
-                                    build_pic_simple_hang_reflection_prompt(
+                                    build_review_event_reflection_prompt(
                                         _review_event,
                                         fen_before=fen_before,
                                         user_move=move_san,

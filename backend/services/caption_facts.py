@@ -80,6 +80,8 @@ Usage (CLI):
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import hashlib
 import json
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -113,6 +115,272 @@ PIECE_VALUE_CP: Dict[int, int] = {
     chess.QUEEN: 900,
     chess.KING: 0,  # king has no exchange value (SEE caps before king capture)
 }
+
+LEGAL_MATERIAL_LOSS_CAUSE_VERSION = "legal_material_loss_cause.v2"
+VERIFIED_LINE_CAUSE_VERSION = "verified_line_cause.v1"
+VERIFIED_LINE_MIN_CP_LOSS = 100
+_LEGAL_MATERIAL_PURPOSES = frozenset({
+    "moves_affected_piece",
+    "removes_attacker",
+    "adds_defender",
+})
+_VERIFIED_PLAYED_PURPOSES = frozenset({
+    "gives_check",
+    "captures",
+    "develops",
+    "pressures_king_ring",
+    "attacks_opponent_piece",
+})
+
+
+@dataclass(frozen=True)
+class PieceOnSquare:
+    piece: str
+    square: str
+
+    def __post_init__(self) -> None:
+        if self.piece not in set(PIECE_TYPE_NAMES.values()):
+            raise ValueError("unknown piece type")
+        chess.parse_square(self.square)
+
+    def contract_dict(self) -> Dict[str, str]:
+        return {"piece": self.piece, "square": self.square}
+
+
+@dataclass(frozen=True)
+class LegalMaterialLossCause:
+    """Exact legal-exchange cause shared by captions, Review and PWC."""
+
+    affected: PieceOnSquare
+    attacker: PieceOnSquare
+    punishment_san: str
+    material_loss_cp: int
+    best_move_san: str
+    best_move_purpose: Optional[str]
+    best_move_from: str
+    best_move_to: str
+    played_capture: Optional[PieceOnSquare] = None
+    played_purposes: Tuple[str, ...] = ()
+    proof_authority: str = "caption_facts.legally_hanging_pieces"
+    proof_version: str = LEGAL_MATERIAL_LOSS_CAUSE_VERSION
+
+    def __post_init__(self) -> None:
+        if not self.punishment_san or not self.best_move_san:
+            raise ValueError("cause moves must be non-empty")
+        if self.material_loss_cp <= 0:
+            raise ValueError("material loss must be positive")
+        chess.parse_square(self.best_move_from)
+        chess.parse_square(self.best_move_to)
+        if (
+            self.best_move_purpose is not None
+            and self.best_move_purpose not in _LEGAL_MATERIAL_PURPOSES
+        ):
+            raise ValueError("unknown best-move purpose")
+        if not isinstance(self.played_purposes, tuple) or any(
+            purpose not in _VERIFIED_PLAYED_PURPOSES
+            for purpose in self.played_purposes
+        ):
+            raise ValueError("unknown played-move purpose")
+
+    @property
+    def fingerprint(self) -> str:
+        payload = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def contract_dict(self, *, include_fingerprint: bool = True) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "schema_version": self.proof_version,
+            "kind": "legal_material_loss",
+            "affected": self.affected.contract_dict(),
+            "attacker": self.attacker.contract_dict(),
+            "punishment_san": self.punishment_san,
+            "material_loss_cp": self.material_loss_cp,
+            "best_move_san": self.best_move_san,
+            "best_move_purpose": self.best_move_purpose,
+            "best_move_purpose_verified": self.best_move_purpose is not None,
+            "best_move_from": self.best_move_from,
+            "best_move_to": self.best_move_to,
+            "played_capture": (
+                self.played_capture.contract_dict()
+                if self.played_capture is not None
+                else None
+            ),
+            "played_purposes": list(self.played_purposes),
+            "proof": {
+                "authority": self.proof_authority,
+                "version": self.proof_version,
+            },
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedLineCapture:
+    """One capture in a fully legal stored continuation."""
+
+    ply: int
+    actor: str
+    move_san: str
+    origin: str
+    destination: str
+    capturing_piece: str
+    captured_piece: str
+    captured_square: str
+    captured_value_cp: int
+
+    def __post_init__(self) -> None:
+        if self.ply < 1 or self.actor not in {"initiator", "opponent"}:
+            raise ValueError("invalid verified-line capture identity")
+        for square in (self.origin, self.destination, self.captured_square):
+            chess.parse_square(square)
+        if self.capturing_piece not in set(PIECE_TYPE_NAMES.values()):
+            raise ValueError("unknown capturing piece")
+        if self.captured_piece not in set(PIECE_TYPE_NAMES.values()):
+            raise ValueError("unknown captured piece")
+        if self.captured_value_cp <= 0:
+            raise ValueError("captured value must be positive")
+
+    def contract_dict(self) -> Dict[str, Any]:
+        return {
+            "ply": self.ply,
+            "actor": self.actor,
+            "move_san": self.move_san,
+            "origin": self.origin,
+            "destination": self.destination,
+            "capturing_piece": self.capturing_piece,
+            "captured_piece": self.captured_piece,
+            "captured_square": self.captured_square,
+            "captured_value_cp": self.captured_value_cp,
+        }
+
+
+@dataclass(frozen=True)
+class CauseRelationship:
+    origin: str
+    destination: str
+    role: str
+
+    def __post_init__(self) -> None:
+        chess.parse_square(self.origin)
+        chess.parse_square(self.destination)
+        if self.role not in {"threat", "safe_move", "opportunity"}:
+            raise ValueError("unknown cause relationship role")
+
+    def contract_dict(self) -> Dict[str, str]:
+        return {
+            "from": self.origin,
+            "to": self.destination,
+            "role": self.role,
+        }
+
+
+@dataclass(frozen=True)
+class VerifiedLineCause:
+    """Caption-only truth rebuilt from complete, already-stored legal lines.
+
+    This does not name a tactical motif or diagnose recurrence. It says only
+    what the two stored continuations prove: mate, an exchange ledger, or a
+    concrete material opportunity.
+    """
+
+    lesson_kind: str
+    phase: str
+    position_kind: str
+    played_move_san: str
+    best_move_san: str
+    best_move_from: str
+    best_move_to: str
+    played_line_san: Tuple[str, ...]
+    best_line_san: Tuple[str, ...]
+    played_captures: Tuple[VerifiedLineCapture, ...]
+    best_captures: Tuple[VerifiedLineCapture, ...]
+    played_net_material_gain_cp: int
+    best_net_material_gain_cp: int
+    played_purposes: Tuple[str, ...] = ()
+    mate_in: Optional[int] = None
+    reply_san: Optional[str] = None
+    reply_from: Optional[str] = None
+    reply_to: Optional[str] = None
+    relationships: Tuple[CauseRelationship, ...] = ()
+    proof_authority: str = "stored_line_verifier.replay_stored_line"
+    proof_version: str = VERIFIED_LINE_CAUSE_VERSION
+
+    def __post_init__(self) -> None:
+        if self.lesson_kind not in {
+            "missed_forced_mate",
+            "allowed_forced_mate",
+            "exchange_sequence",
+            "missed_material_opportunity",
+        }:
+            raise ValueError("unknown verified-line lesson kind")
+        if self.phase not in {"opening", "middlegame", "endgame"}:
+            raise ValueError("unknown game phase")
+        if self.position_kind not in {"pawn_ending", "general"}:
+            raise ValueError("unknown verified-line position kind")
+        if not self.played_move_san or not self.best_move_san:
+            raise ValueError("verified-line moves must be non-empty")
+        chess.parse_square(self.best_move_from)
+        chess.parse_square(self.best_move_to)
+        if not self.played_line_san or not self.best_line_san:
+            raise ValueError("verified lines must be complete and non-empty")
+        if self.mate_in is not None and self.mate_in < 1:
+            raise ValueError("mate distance must be positive")
+        if bool(self.reply_san) != bool(self.reply_from and self.reply_to):
+            raise ValueError("reply identity must be complete")
+
+    @property
+    def first_best_capture(self) -> Optional[VerifiedLineCapture]:
+        return self.best_captures[0] if self.best_captures else None
+
+    @property
+    def fingerprint(self) -> str:
+        payload = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def contract_dict(self, *, include_fingerprint: bool = True) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "schema_version": self.proof_version,
+            "kind": "verified_stored_line",
+            "lesson_kind": self.lesson_kind,
+            "phase": self.phase,
+            "position_kind": self.position_kind,
+            "played_move_san": self.played_move_san,
+            "best_move_san": self.best_move_san,
+            "best_move_from": self.best_move_from,
+            "best_move_to": self.best_move_to,
+            "played_line_san": list(self.played_line_san),
+            "best_line_san": list(self.best_line_san),
+            "played_captures": [item.contract_dict() for item in self.played_captures],
+            "best_captures": [item.contract_dict() for item in self.best_captures],
+            "played_net_material_gain_cp": self.played_net_material_gain_cp,
+            "best_net_material_gain_cp": self.best_net_material_gain_cp,
+            "played_purposes": list(self.played_purposes),
+            "mate_in": self.mate_in,
+            "reply_san": self.reply_san,
+            "reply_from": self.reply_from,
+            "reply_to": self.reply_to,
+            "relationships": [item.contract_dict() for item in self.relationships],
+            "proof": {
+                "authority": self.proof_authority,
+                "version": self.proof_version,
+            },
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+ReviewTeachingCause = LegalMaterialLossCause | VerifiedLineCause
 
 # Phase boundary thresholds (mirrors detect_phase in game_decryption_v5_service)
 _OPENING_MAX_MOVE_HIGH_PIECES = 10  # if piece_count >= 28
@@ -538,6 +806,382 @@ def legally_hanging_pieces(
         )
     )
     return facts
+
+
+def verified_move_purposes(
+    *, fen_before: str, played_san: str
+) -> Tuple[str, ...]:
+    """Return only literal, board-verifiable purposes of the played move."""
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(played_san)
+    except (ValueError, AssertionError):
+        return ()
+    piece = board.piece_at(move.from_square)
+    opponent = not board.turn
+    was_capture = board.is_capture(move)
+    home_squares = {
+        chess.B1,
+        chess.G1,
+        chess.C1,
+        chess.F1,
+        chess.B8,
+        chess.G8,
+        chess.C8,
+        chess.F8,
+    }
+    purposes: List[str] = []
+    board.push(move)
+    moved = board.piece_at(move.to_square)
+    if board.is_check():
+        purposes.append("gives_check")
+    if was_capture:
+        purposes.append("captures")
+    if (
+        piece is not None
+        and piece.piece_type in {chess.KNIGHT, chess.BISHOP}
+        and move.from_square in home_squares
+    ):
+        purposes.append("develops")
+    enemy_king = board.king(opponent)
+    if moved is not None and enemy_king is not None:
+        king_ring = set(chess.SquareSet(chess.BB_KING_ATTACKS[enemy_king]))
+        if set(board.attacks(move.to_square)) & king_ring:
+            purposes.append("pressures_king_ring")
+    if moved is not None and any(
+        (target := board.piece_at(square)) is not None
+        and target.color == opponent
+        for square in board.attacks(move.to_square)
+    ):
+        purposes.append("attacks_opponent_piece")
+    return tuple(purposes)
+
+
+def build_legal_material_loss_cause(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    minimum_gain_cp: int,
+) -> Optional[LegalMaterialLossCause]:
+    """Build one exact loose-piece cause, or abstain when proof is incomplete.
+
+    The best-move purpose is deliberately narrow. It is named only when the
+    engine move moves the affected piece, captures its exact attacker, or adds
+    a legal defender and the same exchange is no longer winning.
+    """
+    if not isinstance(minimum_gain_cp, int) or minimum_gain_cp <= 0:
+        raise ValueError("minimum_gain_cp must be a positive integer")
+    try:
+        before = chess.Board(fen_before)
+        played = before.parse_san(played_san)
+        best = before.parse_san(best_move_san)
+    except (ValueError, AssertionError):
+        return None
+
+    owner = before.turn
+    opponent = not owner
+    if played.promotion is not None:
+        # Promotion exchanges need dedicated wording for the material created
+        # by promotion; the simple piece-for-piece contract cannot say this
+        # completely, so it abstains.
+        return None
+    played_capture: Optional[PieceOnSquare] = None
+    played_material_gain_cp = 0
+    if before.is_capture(played):
+        capture_square = played.to_square
+        if before.is_en_passant(played):
+            capture_square += -8 if owner == chess.WHITE else 8
+        captured = before.piece_at(capture_square)
+        if captured is None or captured.color == owner:
+            return None
+        played_capture = PieceOnSquare(
+            piece=PIECE_TYPE_NAMES[captured.piece_type],
+            square=chess.square_name(capture_square),
+        )
+        played_material_gain_cp = PIECE_VALUE_CP.get(captured.piece_type, 0)
+    after_played = before.copy(stack=False)
+    after_played.push(played)
+    hanging = legally_hanging_pieces(after_played, owner, minimum_gain_cp)
+    if not hanging:
+        return None
+
+    target_fact = hanging[0]
+    net_material_loss_cp = (
+        int(target_fact.get("material_loss_cp") or 0)
+        - played_material_gain_cp
+    )
+    if net_material_loss_cp < minimum_gain_cp:
+        return None
+    target_square = chess.parse_square(str(target_fact["square"]))
+    target = after_played.piece_at(target_square)
+    try:
+        reply = chess.Move.from_uci(str(target_fact.get("winning_capture_uci") or ""))
+    except ValueError:
+        return None
+    if reply not in after_played.legal_moves or not after_played.is_capture(reply):
+        return None
+    attacker = after_played.piece_at(reply.from_square)
+    if (
+        target is None
+        or target.color != owner
+        or attacker is None
+        or attacker.color != opponent
+    ):
+        return None
+
+    best_was_capture = before.is_capture(best)
+    captured_by_best = (
+        before.piece_at(best.to_square) if best_was_capture else None
+    )
+    after_best = before.copy(stack=False)
+    after_best.push(best)
+    hanging_after_best = legally_hanging_pieces(
+        after_best, owner, minimum_gain_cp
+    )
+    hanging_squares_after_best = {
+        str(item.get("square") or "") for item in hanging_after_best
+    }
+    target_name = chess.square_name(target_square)
+    played_piece = before.piece_at(played.from_square)
+    affected_origin_before = (
+        played.from_square
+        if target_square == played.to_square
+        and played_piece is not None
+        and played_piece.color == owner
+        and played_piece.piece_type == target.piece_type
+        else target_square
+    )
+    target_after_best = after_best.piece_at(target_square)
+    affected_remains_on_target = (
+        affected_origin_before == target_square
+        and target_after_best is not None
+        and target_after_best.color == owner
+        and target_after_best.piece_type == target.piece_type
+    )
+    purpose: Optional[str] = None
+    if best.from_square == affected_origin_before and chess.square_name(
+        best.to_square
+    ) not in hanging_squares_after_best:
+        purpose = "moves_affected_piece"
+    elif (
+        affected_remains_on_target
+        and
+        captured_by_best is not None
+        and best.to_square == reply.from_square
+        and target_name not in hanging_squares_after_best
+    ):
+        purpose = "removes_attacker"
+    elif (
+        affected_remains_on_target
+        and
+        target_name not in hanging_squares_after_best
+        and best.to_square in after_best.attackers(owner, target_square)
+    ):
+        purpose = "adds_defender"
+
+    return LegalMaterialLossCause(
+        affected=PieceOnSquare(
+            piece=PIECE_TYPE_NAMES[target.piece_type], square=target_name
+        ),
+        attacker=PieceOnSquare(
+            piece=PIECE_TYPE_NAMES[attacker.piece_type],
+            square=chess.square_name(reply.from_square),
+        ),
+        punishment_san=str(target_fact.get("winning_capture_san") or ""),
+        material_loss_cp=net_material_loss_cp,
+        best_move_san=best_move_san,
+        best_move_purpose=purpose,
+        best_move_from=chess.square_name(best.from_square),
+        best_move_to=chess.square_name(best.to_square),
+        played_capture=played_capture,
+        played_purposes=verified_move_purposes(
+            fen_before=fen_before, played_san=played_san
+        ),
+    )
+
+
+def _verified_line_capture(raw: Any) -> VerifiedLineCapture:
+    return VerifiedLineCapture(
+        ply=int(raw.ply),
+        actor=str(raw.actor),
+        move_san=str(raw.move_san),
+        origin=str(raw.origin),
+        destination=str(raw.destination),
+        capturing_piece=str(raw.capturing_piece),
+        captured_piece=str(raw.captured_piece),
+        captured_square=str(raw.captured_square),
+        captured_value_cp=int(raw.captured_value_cp),
+    )
+
+
+def build_verified_line_cause(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: int,
+) -> Optional[VerifiedLineCause]:
+    """Build a narrow caption cause from two complete legal stored lines.
+
+    No engine is run and no motif is inferred. The returned lesson is limited
+    to terminal mate, a full capture/recapture ledger, or a material payoff
+    that occurs inside the already-stored best continuation.
+    """
+    try:
+        loss = int(cp_loss)
+    except (TypeError, ValueError):
+        return None
+    if loss < VERIFIED_LINE_MIN_CP_LOSS:
+        return None
+    try:
+        before = chess.Board(fen_before)
+        played = before.parse_san(played_san)
+        best = before.parse_san(best_move_san)
+    except (ValueError, AssertionError):
+        return None
+    if played == best:
+        return None
+
+    # Local import avoids a module cycle: stored_line_verifier consumes the
+    # canonical piece-value table owned by this module.
+    from services.stored_line_verifier import replay_stored_line
+
+    played_replay = replay_stored_line(before, played, pv_after_played)
+    best_replay = replay_stored_line(before, best, pv_after_best)
+    if (
+        not played_replay.complete
+        or not best_replay.complete
+        or not played_replay.replayed_san
+        or not best_replay.replayed_san
+    ):
+        return None
+
+    initiator = before.turn
+    played_captures = tuple(
+        _verified_line_capture(item) for item in played_replay.captures
+    )
+    best_captures = tuple(
+        _verified_line_capture(item) for item in best_replay.captures
+    )
+    opponent_reply = (
+        played_replay.replayed_uci[1]
+        if len(played_replay.replayed_uci) > 1
+        else None
+    )
+    reply_san = (
+        played_replay.replayed_san[1]
+        if len(played_replay.replayed_san) > 1
+        else None
+    )
+    reply_from = opponent_reply[:2] if opponent_reply else None
+    reply_to = opponent_reply[2:4] if opponent_reply else None
+
+    lesson_kind: Optional[str] = None
+    mate_in: Optional[int] = None
+    if (
+        best_replay.checkmate
+        and best_replay.checkmating_color == initiator
+        and best_replay.mate_ply is not None
+    ):
+        lesson_kind = "missed_forced_mate"
+        mate_in = (best_replay.mate_ply + 1) // 2
+    elif (
+        played_replay.checkmate
+        and played_replay.checkmating_color == (not initiator)
+        and played_replay.mate_ply is not None
+    ):
+        lesson_kind = "allowed_forced_mate"
+        # The opponent moves on even plies in the player-initiated line.
+        mate_in = max(1, played_replay.mate_ply // 2)
+    else:
+        capture_actors = {item.actor for item in played_captures}
+        if (
+            len(played_captures) >= 2
+            and capture_actors == {"initiator", "opponent"}
+            and played_replay.net_material_gain_cp <= -100
+        ):
+            lesson_kind = "exchange_sequence"
+        elif (
+            best_captures
+            and best_replay.net_material_gain_cp >= 100
+            and (
+                best_replay.net_material_gain_cp
+                - played_replay.net_material_gain_cp
+            ) >= 100
+        ):
+            lesson_kind = "missed_material_opportunity"
+    if lesson_kind is None:
+        return None
+
+    relationships: List[CauseRelationship] = []
+    if reply_from and reply_to and lesson_kind in {
+        "allowed_forced_mate",
+        "exchange_sequence",
+    }:
+        relationships.append(CauseRelationship(reply_from, reply_to, "threat"))
+    relationships.append(CauseRelationship(
+        chess.square_name(best.from_square),
+        chess.square_name(best.to_square),
+        "safe_move",
+    ))
+    first_best_capture = best_captures[0] if best_captures else None
+    if (
+        lesson_kind == "missed_material_opportunity"
+        and
+        first_best_capture is not None
+        and (
+            first_best_capture.origin,
+            first_best_capture.destination,
+        ) != (
+            chess.square_name(best.from_square),
+            chess.square_name(best.to_square),
+        )
+    ):
+        relationships.append(CauseRelationship(
+            first_best_capture.origin,
+            first_best_capture.destination,
+            "opportunity",
+        ))
+
+    return VerifiedLineCause(
+        lesson_kind=lesson_kind,
+        phase=_detect_phase(before, before.fullmove_number),
+        position_kind=(
+            "pawn_ending"
+            if not any(
+                before.pieces(piece_type, color)
+                for piece_type in (
+                    chess.KNIGHT,
+                    chess.BISHOP,
+                    chess.ROOK,
+                    chess.QUEEN,
+                )
+                for color in (chess.WHITE, chess.BLACK)
+            )
+            else "general"
+        ),
+        played_move_san=played_san,
+        best_move_san=best_move_san,
+        best_move_from=chess.square_name(best.from_square),
+        best_move_to=chess.square_name(best.to_square),
+        played_line_san=played_replay.replayed_san,
+        best_line_san=best_replay.replayed_san,
+        played_captures=played_captures,
+        best_captures=best_captures,
+        played_net_material_gain_cp=played_replay.net_material_gain_cp,
+        best_net_material_gain_cp=best_replay.net_material_gain_cp,
+        played_purposes=verified_move_purposes(
+            fen_before=fen_before, played_san=played_san
+        ),
+        mate_in=mate_in,
+        reply_san=reply_san,
+        reply_from=reply_from,
+        reply_to=reply_to,
+        relationships=tuple(relationships),
+    )
 
 
 def _see_for_played_move(board_before: chess.Board, played_move: chess.Move) -> Optional[int]:

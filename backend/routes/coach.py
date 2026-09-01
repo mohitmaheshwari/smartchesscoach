@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 import logging
+import os
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -812,9 +813,11 @@ async def get_game_decryption_v5(
     try:
         from services.game_review_contracts import (
             FEATURE_FLAG,
+            QUALITY_V2_FEATURE_FLAG,
             ReviewContractViolation,
             ReviewPresentationMode,
             personalized_game_review_access,
+            personalized_review_quality_v2_enabled,
             resolve_review_presentation_mode,
         )
         from services.game_review_validation_service import (
@@ -866,11 +869,36 @@ async def get_game_decryption_v5(
         # Auto-regenerate if V5 coaching version is outdated
         from services.game_decryption_v5_service import V5_COACHING_VERSION
         stored_version = analysis.get("decryption_v5_version", 1)
-        if analysis.get("decryption_v5_data") and stored_version < V5_COACHING_VERSION:
-            logger.info(f"[DECRYPTION V5] Outdated coaching v{stored_version} → v{V5_COACHING_VERSION} for {game_id}, clearing for regeneration")
+        from services.game_review_planner import QUALITY_V2_FORMULA, SHADOW_FORMULA
+        expected_review_formula = (
+            QUALITY_V2_FORMULA
+            if personalized_review_quality_v2_enabled()
+            else SHADOW_FORMULA
+        )
+        stored_review_formula = (
+            (analysis.get("game_teaching_plan") or {}).get("formula_id")
+        )
+        review_formula_stale = bool(
+            review_access.enabled
+            and stored_review_formula != expected_review_formula
+        )
+        if analysis.get("decryption_v5_data") and (
+            stored_version < V5_COACHING_VERSION or review_formula_stale
+        ):
+            logger.info(
+                "[DECRYPTION V5] Outdated coaching/plan "
+                f"v{stored_version}, formula={stored_review_formula!r} → "
+                f"v{V5_COACHING_VERSION}, formula={expected_review_formula!r} "
+                f"for {game_id}, clearing for regeneration"
+            )
             await db.game_analyses.update_one(
                 {"game_id": game_id},
-                {"$unset": {"decryption_v5_data": "", "decryption_v5_generating": "", "decryption_v5_generated_at": ""}}
+                {"$unset": {
+                    "decryption_v5_data": "",
+                    "decryption_v5_generating": "",
+                    "decryption_v5_generated_at": "",
+                    "game_teaching_plan": "",
+                }}
             )
             analysis["decryption_v5_data"] = None  # Force regeneration below
         
@@ -977,7 +1005,14 @@ async def get_game_decryption_v5(
                     legacy_response,
                     stored_moves=tuple(analysis.get("decryption_v5_data") or []),
                     stored_plan=analysis.get("game_teaching_plan"),
-                    env={FEATURE_FLAG: "true"},
+                    env={
+                        FEATURE_FLAG: "true",
+                        QUALITY_V2_FEATURE_FLAG: (
+                            "true"
+                            if personalized_review_quality_v2_enabled()
+                            else "false"
+                        ),
+                    },
                 )
             response = (
                 personalized_response
@@ -1255,9 +1290,11 @@ async def submit_game_review_validation(
     """Store one private Phase 6 scorecard for an approved validator."""
     from services.game_review_contracts import (
         FEATURE_FLAG,
+        QUALITY_V2_FEATURE_FLAG,
         ReviewContractViolation,
         ReviewPresentationMode,
         personalized_game_review_access,
+        personalized_review_quality_v2_enabled,
     )
     from services.game_review_event_adapter import (
         maybe_attach_phase5_review_fields,
@@ -1311,7 +1348,14 @@ async def submit_game_review_validation(
             {"decryption_data": []},
             stored_moves=tuple(analysis.get("decryption_v5_data") or []),
             stored_plan=analysis.get("game_teaching_plan"),
-            env={FEATURE_FLAG: "true"},
+            env={
+                FEATURE_FLAG: "true",
+                QUALITY_V2_FEATURE_FLAG: (
+                    "true"
+                    if personalized_review_quality_v2_enabled()
+                    else "false"
+                ),
+            },
         )
         plan_id = (projected.get("game_teaching_plan") or {}).get("plan_id")
         if not plan_id:

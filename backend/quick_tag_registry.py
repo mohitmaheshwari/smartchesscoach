@@ -7,7 +7,7 @@ This allows adding new tags without changing logic.
 Tags are adapted by rating band.
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 from reflect_constants import (
     QuickTagId, RatingBand, 
     get_rating_band, ADAPTIVE_DEFAULTS
@@ -16,6 +16,144 @@ from reflect_predicates import BoardFacts, evaluate_predicate
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _cause_context_tags(
+    context: Optional[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Position-specific labels derived only from the typed cause contract."""
+    if not isinstance(context, Mapping):
+        return []
+    if context.get("kind") == "verified_stored_line":
+        lesson_kind = str(context.get("lesson_kind") or "")
+        labels = {
+            "missed_forced_mate": (
+                (
+                    QuickTagId.MISSED_CHECK,
+                    "I did not look at every check",
+                    20,
+                ),
+                (
+                    QuickTagId.IGNORED_FORCING_SEQUENCE,
+                    "I stopped calculating before the final check",
+                    19,
+                ),
+            ),
+            "allowed_forced_mate": (
+                (
+                    QuickTagId.MISSED_CHECK,
+                    "I did not check their next move for checkmate",
+                    20,
+                ),
+                (
+                    QuickTagId.PLAYED_FAST,
+                    "I moved before checking all of their checks",
+                    19,
+                ),
+            ),
+            "exchange_sequence": (
+                (
+                    QuickTagId.IGNORED_FORCING_SEQUENCE,
+                    "I stopped counting before the final recapture",
+                    20,
+                ),
+                (
+                    QuickTagId.MISSED_CAPTURE,
+                    "I miscounted what would remain after all the captures",
+                    19,
+                ),
+            ),
+            "missed_material_opportunity": (
+                (
+                    QuickTagId.MISSED_CAPTURE,
+                    "I did not consider the full capture sequence",
+                    20,
+                ),
+                (
+                    QuickTagId.PLAYED_FAST,
+                    "I chose my move before checking direct captures",
+                    19,
+                ),
+            ),
+        }.get(lesson_kind, ())
+        candidates = [
+            {
+                "id": tag_id.value,
+                "label": label,
+                "priority": priority,
+                "predicate_match": True,
+            }
+            for tag_id, label, priority in labels
+        ]
+        played_purposes = set(context.get("played_purposes") or [])
+        if played_purposes & {
+            "pressures_king_ring",
+            "attacks_opponent_piece",
+        }:
+            candidates.append(
+                {
+                    "id": QuickTagId.CHOSE_ATTACK_OVER_SAFETY.value,
+                    "label": "I was focused on continuing my attack",
+                    "priority": 18,
+                    "predicate_match": True,
+                }
+            )
+        return candidates
+    if context.get("kind") != "legal_material_loss":
+        return []
+    affected = context.get("affected") or {}
+    attacker = context.get("attacker") or {}
+    affected_piece = str(affected.get("piece") or "piece")
+    attacker_piece = str(attacker.get("piece") or "piece")
+    affected_square = str(affected.get("square") or "").strip()
+    attacker_square = str(attacker.get("square") or "").strip()
+    affected_name = (
+        f"{affected_piece} on {affected_square}"
+        if affected_square
+        else affected_piece
+    )
+    attacker_name = (
+        f"{attacker_piece} on {attacker_square}"
+        if attacker_square
+        else attacker_piece
+    )
+    played_purposes = set(context.get("played_purposes") or [])
+    candidates = [
+        {
+            "id": QuickTagId.THOUGHT_PIECE_SAFE.value,
+            "label": (
+                f"I did not notice the {attacker_name} attacking my "
+                f"{affected_name}"
+            ),
+            "priority": 20,
+            "predicate_match": True,
+        },
+        {
+            "id": QuickTagId.THOUGHT_PROTECTED.value,
+            "label": f"I thought the {affected_name} could not be taken",
+            "priority": 19,
+            "predicate_match": True,
+        },
+    ]
+    if played_purposes & {"pressures_king_ring", "attacks_opponent_piece"}:
+        candidates.extend([
+            {
+                "id": QuickTagId.CHOSE_ATTACK_OVER_SAFETY.value,
+                "label": "I was trying to continue the attack",
+                "priority": 18,
+                "predicate_match": True,
+            },
+            {
+                "id": QuickTagId.ATTACKED_IGNORED_THREAT.value,
+                "label": (
+                    f"I saw the {affected_name} was attacked, but expected "
+                    "my attack to come first"
+                ),
+                "priority": 17,
+                "predicate_match": True,
+            },
+        ])
+    return candidates
 
 
 # ============================================
@@ -328,6 +466,7 @@ class QuickTagEngine:
         mistake_category: str,
         *,
         include_honest_escapes: bool = False,
+        reflection_context: Optional[Mapping[str, Any]] = None,
     ) -> Dict:
         """
         Generate quick tags for a reflection moment.
@@ -392,6 +531,15 @@ class QuickTagEngine:
                 "predicate_match": predicate_match,
             })
         
+        # A typed Review cause may relabel existing stable IDs and promote only
+        # board-possible intentions. This remains the one option authority.
+        for contextual in _cause_context_tags(reflection_context):
+            candidate_tags = [
+                item for item in candidate_tags
+                if item["id"] != contextual["id"]
+            ]
+            candidate_tags.append(contextual)
+
         # 3. Sort by priority (descending)
         candidate_tags.sort(key=lambda x: x["priority"], reverse=True)
         
@@ -484,6 +632,7 @@ def generate_quick_tags(
     move_number: int = 0,
     *,
     include_honest_escapes: bool = False,
+    reflection_context: Optional[Mapping[str, Any]] = None,
 ) -> Dict:
     """
     Main entry point for quick tag generation.
@@ -505,4 +654,5 @@ def generate_quick_tags(
         facts,
         mistake_category,
         include_honest_escapes=include_honest_escapes,
+        reflection_context=reflection_context,
     )

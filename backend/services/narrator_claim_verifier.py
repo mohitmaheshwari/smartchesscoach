@@ -10,7 +10,8 @@ recapture"; m9 v1 "knight on e6"). A narrator caption ships ONLY if it passes;
 otherwise it is sent back for self-correction, and on a second failure it is HELD.
 
 API:
-    verify_caption(caption, facts) -> list[dict]   # [] == clean
+    verify_caption(caption, facts) -> list[dict]   # deployed V1 behavior
+    verify_caption(caption, facts, strict_v2=True) -> list[dict]
       facts needs: fen_before, played_san (=move_san), is_user_move,
                    best_move_san, pv_after_played
     Each violation: {"check": str, "detail": str}   # detail IS the board truth,
@@ -36,6 +37,279 @@ _NORECAP_RX = re.compile(r"\b(no recapture|can'?t (?:take|recapture)|"
                          r"loses? (?:the|that) pawn cleanly|without (?:a )?recapture|"
                          r"no way to recapture)\b", re.I)
 _MATE_RX = re.compile(r"\b(checkmate|is mate|delivers mate)\b|#", re.I)
+_EXPLICIT_MATE_SAN_RX = re.compile(
+    r"(?<!\w)(O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)#"
+)
+
+_VALUE = {
+    chess.PAWN: 100,
+    chess.KNIGHT: 320,
+    chess.BISHOP: 330,
+    chess.ROOK: 500,
+    chess.QUEEN: 900,
+    chess.KING: 0,
+}
+
+
+def _capture_square(board: chess.Board, move: chess.Move) -> int:
+    if board.is_en_passant(move):
+        return move.to_square + (-8 if board.turn == chess.WHITE else 8)
+    return move.to_square
+
+
+def _replay_branch(
+    facts: Dict[str, Any],
+    *,
+    first_key: str,
+    continuation_key: str,
+) -> tuple[chess.Board, list[Dict[str, Any]], bool]:
+    """Legally replay one stored branch and record its capture ledger."""
+    board = chess.Board(facts["fen_before"])
+    entries: list[Dict[str, Any]] = []
+    sans = [facts.get(first_key)] + list(facts.get(continuation_key) or [])
+    for san in sans:
+        if not san:
+            continue
+        try:
+            move = board.parse_san(str(san))
+        except Exception:
+            return board, entries, False
+        moving = board.piece_at(move.from_square)
+        captured = (
+            board.piece_at(_capture_square(board, move))
+            if board.is_capture(move)
+            else None
+        )
+        entries.append(
+            {
+                "san": str(san),
+                "move": move,
+                "mover": board.turn,
+                "moving_piece": moving,
+                "captured_piece": captured,
+                "capture_square": _capture_square(board, move),
+            }
+        )
+        board.push(move)
+    return board, entries, True
+
+
+def _capture_totals(
+    entries: list[Dict[str, Any]], mover: chess.Color
+) -> tuple[int, int]:
+    """Return (mover material lost, opponent material lost)."""
+    mover_lost = 0
+    opponent_lost = 0
+    for entry in entries:
+        captured = entry.get("captured_piece")
+        if captured is None:
+            continue
+        value = _VALUE.get(captured.piece_type, 0)
+        if captured.color == mover:
+            mover_lost += value
+        else:
+            opponent_lost += value
+    return mover_lost, opponent_lost
+
+
+_FORCING_RX = re.compile(r"\bforcing move\b|\bchecks? and forcing", re.I)
+
+
+def _check_forcing_move(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    if not _FORCING_RX.search(caption):
+        return []
+    try:
+        board = chess.Board(facts["fen_before"])
+        san = facts.get("best_move_san") or facts.get("move_san")
+        move = board.parse_san(str(san))
+        is_capture = board.is_capture(move)
+        board.push(move)
+        if not is_capture and not board.is_check():
+            return [{
+                "check": "forcing_move",
+                "detail": f"calls {san} forcing, but it is neither a check nor a capture",
+            }]
+    except Exception:
+        return [{"check": "forcing_move", "detail": "forcing claim could not be verified"}]
+    return []
+
+
+_OPENING_PRAISE_RX = re.compile(
+    r"\bclassic development\b|\bprincipled move\b|\bmain[- ]line move\b|"
+    r"\bgood development\b",
+    re.I,
+)
+
+
+def _check_unsound_opening_praise(
+    caption: str, facts: Dict[str, Any]
+) -> List[Dict[str, str]]:
+    if not _OPENING_PRAISE_RX.search(caption):
+        return []
+    try:
+        board = chess.Board(facts["fen_before"])
+        played = board.parse_san(str(facts.get("move_san") or ""))
+        moved_piece = board.piece_at(played.from_square)
+        moved_to = played.to_square
+        board.push(played)
+        reply_san = next(iter(facts.get("pv_after_played") or []), None)
+        if not reply_san:
+            return []
+        reply = board.parse_san(str(reply_san))
+        immediately_loses_moved_piece = (
+            board.is_capture(reply)
+            and _capture_square(board, reply) == moved_to
+            and moved_piece is not None
+            and moved_piece.piece_type != chess.PAWN
+        )
+        if (
+            immediately_loses_moved_piece
+            and int(facts.get("cp_loss") or 0) >= 100
+            and facts.get("best_move_san") != facts.get("move_san")
+        ):
+            return [{
+                "check": "unsound_opening_praise",
+                "detail": f"praises {facts.get('move_san')} although {reply_san} immediately captures the moved piece",
+            }]
+    except Exception:
+        return []
+    return []
+
+
+_SACRIFICE_RX = re.compile(
+    r"\bsacrific(?:e|es|ing)\s+(?:your\s+)?(pawn|knight|bishop|rook|queen)\b",
+    re.I,
+)
+
+
+def _check_false_sacrifice(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    match = _SACRIFICE_RX.search(caption)
+    if not match:
+        return []
+    try:
+        board = chess.Board(facts["fen_before"])
+        move = board.parse_san(str(facts.get("best_move_san") or ""))
+        piece = board.piece_at(move.from_square)
+        if piece is None or _PNAME.get(piece.piece_type) != match.group(1).lower():
+            return [{"check": "false_sacrifice", "detail": "the named sacrificed piece is not the best-move piece"}]
+        tracked_square = move.to_square
+        tracked_color = piece.color
+        tracked_type = piece.piece_type
+        board.push(move)
+        alive = True
+        for san in facts.get("pv_after_best") or []:
+            next_move = board.parse_san(str(san))
+            capture_square = _capture_square(board, next_move)
+            if board.is_capture(next_move) and capture_square == tracked_square:
+                alive = False
+            if next_move.from_square == tracked_square:
+                moving = board.piece_at(next_move.from_square)
+                if moving and moving.color == tracked_color and moving.piece_type == tracked_type:
+                    tracked_square = next_move.to_square
+            board.push(next_move)
+        if alive and board.piece_at(tracked_square) == chess.Piece(tracked_type, tracked_color):
+            return [{
+                "check": "false_sacrifice",
+                "detail": f"calls the {match.group(1).lower()} sacrificed, but it survives the complete stored best line",
+            }]
+    except Exception:
+        return [{"check": "false_sacrifice", "detail": "sacrifice claim could not be verified"}]
+    return []
+
+
+_YOUR_PIECE_RX = re.compile(
+    r"your\s+(pawn|knight|bishop|rook|queen)\s+on\s+([a-h][1-8])",
+    re.I,
+)
+_LOSS_LANGUAGE_RX = re.compile(r"\bfor nothing\b|\blosing your\b|\bsimply lose\b", re.I)
+
+
+def _check_exchange_sequence(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    named = _YOUR_PIECE_RX.search(caption)
+    if not named or not _LOSS_LANGUAGE_RX.search(caption):
+        return []
+    try:
+        start = chess.Board(facts["fen_before"])
+        mover = start.turn
+        _, entries, complete = _replay_branch(
+            facts, first_key="move_san", continuation_key="pv_after_played"
+        )
+        if not complete:
+            return [{"check": "exchange_sequence", "detail": "stored played line is not fully legal"}]
+        mover_lost, opponent_lost = _capture_totals(entries, mover)
+        named_value = _VALUE[_PIECE[named.group(1).lower()]]
+        says_for_nothing = bool(re.search(r"\bfor nothing\b", caption, re.I))
+        compensated_named_piece = opponent_lost >= named_value
+        if (says_for_nothing and opponent_lost > 0) or compensated_named_piece:
+            return [{
+                "check": "exchange_sequence",
+                "detail": (
+                    f"caption calls the {named.group(1).lower()} a free loss, but the stored line "
+                    f"also removes {opponent_lost}cp of opponent material "
+                    f"(mover material removed: {mover_lost}cp)"
+                ),
+            }]
+    except Exception:
+        return [{"check": "exchange_sequence", "detail": "exchange claim could not be verified"}]
+    return []
+
+
+_MATERIAL_LOSS_RX = re.compile(
+    r"\bcosts? you material\b|\bhands material away\b|\bloses? material\b",
+    re.I,
+)
+
+
+def _check_unsupported_material_loss(
+    caption: str, facts: Dict[str, Any]
+) -> List[Dict[str, str]]:
+    if not _MATERIAL_LOSS_RX.search(caption):
+        return []
+    try:
+        start = chess.Board(facts["fen_before"])
+        mover = start.turn
+        _, entries, complete = _replay_branch(
+            facts, first_key="move_san", continuation_key="pv_after_played"
+        )
+        if complete:
+            mover_lost, opponent_lost = _capture_totals(entries, mover)
+            if mover_lost <= opponent_lost:
+                return [{
+                    "check": "unsupported_material_loss",
+                    "detail": (
+                        "claims material loss, but the complete stored line shows "
+                        f"{mover_lost}cp removed from the mover and {opponent_lost}cp from the opponent"
+                    ),
+                }]
+    except Exception:
+        return [{"check": "unsupported_material_loss", "detail": "material claim could not be verified"}]
+    return []
+
+
+_ATTACK_COUNT_RX = re.compile(
+    r"\b(\d+)\s+opponent pieces are aimed at your king on\s+([a-h][1-8])\b",
+    re.I,
+)
+
+
+def _check_attack_count(caption: str, post: chess.Board) -> List[Dict[str, str]]:
+    match = _ATTACK_COUNT_RX.search(caption)
+    if not match:
+        return []
+    expected = int(match.group(1))
+    square = chess.parse_square(match.group(2).lower())
+    mover = not post.turn
+    king_square = post.king(mover)
+    actual = len(post.attackers(not mover, square))
+    if king_square != square or actual != expected:
+        return [{
+            "check": "attack_count",
+            "detail": (
+                f"claims {expected} attackers on the king at {match.group(2).lower()}, "
+                f"but the post-move board has {actual}"
+            ),
+        }]
+    return []
 
 
 def _board_post(facts: Dict[str, Any]) -> chess.Board:
@@ -45,13 +319,66 @@ def _board_post(facts: Dict[str, Any]) -> chess.Board:
     return b
 
 
-def _check_piece_on_square(caption: str, post: chess.Board) -> List[Dict[str, str]]:
+def _stored_capture_claims(
+    facts: Dict[str, Any],
+) -> set[tuple[str, str]]:
+    """Piece/square pairs proved at the exact capture ply of a stored line."""
+    claims: set[tuple[str, str]] = set()
+    for first_key, continuation_key in (
+        ("move_san", "pv_after_played"),
+        ("best_move_san", "pv_after_best"),
+    ):
+        _, entries, complete = _replay_branch(
+            facts,
+            first_key=first_key,
+            continuation_key=continuation_key,
+        )
+        if not complete:
+            continue
+        for entry in entries:
+            captured = entry.get("captured_piece")
+            if captured is None:
+                continue
+            claims.add(
+                (
+                    _PNAME[captured.piece_type],
+                    chess.square_name(entry["capture_square"]),
+                )
+            )
+    return claims
+
+
+def _is_stored_capture_phrase(caption: str, start: int) -> bool:
+    prefix = caption[max(0, start - 24):start]
+    return bool(
+        re.search(
+            r"\b(?:takes?|captures?|wins?|won|removes?)\s+(?:the\s+)?$",
+            prefix,
+            re.I,
+        )
+    )
+
+
+def _check_piece_on_square(
+    caption: str,
+    post: chess.Board,
+    facts: Dict[str, Any],
+    *,
+    strict_v2: bool = False,
+) -> List[Dict[str, str]]:
     """'<piece> on <sq>' must match the board the user sees. Current-location
     claims only — skip 'to/jumps to/plays' (those are future moves)."""
     out = []
+    stored_captures = _stored_capture_claims(facts) if strict_v2 else set()
     for m in re.finditer(r"\b(knight|bishop|rook|queen|king|pawn)\s+on\s+([a-h][1-8])\b",
                          caption, re.I):
         pc, sq = m.group(1).lower(), m.group(2).lower()
+        if (
+            strict_v2
+            and _is_stored_capture_phrase(caption, m.start())
+            and (pc, sq) in stored_captures
+        ):
+            continue
         pa = post.piece_at(chess.parse_square(sq))
         if pa is None or pa.piece_type != _PIECE[pc]:
             actual = _PNAME.get(pa.piece_type, "nothing") if pa else "nothing"
@@ -118,9 +445,61 @@ def _check_no_recapture(caption: str, facts: Dict[str, Any]) -> List[Dict[str, s
     return []
 
 
-def _check_mate(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
+def _check_mate(
+    caption: str,
+    facts: Dict[str, Any],
+    *,
+    strict_v2: bool = False,
+) -> List[Dict[str, str]]:
     if not _MATE_RX.search(caption):
         return []
+    explicit_mates = {
+        match.group(1)
+        for match in _EXPLICIT_MATE_SAN_RX.finditer(caption)
+    }
+    if strict_v2 and explicit_mates:
+        try:
+            from services.stored_line_verifier import replay_stored_line
+
+            start = chess.Board(facts["fen_before"])
+            terminal_mates = set()
+            for first_key, continuation_key in (
+                ("move_san", "pv_after_played"),
+                ("best_move_san", "pv_after_best"),
+            ):
+                first = facts.get(first_key)
+                if not first:
+                    continue
+                replay = replay_stored_line(
+                    start,
+                    first,
+                    facts.get(continuation_key) or (),
+                )
+                if (
+                    replay.complete
+                    and replay.checkmate
+                    and replay.replayed_san
+                ):
+                    terminal_mates.add(
+                        replay.replayed_san[-1].rstrip("+#")
+                    )
+            unsupported = sorted(explicit_mates - terminal_mates)
+            if unsupported:
+                return [{
+                    "check": "mate",
+                    "detail": (
+                        "claims "
+                        + ", ".join(f"{san}#" for san in unsupported)
+                        + " is checkmate, but no complete stored branch ends "
+                        "in that mate"
+                    ),
+                }]
+            return []
+        except Exception:
+            return [{
+                "check": "mate",
+                "detail": "explicit mating line could not be verified",
+            }]
     try:
         b = chess.Board(facts["fen_before"])
         if facts.get("is_user_move"):
@@ -277,19 +656,48 @@ def _check_king_center(caption: str, post: chess.Board) -> List[Dict[str, str]]:
     return []
 
 
-def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Return a list of board-verified violations ([] == clean)."""
+def verify_caption(
+    caption: str,
+    facts: Dict[str, Any],
+    *,
+    strict_v2: bool = False,
+) -> List[Dict[str, str]]:
+    """Return board-verified violations while preserving deployed V1 by default.
+
+    ``strict_v2`` is opt-in for Quality V2 evidence and gold construction. The
+    player-facing V1 narrator calls this function without that option, so a
+    default-off Quality V2 deployment remains byte-compatible.
+    """
     if not caption or not (caption or "").strip():
         return []
     try:
         post = _board_post(facts)
-    except Exception:
-        return []  # can't build the board → can't check; let caller decide
-    return (_check_piece_on_square(caption, post)
+    except Exception as exc:
+        # A malformed or incomplete evidence packet is not proof. Returning clean
+        # here used to let claims escape merely because the verifier could not
+        # reconstruct the position.
+        if strict_v2:
+            return [{
+                "check": "unverified_board",
+                "detail": f"caption evidence could not be reconstructed: {type(exc).__name__}",
+            }]
+        return []
+    base = (_check_piece_on_square(
+                caption, post, facts, strict_v2=strict_v2
+            )
             + _check_free(caption, facts)
             + _check_no_recapture(caption, facts)
-            + _check_mate(caption, facts)
+            + _check_mate(caption, facts, strict_v2=strict_v2)
             + _check_outpost(caption, facts)
             + _check_queen_chased(caption, facts)
             + _check_allows(caption, post)
             + _check_king_center(caption, post))
+    if not strict_v2:
+        return base
+    return (base
+            + _check_forcing_move(caption, facts)
+            + _check_unsound_opening_praise(caption, facts)
+            + _check_false_sacrifice(caption, facts)
+            + _check_exchange_sequence(caption, facts)
+            + _check_unsupported_material_loss(caption, facts)
+            + _check_attack_count(caption, post))

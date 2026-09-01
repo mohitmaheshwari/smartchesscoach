@@ -14,9 +14,37 @@ STORED_LINE_VERIFIER_VERSION = "stored_line_verifier.v1"
 
 
 @dataclass(frozen=True)
+class StoredCapture:
+    ply: int
+    actor: str
+    move_san: str
+    origin: str
+    destination: str
+    capturing_piece: str
+    captured_piece: str
+    captured_square: str
+    captured_value_cp: int
+
+    def contract_dict(self) -> Mapping[str, Any]:
+        return {
+            "ply": self.ply,
+            "actor": self.actor,
+            "move_san": self.move_san,
+            "origin": self.origin,
+            "destination": self.destination,
+            "capturing_piece": self.capturing_piece,
+            "captured_piece": self.captured_piece,
+            "captured_square": self.captured_square,
+            "captured_value_cp": self.captured_value_cp,
+        }
+
+
+@dataclass(frozen=True)
 class StoredLineReplay:
     complete: bool
     replayed_uci: Tuple[str, ...]
+    replayed_san: Tuple[str, ...]
+    captures: Tuple[StoredCapture, ...]
     final_fen: str
     checkmate: bool
     checkmating_color: Optional[chess.Color]
@@ -77,6 +105,8 @@ def replay_stored_line(
         return StoredLineReplay(
             complete=False,
             replayed_uci=(),
+            replayed_san=(),
+            captures=(),
             final_fen=initial.fen(),
             checkmate=False,
             checkmating_color=None,
@@ -92,6 +122,8 @@ def replay_stored_line(
     own_before = _material(board, initiator)
     opp_before = _material(board, not initiator)
     replayed = []
+    replayed_san = []
+    captures = []
     checkmating_color = None
     mate_ply = None
     complete = True
@@ -101,7 +133,31 @@ def replay_stored_line(
             complete = False
             break
         mover = board.turn
+        san = board.san(move)
+        capturing_piece = board.piece_at(move.from_square)
+        captured_square = move.to_square
+        if board.is_en_passant(move):
+            captured_square += -8 if mover == chess.WHITE else 8
+        captured_piece = (
+            board.piece_at(captured_square) if board.is_capture(move) else None
+        )
+        if capturing_piece is None:
+            complete = False
+            break
+        if captured_piece is not None:
+            captures.append(StoredCapture(
+                ply=index,
+                actor="initiator" if mover == initiator else "opponent",
+                move_san=san,
+                origin=chess.square_name(move.from_square),
+                destination=chess.square_name(move.to_square),
+                capturing_piece=chess.piece_name(capturing_piece.piece_type),
+                captured_piece=chess.piece_name(captured_piece.piece_type),
+                captured_square=chess.square_name(captured_square),
+                captured_value_cp=PIECE_VALUE_CP[captured_piece.piece_type],
+            ))
         replayed.append(move.uci())
+        replayed_san.append(san)
         board.push(move)
         if board.is_checkmate():
             checkmating_color = mover
@@ -116,6 +172,8 @@ def replay_stored_line(
     return StoredLineReplay(
         complete=complete,
         replayed_uci=tuple(replayed),
+        replayed_san=tuple(replayed_san),
+        captures=tuple(captures),
         final_fen=board.fen(),
         checkmate=board.is_checkmate(),
         checkmating_color=checkmating_color,

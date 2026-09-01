@@ -1,0 +1,120 @@
+{
+  "schema_version": "personalized_review.ten_game_gold.v1",
+  "created_at": "2026-09-01",
+  "account_scope": "single-player acceptance corpus; no runtime lookup",
+  "engine_policy": "stored Stockfish evidence only; no re-analysis",
+  "runtime_game_id_overrides_forbidden": true,
+  "main_moment_labels": [
+    {"game_id": "100897b9-0989-47db-b114-fe7064cecd4d", "move_number": 13, "move_san": "Bd3", "reason": "largest practical deterioration while preserving the true game story"},
+    {"game_id": "3a41fb4c-a229-49b4-8801-89a51cbdb24e", "move_number": 28, "move_san": "R8e7", "reason": "changes a winning position into a losing position by leaving the queen"},
+    {"game_id": "e8d32ff3-15b6-4a33-9a08-18017d93500f", "move_number": 3, "move_san": "Bc4", "reason": "opening move immediately loses the bishop and changes the game state"},
+    {"game_id": "6bb265c0-2e48-4415-9ce2-38a263bdb7d4", "move_number": 26, "move_san": "Rg4", "reason": "misses the forced mate and gives away the winning state"},
+    {"game_id": "344d7079-a39c-4ed3-a369-7fd6ae358d93", "move_number": 13, "move_san": "Bf5", "reason": "changes winning to balanced and misses the queen-tempo diagonal to h8"},
+    {"game_id": "2d8b0414-b179-403c-8ee9-4fbd561254a4", "move_number": 19, "move_san": "Ne3+", "reason": "gives away the winning state; later missed-mate-scale loss still stayed winning"},
+    {"game_id": "cd89653f-5fc6-4b2a-a779-786a32b88c79", "move_number": 30, "move_san": "Rd2", "reason": "allows immediate mate and changes winning to losing"},
+    {"game_id": "0aa43a35-9ad0-4e00-aa7d-840c38cd43dc", "move_number": 17, "move_san": "Qc2", "reason": "first sampled move that changes balanced to losing"},
+    {"game_id": "2127348b-6d81-4ad3-a839-3f7e2db856a6", "move_number": 31, "move_san": "Ke3", "reason": "throws away the winning king-and-pawn endgame"},
+    {"game_id": "4890349f-de8e-4976-a27b-ba860196b6ff", "move_number": 6, "move_san": "Nxf2", "reason": "opening exchange changes balanced to losing and needs full-sequence explanation"}
+  ],
+  "false_claim_cases": [
+    {
+      "case_id": "quiet_rook_save_called_forcing_attack",
+      "fen_before": "2r3k1/ppN1Qp1p/6p1/2N3B1/8/8/PPn1B1PP/R4K1R w - - 3 25",
+      "move_san": "Bh6",
+      "best_move_san": "Rd1",
+      "cp_loss": 8701,
+      "pv_after_played": ["Nxa1", "Nd3", "Nc2", "Qd7"],
+      "pv_after_best": ["Ne3+", "Bxe3", "h6", "Nd7"],
+      "caption": "Instead of Bh6, Rd1 was far stronger, throwing a forcing move at the exposed king and keeping the attack rolling.",
+      "expected_violation": "forcing_move"
+    },
+    {
+      "case_id": "opening_praise_overwrites_immediate_loss",
+      "fen_before": "rnbqkbnr/ppp2ppp/8/3pp3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+      "move_san": "Bc4",
+      "best_move_san": "exd5",
+      "cp_loss": 572,
+      "pv_after_played": ["dxc4", "d4", "exd4", "O-O"],
+      "pv_after_best": ["e4", "Qe2", "Nf6", "d3"],
+      "caption": "Bc4 — Italian Game direction. Aims at f7 weakness. Classic development.",
+      "expected_violation": "unsound_opening_praise"
+    },
+    {
+      "case_id": "surviving_knight_called_sacrifice",
+      "fen_before": "r1b1k1nr/ppp3p1/5pq1/3Nb2p/3p3P/3P4/PP1B1PP1/R2QR1K1 w kq - 0 15",
+      "move_san": "f4",
+      "best_move_san": "Nxc7+",
+      "cp_loss": 426,
+      "pv_after_played": ["Bh3", "Nxc7+", "Kd8", "Qf3"],
+      "pv_after_best": ["Kf8", "Nxa8", "Nh6", "Rc1"],
+      "caption": "Nxc7+ sacrifices your knight to break open the pawn shield in front of their king.",
+      "expected_violation": "false_sacrifice"
+    },
+    {
+      "case_id": "recaptured_knight_called_free_loss",
+      "fen_before": "r2r2k1/pbq2pbp/1p1ppnp1/8/4PB2/1PN4N/1P3PPP/2RQ1RK1 w - - 4 17",
+      "move_san": "Qc2",
+      "best_move_san": "Nd5",
+      "cp_loss": 209,
+      "pv_after_played": ["Nxe4", "f3", "Nxc3", "bxc3"],
+      "pv_after_best": ["Qb8", "Nc7", "Bxe4", "f3"],
+      "caption": "Qc2 runs into Nxc3, losing your knight on c3; instead Nd5 was stronger because it defends c3.",
+      "expected_violation": "exchange_sequence"
+    },
+    {
+      "case_id": "material_loss_not_in_stored_line",
+      "fen_before": "2rr2k1/pb1q1pbp/1p2pnp1/4B3/8/1PN4N/1PQ2PPP/2R2RK1 w - - 1 20",
+      "move_san": "Rcd1",
+      "best_move_san": "f3",
+      "cp_loss": 168,
+      "pv_after_played": ["Qc6", "Rxd8+", "Rxd8", "f4"],
+      "pv_after_best": ["Qd2", "Qxd2", "Rxd2", "Nf2"],
+      "caption": "Rcd1 runs into Qc6, and the line costs you material.",
+      "expected_violation": "unsupported_material_loss"
+    },
+    {
+      "case_id": "false_attack_count_pawn_endgame",
+      "fen_before": "8/p6p/3k2p1/2p1pp2/P7/1PPK4/5PPP/8 w - - 0 30",
+      "move_san": "g3",
+      "best_move_san": "Kc4",
+      "cp_loss": 146,
+      "pv_after_played": ["Kd5", "h3", "g5", "f3"],
+      "pv_after_best": ["g5", "b4", "a6", "f3"],
+      "caption": "3 opponent pieces are aimed at your king on d3.",
+      "expected_violation": "attack_count"
+    },
+    {
+      "case_id": "bishop_recaptured_after_exchange",
+      "fen_before": "r2qk2r/pppbppbp/2np2p1/1B2P3/3P2n1/2N1BN2/PPP2PPP/R2QK2R w KQkq - 1 8",
+      "move_san": "exd6",
+      "best_move_san": "Bf4",
+      "cp_loss": 107,
+      "pv_after_played": ["Nxe3", "fxe3", "cxd6", "Qd2"],
+      "pv_after_best": ["a6", "Bxc6", "Bxc6", "d5"],
+      "caption": "exd6 leaves your bishop on e3 undefended, and after Nxe3 you simply lose it for nothing.",
+      "expected_violation": "exchange_sequence"
+    },
+    {
+      "case_id": "false_attack_count_queen_rook_endgame",
+      "fen_before": "8/p1p2p1p/6p1/6Pk/2Q5/P6P/1PPr1q2/1K6 b - - 2 29",
+      "move_san": "Rd1+",
+      "best_move_san": "Qe1+",
+      "cp_loss": 180,
+      "pv_after_played": ["Ka2", "Qf3", "Qxc7", "Rf1"],
+      "pv_after_best": ["Ka2", "Qe6", "Qb3", "Rxc2"],
+      "caption": "3 opponent pieces are aimed at your king on h5.",
+      "expected_violation": "attack_count"
+    },
+    {
+      "case_id": "full_exchange_called_free_knight",
+      "fen_before": "r1bqk2r/pppp1ppp/2n5/2b1p3/2B1P1n1/2NP1N2/PPP2PPP/R1BQ1RK1 b kq - 2 6",
+      "move_san": "Nxf2",
+      "best_move_san": "h6",
+      "cp_loss": 226,
+      "pv_after_played": ["Rxf2", "Bxf2+", "Kxf2", "d6"],
+      "pv_after_best": ["h3", "Nf6", "Be3", "Bb6"],
+      "caption": "Nxf2 leaves your knight on f2 undefended, and after Rxf2 you simply lose it for nothing.",
+      "expected_violation": "exchange_sequence"
+    }
+  ]
+}

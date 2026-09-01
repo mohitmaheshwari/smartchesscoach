@@ -20,9 +20,15 @@ from services.detector_quality import (
     grade_for,
     is_authorized,
 )
+from services.caption_facts import (
+    LegalMaterialLossCause,
+    ReviewTeachingCause,
+    VerifiedLineCause,
+)
 
 
 FEATURE_FLAG = "PERSONALIZED_GAME_REVIEW_COACH_ENABLED"
+QUALITY_V2_FEATURE_FLAG = "PERSONALIZED_GAME_REVIEW_QUALITY_V2_ENABLED"
 ROLLOUT_MODE_FLAG = "PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT"
 USER_FEATURE_FLAG = "personalized_game_review_coach"
 CONTRACT_SCHEMA_VERSION = "personalized_game_review.v1"
@@ -142,6 +148,18 @@ def personalized_game_review_enabled(
     """Return the default-off flag state without caching environment values."""
     source = os.environ if env is None else env
     return str(source.get(FEATURE_FLAG, "false")).strip().lower() in _TRUE_VALUES
+
+
+def personalized_review_quality_v2_enabled(
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Quality V2 is independently default-off under the existing master."""
+    source = os.environ if env is None else env
+    return bool(
+        personalized_game_review_enabled(source)
+        and str(source.get(QUALITY_V2_FEATURE_FLAG, "false")).strip().lower()
+        in _TRUE_VALUES
+    )
 
 
 def _require_text(value: str, field_name: str) -> None:
@@ -275,10 +293,37 @@ class EventEvidence:
         }
 
 
+class RelationshipArrowRole(str, Enum):
+    THREAT = "threat"
+    SAFE_MOVE = "safe_move"
+    OPPORTUNITY = "opportunity"
+
+
+@dataclass(frozen=True)
+class RelationshipArrow:
+    origin: str
+    destination: str
+    role: RelationshipArrowRole
+
+    def __post_init__(self) -> None:
+        _require_text(self.origin, "relationship arrow origin")
+        _require_text(self.destination, "relationship arrow destination")
+        if not isinstance(self.role, RelationshipArrowRole):
+            raise ReviewContractViolation("relationship arrow role is invalid")
+
+    def contract_dict(self) -> Dict[str, str]:
+        return {
+            "from": self.origin,
+            "to": self.destination,
+            "role": self.role.value,
+        }
+
+
 @dataclass(frozen=True)
 class VisualReference:
     arrows: Tuple[Tuple[str, str], ...] = ()
     highlights: Tuple[str, ...] = ()
+    relationship_arrows: Tuple[RelationshipArrow, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.arrows, tuple) or not isinstance(
@@ -294,12 +339,24 @@ class VisualReference:
             _require_text(arrow[1], "visual arrow destination")
         for square in self.highlights:
             _require_text(square, "visual highlight")
+        if not isinstance(self.relationship_arrows, tuple) or any(
+            not isinstance(item, RelationshipArrow)
+            for item in self.relationship_arrows
+        ):
+            raise ReviewContractViolation(
+                "relationship_arrows must contain RelationshipArrow values"
+            )
 
     def contract_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "arrows": [list(arrow) for arrow in self.arrows],
             "highlights": list(self.highlights),
         }
+        if self.relationship_arrows:
+            payload["relationship_arrows"] = [
+                item.contract_dict() for item in self.relationship_arrows
+            ]
+        return payload
 
 
 @dataclass(frozen=True)
@@ -309,9 +366,21 @@ class TeachingReference:
     caption: str = ""
     principle: str = ""
     visual: VisualReference = VisualReference()
+    headline: str = ""
+    practical_lead: str = ""
+    cause_fingerprint: str = ""
 
     def __post_init__(self) -> None:
-        if not isinstance(self.caption, str) or not isinstance(self.principle, str):
+        if any(
+            not isinstance(value, str)
+            for value in (
+                self.caption,
+                self.principle,
+                self.headline,
+                self.practical_lead,
+                self.cause_fingerprint,
+            )
+        ):
             raise ReviewContractViolation("teaching strings must be text")
         if not isinstance(self.visual, VisualReference):
             raise ReviewContractViolation("teaching.visual must be VisualReference")
@@ -326,10 +395,52 @@ class TeachingReference:
         )
 
     def contract_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "caption": self.caption,
             "principle": self.principle,
             "visual": self.visual.contract_dict(),
+        }
+        if self.headline:
+            payload["headline"] = self.headline
+        if self.practical_lead:
+            payload["practical_lead"] = self.practical_lead
+        if self.cause_fingerprint:
+            if not _SHA256_RE.fullmatch(self.cause_fingerprint):
+                raise ReviewContractViolation("cause_fingerprint must be SHA-256")
+            payload["cause_fingerprint"] = self.cause_fingerprint
+        return payload
+
+
+class PracticalFrameKind(str, Enum):
+    STAYED_WINNING = "stayed_winning"
+    STATE_CHANGED = "state_changed"
+    MATERIAL_MISSED = "material_missed"
+    NEUTRAL = "neutral"
+
+
+@dataclass(frozen=True)
+class PracticalFrame:
+    kind: PracticalFrameKind
+    state_before: str
+    state_after: str
+    headline: str
+    lead: str
+    source: str = "caption_pipeline.practical_severity"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, PracticalFrameKind):
+            raise ReviewContractViolation("practical kind is invalid")
+        for name in ("state_before", "state_after", "headline", "lead", "source"):
+            _require_text(getattr(self, name), f"practical.{name}")
+
+    def contract_dict(self) -> Dict[str, str]:
+        return {
+            "kind": self.kind.value,
+            "state_before": self.state_before,
+            "state_after": self.state_after,
+            "headline": self.headline,
+            "lead": self.lead,
+            "source": self.source,
         }
 
 
@@ -345,6 +456,8 @@ class TeachableEvent:
     evidence: EventEvidence
     teaching: TeachingReference
     requested_surface: QualitySurface
+    cause: Optional[ReviewTeachingCause] = None
+    practical: Optional[PracticalFrame] = None
     reflection_eligible: bool = False
 
     def __post_init__(self) -> None:
@@ -361,6 +474,18 @@ class TeachableEvent:
             raise ReviewContractViolation("evidence must be EventEvidence")
         if not isinstance(self.teaching, TeachingReference):
             raise ReviewContractViolation("teaching must be TeachingReference")
+        if self.cause is not None and not isinstance(
+            self.cause, (LegalMaterialLossCause, VerifiedLineCause)
+        ):
+            raise ReviewContractViolation("cause must be a supported ReviewTeachingCause")
+        if self.practical is not None and not isinstance(
+            self.practical, PracticalFrame
+        ):
+            raise ReviewContractViolation("practical must be PracticalFrame")
+        if bool(self.cause) != bool(self.practical):
+            raise ReviewContractViolation(
+                "cause and practical frame must be supplied together"
+            )
         if not isinstance(self.requested_surface, QualitySurface):
             raise ReviewContractViolation(
                 "requested_surface must be a QualitySurface"
@@ -402,6 +527,48 @@ class TeachableEvent:
             raise ReviewContractViolation(
                 "reflection requires Caption-grade verified evidence"
             )
+        if self.cause is not None:
+            if not self.evidence.authorizes(QualitySurface.CAPTION):
+                raise ReviewContractViolation(
+                    "V2 cause projection requires Caption-grade evidence"
+                )
+            if self.teaching.cause_fingerprint != self.cause.fingerprint:
+                raise ReviewContractViolation(
+                    "teaching and cause fingerprints disagree"
+                )
+            if (
+                self.teaching.headline != self.practical.headline
+                or self.teaching.practical_lead != self.practical.lead
+            ):
+                raise ReviewContractViolation(
+                    "teaching and practical framing disagree"
+                )
+            if isinstance(self.cause, LegalMaterialLossCause):
+                expected = (
+                    RelationshipArrow(
+                        self.cause.attacker.square,
+                        self.cause.affected.square,
+                        RelationshipArrowRole.THREAT,
+                    ),
+                    RelationshipArrow(
+                        self.cause.best_move_from,
+                        self.cause.best_move_to,
+                        RelationshipArrowRole.SAFE_MOVE,
+                    ),
+                )
+            else:
+                expected = tuple(
+                    RelationshipArrow(
+                        item.origin,
+                        item.destination,
+                        RelationshipArrowRole(item.role),
+                    )
+                    for item in self.cause.relationships
+                )
+            if self.teaching.visual.relationship_arrows != expected:
+                raise ReviewContractViolation(
+                    "relationship arrows disagree with the cause"
+                )
 
     @property
     def player_authorized(self) -> bool:
@@ -412,7 +579,7 @@ class TeachableEvent:
         )
 
     def contract_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "schema_version": CONTRACT_SCHEMA_VERSION,
             "event_id": self.event_id,
             "move": self.move.contract_dict(),
@@ -427,6 +594,10 @@ class TeachableEvent:
                 "reflection_eligible": self.reflection_eligible,
             },
         }
+        if self.cause is not None:
+            payload["cause"] = self.cause.contract_dict()
+            payload["practical"] = self.practical.contract_dict()
+        return payload
 
     def player_dict(self) -> Dict[str, Any]:
         if not self.player_authorized:
