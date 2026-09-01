@@ -250,6 +250,7 @@ class QuickTagId(str, Enum):
     PLAYED_FAST = "played_fast"
     TIME_PRESSURE = "time_pressure"
     NOT_SURE = "not_sure"
+    NONE_OF_THESE = "none_of_these"
     
     # Threat-related
     MISSED_CHECK = "missed_check"

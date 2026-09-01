@@ -278,6 +278,12 @@ class MoveInputs:
     # goal to what it just said. Once per session (goal_anchor restraint).
     session_focus: Optional[Dict[str, Any]] = None
 
+    # Batch Review loads the real player context in shadow before rollout.
+    # The decision still records the structured connection, but visible text
+    # stays byte-for-byte on the base caption until the Stage 4 flag is on.
+    # Live PWC leaves this False to preserve its existing conductor rollout.
+    player_context_shadow_only: bool = False
+
 
 @dataclass
 class CrossMoveState:
@@ -453,6 +459,25 @@ class SocraticExtras:
 
 
 @dataclass
+class CaptionExplanation:
+    """Structured, auditable meaning behind the rendered coach sentence.
+
+    The UI may render the strings, but it must never infer these fields by
+    parsing prose.  `player_connection` is populated only when an existing
+    evidence-backed conductor thread fired on this exact position.
+    """
+    board_explanation: str = ""
+    player_connection: str = ""
+    transferable_instruction: str = ""
+    confidence: str = "silent"  # verified | limited | silent
+    provenance: List[str] = field(default_factory=list)
+    personal_evidence: Optional[Dict[str, Any]] = None
+    final_verified: bool = False
+    rendered_personalization: bool = False
+    rollout_mode: str = "shadow"  # shadow | visible
+
+
+@dataclass
 class MoveTeachingDecision:
     """The complete teaching product for one move.
 
@@ -498,9 +523,12 @@ class MoveTeachingDecision:
     # don't suppress (cp_loss<80, threat-handling, opening theory).
     # See SocraticExtras docstring for field semantics.
     socratic_extras: Optional[SocraticExtras] = None
+    # Stage 4: typed causal/personal explanation.  Both Review and PWC
+    # receive the same shape; callers no longer need to parse caption prose.
+    explanation: CaptionExplanation = field(default_factory=CaptionExplanation)
     # Coach Conductor: the player-model thread that fired this move, if any.
-    # When set, `text.caption` IS this thread's statement (the conductor chose
-    # to surface the player's recurring pattern over the generic caption).
+    # Personal context frames the verified chess explanation; under the Stage
+    # 4 renderer it never replaces that explanation.
     # Shape: {"kind","motif","side","text"}. None when no thread fired.
     conductor_thread: Optional[Dict[str, Any]] = None
 
@@ -3731,6 +3759,9 @@ def inject_practical_severity_facts(
 # when available; otherwise the existing R12 cascade caption is kept. Flip per env on the
 # server for a flag-gated rollout (off -> 10% -> 100%). See docs/caption_distillation_*.md.
 _DISTILLED_CAPTIONS_ENABLED = os.environ.get("DISTILLED_CAPTIONS_ENABLED", "0") not in ("0", "false", "False", "")
+_CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
+    "CAUSAL_PERSONAL_CAPTIONS_ENABLED", "0"
+) not in ("0", "false", "False", "")
 
 
 def build_move_teaching_decision(
@@ -4549,10 +4580,17 @@ def build_move_teaching_decision(
         _bm = (inputs.best_move_san or "").strip()
         if _bw and _bm and inputs.mover_is_user:
             _cap_wb = caption_payload.get("caption") or ""
-            # the better-move clause: "{best} was better" + optional " — <suffix>" to the period
-            _wb_pat = _re_pb.escape(_bm) + r" was better(?:\s*[—-]\s*[^.]*)?\."
+            # Cover every measured generic recommendation shell, not only the
+            # oldest exact "was better" wording.  The replacement is allowed
+            # only because best_move_why is a strict board-derived fact.
+            _wb_pat = (
+                _re_pb.escape(_bm)
+                + r" (?:was (?:the )?(?:better|stronger) move(?: here)?|"
+                  r"was better|would have made things harder for your opponent)"
+                  r"(?:\s*[—-]\s*[^.]*)?\."
+            )
             _wb_m = _re_pb.search(_wb_pat, _cap_wb)
-            if _wb_m and " was better — it " not in _wb_m.group(0):
+            if _wb_m and " — it " not in _wb_m.group(0):
                 caption_payload["caption"] = (
                     _cap_wb[:_wb_m.start()]
                     + f"{_bm} was better — it {_bw}."
@@ -4642,6 +4680,14 @@ def build_move_teaching_decision(
         except Exception:
             pass
 
+    # Preserve the verified board explanation before any player-memory
+    # framing.  Stage 4 keeps these as separate typed fields even when the
+    # visible renderer joins them into one natural coaching paragraph.
+    _board_explanation = (caption_payload.get("caption") or "").strip()
+    _player_connection = ""
+    _personal_evidence = None
+    _rendered_personalization = False
+
     # ─── 12.5 COACH CONDUCTOR — the player-model thread ──────────
     # docs/pwc_coach_conductor_scope.md. When the player's motif digest is present
     # and THIS user move is an engine-confirmed instance of one of their recurring
@@ -4654,6 +4700,7 @@ def build_move_teaching_decision(
         inputs.player_motif_threads
         or inputs.player_opening_threads
         or inputs.player_concept_threads
+        or inputs.strong_openings
     ):
         try:
             if inputs.player_motif_threads:
@@ -4762,7 +4809,43 @@ def build_move_teaching_decision(
                     logger.info(f"[conductor] goal anchor skipped: {_ga_exc}")
 
             if _conductor_thread and _conductor_thread.get("text"):
-                if _conductor_thread.get("prepend"):
+                _thread_text = (_conductor_thread.get("text") or "").strip()
+                _thread_side = _conductor_thread.get("side")
+                if _thread_side in {"offense", "defense", "concept", "opening"}:
+                    _player_connection = _thread_text
+                    _personal_evidence = {
+                        "eligible": True,
+                        "source": (
+                            "strong_openings"
+                            if _conductor_thread.get("kind") == "opening_strength"
+                            else {
+                                "offense": "player_motif_threads",
+                                "defense": "player_motif_threads",
+                                "concept": "player_concept_threads",
+                                "opening": "player_opening_threads",
+                            }.get(_thread_side)
+                        ),
+                        "kind": _conductor_thread.get("kind"),
+                        "key": _conductor_thread.get("motif"),
+                    }
+
+                if _CAUSAL_PERSONAL_CAPTIONS_ENABLED:
+                    # Personal memory is context, never a substitute for the
+                    # move-specific chess reason.  If there is no board
+                    # explanation, keep the visible output honest and silent.
+                    if _board_explanation:
+                        caption_payload["caption"] = (
+                            _thread_text + " " + _board_explanation
+                        ).strip()
+                        _rendered_personalization = bool(_player_connection)
+                    else:
+                        caption_payload["caption"] = ""
+                    caption_payload["rule_name"] = "R_CONDUCTOR_stage4"
+                elif inputs.player_context_shadow_only:
+                    # Measure eligibility and retain the structured evidence,
+                    # without changing the user-visible caption.
+                    pass
+                elif _conductor_thread.get("prepend"):
                     # Keep the underlying engine why + better move; lead with the
                     # recurrence. If the move had no caption (shouldn't for a real
                     # mistake), at least name the engine's better move so the
@@ -4777,9 +4860,121 @@ def build_move_teaching_decision(
                             else f" {inputs.played_san} slips here.")
                 else:
                     caption_payload["caption"] = _conductor_thread["text"]
-                caption_payload["rule_name"] = "R_CONDUCTOR_thread"
+                if not _CAUSAL_PERSONAL_CAPTIONS_ENABLED and not inputs.player_context_shadow_only:
+                    caption_payload["rule_name"] = "R_CONDUCTOR_thread"
         except Exception as _ct_exc:
             logger.warning(f"[conductor] thread compute failed m{inputs.full_move_number}: {_ct_exc!r}")
+
+    # Stage 4's final truth boundary runs AFTER personalization.  The older
+    # boundary above protected the base caption but conductor text was appended
+    # later and could bypass it.  If the composed text fails, first retain the
+    # already-verified board explanation; only then use the deterministic floor.
+    _final_verified = False
+    try:
+        from services.narrator_claim_verifier import verify_caption as _stage4_verify
+        from services.caption_fallback_tiers import tier23_caption as _stage4_floor
+        _stage4_facts = {
+            "move_san": inputs.played_san,
+            "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
+            "fen_after": caption_facts.get("fen_after"),
+            "is_user_move": bool(inputs.mover_is_user),
+            "cp_loss": abs(int(inputs.cp_loss or 0)),
+            "best_move_san": inputs.best_move_san,
+            "pv_after_played": list(inputs.pv_after_played or []),
+            "pv_after_best": list(inputs.pv_after_best or []),
+        }
+        _candidate = (caption_payload.get("caption") or "").strip()
+        _violations = _stage4_verify(_candidate, _stage4_facts) if _candidate else []
+        if _violations:
+            _base_violations = (
+                _stage4_verify(_board_explanation, _stage4_facts)
+                if _board_explanation else ["missing board explanation"]
+            )
+            if not _base_violations:
+                caption_payload["caption"] = _board_explanation
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "→PERSONAL_SOFTENED"
+                )
+                _rendered_personalization = False
+            else:
+                _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
+                if _safe and not _stage4_verify(_safe, _stage4_facts):
+                    caption_payload["caption"] = _safe
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
+                    )
+                    _board_explanation = _safe
+                    _rendered_personalization = False
+        _final_text = (caption_payload.get("caption") or "").strip()
+        _final_verified = bool(
+            _final_text and not _stage4_verify(_final_text, _stage4_facts)
+        )
+    except Exception as _stage4_exc:
+        logger.warning(
+            f"[stage4_final_verify] m{inputs.full_move_number}: {_stage4_exc!r}"
+        )
+        # Fail closed for the new renderer: an unverified personal enrichment
+        # never becomes visible merely because the verifier was unavailable.
+        if _CAUSAL_PERSONAL_CAPTIONS_ENABLED and _rendered_personalization:
+            caption_payload["caption"] = _board_explanation
+            _rendered_personalization = False
+
+    # Caption classification must describe the final text, not the pre-
+    # personalization template selected earlier.
+    tier = classify_caption_tier(
+        caption_text=caption_payload.get("caption") or "",
+        rule_name=caption_payload.get("rule_name") or "",
+    )
+
+    _provenance = [caption_payload.get("rule_name") or "R_FALLBACK"]
+    _primary_reason = caption_facts.get("primary_reason") or {}
+    if isinstance(_primary_reason, dict) and _primary_reason.get("category"):
+        _provenance.append(f"reason:{_primary_reason['category']}")
+    if _conductor_thread:
+        _provenance.append(
+            f"player_context:{_conductor_thread.get('side')}:{_conductor_thread.get('kind')}"
+        )
+
+    # Transfer the lesson without inventing a new knowledge catalog.  Prefer
+    # the exact principle cue selected earlier.  A fired tactical thread may
+    # reuse the matching cue from the canonical principle catalog.  Otherwise
+    # a strict best-move purpose fact can become a position-specific next-game
+    # scan.  If none of those facts exists, stay empty and honest.
+    _transferable_instruction = caption_facts.get("principle_cue") or ""
+    if not _transferable_instruction and _conductor_thread:
+        _motif_principle = {
+            "fork": "TAC_FORK_PATTERN",
+            "pin": "TAC_PIN_PATTERN",
+            "skewer": "TAC_SKEWER_PATTERN",
+            "discovered_attack": "TAC_DISCOVERED_PATTERN",
+            "loose_piece": "TAC_HANGING_PIECE",
+        }.get(_conductor_thread.get("motif"))
+        _entry = _PRINCIPLES_BY_ID.get(_motif_principle, {}) if _motif_principle else {}
+        _transferable_instruction = (
+            _entry.get("cue_top_n") or _entry.get("cue_absent") or ""
+        )
+    if not _transferable_instruction and inputs.mover_is_user and int(inputs.cp_loss or 0) >= 30:
+        _best_purpose = (caption_facts.get("best_move_why") or "").strip().rstrip(".")
+        if _best_purpose:
+            _transferable_instruction = (
+                f"Next time, before you commit, look for a move that {_best_purpose}."
+            )
+
+    explanation = CaptionExplanation(
+        board_explanation=_board_explanation,
+        player_connection=_player_connection,
+        transferable_instruction=_transferable_instruction,
+        confidence=(
+            "verified" if _final_verified
+            else "limited" if (caption_payload.get("caption") or "").strip()
+            else "silent"
+        ),
+        provenance=_provenance,
+        personal_evidence=_personal_evidence,
+        final_verified=_final_verified,
+        rendered_personalization=_rendered_personalization,
+        rollout_mode=("visible" if _CAUSAL_PERSONAL_CAPTIONS_ENABLED else "shadow"),
+    )
 
     # ─── Build the decision ──────────────────────────────────────
     text = TextSurface(
@@ -4825,6 +5020,11 @@ def build_move_teaching_decision(
         stayed_winning=practical.stayed_winning,
         decisiveness_changed=practical.decisiveness_changed,
     )
+    if _CAUSAL_PERSONAL_CAPTIONS_ENABLED and explanation.transferable_instruction:
+        # Existing Review UI already has a distinct habit-cue surface.  Feed
+        # it from the typed Stage 4 decision only after rollout is enabled;
+        # shadow generation remains invisible.
+        teaching_meta.principle_cue = explanation.transferable_instruction
     state_mutations = StateMutations(
         fired_principles_added=_fired_principles_added,
         fired_state_keys_added=_fired_state_keys_added,
@@ -4865,5 +5065,6 @@ def build_move_teaching_decision(
         skip_reason="",
         coach_extras=coach_extras,
         socratic_extras=socratic_extras,
+        explanation=explanation,
         conductor_thread=_conductor_thread,
     )

@@ -13,7 +13,7 @@ Handles all coach-related functionality including:
 This is a large module covering the AI coaching features.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Body
+from fastapi import APIRouter, HTTPException, Depends, Body, Query
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
@@ -45,6 +45,7 @@ def set_llm(llm_func):
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
 from db_filters import ACTIVE_GAMES_FILTER
+from services.access_scope import user_scope_filter
 
 
 # ==================== MODELS ====================
@@ -60,6 +61,12 @@ class CoachFeedbackRequest(BaseModel):
     move_number: int
     feedback_type: str  # helpful, not_helpful, wrong
     comment: Optional[str] = ""
+
+
+class GameReviewValidationRequest(BaseModel):
+    presentation_variant: str
+    ratings: Dict[str, str]
+    notes: Optional[str] = ""
 
 
 # ==================== CORE STATE ENDPOINTS ====================
@@ -781,6 +788,7 @@ async def get_feedback_for_game(
 @router.get("/decryption/v5/{game_id}")
 async def get_game_decryption_v5(
     game_id: str,
+    review_variant: Optional[str] = Query(default=None),
     user: User = Depends(get_current_user)
 ):
     """
@@ -802,12 +810,54 @@ async def get_game_decryption_v5(
     global db
     
     try:
+        from services.game_review_contracts import (
+            FEATURE_FLAG,
+            ReviewContractViolation,
+            ReviewPresentationMode,
+            personalized_game_review_access,
+            resolve_review_presentation_mode,
+        )
+        from services.game_review_validation_service import (
+            blind_variant_modes,
+            resolve_blind_variant,
+        )
+        review_user_doc = await db.users.find_one(
+            {"user_id": user.user_id},
+            {"_id": 0, "feature_flags.personalized_game_review_coach": 1},
+        ) or {}
+        review_access = personalized_game_review_access(review_user_doc)
+        if review_access.comparison_allowed:
+            validation_game = await db.games.find_one(
+                {"game_id": game_id, **user_scope_filter(user)},
+                {"_id": 0, "game_id": 1},
+            )
+            if not validation_game:
+                raise HTTPException(status_code=404, detail="Game not found")
+        active_variant = None
+        try:
+            if review_access.comparison_allowed or review_variant is not None:
+                active_variant = resolve_blind_variant(
+                    comparison_allowed=review_access.comparison_allowed,
+                    requested_variant=review_variant,
+                )
+                presentation_mode = blind_variant_modes(
+                    user.user_id,
+                    game_id,
+                )[active_variant]
+            else:
+                presentation_mode = resolve_review_presentation_mode(
+                    review_access,
+                )
+        except ReviewContractViolation as mode_exc:
+            status_code = 400 if "unknown" in str(mode_exc) else 403
+            raise HTTPException(status_code=status_code, detail=str(mode_exc))
+
         logger.info(f"[DECRYPTION V5] Looking for analysis for game_id: {game_id}")
         
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1, "motif_blindspot": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1, "motif_blindspot": 1, "game_teaching_plan": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -861,6 +911,11 @@ async def get_game_decryption_v5(
             enriched_data = []
             for move_data in analysis.get("decryption_v5_data", []):
                 enriched_move = dict(move_data)
+                # Stored Phase 5 contracts are projected separately only
+                # when the server flag is enabled. They never leak into the
+                # legacy move payload.
+                enriched_move.pop("teachable_event", None)
+                enriched_move.pop("reflection_prompt", None)
 
                 # Check if this move's cognitive_gap matches any active training plan
                 move_gap = move_data.get("cognitive_gap")
@@ -882,7 +937,7 @@ async def get_game_decryption_v5(
 
                 enriched_data.append(enriched_move)
 
-            return {
+            legacy_response = {
                 "decryption_data": enriched_data,
                 "status": "complete",
                 "generated_at": analysis.get("decryption_v5_generated_at"),
@@ -909,6 +964,82 @@ async def get_game_decryption_v5(
                 # applies. Null when no weakness clears the bar (2026-08-07).
                 "motif_blindspot": analysis.get("motif_blindspot"),
             }
+            # Phase 2 is a pure, default-off projection. With the flag off,
+            # the helper returns this exact object unchanged. With it on, it
+            # only collects precomputed, authorized event contracts; this
+            # route never infers chess meaning from caption text.
+            from services.game_review_event_adapter import (
+                maybe_attach_phase5_review_fields,
+            )
+            personalized_response = legacy_response
+            if review_access.enabled:
+                personalized_response = maybe_attach_phase5_review_fields(
+                    legacy_response,
+                    stored_moves=tuple(analysis.get("decryption_v5_data") or []),
+                    stored_plan=analysis.get("game_teaching_plan"),
+                    env={FEATURE_FLAG: "true"},
+                )
+            response = (
+                personalized_response
+                if presentation_mode == ReviewPresentationMode.PERSONALIZED
+                else legacy_response
+            )
+            if response.get("game_teaching_plan"):
+                try:
+                    from services.review_reflection_service import (
+                        public_reflection_history,
+                    )
+                    reflection_documents = await db.reflection_sessions.find(
+                        {
+                            "user_id": user.user_id,
+                            "game_id": game_id,
+                            "reflection_kind": "game_review_event",
+                        },
+                        {
+                            "_id": 0,
+                            "event.event_id": 1,
+                            "response.prompt_id": 1,
+                            "response.selected_option_id": 1,
+                            "response.answered_before_reveal": 1,
+                        },
+                    ).to_list(length=None)
+                    response["reflection_responses"] = (
+                        public_reflection_history(reflection_documents)
+                    )
+                except Exception as reflection_history_exc:
+                    logger.warning(
+                        "[personalized-review] reflection history failed: %s",
+                        reflection_history_exc,
+                    )
+                    response["reflection_responses"] = []
+            if review_access.comparison_allowed:
+                from services.game_review_validation_service import (
+                    VALIDATION_COLLECTION,
+                    public_validation_packet,
+                )
+                active_plan_id = (
+                    (response.get("game_teaching_plan") or {}).get("plan_id")
+                    if presentation_mode == ReviewPresentationMode.PERSONALIZED
+                    else None
+                )
+                existing_submission = await db[VALIDATION_COLLECTION].find_one(
+                    {
+                        "reviewer_user_id": user.user_id,
+                        "game_id": game_id,
+                        "presentation_variant": active_variant,
+                        "source_v5_version": analysis.get("decryption_v5_version", 1),
+                        "plan_id": active_plan_id,
+                    },
+                    {"_id": 0},
+                )
+                response["review_validation"] = public_validation_packet(
+                    active_variant=active_variant,
+                    personalized_available=bool(
+                        personalized_response.get("game_teaching_plan")
+                    ),
+                    existing_submission=existing_submission,
+                )
+            return response
         
         # Check if generation is in progress
         if analysis.get("decryption_v5_generating"):
@@ -950,9 +1081,11 @@ async def get_game_decryption_v5(
                     # (bug confirmed via fb_4899b11157fa Nbd7 case where the
                     # override row existed in mongo but never reached the
                     # stored caption). See feedback_query_engine_before_authoring.
+                    _game_teaching_plan = {}
                     decryption_data = await generate_game_decryption_v5(
                         pgn, user_color, move_evaluations, user.user_id, db,
                         game_id=game_id,
+                        game_teaching_plan_output=_game_teaching_plan,
                     )
                     
                     if decryption_data:
@@ -1063,6 +1196,10 @@ async def get_game_decryption_v5(
                                 "player_decryption": player_decryption,
                                 "decryption_block": decryption_block,
                                 "pattern_evidence": pattern_evidence,
+                                **(
+                                    {"game_teaching_plan": _game_teaching_plan}
+                                    if _game_teaching_plan else {}
+                                ),
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")
@@ -1100,11 +1237,111 @@ async def get_game_decryption_v5(
             "decryption_data": None
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting game decryption V5: {e}")
         import traceback
         traceback.print_exc()
         return {"error": str(e), "decryption_data": None}
+
+
+@router.post("/decryption/v5/{game_id}/validation-review")
+async def submit_game_review_validation(
+    game_id: str,
+    request: GameReviewValidationRequest,
+    user: User = Depends(get_current_user),
+):
+    """Store one private Phase 6 scorecard for an approved validator."""
+    from services.game_review_contracts import (
+        FEATURE_FLAG,
+        ReviewContractViolation,
+        ReviewPresentationMode,
+        personalized_game_review_access,
+    )
+    from services.game_review_event_adapter import (
+        maybe_attach_phase5_review_fields,
+    )
+    from services.game_review_validation_service import (
+        VALIDATION_COLLECTION,
+        blind_variant_modes,
+        build_validation_review_document,
+        public_validation_submission,
+        resolve_blind_variant,
+        store_validation_review,
+    )
+
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "feature_flags.personalized_game_review_coach": 1},
+    ) or {}
+    access = personalized_game_review_access(user_doc)
+    try:
+        variant = resolve_blind_variant(
+            comparison_allowed=access.comparison_allowed,
+            requested_variant=request.presentation_variant,
+        )
+        mode = blind_variant_modes(user.user_id, game_id)[variant]
+    except ReviewContractViolation as exc:
+        status_code = 400 if "unknown" in str(exc) else 403
+        raise HTTPException(status_code=status_code, detail=str(exc))
+
+    validation_game = await db.games.find_one(
+        {"game_id": game_id, **user_scope_filter(user)},
+        {"_id": 0, "game_id": 1},
+    )
+    if not validation_game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {
+            "_id": 0,
+            "decryption_v5_version": 1,
+            "decryption_v5_data": 1,
+            "game_teaching_plan": 1,
+        },
+    )
+    if not analysis or not analysis.get("decryption_v5_data"):
+        raise HTTPException(status_code=404, detail="Game review not found")
+
+    plan_id = None
+    if mode == ReviewPresentationMode.PERSONALIZED:
+        projected = maybe_attach_phase5_review_fields(
+            {"decryption_data": []},
+            stored_moves=tuple(analysis.get("decryption_v5_data") or []),
+            stored_plan=analysis.get("game_teaching_plan"),
+            env={FEATURE_FLAG: "true"},
+        )
+        plan_id = (projected.get("game_teaching_plan") or {}).get("plan_id")
+        if not plan_id:
+            raise HTTPException(
+                status_code=409,
+                detail="This game has no complete verified personalized review",
+            )
+
+    try:
+        document = build_validation_review_document(
+            reviewer_user_id=user.user_id,
+            game_id=game_id,
+            presentation_variant=variant,
+            presentation_mode=mode.value,
+            ratings=request.ratings,
+            notes=request.notes,
+            source_v5_version=analysis.get("decryption_v5_version", 1),
+            plan_id=plan_id,
+        )
+    except ReviewContractViolation as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    stored = await store_validation_review(
+        db[VALIDATION_COLLECTION],
+        document,
+    )
+    return {
+        "success": True,
+        "submission": public_validation_submission(stored),
+    }
 
 
 @router.get("/decryption/gold/{game_id}")
