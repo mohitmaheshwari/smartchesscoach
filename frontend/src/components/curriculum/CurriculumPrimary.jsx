@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import { ANALYTICS_EVENTS, trackCurriculum } from "../../lib/analytics";
 import { curriculumCta, curriculumStateLabel } from "../../lib/personalCurriculum";
+import HomeReplayDiagnostic from "./HomeReplayDiagnostic";
 
 const eventProps = (curriculum, surface) => {
   const decision = curriculum?.decision;
@@ -43,6 +44,15 @@ export default function CurriculumPrimary({
   }, [curriculum, surface]);
 
   if (!primary) return null;
+
+  if (surface === "home" && curriculum?.home_diagnostic?.enabled) {
+    return (
+      <HomeReplayDiagnostic
+        diagnostic={curriculum.home_diagnostic}
+        onNavigate={onNavigate}
+      />
+    );
+  }
 
   const openPrimary = () => {
     trackCurriculum(

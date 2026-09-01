@@ -23,6 +23,8 @@ PERSONALIZED_TEACHING_FEATURE_FLAG = "PERSONALIZED_TEACHING_ENABLED"
 CURRICULUM_SCHEMA_VERSION = "personal_curriculum.v1"
 LESSON_RESULT_SCHEMA_VERSION = "lesson_result.v2"
 CURRICULUM_SURFACE_SCHEMA_VERSION = "personal_curriculum.surface.v1"
+HOME_DIAGNOSTIC_SCHEMA_VERSION = "home_replay_diagnostic.result.v1"
+HOME_DIAGNOSTIC_FEATURE_FLAG = "HOME_REPLAY_DIAGNOSTIC_ENABLED"
 ROLLOUT_ROLES_ENV = "PERSONAL_CURRICULUM_ROLES"
 PIC_SKILL_ID = "piece_safety_simple_hang"
 
@@ -129,6 +131,78 @@ class EvidenceSourceType(str, Enum):
     ORGANIC_GAME = "organic_game"
 
 
+class HomeDiagnosticConclusion(str, Enum):
+    CONTROLLED_TRANSFER = "controlled_transfer"
+    FAMILIAR_POSITION_ONLY = "familiar_position_only"
+    PROMPTED_RECOGNITION = "prompted_recognition"
+    CURRENT_LEARNING_NEED = "current_learning_need"
+    NO_CONCLUSION = "no_conclusion"
+
+
+@dataclass(frozen=True)
+class HomeDiagnosticResult:
+    conclusion: HomeDiagnosticConclusion
+    target_results: Tuple[str, str]
+    separate_soundness_issue: bool
+    next_action: str
+    real_game_evidence: str = "not_measured"
+    schema_version: str = HOME_DIAGNOSTIC_SCHEMA_VERSION
+
+    def public_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "conclusion": self.conclusion.value,
+            "target_results": list(self.target_results),
+            "separate_soundness_issue": self.separate_soundness_issue,
+            "next_action": self.next_action,
+            "real_game_evidence": self.real_game_evidence,
+        }
+
+
+def derive_home_diagnostic_result(
+    attempts: Tuple[Mapping[str, Any], Mapping[str, Any]],
+) -> HomeDiagnosticResult:
+    """Map exactly two answer-hidden attempts to one bounded conclusion."""
+    if len(attempts) != 2:
+        raise ContractViolation("home diagnostic requires exactly two attempts")
+    targets = tuple(str(item.get("target_result") or "unmeasured") for item in attempts)
+    soundness = tuple(
+        str((item.get("soundness") or {}).get("status") or "unmeasured")
+        for item in attempts
+    )
+    separate_issue = "serious_problem" in soundness
+    if any(value not in {"pass", "fail"} for value in targets) or any(
+        value not in {"sound", "serious_problem"} for value in soundness
+    ):
+        conclusion = HomeDiagnosticConclusion.NO_CONCLUSION
+    else:
+        helped = any(bool(item.get("substantive_help")) for item in attempts)
+        reasons = tuple(item.get("reasoning_consistent") for item in attempts)
+        if targets == ("pass", "pass") and helped:
+            conclusion = HomeDiagnosticConclusion.PROMPTED_RECOGNITION
+        elif targets == ("pass", "pass") and reasons == (True, True):
+            conclusion = HomeDiagnosticConclusion.CONTROLLED_TRANSFER
+        elif targets[0] == "pass" and (
+            targets[1] == "fail" or reasons[1] is not True
+        ):
+            conclusion = HomeDiagnosticConclusion.FAMILIAR_POSITION_ONLY
+        else:
+            conclusion = HomeDiagnosticConclusion.CURRENT_LEARNING_NEED
+    actions = {
+        HomeDiagnosticConclusion.CONTROLLED_TRANSFER: "quiet_coached_application",
+        HomeDiagnosticConclusion.FAMILIAR_POSITION_ONLY: "teach_reusable_board_signal",
+        HomeDiagnosticConclusion.PROMPTED_RECOGNITION: "build_pre_move_trigger",
+        HomeDiagnosticConclusion.CURRENT_LEARNING_NEED: "teach_board_relationship",
+        HomeDiagnosticConclusion.NO_CONCLUSION: "preserve_existing_home_action",
+    }
+    return HomeDiagnosticResult(
+        conclusion=conclusion,
+        target_results=(targets[0], targets[1]),
+        separate_soundness_issue=separate_issue,
+        next_action=actions[conclusion],
+    )
+
+
 def personal_curriculum_enabled(
     env: Optional[Mapping[str, str]] = None,
 ) -> bool:
@@ -148,6 +222,160 @@ def personalized_teaching_enabled(
         .lower()
         in _TRUE_VALUES
     )
+
+
+def home_replay_diagnostic_enabled(
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    source = os.environ if env is None else env
+    return (
+        str(source.get(HOME_DIAGNOSTIC_FEATURE_FLAG, "false"))
+        .strip()
+        .lower()
+        in _TRUE_VALUES
+    )
+
+
+async def _count_later_exact_misses(
+    db,
+    user_id: str,
+    completed_at: Any,
+) -> int:
+    """Count exact misses in games played after the diagnostic.
+
+    Observation ``derived_at`` is intentionally not used: an old game may be
+    reprocessed after the diagnostic and must not be presented as a new miss.
+    Dates with day-only precision are accepted only when strictly later, so a
+    same-day game remains unmeasured rather than becoming a false claim.
+    """
+    observations = getattr(db, "move_observations", None)
+    games = getattr(db, "games", None)
+    if observations is None or games is None or not completed_at:
+        return 0
+    cursor = observations.find(
+        {
+            "user_id": user_id,
+            "schema_version": {"$gte": 18},
+            "destination_safety_exact.version": (
+                "piece_safety.destination_safety_exact.v1"
+            ),
+            "destination_safety_exact.fires": True,
+        },
+        {"_id": 0, "game_id": 1},
+    )
+    rows = await cursor.to_list(length=5000)
+    game_ids = sorted({str(row.get("game_id")) for row in rows if row.get("game_id")})
+    if not game_ids:
+        return 0
+    game_rows = await games.find(
+        {"user_id": user_id, "game_id": {"$in": game_ids}},
+        {"_id": 0, "game_id": 1, "date_played": 1},
+    ).to_list(length=len(game_ids))
+    from services.prescription_tracking_service import _normalize_game_date
+
+    completed_day = _normalize_game_date(completed_at)
+    if not completed_day:
+        return 0
+    later_ids = {
+        str(game.get("game_id"))
+        for game in game_rows
+        if _normalize_game_date(game.get("date_played"))
+        and _normalize_game_date(game.get("date_played")) > completed_day
+    }
+    return len(later_ids)
+
+
+async def _home_replay_diagnostic_projection(
+    db,
+    user_id: str,
+    primary: "CurriculumCandidate",
+    *,
+    env: Optional[Mapping[str, str]] = None,
+) -> Optional[Dict[str, Any]]:
+    from services.destination_safety_detector import QUALITY_ID
+
+    if (
+        not home_replay_diagnostic_enabled(env)
+        or primary.detector_quality_id != QUALITY_ID
+        or not is_authorized(QUALITY_ID, QualitySurface.PLAN)
+    ):
+        return None
+    users = getattr(db, "users", None)
+    if users is None:
+        return None
+    user = await users.find_one({"user_id": user_id}, {"_id": 0, "feature_flags": 1})
+    enrollment = ((user or {}).get("feature_flags") or {}).get(
+        "home_replay_diagnostic"
+    ) or {}
+    if enrollment.get("enabled") is not True:
+        return None
+
+    sessions = getattr(db, "learning_sessions", None)
+    if sessions is None:
+        return None
+    session = await sessions.find_one(
+        {
+            "user_id": user_id,
+            "lesson_type": "personalized_curriculum",
+            "delivery_mode": "blind_diagnostic",
+        },
+        sort=[("updated_at", -1)],
+    )
+    if session:
+        from services.teaching_engine import _public_personalized_session
+
+        public = _public_personalized_session(session)
+        state = (
+            "result"
+            if session.get("status") == "completed"
+            else "reflection"
+            if public.get("awaiting_reason")
+            else "active"
+        )
+        if session.get("status") == "completed" and session.get("completed_at"):
+            later_misses = await _count_later_exact_misses(
+                db,
+                user_id,
+                session.get("completed_at"),
+            )
+            if later_misses:
+                diagnostic_result = dict(public.get("diagnostic_result") or {})
+                diagnostic_result.update({
+                    "real_game_evidence": "missed",
+                    "next_action": "return_to_board_relationship",
+                })
+                public["diagnostic_result"] = diagnostic_result
+                state = "later_miss"
+        return {
+            "enabled": True,
+            "state": state,
+            "session": public,
+        }
+
+    from services.personalized_lesson_adapter import (
+        LessonUnavailable,
+        resolve_personalized_lesson,
+    )
+    try:
+        # Preflight only. The actual pair is frozen atomically at session start.
+        await resolve_personalized_lesson(
+            db,
+            user_id,
+            content_kind="concept",
+            content_id="piece_safety",
+            params={"mode": "blind_diagnostic", "limit": 20},
+        )
+    except LessonUnavailable:
+        return None
+    return {
+        "enabled": True,
+        "state": "ready",
+        "start": {
+            "content_kind": "concept",
+            "content_id": "piece_safety",
+            "mode": "blind_diagnostic",
+        },
+    }
 
 
 def personal_curriculum_rollout_roles(
@@ -929,6 +1157,12 @@ async def build_player_curriculum(
                 "content_version": "resolved_at_session_start",
             },
         )
+    home_diagnostic = await _home_replay_diagnostic_projection(
+        db,
+        user_id,
+        primary,
+        env=env,
+    )
     return {
         "enabled": True,
         "schema_version": CURRICULUM_SURFACE_SCHEMA_VERSION,
@@ -943,6 +1177,7 @@ async def build_player_curriculum(
             "enabled": personalized_enabled,
             "profile": teaching_profile,
         },
+        "home_diagnostic": home_diagnostic,
     }
 
 

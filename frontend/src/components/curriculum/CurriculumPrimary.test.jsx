@@ -2,6 +2,9 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import CurriculumPrimary from "./CurriculumPrimary";
 
+jest.mock("@/App", () => ({ API: "/api" }));
+jest.mock("@/components/LichessBoard", () => () => <div data-testid="board" />);
+
 
 const curriculum = {
   enabled: true,
@@ -122,5 +125,28 @@ describe("CurriculumPrimary", () => {
     expect(container.textContent).not.toContain("Not measured");
     expect(container.textContent).not.toContain("Used in your games");
     expect(container.textContent).not.toContain("Reliable");
+  });
+
+  test("Home diagnostic replaces the generic disclosure instead of sitting beside it", () => {
+    const diagnostic = {
+      ...curriculum,
+      personalized_teaching: {
+        enabled: true,
+        profile: { why_now: "This is the one idea in your current coaching plan." },
+      },
+      home_diagnostic: { enabled: true, state: "ready" },
+    };
+
+    act(() => root.render(
+      <CurriculumPrimary
+        curriculum={diagnostic}
+        surface="home"
+        onNavigate={jest.fn()}
+      />
+    ));
+
+    expect(container.textContent).toContain("put you back in the position");
+    expect(container.textContent).not.toContain("What I noticed in your games");
+    expect(container.textContent).not.toContain("This is the one idea");
   });
 });

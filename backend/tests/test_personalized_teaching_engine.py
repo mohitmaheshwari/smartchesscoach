@@ -305,3 +305,182 @@ def test_review_session_uses_answer_hidden_retain_stage(monkeypatch):
 
     assert result["earned_state"] == "can_do_alone"
     assert result["complete"] is True
+
+
+def _blind_descriptor():
+    descriptor = _descriptor()
+    first = copy.deepcopy(descriptor["items"][0])
+    first.update({"item_id": "diagnostic-position-1", "stage": "diagnose"})
+    second = copy.deepcopy(first)
+    second.update({"item_id": "diagnostic-position-2", "stage": "transfer"})
+    descriptor.update({
+        "items": [first, second],
+        "delivery_mode": "blind_diagnostic",
+        "diagnostic_version": "home_replay_diagnostic.v1",
+        "pair_fingerprint": "pair-1",
+    })
+    return descriptor
+
+
+def _install_blind(monkeypatch):
+    async def resolve(*args, **kwargs):
+        return _blind_descriptor()
+
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    async def grade(*args, **kwargs):
+        return {
+            "correct": True,
+            "target_result": "pass",
+            "soundness": {"status": "sound", "reason": "verified_acceptable"},
+            "feedback": "The decision holds up.",
+            "answer_san": None,
+            "answer_uci": None,
+            "grader_version": "home_replay_diagnostic.v1",
+        }
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson", resolve
+    )
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile", profile
+    )
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.grade_personalized_move", grade
+    )
+
+
+def _assert_forbidden_keys_absent(value):
+    forbidden = {
+        "title", "rule", "intro", "canonical_source", "content_version",
+        "source_ref", "reason_choices", "answer_san", "answer_uci",
+        "pair_fingerprint", "quality_id", "detector_version",
+    }
+    if isinstance(value, dict):
+        assert forbidden.isdisjoint(value.keys())
+        for child in value.values():
+            _assert_forbidden_keys_absent(child)
+    elif isinstance(value, list):
+        for child in value:
+            _assert_forbidden_keys_absent(child)
+
+
+def test_blind_diagnostic_move_precedes_reason_and_completes_two_positions(monkeypatch):
+    _install_blind(monkeypatch)
+    db = _DB()
+    started = asyncio.run(start_lesson(
+        db,
+        "blind-1",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {"content_kind": "concept", "content_id": "piece_safety", "mode": "blind_diagnostic"},
+    ))
+
+    assert started["delivery_mode"] == "blind_diagnostic"
+    assert started["awaiting_reason"] is False
+    assert "lesson" not in started
+    _assert_forbidden_keys_absent(started)
+
+    staged = asyncio.run(process_lesson_move(
+        db, "blind-1", "e2f3", interaction_id="stage-1"
+    ))
+    assert staged["awaiting_reason"] is True
+    assert staged["current_item"]["reason_choices"]
+    duplicate = asyncio.run(process_lesson_move(
+        db, "blind-1", "e2f3", interaction_id="stage-1"
+    ))
+    assert duplicate == staged
+
+    first = asyncio.run(process_lesson_move(
+        db,
+        "blind-1",
+        "e2f3",
+        interaction_id="answer-1",
+        reason_choice="keeps_piece_safe",
+    ))
+    assert first["current_index"] == 1
+    assert first["complete"] is False
+    assert first["target_result"] == "pass"
+
+    resumed = asyncio.run(get_personalized_lesson(db, "u1", "blind-1"))
+    assert resumed["current_item"]["item_id"] == "diagnostic-position-2"
+    assert resumed["awaiting_reason"] is False
+
+    asyncio.run(process_lesson_move(
+        db, "blind-1", "e2f3", interaction_id="stage-2"
+    ))
+    final = asyncio.run(process_lesson_move(
+        db,
+        "blind-1",
+        "e2f3",
+        interaction_id="answer-2",
+        reason_choice="keeps_piece_safe",
+    ))
+    assert final["complete"] is True
+    assert final["diagnostic_result"]["conclusion"] == "controlled_transfer"
+    assert final["diagnostic_result"]["real_game_evidence"] == "not_measured"
+
+
+def test_blind_refresh_after_move_reveals_only_reason_options(monkeypatch):
+    _install_blind(monkeypatch)
+    db = _DB()
+    asyncio.run(start_lesson(
+        db,
+        "blind-refresh",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {"content_kind": "concept", "content_id": "piece_safety", "mode": "blind_diagnostic"},
+    ))
+    asyncio.run(process_lesson_move(
+        db, "blind-refresh", "e2f3", interaction_id="staged"
+    ))
+
+    resumed = asyncio.run(get_personalized_lesson(db, "u1", "blind-refresh"))
+    assert resumed["awaiting_reason"] is True
+    assert resumed["pending_move_uci"] == "e2f3"
+    assert resumed["current_item"]["reason_choices"]
+    assert "lesson" not in resumed
+
+
+def test_blind_unmeasured_soundness_never_awards_learning_credit(monkeypatch):
+    _install_blind(monkeypatch)
+
+    async def unmeasured_grade(*args, **kwargs):
+        return {
+            "correct": True,
+            "target_result": "pass",
+            "soundness": {"status": "unmeasured", "reason": "engine_unavailable"},
+            "feedback": "I cannot verify the whole move fairly yet.",
+            "answer_san": None,
+            "answer_uci": None,
+            "grader_version": "home_replay_diagnostic.v1",
+        }
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.grade_personalized_move",
+        unmeasured_grade,
+    )
+    db = _DB()
+    asyncio.run(start_lesson(
+        db,
+        "blind-unmeasured",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {"content_kind": "concept", "content_id": "piece_safety", "mode": "blind_diagnostic"},
+    ))
+    asyncio.run(process_lesson_move(
+        db, "blind-unmeasured", "e2f3", interaction_id="stage-u1"
+    ))
+    first = asyncio.run(process_lesson_move(
+        db,
+        "blind-unmeasured",
+        "e2f3",
+        interaction_id="answer-u1",
+        reason_choice="keeps_piece_safe",
+    ))
+
+    assert first["target_result"] == "pass"
+    assert first["soundness"]["status"] == "unmeasured"
+    assert first["earned_state"] == "learning"
+    assert first["highest_earned_state"] == "learning"

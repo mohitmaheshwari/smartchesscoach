@@ -41,8 +41,13 @@ def _parse_datetime(value: Any, field_name: str) -> datetime:
     if isinstance(value, datetime):
         parsed = value
     else:
+        raw = str(value or "").strip()
+        if len(raw) >= 10:
+            # Chess.com imports commonly store the calendar day as
+            # YYYY.MM.DD. Preserve any time suffix while normalizing the date.
+            raw = raw[:10].replace(".", "-") + raw[10:]
         try:
-            parsed = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         except (TypeError, ValueError) as exc:
             raise ContractViolation(f"{field_name} must be an ISO timestamp") from exc
     if parsed.tzinfo is None:
@@ -130,10 +135,18 @@ def application_results_from_observations(
     for observation in observations or []:
         if int(observation.get("schema_version") or 0) < 16:
             continue
-        if not (
+        simple_hang = (
             observation.get("missed_pattern") == "piece_safety"
             and observation.get("subtype") == "simple_hang"
-        ):
+        )
+        exact_fact = observation.get("destination_safety_exact") or {}
+        exact_destination = (
+            int(observation.get("schema_version") or 0) >= 18
+            and exact_fact.get("version")
+            == "piece_safety.destination_safety_exact.v1"
+            and exact_fact.get("fires") is True
+        )
+        if not (simple_hang or exact_destination):
             continue
         ply = int(observation.get("ply") or 0)
         if not game_id or ply < 1:
@@ -148,8 +161,10 @@ def application_results_from_observations(
                 occurred_at=event_time,
                 application_outcome=ApplicationOutcome.MISSED,
                 source_type=EvidenceSourceType.ORGANIC_GAME,
-                detector_quality_id=gap_quality_id(
-                    "piece_safety", "simple_hang"
+                detector_quality_id=(
+                    "gap:piece_safety:destination_safety_exact"
+                    if exact_destination
+                    else gap_quality_id("piece_safety", "simple_hang")
                 ),
                 source_event_id=f"move_observation:{game_id}:{ply}",
             )

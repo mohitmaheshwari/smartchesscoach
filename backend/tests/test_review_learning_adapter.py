@@ -136,13 +136,56 @@ def test_application_adapter_accepts_only_current_verified_positive_misses():
                 },
                 "ply": 23,
             },
+            {
+                "schema_version": 18,
+                "missed_pattern": "piece_safety",
+                "subtype": "destination_safety_exact",
+                "destination_safety_exact": {
+                    "version": "piece_safety.destination_safety_exact.v1",
+                    "fires": True,
+                },
+                "ply": 25,
+            },
+            {
+                "schema_version": 18,
+                "destination_safety_exact": {
+                    "version": "piece_safety.destination_safety_exact.v1",
+                    "fires": False,
+                    "outcome": "handled",
+                },
+                "ply": 27,
+            },
         ),
     )
-    assert len(results) == 1
+    assert len(results) == 2
     assert results[0].application_outcome == ApplicationOutcome.MISSED
     assert results[0].source_type == EvidenceSourceType.ORGANIC_GAME
     assert results[0].earned_state() is None
     assert results[0].source_event_id == "move_observation:g:17"
+    assert results[1].detector_quality_id == (
+        "gap:piece_safety:destination_safety_exact"
+    )
+    assert results[1].source_event_id == "move_observation:g:25"
+
+
+def test_application_adapter_accepts_chess_com_dotted_game_date():
+    results = application_results_from_observations(
+        game_id="g-dotted",
+        occurred_at="2026.09.02",
+        observations=({
+            "schema_version": 18,
+            "destination_safety_exact": {
+                "version": "piece_safety.destination_safety_exact.v1",
+                "fires": True,
+            },
+            "ply": 9,
+        },),
+    )
+
+    assert len(results) == 1
+    assert results[0].occurred_at == datetime(
+        2026, 9, 2, tzinfo=timezone.utc
+    )
 
 
 def test_shadow_event_is_deterministic_and_visible_ineligible():

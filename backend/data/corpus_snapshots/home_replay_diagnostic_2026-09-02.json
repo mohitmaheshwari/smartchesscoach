@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "snapshot_id": "home_replay_diagnostic_2026-09-02",
+    "generated_at": "2026-09-02",
+    "database": "production chess_coach",
+    "method": "Read-only aggregate over stored schema-18 destination_safety_exact facts; no Stockfish calls; no writes",
+    "privacy": "Aggregate only. No user id, game id, FEN, PGN, move, credential, or free-form production text.",
+    "validation_cohort": "bhutramohit validation account only"
+  },
+  "exact_position_supply": {
+    "quality_id": "gap:piece_safety:destination_safety_exact",
+    "detector_version": "piece_safety.destination_safety_exact.v1",
+    "fires": 193,
+    "distinct_games": 160,
+    "distinct_positions": 189,
+    "moved_piece_histogram": {
+      "bishop": 68,
+      "rook": 43,
+      "knight": 52,
+      "queen": 30
+    },
+    "phase_histogram": {
+      "opening": 71,
+      "middlegame": 97,
+      "endgame": 25
+    },
+    "strict_cross_game_cross_piece_pairs": 13556
+  },
+  "strict_pair_definition": {
+    "same_quality_id": true,
+    "same_detector_version": true,
+    "different_game": true,
+    "different_normalized_fen": true,
+    "different_moved_piece_type": true
+  },
+  "supporting_versioned_evidence": [
+    "backend/data/corpus_snapshots/destination_safety_exact_plan_promotion_2026-09-01.json",
+    "backend/data/corpus_snapshots/personal_curriculum_review_opportunities_2026-08-28.json"
+  ]
+}
