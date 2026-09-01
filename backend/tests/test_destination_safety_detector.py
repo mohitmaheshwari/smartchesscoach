@@ -4,6 +4,7 @@ from services.destination_safety_detector import (
     FACT_VERSION,
     QUALITY_ID,
     derive_destination_safety_exact,
+    grade_destination_safety_candidate,
 )
 from services.detector_quality import QualityGrade, QualitySurface, grade_for, is_authorized
 
@@ -94,3 +95,40 @@ def test_quality_authorization_is_plan_grade_and_evidence_locked():
     assert is_authorized(QUALITY_ID, QualitySurface.PLAN)
     assert is_authorized(QUALITY_ID, QualitySurface.MASTERY)
     assert is_authorized(QUALITY_ID, QualitySurface.CAPTION)
+
+
+def test_counterfactual_safe_non_best_piece_move_passes_narrow_concept():
+    result = grade_destination_safety_candidate(
+        "3rk3/8/8/8/8/8/8/3QK3 w - - 0 1",
+        "d1a1",
+    )
+    assert result["status"] == "pass"
+    assert result["proofs_agree"] is True
+    assert result["exact_exchange_gain_cp"] == 0
+
+
+def test_counterfactual_move_to_losing_destination_fails_narrow_concept():
+    result = grade_destination_safety_candidate(
+        "3rk3/8/8/8/8/8/8/3QK3 w - - 0 1",
+        "d1d5",
+    )
+    assert result["status"] == "fail"
+    assert result["exact_exchange_gain_cp"] >= 150
+    assert result["proofs_agree"] is True
+
+
+def test_counterfactual_pawn_move_is_not_claimed_as_concept_understanding():
+    result = grade_destination_safety_candidate(
+        "4k3/8/8/8/8/8/3P4/3QK3 w - - 0 1",
+        "d2d4",
+    )
+    assert result["status"] == "unmeasured"
+    assert result["reason"] == "piece_not_eligible"
+
+
+def test_counterfactual_illegal_move_fails_closed():
+    result = grade_destination_safety_candidate(
+        "4k3/8/8/8/8/8/8/3QK3 w - - 0 1",
+        "d1d9",
+    )
+    assert result["status"] == "unmeasured"

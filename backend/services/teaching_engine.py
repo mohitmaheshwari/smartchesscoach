@@ -880,12 +880,89 @@ def _public_personalized_item(item: Optional[Mapping[str, Any]]):
     }
 
 
+def _blind_pending_event(
+    session: Mapping[str, Any],
+    item_id: str,
+) -> Optional[Mapping[str, Any]]:
+    for event in reversed(list(session.get("events") or [])):
+        if event.get("item_id") != item_id:
+            continue
+        if event.get("event_type") == "answer_submitted":
+            return None
+        if event.get("event_type") == "move_staged":
+            return event
+    return None
+
+
+def _public_blind_item(
+    item: Optional[Mapping[str, Any]],
+    *,
+    awaiting_reason: bool = False,
+) -> Optional[Dict[str, Any]]:
+    if not item:
+        return None
+    result = {
+        "item_id": item.get("item_id"),
+        "fen": item.get("fen"),
+        "orientation": item.get("orientation"),
+        "prompt": "What would you play here?",
+        "stage": item.get("stage"),
+        "source_label": (
+            "A position from one of your games"
+            if item.get("source") == "own_game"
+            else "A new verified position"
+        ),
+    }
+    if awaiting_reason:
+        result.update({
+            "reason_prompt": "What did you pay attention to before moving?",
+            "reason_choices": list(item.get("reason_choices") or []),
+        })
+    return result
+
+
 def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
     descriptor = session.get("descriptor") or {}
     items = descriptor.get("items") or []
     index = int(session.get("current_index") or 0)
     current = items[index] if index < len(items) else None
     highest = str(session.get("highest_earned_state") or "learning")
+    blind = session.get("delivery_mode") == "blind_diagnostic"
+    pending = (
+        _blind_pending_event(session, str((current or {}).get("item_id") or ""))
+        if blind and current
+        else None
+    )
+    if blind:
+        return {
+            "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
+            "diagnostic_version": "home_replay_diagnostic.v1",
+            "delivery_mode": "blind_diagnostic",
+            "session_id": session.get("session_id"),
+            "lesson_type": PERSONALIZED_LESSON_TYPE,
+            "status": session.get("status"),
+            "current_index": index,
+            "completed_items": min(index, len(items)),
+            "total_items": len(items),
+            "current_item": _public_blind_item(
+                current,
+                awaiting_reason=bool(pending),
+            ),
+            "awaiting_reason": bool(pending),
+            "pending_move_uci": pending.get("move_uci") if pending else None,
+            "stage": (current or {}).get("stage") or "result",
+            "allowed_help": [
+                "show_on_board",
+                "ask_one_question",
+                "let_me_try",
+            ],
+            "diagnostic_result": session.get("diagnostic_result"),
+            "learner_state": {
+                "state": highest,
+                "real_game_evidence": "not_measured",
+                "retention_evidence": "not_measured",
+            },
+        }
     return {
         "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
         "session_id": session.get("session_id"),
@@ -959,16 +1036,20 @@ async def start_personalized_lesson(
 ) -> Dict[str, Any]:
     content_kind = str((params or {}).get("content_kind") or "")
     content_id = str((params or {}).get("content_id") or "")
+    delivery_mode = str((params or {}).get("mode") or "lesson")
     if not content_kind or not content_id:
         return {"error": "content_kind and content_id are required"}
 
-    existing = await db.learning_sessions.find_one({
+    existing_query = {
         "user_id": user_id,
         "lesson_type": PERSONALIZED_LESSON_TYPE,
         "content_kind": content_kind,
         "content_id": content_id,
         "status": {"$in": ["active", "paused"]},
-    })
+    }
+    if delivery_mode == "blind_diagnostic":
+        existing_query["delivery_mode"] = delivery_mode
+    existing = await db.learning_sessions.find_one(existing_query)
     if existing:
         if existing.get("status") == "paused":
             now = datetime.now(timezone.utc)
@@ -1040,6 +1121,9 @@ async def start_personalized_lesson(
         "content_id": descriptor["id"],
         "skill_id": descriptor["skill_id"],
         "content_version": descriptor["content_version"],
+        "delivery_mode": descriptor.get("delivery_mode") or delivery_mode,
+        "diagnostic_version": descriptor.get("diagnostic_version"),
+        "pair_fingerprint": descriptor.get("pair_fingerprint"),
         "status": "active",
         "current_index": 0,
         "highest_earned_state": "learning",
@@ -1270,6 +1354,53 @@ async def process_personalized_move(
         return {**_public_personalized_session(session), "complete": True}
     item = items[index]
 
+    blind = session.get("delivery_mode") == "blind_diagnostic"
+    if blind:
+        pending = _blind_pending_event(session, str(item.get("item_id") or ""))
+        if not reason_choice:
+            from services.personalized_lesson_adapter import _parse_move
+
+            parsed = _parse_move(str(item.get("fen") or ""), move)
+            if parsed is None:
+                return {"error": "That move is not legal here"}
+            if pending:
+                staged = pending.get("result_payload") or {}
+                if pending.get("move_uci") == parsed.uci():
+                    return staged
+                return {"error": "A move is already waiting for your reason"}
+            staged = {
+                "awaiting_reason": True,
+                "session_id": session_id,
+                "current_index": index,
+                "current_item": _public_blind_item(item, awaiting_reason=True),
+            }
+            now = datetime.now(timezone.utc)
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "event_type": "move_staged",
+                "idempotency_key": key,
+                "occurred_at": now,
+                "item_id": item["item_id"],
+                "move_uci": parsed.uci(),
+                "evidence_eligible": False,
+                "result_payload": staged,
+            }
+            write = await db.learning_sessions.update_one(
+                {
+                    "_id": session["_id"],
+                    "current_index": index,
+                    "events.idempotency_key": {"$ne": key},
+                },
+                {"$set": {"updated_at": now}, "$push": {"events": event}},
+            )
+            if not write.modified_count:
+                return {"error": "Session changed; reload and try again"}
+            return staged
+        if not pending:
+            return {"error": "Make your move before choosing a reason"}
+        if pending.get("move_uci") != str(move or "").lower():
+            return {"error": "The reason must belong to the move you just made"}
+
     from services.personalized_lesson_adapter import grade_personalized_move
 
     grade = await grade_personalized_move(
@@ -1338,6 +1469,14 @@ async def process_personalized_move(
         )
     else:
         misconception = None
+    evidence_correct = correct
+    if blind and str((grade.get("soundness") or {}).get("status")) not in {
+        "sound",
+        "serious_problem",
+    }:
+        # Keep the target result visible, but never award learning evidence
+        # when the independent move-quality check could not run.
+        evidence_correct = False
     event_contract = LessonResult(
         content_kind=str(descriptor["kind"]),
         content_id=str(descriptor["id"]),
@@ -1348,7 +1487,7 @@ async def process_personalized_move(
         attempt_kind=_attempt_kind_for_stage(stage_value),
         occurred_at=datetime.now(timezone.utc),
         stage=stage,
-        correct=correct,
+        correct=evidence_correct,
         assistance=tuple(assistance),
         requested_help=requested_help,
         position_id=str(item["item_id"]),
@@ -1378,8 +1517,10 @@ async def process_personalized_move(
         else current_state
     )
 
-    next_index = index + 1 if correct else index
-    complete = bool(correct and next_index >= len(items))
+    next_index = index + 1 if (correct or blind) else index
+    complete = bool(next_index >= len(items)) if blind else bool(
+        correct and next_index >= len(items)
+    )
     reveal_answer = bool(not correct and stage_value == "guide")
     next_profile = session.get("teaching_profile") or {}
     if misconception:
@@ -1411,6 +1552,8 @@ async def process_personalized_move(
         "misconception": misconception,
         "corrective_action": correction,
         "reasoning_consistent": reasoning_consistent,
+        "target_result": grade.get("target_result"),
+        "soundness": grade.get("soundness"),
         "teaching_profile": next_profile,
         "earned_state": evidence.get("earned_state"),
         "highest_earned_state": highest,
@@ -1418,7 +1561,9 @@ async def process_personalized_move(
         "current_index": next_index,
         "total_items": len(items),
         "next_item": (
-            _public_personalized_item(items[next_index])
+            _public_blind_item(items[next_index])
+            if blind and next_index < len(items)
+            else _public_personalized_item(items[next_index])
             if next_index < len(items)
             else None
         ),
@@ -1433,6 +1578,35 @@ async def process_personalized_move(
         ),
     }
     now = datetime.now(timezone.utc)
+    substantive_help = any(
+        action in (HelpAction.SHOW_ON_BOARD, HelpAction.ASK_ONE_QUESTION)
+        for action in requested_help
+    )
+    result["substantive_help"] = substantive_help
+    if blind and complete:
+        prior_attempts = []
+        for prior_event in session.get("events") or []:
+            if prior_event.get("event_type") != "answer_submitted":
+                continue
+            payload = prior_event.get("result_payload") or {}
+            prior_attempts.append({
+                "target_result": payload.get("target_result"),
+                "soundness": payload.get("soundness"),
+                "substantive_help": payload.get("substantive_help"),
+                "reasoning_consistent": payload.get("reasoning_consistent"),
+            })
+        prior_attempts.append({
+            "target_result": result.get("target_result"),
+            "soundness": result.get("soundness"),
+            "substantive_help": substantive_help,
+            "reasoning_consistent": reasoning_consistent,
+        })
+        from services.personal_curriculum import derive_home_diagnostic_result
+
+        diagnostic_result = derive_home_diagnostic_result(
+            (prior_attempts[0], prior_attempts[1])
+        ).public_dict()
+        result["diagnostic_result"] = diagnostic_result
     event = {
         **evidence,
         "event_id": str(uuid.uuid4()),
@@ -1457,6 +1631,8 @@ async def process_personalized_move(
                 "is_analyzed": True,
             })
         update_set.update({"status": "completed", "completed_at": now})
+        if blind:
+            update_set["diagnostic_result"] = result.get("diagnostic_result")
         if games_at_completion is not None:
             update_set["analyzed_games_at_completion"] = games_at_completion
     write = await db.learning_sessions.update_one(

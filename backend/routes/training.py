@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import logging
+import os
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,35 @@ async def _require_personalized_teaching_user(user: User):
     if not personalized_teaching_eligible(role):
         raise HTTPException(status_code=404, detail="Lesson not found")
     return role
+
+
+async def _require_home_diagnostic_user(user: User):
+    """Require the default-off flag, exact focus, and explicit enrollment."""
+    await _require_personalized_teaching_user(user)
+    from services.destination_safety_detector import QUALITY_ID
+    from services.detector_quality import QualitySurface, is_authorized
+    from services.focus_bridge import get_active_focus_bundle
+    from services.personal_curriculum import home_replay_diagnostic_enabled
+
+    if not home_replay_diagnostic_enabled(os.environ):
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "feature_flags": 1},
+    )
+    enrollment = ((user_doc or {}).get("feature_flags") or {}).get(
+        "home_replay_diagnostic"
+    ) or {}
+    if enrollment.get("enabled") is not True:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    focus = await get_active_focus_bundle(db, user.user_id)
+    if (
+        not focus
+        or focus.get("detector_quality_id") != QUALITY_ID
+        or not is_authorized(QUALITY_ID, QualitySurface.PLAN)
+    ):
+        raise HTTPException(status_code=409, detail="Verified focus is required")
+    return focus
 
 
 def _raise_pic_lesson_error(result: Dict):
@@ -145,6 +175,10 @@ class PersonalizedLessonHelpRequest(BaseModel):
 class PersonalizedLessonPauseRequest(BaseModel):
     session_id: str
     choice: str = "pause"
+
+
+class HomeDiagnosticStartRequest(BaseModel):
+    limit: int = 20
 
 
 # ==================== PERSONAL IMPROVEMENT CYCLE ====================
@@ -365,6 +399,113 @@ async def get_personalized_training_evidence(
         "retention_evidence": "not_measured",
         "evidence": evidence,
     }
+
+
+# ==================== HOME REPLAY DIAGNOSTIC ====================
+
+@router.post("/personalized/diagnostic/start")
+async def start_home_replay_diagnostic(
+    request: HomeDiagnosticStartRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_home_diagnostic_user(user)
+    from services.teaching_engine import PERSONALIZED_LESSON_TYPE, start_lesson
+
+    result = await start_lesson(
+        db,
+        str(uuid.uuid4()),
+        user.user_id,
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "concept",
+            "content_id": "piece_safety",
+            "mode": "blind_diagnostic",
+            "limit": max(2, min(request.limit, 20)),
+        },
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.get("/personalized/diagnostic")
+async def get_home_replay_diagnostic(user: User = Depends(get_current_user)):
+    await _require_home_diagnostic_user(user)
+    session = await db.learning_sessions.find_one(
+        {
+            "user_id": user.user_id,
+            "lesson_type": "personalized_curriculum",
+            "delivery_mode": "blind_diagnostic",
+        },
+        sort=[("updated_at", -1)],
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import _public_personalized_session
+
+    return _public_personalized_session(session)
+
+
+async def _owned_home_diagnostic(user: User, session_id: str):
+    session = await db.learning_sessions.find_one(
+        {
+            "session_id": session_id,
+            "user_id": user.user_id,
+            "delivery_mode": "blind_diagnostic",
+        },
+        {"_id": 1},
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+
+@router.post("/personalized/diagnostic/respond")
+async def respond_to_home_replay_diagnostic(
+    request: PersonalizedLessonRespondRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_home_diagnostic_user(user)
+    await _owned_home_diagnostic(user, request.session_id)
+    from services.teaching_engine import process_personalized_move
+
+    result = await process_personalized_move(
+        db,
+        request.session_id,
+        request.move,
+        interaction_id=request.interaction_id,
+        reason_choice=request.reason_choice,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/diagnostic/help")
+async def help_with_home_replay_diagnostic(
+    request: PersonalizedLessonHelpRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_home_diagnostic_user(user)
+    await _owned_home_diagnostic(user, request.session_id)
+    from services.teaching_engine import request_personalized_help
+
+    result = await request_personalized_help(
+        db,
+        user.user_id,
+        request.session_id,
+        request.action,
+        interaction_id=request.interaction_id,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/diagnostic/pause")
+async def pause_home_replay_diagnostic(
+    request: PersonalizedLessonPauseRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_home_diagnostic_user(user)
+    await _owned_home_diagnostic(user, request.session_id)
+    from services.teaching_engine import exit_lesson
+
+    result = await exit_lesson(db, request.session_id, request.choice)
+    return _raise_pic_lesson_error(result)
 
 
 # ==================== CORE SESSION ENDPOINTS ====================

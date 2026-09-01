@@ -131,6 +131,87 @@ def _stage(index: int, total: int) -> str:
     return "recall"
 
 
+def _blind_diagnostic_candidate(
+    supplied: Mapping[str, Any],
+    resolved: Mapping[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Shape one exact own-game puzzle for strict diagnostic pairing."""
+    from services.destination_safety_detector import QUALITY_ID
+
+    verdict = resolved.get("verified_admission") or {}
+    if verdict.get("quality_id") != QUALITY_ID:
+        return None
+    detector_version = str(verdict.get("detector_version") or "")
+    game_id = str(
+        supplied.get("source_game_id")
+        or resolved.get("source_game_id")
+        or ""
+    )
+    fen = str(resolved.get("fen") or supplied.get("fen") or "")
+    played_uci = str(verdict.get("played_move_uci") or "")
+    if not detector_version or not game_id or not fen or not played_uci:
+        return None
+    try:
+        board = chess.Board(fen)
+        played = chess.Move.from_uci(played_uci)
+        if played not in board.legal_moves:
+            return None
+        piece = board.piece_at(played.from_square)
+        if piece is None or piece.piece_type not in (
+            chess.KNIGHT,
+            chess.BISHOP,
+            chess.ROOK,
+            chess.QUEEN,
+        ):
+            return None
+    except (TypeError, ValueError):
+        return None
+    return {
+        "puzzle_id": str(supplied.get("puzzle_id") or resolved.get("puzzle_id") or ""),
+        "fen": fen,
+        "normalized_fen": " ".join(board.fen().split()[:4]),
+        "orientation": "white" if board.turn == chess.WHITE else "black",
+        "source_game_id": game_id,
+        "source_kind": "own_game",
+        "quality_id": QUALITY_ID,
+        "detector_version": detector_version,
+        "moved_piece": chess.piece_name(piece.piece_type),
+        "moved_origin": chess.square_name(played.from_square),
+    }
+
+
+def select_blind_diagnostic_pair(
+    candidates: list[Mapping[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Choose a deterministic cross-game, cross-position, cross-piece pair."""
+    for left_index, left in enumerate(candidates):
+        for right in candidates[left_index + 1:]:
+            if left.get("quality_id") != right.get("quality_id"):
+                continue
+            if left.get("detector_version") != right.get("detector_version"):
+                continue
+            if left.get("source_game_id") == right.get("source_game_id"):
+                continue
+            if left.get("normalized_fen") == right.get("normalized_fen"):
+                continue
+            if left.get("moved_piece") == right.get("moved_piece"):
+                continue
+            selected = [dict(left), dict(right)]
+            identity = [{
+                "puzzle_id": item.get("puzzle_id"),
+                "game_id": item.get("source_game_id"),
+                "fen": item.get("normalized_fen"),
+                "piece": item.get("moved_piece"),
+                "quality_id": item.get("quality_id"),
+                "detector_version": item.get("detector_version"),
+            } for item in selected]
+            return {
+                "items": selected,
+                "fingerprint": _content_version({"pair": identity}),
+            }
+    return None
+
+
 def _move_uci(board: chess.Board, san: str) -> str:
     return board.parse_san(str(san)).uci()
 
@@ -430,21 +511,71 @@ async def _concept_descriptor(
     if not isinstance(pattern, Mapping):
         raise LessonUnavailable("Verified concept lesson not found")
 
-    from services.puzzle_extraction_service import get_pattern_training_puzzles
+    blind_diagnostic = str(params.get("mode") or "") == "blind_diagnostic"
+    if blind_diagnostic:
+        from services.destination_safety_detector import FACT_VERSION
+        from services.verified_puzzle_runtime import resolve_verified_puzzle
 
-    requested = max(1, min(int(params.get("limit") or 5), 5))
-    supply = await get_pattern_training_puzzles(
-        db,
-        user_id,
-        "piece_safety" if pattern_key == "undefended_piece" else pattern_key,
-        requested,
-        private=True,
-    )
-    own = [
-        item for item in (supply.get("own_puzzles") or [])
-        if not item.get("already_solved")
-    ]
-    selected = (own + list(supply.get("community_puzzles") or []))[:requested]
+        cursor = db.move_observations.find(
+            {
+                "user_id": user_id,
+                "schema_version": {"$gte": 18},
+                "destination_safety_exact.version": FACT_VERSION,
+                "destination_safety_exact.fires": True,
+            },
+            {
+                "_id": 0,
+                "game_id": 1,
+                "move_number": 1,
+                "fen_before": 1,
+                "destination_safety_exact": 1,
+                "derived_at": 1,
+            },
+        ).sort("derived_at", -1).limit(200)
+        observations = await cursor.to_list(length=200)
+        own = [{
+            "puzzle_id": f"{row.get('game_id')}_m{row.get('move_number')}",
+            "source_game_id": row.get("game_id"),
+            "fen": row.get("fen_before"),
+        } for row in observations if row.get("game_id") and row.get("move_number") is not None]
+        candidates = []
+        pair = None
+        for supplied in own:
+            resolved = await resolve_verified_puzzle(
+                db,
+                str(supplied.get("puzzle_id") or ""),
+                user_id=user_id,
+            )
+            if not resolved:
+                continue
+            candidate = _blind_diagnostic_candidate(supplied, resolved)
+            if candidate:
+                candidates.append(candidate)
+                pair = select_blind_diagnostic_pair(candidates)
+                if pair:
+                    break
+        if not pair:
+            raise LessonUnavailable(
+                "Two independent verified positions are not available yet"
+            )
+        selected = pair["items"]
+    else:
+        from services.puzzle_extraction_service import get_pattern_training_puzzles
+
+        requested = max(1, min(int(params.get("limit") or 5), 5))
+        supply = await get_pattern_training_puzzles(
+            db,
+            user_id,
+            "piece_safety" if pattern_key == "undefended_piece" else pattern_key,
+            requested,
+            private=True,
+        )
+        own = [
+            item for item in (supply.get("own_puzzles") or [])
+            if not item.get("already_solved")
+        ]
+        pair = None
+        selected = (own + list(supply.get("community_puzzles") or []))[:requested]
     items = []
     seen_fens = set()
     for item in selected:
@@ -461,8 +592,13 @@ async def _concept_descriptor(
             if piece.color == board.turn
             and board.is_attacked_by(not board.turn, square)
         ]
+        item_number = len(items) + 1
         items.append({
-            "item_id": str(item.get("puzzle_id")),
+            "item_id": (
+                f"diagnostic-position-{item_number}"
+                if blind_diagnostic
+                else str(item.get("puzzle_id"))
+            ),
             "fen": item["fen"],
             "orientation": (
                 "black" if str(item["fen"]).split()[1] == "b" else "white"
@@ -471,20 +607,34 @@ async def _concept_descriptor(
             "reason_prompt": "What did you check before choosing the move?",
             "reason_choices": _reason_choices("concept"),
             "_expected_reason": "keeps_piece_safe",
-            "_help_squares": attacked_piece_squares,
-            "stage": "",
-            "source": str(item.get("source") or "verified_practice"),
-            "source_ref": str(
-                item.get("source_game_id") or item.get("puzzle_id")
+            "_help_squares": (
+                [item.get("moved_origin")]
+                if blind_diagnostic and item.get("moved_origin")
+                else attacked_piece_squares
             ),
+            "stage": "",
+            "source": (
+                "own_game"
+                if blind_diagnostic
+                else str(item.get("source") or "verified_practice")
+            ),
+            "source_ref": str(item.get("source_game_id") or item.get("puzzle_id")),
             "board_verified": True,
             "_puzzle_id": str(item["puzzle_id"]),
             "_puzzle_evaluator": True,
+            "_diagnostic_quality_id": item.get("quality_id") if blind_diagnostic else None,
+            "_detector_version": item.get("detector_version") if blind_diagnostic else None,
+            "_normalized_fen": item.get("normalized_fen") if blind_diagnostic else None,
+            "_moved_piece": item.get("moved_piece") if blind_diagnostic else None,
         })
     if not items:
         raise LessonUnavailable("No verified practice positions are available yet")
     for index, item in enumerate(items):
-        item["stage"] = _stage(index, len(items))
+        item["stage"] = (
+            "diagnose" if blind_diagnostic and index == 0
+            else "transfer" if blind_diagnostic
+            else _stage(index, len(items))
+        )
 
     return {
         "schema_version": ADAPTER_SCHEMA_VERSION,
@@ -503,6 +653,9 @@ async def _concept_descriptor(
         "mastery_capability": (
             "independent" if len(items) > 1 else "guided"
         ),
+        "delivery_mode": "blind_diagnostic" if blind_diagnostic else "lesson",
+        "diagnostic_version": "home_replay_diagnostic.v1" if blind_diagnostic else None,
+        "pair_fingerprint": pair.get("fingerprint") if pair else None,
     }
 
 
@@ -588,6 +741,80 @@ async def grade_personalized_move(
             "answer_uci": result.get("correct_move_uci"),
             "grader_version": "endgame_theory_service.v1",
         }
+    if item.get("_diagnostic_quality_id"):
+        from coach_play.coach_blunder_guard import (
+            ONE_MOVE_FLOOR_CP,
+            material_hung_after,
+        )
+        from services.destination_safety_detector import (
+            QUALITY_ID,
+            grade_destination_safety_candidate,
+        )
+
+        if item.get("_diagnostic_quality_id") != QUALITY_ID:
+            return {
+                "correct": False,
+                "target_result": "unmeasured",
+                "soundness": {"status": "unmeasured", "reason": "unsupported_proof_family"},
+                "feedback": "I cannot verify this position safely yet.",
+                "answer_san": None,
+                "answer_uci": None,
+                "grader_version": "home_replay_diagnostic.unavailable",
+            }
+        target = grade_destination_safety_candidate(item["fen"], supplied_move)
+        parsed = _parse_move(item["fen"], supplied_move)
+        if parsed is None:
+            return {
+                "correct": False,
+                "target_result": "unmeasured",
+                "soundness": {"status": "unmeasured", "reason": "illegal_move"},
+                "feedback": "That move is not legal here.",
+                "answer_san": None,
+                "answer_uci": None,
+                "grader_version": "home_replay_diagnostic.v1",
+            }
+
+        board = chess.Board(item["fen"])
+        immediate_loss, _ = material_hung_after(board, parsed)
+        from services.puzzle_move_evaluator import evaluate_puzzle_move
+
+        engine_grade = await evaluate_puzzle_move(
+            item["fen"],
+            parsed.uci(),
+            depth=14,
+        )
+        if engine_grade.get("quality") == "invalid" or engine_grade.get("error"):
+            soundness = {"status": "unmeasured", "reason": "engine_unavailable"}
+        elif immediate_loss >= ONE_MOVE_FLOOR_CP:
+            soundness = {"status": "serious_problem", "reason": "immediate_material_loss"}
+        elif engine_grade.get("quality") in {"mistake", "blunder"}:
+            soundness = {"status": "serious_problem", "reason": "move_loses_ground"}
+        else:
+            soundness = {"status": "sound", "reason": "verified_acceptable"}
+
+        target_status = str(target.get("status") or "unmeasured")
+        if target_status == "pass" and soundness["status"] == "sound":
+            feedback = "You kept the moved piece safe, and the move holds up."
+        elif target_status == "pass":
+            feedback = (
+                "You kept the moved piece safe. "
+                "There is a separate problem with the move that we should examine."
+            )
+        elif target_status == "fail":
+            feedback = "The piece can still be won on its new square."
+        else:
+            feedback = "This move does not let me measure the decision fairly."
+        return {
+            "correct": target_status == "pass",
+            "target_result": target_status,
+            "target_reason": target.get("reason"),
+            "soundness": soundness,
+            "feedback": feedback,
+            "answer_san": None,
+            "answer_uci": None,
+            "grader_version": "home_replay_diagnostic.v1",
+        }
+
     if item.get("_puzzle_evaluator"):
         if db is None or not item.get("_puzzle_id"):
             return {

@@ -149,6 +149,13 @@ export const ANALYTICS_EVENTS = Object.freeze({
   INDEPENDENT_ATTEMPT: "independent_attempt",
   REVIEW_ATTEMPT: "review_attempt",
   BACK_TO_PLAN: "back_to_plan",
+  HOME_DIAGNOSTIC_SHOWN: "home_diagnostic_shown",
+  HOME_DIAGNOSTIC_STARTED: "home_diagnostic_started",
+  HOME_DIAGNOSTIC_MOVE_STAGED: "home_diagnostic_move_staged",
+  HOME_DIAGNOSTIC_REASON_SUBMITTED: "home_diagnostic_reason_submitted",
+  HOME_DIAGNOSTIC_HELP_REQUESTED: "home_diagnostic_help_requested",
+  HOME_DIAGNOSTIC_COMPLETED: "home_diagnostic_completed",
+  HOME_DIAGNOSTIC_PAUSED: "home_diagnostic_paused",
   REVIEW_COACH_STARTED: "review_coach_started",
   REVIEW_COACH_REFLECTION_SUBMITTED: "review_coach_reflection_submitted",
   REVIEW_COACH_VISUAL_SHOWN: "review_coach_visual_shown",
@@ -181,6 +188,25 @@ const CURRICULUM_EVENT_IDS = new Set([
 const REVIEW_VALIDATION_EVENT_IDS = new Set([
   ANALYTICS_EVENTS.REVIEW_VALIDATION_MODE_CHANGED,
   ANALYTICS_EVENTS.REVIEW_VALIDATION_SUBMITTED,
+]);
+
+const HOME_DIAGNOSTIC_EVENT_IDS = new Set([
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_SHOWN,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_STARTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_MOVE_STAGED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_REASON_SUBMITTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_HELP_REQUESTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_COMPLETED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_PAUSED,
+]);
+
+const HOME_DIAGNOSTIC_ALLOWED_PROP_KEYS = new Set([
+  "surface",
+  "state",
+  "position_index",
+  "help_action",
+  "conclusion",
+  "separate_soundness_issue",
 ]);
 
 // Privacy and schema boundary for the Personal Curriculum run-in. Emitters
@@ -246,6 +272,17 @@ export function trackReviewValidation(event, props = {}) {
   for (const key of REVIEW_VALIDATION_ALLOWED_PROP_KEYS) {
     const safeValue = safeCurriculumValue(props[key]);
     if (safeValue !== undefined) safeProps[key] = safeValue;
+  }
+  track(event, safeProps);
+}
+
+export function trackHomeDiagnostic(event, props = {}) {
+  if (!HOME_DIAGNOSTIC_EVENT_IDS.has(event)) return;
+  const safeProps = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (!HOME_DIAGNOSTIC_ALLOWED_PROP_KEYS.has(key)) continue;
+    const safe = safeCurriculumValue(value);
+    if (safe !== undefined) safeProps[key] = safe;
   }
   track(event, safeProps);
 }

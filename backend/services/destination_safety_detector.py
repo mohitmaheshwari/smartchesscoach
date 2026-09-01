@@ -176,10 +176,71 @@ def derive_destination_safety_exact(move_evaluation: Dict[str, Any]) -> Dict[str
         return fact
 
 
+def grade_destination_safety_candidate(fen: str, supplied_move: str) -> Dict[str, Any]:
+    """Grade a new move against this detector's narrow concept."""
+    result: Dict[str, Any] = {
+        "version": FACT_VERSION,
+        "quality_id": QUALITY_ID,
+        "status": "unmeasured",
+        "reason": "invalid_position_or_move",
+        "move_uci": None,
+        "moved_piece": None,
+        "destination": None,
+        "exact_exchange_gain_cp": None,
+        "independent_exchange_gain_cp": None,
+        "proofs_agree": False,
+    }
+    try:
+        board = chess.Board(str(fen or ""))
+        text = str(supplied_move or "").strip()
+        try:
+            move = chess.Move.from_uci(text.lower())
+            if move not in board.legal_moves:
+                raise ValueError("illegal move")
+        except ValueError:
+            move = board.parse_san(text)
+        if move not in board.legal_moves:
+            return result
+        piece = board.piece_at(move.from_square)
+        if piece is None:
+            return result
+        result.update({
+            "move_uci": move.uci(),
+            "moved_piece": chess.piece_name(piece.piece_type),
+            "destination": chess.square_name(move.to_square),
+        })
+        if piece.piece_type not in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+            result["reason"] = "piece_not_eligible"
+            return result
+        after = board.copy(stack=False)
+        after.push(move)
+        exact_gain = _exact_exchange_gain(after, move.to_square)
+        from services.legal_exchange_verifier import independent_exchange_gain
+        independent_gain = independent_exchange_gain(after, move.to_square)
+        agrees = exact_gain == independent_gain
+        result.update({
+            "exact_exchange_gain_cp": exact_gain,
+            "independent_exchange_gain_cp": independent_gain,
+            "proofs_agree": agrees,
+        })
+        if not agrees:
+            result["reason"] = "proof_disagreement"
+            return result
+        if exact_gain >= SEE_FLOOR_CP:
+            result.update(status="fail", reason="destination_loses_material")
+        else:
+            result.update(status="pass", reason="destination_is_safe")
+        return result
+    except (AssertionError, TypeError, ValueError, chess.InvalidMoveError,
+            chess.IllegalMoveError, chess.AmbiguousMoveError):
+        return result
+
+
 __all__ = [
     "CP_LOSS_FLOOR",
     "FACT_VERSION",
     "QUALITY_ID",
     "SEE_FLOOR_CP",
     "derive_destination_safety_exact",
+    "grade_destination_safety_candidate",
 ]
