@@ -140,3 +140,57 @@ test("the taught idea and material loss are reported as separate facts", () => {
   expect(v.soundnessNote).toBeTruthy();
   expect(v.headline).not.toMatch(/loses material/i);
 });
+
+// --- the grader the concept lessons ACTUALLY run -------------------------
+// Reported 2026-09-02 ("it doesn't tell me the move is right or wrong"):
+// /training?personalized=1 supplies items from the community pools, which
+// grade through verified_puzzle_admission.v2. That grader returns `correct`
+// and an answer but NO target_result, so a target_result-only verdict showed
+// the player nothing whatsoever. Shapes below are real returns captured from
+// the deployed grader.
+
+test("a correct puzzle answer is reported even without target_result", () => {
+  const v = moveVerdict({
+    correct: true,
+    answer_san: "Qe5",
+    feedback: "Yes — Qe5.",
+    grader_version: "verified_puzzle_admission.v2",
+  });
+  expect(v).not.toBeNull();          // the bug: silence
+  expect(v.kept).toBe(true);
+  expect(v.headline).toMatch(/that's the move/i);
+});
+
+test("a wrong puzzle answer names the move that was right", () => {
+  const v = moveVerdict({
+    correct: false,
+    answer_san: "exd4",
+    grader_version: "verified_puzzle_admission.v2",
+  });
+  expect(v.kept).toBe(false);
+  expect(v.headline).toMatch(/exd4/);
+});
+
+test("a wrong answer with no known better move still says it was wrong", () => {
+  const v = moveVerdict({ correct: false, answer_san: null });
+  expect(v.kept).toBe(false);
+  expect(v.headline).toMatch(/not this one/i);
+});
+
+test("the puzzle grader never claims the piece is safe", () => {
+  // It verified the ANSWER, not piece safety. Borrowing the diagnostic's
+  // wording here would assert something no grader checked.
+  for (const correct of [true, false]) {
+    const v = moveVerdict({ correct, answer_san: "Qe5" });
+    expect(v.headline).not.toMatch(/stayed safe|can be taken/i);
+  }
+});
+
+test("an explicitly unmeasured result still claims nothing", () => {
+  expect(moveVerdict({ target_result: "unmeasured", correct: false })).toBeNull();
+});
+
+test("the diagnostic grader keeps its stronger, verified claim", () => {
+  const v = moveVerdict({ target_result: "pass", correct: true, soundness: { status: "sound" } });
+  expect(v.headline).toMatch(/stayed safe/i);
+});

@@ -30,34 +30,69 @@ export function fenAfterMove(fen, moveSan) {
 }
 
 /**
- * Whether the move satisfied the idea being taught, and separately whether it
- * was materially sound.
+ * Whether the move was right, and separately whether it was materially sound.
  *
- * The backend already returns `target_result` and `soundness` and explicitly
- * keeps the target result visible; the UI simply never rendered them, so a
- * diagnostic told the player nothing about their own move.
+ * TWO graders reach this function and they prove DIFFERENT things, so the
+ * headline must never borrow a claim the answering grader did not establish:
  *
- * The two are reported separately on purpose: a move can satisfy the taught
- * idea (every piece safe) while still losing material for an unrelated reason,
- * and collapsing those into one verdict would teach the wrong lesson.
+ *   home_replay_diagnostic.v2  -> target_result pass/fail. Proves what happened
+ *                                 to the moved piece. May claim piece safety.
+ *   verified_puzzle_admission  -> correct true/false only. Proves the move
+ *                                 matched the frozen accepted answer, and
+ *                                 NOTHING about whether a piece is safe.
  *
- * Returns null when the result is unmeasured — silence rather than a guess.
+ * The second grader is what the concept lessons actually run, and it returns
+ * no target_result. Reading only target_result therefore returned null for
+ * every real lesson move and the player was told nothing at all -- reported
+ * 2026-09-02 as "it doesn't tell me the move is right or wrong".
+ *
+ * Returns null only when the result is genuinely unmeasured -- silence rather
+ * than a guess, but never silence when the backend did decide.
  */
 export function moveVerdict(session) {
   const target = session?.target_result;
-  if (target !== "pass" && target !== "fail") return null;
   const soundness = (session?.soundness || {}).status;
-  const kept = target === "pass";
-  return {
-    kept,
-    headline: kept
-      ? "Every piece stayed safe."
-      : "That left a piece where it can be taken.",
-    soundnessNote:
-      soundness === "serious_problem"
-        ? "Separately, this move loses material for another reason."
-        : null,
-  };
+  const soundnessNote =
+    soundness === "serious_problem"
+      ? "Separately, this move loses material for another reason."
+      : null;
+
+  if (target === "pass" || target === "fail") {
+    const kept = target === "pass";
+    return {
+      kept,
+      headline: kept
+        ? "Every piece stayed safe."
+        : "That left a piece where it can be taken.",
+      soundnessNote,
+      answerSan: session?.answer_san || null,
+    };
+  }
+
+  // The puzzle grader decided, but only about the answer -- not piece safety.
+  if (target === undefined || target === null) {
+    if (session?.correct === true) {
+      return {
+        kept: true,
+        headline: "That's the move.",
+        soundnessNote,
+        answerSan: session?.answer_san || null,
+      };
+    }
+    if (session?.correct === false) {
+      const answer = session?.answer_san;
+      return {
+        kept: false,
+        headline: answer
+          ? `Not this one — ${answer} was the move.`
+          : "Not this one.",
+        soundnessNote,
+        answerSan: answer || null,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

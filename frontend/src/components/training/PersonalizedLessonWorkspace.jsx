@@ -456,18 +456,18 @@ export default function PersonalizedLessonWorkspace({
                   : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
               }`}>
                 {(() => {
-                  // The backend returns target_result and soundness, which say
-                  // whether the PIECE ended up safe. "You found it" said nothing
-                  // about the idea being taught.
+                  // Two graders answer here and prove different things:
+                  // the diagnostic returns target_result (was the piece safe),
+                  // the puzzle grader returns only `correct` (was that the
+                  // answer). moveVerdict reports whichever one replied, and
+                  // never lets one borrow the other's claim.
                   const verdict = moveVerdict(feedback);
                   return (
                     <>
                       <p className="font-medium">
                         {verdict
                           ? verdict.headline
-                          : feedback.correct
-                            ? "You found it."
-                            : "Look once more."}
+                          : "I could not check that move here."}
                       </p>
                       {verdict?.soundnessNote && (
                         <p className="mt-1 text-xs opacity-80">{verdict.soundnessNote}</p>
@@ -478,8 +478,11 @@ export default function PersonalizedLessonWorkspace({
                     </>
                   );
                 })()}
+                {/* The headline already names the move, and the backend
+                    feedback names it again. A third mention here made one
+                    wrong answer print the same move three times. */}
                 {!feedback.correct && feedback.answer_san && (
-                  <p className="mt-2">With your coach helping, the move is {feedback.answer_san}. Reset the board and explain what it fixes.</p>
+                  <p className="mt-2">Play it on the board, then say what it fixes.</p>
                 )}
                 {!feedback.correct && !feedback.answer_san && (
                   <p className="mt-2">The answer stays hidden on this new position. Use the correction and try again.</p>
