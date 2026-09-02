@@ -352,9 +352,17 @@ export default function PersonalizedLessonWorkspace({
             <h1 className="font-heading text-3xl leading-tight tracking-[-0.03em] text-foreground mb-3">
               {session?.lesson?.title}
             </h1>
-            <p className="text-sm leading-relaxed text-muted-foreground mb-4">
-              {session?.teaching_profile?.why_now}
-            </p>
+            {session?.teaching_profile?.why_now && (
+              <p className="text-sm leading-relaxed text-muted-foreground mb-4">
+                {/* This text describes the PREVIOUS answer. Printed bare above a
+                    fresh position it read as a verdict on a move not yet made. */}
+                {/^Your last answer/i.test(session.teaching_profile.why_now)
+                  ? `From your last position: ${session.teaching_profile.why_now
+                      .replace(/^Your last answer shows that /i, "")
+                      .replace(/^./, (c) => c.toLowerCase())}`
+                  : session.teaching_profile.why_now}
+              </p>
+            )}
             <div className="rounded-xl border border-emerald-700/20 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 mb-5">
               <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-300 font-semibold mb-1.5">The idea</p>
               <p className="text-sm leading-relaxed text-foreground">{session?.lesson?.rule}</p>
@@ -395,7 +403,11 @@ export default function PersonalizedLessonWorkspace({
                     Choose a different move
                   </button>
                 </div>
-                <legend className="text-sm font-medium text-foreground mb-2">{item?.reason_prompt}</legend>
+                <legend className="text-sm font-medium text-foreground mb-1">{item?.reason_prompt}</legend>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Pick the one that matches what you checked — that submits your
+                  answer and moves you on.
+                </p>
                 <div className="space-y-2">
                   {(item?.reason_choices || []).map((choice) => (
                     <button
