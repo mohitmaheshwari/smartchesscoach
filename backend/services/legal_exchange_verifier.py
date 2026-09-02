@@ -9,6 +9,9 @@ import chess
 from services.caption_facts import PIECE_VALUE_CP
 
 
+VERIFIER_VERSION = "legal_exchange_verifier.v1"
+
+
 def captured_value_cp(board: chess.Board, move: chess.Move) -> int:
     if board.is_en_passant(move):
         return PIECE_VALUE_CP[chess.PAWN]
@@ -54,3 +57,11 @@ def independent_exchange_gain(
     after = board.copy(stack=False)
     after.push(forced_first)
     return immediate - reply_gain(after, 1)
+
+
+__all__ = [
+    "VERIFIER_VERSION",
+    "captured_value_cp",
+    "independent_exchange_gain",
+    "promotion_gain_cp",
+]

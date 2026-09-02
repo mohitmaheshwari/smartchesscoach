@@ -42,11 +42,14 @@ def test_home_diagnostic_routes_are_flagged_enrolled_exact_and_owned():
         '"/personalized/diagnostic/start"',
         '"/personalized/diagnostic"',
         '"/personalized/diagnostic/respond"',
+        '"/personalized/diagnostic/continue"',
         '"/personalized/diagnostic/help"',
         '"/personalized/diagnostic/pause"',
     ):
         assert route in source
-    assert source.count("_require_home_diagnostic_user(user)") >= 5
+    assert source.count("_require_home_diagnostic_user(user)") >= 6
     assert '"delivery_mode": "blind_diagnostic"' in source
     assert '"home_replay_diagnostic"' in source
     assert "QualitySurface.PLAN" in source
+    assert "reason_component_id=request.reason_component_id" in source
+    assert "continue_home_diagnostic" in source

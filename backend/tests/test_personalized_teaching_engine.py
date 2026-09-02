@@ -5,10 +5,15 @@ import copy
 
 from services.teaching_engine import (
     PERSONALIZED_LESSON_TYPE,
+    continue_home_diagnostic,
     get_personalized_lesson,
     process_lesson_move,
     request_personalized_help,
     start_lesson,
+)
+from services.destination_safety_detector import (
+    QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
+    build_destination_safety_reason_bundle,
 )
 
 
@@ -484,3 +489,271 @@ def test_blind_unmeasured_soundness_never_awards_learning_credit(monkeypatch):
     assert first["soundness"]["status"] == "unmeasured"
     assert first["earned_state"] == "learning"
     assert first["highest_earned_state"] == "learning"
+
+
+def _blind_descriptor_v2():
+    first_fen = "3r1rk1/p2p1ppp/2p1p3/8/N3P3/1P1RPP2/P1q4P/3R2K1 w - - 0 1"
+    second_fen = "4k3/8/8/8/8/8/1b6/R3K3 w - - 0 1"
+    return {
+        "kind": "concept",
+        "id": "piece_safety",
+        "skill_id": "piece_safety",
+        "canonical_source": "test-only/home_teaching_case_v2",
+        "content_version": "2.0.0-test",
+        "delivery_mode": "blind_diagnostic",
+        "diagnostic_version": "home_replay_diagnostic.v2",
+        "pair_fingerprint": "pair-v2",
+        "items": [
+            {
+                "item_id": "diagnostic-v2-own-game",
+                "fen": first_fen,
+                "orientation": "white",
+                "stage": "diagnose",
+                "source": "own_game",
+                "source_ref": "private-game-id",
+                "_diagnostic_quality_id": DESTINATION_SAFETY_QUALITY_ID,
+            },
+            {
+                "item_id": "diagnostic-v2-transfer",
+                "fen": second_fen,
+                "orientation": "white",
+                "stage": "transfer",
+                "source": "verified_practice",
+                "source_ref": "private-puzzle-id",
+                "_diagnostic_quality_id": DESTINATION_SAFETY_QUALITY_ID,
+            },
+        ],
+    }
+
+
+def _install_blind_v2(monkeypatch):
+    async def resolve(*args, **kwargs):
+        return _blind_descriptor_v2()
+
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    async def grade(descriptor, item, move, **kwargs):
+        bundle = build_destination_safety_reason_bundle(item["fen"], move)
+        return {
+            "correct": bundle.target_result == "pass",
+            "target_result": bundle.target_result,
+            "soundness": {"status": "sound", "reason": "verified_acceptable"},
+            "feedback": "The move and its board relationships were verified.",
+            "answer_san": None,
+            "answer_uci": None,
+            "grader_version": "home_replay_diagnostic.v2.test",
+        }
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson", resolve
+    )
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile", profile
+    )
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.grade_personalized_move", grade
+    )
+
+
+def _start_blind_v2(db, session_id="blind-v2"):
+    return asyncio.run(start_lesson(
+        db,
+        session_id,
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "concept",
+            "content_id": "piece_safety",
+            "mode": "blind_diagnostic",
+        },
+    ))
+
+
+def _answer_v2_position(db, session_id, move, *, prefix, miss_first=False):
+    staged = asyncio.run(process_lesson_move(
+        db, session_id, move, interaction_id=f"{prefix}-move"
+    ))
+    bundle = build_destination_safety_reason_bundle(
+        staged["current_item"]["fen"], move
+    )
+    payload = staged
+    answer_index = 0
+    while payload.get("awaiting_reason"):
+        question = payload["current_item"]["reason_question"]
+        component = next(
+            part for part in bundle.components
+            if part.question_id == question["question_id"]
+        )
+        choice_id = component.accepted_choice_ids[0]
+        if miss_first and answer_index == 0:
+            choice_id = next(
+                choice.choice_id for choice in component.choices
+                if choice.choice_id not in component.accepted_choice_ids
+            )
+        payload = asyncio.run(process_lesson_move(
+            db,
+            session_id,
+            move,
+            interaction_id=f"{prefix}-reason-{answer_index}",
+            reason_choice=choice_id,
+            reason_component_id=question["question_id"],
+        ))
+        answer_index += 1
+    return staged, payload, answer_index
+
+
+def _assert_v2_public_payload_is_answer_hidden(value):
+    forbidden = {
+        "accepted_choice_ids",
+        "facts",
+        "proof",
+        "quality_id",
+        "detector_version",
+        "verifier_version",
+        "source_ref",
+        "_diagnostic_quality_id",
+    }
+    if isinstance(value, dict):
+        assert forbidden.isdisjoint(value.keys())
+        for child in value.values():
+            _assert_v2_public_payload_is_answer_hidden(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _assert_v2_public_payload_is_answer_hidden(child)
+
+
+def test_v2_reason_questions_are_sequential_persisted_and_answer_hidden(monkeypatch):
+    _install_blind_v2(monkeypatch)
+    db = _DB()
+    started = _start_blind_v2(db)
+    assert started["diagnostic_version"] == "home_replay_diagnostic.v2"
+
+    staged = asyncio.run(process_lesson_move(
+        db, "blind-v2", "d3d2", interaction_id="v2-stage"
+    ))
+    question = staged["current_item"]["reason_question"]
+    assert question["prompt"] == "Which of your rooks did the queen on c2 attack?"
+    assert question["progress"] == {"current": 1, "total": 4}
+    _assert_v2_public_payload_is_answer_hidden(staged)
+
+    refreshed = asyncio.run(get_personalized_lesson(db, "u1", "blind-v2"))
+    assert refreshed["current_item"]["reason_question"] == question
+    _assert_v2_public_payload_is_answer_hidden(refreshed)
+
+    bundle = build_destination_safety_reason_bundle(
+        staged["current_item"]["fen"], "d3d2"
+    )
+    first = bundle.components[0]
+    next_payload = asyncio.run(process_lesson_move(
+        db,
+        "blind-v2",
+        "d3d2",
+        interaction_id="v2-first-reason",
+        reason_choice=first.accepted_choice_ids[0],
+        reason_component_id=first.question_id,
+    ))
+    assert next_payload["awaiting_reason"] is True
+    assert next_payload["current_item"]["reason_question"]["progress"] == {
+        "current": 2,
+        "total": 4,
+    }
+    assert next_payload["current_index"] == 0
+
+
+def test_v2_holds_connection_summary_before_opening_transfer_board(monkeypatch):
+    _install_blind_v2(monkeypatch)
+    db = _DB()
+    _start_blind_v2(db, "blind-v2-summary")
+
+    _, first, count = _answer_v2_position(
+        db, "blind-v2-summary", "d3d2", prefix="first"
+    )
+    assert count == 4
+    assert first["awaiting_continue"] is True
+    assert first["current_index"] == 0
+    assert first["next_item"] is None
+    assert first["position_summary"]["title"] == "You saw the whole connection."
+    assert len(first["position_summary"]["demonstrated"]) == 4
+    assert first["position_summary"]["missing"] == []
+
+    refreshed = asyncio.run(get_personalized_lesson(
+        db, "u1", "blind-v2-summary"
+    ))
+    assert refreshed["awaiting_continue"] is True
+    assert refreshed["current_item"] is None
+    assert refreshed["position_summary"] == first["position_summary"]
+
+    continued = asyncio.run(continue_home_diagnostic(
+        db,
+        "u1",
+        "blind-v2-summary",
+        interaction_id="continue-transfer",
+    ))
+    assert continued["awaiting_continue"] is False
+    assert continued["current_index"] == 1
+    assert continued["current_item"]["item_id"] == "diagnostic-v2-transfer"
+    duplicate = asyncio.run(continue_home_diagnostic(
+        db,
+        "u1",
+        "blind-v2-summary",
+        interaction_id="continue-transfer",
+    ))
+    assert duplicate == continued
+
+
+def test_v2_two_positions_complete_with_component_level_evidence(monkeypatch):
+    _install_blind_v2(monkeypatch)
+    db = _DB()
+    _start_blind_v2(db, "blind-v2-complete")
+
+    _, first, _ = _answer_v2_position(
+        db,
+        "blind-v2-complete",
+        "d3d2",
+        prefix="complete-first",
+        miss_first=True,
+    )
+    assert first["awaiting_continue"] is True
+    assert len(first["position_summary"]["missing"]) == 1
+    asyncio.run(continue_home_diagnostic(
+        db,
+        "u1",
+        "blind-v2-complete",
+        interaction_id="complete-continue",
+    ))
+
+    _, final, count = _answer_v2_position(
+        db, "blind-v2-complete", "a1a8", prefix="complete-second"
+    )
+    assert count == 2
+    assert final["complete"] is True
+    assert final["diagnostic_result"]["conclusion"] == "current_learning_need"
+    outcomes = final["diagnostic_result"]["component_outcomes"]
+    assert outcomes["incoming_threat"]["asked"] == 2
+    assert outcomes["incoming_threat"]["demonstrated"] == 1
+    assert outcomes["destination_safety"]["asked"] == 2
+    assert outcomes["destination_safety"]["demonstrated"] == 2
+
+
+def test_v2_unsupported_move_is_honestly_unmeasured_and_retryable(monkeypatch):
+    _install_blind_v2(monkeypatch)
+    db = _DB()
+    started = _start_blind_v2(db, "blind-v2-unmeasured")
+    # Replace only the test session's first board with a legal pawn move. The
+    # runtime reason family deliberately does not claim to explain pawns yet.
+    db.learning_sessions.docs[0]["descriptor"]["items"][0]["fen"] = (
+        "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
+    )
+
+    result = asyncio.run(process_lesson_move(
+        db,
+        "blind-v2-unmeasured",
+        "e2e4",
+        interaction_id="unsupported-pawn",
+    ))
+    assert started["current_index"] == 0
+    assert result["measurement_status"] == "unmeasured"
+    assert result["retry_move"] is True
+    assert result["awaiting_reason"] is False
+    assert result["current_index"] == 0
