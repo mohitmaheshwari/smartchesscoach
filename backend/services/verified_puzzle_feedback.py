@@ -207,10 +207,11 @@ def _specific_context(
                 f"{attacker_square}, lining it up with"
             )
         else:
-            lead = (
-                f"{best_san} puts your {attacker} on {attacker_square}, "
-                "lining it up with"
-            )
+            # A direct alignment moves the attacker itself, so SAN already
+            # names both the piece and the square it landed on. Repeating
+            # them ("Bb5 puts your bishop on b5") adds nothing; lead with
+            # what the move DID instead.
+            lead = f"{best_san} lines your {attacker} up with"
         if kind == "pin":
             why = (
                 f"{lead} the {front_piece} on {front} and the {rear_piece} "

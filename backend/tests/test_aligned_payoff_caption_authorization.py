@@ -246,7 +246,10 @@ def test_caption_fact_drives_feedback_but_not_prompt_or_recovery_identity():
         if gold["creation_mode"] == "discovered":
             assert "clears a line for your" in feedback["why"]
         else:
-            assert "puts your" in feedback["why"]
+            # Direct alignments must not restate the square SAN already
+            # carries: "Bb5 puts your bishop on b5" is zero information.
+            assert "lines your" in feedback["why"]
+            assert f"puts your {gold['attacker_piece']}" not in feedback["why"]
         if gold["kind"] == "pin":
             assert "shields something more valuable" in feedback["remember"]
         else:
