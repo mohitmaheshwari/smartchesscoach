@@ -1,7 +1,7 @@
 # Complete Coaching System — Phase 0 Evidence and Migration Lock
 
 **Date:** 2026-09-02
-**Status:** READY FOR MOHIT'S LOCK; no runtime implementation is authorized by this document
+**Status:** LOCKED — Mohit explicitly approved this evidence lock on 2026-09-02
 **Architecture:** `docs/complete_coaching_system_spec.md`
 **Raw aggregate snapshot:** `backend/data/corpus_snapshots/complete_coaching_system_phase0_2026-09-02.json`
 
@@ -290,4 +290,4 @@ Phase 1 may not:
 - rerun Stockfish;
 - delete a legacy authority before parity.
 
-The Phase 1 pre-code audit is intentionally blocked on this document's approval. That is the next decision gate.
+Mohit's explicit approval on 2026-09-02 cleared this decision gate. Phase 1 is authorized only within the boundaries above.

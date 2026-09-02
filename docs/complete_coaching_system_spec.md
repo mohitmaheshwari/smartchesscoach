@@ -1,6 +1,6 @@
 # Complete Coaching System — Architecture Spec
 
-**Status:** ARCHITECTURE LOCKED — Mohit approved the recommended direction on 2026-09-02; Phase 1 awaits approval of the Phase 0 evidence lock.
+**Status:** ARCHITECTURE AND PHASE 0 EVIDENCE LOCKED — Mohit approved Phase 1 implementation on 2026-09-02.
 **Version:** v1 (2026-09-02).  
 **Scope:** largest; multi-phase migration built on `docs/complete_coaching_system_scope.md`.  
 **Audited base:** `origin/working-code` at `656e3374`.  
@@ -183,4 +183,4 @@ Each detector family and destructive migration receives its own data lock, pre-c
 4. **When can human findability affect visible difficulty or move choice?** Current puzzle attempts cannot calibrate it. **Unblock:** collect prospective v2 attempts and blinded opponent/coach review; until then remain shadow or safe-set-only.
 5. **What duration may the personal plan display?** “21 days” is attractive but opportunity cadence varies. **Unblock:** forecast calibration by opportunity rate and completion behavior; show a review date before promising a result date.
 
-**Architecture sign-off:** approved on 2026-09-02. **Next sign-off required:** approve `docs/complete_coaching_system_phase0_data_lock_2026_09_02.md`. The Phase 1 pre-code audit remains blocked until that evidence lock is approved.
+**Architecture sign-off:** approved on 2026-09-02. **Phase 0 evidence sign-off:** approved on 2026-09-02. The Phase 1 pre-code audit passes; contract-only implementation is authorized.
