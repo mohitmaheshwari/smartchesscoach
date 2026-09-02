@@ -991,36 +991,6 @@ class CoachingPuzzleService:
         
         return coaching
     
-    async def record_puzzle_attempt(
-        self,
-        user_id: str,
-        puzzle_id: str,
-        solved: bool,
-        time_taken: int,
-        weakness_pattern: str
-    ) -> Dict:
-        """
-        Record a puzzle attempt and update user's progress.
-        """
-        attempt = {
-            "user_id": user_id,
-            "puzzle_id": puzzle_id,
-            "weakness_pattern": weakness_pattern,
-            "solved": solved,
-            "time_taken": time_taken,
-            "attempted_at": datetime.utcnow()
-        }
-        
-        await self.db.puzzle_attempts.insert_one(attempt)
-        
-        # Update solve rate for this weakness
-        stats = await self._get_weakness_solve_rate(user_id, weakness_pattern)
-        
-        return {
-            "recorded": True,
-            "stats": stats
-        }
-    
     async def _get_weakness_solve_rate(self, user_id: str, weakness_pattern: str) -> Dict:
         """Get solve rate for a specific weakness pattern."""
         pipeline = [

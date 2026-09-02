@@ -6208,6 +6208,8 @@ async def complete_focus_puzzle(
             puzzle_id=puzzle_id,
             puzzle=puzzle,
             played_uci=played_uci,
+            attempt_context="coach_play_focus",
+            submission_id=request.get("submission_id"),
         )
         if not grade.get("correct"):
             return {"correct": False, "training_locked": True, "feedback": grade.get("feedback")}

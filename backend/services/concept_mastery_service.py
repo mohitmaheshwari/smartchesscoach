@@ -244,12 +244,17 @@ _SHADOW_STATE_ORDER = {
 }
 
 
-def reduce_review_learning_shadow(
+def reduce_lesson_results_shadow(
     events: Iterable[Dict[str, Any]],
     *,
+    skill_id: str,
     diagnosed: bool = False,
+    required_content_identity: Optional[Tuple[str, str, str]] = None,
+    compatible_skill_ids: Tuple[str, ...] = (),
 ) -> Dict[str, Any]:
-    """Project canonical LessonResult events without changing visible mastery."""
+    """Project one canonical skill without changing visible mastery."""
+    if not str(skill_id or "").strip():
+        raise ContractViolation("skill_id is required for shadow projection")
     state = StudentState.LEARNING if diagnosed else StudentState.NEW
     accepted = 0
     rejected = 0
@@ -265,18 +270,33 @@ def reduce_review_learning_shadow(
             or event.get("rollout_mode") != "shadow"
         ):
             continue
+        if event.get("evidence_eligible") is not False:
+            rejected += 1
+            continue
+        payload = event.get("lesson_result") or {}
+        if event.get("shadow_earned_state") != payload.get("earned_state"):
+            rejected += 1
+            continue
         try:
             result = LessonResult.from_event_dict(
-                event.get("lesson_result") or {}
+                payload
             )
         except (ContractViolation, TypeError, ValueError):
             rejected += 1
             continue
-        if (
-            result.content_kind != PIC_CONTENT_KIND
-            or result.content_id != PIC_CONTENT_ID
-            or result.canonical_source != PIC_CANONICAL_SOURCE
-        ):
+        result_skill_id = str(result.skill_id or result.content_id or "")
+        outer_skill_id = str(event.get("skill_id") or result_skill_id)
+        if outer_skill_id != result_skill_id:
+            rejected += 1
+            continue
+        if result_skill_id not in {skill_id, *compatible_skill_ids}:
+            rejected += 1
+            continue
+        if required_content_identity is not None and (
+            result.content_kind,
+            result.content_id,
+            result.canonical_source,
+        ) != required_content_identity:
             rejected += 1
             continue
         if (
@@ -298,7 +318,7 @@ def reduce_review_learning_shadow(
             state = earned
 
     return {
-        "skill_id": PIC_SKILL_ID,
+        "skill_id": skill_id,
         "rollout_mode": "shadow",
         "state": state.value,
         "visible_mastery_changed": False,
@@ -308,6 +328,47 @@ def reduce_review_learning_shadow(
             "by_attempt": dict(sorted(by_attempt.items())),
         },
     }
+
+
+def reduce_review_learning_shadow(
+    events: Iterable[Dict[str, Any]],
+    *,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Compatibility wrapper for the original PIC-only shadow projection."""
+    return reduce_lesson_results_shadow(
+        events,
+        skill_id=PIC_SKILL_ID,
+        diagnosed=diagnosed,
+        required_content_identity=(
+            PIC_CONTENT_KIND,
+            PIC_CONTENT_ID,
+            PIC_CANONICAL_SOURCE,
+        ),
+        compatible_skill_ids=(PIC_CONTENT_ID,),
+    )
+
+
+async def get_learning_shadow_projection(
+    db,
+    user_id: str,
+    *,
+    skill_id: str,
+    diagnosed: bool = False,
+) -> Dict[str, Any]:
+    """Read and reduce one private canonical skill ledger."""
+    events: List[Dict[str, Any]] = []
+    sessions = db.learning_sessions.find(
+        {"user_id": user_id, "skill_id": skill_id},
+        {"_id": 0, "events": 1},
+    )
+    async for session in sessions:
+        events.extend(session.get("events") or [])
+    return reduce_lesson_results_shadow(
+        events,
+        skill_id=skill_id,
+        diagnosed=diagnosed,
+    )
 
 
 async def get_review_learning_shadow_comparison(

@@ -63,7 +63,7 @@ The hash is used as the Mongo `_id`, so Mongo's built-in unique `_id` index is t
 
 If an old caller supplies no submission identity, the server may preserve compatibility by generating a one-time identity, but the row is marked `idempotency_proven=false`. Such a row cannot become learner evidence. Phase 2 does not pretend a random server ID makes an already-lost client retry identity recoverable.
 
-Lesson events derive their idempotency key from the event schema, origin, canonical skill, and `source_event_id`. The generic ledger stores one shadow session per user and skill and atomically filters keys already present.
+Lesson events preserve the deployed compatibility key derived from the event schema, origin, `source_event_id`, attempt kind, position, and application outcome. The session identity adds user and canonical skill isolation; the generic ledger stores one shadow session per user and skill and atomically filters keys already present.
 
 ## 5. Puzzle-attempt v2 contract
 
@@ -123,4 +123,3 @@ Phase 2 is complete only when focused tests prove:
 - the generic ledger isolates skills and deduplicates atomically;
 - the shadow reducer rejects malformed, cross-skill, duplicate, or forged-state events;
 - legacy flag-off API responses and visible mastery are unchanged.
-

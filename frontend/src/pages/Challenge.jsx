@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { 
   Target, 
   Loader2, 
@@ -33,6 +34,8 @@ const Challenge = ({ user }) => {
   const [revealedMove, setRevealedMove] = useState(null);
   const [stats, setStats] = useState({ solved: 0, attempted: 0, streak: 0 });
   const [selectedPattern, setSelectedPattern] = useState(null);
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(currentPuzzle?.puzzle_id);
 
   // Fetch user's weakness patterns
   useEffect(() => {
@@ -121,10 +124,12 @@ const Challenge = ({ user }) => {
           puzzle_id: currentPuzzle?.puzzle_id,
           played_uci: playedUci,
           moves_tried: [playedUci],
+          submission_id: puzzleSubmissionId,
         }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const grade = await response.json();
+      rotatePuzzleSubmissionId();
 
       if (grade.correct) {
         // Correct move!
@@ -181,7 +186,14 @@ const Challenge = ({ user }) => {
       toast.error("Couldn't grade that move. Please try again.");
       return false;
     }
-  }, [game, puzzleState, currentPuzzle, attempts]);
+  }, [
+    game,
+    puzzleState,
+    currentPuzzle,
+    attempts,
+    puzzleSubmissionId,
+    rotatePuzzleSubmissionId,
+  ]);
 
   const getCategoryColor = (category) => {
     const colors = {

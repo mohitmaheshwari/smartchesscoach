@@ -18,6 +18,7 @@ import CanonicalTrainingAssignment from "@/components/training/CanonicalTraining
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import PersonalizedLessonWorkspace from "@/components/training/PersonalizedLessonWorkspace";
 import useMoveCaption from "@/hooks/useMoveCaption";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
@@ -364,6 +365,8 @@ export default function PrescribedTraining({ user = null }) {
 
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(currentPuzzle?.puzzle_id || currentPuzzle?.game_id);
 
   useEffect(() => {
     if (!currentPuzzle) return;
@@ -500,10 +503,13 @@ export default function PrescribedTraining({ user = null }) {
           puzzle_id: puzzle.puzzle_id || puzzle.game_id,
           time_taken_ms: 0, // TODO: track time
           played_uci: playedUci,
+          submission_id: puzzleSubmissionId,
         }),
       });
       if (!response.ok) throw new Error("attempt was not accepted");
-      return await response.json();
+      const result = await response.json();
+      rotatePuzzleSubmissionId();
+      return result;
     } catch (e) {
       console.error("Error recording attempt:", e);
       throw e;

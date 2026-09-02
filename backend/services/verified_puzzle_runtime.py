@@ -19,6 +19,9 @@ from services.verified_puzzle_builder import (
 from services.verified_puzzle_feedback import build_verified_puzzle_feedback
 
 
+GRADER_VERSION = "verified_puzzle_runtime.v1"
+
+
 _PRIVATE_PUZZLE_FIELDS = frozenset({
     "accepted_moves",
     "acceptable_moves",
@@ -362,4 +365,5 @@ def grade_resolved_puzzle(puzzle: Mapping[str, Any], played_uci: str) -> Dict:
         "recovery_weakness": verified_pattern,
         "admission_status": admission_status,
         "source": "verified_stored_evidence",
+        "grader_version": GRADER_VERSION,
     }

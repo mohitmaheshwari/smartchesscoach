@@ -12,6 +12,7 @@ from enum import Enum
 import hashlib
 import json
 import os
+import re
 from typing import Any, Dict, Mapping, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -1240,6 +1241,22 @@ class LessonResult:
     time_control: Optional[str] = None
     under_time_pressure: Optional[bool] = None
     source_event_id: Optional[str] = None
+    attempt_id: Optional[str] = None
+    response_move_uci: Optional[str] = None
+    response_time_ms: Optional[int] = None
+    first_answer: Optional[bool] = None
+    retry_index: Optional[int] = None
+    assistance_measured: bool = True
+    evidence_complete: bool = True
+    evidence_limitations: Tuple[str, ...] = ()
+    rating: Optional[int] = None
+    rating_source: Optional[str] = None
+    rating_platform: Optional[str] = None
+    rating_sample_games: Optional[int] = None
+    rating_as_of: Optional[str] = None
+    admission_version: Optional[str] = None
+    admission_fingerprint: Optional[str] = None
+    proof_contract_version: Optional[str] = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -1264,8 +1281,88 @@ class LessonResult:
             raise ContractViolation("stage must be a TeachingStage")
         if not isinstance(self.source_type, EvidenceSourceType):
             raise ContractViolation("source_type must be an EvidenceSourceType")
+        for field_name in ("skill_id", "primary_skill_id"):
+            value = getattr(self, field_name)
+            if value is not None:
+                _require_text(value, field_name)
+        for field_name in (
+            "correct",
+            "prediction_correct",
+            "reasoning_consistent",
+            "under_time_pressure",
+        ):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, bool):
+                raise ContractViolation(f"{field_name} must be boolean or absent")
+        if not isinstance(self.board_verified, bool):
+            raise ContractViolation("board_verified must be boolean")
+        if not isinstance(self.distinct_position, bool):
+            raise ContractViolation("distinct_position must be boolean")
         if self.source_event_id is not None:
             _require_text(self.source_event_id, "source_event_id")
+        for field_name in (
+            "attempt_id",
+            "response_move_uci",
+            "rating_source",
+            "rating_platform",
+            "rating_as_of",
+            "admission_version",
+            "admission_fingerprint",
+            "proof_contract_version",
+        ):
+            value = getattr(self, field_name)
+            if value is not None:
+                _require_text(value, field_name)
+        if self.response_move_uci is not None and not re.fullmatch(
+            r"[a-h][1-8][a-h][1-8][qrbn]?",
+            self.response_move_uci.lower(),
+        ):
+            raise ContractViolation("response_move_uci must be a UCI move")
+        if self.response_time_ms is not None and (
+            isinstance(self.response_time_ms, bool)
+            or not isinstance(self.response_time_ms, int)
+            or self.response_time_ms < 0
+        ):
+            raise ContractViolation("response_time_ms must be a non-negative integer")
+        if self.first_answer is not None and not isinstance(self.first_answer, bool):
+            raise ContractViolation("first_answer must be boolean or absent")
+        if self.retry_index is not None and (
+            isinstance(self.retry_index, bool)
+            or not isinstance(self.retry_index, int)
+            or self.retry_index < 0
+        ):
+            raise ContractViolation("retry_index must be a non-negative integer")
+        if not isinstance(self.assistance_measured, bool):
+            raise ContractViolation("assistance_measured must be boolean")
+        if not isinstance(self.evidence_complete, bool):
+            raise ContractViolation("evidence_complete must be boolean")
+        if not isinstance(self.evidence_limitations, tuple):
+            raise ContractViolation("evidence_limitations must be a tuple")
+        if any(
+            not isinstance(item, str) or not item.strip()
+            for item in self.evidence_limitations
+        ):
+            raise ContractViolation("evidence_limitations entries must be non-empty")
+        if not self.evidence_complete and not self.evidence_limitations:
+            raise ContractViolation(
+                "incomplete evidence requires an explicit limitation"
+            )
+        if self.rating is not None and (
+            isinstance(self.rating, bool)
+            or not isinstance(self.rating, int)
+            or self.rating <= 0
+        ):
+            raise ContractViolation("rating must be a positive integer")
+        if self.rating is not None and not self.rating_source:
+            raise ContractViolation("rating_source is required with rating")
+        if self.rating_sample_games is not None and (
+            isinstance(self.rating_sample_games, bool)
+            or not isinstance(self.rating_sample_games, int)
+            or self.rating_sample_games < 0
+        ):
+            raise ContractViolation(
+                "rating_sample_games must be a non-negative integer"
+            )
         for component in self.reason_components:
             if not isinstance(component, Mapping):
                 raise ContractViolation("reason_components entries must be mappings")
@@ -1303,6 +1400,13 @@ class LessonResult:
         """Return only the state this single event can honestly prove."""
         if self.attempt_kind == AttemptKind.EXPLANATION:
             return StudentState.LEARNING
+
+        if not self.evidence_complete:
+            return (
+                None
+                if self.attempt_kind == AttemptKind.APPLICATION
+                else StudentState.LEARNING
+            )
 
         if self.attempt_kind == AttemptKind.APPLICATION:
             if (
@@ -1344,7 +1448,7 @@ class LessonResult:
             AttemptKind.REVIEW: TeachingStage.RETAIN,
             AttemptKind.APPLICATION: TeachingStage.APPLY,
         }[self.attempt_kind]
-        return {
+        payload = {
             "schema_version": LESSON_RESULT_SCHEMA_VERSION,
             "lesson": {
                 "kind": self.content_kind,
@@ -1355,6 +1459,7 @@ class LessonResult:
                 "primary_skill_id": self.primary_skill_id or self.skill_id or self.content_id,
             },
             "attempt": {
+                "id": self.attempt_id,
                 "kind": self.attempt_kind.value,
                 "stage": stage.value,
                 "correct": self.correct,
@@ -1372,6 +1477,13 @@ class LessonResult:
                 "misconception": self.misconception,
                 "corrective_action": self.corrective_action,
                 "grader_version": self.grader_version,
+                "response_move_uci": self.response_move_uci,
+                "response_time_ms": self.response_time_ms,
+                "first_answer": self.first_answer,
+                "retry_index": self.retry_index,
+                "assistance_measured": self.assistance_measured,
+                "evidence_complete": self.evidence_complete,
+                "evidence_limitations": list(self.evidence_limitations),
             },
             "application": {
                 "outcome": self.application_outcome.value,
@@ -1387,11 +1499,44 @@ class LessonResult:
             "provenance": {
                 "owner": self.evidence_owner,
                 "ref": self.evidence_ref,
+                **(
+                    {"admission_version": self.admission_version}
+                    if self.admission_version is not None
+                    else {}
+                ),
+                **(
+                    {"admission_fingerprint": self.admission_fingerprint}
+                    if self.admission_fingerprint is not None
+                    else {}
+                ),
+                **(
+                    {"proof_contract_version": self.proof_contract_version}
+                    if self.proof_contract_version is not None
+                    else {}
+                ),
             },
             "occurred_at": _iso_utc(self.occurred_at),
             "source_event_id": self.source_event_id,
             "earned_state": earned.value if earned else None,
         }
+        if any(
+            value is not None
+            for value in (
+                self.rating,
+                self.rating_source,
+                self.rating_platform,
+                self.rating_sample_games,
+                self.rating_as_of,
+            )
+        ):
+            payload["rating"] = {
+                "value": self.rating,
+                "source": self.rating_source,
+                "platform": self.rating_platform,
+                "sample_games": self.rating_sample_games,
+                "as_of": self.rating_as_of,
+            }
+        return payload
 
     @classmethod
     def from_event_dict(cls, payload: Mapping[str, Any]) -> "LessonResult":
@@ -1412,6 +1557,15 @@ class LessonResult:
             provenance = payload.get("provenance")
             if not isinstance(provenance, Mapping):
                 provenance = {}
+            rating = payload.get("rating")
+            if not isinstance(rating, Mapping):
+                rating = {}
+            raw_limitations = attempt.get("evidence_limitations", ())
+            evidence_limitations = (
+                tuple(raw_limitations)
+                if isinstance(raw_limitations, (list, tuple))
+                else raw_limitations
+            )
             result = cls(
                 content_kind=str(lesson.get("kind") or ""),
                 content_id=str(lesson.get("id") or ""),
@@ -1441,6 +1595,22 @@ class LessonResult:
                 misconception=attempt.get("misconception"),
                 corrective_action=attempt.get("corrective_action"),
                 grader_version=attempt.get("grader_version"),
+                attempt_id=attempt.get("id"),
+                response_move_uci=attempt.get("response_move_uci"),
+                response_time_ms=attempt.get("response_time_ms"),
+                first_answer=attempt.get("first_answer"),
+                retry_index=attempt.get("retry_index"),
+                assistance_measured=(
+                    attempt.get("assistance_measured")
+                    if "assistance_measured" in attempt
+                    else True
+                ),
+                evidence_complete=(
+                    attempt.get("evidence_complete")
+                    if "evidence_complete" in attempt
+                    else True
+                ),
+                evidence_limitations=evidence_limitations,
                 source_type=EvidenceSourceType(
                     str(application.get("source_type") or "")
                 ),
@@ -1451,6 +1621,14 @@ class LessonResult:
                 detector_version=application.get("detector_version"),
                 evidence_owner=provenance.get("owner"),
                 evidence_ref=provenance.get("ref"),
+                admission_version=provenance.get("admission_version"),
+                admission_fingerprint=provenance.get("admission_fingerprint"),
+                proof_contract_version=provenance.get("proof_contract_version"),
+                rating=rating.get("value"),
+                rating_source=rating.get("source"),
+                rating_platform=rating.get("platform"),
+                rating_sample_games=rating.get("sample_games"),
+                rating_as_of=rating.get("as_of"),
                 time_control=application.get("time_control"),
                 under_time_pressure=application.get("under_time_pressure"),
                 source_event_id=payload.get("source_event_id"),

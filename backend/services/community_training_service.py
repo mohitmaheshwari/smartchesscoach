@@ -652,7 +652,8 @@ async def record_solve_attempt(
     user_id: str,
     position_id: str,
     user_move: str,
-    time_taken_seconds: int = 0
+    time_taken_seconds: int = 0,
+    submission_id: Optional[str] = None,
 ) -> Dict:
     """Record a solve attempt and update position stats."""
     
@@ -704,6 +705,8 @@ async def record_solve_attempt(
                 puzzle=resolved,
                 played_uci=user_move_uci,
                 time_taken_ms=max(0, int(time_taken_seconds or 0)) * 1000,
+                attempt_context="community_training",
+                submission_id=submission_id,
             )
             if verified_grade.get("quality") == "invalid":
                 return {"error": verified_grade.get("feedback")}
@@ -723,21 +726,30 @@ async def record_solve_attempt(
         "pattern_type": position.get("pattern_type", "tactical"),
         "attempted_at": datetime.now(timezone.utc).isoformat(),
     }
-    await db.training_solve_attempts.insert_one(attempt)
+    # The canonical attempt owns retry identity. A repeated transport request
+    # must not create a second legacy row or increment the position again.
+    duplicate_attempt = bool(
+        verified_grade and verified_grade.get("duplicate")
+    )
+    if not duplicate_attempt:
+        await db.training_solve_attempts.insert_one(attempt)
     
     # Update position stats
-    new_attempts = position.get("attempts", 0) + 1
-    new_solves = position.get("solves", 0) + (1 if solved else 0)
+    new_attempts = position.get("attempts", 0) + (0 if duplicate_attempt else 1)
+    new_solves = position.get("solves", 0) + (
+        0 if duplicate_attempt else (1 if solved else 0)
+    )
     new_solve_rate = round(new_solves / new_attempts * 100, 1) if new_attempts > 0 else 0
     
-    await db.community_training_positions.update_one(
-        {"position_id": position_id},
-        {"$set": {
-            "attempts": new_attempts,
-            "solves": new_solves,
-            "solve_rate": new_solve_rate,
-        }}
-    )
+    if not duplicate_attempt:
+        await db.community_training_positions.update_one(
+            {"position_id": position_id},
+            {"$set": {
+                "attempts": new_attempts,
+                "solves": new_solves,
+                "solve_rate": new_solve_rate,
+            }}
+        )
     
     # Get solve rate for similar-rated players
     user_profile = await db.player_profiles.find_one(

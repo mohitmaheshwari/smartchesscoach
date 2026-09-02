@@ -166,6 +166,10 @@ def test_application_adapter_accepts_only_current_verified_positive_misses():
         "gap:piece_safety:destination_safety_exact"
     )
     assert results[1].source_event_id == "move_observation:g:25"
+    assert results[1].evidence_complete is False
+    assert results[1].evidence_limitations == (
+        "legacy_exact_opportunity_fields_missing",
+    )
 
 
 def test_application_adapter_accepts_chess_com_dotted_game_date():
@@ -186,6 +190,7 @@ def test_application_adapter_accepts_chess_com_dotted_game_date():
     assert results[0].occurred_at == datetime(
         2026, 9, 2, tzinfo=timezone.utc
     )
+    assert results[0].evidence_complete is False
 
 
 def test_shadow_event_is_deterministic_and_visible_ineligible():
@@ -336,8 +341,10 @@ def test_async_and_sync_storage_use_one_atomic_pipeline_and_dedupe_batch():
 
 def test_adapter_has_no_detector_engine_llm_or_new_collection_dependency():
     import services.review_learning_adapter as module
+    import services.learning_evidence_ledger as ledger
 
     source = inspect.getsource(module).lower()
+    ledger_source = inspect.getsource(ledger).lower()
     forbidden = (
         "import chess",
         "stockfish",
@@ -349,8 +356,14 @@ def test_adapter_has_no_detector_engine_llm_or_new_collection_dependency():
         "httpx",
     )
     assert all(token not in source for token in forbidden)
-    assert "collection.update_one" in source
-    assert "create_collection" not in source
+    assert all(token not in ledger_source for token in forbidden)
+    assert "collection.update_one" in ledger_source
+    assert "create_collection" not in ledger_source
+    assert module.store_shadow_lesson_results is ledger.store_shadow_lesson_results
+    assert (
+        module.store_shadow_lesson_results_sync
+        is ledger.store_shadow_lesson_results_sync
+    )
 
 
 def test_all_three_runtime_chokepoints_use_the_shared_adapter():

@@ -1,6 +1,6 @@
 # Complete Coaching System — Architecture Spec
 
-**Status:** ARCHITECTURE AND PHASE 0 EVIDENCE LOCKED — Mohit approved Phase 1 implementation on 2026-09-02.
+**Status:** ARCHITECTURE LOCKED; PHASES 0–2 IMPLEMENTED LOCALLY — default-off, not deployed.
 **Version:** v1 (2026-09-02).  
 **Scope:** largest; multi-phase migration built on `docs/complete_coaching_system_scope.md`.  
 **Audited base:** `origin/working-code` at `656e3374`.  
@@ -175,7 +175,7 @@ Each detector family and destructive migration receives its own data lock, pre-c
 6. **Mastery:** one `LessonResult v2` ledger and one learner reducer; all rival labels become adapters, then retire.
 7. **Personalization:** delivery adapts to the player's games, history, help, rating provenance, and demonstrated knowledge; chess truth never changes to sound personal.
 
-### Open questions that block Phase 2
+### Open questions that block visible promotion after Phase 2
 
 1. **Which detector families are promoted next?** Shortlist: immediate threat response, fork, pin/skewer, forced mate/back-rank, opening decision/plan, and exact endgame play. **Unblock:** Phase 0 bake-off across the corpus plus independent review; select by evidence, not by this list.
 2. **What proves transfer and reliability per family?** Opportunity frequency differs too much for one guessed game count. **Unblock:** opportunity histograms, chronic/learner simulations, and pilot distributions; lock each rule with citations.
@@ -183,4 +183,4 @@ Each detector family and destructive migration receives its own data lock, pre-c
 4. **When can human findability affect visible difficulty or move choice?** Current puzzle attempts cannot calibrate it. **Unblock:** collect prospective v2 attempts and blinded opponent/coach review; until then remain shadow or safe-set-only.
 5. **What duration may the personal plan display?** “21 days” is attractive but opportunity cadence varies. **Unblock:** forecast calibration by opportunity rate and completion behavior; show a review date before promising a result date.
 
-**Architecture sign-off:** approved on 2026-09-02. **Phase 0 evidence sign-off:** approved on 2026-09-02. The Phase 1 pre-code audit passes; contract-only implementation is authorized.
+**Architecture sign-off:** approved on 2026-09-02. **Phase 0 evidence sign-off:** approved on 2026-09-02. **Phase 2 evidence-contract sign-off:** approved on 2026-09-02. Phases 1 and 2 are implemented locally behind the default-off composition flag; neither has been pushed or deployed by Codex.

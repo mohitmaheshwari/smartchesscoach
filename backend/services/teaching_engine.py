@@ -19,6 +19,7 @@ import json
 import os
 import uuid
 import chess
+from dataclasses import replace
 from typing import Any, Dict, Mapping, Optional
 from datetime import datetime, timezone
 
@@ -1360,6 +1361,57 @@ def _attempt_kind_for_stage(stage: str):
     return AttemptKind.GUIDED
 
 
+async def _append_personalized_shadow_event(
+    db,
+    session: Mapping[str, Any],
+    event: Mapping[str, Any],
+    *,
+    event_contract=None,
+) -> bool:
+    """Append or repair one canonical lesson event without blocking the UI."""
+    from services.concept_contract_registry import complete_coaching_system_enabled
+
+    if not complete_coaching_system_enabled():
+        return False
+    try:
+        from services.learning_evidence_ledger import (
+            build_shadow_learning_event,
+            store_shadow_lesson_results,
+        )
+        from services.personal_curriculum import LessonResult
+
+        shadow_contract = event_contract or LessonResult.from_event_dict(event)
+        if event.get("client_interaction_identity_provided") is not True:
+            limitation = "client_interaction_identity_not_supplied"
+            shadow_contract = replace(
+                shadow_contract,
+                evidence_complete=False,
+                evidence_limitations=tuple(shadow_contract.evidence_limitations)
+                + (
+                    ()
+                    if limitation in shadow_contract.evidence_limitations
+                    else (limitation,)
+                ),
+            )
+        shadow_event = build_shadow_learning_event(
+            shadow_contract,
+            origin="personalized_lesson",
+        )
+        await store_shadow_lesson_results(
+            db.learning_sessions,
+            user_id=str(session.get("user_id") or ""),
+            events=(shadow_event,),
+        )
+        return True
+    except Exception as exc:
+        # A later retry with the same interaction identity replays this append.
+        logger.warning(
+            "[learning-evidence] personalized lesson shadow append failed: %s",
+            exc,
+        )
+        return False
+
+
 def _reason_correction(
     lesson_kind: str,
     reason_choice: Optional[str],
@@ -1440,6 +1492,7 @@ async def process_personalized_move(
     key = interaction_id or str(uuid.uuid4())
     for event in session.get("events") or []:
         if event.get("idempotency_key") == key:
+            await _append_personalized_shadow_event(db, session, event)
             return event.get("result_payload") or {"duplicate": True}
     if session.get("status") == "completed":
         return {**_public_personalized_session(session), "complete": True}
@@ -1660,6 +1713,15 @@ async def process_personalized_move(
         db=db,
         user_id=str(session.get("user_id") or ""),
     )
+    try:
+        from services.personalized_lesson_adapter import _parse_move
+
+        parsed_response_move = _parse_move(str(item.get("fen") or ""), move)
+        response_move_uci = (
+            parsed_response_move.uci() if parsed_response_move is not None else None
+        )
+    except Exception:
+        response_move_uci = None
     correct = bool(grade.get("correct"))
     expected_reason = item.get("_expected_reason")
     if expected_reason and not reason_components:
@@ -1729,14 +1791,23 @@ async def process_personalized_move(
         )
     else:
         misconception = None
-    evidence_correct = correct
-    if blind and str((grade.get("soundness") or {}).get("status")) not in {
+    evidence_complete = not (
+        blind and str((grade.get("soundness") or {}).get("status")) not in {
         "sound",
         "serious_problem",
-    }:
+        }
+    )
+    evidence_limitations = (
+        ()
+        if evidence_complete
+        else ("independent_move_soundness_not_verified",)
+    )
+    if not evidence_complete:
         # Keep the target result visible, but never award learning evidence
         # when the independent move-quality check could not run.
-        evidence_correct = False
+        logger.info(
+            "[learning-evidence] move result retained but evidence is incomplete"
+        )
     event_contract = LessonResult(
         content_kind=str(descriptor["kind"]),
         content_id=str(descriptor["id"]),
@@ -1747,7 +1818,7 @@ async def process_personalized_move(
         attempt_kind=_attempt_kind_for_stage(stage_value),
         occurred_at=datetime.now(timezone.utc),
         stage=stage,
-        correct=evidence_correct,
+        correct=correct,
         assistance=tuple(assistance),
         requested_help=requested_help,
         position_id=str(item["item_id"]),
@@ -1767,6 +1838,23 @@ async def process_personalized_move(
         grader_version=str(grade.get("grader_version") or ""),
         evidence_owner=str(descriptor["canonical_source"]),
         evidence_ref=str(item.get("source_ref") or item["item_id"]),
+        attempt_id=key,
+        response_move_uci=response_move_uci,
+        first_answer=not any(
+            prior.get("event_type") == "answer_submitted"
+            and prior.get("item_id") == item["item_id"]
+            for prior in (session.get("events") or [])
+        ),
+        retry_index=sum(
+            1
+            for prior in (session.get("events") or [])
+            if prior.get("event_type") == "answer_submitted"
+            and prior.get("item_id") == item["item_id"]
+        ),
+        assistance_measured=True,
+        evidence_complete=evidence_complete,
+        evidence_limitations=evidence_limitations,
+        proof_contract_version=descriptor.get("proof_contract_version"),
         source_event_id=key,
     )
     evidence = event_contract.event_dict()
@@ -1890,9 +1978,10 @@ async def process_personalized_move(
         result["diagnostic_result"] = diagnostic_result
     event = {
         **evidence,
-        "event_id": str(uuid.uuid4()),
+        "event_id": key,
         "event_type": "answer_submitted",
         "idempotency_key": key,
+        "client_interaction_identity_provided": interaction_id is not None,
         "item_id": item["item_id"],
         "result_payload": result,
     }
@@ -1933,8 +2022,21 @@ async def process_personalized_move(
         latest = await db.learning_sessions.find_one({"_id": session["_id"]})
         for prior_event in (latest or {}).get("events") or []:
             if prior_event.get("idempotency_key") == key:
+                await _append_personalized_shadow_event(
+                    db,
+                    latest or session,
+                    prior_event,
+                )
                 return prior_event.get("result_payload") or {"duplicate": True}
         return {"error": "Session changed; reload and try again"}
+    # The operational lesson event stays compatible in its existing session.
+    # Its canonical copy goes through the one shared append boundary.
+    await _append_personalized_shadow_event(
+        db,
+        session,
+        event,
+        event_contract=event_contract,
+    )
     return result
 
 

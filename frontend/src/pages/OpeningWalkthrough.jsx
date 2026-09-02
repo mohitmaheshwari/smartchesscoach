@@ -16,6 +16,7 @@ import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import {
   Loader2, ChevronRight, ChevronLeft, BookOpen,
   Target, CheckCircle2, XCircle, AlertTriangle,
@@ -73,6 +74,8 @@ const OpeningWalkthrough = ({ user }) => {
 
   const steps = data?.steps || [];
   const current = currentStep >= 0 && currentStep < steps.length ? steps[currentStep] : null;
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(current?.puzzle_id);
 
   // Update board when step changes
   useEffect(() => {
@@ -174,10 +177,12 @@ const OpeningWalkthrough = ({ user }) => {
           puzzle_id: current.puzzle_id,
           played_uci: userMoveUci,
           moves_tried: [userMoveUci],
+          submission_id: puzzleSubmissionId,
         }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const grade = await response.json();
+      rotatePuzzleSubmissionId();
       setChallengeResult({
         correct: Boolean(grade.correct),
         userMove: userMoveUci,
@@ -203,7 +208,13 @@ const OpeningWalkthrough = ({ user }) => {
     } finally {
       setGradingChallenge(false);
     }
-  }, [challengeActive, current, gradingChallenge]);
+  }, [
+    challengeActive,
+    current,
+    gradingChallenge,
+    puzzleSubmissionId,
+    rotatePuzzleSubmissionId,
+  ]);
 
   if (loading) {
     return (

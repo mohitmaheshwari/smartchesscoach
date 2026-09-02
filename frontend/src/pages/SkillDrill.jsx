@@ -23,6 +23,7 @@ import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
 import { ArrowLeft, RotateCcw, ChevronRight, Loader2, ExternalLink, Check, X, Lightbulb } from "lucide-react";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 
 // Per-skill drill copy. Keep terse — most teaching is in the verdict
 // line returned by the backend grader.
@@ -110,6 +111,8 @@ const SkillDrill = ({ user }) => {
   }, [puzzles, idx]);
 
   const current = puzzles[idx];
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(current?.puzzle_id);
   const total = puzzles.length;
   const done = total > 0 && idx >= total;
 
@@ -143,9 +146,14 @@ const SkillDrill = ({ user }) => {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ puzzle_id: current.puzzle_id, move_uci: uci }),
+        body: JSON.stringify({
+          puzzle_id: current.puzzle_id,
+          move_uci: uci,
+          submission_id: puzzleSubmissionId,
+        }),
       });
       const data = await res.json();
+      rotatePuzzleSubmissionId();
       setVerdict(data);
       setStats(s => ({
         correct: s.correct + (data.correct ? 1 : 0),

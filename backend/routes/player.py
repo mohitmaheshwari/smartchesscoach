@@ -1605,6 +1605,7 @@ async def submit_puzzle_solution(
     puzzle_id: str,
     played_uci: str,
     time_taken_seconds: int = 0,
+    submission_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """
@@ -1622,6 +1623,8 @@ async def submit_puzzle_solution(
         puzzle=puzzle,
         played_uci=played_uci,
         time_taken_ms=max(0, time_taken_seconds) * 1000,
+        attempt_context="legacy_player_training",
+        submission_id=submission_id,
     )
     if grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=grade.get("feedback"))

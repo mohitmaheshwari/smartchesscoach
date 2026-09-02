@@ -13,6 +13,7 @@ import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Flame, ArrowRight, Clock } from "lucide-react";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 
 export default function DailyFixDrill({ user }) {
   const navigate = useNavigate();
@@ -42,6 +43,8 @@ export default function DailyFixDrill({ user }) {
   }, []);
 
   const drill = drills[idx];
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(drill?.puzzle_id);
 
   // Keep the board on the drill's start position; reset when the drill changes.
   useEffect(() => {
@@ -83,13 +86,17 @@ export default function DailyFixDrill({ user }) {
             played_uci: uci,
             time_taken_ms: elapsed * 1000,
             moves_tried: [uci],
+            submission_id: puzzleSubmissionId,
           }),
         })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           return response.json();
         })
-        .then((grade) => setPhase(grade.correct ? "correct" : "wrong"))
+        .then((grade) => {
+          rotatePuzzleSubmissionId();
+          setPhase(grade.correct ? "correct" : "wrong");
+        })
         .catch((error) => {
           console.error("daily-fix grade failed:", error);
           setBoardFen(drill.fen);
@@ -97,7 +104,7 @@ export default function DailyFixDrill({ user }) {
         });
       return true;
     },
-    [drill, phase, elapsed]
+    [drill, phase, elapsed, puzzleSubmissionId, rotatePuzzleSubmissionId]
   );
 
   const next = useCallback(async () => {
