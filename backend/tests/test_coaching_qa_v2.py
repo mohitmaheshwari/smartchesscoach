@@ -17,7 +17,14 @@ import os
 from datetime import datetime
 
 # Use the public URL for testing
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com').rstrip('/')
+
+# These exercise a LIVE API. Without REACT_APP_BACKEND_URL they built a
+# relative URL and died in requests with MissingSchema, producing collection
+# ERRORS rather than skips -- noise that hides real failures in every run.
+pytestmark = pytest.mark.skipif(
+    not BASE_URL, reason="REACT_APP_BACKEND_URL not set; live API test"
+)
 
 # Test FEN: Italian Game position (from previous iterations)
 # r1bqk2r/pppp1pp1/2n2n1p/2b1p3/2B1P3/2N2N1P/PPPP1PP1/R1BQ1RK1 b kq - 0 6

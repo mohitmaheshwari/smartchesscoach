@@ -6,7 +6,14 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com').rstrip('/')
+
+# These exercise a LIVE API. Without REACT_APP_BACKEND_URL they built a
+# relative URL and died in requests with MissingSchema, producing collection
+# ERRORS rather than skips -- noise that hides real failures in every run.
+pytestmark = pytest.mark.skipif(
+    not BASE_URL, reason="REACT_APP_BACKEND_URL not set; live API test"
+)
 
 # Test game - a LOSS game (user played black, result is 1-0)
 LOSS_GAME_ID = '42932bfa-24e8-4aff-9068-0b476cb6f4fc'

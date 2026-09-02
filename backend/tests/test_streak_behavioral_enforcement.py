@@ -18,7 +18,14 @@ import sys
 # Add backend to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+
+# These exercise a LIVE API. Without REACT_APP_BACKEND_URL they built a
+# relative URL and died in requests with MissingSchema, producing collection
+# ERRORS rather than skips -- noise that hides real failures in every run.
+pytestmark = pytest.mark.skipif(
+    not BASE_URL, reason="REACT_APP_BACKEND_URL not set; live API test"
+)
 
 # Test user ID
 TEST_USER_ID = "user_4dad2b14e380"

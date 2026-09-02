@@ -10,7 +10,14 @@ Tests the hyper-personalized chess coaching Socratic Engine which:
 import pytest
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com')
+
+# These exercise a LIVE API. Without REACT_APP_BACKEND_URL they built a
+# relative URL and died in requests with MissingSchema, producing collection
+# ERRORS rather than skips -- noise that hides real failures in every run.
+pytestmark = pytest.mark.skipif(
+    not BASE_URL, reason="REACT_APP_BACKEND_URL not set; live API test"
+)
 
 # Test data - Classic Scholar's Mate position
 SCHOLARS_MATE_FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"
