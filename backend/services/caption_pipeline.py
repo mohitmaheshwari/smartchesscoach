@@ -566,6 +566,26 @@ class MoveTeachingDecision:
     # Auditable derived evidence. Neither field is parsed from prose.
     exact_endgame_evidence: Optional[Dict[str, Any]] = None
     human_policy_evidence: Optional[Dict[str, Any]] = None
+    # Surface-neutral, typed explanation questions for an exact submitted
+    # move. Callers render the contract; they never rebuild chess facts.
+    reason_bundle: Optional["TeachingReasonBundle"] = None
+
+
+def build_reason_bundle_for_move(
+    *,
+    fen_before: str,
+    submitted_move: str,
+    quality_id: str,
+):
+    """Dispatch exact reason construction through promoted fact providers."""
+    from services.destination_safety_detector import (
+        QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
+        build_destination_safety_reason_bundle,
+    )
+
+    if quality_id == DESTINATION_SAFETY_QUALITY_ID:
+        return build_destination_safety_reason_bundle(fen_before, submitted_move)
+    return None
 
 
 # ────────────────────────────────────────────────────────────────────

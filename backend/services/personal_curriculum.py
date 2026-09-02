@@ -6,7 +6,7 @@ owners; it never copies lesson content or writes a mastery verdict.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import hashlib
@@ -145,6 +145,7 @@ class HomeDiagnosticResult:
     target_results: Tuple[str, str]
     separate_soundness_issue: bool
     next_action: str
+    component_outcomes: Mapping[str, Mapping[str, int]] = field(default_factory=dict)
     real_game_evidence: str = "not_measured"
     schema_version: str = HOME_DIAGNOSTIC_SCHEMA_VERSION
 
@@ -155,6 +156,13 @@ class HomeDiagnosticResult:
             "target_results": list(self.target_results),
             "separate_soundness_issue": self.separate_soundness_issue,
             "next_action": self.next_action,
+            "component_outcomes": {
+                str(kind): {
+                    "asked": int(values.get("asked") or 0),
+                    "demonstrated": int(values.get("demonstrated") or 0),
+                }
+                for kind, values in self.component_outcomes.items()
+            },
             "real_game_evidence": self.real_game_evidence,
         }
 
@@ -195,11 +203,25 @@ def derive_home_diagnostic_result(
         HomeDiagnosticConclusion.CURRENT_LEARNING_NEED: "teach_board_relationship",
         HomeDiagnosticConclusion.NO_CONCLUSION: "preserve_existing_home_action",
     }
+    component_outcomes: Dict[str, Dict[str, int]] = {}
+    for attempt in attempts:
+        for component in attempt.get("reason_components") or []:
+            kind = str(component.get("kind") or "")
+            if not kind:
+                continue
+            bucket = component_outcomes.setdefault(
+                kind,
+                {"asked": 0, "demonstrated": 0},
+            )
+            bucket["asked"] += 1
+            if component.get("correct") is True:
+                bucket["demonstrated"] += 1
     return HomeDiagnosticResult(
         conclusion=conclusion,
         target_results=(targets[0], targets[1]),
         separate_soundness_issue=separate_issue,
         next_action=actions[conclusion],
+        component_outcomes=component_outcomes,
     )
 
 
@@ -328,6 +350,8 @@ async def _home_replay_diagnostic_projection(
         state = (
             "result"
             if session.get("status") == "completed"
+            else "connection"
+            if public.get("awaiting_continue")
             else "reflection"
             if public.get("awaiting_reason")
             else "active"
@@ -1203,6 +1227,7 @@ class LessonResult:
     prediction_correct: Optional[bool] = None
     reason_choice: Optional[str] = None
     reasoning_consistent: Optional[bool] = None
+    reason_components: Tuple[Mapping[str, Any], ...] = ()
     misconception: Optional[str] = None
     corrective_action: Optional[str] = None
     source_type: EvidenceSourceType = EvidenceSourceType.LESSON
@@ -1241,6 +1266,12 @@ class LessonResult:
             raise ContractViolation("source_type must be an EvidenceSourceType")
         if self.source_event_id is not None:
             _require_text(self.source_event_id, "source_event_id")
+        for component in self.reason_components:
+            if not isinstance(component, Mapping):
+                raise ContractViolation("reason_components entries must be mappings")
+            _require_text(str(component.get("kind") or ""), "reason_component.kind")
+            if not isinstance(component.get("correct"), bool):
+                raise ContractViolation("reason_component.correct must be boolean")
         if self.attempt_kind in (
             AttemptKind.GUIDED,
             AttemptKind.INDEPENDENT,
@@ -1296,6 +1327,8 @@ class LessonResult:
 
         if self.reasoning_consistent is False:
             return StudentState.LEARNING
+        if any(component.get("correct") is not True for component in self.reason_components):
+            return StudentState.LEARNING
 
         if self.board_verified and self.distinct_position:
             return StudentState.CAN_DO_ALONE
@@ -1333,6 +1366,9 @@ class LessonResult:
                 "prediction_correct": self.prediction_correct,
                 "reason_choice": self.reason_choice,
                 "reasoning_consistent": self.reasoning_consistent,
+                "reason_components": [
+                    dict(component) for component in self.reason_components
+                ],
                 "misconception": self.misconception,
                 "corrective_action": self.corrective_action,
                 "grader_version": self.grader_version,
@@ -1401,6 +1437,7 @@ class LessonResult:
                 prediction_correct=attempt.get("prediction_correct"),
                 reason_choice=attempt.get("reason_choice"),
                 reasoning_consistent=attempt.get("reasoning_consistent"),
+                reason_components=tuple(attempt.get("reason_components") or ()),
                 misconception=attempt.get("misconception"),
                 corrective_action=attempt.get("corrective_action"),
                 grader_version=attempt.get("grader_version"),

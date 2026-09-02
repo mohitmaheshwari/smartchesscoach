@@ -1,0 +1,78 @@
+{
+  "schema_version": "home_teaching_case_gold.v1",
+  "runtime_source": false,
+  "purpose": "Test-only adjudicated examples for the destination-safety reason bundle.",
+  "cases": [
+    {
+      "case_id": "approved_rook_recapture_connection",
+      "fen": "3r1rk1/p2p1ppp/2p1p3/8/N3P3/1P1RPP2/P1q4P/3R2K1 w - - 0 1",
+      "move_uci": "d3d2",
+      "target_status": "pass",
+      "safety_kind": "safe_by_recapture",
+      "expected_components": [
+        "incoming_threat",
+        "destination_safety",
+        "counterattack",
+        "one_recapture_calculation"
+      ],
+      "expected_facts": {
+        "moved_piece": "rook",
+        "origin": "d3",
+        "destination": "d2",
+        "relevant_attacker": "c2",
+        "same_attacker_rook_targets": ["d1", "d3"],
+        "capture_san": "Qxd2",
+        "recapture_san": "Rxd2"
+      }
+    },
+    {
+      "case_id": "attacked_rook_escapes_to_unattacked_square",
+      "fen": "4k3/8/8/8/8/8/1b6/R3K3 w - - 0 1",
+      "move_uci": "a1a8",
+      "target_status": "pass",
+      "safety_kind": "destination_unattacked",
+      "expected_components": ["incoming_threat", "destination_safety"],
+      "expected_facts": {
+        "moved_piece": "rook",
+        "origin": "a1",
+        "destination": "a8",
+        "relevant_attacker": "b2"
+      }
+    },
+    {
+      "case_id": "rook_moves_onto_bishop_capture",
+      "fen": "4k3/8/8/8/8/8/1b6/R3K3 w - - 0 1",
+      "move_uci": "a1a3",
+      "target_status": "fail",
+      "safety_kind": "destination_loses_material",
+      "expected_components": ["incoming_threat", "destination_safety"],
+      "expected_facts": {
+        "moved_piece": "rook",
+        "origin": "a1",
+        "destination": "a3",
+        "capture_san": "Bxa3"
+      }
+    },
+    {
+      "case_id": "quiet_safe_move_without_incoming_threat",
+      "fen": "4k3/8/8/8/8/8/8/R3K3 w - - 0 1",
+      "move_uci": "a1a8",
+      "target_status": "pass",
+      "safety_kind": "destination_unattacked",
+      "expected_components": ["destination_safety"],
+      "expected_facts": {
+        "moved_piece": "rook",
+        "origin": "a1",
+        "destination": "a8"
+      }
+    },
+    {
+      "case_id": "pawn_move_outside_promoted_family",
+      "fen": "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1",
+      "move_uci": "e2e4",
+      "target_status": "unmeasured",
+      "safety_kind": "piece_not_eligible",
+      "expected_components": []
+    }
+  ]
+}

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  CheckCircle2,
+  CircleDashed,
   Eye,
   Loader2,
   MessageCircleQuestion,
   Pause,
   RotateCcw,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
@@ -62,6 +65,13 @@ const LATER_MISS_COPY = {
   cta: "Return to the board",
 };
 
+const COMPONENT_LABELS = {
+  incoming_threat: "Threat recognized",
+  destination_safety: "Landing square checked",
+  counterattack: "Attack back noticed",
+  one_recapture_calculation: "One reply calculated",
+};
+
 async function diagnosticRequest(path, body) {
   const response = await fetch(`${API}/training/personalized/diagnostic${path}`, {
     method: body === undefined ? "GET" : "POST",
@@ -85,8 +95,12 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
     diagnostic?.session?.pending_move_uci || ""
   );
   const [help, setHelp] = useState(null);
+  const [coachMessage, setCoachMessage] = useState("");
   const [boardRevision, setBoardRevision] = useState(0);
   const result = session?.diagnostic_result || diagnostic?.session?.diagnostic_result;
+  const resultDestination = result?.conclusion === "controlled_transfer"
+    ? "/play-with-coach"
+    : "/learn";
 
   useEffect(() => {
     if (shownRef.current) return;
@@ -101,6 +115,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
     if (busy) return;
     setBusy(true);
     setError("");
+    setCoachMessage("");
     try {
       const payload = await diagnosticRequest("/start", { limit: 20 });
       setSession(payload);
@@ -128,8 +143,16 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
         move: uci,
         interaction_id: interactionId("home-stage"),
       });
+      if (payload.measurement_status === "unmeasured") {
+        setSession((current) => ({ ...current, ...payload }));
+        setPendingMove("");
+        setCoachMessage(payload.message || "");
+        setState("active");
+        setBoardRevision((value) => value + 1);
+        return;
+      }
       setPendingMove(uci);
-      setSession((current) => ({ ...current, ...payload, awaiting_reason: true }));
+      setSession((current) => ({ ...current, ...payload }));
       setState("reflection");
       trackHomeDiagnostic(ANALYTICS_EVENTS.HOME_DIAGNOSTIC_MOVE_STAGED, {
         surface: "home",
@@ -148,17 +171,32 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
     setBusy(true);
     setError("");
     try {
+      const activeQuestion = session?.current_item?.reason_question || {
+        question_id: "legacy-reason",
+        progress: { current: 1, total: 1 },
+      };
       const payload = await diagnosticRequest("/respond", {
         session_id: session.session_id,
         move: pendingMove,
         reason_choice: reasonChoice,
+        reason_component_id: activeQuestion.question_id,
         interaction_id: interactionId("home-reason"),
       });
-      trackHomeDiagnostic(ANALYTICS_EVENTS.HOME_DIAGNOSTIC_REASON_SUBMITTED, {
+      const progress = activeQuestion.progress || {};
+      trackHomeDiagnostic(ANALYTICS_EVENTS.HOME_DIAGNOSTIC_COMPONENT_SUBMITTED, {
         surface: "home",
         position_index: (session.current_index || 0) + 1,
+        question_index: progress.current,
+        question_total: progress.total,
       });
-      if (payload.complete) {
+      if (payload.awaiting_reason) {
+        setSession((current) => ({ ...current, ...payload }));
+        setState("reflection");
+      } else if (payload.awaiting_continue) {
+        setSession((current) => ({ ...current, ...payload, awaiting_reason: false }));
+        setPendingMove("");
+        setState("connection");
+      } else if (payload.complete) {
         setSession((current) => ({
           ...current,
           ...payload,
@@ -185,6 +223,31 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
         setPendingMove("");
         setBoardRevision((value) => value + 1);
       }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const continueToTransfer = async () => {
+    if (!session?.session_id || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const payload = await diagnosticRequest("/continue", {
+        session_id: session.session_id,
+        interaction_id: interactionId("home-transfer"),
+      });
+      setSession(payload);
+      setPendingMove("");
+      setHelp(null);
+      setState("active");
+      setBoardRevision((value) => value + 1);
+      trackHomeDiagnostic(ANALYTICS_EVENTS.HOME_DIAGNOSTIC_TRANSFER_STARTED, {
+        surface: "home",
+        position_index: (payload.current_index || 0) + 1,
+      });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -239,25 +302,106 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
     }
   };
 
+  const startNextAction = () => {
+    trackHomeDiagnostic(ANALYTICS_EVENTS.HOME_DIAGNOSTIC_NEXT_ACTION_STARTED, {
+      surface: "home",
+      conclusion: result?.conclusion,
+      next_action: result?.next_action,
+    });
+    onNavigate(resultDestination);
+  };
+
   if (state === "ready" || session?.status === "paused") {
     return (
       <section data-testid="home-replay-diagnostic-ready" className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-lime-300/25 blur-3xl" />
-        <p className="cg-eyebrow mb-3">A question from your coach</p>
-        <h2 className="max-w-[650px] font-heading text-[28px] leading-[1.08] tracking-[-0.035em] text-foreground sm:text-[40px]">
-          I don’t want to tell you what happened. I want to put you back in the position.
-        </h2>
-        <p className="mt-4 max-w-[620px] text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
-          You probably don’t remember the game—and that is useful. Make the move you would choose now. Then I’ll change the board and see whether the idea travels with you.
-        </p>
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={start} disabled={busy} className="cg-primary-action !bg-lime-300 !text-black hover:!bg-lime-200">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {session?.status === "paused" ? "Continue the position" : "Put me in the position"}
-            {!busy && <ArrowRight className="h-4 w-4" />}
-          </button>
-          <span className="text-[12px] text-muted-foreground">Two positions · no score · no answer shown first</span>
+        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-lime-300/30 blur-3xl" />
+        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+          <div>
+            <p className="cg-eyebrow mb-3">Today’s coaching move</p>
+            <h2 className="max-w-[650px] font-heading text-[30px] leading-[1.04] tracking-[-0.04em] text-foreground sm:text-[44px]">
+              Learn to hit back without hanging the piece.
+            </h2>
+            <p className="mt-4 max-w-[620px] text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
+              You already notice when one of your pieces is attacked. The next step is choosing a square that is both protected and useful.
+            </p>
+            <div className="mt-6 max-w-[620px] rounded-2xl border border-emerald-700/15 bg-emerald-500/[0.06] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800">Why I chose this for you</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-foreground/75">
+                I rebuilt one moment from your games to check the chess idea—not whether you remember the old game.
+              </p>
+            </div>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={start} disabled={busy} className="cg-primary-action !bg-lime-300 !text-black hover:!bg-lime-200">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {session?.status === "paused" ? "Continue the position" : "Try the position"}
+                {!busy && <ArrowRight className="h-4 w-4" />}
+              </button>
+              <span className="text-[12px] text-muted-foreground">Your move comes before my explanation.</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-background/60 p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">How this becomes yours</p>
+            {[
+              ["1", "Understand the connection", "See the threat, the safe square and the reply as one idea."],
+              ["2", "Prove it somewhere new", "Find the same relationship on a board that looks different."],
+              ["3", "Use it in your games", "I wait for a real opportunity before calling it learned."],
+            ].map(([number, title, body]) => (
+              <div key={number} className="mt-4 flex gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-lime-300 text-[12px] font-semibold text-black">{number}</span>
+                <div>
+                  <p className="text-[13px] font-medium text-foreground">{title}</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+        {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+      </section>
+    );
+  }
+
+  if (state === "connection" || session?.awaiting_continue) {
+    const summary = session?.position_summary || {};
+    return (
+      <section data-testid="home-replay-diagnostic-connection" className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -left-20 -top-24 h-60 w-60 rounded-full bg-emerald-300/25 blur-3xl" />
+        <p className="cg-eyebrow mb-3">{summary.eyebrow || "Position understood"}</p>
+        <h2 className="max-w-[680px] font-heading text-[29px] leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[42px]">
+          {summary.title || "Here is the connection your move tested."}
+        </h2>
+        {summary.move_san && (
+          <p className="mt-3 text-[13px] text-muted-foreground">You played {summary.move_san}.</p>
+        )}
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {(summary.demonstrated || []).map((item) => (
+            <div key={item.kind} className="rounded-2xl border border-emerald-700/15 bg-emerald-500/[0.06] p-4">
+              <div className="flex gap-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+                <p className="text-[13px] leading-relaxed text-foreground/80">{item.text}</p>
+              </div>
+            </div>
+          ))}
+          {(summary.missing || []).map((item) => (
+            <div key={item.kind} className="rounded-2xl border border-amber-700/15 bg-amber-500/[0.06] p-4">
+              <div className="flex gap-3">
+                <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <p className="text-[13px] leading-relaxed text-foreground/80">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 max-w-[760px] rounded-2xl border border-border/70 bg-background/65 p-4">
+          <div className="flex gap-3">
+            <Target className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+            <p className="text-[13px] leading-relaxed text-foreground/75">{summary.principle}</p>
+          </div>
+        </div>
+        <button type="button" onClick={continueToTransfer} disabled={busy} className="cg-primary-action mt-7">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Try a different-looking position
+          {!busy && <ArrowRight className="h-4 w-4" />}
+        </button>
         {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
       </section>
     );
@@ -278,12 +422,27 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
         <div className="mt-5 max-w-[650px] rounded-2xl border border-emerald-700/15 bg-emerald-500/[0.06] p-4 text-[13px] leading-relaxed text-foreground/80">
           {copy.follow}
         </div>
+        {Object.keys(result?.component_outcomes || {}).length > 0 && (
+          <div className="mt-5 grid max-w-[760px] gap-2 sm:grid-cols-2">
+            {Object.entries(result.component_outcomes).map(([kind, outcome]) => {
+              const demonstrated = outcome.demonstrated === outcome.asked && outcome.asked > 0;
+              return (
+                <div key={kind} className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/65 px-3 py-2.5 text-[12px] text-foreground/75">
+                  {demonstrated
+                    ? <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                    : <CircleDashed className="h-4 w-4 text-amber-700" />}
+                  {COMPONENT_LABELS[kind] || "Board relationship checked"}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {result?.separate_soundness_issue && (
           <p className="mt-4 max-w-[650px] text-[13px] leading-relaxed text-amber-700">
             You handled the idea I tested, but one move had a different chess problem. I kept those two findings separate.
           </p>
         )}
-        <button type="button" onClick={() => onNavigate(result?.conclusion === "controlled_transfer" ? "/play-with-coach" : "/learn")} className="cg-primary-action mt-7">
+        <button type="button" onClick={startNextAction} className="cg-primary-action mt-7">
           {copy.cta}<ArrowRight className="h-4 w-4" />
         </button>
       </section>
@@ -293,6 +452,11 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
   const current = session?.current_item;
   if (!current) return null;
   const awaitingReason = Boolean(session?.awaiting_reason);
+  const reasonQuestion = current.reason_question || {
+    prompt: current.reason_prompt,
+    choices: current.reason_choices || [],
+    progress: { current: 1, total: 1 },
+  };
 
   return (
     <section data-testid="home-replay-diagnostic-active" className="relative">
@@ -328,7 +492,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
             <>
               <p className="text-[15px] font-medium text-foreground">{current.prompt}</p>
               <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-                I’m not showing the lesson or the engine move. Your decision comes first.
+                Choose your move first. I’m checking what relationships you see—not whether you remember an answer.
               </p>
               <div className="mt-6 flex flex-col gap-2">
                 <button type="button" onClick={() => requestHelp("show_on_board")} disabled={busy} className="cg-secondary-action justify-start"><Eye className="h-4 w-4" /> Show me where to look</button>
@@ -336,14 +500,18 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
                 <button type="button" onClick={() => requestHelp("let_me_try")} disabled={busy} className="cg-secondary-action justify-start"><RotateCcw className="h-4 w-4" /> Let me think</button>
               </div>
               {help?.message && <p className="mt-4 rounded-xl bg-lime-100/70 p-3 text-[13px] leading-relaxed text-stone-800">{help.message}</p>}
+              {coachMessage && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] leading-relaxed text-amber-900">{coachMessage}</p>}
             </>
           ) : (
             <>
               <p className="cg-eyebrow mb-2">Move made</p>
-              <h3 className="text-[20px] font-semibold tracking-[-0.02em] text-foreground">{current.reason_prompt}</h3>
-              <p className="mt-2 text-[13px] text-muted-foreground">Choose the closest answer. This helps me decide whether the move came from the idea or from a guess.</p>
+              {current.move_san && <p className="mb-3 text-[13px] text-muted-foreground">You played {current.move_san}.</p>}
+              <h3 className="text-[20px] font-semibold tracking-[-0.02em] text-foreground">{reasonQuestion.prompt}</h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Question {reasonQuestion.progress?.current || 1} of {reasonQuestion.progress?.total || 1}. Choose what you actually saw.
+              </p>
               <div className="mt-5 space-y-2">
-                {(current.reason_choices || []).map((choice) => (
+                {(reasonQuestion.choices || []).map((choice) => (
                   <button key={choice.id} type="button" onClick={() => submitReason(choice.id)} disabled={busy} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-left text-[13px] text-foreground transition hover:border-emerald-500/40 hover:bg-emerald-500/[0.05] disabled:opacity-50">
                     {choice.label}
                   </button>

@@ -164,6 +164,7 @@ class PersonalizedLessonRespondRequest(BaseModel):
     move: str
     interaction_id: Optional[str] = None
     reason_choice: Optional[str] = None
+    reason_component_id: Optional[str] = None
 
 
 class PersonalizedLessonHelpRequest(BaseModel):
@@ -179,6 +180,11 @@ class PersonalizedLessonPauseRequest(BaseModel):
 
 class HomeDiagnosticStartRequest(BaseModel):
     limit: int = 20
+
+
+class HomeDiagnosticContinueRequest(BaseModel):
+    session_id: str
+    interaction_id: Optional[str] = None
 
 
 # ==================== PERSONAL IMPROVEMENT CYCLE ====================
@@ -314,6 +320,7 @@ async def respond_to_personalized_training(
         request.move,
         interaction_id=request.interaction_id,
         reason_choice=request.reason_choice,
+        reason_component_id=request.reason_component_id,
     )
     return _raise_pic_lesson_error(result)
 
@@ -472,6 +479,25 @@ async def respond_to_home_replay_diagnostic(
         request.move,
         interaction_id=request.interaction_id,
         reason_choice=request.reason_choice,
+        reason_component_id=request.reason_component_id,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/personalized/diagnostic/continue")
+async def continue_home_replay_diagnostic(
+    request: HomeDiagnosticContinueRequest,
+    user: User = Depends(get_current_user),
+):
+    await _require_home_diagnostic_user(user)
+    await _owned_home_diagnostic(user, request.session_id)
+    from services.teaching_engine import continue_home_diagnostic
+
+    result = await continue_home_diagnostic(
+        db,
+        user.user_id,
+        request.session_id,
+        interaction_id=request.interaction_id,
     )
     return _raise_pic_lesson_error(result)
 

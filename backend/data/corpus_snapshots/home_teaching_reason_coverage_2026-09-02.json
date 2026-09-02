@@ -1,0 +1,74 @@
+{
+  "audit": "home_teaching_reason_coverage.v1",
+  "candidate_move_coverage": {
+    "eligible_legal_moves": 5760,
+    "positions_with_supported_safe_move": 213,
+    "proofs_agree": 5760,
+    "status_fail": 2472,
+    "status_pass": 3288
+  },
+  "fingerprint_sha256": "c1a81fc7e1af90697278211f820e4b383e4cd0cdca770dd97efa93d986db55b3",
+  "original_fire_recheck": {
+    "fail": 215,
+    "proofs_agree": 215
+  },
+  "population": {
+    "distinct_normalized_positions": 215,
+    "distinct_players": 8,
+    "invalid_rows": 0,
+    "stored_exact_fires": 219
+  },
+  "privacy": "Aggregate only; no ids, FENs, moves, PGNs, or free text.",
+  "production_data_exported": false,
+  "read_only": true,
+  "safe_move_component_combinations": {
+    "counterattack+destination_unattacked+incoming_threat": 34,
+    "counterattack+destination_unattacked+incoming_threat+multi_target_threat": 24,
+    "counterattack+incoming_threat+multi_target_threat+one_recapture_line": 22,
+    "counterattack+incoming_threat+one_recapture_line": 26,
+    "destination_unattacked": 2339,
+    "destination_unattacked+incoming_threat": 232,
+    "destination_unattacked+incoming_threat+multi_target_threat": 254,
+    "incoming_threat+multi_target_threat+one_recapture_line": 37,
+    "incoming_threat+one_recapture_line": 34,
+    "one_recapture_line": 286
+  },
+  "safe_move_component_coverage": {
+    "counterattack": 106,
+    "destination_unattacked": 2883,
+    "incoming_threat": 663,
+    "multi_target_threat": 337,
+    "one_recapture_line": 405
+  },
+  "safe_moves_per_position": {
+    "0": 2,
+    "1": 2,
+    "2": 1,
+    "4": 1,
+    "5": 1,
+    "6": 8,
+    "7": 4,
+    "8": 4,
+    "9": 8,
+    "10": 11,
+    "11": 8,
+    "12": 9,
+    "13": 18,
+    "14": 14,
+    "15": 17,
+    "16": 17,
+    "17": 20,
+    "18": 11,
+    "19": 14,
+    "20": 6,
+    "21": 14,
+    "22": 5,
+    "23": 5,
+    "24": 5,
+    "25": 4,
+    "26": 2,
+    "27": 1,
+    "30": 3
+  },
+  "stockfish_rerun": false
+}

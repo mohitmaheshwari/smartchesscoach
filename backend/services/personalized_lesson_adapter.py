@@ -593,6 +593,15 @@ async def _concept_descriptor(
             and board.is_attacked_by(not board.turn, square)
         ]
         item_number = len(items) + 1
+        reason_fields = (
+            {}
+            if blind_diagnostic
+            else {
+                "reason_prompt": "What did you check before choosing the move?",
+                "reason_choices": _reason_choices("concept"),
+                "_expected_reason": "keeps_piece_safe",
+            }
+        )
         items.append({
             "item_id": (
                 f"diagnostic-position-{item_number}"
@@ -604,9 +613,7 @@ async def _concept_descriptor(
                 "black" if str(item["fen"]).split()[1] == "b" else "white"
             ),
             "prompt": "Which move keeps every piece safe?",
-            "reason_prompt": "What did you check before choosing the move?",
-            "reason_choices": _reason_choices("concept"),
-            "_expected_reason": "keeps_piece_safe",
+            **reason_fields,
             "_help_squares": (
                 [item.get("moved_origin")]
                 if blind_diagnostic and item.get("moved_origin")
@@ -654,7 +661,7 @@ async def _concept_descriptor(
             "independent" if len(items) > 1 else "guided"
         ),
         "delivery_mode": "blind_diagnostic" if blind_diagnostic else "lesson",
-        "diagnostic_version": "home_replay_diagnostic.v1" if blind_diagnostic else None,
+        "diagnostic_version": "home_replay_diagnostic.v2" if blind_diagnostic else None,
         "pair_fingerprint": pair.get("fingerprint") if pair else None,
     }
 
@@ -771,7 +778,7 @@ async def grade_personalized_move(
                 "feedback": "That move is not legal here.",
                 "answer_san": None,
                 "answer_uci": None,
-                "grader_version": "home_replay_diagnostic.v1",
+                "grader_version": "home_replay_diagnostic.v2",
             }
 
         board = chess.Board(item["fen"])
@@ -812,7 +819,7 @@ async def grade_personalized_move(
             "feedback": feedback,
             "answer_san": None,
             "answer_uci": None,
-            "grader_version": "home_replay_diagnostic.v1",
+            "grader_version": "home_replay_diagnostic.v2",
         }
 
     if item.get("_puzzle_evaluator"):

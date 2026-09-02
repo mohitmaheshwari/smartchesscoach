@@ -153,6 +153,9 @@ export const ANALYTICS_EVENTS = Object.freeze({
   HOME_DIAGNOSTIC_STARTED: "home_diagnostic_started",
   HOME_DIAGNOSTIC_MOVE_STAGED: "home_diagnostic_move_staged",
   HOME_DIAGNOSTIC_REASON_SUBMITTED: "home_diagnostic_reason_submitted",
+  HOME_DIAGNOSTIC_COMPONENT_SUBMITTED: "home_diagnostic_component_submitted",
+  HOME_DIAGNOSTIC_TRANSFER_STARTED: "home_diagnostic_transfer_started",
+  HOME_DIAGNOSTIC_NEXT_ACTION_STARTED: "home_diagnostic_next_action_started",
   HOME_DIAGNOSTIC_HELP_REQUESTED: "home_diagnostic_help_requested",
   HOME_DIAGNOSTIC_COMPLETED: "home_diagnostic_completed",
   HOME_DIAGNOSTIC_PAUSED: "home_diagnostic_paused",
@@ -195,6 +198,9 @@ const HOME_DIAGNOSTIC_EVENT_IDS = new Set([
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_STARTED,
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_MOVE_STAGED,
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_REASON_SUBMITTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_COMPONENT_SUBMITTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_TRANSFER_STARTED,
+  ANALYTICS_EVENTS.HOME_DIAGNOSTIC_NEXT_ACTION_STARTED,
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_HELP_REQUESTED,
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_COMPLETED,
   ANALYTICS_EVENTS.HOME_DIAGNOSTIC_PAUSED,
@@ -207,6 +213,9 @@ const HOME_DIAGNOSTIC_ALLOWED_PROP_KEYS = new Set([
   "help_action",
   "conclusion",
   "separate_soundness_issue",
+  "question_index",
+  "question_total",
+  "next_action",
 ]);
 
 // Privacy and schema boundary for the Personal Curriculum run-in. Emitters

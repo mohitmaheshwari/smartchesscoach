@@ -894,10 +894,81 @@ def _blind_pending_event(
     return None
 
 
+def _blind_component_events(
+    session: Mapping[str, Any],
+    pending: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    move_event_id = str(pending.get("event_id") or "")
+    return [
+        event
+        for event in (session.get("events") or [])
+        if event.get("event_type") == "reason_component_answered"
+        and event.get("move_event_id") == move_event_id
+    ]
+
+
+def _blind_reason_state(
+    session: Mapping[str, Any],
+    pending: Optional[Mapping[str, Any]],
+):
+    if not pending or not pending.get("reason_bundle"):
+        return None, [], None
+    from services.teaching_reason_contracts import (
+        ReasonContractViolation,
+        TeachingReasonBundle,
+    )
+
+    try:
+        bundle = TeachingReasonBundle.from_private_dict(pending["reason_bundle"])
+        answers = _blind_component_events(session, pending)
+        return bundle, answers, bundle.question(len(answers))
+    except (ReasonContractViolation, KeyError, TypeError, ValueError):
+        return None, [], None
+
+
+def _position_reason_summary(bundle, component_results):
+    demonstrated = []
+    missing = []
+    for component, result in zip(bundle.components, component_results):
+        if result.get("correct") is True:
+            demonstrated.append({
+                "kind": component.kind,
+                "text": component.success_text,
+            })
+        else:
+            missing.append({
+                "kind": component.kind,
+                "text": component.correction_text,
+            })
+    if demonstrated and not missing:
+        title = "You saw the whole connection."
+        eyebrow = "Connection understood"
+    elif demonstrated:
+        title = "You saw part of the idea."
+        eyebrow = "One connection to rebuild"
+    else:
+        title = "Now I know what to teach first."
+        eyebrow = "A useful starting point"
+    return {
+        "eyebrow": eyebrow,
+        "title": title,
+        "move_san": bundle.move_san,
+        "target_result": bundle.target_result,
+        "demonstrated": demonstrated,
+        "missing": missing,
+        "principle": (
+            "Before you move an attacked piece, check the square it lands on "
+            "and calculate one reply."
+        ),
+    }
+
+
 def _public_blind_item(
     item: Optional[Mapping[str, Any]],
     *,
     awaiting_reason: bool = False,
+    reason_question: Optional[Mapping[str, Any]] = None,
+    move_san: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     if not item:
         return None
@@ -913,10 +984,23 @@ def _public_blind_item(
             else "A new verified position"
         ),
     }
-    if awaiting_reason:
+    if awaiting_reason and reason_question:
+        result.update({
+            "move_san": move_san,
+            "reason_question": dict(reason_question),
+        })
+    elif awaiting_reason:
+        # Backward-compatible projection for any V1 session already in flight.
+        legacy_choices = list(item.get("reason_choices") or [])
         result.update({
             "reason_prompt": "What did you pay attention to before moving?",
-            "reason_choices": list(item.get("reason_choices") or []),
+            "reason_choices": legacy_choices,
+            "reason_question": {
+                "question_id": "legacy-reason",
+                "prompt": "What did you pay attention to before moving?",
+                "choices": legacy_choices,
+                "progress": {"current": 1, "total": 1},
+            },
         })
     return result
 
@@ -933,10 +1017,18 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
         if blind and current
         else None
     )
+    reason_bundle, reason_answers, reason_question = _blind_reason_state(
+        session,
+        pending,
+    )
     if blind:
+        awaiting_continue = session.get("pending_next_index") is not None
         return {
             "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
-            "diagnostic_version": "home_replay_diagnostic.v1",
+            "diagnostic_version": str(
+                descriptor.get("diagnostic_version")
+                or "home_replay_diagnostic.v1"
+            ),
             "delivery_mode": "blind_diagnostic",
             "session_id": session.get("session_id"),
             "lesson_type": PERSONALIZED_LESSON_TYPE,
@@ -945,10 +1037,16 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
             "completed_items": min(index, len(items)),
             "total_items": len(items),
             "current_item": _public_blind_item(
-                current,
+                None if awaiting_continue else current,
                 awaiting_reason=bool(pending),
+                reason_question=reason_question,
+                move_san=reason_bundle.move_san if reason_bundle else None,
             ),
             "awaiting_reason": bool(pending),
+            "awaiting_continue": awaiting_continue,
+            "position_summary": (
+                session.get("position_summary") if awaiting_continue else None
+            ),
             "pending_move_uci": pending.get("move_uci") if pending else None,
             "stage": (current or {}).get("stage") or "result",
             "allowed_help": [
@@ -1330,6 +1428,7 @@ async def process_personalized_move(
     *,
     prediction_correct: Optional[bool] = None,
     reason_choice: Optional[str] = None,
+    reason_component_id: Optional[str] = None,
     reasoning_consistent: Optional[bool] = None,
 ) -> Dict[str, Any]:
     session = await db.learning_sessions.find_one({
@@ -1355,6 +1454,7 @@ async def process_personalized_move(
     item = items[index]
 
     blind = session.get("delivery_mode") == "blind_diagnostic"
+    reason_components = ()
     if blind:
         pending = _blind_pending_event(session, str(item.get("item_id") or ""))
         if not reason_choice:
@@ -1368,11 +1468,91 @@ async def process_personalized_move(
                 if pending.get("move_uci") == parsed.uci():
                     return staged
                 return {"error": "A move is already waiting for your reason"}
+            v2_blind = bool(
+                descriptor.get("diagnostic_version") == "home_replay_diagnostic.v2"
+                and item.get("_diagnostic_quality_id")
+            )
+            if not v2_blind:
+                staged = {
+                    "awaiting_reason": True,
+                    "session_id": session_id,
+                    "current_index": index,
+                    "current_item": _public_blind_item(item, awaiting_reason=True),
+                }
+                now = datetime.now(timezone.utc)
+                event = {
+                    "event_id": str(uuid.uuid4()),
+                    "event_type": "move_staged",
+                    "idempotency_key": key,
+                    "occurred_at": now,
+                    "item_id": item["item_id"],
+                    "move_uci": parsed.uci(),
+                    "evidence_eligible": False,
+                    "result_payload": staged,
+                }
+                write = await db.learning_sessions.update_one(
+                    {
+                        "_id": session["_id"],
+                        "current_index": index,
+                        "events.idempotency_key": {"$ne": key},
+                    },
+                    {"$set": {"updated_at": now}, "$push": {"events": event}},
+                )
+                if not write.modified_count:
+                    return {"error": "Session changed; reload and try again"}
+                return staged
+            from services.caption_pipeline import build_reason_bundle_for_move
+
+            bundle = build_reason_bundle_for_move(
+                fen_before=str(item.get("fen") or ""),
+                submitted_move=parsed.uci(),
+                quality_id=str(item.get("_diagnostic_quality_id") or ""),
+            )
+            if bundle is None or not bundle.components:
+                unavailable = {
+                    "awaiting_reason": False,
+                    "measurement_status": "unmeasured",
+                    "retry_move": True,
+                    "message": (
+                        "That move may be playable, but I cannot verify its "
+                        "chess explanation with this lesson yet. Try another move."
+                    ),
+                    "session_id": session_id,
+                    "current_index": index,
+                    "current_item": _public_blind_item(item),
+                }
+                now = datetime.now(timezone.utc)
+                event = {
+                    "event_id": str(uuid.uuid4()),
+                    "event_type": "move_unmeasured",
+                    "idempotency_key": key,
+                    "occurred_at": now,
+                    "item_id": item["item_id"],
+                    "move_uci": parsed.uci(),
+                    "evidence_eligible": False,
+                    "result_payload": unavailable,
+                }
+                write = await db.learning_sessions.update_one(
+                    {
+                        "_id": session["_id"],
+                        "current_index": index,
+                        "events.idempotency_key": {"$ne": key},
+                    },
+                    {"$set": {"updated_at": now}, "$push": {"events": event}},
+                )
+                if not write.modified_count:
+                    return {"error": "Session changed; reload and try again"}
+                return unavailable
             staged = {
                 "awaiting_reason": True,
                 "session_id": session_id,
                 "current_index": index,
-                "current_item": _public_blind_item(item, awaiting_reason=True),
+                "current_item": _public_blind_item(
+                    item,
+                    awaiting_reason=True,
+                    reason_question=bundle.question(0),
+                    move_san=bundle.move_san,
+                ),
             }
             now = datetime.now(timezone.utc)
             event = {
@@ -1382,6 +1562,8 @@ async def process_personalized_move(
                 "occurred_at": now,
                 "item_id": item["item_id"],
                 "move_uci": parsed.uci(),
+                "move_san": bundle.move_san,
+                "reason_bundle": bundle.private_dict(),
                 "evidence_eligible": False,
                 "result_payload": staged,
             }
@@ -1400,6 +1582,74 @@ async def process_personalized_move(
             return {"error": "Make your move before choosing a reason"}
         if pending.get("move_uci") != str(move or "").lower():
             return {"error": "The reason must belong to the move you just made"}
+        bundle, component_events, current_question = _blind_reason_state(
+            session,
+            pending,
+        )
+        if bundle is not None:
+            if not reason_component_id or not current_question:
+                return {"error": "This answer does not match the current question"}
+            from services.teaching_reason_contracts import ReasonContractViolation
+
+            try:
+                component_result = bundle.grade_component(
+                    index=len(component_events),
+                    question_id=reason_component_id,
+                    selected_choice_id=reason_choice,
+                )
+            except ReasonContractViolation as exc:
+                return {"error": str(exc)}
+            completed_components = [
+                dict((event.get("result_payload") or {}).get("component_result") or {})
+                for event in component_events
+            ] + [component_result]
+            if len(completed_components) < len(bundle.components):
+                next_question = bundle.question(len(completed_components))
+                payload = {
+                    "awaiting_reason": True,
+                    "session_id": session_id,
+                    "current_index": index,
+                    "component_result": component_result,
+                    "current_item": _public_blind_item(
+                        item,
+                        awaiting_reason=True,
+                        reason_question=next_question,
+                        move_san=bundle.move_san,
+                    ),
+                }
+                now = datetime.now(timezone.utc)
+                event = {
+                    "event_id": str(uuid.uuid4()),
+                    "event_type": "reason_component_answered",
+                    "idempotency_key": key,
+                    "occurred_at": now,
+                    "item_id": item["item_id"],
+                    "move_event_id": pending.get("event_id"),
+                    "component_result": component_result,
+                    "evidence_eligible": False,
+                    "result_payload": payload,
+                }
+                write = await db.learning_sessions.update_one(
+                    {
+                        "_id": session["_id"],
+                        "current_index": index,
+                        "events.idempotency_key": {"$ne": key},
+                    },
+                    {"$set": {"updated_at": now}, "$push": {"events": event}},
+                )
+                if not write.modified_count:
+                    return {"error": "Session changed; reload and try again"}
+                return payload
+            reason_components = tuple(completed_components)
+            reasoning_consistent = all(
+                component.get("correct") is True
+                for component in reason_components
+            )
+        elif item.get("_expected_reason"):
+            # A V1 in-flight session remains gradable after this release.
+            reasoning_consistent = bool(
+                reason_choice and reason_choice == item.get("_expected_reason")
+            )
 
     from services.personalized_lesson_adapter import grade_personalized_move
 
@@ -1412,7 +1662,7 @@ async def process_personalized_move(
     )
     correct = bool(grade.get("correct"))
     expected_reason = item.get("_expected_reason")
-    if expected_reason:
+    if expected_reason and not reason_components:
         reasoning_consistent = bool(
             reason_choice and reason_choice == expected_reason
         )
@@ -1454,7 +1704,17 @@ async def process_personalized_move(
     stage = TeachingStage(stage_value)
     lesson_kind = str(descriptor.get("kind"))
     correction = None
-    if not correct:
+    missed_reason_component = next(
+        (
+            component for component in reason_components
+            if component.get("correct") is not True
+        ),
+        None,
+    )
+    if missed_reason_component is not None:
+        misconception = f"{missed_reason_component.get('kind')}_not_understood"
+        correction = str(missed_reason_component.get("feedback") or "")
+    elif not correct:
         misconception = {
             "concept": "piece_left_unsafe",
             "opening": "opening_plan_not_recognized",
@@ -1496,6 +1756,7 @@ async def process_personalized_move(
         prediction_correct=prediction_correct,
         reason_choice=reason_choice,
         reasoning_consistent=reasoning_consistent,
+        reason_components=reason_components,
         misconception=misconception,
         corrective_action=correction,
         source_type=(
@@ -1552,6 +1813,7 @@ async def process_personalized_move(
         "misconception": misconception,
         "corrective_action": correction,
         "reasoning_consistent": reasoning_consistent,
+        "reason_components": [dict(component) for component in reason_components],
         "target_result": grade.get("target_result"),
         "soundness": grade.get("soundness"),
         "teaching_profile": next_profile,
@@ -1577,6 +1839,23 @@ async def process_personalized_move(
             )
         ),
     }
+    if blind and reason_components:
+        result["position_summary"] = _position_reason_summary(
+            bundle,
+            reason_components,
+        )
+    awaiting_continue = bool(
+        blind
+        and descriptor.get("diagnostic_version") == "home_replay_diagnostic.v2"
+        and not complete
+    )
+    if awaiting_continue:
+        result.update({
+            "awaiting_continue": True,
+            "current_index": index,
+            "next_item": None,
+            "next_stage": "connection",
+        })
     now = datetime.now(timezone.utc)
     substantive_help = any(
         action in (HelpAction.SHOW_ON_BOARD, HelpAction.ASK_ONE_QUESTION)
@@ -1594,12 +1873,14 @@ async def process_personalized_move(
                 "soundness": payload.get("soundness"),
                 "substantive_help": payload.get("substantive_help"),
                 "reasoning_consistent": payload.get("reasoning_consistent"),
+                "reason_components": payload.get("reason_components") or [],
             })
         prior_attempts.append({
             "target_result": result.get("target_result"),
             "soundness": result.get("soundness"),
             "substantive_help": substantive_help,
             "reasoning_consistent": reasoning_consistent,
+            "reason_components": [dict(component) for component in reason_components],
         })
         from services.personal_curriculum import derive_home_diagnostic_result
 
@@ -1616,12 +1897,17 @@ async def process_personalized_move(
         "result_payload": result,
     }
     update_set: Dict[str, Any] = {
-        "current_index": next_index,
+        "current_index": index if awaiting_continue else next_index,
         "highest_earned_state": highest,
         "updated_at": now,
         "teaching_profile": next_profile,
         "display_stage": result["next_stage"],
     }
+    if awaiting_continue:
+        update_set.update({
+            "pending_next_index": next_index,
+            "position_summary": result.get("position_summary"),
+        })
     if complete:
         games_at_completion = None
         games_collection = getattr(db, "games", None)
@@ -1650,6 +1936,83 @@ async def process_personalized_move(
                 return prior_event.get("result_payload") or {"duplicate": True}
         return {"error": "Session changed; reload and try again"}
     return result
+
+
+async def continue_home_diagnostic(
+    db,
+    user_id: str,
+    session_id: str,
+    *,
+    interaction_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Acknowledge the persisted position summary and open the transfer board."""
+    session = await db.learning_sessions.find_one({
+        "session_id": session_id,
+        "user_id": user_id,
+        "lesson_type": PERSONALIZED_LESSON_TYPE,
+        "delivery_mode": "blind_diagnostic",
+    })
+    if not session:
+        return {"error": "Session not found"}
+    key = interaction_id or str(uuid.uuid4())
+    for event in session.get("events") or []:
+        if event.get("idempotency_key") == key:
+            return event.get("result_payload") or {"duplicate": True}
+    next_index = session.get("pending_next_index")
+    if next_index is None:
+        return _public_personalized_session(session)
+    items = (session.get("descriptor") or {}).get("items") or []
+    try:
+        next_index = int(next_index)
+    except (TypeError, ValueError):
+        return {"error": "The next position is not available"}
+    if next_index < 0 or next_index >= len(items):
+        return {"error": "The next position is not available"}
+
+    now = datetime.now(timezone.utc)
+    projected_session = {
+        **session,
+        "current_index": next_index,
+        "pending_next_index": None,
+        "position_summary": None,
+        "display_stage": str(items[next_index].get("stage") or "transfer"),
+        "updated_at": now,
+    }
+    projected_payload = _public_personalized_session(projected_session)
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "position_summary_acknowledged",
+        "idempotency_key": key,
+        "occurred_at": now,
+        "item_id": items[next_index].get("item_id"),
+        "evidence_eligible": False,
+        "result_payload": projected_payload,
+    }
+    write = await db.learning_sessions.update_one(
+        {
+            "_id": session["_id"],
+            "pending_next_index": next_index,
+            "events.idempotency_key": {"$ne": key},
+        },
+        {
+            "$set": {
+                "current_index": next_index,
+                "pending_next_index": None,
+                "position_summary": None,
+                "display_stage": str(items[next_index].get("stage") or "transfer"),
+                "updated_at": now,
+            },
+            "$push": {"events": event},
+        },
+    )
+    if not write.modified_count:
+        latest = await db.learning_sessions.find_one({"_id": session["_id"]})
+        for prior_event in (latest or {}).get("events") or []:
+            if prior_event.get("idempotency_key") == key:
+                return _public_personalized_session(latest)
+        return {"error": "Session changed; reload and try again"}
+    latest = await db.learning_sessions.find_one({"_id": session["_id"]})
+    return _public_personalized_session(latest)
 
 
 # ─────────────────────────────────────────────
@@ -1690,6 +2053,7 @@ async def process_lesson_move(
     move: str,
     interaction_id: Optional[str] = None,
     reason_choice: Optional[str] = None,
+    reason_component_id: Optional[str] = None,
 ) -> Dict:
     """Process a move — dispatches based on current lesson type in session."""
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
@@ -1711,6 +2075,7 @@ async def process_lesson_move(
                 move,
                 interaction_id=interaction_id,
                 reason_choice=reason_choice,
+                reason_component_id=reason_component_id,
             )
         return {"error": "Session not found"}
 
