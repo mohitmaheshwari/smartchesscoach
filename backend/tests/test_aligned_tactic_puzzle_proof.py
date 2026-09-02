@@ -22,8 +22,18 @@ def test_new_pin_must_win_the_exact_front_piece_in_stored_line():
     )
     assert proof is not None and proof.verifier.verified
     assert proof.detector.concept_id == "tactic.pin"
-    assert proof.verifier.facts[0]["front_square"] == "c6"
-    assert proof.verifier.facts[0]["net_material_gain_cp"] == 200
+    assert proof.verifier.facts[0] == {
+        "kind": "pin",
+        "creation_mode": "direct",
+        "attacker_piece": "bishop",
+        "attacker_square": "b5",
+        "front_piece": "rook",
+        "front_square": "c6",
+        "rear_piece": "queen",
+        "rear_square": "d7",
+        "net_material_gain_cp": 200,
+        "replayed_uci": ("c4b5", "h7h6", "b5c6", "d7c6"),
+    }
 
 
 def test_new_skewer_requires_front_move_then_rear_capture():
@@ -32,7 +42,11 @@ def test_new_skewer_requires_front_move_then_rear_capture():
     )
     assert proof is not None and proof.verifier.verified
     assert proof.detector.concept_id == "tactic.skewer"
+    assert proof.verifier.facts[0]["creation_mode"] == "direct"
+    assert proof.verifier.facts[0]["attacker_piece"] == "bishop"
+    assert proof.verifier.facts[0]["front_piece"] == "queen"
     assert proof.verifier.facts[0]["rear_square"] == "d7"
+    assert proof.verifier.facts[0]["rear_piece"] == "rook"
 
 
 def test_hollow_pin_geometry_without_target_payoff_stays_unverified():
@@ -55,7 +69,7 @@ def test_relative_pin_target_moving_cannot_be_relabelled_as_pin_payoff():
     assert proof.verifier.verified is False
 
 
-def test_shared_builder_keeps_verified_skewer_broad_until_promotion():
+def test_shared_builder_uses_verified_skewer_as_caption_only():
     verdict = build_position_verdict(
         source_kind="aligned_fixture",
         source_ref="skewer",
@@ -71,7 +85,11 @@ def test_shared_builder_keeps_verified_skewer_broad_until_promotion():
     assert verdict.status == AdmissionStatus.BROAD
     assert verdict.quality_id == ALIGNED_QUALITY_ID
     assert verdict.concept_id is None
-    assert "specific_proof_unauthorized" in verdict.reason_codes
+    assert verdict.caption_concept_id == "tactic.skewer"
+    assert verdict.reason_codes == (
+        "caption_proof_verified",
+        "broad_category_verified",
+    )
 
 
 def test_aligned_proof_has_no_runtime_engine_llm_or_network_dependency():

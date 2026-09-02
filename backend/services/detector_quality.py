@@ -150,16 +150,21 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:aligned_with_stored_payoff": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_aligned_tactic_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "aligned_payoff_caption_promotion_v1.json"
+        ),
         rationale=(
-            "A canonical before/after alignment proposal is independently "
-            "rebuilt by a fresh two-blocker ray walk, and the legal stored line "
-            "must exploit those exact pin or skewer targets for net material."
+            "Independent legal replay confirmed 25/25 pin fires and 25/25 "
+            "skewer fires, with an 86.68% Wilson lower bound for each subtype, "
+            "plus 50/50 stratified near-negative abstentions. All 436 stored "
+            "candidates had exact geometry, payoff and stored-fact agreement."
         ),
         limitations=(
-            "Quiet or merely geometric alignments remain unverified.",
+            "Only alignments whose exact payoff appears in the stored line are named.",
             "Requires a different played move and at least 100cp stored loss.",
+            "Caption only; no persistent prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "tactic:fork_with_stored_payoff": Authorization(

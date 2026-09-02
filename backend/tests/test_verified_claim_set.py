@@ -103,6 +103,14 @@ def test_fork_claim_is_caption_only_after_evidence_promotion():
     assert claim.eligibility.mastery is False
 
 
+def test_aligned_tactic_claim_is_caption_only_after_evidence_promotion():
+    claim = _claim("pin", "tactic:aligned_with_stored_payoff")
+    assert claim.eligibility.research_only is False
+    assert claim.eligibility.explanation is True
+    assert claim.eligibility.plan is False
+    assert claim.eligibility.mastery is False
+
+
 def test_claim_identity_is_deterministic_and_exact_duplicates_collapse():
     left = _claim(
         "piece_safety",

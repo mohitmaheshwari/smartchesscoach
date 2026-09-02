@@ -196,12 +196,43 @@ def _specific_context(
         )
     if concept in {"tactic.pin", "tactic.skewer"}:
         kind = str(fact.get("kind") or concept.rsplit(".", 1)[-1])
+        attacker = fact.get("attacker_piece") or "piece"
+        attacker_square = fact.get("attacker_square") or "its square"
+        front_piece = fact.get("front_piece") or "piece"
+        rear_piece = fact.get("rear_piece") or "piece"
         front, rear = fact.get("front_square"), fact.get("rear_square")
-        if kind == "pin":
-            why = f"After {best_san}, the piece on {front} cannot move freely without exposing the piece on {rear}."
+        if fact.get("creation_mode") == "discovered":
+            lead = (
+                f"{best_san} clears a line for your {attacker} on "
+                f"{attacker_square}, lining it up with"
+            )
         else:
-            why = f"After {best_san}, the piece on {front} must answer first, leaving the piece on {rear} behind it."
-        return why, "When two pieces share a line, examine the front piece and what sits behind it."
+            lead = (
+                f"{best_san} puts your {attacker} on {attacker_square}, "
+                "lining it up with"
+            )
+        if kind == "pin":
+            why = (
+                f"{lead} the {front_piece} on {front} and the {rear_piece} "
+                f"on {rear}. If the {front_piece} moves, the {rear_piece} "
+                f"on {rear} is exposed behind it."
+            )
+            remember = (
+                "When one piece shields something more valuable, check every "
+                "rook, bishop and queen line through both pieces."
+            )
+        else:
+            why = (
+                f"{lead} the {front_piece} on {front} and the {rear_piece} "
+                f"on {rear}. When the {front_piece} moves off that line, the "
+                f"{rear_piece} on {rear} is left available to your {attacker}."
+            )
+            remember = (
+                "When a valuable piece stands in front of another piece, look "
+                "along that line for what becomes available after the front "
+                "piece moves."
+            )
+        return why, remember
     if concept == "tactic.discovered_attack":
         slider, slider_square = fact.get("slider_piece"), fact.get("slider_square")
         target, target_square = fact.get("target_piece"), fact.get("target_square")
