@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fenAfterMove } from "@/components/curriculum/homeReplayView";
 import { dedupeAnchors } from "@/components/curriculum/homeReplayView";
 import { useNavigate } from "react-router-dom";
 import {
@@ -305,6 +306,12 @@ export default function PersonalizedLessonWorkspace({
   }
 
   const item = session?.current_item;
+  // While the player explains a staged move, the board must show the
+  // position that move produced. It previously re-rendered item.fen, so the
+  // piece appeared not to move at all while the text said "You played Be3".
+  const stagedFen = pendingMove
+    ? fenAfterMove(item?.fen, pendingMove.san || pendingMove.uci)
+    : null;
   const stage = item?.stage || session?.stage || "guide";
   const isReady = !pendingMove && !busy;
   const preferredHelp = session?.teaching_profile?.delivery?.preferred_help;
@@ -324,7 +331,7 @@ export default function PersonalizedLessonWorkspace({
               <LichessBoard
                 ref={boardRef}
                 key={`${item.item_id}-${boardRevision}`}
-                fen={item.fen}
+                fen={stagedFen || item.fen}
                 orientation={item.orientation || "white"}
                 onMove={stageMove}
                 interactive={isReady}
