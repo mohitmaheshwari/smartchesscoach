@@ -2,7 +2,7 @@
 
 The renderer consumes only the frozen board, accepted move and the two proof
 fact sets stored at admission time.  It never calls an engine, model or network
-service, and it never invents a named lesson when admission is broad/generic.
+service, and names an exact fact only when its Caption surface is authorized.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Optional
 
 import chess
+
+from services.detector_quality import QualitySurface, is_authorized
 
 
 def _first_fact(admission: Mapping[str, Any], key: str) -> Mapping[str, Any]:
@@ -256,6 +258,23 @@ def build_verified_puzzle_feedback(
     if status == "specific":
         why, remember = _specific_context(
             board, admission, focus, correct=correct, alternative=alternative
+        )
+    elif (
+        status == "broad"
+        and admission.get("caption_concept_id")
+        and admission.get("quality_id")
+        and is_authorized(
+            str(admission["quality_id"]), QualitySurface.CAPTION
+        )
+    ):
+        caption_admission = dict(admission)
+        caption_admission["concept_id"] = admission["caption_concept_id"]
+        why, remember = _specific_context(
+            board,
+            caption_admission,
+            focus,
+            correct=correct,
+            alternative=alternative,
         )
     else:
         why = _move_effect(board, focus)
