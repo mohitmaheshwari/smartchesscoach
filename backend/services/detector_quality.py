@@ -163,16 +163,21 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:fork_with_stored_payoff": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_fork_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "fork_payoff_caption_promotion_v1.json"
+        ),
         rationale=(
-            "The canonical shape detector's stored-best fork is independently "
-            "reconstructed from the post-move attack map and the complete stored "
-            "line must legally demonstrate a net material gain."
+            "Independent legal replay confirmed 50/50 distinct-source fires "
+            "and 25/25 stratified near-negative abstentions, with a 92.87% "
+            "Wilson precision lower bound. All 709 stored candidates across "
+            "both puzzle pools had exact geometry, payoff and stored-fact agreement."
         ),
         limitations=(
             "Only forks whose payoff appears in the stored continuation are named.",
             "Requires a different played move and at least 100cp stored loss.",
+            "Caption only; no persistent prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "tactic:free_piece_exact": Authorization(

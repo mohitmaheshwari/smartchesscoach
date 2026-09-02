@@ -189,8 +189,10 @@ def _specific_context(
         square = fact.get("fork_square") or "its square"
         targets = ", ".join(str(item) for item in (fact.get("targets") or ()))
         return (
-            f"{best_san} puts the {piece} on {square}, attacking two targets on {targets}.",
-            "Before settling on a move, scan every legal check and capture for one move that attacks two pieces.",
+            f"{best_san} puts your {piece} on {square}, attacking the pieces "
+            f"on {targets} at the same time.",
+            "Before choosing a move, scan every legal check and capture for one "
+            "move that attacks more than one piece.",
         )
     if concept in {"tactic.pin", "tactic.skewer"}:
         kind = str(fact.get("kind") or concept.rsplit(".", 1)[-1])

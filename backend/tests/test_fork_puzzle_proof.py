@@ -68,7 +68,7 @@ def test_material_gain_elsewhere_does_not_prove_the_fork_paid_off():
     assert proof.verifier.verified is False
 
 
-def test_shared_builder_keeps_verified_fork_broad_until_promotion():
+def test_shared_builder_keeps_caption_fork_out_of_prompt_and_plan_identity():
     verdict = build_position_verdict(
         source_kind="fork_fixture",
         source_ref="pawn-fork",
@@ -84,7 +84,11 @@ def test_shared_builder_keeps_verified_fork_broad_until_promotion():
     assert verdict.status == AdmissionStatus.BROAD
     assert verdict.quality_id == FORK_QUALITY_ID
     assert verdict.concept_id is None
-    assert "specific_proof_unauthorized" in verdict.reason_codes
+    assert verdict.caption_concept_id == "tactic.pawn_fork"
+    assert verdict.reason_codes == (
+        "caption_proof_verified",
+        "broad_category_verified",
+    )
 
 
 def test_fork_proof_has_no_runtime_engine_llm_or_network_dependency():

@@ -46,11 +46,11 @@ def _claim(
 
 def test_all_independently_verified_claims_survive_collection():
     caption = _claim("piece_safety", "gap:piece_safety:simple_hang")
-    research = _claim("fork", "tactic:fork_with_stored_payoff")
-    claims = VerifiedClaimSet.from_claims(POSITION, (caption, research))
+    fork_caption = _claim("fork", "tactic:fork_with_stored_payoff")
+    claims = VerifiedClaimSet.from_claims(POSITION, (caption, fork_caption))
 
     assert {item.claim_type for item in claims.claims} == {"piece_safety", "fork"}
-    assert len(claims.eligible_for(QualitySurface.CAPTION)) == 1
+    assert len(claims.eligible_for(QualitySurface.CAPTION)) == 2
     assert claims.to_document()["claim_count"] == 2
 
 
@@ -95,11 +95,12 @@ def test_unregistered_opportunity_version_cannot_manufacture_mastery():
     )
 
 
-def test_shadow_claim_remains_research_only():
+def test_fork_claim_is_caption_only_after_evidence_promotion():
     claim = _claim("fork", "tactic:fork_with_stored_payoff")
-    assert claim.eligibility.research_only is True
-    assert claim.eligibility.explanation is False
+    assert claim.eligibility.research_only is False
+    assert claim.eligibility.explanation is True
     assert claim.eligibility.plan is False
+    assert claim.eligibility.mastery is False
 
 
 def test_claim_identity_is_deterministic_and_exact_duplicates_collapse():
