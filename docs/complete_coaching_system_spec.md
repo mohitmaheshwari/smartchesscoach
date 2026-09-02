@@ -1,6 +1,6 @@
 # Complete Coaching System — Architecture Spec
 
-**Status:** DRAFT v1 — awaiting Mohit sign-off.  
+**Status:** ARCHITECTURE LOCKED — Mohit approved the recommended direction on 2026-09-02; Phase 1 awaits approval of the Phase 0 evidence lock.
 **Version:** v1 (2026-09-02).  
 **Scope:** largest; multi-phase migration built on `docs/complete_coaching_system_scope.md`.  
 **Audited base:** `origin/working-code` at `656e3374`.  
@@ -12,7 +12,7 @@
 
 ChessGuru already has most of the required pieces, but not one complete learning machine. On the audited base there are 77 dynamically composed curriculum skills, 41 publishable openings, 36 publishable traps, 19 opening-plan lessons, 20 publishable endgames, three detector execution registries, and 53 explicit detector authorizations. Only one authorization is Plan-grade; three are Caption-grade, 44 are Shadow, and five are Disabled. The content is broader than the proven personalized intelligence.
 
-The product also has competing interpretations of learning: `concept_mastery_service`, `focus_mastery_service`, `mastery_gate_service`, `pwc_skill_gate`, legacy Engine 2 study state, and domain trackers can disagree. A lesson can resume across an incompatible content or diagnostic version, several verified puzzle claims are collapsed to one hard-coded winner, and current puzzle attempts lack the assistance and attempt-time rating facts required for honest difficulty or mastery analysis.
+The product also has competing interpretations of learning: `concept_mastery_service`, the legacy `backend/focus_mastery_service.py` path and `/missions/focus-mastery` projection, `mastery_gate_service`, `pwc_skill_gate`, legacy Engine 2 study state, and domain trackers can disagree. A lesson can resume across an incompatible content or diagnostic version, several verified puzzle claims are collapsed to one hard-coded winner, and current puzzle attempts lack the assistance and attempt-time rating facts required for honest difficulty or mastery analysis.
 
 The target is not another coach page or another detector catalog. It is one governed path from stored chess evidence to a verified chess idea, a personal plan, the right teaching act, an unassisted check, a later real-game opportunity, and an honest progress verdict.
 
@@ -88,7 +88,7 @@ The student experience becomes: “Here is the chess idea I saw in your games; h
 
 ### Migration dispositions
 
-- Adapt, compare, then retire player-facing decisions from `focus_mastery_service.py`, `mastery_gate_service.py`, `pwc_skill_gate.py`, legacy `summarize_mastery`, and direct `engine2_skill_builder.pick_next_skill` callers.
+- Adapt, compare, then retire player-facing decisions from `backend/focus_mastery_service.py` and the duplicated `/missions/focus-mastery` projection, `services/mastery_gate_service.py`, `services/pwc_skill_gate.py`, legacy `summarize_mastery`, and direct `engine2_skill_builder.pick_next_skill` callers.
 - Keep domain trackers only as raw evidence producers. They emit `LessonResult`/opportunity facts and never publish “learned” independently.
 - Replace the puzzle builder's single hard-coded winning proof with all verified claims plus a separately selected primary teaching claim.
 - Preserve legacy deep links and records. Withdraw only claims that cannot be reproduced; never delete legitimate games, attempts, content, or provenance.
@@ -183,4 +183,4 @@ Each detector family and destructive migration receives its own data lock, pre-c
 4. **When can human findability affect visible difficulty or move choice?** Current puzzle attempts cannot calibrate it. **Unblock:** collect prospective v2 attempts and blinded opponent/coach review; until then remain shadow or safe-set-only.
 5. **What duration may the personal plan display?** “21 days” is attractive but opportunity cadence varies. **Unblock:** forecast calibration by opportunity rate and completion behavior; show a review date before promising a result date.
 
-**Sign-off required:** approve this architecture and the five Phase 0 measurements. After sign-off, run `/lock-via-data` for the candidate decisions and `/audit-pre-code` before the first runtime edit.
+**Architecture sign-off:** approved on 2026-09-02. **Next sign-off required:** approve `docs/complete_coaching_system_phase0_data_lock_2026_09_02.md`. The Phase 1 pre-code audit remains blocked until that evidence lock is approved.
