@@ -115,7 +115,7 @@ describe("PersonalizedLessonWorkspace", () => {
     });
   };
 
-  test("requires a reason, records requested help, and reports only proved state", async () => {
+  test("accepts the move first, then asks for a reason and reports only proved state", async () => {
     await act(async () => {
       root.render(
         <PersonalizedLessonWorkspace
@@ -127,8 +127,10 @@ describe("PersonalizedLessonWorkspace", () => {
     await settle();
 
     const board = container.querySelector('[data-testid="lesson-board"]');
-    expect(board.disabled).toBe(true);
+    expect(board.disabled).toBe(false);
     expect(container.textContent).toContain("This is the one idea in your current coaching plan");
+    expect(container.textContent).toContain("Make your move first");
+    expect(container.textContent).not.toContain("My pieces stay safe");
 
     const showHelp = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent.includes("Show it on the board")
@@ -136,13 +138,27 @@ describe("PersonalizedLessonWorkspace", () => {
     await act(async () => showHelp.click());
     await settle();
 
+    await act(async () => board.click());
+    await settle();
+    expect(board.disabled).toBe(true);
+    expect(container.textContent).toContain("My pieces stay safe");
+    expect(global.fetch.mock.calls.filter(([url]) => url.endsWith("/respond"))).toHaveLength(0);
+
+    const changeMove = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent.includes("Choose a different move")
+    );
+    await act(async () => changeMove.click());
+    await settle();
+    const resetBoard = container.querySelector('[data-testid="lesson-board"]');
+    expect(resetBoard.disabled).toBe(false);
+    expect(container.textContent).not.toContain("My pieces stay safe");
+    await act(async () => resetBoard.click());
+    await settle();
+
     const reason = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent.includes("My pieces stay safe")
     );
-    act(() => reason.click());
-    expect(board.disabled).toBe(false);
-
-    await act(async () => board.click());
+    await act(async () => reason.click());
     await settle();
 
     const helpCall = global.fetch.mock.calls.find(([url]) => url.endsWith("/help"));

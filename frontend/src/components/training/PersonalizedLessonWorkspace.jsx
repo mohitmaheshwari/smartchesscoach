@@ -91,6 +91,7 @@ export default function PersonalizedLessonWorkspace({
   const [feedback, setFeedback] = useState(null);
   const [help, setHelp] = useState(null);
   const [reasonChoice, setReasonChoice] = useState("");
+  const [pendingMove, setPendingMove] = useState(null);
   const [boardRevision, setBoardRevision] = useState(0);
   const [evidence, setEvidence] = useState(null);
 
@@ -170,12 +171,26 @@ export default function PersonalizedLessonWorkspace({
     }
   };
 
-  const submitMove = async (moveData) => {
+  const stageMove = (moveData) => {
     const current = session?.current_item;
-    if (!current || busy || !reasonChoice) return;
+    if (!current || busy || pendingMove) return;
+    setPendingMove({
+      uci: `${moveData.from}${moveData.to}${moveData.promotion || ""}`,
+      san: moveData.san || "",
+    });
+    setReasonChoice("");
+    setFeedback(null);
+    setError(null);
+    setHelp(null);
+  };
+
+  const submitMove = async (selectedReason) => {
+    const current = session?.current_item;
+    if (!current || busy || !pendingMove || !selectedReason) return;
     setBusy(true);
     setError(null);
     setFeedback(null);
+    setReasonChoice(selectedReason);
     try {
       const response = await fetch(`${API}/training/personalized/session/respond`, {
         method: "POST",
@@ -183,8 +198,8 @@ export default function PersonalizedLessonWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: session.session_id,
-          move: `${moveData.from}${moveData.to}${moveData.promotion || ""}`,
-          reason_choice: reasonChoice,
+          move: pendingMove.uci,
+          reason_choice: selectedReason,
           interaction_id: interactionId("answer"),
         }),
       });
@@ -206,14 +221,26 @@ export default function PersonalizedLessonWorkspace({
         },
         teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
       }));
+      setPendingMove(null);
       setReasonChoice("");
       setBoardRevision((revision) => revision + 1);
     } catch (moveError) {
       setError(moveError.message);
+      setPendingMove(null);
+      setReasonChoice("");
       setBoardRevision((revision) => revision + 1);
     } finally {
       setBusy(false);
     }
+  };
+
+  const chooseDifferentMove = () => {
+    if (busy) return;
+    setPendingMove(null);
+    setReasonChoice("");
+    setFeedback(null);
+    setError(null);
+    setBoardRevision((revision) => revision + 1);
   };
 
   const loadEvidence = async () => {
@@ -274,7 +301,7 @@ export default function PersonalizedLessonWorkspace({
 
   const item = session?.current_item;
   const stage = item?.stage || session?.stage || "guide";
-  const isReady = Boolean(reasonChoice) && !busy;
+  const isReady = !pendingMove && !busy;
   const preferredHelp = session?.teaching_profile?.delivery?.preferred_help;
   const helpActions = [...HELP_ACTIONS].sort((left, right) => (
     left.id === preferredHelp ? -1 : right.id === preferredHelp ? 1 : 0
@@ -294,14 +321,14 @@ export default function PersonalizedLessonWorkspace({
                 key={`${item.item_id}-${boardRevision}`}
                 fen={item.fen}
                 orientation={item.orientation || "white"}
-                onMove={submitMove}
+                onMove={stageMove}
                 interactive={isReady}
                 arrows={[]}
               />
             )}
-            {!reasonChoice && (
+            {!pendingMove && (
               <p className="mt-3 text-xs text-center text-muted-foreground">
-                Choose what you are checking first. Then the board will unlock.
+                Make your move first. Then your coach will ask what you saw.
               </p>
             )}
           </div>
@@ -327,26 +354,49 @@ export default function PersonalizedLessonWorkspace({
                 : "This is a new position chosen for the same idea."}
             </p>
 
-            <fieldset className="mb-5">
-              <legend className="text-sm font-medium text-foreground mb-2">{item?.reason_prompt}</legend>
-              <div className="space-y-2">
-                {(item?.reason_choices || []).map((choice) => (
+            {!pendingMove ? (
+              <div className="mb-5 rounded-xl border border-border/70 bg-muted/25 p-4">
+                <p className="text-sm font-medium text-foreground">Make the move you would choose.</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  I’ll ask what you noticed after the piece lands, so your explanation cannot steer the move.
+                </p>
+              </div>
+            ) : (
+              <fieldset className="mb-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    You played {pendingMove.san || pendingMove.uci}.
+                  </p>
                   <button
                     type="button"
-                    key={choice.id}
-                    aria-pressed={reasonChoice === choice.id}
-                    onClick={() => setReasonChoice(choice.id)}
-                    className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                      reasonChoice === choice.id
-                        ? "border-[#B7F34A] bg-[#B7F34A]/15 text-foreground"
-                        : "border-border hover:bg-muted/60 text-foreground"
-                    }`}
+                    onClick={chooseDifferentMove}
+                    disabled={busy}
+                    className="text-xs font-medium text-emerald-800 hover:underline disabled:opacity-50"
                   >
-                    {choice.label}
+                    Choose a different move
                   </button>
-                ))}
-              </div>
-            </fieldset>
+                </div>
+                <legend className="text-sm font-medium text-foreground mb-2">{item?.reason_prompt}</legend>
+                <div className="space-y-2">
+                  {(item?.reason_choices || []).map((choice) => (
+                    <button
+                      type="button"
+                      key={choice.id}
+                      aria-pressed={reasonChoice === choice.id}
+                      disabled={busy}
+                      onClick={() => submitMove(choice.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors disabled:opacity-50 ${
+                        reasonChoice === choice.id
+                          ? "border-[#B7F34A] bg-[#B7F34A]/15 text-foreground"
+                          : "border-border hover:bg-muted/60 text-foreground"
+                      }`}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             <div className="flex flex-wrap gap-2 mb-5" aria-label="Lesson help">
               {helpActions.map(({ id, label, icon: Icon }) => (
