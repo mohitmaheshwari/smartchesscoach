@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { fenAfterMove } from "@/components/curriculum/homeReplayView";
+import { fenAfterMove, moveVerdict } from "@/components/curriculum/homeReplayView";
 import { dedupeAnchors } from "@/components/curriculum/homeReplayView";
 import { useNavigate } from "react-router-dom";
 import {
@@ -359,12 +359,19 @@ export default function PersonalizedLessonWorkspace({
               <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-300 font-semibold mb-1.5">The idea</p>
               <p className="text-sm leading-relaxed text-foreground">{session?.lesson?.rule}</p>
             </div>
-            <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
-            <p className="text-xs text-muted-foreground mb-4">
-              {item?.source === "own_game"
-                ? "This position comes from one of your games."
-                : "This is a new position chosen for the same idea."}
-            </p>
+            {/* Once a move is staged this question is already answered.
+                Leaving it up put two questions on screen at once and read
+                as if the move had not been made. */}
+            {!pendingMove && (
+              <>
+                <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {item?.source === "own_game"
+                    ? "This position comes from one of your games."
+                    : "This is a new position chosen for the same idea."}
+                </p>
+              </>
+            )}
 
             {!pendingMove ? (
               <div className="mb-5 rounded-xl border border-border/70 bg-muted/25 p-4">
@@ -436,7 +443,29 @@ export default function PersonalizedLessonWorkspace({
                   ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
                   : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
               }`}>
-                <p>{feedback.feedback || (feedback.correct ? "You found it." : "Look once more.")}</p>
+                {(() => {
+                  // The backend returns target_result and soundness, which say
+                  // whether the PIECE ended up safe. "You found it" said nothing
+                  // about the idea being taught.
+                  const verdict = moveVerdict(feedback);
+                  return (
+                    <>
+                      <p className="font-medium">
+                        {verdict
+                          ? verdict.headline
+                          : feedback.correct
+                            ? "You found it."
+                            : "Look once more."}
+                      </p>
+                      {verdict?.soundnessNote && (
+                        <p className="mt-1 text-xs opacity-80">{verdict.soundnessNote}</p>
+                      )}
+                      {feedback.feedback && (
+                        <p className="mt-2">{feedback.feedback}</p>
+                      )}
+                    </>
+                  );
+                })()}
                 {!feedback.correct && feedback.answer_san && (
                   <p className="mt-2">With your coach helping, the move is {feedback.answer_san}. Reset the board and explain what it fixes.</p>
                 )}

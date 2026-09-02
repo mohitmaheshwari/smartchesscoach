@@ -109,3 +109,34 @@ test("empty anchors are dropped rather than rendered blank", () => {
   );
   expect(out).toHaveLength(0);
 });
+
+// --- the training lesson uses the same verdict helper -------------------
+// Reported 2026-09-02: after making a move the lesson said "You found it" or
+// nothing at all, never whether the piece ended up safe.
+
+test("a graded move reports what happened to the piece, not just pass/fail", () => {
+  const backendFeedback = {
+    correct: true,
+    target_result: "pass",
+    soundness: { status: "sound" },
+    feedback: "Nice scan.",
+  };
+  const v = moveVerdict(backendFeedback);
+  expect(v.headline).toBe("Every piece stayed safe.");
+  expect(v.headline).not.toMatch(/you found it/i);
+});
+
+test("a move that hangs a piece says so plainly", () => {
+  const v = moveVerdict({ correct: false, target_result: "fail", soundness: { status: "sound" } });
+  expect(v.headline).toMatch(/left a piece where it can be taken/i);
+});
+
+test("the taught idea and material loss are reported as separate facts", () => {
+  const v = moveVerdict({
+    target_result: "pass",
+    soundness: { status: "serious_problem" },
+  });
+  expect(v.kept).toBe(true);
+  expect(v.soundnessNote).toBeTruthy();
+  expect(v.headline).not.toMatch(/loses material/i);
+});
