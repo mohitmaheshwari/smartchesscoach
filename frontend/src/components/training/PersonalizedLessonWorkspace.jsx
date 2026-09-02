@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { dedupeAnchors } from "@/components/curriculum/homeReplayView";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -56,7 +57,11 @@ function EvidencePanel({ session, evidence, onLoadEvidence }) {
         <p className="text-sm leading-relaxed text-muted-foreground">
           {profile.why_now || "I need one answer from you before I can personalize this further."}
         </p>
-        {(profile.anchors || []).map((anchor, index) => (
+        {/* why_now and an anchor frequently carry the SAME sentence, which
+            rendered it twice here and a third time in the page header. Drop
+            any anchor whose message repeats text already on screen. */}
+        {dedupeAnchors(profile.anchors, profile.why_now)
+          .map((anchor, index) => (
           <div key={`${anchor.type}-${index}`} className="text-xs leading-relaxed">
             <p className="text-foreground">{anchor.message}</p>
           </div>

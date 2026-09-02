@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fenAfterMove, moveVerdict } from "./homeReplayView";
 import {
   ArrowRight,
   CheckCircle2,
@@ -450,6 +451,12 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
   }
 
   const current = session?.current_item;
+  // After the move is submitted the board shows the resulting position,
+  // so the player can see what their own move did.
+  const playedFen = session?.awaiting_reason
+    ? fenAfterMove(session?.current_item?.fen, session?.last_move_san || pendingMove)
+    : null;
+  const verdict = session?.awaiting_reason ? moveVerdict(session) : null;
   if (!current) return null;
   const awaitingReason = Boolean(session?.awaiting_reason);
   const reasonQuestion = current.reason_question || {
@@ -478,7 +485,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
           <LichessBoard
             key={`${current.item_id}-${boardRevision}`}
             ref={boardRef}
-            fen={current.fen}
+            fen={playedFen || current.fen}
             orientation={current.orientation}
             onMove={stageMove}
             interactive={!busy && !awaitingReason}
@@ -505,7 +512,24 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
           ) : (
             <>
               <p className="cg-eyebrow mb-2">Move made</p>
-              {current.move_san && <p className="mb-3 text-[13px] text-muted-foreground">You played {current.move_san}.</p>}
+              {current.move_san && (
+                <p className="mb-2 text-[13px] text-muted-foreground">You played {current.move_san}.</p>
+              )}
+              {verdict && (
+                <div
+                  data-testid="home-replay-move-verdict"
+                  className={`mb-4 rounded-xl border p-3 text-[13px] leading-relaxed ${
+                    verdict.kept
+                      ? "border-emerald-700/20 bg-emerald-500/[0.07] text-emerald-900"
+                      : "border-amber-700/25 bg-amber-500/[0.08] text-amber-900"
+                  }`}
+                >
+                  <p className="font-medium">{verdict.headline}</p>
+                  {verdict.soundnessNote && (
+                    <p className="mt-1 text-[12px] opacity-80">{verdict.soundnessNote}</p>
+                  )}
+                </div>
+              )}
               <h3 className="text-[20px] font-semibold tracking-[-0.02em] text-foreground">{reasonQuestion.prompt}</h3>
               <p className="mt-2 text-[13px] text-muted-foreground">
                 Question {reasonQuestion.progress?.current || 1} of {reasonQuestion.progress?.total || 1}. Choose what you actually saw.
