@@ -13,14 +13,16 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from services.concept_detectors.endgame_curriculum_positions import (
-    detector_id_for_lesson,
-)
 from services.concept_detectors.registry import all_detectors
+from services.concept_contract_registry import (
+    content_ids_for_detector,
+    exact_endgame_content_id,
+    target_concept_ids_for_detector,
+)
 from services.curriculum_content_validator import get_publishable_content_ids
 from services.detector_quality import (
     QualitySurface,
@@ -61,66 +63,6 @@ def _skill_nodes(kinds: Iterable[str]) -> Dict[str, Dict[str, Any]]:
             if isinstance(node, dict):
                 result[skill_id] = node
     return result
-
-
-def _exact_endgame_content_id(detector_id: str) -> Optional[str]:
-    prefix = "endgame_curriculum__"
-    if not detector_id.startswith(prefix):
-        return None
-    encoded = detector_id[len(prefix):]
-    parts = encoded.split("__", 1)
-    return "/".join(parts) if len(parts) == 2 else None
-
-
-def _target_skill_ids(
-    detector_id: str,
-    skills: Dict[str, Dict[str, Any]],
-) -> list[str]:
-    if detector_id == "opening_play":
-        return sorted(
-            skill_id
-            for skill_id, node in skills.items()
-            if node.get("kind") == "opening"
-        )
-    if detector_id == "trap_detection":
-        return sorted(
-            skill_id
-            for skill_id, node in skills.items()
-            if node.get("kind") == "trap_set"
-        )
-    lesson_id = _exact_endgame_content_id(detector_id)
-    if lesson_id:
-        matches = []
-        for skill_id, node in skills.items():
-            if node.get("kind") not in {"endgame", "mate_pattern"}:
-                continue
-            resolved = resolve_content_ref(str(node.get("content_ref") or ""))
-            if resolved and resolved.get("lesson_id") == lesson_id:
-                matches.append(skill_id)
-        return sorted(matches)
-    return [detector_id] if detector_id in skills else []
-
-
-def _content_ids(
-    detector_id: str,
-    target_skill_ids: list[str],
-    skills: Dict[str, Dict[str, Any]],
-) -> list[str]:
-    if detector_id in {"opening_play", "opening_sound_deviation"}:
-        return sorted(get_publishable_content_ids("openings"))
-    if detector_id == "opening_plan_play":
-        return sorted(get_publishable_content_ids("opening_ideas"))
-    if detector_id == "trap_detection":
-        return sorted(get_publishable_content_ids("traps"))
-    exact_endgame = _exact_endgame_content_id(detector_id)
-    if exact_endgame:
-        return [exact_endgame]
-    refs = {
-        str(skills[skill_id].get("content_ref") or "")
-        for skill_id in target_skill_ids
-        if skills[skill_id].get("content_ref")
-    }
-    return sorted(refs)
 
 
 def _workspace_identity(kind: str, content_id: str) -> tuple[str, str]:
@@ -225,8 +167,10 @@ def build_report() -> Dict[str, Any]:
         quality_id = concept_quality_id(detector_id)
         authorization = get_authorization(quality_id)
         family = _family(detector_id, detector.__module__)
-        target_skill_ids = _target_skill_ids(detector_id, skills)
-        content_ids = _content_ids(detector_id, target_skill_ids, skills)
+        target_skill_ids = list(target_concept_ids_for_detector(detector_id, skills))
+        content_ids = list(content_ids_for_detector(
+            detector_id, target_skill_ids, skills
+        ))
         workspace = _workspace_support(
             content_ids, target_skill_ids, skills, family
         )
@@ -262,7 +206,7 @@ def build_report() -> Dict[str, Any]:
         row["detector_id"]
         for row in rows
         if not row["curriculum_mapped"]
-        and not row["detector_id"].startswith("endgame_curriculum__")
+        and exact_endgame_content_id(row["detector_id"]) is None
     ]
     return {
         "schema_version": SCHEMA_VERSION,

@@ -1,0 +1,2574 @@
+{
+  "caption_claim": "The stored best move puts the moved knight, bishop, rook or pawn where it attacks at least two qualifying opponent pieces at once.",
+  "database_writes": 0,
+  "fires": [
+    {
+      "best_move_uci": "g5f6",
+      "candidate_fired": true,
+      "case_id": "59357d5d3d70d822158a",
+      "cp_loss": 136,
+      "fen_before": "4kb1r/r1pn1p2/1p1p2pp/p2Nn1B1/Q7/3P4/PPP2PPP/R4RK1 w - - 0 20",
+      "gold": {
+        "captured_target": "h8",
+        "fork_square": "f6",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g5f6",
+          "c7c6",
+          "f6h8",
+          "c6d5",
+          "g1h1"
+        ],
+        "targets": [
+          "e5",
+          "h8"
+        ]
+      },
+      "played_move_uci": "d5f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "c6",
+        "Bxh8",
+        "cxd5",
+        "Kh1"
+      ],
+      "source_key": "b496f69c0f9154996fa7"
+    },
+    {
+      "best_move_uci": "e3c5",
+      "candidate_fired": true,
+      "case_id": "187a3c9d962d952f9ddb",
+      "cp_loss": 295,
+      "fen_before": "r3k2r/4n1pp/2p3b1/8/1nP5/4B3/P4PPP/R3R1K1 w kq - 0 21",
+      "gold": {
+        "captured_target": "b4",
+        "fork_square": "c5",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e3c5",
+          "e8c8",
+          "c5b4",
+          "e7f5",
+          "e1e5"
+        ],
+        "targets": [
+          "b4",
+          "e7"
+        ]
+      },
+      "played_move_uci": "a1b1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "O-O-O",
+        "Bxb4",
+        "Nf5",
+        "Re5"
+      ],
+      "source_key": "364d34f6a4c4cf58da41"
+    },
+    {
+      "best_move_uci": "d6c4",
+      "candidate_fired": true,
+      "case_id": "ee1cad70d7f2d393ff2b",
+      "cp_loss": 339,
+      "fen_before": "r1b4r/pp1pkppp/1qnNp3/4P3/5P2/3BbN2/PP4PP/R1B2Q1K w - - 5 15",
+      "gold": {
+        "captured_target": "b6",
+        "fork_square": "c4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d6c4",
+          "e3c5",
+          "c4b6",
+          "a7b6",
+          "c1d2"
+        ],
+        "targets": [
+          "e3",
+          "b6"
+        ]
+      },
+      "played_move_uci": "c1e3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bc5",
+        "Nxb6",
+        "axb6",
+        "Bd2"
+      ],
+      "source_key": "73402680ddd9f7e13c27"
+    },
+    {
+      "best_move_uci": "c4f7",
+      "candidate_fired": true,
+      "case_id": "499d178a6d9d996839c9",
+      "cp_loss": 394,
+      "fen_before": "r1bqr1k1/ppp2p1p/3b1p1B/8/2Bn4/2P5/PP3PPP/R2QR1K1 w - - 0 15",
+      "gold": {
+        "captured_target": "e8",
+        "fork_square": "f7",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 1000,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c4f7",
+          "g8h8",
+          "e1e8",
+          "d8e8",
+          "f7e8"
+        ],
+        "targets": [
+          "e8",
+          "g8"
+        ]
+      },
+      "played_move_uci": "d1d4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kh8",
+        "Rxe8+",
+        "Qxe8",
+        "Bxe8"
+      ],
+      "source_key": "239226e99260805a37be"
+    },
+    {
+      "best_move_uci": "e3f3",
+      "candidate_fired": true,
+      "case_id": "3cb0755fd2c3c6ca5c2b",
+      "cp_loss": 547,
+      "fen_before": "6k1/5pp1/n1pr4/pp6/5N1P/P3rP2/BPP5/2R2KR1 b - - 2 31",
+      "gold": {
+        "captured_target": "f4",
+        "fork_square": "f3",
+        "forking_piece": "rook",
+        "net_material_gain_cp": 900,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e3f3",
+          "f1g2",
+          "f3f4",
+          "g1f1",
+          "f4f1"
+        ],
+        "targets": [
+          "f1",
+          "f4"
+        ]
+      },
+      "played_move_uci": "d6d8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kg2",
+        "Rxf4",
+        "Rgf1",
+        "Rxf1"
+      ],
+      "source_key": "ef0b3b1b2943f7e8178d"
+    },
+    {
+      "best_move_uci": "d5d4",
+      "candidate_fired": true,
+      "case_id": "c2f3ae1dc0f6e3f8fec4",
+      "cp_loss": 306,
+      "fen_before": "r4rk1/p3bpp1/1qp1p2p/3p3P/5B2/2N1RQ1P/PPP2P2/4R2K b - - 5 21",
+      "gold": {
+        "captured_target": "e3",
+        "fork_square": "d4",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": 400,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5d4",
+          "e1g1",
+          "d4e3",
+          "f4e3",
+          "b6a5"
+        ],
+        "targets": [
+          "c3",
+          "e3"
+        ]
+      },
+      "played_move_uci": "g8h7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rg1",
+        "dxe3",
+        "Bxe3",
+        "Qa5"
+      ],
+      "source_key": "daa9cc9b5a4a06ce4cd1"
+    },
+    {
+      "best_move_uci": "b4c2",
+      "candidate_fired": true,
+      "case_id": "168a0ac703b28ae2e921",
+      "cp_loss": 160,
+      "fen_before": "1kr2b1r/pp3Bpp/8/4N3/bn6/PP6/3P1PPP/R1BKR3 b - - 0 19",
+      "gold": {
+        "captured_target": "a1",
+        "fork_square": "c2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "b4c2",
+          "b3a4",
+          "c2a1",
+          "f7c4",
+          "a7a6"
+        ],
+        "targets": [
+          "a1",
+          "e1"
+        ]
+      },
+      "played_move_uci": "a4b3",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "bxa4",
+        "Nxa1",
+        "Bc4",
+        "a6"
+      ],
+      "source_key": "94ca1fed395b40391ef2"
+    },
+    {
+      "best_move_uci": "e4g3",
+      "candidate_fired": true,
+      "case_id": "6a72c33220228c775515",
+      "cp_loss": 203,
+      "fen_before": "5rk1/p4p1p/2p2p2/3ppb2/1r2n3/4PP1P/P3K1P1/R3NB1R b - - 0 23",
+      "gold": {
+        "captured_target": "h1",
+        "fork_square": "g3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 800,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e4g3",
+          "e2d2",
+          "g3h1",
+          "e1d3",
+          "f5d3"
+        ],
+        "targets": [
+          "f1",
+          "h1",
+          "e2"
+        ]
+      },
+      "played_move_uci": "e4c3",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kd2",
+        "Nxh1",
+        "Nd3",
+        "Bxd3"
+      ],
+      "source_key": "2e2826a8bb0ae3592e16"
+    },
+    {
+      "best_move_uci": "f3g5",
+      "candidate_fired": true,
+      "case_id": "c87f0508d5d3e8344902",
+      "cp_loss": 810,
+      "fen_before": "r2q3r/pp2pkbp/2nPb1p1/8/2Q3n1/2P2N2/PP3PPP/RNB2RK1 w - - 1 12",
+      "gold": {
+        "captured_target": "e6",
+        "fork_square": "g5",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 1200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "f3g5",
+          "f7e8",
+          "g5e6",
+          "g7d4",
+          "e6d8"
+        ],
+        "targets": [
+          "e6",
+          "f7"
+        ]
+      },
+      "played_move_uci": "c4f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ke8",
+        "Nxe6",
+        "Bd4",
+        "Nxd8"
+      ],
+      "source_key": "48a1499f1cf50b57f602"
+    },
+    {
+      "best_move_uci": "d5c7",
+      "candidate_fired": true,
+      "case_id": "e568a9d0f1b1cb200f40",
+      "cp_loss": 352,
+      "fen_before": "rnb1kbnr/ppp2ppp/8/3Np3/3q1N2/8/PPPP1PPP/R1BQKB1R w KQkq - 2 7",
+      "gold": {
+        "captured_target": "a8",
+        "fork_square": "c7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5c7",
+          "e8d8",
+          "f4e2",
+          "d4d7",
+          "c7a8"
+        ],
+        "targets": [
+          "a8",
+          "e8"
+        ]
+      },
+      "played_move_uci": "c2c3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd8",
+        "Ne2",
+        "Qd7",
+        "Nxa8"
+      ],
+      "source_key": "c88ad17545070cddcdd3"
+    },
+    {
+      "best_move_uci": "d5b7",
+      "candidate_fired": true,
+      "case_id": "c3e29abf64378ec92f25",
+      "cp_loss": 261,
+      "fen_before": "rnbq1bnr/ppp3p1/6k1/3BQ2p/4P2P/8/PPPP1PP1/RNB1K2R w KQ - 0 9",
+      "gold": {
+        "captured_target": "a8",
+        "fork_square": "b7",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5b7",
+          "f8d6",
+          "e5a5",
+          "g8e7",
+          "b7a8"
+        ],
+        "targets": [
+          "a8",
+          "c8"
+        ]
+      },
+      "played_move_uci": "e5g3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd6",
+        "Qa5",
+        "Ne7",
+        "Bxa8"
+      ],
+      "source_key": "5f939a39a1cd2c3497ba"
+    },
+    {
+      "best_move_uci": "c3e2",
+      "candidate_fired": true,
+      "case_id": "54b2b20db0aeb03f73dd",
+      "cp_loss": 302,
+      "fen_before": "5r2/6kp/4B3/5p2/1P1R4/P1n1PP1P/2rR2P1/6K1 b - - 2 33",
+      "gold": {
+        "captured_target": "d4",
+        "fork_square": "e2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c3e2",
+          "g1h2",
+          "e2d4",
+          "d2d4",
+          "c2e2"
+        ],
+        "targets": [
+          "g1",
+          "d4"
+        ]
+      },
+      "played_move_uci": "c2c1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kh2",
+        "Nxd4",
+        "Rxd4",
+        "Re2"
+      ],
+      "source_key": "dcdfce15dfd94258caed"
+    },
+    {
+      "best_move_uci": "f3d4",
+      "candidate_fired": true,
+      "case_id": "b3692b0d288c7ab64a25",
+      "cp_loss": 444,
+      "fen_before": "r3k2r/pp1n1ppp/4bn2/1Qb2q2/4RB2/2N2N2/PPP3PP/2K2B1R w kq - 5 13",
+      "gold": {
+        "captured_target": "f5",
+        "fork_square": "d4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 400,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "f3d4",
+          "f6e4",
+          "d4f5",
+          "e6f5",
+          "c3e4"
+        ],
+        "targets": [
+          "f5",
+          "e6"
+        ]
+      },
+      "played_move_uci": "e4e6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nxe4",
+        "Nxf5",
+        "Bxf5",
+        "Nxe4"
+      ],
+      "source_key": "139f3a7f826417642b34"
+    },
+    {
+      "best_move_uci": "c5d3",
+      "candidate_fired": true,
+      "case_id": "ac120a9addd9a5af739e",
+      "cp_loss": 292,
+      "fen_before": "2r2rk1/1p2b1p1/p2pp2p/2n5/4P3/P3BP1P/1PPN2P1/2KRR3 b - - 0 22",
+      "gold": {
+        "captured_target": "e1",
+        "fork_square": "d3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c5d3",
+          "c1b1",
+          "d3e1",
+          "d1e1",
+          "b7b5"
+        ],
+        "targets": [
+          "c1",
+          "e1"
+        ]
+      },
+      "played_move_uci": "b7b5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kb1",
+        "Nxe1",
+        "Rxe1",
+        "b5"
+      ],
+      "source_key": "17ef3719d728f2e068a6"
+    },
+    {
+      "best_move_uci": "g5f7",
+      "candidate_fired": true,
+      "case_id": "93bcda8095af2dc6c0df",
+      "cp_loss": 684,
+      "fen_before": "rnbq1bn1/pp1k2p1/2p1ppBr/3pP1Np/3P4/5Q2/PPP2PPP/RNB1K2R w KQ - 6 9",
+      "gold": {
+        "captured_target": "h6",
+        "fork_square": "f7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 500,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g5f7",
+          "d8e7",
+          "c1h6",
+          "g8h6",
+          "f7h6"
+        ],
+        "targets": [
+          "h6",
+          "d8"
+        ]
+      },
+      "played_move_uci": "e1g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qe7",
+        "Bxh6",
+        "Nxh6",
+        "Nxh6"
+      ],
+      "source_key": "d8f2b4a0c9efb09de5ef"
+    },
+    {
+      "best_move_uci": "e4f2",
+      "candidate_fired": true,
+      "case_id": "efcfaa007a3cfd184e17",
+      "cp_loss": 891,
+      "fen_before": "rn2k2r/pp3ppp/2p1pq2/3p1b2/2PPn3/PPN1P3/1B2BPPP/R2QK2R b KQkq - 2 10",
+      "gold": {
+        "captured_target": "d1",
+        "fork_square": "f2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 700,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e4f2",
+          "e1f2",
+          "f5c2",
+          "e2f3",
+          "c2d1"
+        ],
+        "targets": [
+          "d1",
+          "h1"
+        ]
+      },
+      "played_move_uci": "f5h3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kxf2",
+        "Bc2+",
+        "Bf3",
+        "Bxd1"
+      ],
+      "source_key": "d6fcbeef5da197be47cc"
+    },
+    {
+      "best_move_uci": "h5g3",
+      "candidate_fired": true,
+      "case_id": "b4872ecc150bb1323d31",
+      "cp_loss": 557,
+      "fen_before": "r2q1rk1/ppp3pp/2n5/3bp2n/1P6/P2P2PP/1B1NQN2/R3KB1R b KQ - 0 15",
+      "gold": {
+        "captured_target": "h1",
+        "fork_square": "g3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "h5g3",
+          "e2e3",
+          "g3h1",
+          "f2h1",
+          "d5h1"
+        ],
+        "targets": [
+          "f1",
+          "h1",
+          "e2"
+        ]
+      },
+      "played_move_uci": "d5h1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qe3",
+        "Nxh1",
+        "Nxh1",
+        "Bxh1"
+      ],
+      "source_key": "b06eec65c9b3733c550b"
+    },
+    {
+      "best_move_uci": "g5f7",
+      "candidate_fired": true,
+      "case_id": "932926700e09d4b3d3d4",
+      "cp_loss": 319,
+      "fen_before": "r1bqkb1r/1pp2ppp/p1n5/3np1N1/2B5/2N5/PPPP1PPP/R1BQK2R w KQkq - 0 7",
+      "gold": {
+        "captured_target": "h8",
+        "fork_square": "f7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 900,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g5f7",
+          "d8h4",
+          "c4d5",
+          "c6b4",
+          "f7h8"
+        ],
+        "targets": [
+          "d8",
+          "h8"
+        ]
+      },
+      "played_move_uci": "c4d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qh4",
+        "Bxd5",
+        "Nb4",
+        "Nxh8"
+      ],
+      "source_key": "76f8ac4f712426990141"
+    },
+    {
+      "best_move_uci": "g5e6",
+      "candidate_fired": true,
+      "case_id": "36b3a611f5c7f22e1d47",
+      "cp_loss": 704,
+      "fen_before": "rnbq1b2/pp1knQp1/2p1pp1r/3pP1N1/3P4/8/PPP2PPP/RNB2RK1 w - - 3 12",
+      "gold": {
+        "captured_target": "f8",
+        "fork_square": "e6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 1300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g5e6",
+          "d8e8",
+          "e6f8",
+          "d7d8",
+          "f7e8"
+        ],
+        "targets": [
+          "d8",
+          "f8"
+        ]
+      },
+      "played_move_uci": "e5f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qe8",
+        "Nxf8+",
+        "Kd8",
+        "Qxe8+"
+      ],
+      "source_key": "6d098bb58c1d688417ad"
+    },
+    {
+      "best_move_uci": "g5f7",
+      "candidate_fired": true,
+      "case_id": "de4e9db1dc998cd93efc",
+      "cp_loss": 162,
+      "fen_before": "r1bqk2r/pppp1ppp/2n2n2/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R w KQkq - 6 5",
+      "gold": {
+        "captured_target": "h8",
+        "fork_square": "f7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 500,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g5f7",
+          "c5f2",
+          "e1f1",
+          "d8e7",
+          "f7h8"
+        ],
+        "targets": [
+          "d8",
+          "h8"
+        ]
+      },
+      "played_move_uci": "e1g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bxf2+",
+        "Kf1",
+        "Qe7",
+        "Nxh8"
+      ],
+      "source_key": "beda871c32daaa9548ac"
+    },
+    {
+      "best_move_uci": "c4f7",
+      "candidate_fired": true,
+      "case_id": "5e10285cb6015aa5c485",
+      "cp_loss": 369,
+      "fen_before": "r1bqr1k1/pppnbppp/3p1n2/8/2BQP3/2N2N1P/PPP2PP1/R1B2RK1 w - - 5 9",
+      "gold": {
+        "captured_target": "e8",
+        "fork_square": "f7",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c4f7",
+          "g8h8",
+          "f7e8",
+          "d8e8",
+          "d4d1"
+        ],
+        "targets": [
+          "e8",
+          "g8"
+        ]
+      },
+      "played_move_uci": "c1g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kh8",
+        "Bxe8",
+        "Qxe8",
+        "Qd1"
+      ],
+      "source_key": "3f781e225bf82e81676a"
+    },
+    {
+      "best_move_uci": "e5c4",
+      "candidate_fired": true,
+      "case_id": "4f24f67661f36b8a45db",
+      "cp_loss": 172,
+      "fen_before": "r3r1k1/ppp2pbp/3p2q1/3Nn2p/2P1P3/4B2P/PP1Q1PP1/3R1R1K b - - 3 16",
+      "gold": {
+        "captured_target": "e3",
+        "fork_square": "c4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 100,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e5c4",
+          "d2e2",
+          "c4e3",
+          "f2e3",
+          "a8c8"
+        ],
+        "targets": [
+          "d2",
+          "e3"
+        ]
+      },
+      "played_move_uci": "a8c8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qe2",
+        "Nxe3",
+        "fxe3",
+        "Rac8"
+      ],
+      "source_key": "b7727936ef49c38da44a"
+    },
+    {
+      "best_move_uci": "d5e3",
+      "candidate_fired": true,
+      "case_id": "b0f06cfabc7ee05d89cb",
+      "cp_loss": 156,
+      "fen_before": "r1bqkb1r/ppp2ppp/2n5/3np1P1/2B1p2P/4R3/PPPP1P2/RNBQK1N1 b Qkq - 2 7",
+      "gold": {
+        "captured_target": "d1",
+        "fork_square": "e3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5e3",
+          "d2e3",
+          "d8d1",
+          "e1d1",
+          "c8g4"
+        ],
+        "targets": [
+          "d1",
+          "c4"
+        ]
+      },
+      "played_move_uci": "d5f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "dxe3",
+        "Qxd1+",
+        "Kxd1",
+        "Bg4+"
+      ],
+      "source_key": "aa01c90bed0ad8ce7c0e"
+    },
+    {
+      "best_move_uci": "c5b3",
+      "candidate_fired": true,
+      "case_id": "37467dc702759d46114d",
+      "cp_loss": 182,
+      "fen_before": "2kr1b1r/pp3pp1/2p1p1p1/q1n5/3P4/2P3P1/PP1Q1PBP/R3K2R b KQ - 2 15",
+      "gold": {
+        "captured_target": "a1",
+        "fork_square": "b3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c5b3",
+          "a2b3",
+          "a5a1",
+          "e1e2",
+          "a1a6"
+        ],
+        "targets": [
+          "a1",
+          "d2"
+        ]
+      },
+      "played_move_uci": "c5a4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "axb3",
+        "Qxa1+",
+        "Ke2",
+        "Qa6+"
+      ],
+      "source_key": "e7daff57d48d9bcfaef2"
+    },
+    {
+      "best_move_uci": "e5c6",
+      "candidate_fired": true,
+      "case_id": "4ae8ef6fd77838233417",
+      "cp_loss": 382,
+      "fen_before": "1r1q3r/2Rnkppp/p3p3/4N3/3P4/P3P3/5PPP/2Q2bK1 w - - 0 26",
+      "gold": {
+        "captured_target": "d8",
+        "fork_square": "c6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 900,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e5c6",
+          "e7f6",
+          "c6d8",
+          "h8d8",
+          "c1f1"
+        ],
+        "targets": [
+          "e7",
+          "b8",
+          "d8"
+        ]
+      },
+      "played_move_uci": "c7d7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kf6",
+        "Nxd8",
+        "Rhxd8",
+        "Qxf1"
+      ],
+      "source_key": "d568f6b8300bfdf06a7e"
+    },
+    {
+      "best_move_uci": "f3d4",
+      "candidate_fired": true,
+      "case_id": "20d098b0532b2a8b5583",
+      "cp_loss": 128,
+      "fen_before": "6k1/5p1p/2r3p1/p1bNPb2/1p5P/1P3N2/P1P1RPP1/1K6 w - - 6 29",
+      "gold": {
+        "captured_target": "f5",
+        "fork_square": "d4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "f3d4",
+          "c6c8",
+          "e2d2",
+          "g8g7",
+          "d4f5"
+        ],
+        "targets": [
+          "f5",
+          "c6"
+        ]
+      },
+      "played_move_uci": "b1b2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Rc8",
+        "Rd2",
+        "Kg7",
+        "Nxf5+"
+      ],
+      "source_key": "24de489cae747b8c3496"
+    },
+    {
+      "best_move_uci": "d4d5",
+      "candidate_fired": true,
+      "case_id": "35096f10045a011f00c2",
+      "cp_loss": 432,
+      "fen_before": "r2qkbnr/ppp2ppp/2npb3/4p3/3PP3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 1 5",
+      "gold": {
+        "captured_target": "c6",
+        "fork_square": "d5",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4d5",
+          "e6c8",
+          "d5c6",
+          "b7c6",
+          "f1c4"
+        ],
+        "targets": [
+          "c6",
+          "e6"
+        ]
+      },
+      "played_move_uci": "d4e5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bc8",
+        "dxc6",
+        "bxc6",
+        "Bc4"
+      ],
+      "source_key": "3649a67bb0701115dfd0"
+    },
+    {
+      "best_move_uci": "d6d5",
+      "candidate_fired": true,
+      "case_id": "b08115bd1ddbe8efba06",
+      "cp_loss": 403,
+      "fen_before": "r1bqk2r/ppp1b1pp/2np1n2/4p1B1/2B1N3/P2P1P2/1PP3PP/R2QK1NR b KQkq - 0 8",
+      "gold": {
+        "captured_target": "e4",
+        "fork_square": "d5",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d6d5",
+          "g5f6",
+          "g7f6",
+          "c4a2",
+          "d5e4"
+        ],
+        "targets": [
+          "c4",
+          "e4"
+        ]
+      },
+      "played_move_uci": "f6e4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bxf6",
+        "gxf6",
+        "Ba2",
+        "dxe4"
+      ],
+      "source_key": "1fc49c92d92faa914146"
+    },
+    {
+      "best_move_uci": "e5d7",
+      "candidate_fired": true,
+      "case_id": "248f89b06be92fbff607",
+      "cp_loss": 208,
+      "fen_before": "1k3b1r/Npp5/4rq1p/p2bNpp1/P4P2/3PB2Q/1PP3PP/R4RK1 w - - 3 21",
+      "gold": {
+        "captured_target": "f6",
+        "fork_square": "d7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 1100,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e5d7",
+          "b8a8",
+          "d7f6",
+          "d5g2",
+          "h3g2"
+        ],
+        "targets": [
+          "f6",
+          "b8",
+          "f8"
+        ]
+      },
+      "played_move_uci": "c2c4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Ka8",
+        "Nxf6",
+        "Bxg2",
+        "Qxg2"
+      ],
+      "source_key": "1f2ed5b33eb936870e32"
+    },
+    {
+      "best_move_uci": "f3e5",
+      "candidate_fired": true,
+      "case_id": "583e3fb94e6b4be4a365",
+      "cp_loss": 450,
+      "fen_before": "rn4k1/1pp1br1p/p1q1p1pB/3n4/P2P4/2P2N2/1P2QPPP/R3K2R w KQ - 3 19",
+      "gold": {
+        "captured_target": "f7",
+        "fork_square": "e5",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "f3e5",
+          "c6e8",
+          "e5f7",
+          "e8f7",
+          "e1g1"
+        ],
+        "targets": [
+          "c6",
+          "f7"
+        ]
+      },
+      "played_move_uci": "f3g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qe8",
+        "Nxf7",
+        "Qxf7",
+        "O-O"
+      ],
+      "source_key": "505f07f5dca69ee7b1a7"
+    },
+    {
+      "best_move_uci": "d3f2",
+      "candidate_fired": true,
+      "case_id": "cae64c9899260c273f9a",
+      "cp_loss": 557,
+      "fen_before": "r4knr/1p1B1ppp/p4q2/3pp3/6QP/P1Pn1P2/P2P2P1/R1BK3R b - - 0 15",
+      "gold": {
+        "captured_target": "g4",
+        "fork_square": "f2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 900,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d3f2",
+          "d1e1",
+          "f2g4",
+          "a1b1",
+          "a8b8"
+        ],
+        "targets": [
+          "d1",
+          "h1",
+          "g4"
+        ]
+      },
+      "played_move_uci": "d3f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ke1",
+        "Nxg4",
+        "Rb1",
+        "Rb8"
+      ],
+      "source_key": "12d834d7ce2bbfabd0ba"
+    },
+    {
+      "best_move_uci": "d4e5",
+      "candidate_fired": true,
+      "case_id": "eb72feb3e94b73b24517",
+      "cp_loss": 579,
+      "fen_before": "3r1rk1/1pp2ppp/3q4/1P5b/3B1n2/2PP1N1P/5PP1/R2QR1K1 w - - 2 22",
+      "gold": {
+        "captured_target": "f4",
+        "fork_square": "e5",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4e5",
+          "d6g6",
+          "e5f4",
+          "d8d3",
+          "d1c1"
+        ],
+        "targets": [
+          "f4",
+          "d6"
+        ]
+      },
+      "played_move_uci": "d1e2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qg6",
+        "Bxf4",
+        "Rxd3",
+        "Qc1"
+      ],
+      "source_key": "d88490cf36cb86978bcd"
+    },
+    {
+      "best_move_uci": "d4b5",
+      "candidate_fired": true,
+      "case_id": "9d267b7b82f201ed7c60",
+      "cp_loss": 253,
+      "fen_before": "rnb2rk1/ppb2ppp/3q1n2/3p2B1/3N4/2P2N2/PP2BPPP/R2Q1RK1 w - - 7 12",
+      "gold": {
+        "captured_target": "c7",
+        "fork_square": "b5",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4b5",
+          "d6d8",
+          "g5f6",
+          "g7f6",
+          "b5c7"
+        ],
+        "targets": [
+          "d6",
+          "c7"
+        ]
+      },
+      "played_move_uci": "d1d3",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qd8",
+        "Bxf6",
+        "gxf6",
+        "Nxc7"
+      ],
+      "source_key": "31725baed79827132ac3"
+    },
+    {
+      "best_move_uci": "d4c2",
+      "candidate_fired": true,
+      "case_id": "c42b2f612f455462c664",
+      "cp_loss": 266,
+      "fen_before": "r1bqkb1r/pppppppp/5n2/8/2BnPQ2/8/PPPP1PPP/RNB1K1NR b KQkq - 6 4",
+      "gold": {
+        "captured_target": "a1",
+        "fork_square": "c2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4c2",
+          "e1d1",
+          "c2a1",
+          "g1f3",
+          "d7d5"
+        ],
+        "targets": [
+          "a1",
+          "e1"
+        ]
+      },
+      "played_move_uci": "e7e6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd1",
+        "Nxa1",
+        "Nf3",
+        "d5"
+      ],
+      "source_key": "bff30e737838b0eeec33"
+    },
+    {
+      "best_move_uci": "g4f2",
+      "candidate_fired": true,
+      "case_id": "37b87f331caed304805a",
+      "cp_loss": 634,
+      "fen_before": "r2q1rk1/ppp1b1p1/3pp2p/4p1N1/3nP1nP/2NP4/PPPB1PP1/R2QK2R b KQ - 5 12",
+      "gold": {
+        "captured_target": "d1",
+        "fork_square": "f2",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 1000,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "g4f2",
+          "c3b5",
+          "f2d1",
+          "b5d4",
+          "e5d4"
+        ],
+        "targets": [
+          "d1",
+          "h1"
+        ]
+      },
+      "played_move_uci": "h6g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nb5",
+        "Nxd1",
+        "Nxd4",
+        "exd4"
+      ],
+      "source_key": "8efeb4025b99befb5529"
+    },
+    {
+      "best_move_uci": "c5d4",
+      "candidate_fired": true,
+      "case_id": "4224a7efbcc1e72a95f0",
+      "cp_loss": 381,
+      "fen_before": "rnbqk2r/pppp1ppp/5n2/2b1N3/4P3/2N5/PPPP1PPP/R1BQKB1R b KQkq - 0 4",
+      "gold": {
+        "captured_target": "c3",
+        "fork_square": "d4",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 100,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c5d4",
+          "e5f3",
+          "d4c3",
+          "d2c3",
+          "f6e4"
+        ],
+        "targets": [
+          "c3",
+          "e5"
+        ]
+      },
+      "played_move_uci": "f6e4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nf3",
+        "Bxc3",
+        "dxc3",
+        "Nxe4"
+      ],
+      "source_key": "f9ff64b41edcdf1472ab"
+    },
+    {
+      "best_move_uci": "d5f6",
+      "candidate_fired": true,
+      "case_id": "e49cb095555f2b1f7837",
+      "cp_loss": 663,
+      "fen_before": "r3k2r/2pqn3/2bp1p1p/pp1N2p1/4P3/6B1/PPPQ1PPP/2KR3R w kq - 0 18",
+      "gold": {
+        "captured_target": "d7",
+        "fork_square": "f6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 700,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5f6",
+          "e8f7",
+          "f6d7",
+          "c6d7",
+          "d2e2"
+        ],
+        "targets": [
+          "d7",
+          "e8"
+        ]
+      },
+      "played_move_uci": "d5e7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kf7",
+        "Nxd7",
+        "Bxd7",
+        "Qe2"
+      ],
+      "source_key": "7ea4bfec9dc9379a46e7"
+    },
+    {
+      "best_move_uci": "e5e4",
+      "candidate_fired": true,
+      "case_id": "7ddf1c665ca6d2d7148a",
+      "cp_loss": 684,
+      "fen_before": "5r2/1p1k1p1p/p2p1Qp1/3Pp1P1/2q4P/3R1R2/P3K3/8 b - - 9 30",
+      "gold": {
+        "captured_target": "d3",
+        "fork_square": "e4",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e5e4",
+          "f3f4",
+          "c4d3",
+          "e2f2",
+          "d3d5"
+        ],
+        "targets": [
+          "d3",
+          "f3"
+        ]
+      },
+      "played_move_uci": "c4h4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rf4",
+        "Qxd3+",
+        "Kf2",
+        "Qxd5"
+      ],
+      "source_key": "2203efe80b08bc66b299"
+    },
+    {
+      "best_move_uci": "d4c6",
+      "candidate_fired": true,
+      "case_id": "ce4fa41efb627f54ad03",
+      "cp_loss": 296,
+      "fen_before": "1q4rk/4bp2/4b2p/4r1p1/2PN4/Pp2P1Q1/1P2BPPP/2RR2K1 w - - 0 24",
+      "gold": {
+        "captured_target": "b8",
+        "fork_square": "c6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4c6",
+          "e7d6",
+          "c6b8",
+          "d6b8",
+          "g3f3"
+        ],
+        "targets": [
+          "e5",
+          "e7",
+          "b8"
+        ]
+      },
+      "played_move_uci": "d4b3",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bd6",
+        "Nxb8",
+        "Bxb8",
+        "Qf3"
+      ],
+      "source_key": "4b3076689b61a3d533aa"
+    },
+    {
+      "best_move_uci": "c7e6",
+      "candidate_fired": true,
+      "case_id": "36a96cfc18b299534b8d",
+      "cp_loss": 285,
+      "fen_before": "2n5/1pN3k1/4p2p/p1b1N1p1/1nP5/2B5/PP2KpPP/8 w - - 4 30",
+      "gold": {
+        "captured_target": "c5",
+        "fork_square": "e6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c7e6",
+          "g7f6",
+          "e6c5",
+          "b4a2",
+          "c3d4"
+        ],
+        "targets": [
+          "c5",
+          "g7"
+        ]
+      },
+      "played_move_uci": "a2a3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kf6",
+        "Nxc5",
+        "Nxa2",
+        "Bd4"
+      ],
+      "source_key": "35533150ea3bf520bace"
+    },
+    {
+      "best_move_uci": "e5f7",
+      "candidate_fired": true,
+      "case_id": "c94a46c58e99e25cfde3",
+      "cp_loss": 172,
+      "fen_before": "2kr3r/ppp2ppp/4nn2/4N3/1b2P3/2N2P2/PPP3PP/R1B1K2R w KQ - 3 11",
+      "gold": {
+        "captured_target": "d8",
+        "fork_square": "f7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 500,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e5f7",
+          "e6d4",
+          "f7d8",
+          "d4c2",
+          "e1d1"
+        ],
+        "targets": [
+          "d8",
+          "h8"
+        ]
+      },
+      "played_move_uci": "c1d2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nd4",
+        "Nxd8",
+        "Nxc2+",
+        "Kd1"
+      ],
+      "source_key": "ce5c3865c315bb81a9c6"
+    },
+    {
+      "best_move_uci": "b4c3",
+      "candidate_fired": true,
+      "case_id": "4c253a7b63d245257d10",
+      "cp_loss": 469,
+      "fen_before": "r1b1k1nr/ppp1nppp/3p4/3P4/1bB5/1PN2N2/P4PPP/R1B1K2R b KQkq - 0 11",
+      "gold": {
+        "captured_target": "a1",
+        "fork_square": "c3",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 800,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "b4c3",
+          "c1d2",
+          "c3a1",
+          "e1g1",
+          "a1f6"
+        ],
+        "targets": [
+          "a1",
+          "e1"
+        ]
+      },
+      "played_move_uci": "g8f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bd2",
+        "Bxa1",
+        "O-O",
+        "Bf6"
+      ],
+      "source_key": "0d628e6550af659194f0"
+    },
+    {
+      "best_move_uci": "c5d4",
+      "candidate_fired": true,
+      "case_id": "1fb0fab090bda536612e",
+      "cp_loss": 356,
+      "fen_before": "r7/pR3pk1/6b1/2B5/8/2n5/P1P2PPP/6K1 w - - 0 26",
+      "gold": {
+        "captured_target": "c3",
+        "fork_square": "d4",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c5d4",
+          "g7h7",
+          "d4c3",
+          "a8c8",
+          "c3b2"
+        ],
+        "targets": [
+          "c3",
+          "g7"
+        ]
+      },
+      "played_move_uci": "b7a7",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kh7",
+        "Bxc3",
+        "Rc8",
+        "Bb2"
+      ],
+      "source_key": "8f07d63639e2ed9808a3"
+    },
+    {
+      "best_move_uci": "e6d5",
+      "candidate_fired": true,
+      "case_id": "680f3ab2d026bba4cf89",
+      "cp_loss": 296,
+      "fen_before": "r2q1rk1/b1p2pp1/p1n1bn1p/1p1Pp3/8/PB1PBN1P/1PPN1PP1/R2Q1RK1 b - - 0 13",
+      "gold": {
+        "captured_target": "b3",
+        "fork_square": "d5",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 400,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "e6d5",
+          "e3a7",
+          "a8a7",
+          "f1e1",
+          "d5b3"
+        ],
+        "targets": [
+          "b3",
+          "f3"
+        ]
+      },
+      "played_move_uci": "a7e3",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bxa7",
+        "Rxa7",
+        "Re1",
+        "Bxb3"
+      ],
+      "source_key": "3a95dff1672cfbf88b71"
+    },
+    {
+      "best_move_uci": "d4c6",
+      "candidate_fired": true,
+      "case_id": "eee7d28aab42f2c7702c",
+      "cp_loss": 249,
+      "fen_before": "r1bqnrk1/2p1b1pp/p2p4/1p3p2/3NP3/1PN1B2P/1PPQ1PP1/R4RK1 w - - 0 14",
+      "gold": {
+        "captured_target": "e7",
+        "fork_square": "c6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d4c6",
+          "d8d7",
+          "d2d5",
+          "g8h8",
+          "c6e7"
+        ],
+        "targets": [
+          "e7",
+          "d8"
+        ]
+      },
+      "played_move_uci": "e4f5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qd7",
+        "Qd5+",
+        "Kh8",
+        "Nxe7"
+      ],
+      "source_key": "7e8a4a34ed180fcfed90"
+    },
+    {
+      "best_move_uci": "f7f6",
+      "candidate_fired": true,
+      "case_id": "1cb7ebd34fe9102e4f83",
+      "cp_loss": 10509,
+      "fen_before": "5rk1/pp3ppp/4p3/1q1pBbQ1/3P4/P1r2P2/2P3PP/R4RK1 b - - 0 18",
+      "gold": {
+        "captured_target": "e5",
+        "fork_square": "f6",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": 400,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "f7f6",
+          "g5d2",
+          "c3c2",
+          "d2e1",
+          "f6e5"
+        ],
+        "targets": [
+          "e5",
+          "g5"
+        ]
+      },
+      "played_move_uci": "c3c2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qd2",
+        "Rxc2",
+        "Qe1",
+        "fxe5"
+      ],
+      "source_key": "5a9815f28b8a4f06ad8e"
+    },
+    {
+      "best_move_uci": "d2c3",
+      "candidate_fired": true,
+      "case_id": "24bd962be9c8f0d2c55e",
+      "cp_loss": 157,
+      "fen_before": "4kr2/p5pp/5n2/4n3/8/5B2/P2B1QPP/q2N1K1R w - - 0 20",
+      "gold": {
+        "captured_target": "e5",
+        "fork_square": "c3",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d2c3",
+          "a1b1",
+          "c3e5",
+          "e8f7",
+          "e5f6"
+        ],
+        "targets": [
+          "a1",
+          "e5"
+        ]
+      },
+      "played_move_uci": "f2a7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qb1",
+        "Bxe5",
+        "Kf7",
+        "Bxf6"
+      ],
+      "source_key": "1f38a171a8f83f04a273"
+    },
+    {
+      "best_move_uci": "d6e5",
+      "candidate_fired": true,
+      "case_id": "ee0b89cfeea4579377af",
+      "cp_loss": 665,
+      "fen_before": "r1b1k2r/ppp1qpQp/3b4/3P4/3n4/7P/PPPPBP1R/RNB1K1N1 b Qkq - 0 13",
+      "gold": {
+        "captured_target": "h2",
+        "fork_square": "e5",
+        "forking_piece": "bishop",
+        "net_material_gain_cp": 200,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d6e5",
+          "g7g2",
+          "e5h2",
+          "g2h2",
+          "h8g8"
+        ],
+        "targets": [
+          "h2",
+          "g7"
+        ]
+      },
+      "played_move_uci": "h8f8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qg2",
+        "Bxh2",
+        "Qxh2",
+        "Rg8"
+      ],
+      "source_key": "2792a3a8933cf5a0217b"
+    },
+    {
+      "best_move_uci": "c6d4",
+      "candidate_fired": true,
+      "case_id": "50cdbb89f007693e26e7",
+      "cp_loss": 353,
+      "fen_before": "r2qk1nr/ppp2p1p/2n3pb/3Npb2/8/3P1Q1N/PPP1BPPP/R1B1K2R b KQkq - 7 11",
+      "gold": {
+        "captured_target": "f3",
+        "fork_square": "d4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 900,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "c6d4",
+          "d5f6",
+          "g8f6",
+          "c1h6",
+          "d4f3"
+        ],
+        "targets": [
+          "e2",
+          "f3"
+        ]
+      },
+      "played_move_uci": "f5e6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nf6+",
+        "Nxf6",
+        "Bxh6",
+        "Nxf3+"
+      ],
+      "source_key": "9a9b6f812f230d4121a4"
+    },
+    {
+      "best_move_uci": "d5c7",
+      "candidate_fired": true,
+      "case_id": "544ec9a8996a0e08f2ed",
+      "cp_loss": 416,
+      "fen_before": "r1bqkb1r/ppp2ppp/8/3Np3/3n4/2Q5/PPPP1PPP/R1B1K2R w KQkq - 4 11",
+      "gold": {
+        "captured_target": "a8",
+        "fork_square": "c7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 600,
+        "reason": "fork_exact",
+        "replayed_uci": [
+          "d5c7",
+          "e8d7",
+          "c7a8",
+          "f8d6",
+          "c3d3"
+        ],
+        "targets": [
+          "a8",
+          "e8"
+        ]
+      },
+      "played_move_uci": "e1g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd7",
+        "Nxa8",
+        "Bd6",
+        "Qd3"
+      ],
+      "source_key": "c0f52ff653e793cd0895"
+    }
+  ],
+  "generated_at": "2026-09-02",
+  "llm_calls": 0,
+  "negatives": [
+    {
+      "best_move_uci": "g4d4",
+      "candidate_fired": false,
+      "case_id": "cd9184915838902e541c",
+      "cp_loss": 481,
+      "fen_before": "8/3r1qk1/p2p1p1p/2P3pP/6R1/P2Q4/6P1/7K w - - 1 36",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d4",
+        "forking_piece": "rook",
+        "net_material_gain_cp": null,
+        "reason": "fewer_than_two_targets",
+        "replayed_uci": [],
+        "targets": []
+      },
+      "played_move_uci": "c5d6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxh5+",
+        "Kg1",
+        "Qg6",
+        "Re4"
+      ],
+      "source_key": "fd0e1f92aad77a79c407"
+    },
+    {
+      "best_move_uci": "e1g1",
+      "candidate_fired": false,
+      "case_id": "d21dc298c20d32542ea7",
+      "cp_loss": 782,
+      "fen_before": "rnb1kb1r/ppppqNpp/5p2/8/2B1n3/8/PPPP1PPP/RNBQK2R w KQkq - 2 6",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "g1",
+        "forking_piece": "king",
+        "net_material_gain_cp": null,
+        "reason": "fewer_than_two_targets",
+        "replayed_uci": [],
+        "targets": []
+      },
+      "played_move_uci": "f7h8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "c6",
+        "Nxh8",
+        "d5",
+        "d3"
+      ],
+      "source_key": "9b870c217880cc541f61"
+    },
+    {
+      "best_move_uci": "e1f1",
+      "candidate_fired": false,
+      "case_id": "d3d6dd0014d8c8ce421e",
+      "cp_loss": 342,
+      "fen_before": "r1bqk2r/pppp1pp1/2n4p/2b1p3/2B1P1n1/2N2N2/PPPP1PPP/R1BQR1K1 w kq - 6 7",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "f1",
+        "forking_piece": "rook",
+        "net_material_gain_cp": null,
+        "reason": "fewer_than_two_targets",
+        "replayed_uci": [],
+        "targets": []
+      },
+      "played_move_uci": "h2h3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "d6",
+        "a4",
+        "Nf6",
+        "d3"
+      ],
+      "source_key": "93dc6ba78d241778a3d8"
+    },
+    {
+      "best_move_uci": "f2d4",
+      "candidate_fired": false,
+      "case_id": "2dc37d0c04a0f5c2d56e",
+      "cp_loss": 235,
+      "fen_before": "r1b5/pppp1kpp/8/2b1p3/8/2KP4/PPQ2qP1/RNB4R b - - 3 15",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d4",
+        "forking_piece": "queen",
+        "net_material_gain_cp": null,
+        "reason": "fewer_than_two_targets",
+        "replayed_uci": [],
+        "targets": [
+          "c3"
+        ]
+      },
+      "played_move_uci": "c5d4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd2",
+        "d5",
+        "Rf1+",
+        "Kg8"
+      ],
+      "source_key": "d9cd5f43bd6062bfd149"
+    },
+    {
+      "best_move_uci": "g6g5",
+      "candidate_fired": false,
+      "case_id": "3e0133050ef8a890be30",
+      "cp_loss": 209,
+      "fen_before": "4b3/8/p3p1pk/1p1pPP1p/2pP4/2P2K2/PP1B3P/8 b - - 0 34",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "g5",
+        "forking_piece": "pawn",
+        "net_material_gain_cp": null,
+        "reason": "fewer_than_two_targets",
+        "replayed_uci": [],
+        "targets": []
+      },
+      "played_move_uci": "h6g7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "h4",
+        "Bd7",
+        "Bxg5+",
+        "Kg7"
+      ],
+      "source_key": "0c2211efb364a07a7119"
+    },
+    {
+      "best_move_uci": "c3e4",
+      "candidate_fired": false,
+      "case_id": "1dd4eacf35d22f71f85c",
+      "cp_loss": 201,
+      "fen_before": "3r2k1/pppq1ppp/1n3n2/3P2b1/3P4/1BN2QB1/PPP2KPP/4R3 w - - 2 17",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "e4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 0,
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "c3e4"
+        ],
+        "targets": [
+          "g5",
+          "f6"
+        ]
+      },
+      "played_move_uci": "g3f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nxe4+",
+        "Qxe4",
+        "Nc8",
+        "Qe5"
+      ],
+      "source_key": "338366504c040385f9e7"
+    },
+    {
+      "best_move_uci": "e5d7",
+      "candidate_fired": false,
+      "case_id": "f50363aedfc91c52ee78",
+      "cp_loss": 737,
+      "fen_before": "rn2k1nr/pppb1ppp/1b1p1q2/1B2N3/N2PP3/8/PPP2PPP/R1BQK2R w KQkq - 2 8",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d7",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "e5d7"
+        ],
+        "targets": [
+          "b6",
+          "f6",
+          "b8"
+        ]
+      },
+      "played_move_uci": "d1f3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nxd7",
+        "Nxb6",
+        "axb6",
+        "c3"
+      ],
+      "source_key": "c3a1bc3196d097e4e8c6"
+    },
+    {
+      "best_move_uci": "c6d4",
+      "candidate_fired": false,
+      "case_id": "3e7c11d7e8b448323784",
+      "cp_loss": 178,
+      "fen_before": "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 5 4",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 0,
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "c6d4"
+        ],
+        "targets": [
+          "f3",
+          "b5"
+        ]
+      },
+      "played_move_uci": "d7d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nxd4",
+        "exd4",
+        "e5",
+        "dxc3"
+      ],
+      "source_key": "3e37c1b670121ad5ee1b"
+    },
+    {
+      "best_move_uci": "d2d6",
+      "candidate_fired": false,
+      "case_id": "ca8fbb83683433306f97",
+      "cp_loss": 392,
+      "fen_before": "r2r4/1b6/p1n3kp/1p3pp1/1P6/P3KPN1/3RB1PP/3R4 w - - 0 27",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d6",
+        "forking_piece": "rook",
+        "net_material_gain_cp": -500,
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "d2d6",
+          "d8d6"
+        ],
+        "targets": [
+          "c6",
+          "g6",
+          "d8"
+        ]
+      },
+      "played_move_uci": "e3f2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rxd6",
+        "Rxd6+",
+        "Kf7",
+        "Nxf5"
+      ],
+      "source_key": "2ec759be7380670f23ed"
+    },
+    {
+      "best_move_uci": "c7e5",
+      "candidate_fired": false,
+      "case_id": "9a2af8c9a77211642c39",
+      "cp_loss": 317,
+      "fen_before": "r3kbnr/ppq1pppp/2n1b3/2Q1P3/1P6/2P1B3/P4PPP/RN2KBNR b KQkq - 2 9",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "e5",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 100,
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "c7e5"
+        ],
+        "targets": [
+          "e3",
+          "c5"
+        ]
+      },
+      "played_move_uci": "e6f5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qxe5",
+        "Nxe5",
+        "Nd2",
+        "Nf6"
+      ],
+      "source_key": "fac0420ec47a9d211ed8"
+    },
+    {
+      "best_move_uci": "e8e2",
+      "candidate_fired": false,
+      "case_id": "648407b06e1690a958e9",
+      "cp_loss": 196,
+      "fen_before": "b3r2k/R5pp/1p1B2p1/8/P2P1n2/5P2/B4K1P/8 b - - 6 33",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "e2",
+        "forking_piece": "rook",
+        "net_material_gain_cp": 0,
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "e8e2",
+          "f2g3",
+          "f4h5",
+          "g3g4",
+          "h5f6"
+        ],
+        "targets": [
+          "a2",
+          "f2"
+        ]
+      },
+      "played_move_uci": "g6g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kg3",
+        "Nh5+",
+        "Kg4",
+        "Nf6+"
+      ],
+      "source_key": "1205f64dc3d4b90bea03"
+    },
+    {
+      "best_move_uci": "f5d6",
+      "candidate_fired": false,
+      "case_id": "76dac7a6a8e8cf794b24",
+      "cp_loss": 479,
+      "fen_before": "2Q5/ppp1k2p/5p2/q3pn2/2B5/1P3N2/P2N1PPP/R3K2R b KQ - 2 15",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 0,
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "f5d6",
+          "c8e6",
+          "e7d8",
+          "e1g1",
+          "b7b5"
+        ],
+        "targets": [
+          "c4",
+          "c8"
+        ]
+      },
+      "played_move_uci": "e5e4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qe6+",
+        "Kd8",
+        "O-O",
+        "b5"
+      ],
+      "source_key": "59aff974d669dc01c0d9"
+    },
+    {
+      "best_move_uci": "f6d4",
+      "candidate_fired": false,
+      "case_id": "8b6019655bb735a57a1c",
+      "cp_loss": 126,
+      "fen_before": "B1b2rk1/4nppp/p1p2q2/8/8/2N3Q1/PPPB2PP/R6K b - - 1 16",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d4",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 0,
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "f6d4",
+          "g3e3",
+          "d4d7",
+          "a1e1",
+          "e7f5"
+        ],
+        "targets": [
+          "d2",
+          "c3"
+        ]
+      },
+      "played_move_uci": "f8d8",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qe3",
+        "Qd7",
+        "Re1",
+        "Nf5"
+      ],
+      "source_key": "c9e49c98cceeaf69f179"
+    },
+    {
+      "best_move_uci": "a5b3",
+      "candidate_fired": false,
+      "case_id": "443f00dbc39e560ade2d",
+      "cp_loss": 309,
+      "fen_before": "r1bqk2r/pppp2pp/8/n1bPpp2/2N1P2n/1BP2P2/PP2N1PP/R1BQ1R1K b kq - 3 12",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "b3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 0,
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "a5b3",
+          "a2b3",
+          "d7d6",
+          "b3b4",
+          "c5b6"
+        ],
+        "targets": [
+          "a1",
+          "c1"
+        ]
+      },
+      "played_move_uci": "f5f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "axb3",
+        "d6",
+        "b4",
+        "Bb6"
+      ],
+      "source_key": "0fe26dc69a4a437e3877"
+    },
+    {
+      "best_move_uci": "c7c5",
+      "candidate_fired": false,
+      "case_id": "4ee41c8417e98b9da990",
+      "cp_loss": 200,
+      "fen_before": "r1b2rk1/1pR2ppp/p7/3nP3/3B4/8/PPP2PPP/2K4R w - - 0 20",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "c5",
+        "forking_piece": "rook",
+        "net_material_gain_cp": 0,
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "c7c5",
+          "f8d8",
+          "d4c3",
+          "b7b6",
+          "c5c4"
+        ],
+        "targets": [
+          "d5",
+          "c8"
+        ]
+      },
+      "played_move_uci": "h1d1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rd8",
+        "Bc3",
+        "b6",
+        "Rc4"
+      ],
+      "source_key": "943f678f263a1b8d87e3"
+    },
+    {
+      "best_move_uci": "f7f2",
+      "candidate_fired": false,
+      "case_id": "a9941ca30d07090ab669",
+      "cp_loss": 381,
+      "fen_before": "r4r1k/1b3q1p/p2Q2p1/1p1Pp3/8/1B6/PPP2PPP/3RR1K1 b - - 0 25",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "f2",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 100,
+        "reason": "no_original_target_captured",
+        "replayed_uci": [
+          "f7f2",
+          "g1h1",
+          "f8f5",
+          "h2h3",
+          "a8f8"
+        ],
+        "targets": [
+          "e1",
+          "g1"
+        ]
+      },
+      "played_move_uci": "a8d8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kh1",
+        "Rf5",
+        "h3",
+        "Raf8"
+      ],
+      "source_key": "866f6b352eea5bfbd3a9"
+    },
+    {
+      "best_move_uci": "c5d3",
+      "candidate_fired": false,
+      "case_id": "23e1db187677d01b8c8e",
+      "cp_loss": 292,
+      "fen_before": "4kb1r/p1qb3p/1r3pp1/2npp3/1P5Q/2P1PN2/P2N1PPP/R1B1K2R b KQk - 1 19",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "d3",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 100,
+        "reason": "no_original_target_captured",
+        "replayed_uci": [
+          "c5d3",
+          "e1d1",
+          "h7h5",
+          "d1e2",
+          "c7c3"
+        ],
+        "targets": [
+          "c1",
+          "e1"
+        ]
+      },
+      "played_move_uci": "c5e6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd1",
+        "h5",
+        "Ke2",
+        "Qxc3"
+      ],
+      "source_key": "fc5bbdaa8f43ea5b848d"
+    },
+    {
+      "best_move_uci": "e6e2",
+      "candidate_fired": false,
+      "case_id": "9a40cc7ad3c0d84d1730",
+      "cp_loss": 98,
+      "fen_before": "r1b2k2/p4pb1/2p1q1pp/2p5/6n1/2NP1N2/PPP1QPPP/R4RK1 b - - 1 14",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "e2",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 100,
+        "reason": "no_original_target_captured",
+        "replayed_uci": [
+          "e6e2",
+          "c3e2",
+          "g7b2",
+          "a1b1",
+          "b2f6"
+        ],
+        "targets": [
+          "f1",
+          "f3"
+        ]
+      },
+      "played_move_uci": "e6d6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Nxe2",
+        "Bxb2",
+        "Rab1",
+        "Bf6"
+      ],
+      "source_key": "d74e0acdb8b7d009e592"
+    },
+    {
+      "best_move_uci": "b3b7",
+      "candidate_fired": false,
+      "case_id": "3644bf9851323ae00aaa",
+      "cp_loss": 165,
+      "fen_before": "rn2q1kr/2pp2bp/p3p1p1/3P4/8/1Q2BN2/PP3PPP/R3K2R w KQ - 1 14",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "b7",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 400,
+        "reason": "no_original_target_captured",
+        "replayed_uci": [
+          "b3b7",
+          "b8c6",
+          "d5c6",
+          "d7d5",
+          "b7c7"
+        ],
+        "targets": [
+          "a8",
+          "b8"
+        ]
+      },
+      "played_move_uci": "e1g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nc6",
+        "dxc6",
+        "d5",
+        "Qxc7"
+      ],
+      "source_key": "3af00dfbb03ef632f9e4"
+    },
+    {
+      "best_move_uci": "g6e8",
+      "candidate_fired": false,
+      "case_id": "c49f09120cd4f44a6a0c",
+      "cp_loss": 9137,
+      "fen_before": "b3r1k1/p3P1p1/2nq1pQp/2pp2n1/7N/6P1/PP3PBP/R3R1K1 w - - 3 24",
+      "gold": {
+        "captured_target": null,
+        "fork_square": "e8",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 1300,
+        "reason": "no_original_target_captured",
+        "replayed_uci": [
+          "g6e8",
+          "g8h7",
+          "e8g6",
+          "h7g8",
+          "e7e8q"
+        ],
+        "targets": [
+          "c6",
+          "a8",
+          "g8"
+        ]
+      },
+      "played_move_uci": "h4f5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kh7",
+        "Qg6+",
+        "Kg8",
+        "e8=Q+"
+      ],
+      "source_key": "c0ef70b0696c2c82bd20"
+    },
+    {
+      "best_move_uci": "a4b6",
+      "candidate_fired": false,
+      "case_id": "7e2f97ecf925c74fc487",
+      "cp_loss": 90,
+      "fen_before": "r3k2r/1p1qn1b1/p1p1n1pp/3pPp2/N2P1P2/1B4P1/PP1BQ2P/2R3RK w kq - 1 21",
+      "gold": {
+        "captured_target": "a8",
+        "fork_square": "b6",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 400,
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "a4b6",
+          "d7d8",
+          "b6a8",
+          "e6d4",
+          "e2d3"
+        ],
+        "targets": [
+          "d7",
+          "a8"
+        ]
+      },
+      "played_move_uci": "g1g2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qd8",
+        "Nxa8",
+        "Nxd4",
+        "Qd3"
+      ],
+      "source_key": "73f492e641338dcf830c"
+    },
+    {
+      "best_move_uci": "e2e5",
+      "candidate_fired": false,
+      "case_id": "7ca7052da5e22329cccf",
+      "cp_loss": 71,
+      "fen_before": "r5k1/1p2rppp/4bn2/p1qp2B1/3p4/PB1P4/2P1QPPP/R3R1K1 w - - 0 21",
+      "gold": {
+        "captured_target": "f6",
+        "fork_square": "e5",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 300,
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "e2e5",
+          "a5a4",
+          "b3a2",
+          "a8e8",
+          "g5f6"
+        ],
+        "targets": [
+          "e6",
+          "f6"
+        ]
+      },
+      "played_move_uci": "g5f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "a4",
+        "Ba2",
+        "Rae8",
+        "Bxf6"
+      ],
+      "source_key": "2f20f524e519041c19aa"
+    },
+    {
+      "best_move_uci": "f6d5",
+      "candidate_fired": false,
+      "case_id": "c308729484a1bee0dd2a",
+      "cp_loss": 76,
+      "fen_before": "3r3k/2b1rp2/p3bN1p/1pp5/2n1P3/2P2N2/PPB2PPP/R3R1K1 w - - 1 22",
+      "gold": {
+        "captured_target": "e7",
+        "fork_square": "d5",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 500,
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "f6d5",
+          "e6d5",
+          "e4d5",
+          "c7d6",
+          "e1e7"
+        ],
+        "targets": [
+          "c7",
+          "e7"
+        ]
+      },
+      "played_move_uci": "a1b1",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bxd5",
+        "exd5",
+        "Bd6",
+        "Rxe7"
+      ],
+      "source_key": "e76df447f7b63bb5a0ad"
+    },
+    {
+      "best_move_uci": "f6e4",
+      "candidate_fired": false,
+      "case_id": "44961264177e1acccc37",
+      "cp_loss": 85,
+      "fen_before": "r4rk1/ppb1qppp/2n1pn2/1BPp1b2/3P4/P1N1BN1P/1P1Q1PP1/R3K2R b KQ - 4 12",
+      "gold": {
+        "captured_target": "c3",
+        "fork_square": "e4",
+        "forking_piece": "knight",
+        "net_material_gain_cp": 300,
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "f6e4",
+          "d2c1",
+          "a7a6",
+          "b5a4",
+          "e4c3"
+        ],
+        "targets": [
+          "d2",
+          "c3"
+        ]
+      },
+      "played_move_uci": "e6e5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qc1",
+        "a6",
+        "Ba4",
+        "Nxc3"
+      ],
+      "source_key": "37bf84113c4604ad727f"
+    },
+    {
+      "best_move_uci": "a5d5",
+      "candidate_fired": false,
+      "case_id": "ccadb4dfd44c3da3ca42",
+      "cp_loss": 65,
+      "fen_before": "1r3rk1/p3bppp/n1p1p3/q3P3/P1NPNQ2/2P5/Rp3PPP/5RK1 b - - 3 20",
+      "gold": {
+        "captured_target": "c4",
+        "fork_square": "d5",
+        "forking_piece": "queen",
+        "net_material_gain_cp": 200,
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "a5d5",
+          "a2b2",
+          "d5c4",
+          "b2b8",
+          "a6b8"
+        ],
+        "targets": [
+          "c4",
+          "e4"
+        ]
+      },
+      "played_move_uci": "b2b1q",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Rxb2",
+        "Qxc4",
+        "Rxb8",
+        "Nxb8"
+      ],
+      "source_key": "4fceeefb6d16b3958647"
+    }
+  ],
+  "population": {
+    "by_forking_piece": {
+      "bishop": 118,
+      "knight": 451,
+      "pawn": 60,
+      "rook": 80
+    },
+    "by_pool": {
+      "community_puzzles": 155,
+      "community_training_positions": 554
+    },
+    "by_target_count": {
+      "2": 651,
+      "3": 58
+    },
+    "candidate_replay_failures": 0,
+    "distinct_source_keys": 589,
+    "documents_scanned": 52060,
+    "independent_outcomes": {
+      "fork_exact": 709
+    },
+    "stored_candidates": 709,
+    "stored_fact_mismatches": 0
+  },
+  "proof_contract": "The complete stored best line gains at least one pawn of net material and captures an original fork target before it moves.",
+  "quality_id": "tactic:fork_with_stored_payoff",
+  "read_only": true,
+  "schema_version": "fork_payoff.caption_promotion.v1",
+  "selection": {
+    "distinct_source_fingerprints_required": true,
+    "negative_strata": {
+      "fewer_than_two_targets": 5,
+      "incomplete_line": 5,
+      "insufficient_consequence": 5,
+      "insufficient_net_gain": 5,
+      "no_original_target_captured": 5
+    },
+    "negative_target": 25,
+    "positive_target": 50,
+    "required_forking_pieces": [
+      "knight",
+      "bishop",
+      "rook",
+      "pawn"
+    ],
+    "required_pools": [
+      "community_puzzles",
+      "community_training_positions"
+    ],
+    "required_target_counts": [
+      2,
+      3
+    ],
+    "seed": "20260902-fork-payoff-caption-v1",
+    "selection_fingerprint_sha256": "d5917f80f7ed646d3672c8ed205c6e7209ad54c1361f4f42240bb3296b53dff0"
+  },
+  "stockfish_runs": 0,
+  "summary": {
+    "caption_promotion_gate_passed": true,
+    "critical_adversarial_errors": 0,
+    "reviewed_fires": 50,
+    "semantic_precision_pct": 100,
+    "true_negative_cases": 25,
+    "true_negatives": 25,
+    "true_positives": 50,
+    "wilson_lower_pct": 92.87
+  }
+}

@@ -78,9 +78,10 @@ def test_valid_stored_answer_becomes_generic_without_concept_proof():
     assert verdict.reason_codes == (AdmissionReason.GENERIC_ANSWER_VERIFIED.value,)
     assert verdict.acceptable_moves_uci == ("e2e4",)
     assert verdict.concept_id is None
+    assert "caption_concept_id" not in verdict.to_document()
 
 
-def test_independent_proof_stays_broad_until_quality_is_blind_authorized():
+def test_caption_grade_fact_stays_broad_and_cannot_become_prompt_identity():
     detector, verifier = _proofs()
     verdict = adjudicate_puzzle(_candidate(
         broad_category="piece_safety",
@@ -91,11 +92,18 @@ def test_independent_proof_stays_broad_until_quality_is_blind_authorized():
 
     assert verdict.status == AdmissionStatus.BROAD
     assert verdict.concept_id is None
-    # simple_hang is Caption-grade since 2026-08-31. Specificity is gated
-    # on the PROMPT surface, which it has NOT earned, so the safety
-    # property this test protects -- BROAD status, no concept_id -- holds.
+    # Caption facts may explain a completed attempt, but the Prompt-grade
+    # concept identity remains absent from the drill contract.
     assert not is_authorized("gap:piece_safety:simple_hang", QualitySurface.PROMPT)
     assert verdict.quality_grade == "caption"
+    assert verdict.caption_concept_id == "piece_safety.simple_hang"
+    assert verdict.to_document()["caption_concept_id"] == (
+        "piece_safety.simple_hang"
+    )
+    assert verdict.reason_codes == (
+        AdmissionReason.CAPTION_PROOF_VERIFIED.value,
+        AdmissionReason.BROAD_CATEGORY_VERIFIED.value,
+    )
     assert verdict.detector_id != verdict.verifier_id
     assert verdict.detector_facts == ({"piece": "pawn", "square": "e4"},)
     assert verdict.verifier_facts == ({"legal": True},)

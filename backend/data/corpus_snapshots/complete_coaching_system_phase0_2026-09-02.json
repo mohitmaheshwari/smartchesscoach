@@ -1,0 +1,227 @@
+{
+  "_meta": {
+    "snapshot_id": "complete_coaching_system_phase0_2026-09-02",
+    "generated_date": "2026-09-02",
+    "architecture_base_commit": "656e33741db6eba427f6cb27cdcecca463d7725c",
+    "production_commit_measured": "f7ecace14578cfc646c498b50f1b6cc25775b7ce",
+    "production_difference_from_base": [
+      "frontend/package.json",
+      "frontend/src/components/ChessBoardViewer.jsx",
+      "frontend/src/components/coach/CoachBoard.jsx"
+    ],
+    "method": "Read-only deterministic registry reports and aggregate production queries inside the deployed backend container; stored Stockfish evidence was reused and Stockfish was not rerun.",
+    "privacy": "No credentials, user IDs, emails, usernames, game IDs, moves, positions, PGNs, captions, or free-form production text.",
+    "database_writes": 0,
+    "stockfish_runs": 0,
+    "role": "Derived decision evidence only; not a chess-content, detector, focus, lesson, attempt, or mastery authority."
+  },
+  "production_corpus": {
+    "users": 122,
+    "games": 14632,
+    "game_analyses": 13969,
+    "move_observations": 441048,
+    "learning_sessions": 13,
+    "puzzle_attempts": 400
+  },
+  "concept_detector_content_crosswalk": {
+    "generator": "backend/scripts/report_coach_detector_capabilities.py",
+    "registered_concept_detectors": 48,
+    "by_family": {"endgame": 30, "opening": 7, "positional": 8, "trap": 3},
+    "by_player_effect": {"disabled": 1, "shadow_only": 47},
+    "curriculum_mapped_detectors": 34,
+    "workspace_supported_detectors": 24,
+    "content_coverage": {
+      "openings": {"publishable": 41, "detector_covered": 41, "curriculum_selectable": 41},
+      "traps": {"publishable": 36, "detector_covered": 36, "curriculum_selectable": 31},
+      "opening_ideas": {"publishable": 19, "detector_covered": 19, "curriculum_selectable": 0},
+      "endgames": {"publishable": 20, "detector_covered": 20, "curriculum_selectable": 16}
+    },
+    "unmapped_detector_ids": [
+      "concept_central_pawn_break",
+      "concept_knight_outpost",
+      "concept_luft",
+      "concept_prophylactic_king_tuck",
+      "concept_rook_open_file",
+      "concept_rook_seventh",
+      "opening_castling",
+      "opening_center",
+      "opening_development_with_tempo",
+      "opening_sound_deviation"
+    ],
+    "interpretation": "Content coverage is not coaching authority. The capability report covers concept detectors; the authorization report covers all quality IDs."
+  },
+  "detector_authorization": {
+    "generator": "backend/scripts/report_detector_quality.py",
+    "registered_quality_ids": 172,
+    "grade_counts": {"plan": 1, "caption": 3, "shadow": 163, "disabled": 5},
+    "plan_quality_id": "gap:piece_safety:destination_safety_exact",
+    "caption_quality_ids": [
+      "gap:piece_safety:simple_hang",
+      "review:exact_endgame_result_change",
+      "review:verified_single_game_cause"
+    ]
+  },
+  "candidate_proof_population": {
+    "method": "Full aggregate across both production puzzle pools; distinct counts use source_fingerprint.",
+    "families": {
+      "gap:piece_safety:simple_hang": {"documents": 7429, "distinct_sources": 6440, "grade": "caption"},
+      "tactic:free_piece_exact": {"documents": 1603, "distinct_sources": 1302, "grade": "shadow"},
+      "tactic:fork_with_stored_payoff": {"documents": 707, "distinct_sources": 587, "grade": "shadow"},
+      "tactic:aligned_with_stored_payoff": {"documents": 435, "distinct_sources": 362, "grade": "shadow"},
+      "tactic:forced_mate_exact": {"documents": 251, "distinct_sources": 232, "grade": "shadow"},
+      "curriculum:opening_plan_exact_decision": {"documents": 232, "distinct_sources": 220, "grade": "shadow"},
+      "gap:piece_safety:trapped_piece_exact": {"documents": 150, "distinct_sources": 129, "grade": "shadow"},
+      "tactic:discovered_attack_with_stored_payoff": {"documents": 127, "distinct_sources": 101, "grade": "shadow"},
+      "gap:piece_safety:destination_safety_exact": {"documents": 38, "distinct_sources": 22, "grade": "plan"},
+      "tactic:remove_defender_with_stored_payoff": {"documents": 33, "distinct_sources": 24, "grade": "shadow"},
+      "tactic:back_rank_mate_exact": {"documents": 27, "distinct_sources": 27, "grade": "shadow"},
+      "curriculum:opening_exact_decision": {"documents": 25, "distinct_sources": 23, "grade": "shadow"},
+      "curriculum:trap_exact_decision": {"documents": 21, "distinct_sources": 18, "grade": "shadow"}
+    },
+    "selected_first_review_packet": "tactic:free_piece_exact",
+    "selected_following_packets": [
+      "tactic:fork_with_stored_payoff",
+      "tactic:aligned_with_stored_payoff",
+      "tactic:forced_mate_exact"
+    ],
+    "selection_limit": "This orders independent review packets only. It authorizes no grade change."
+  },
+  "predictive_validity": {
+    "method": {
+      "split": "chronological 70/30 per player",
+      "minimum_analysed_games": 30,
+      "minimum_test_named_moves": 40,
+      "leave_one_player_out_baselines": true,
+      "rating_band_from_train_games": true,
+      "bootstrap_replicates": 5000,
+      "bootstrap_seed": 20260902
+    },
+    "players_evaluated": 41,
+    "test_named_move_coverage": {"p25_pct": 11.87, "median_pct": 15.23, "p75_pct": 19.62},
+    "personalization_distinctness": {"top1_differs_from_global_pct": 19.51, "top3_order_differs_from_global_pct": 46.34},
+    "results": {
+      "global_leave_one_out": {"precision_at_3": 0.8618, "top1_hit": 0.8537},
+      "rating_only_leave_one_out": {"precision_at_3": 0.8618, "top1_hit": 0.8293, "lift": 0.0, "lift_ci95": [0.0, 0.0]},
+      "personal_frequency": {"precision_at_3": 0.8699, "top1_hit": 0.8049, "lift": 0.0081, "lift_ci95": [-0.0325, 0.0569], "wins_ties_losses": [5, 32, 4]},
+      "personal_recency": {"precision_at_3": 0.7805, "top1_hit": 0.4878, "lift": -0.0813, "lift_ci95": [-0.1626, 0.0]},
+      "personal_severity": {"precision_at_3": 0.6992, "top1_hit": 0.122, "lift": -0.1626, "lift_ci95": [-0.2358, -0.0813]}
+    },
+    "decision": "NOT VALIDATED: personal frequency does not significantly beat the global list; personal top-1 is worse; recency and severity regress.",
+    "limitations": [
+      "Legacy cognitive_gap is not Plan-authorized semantic truth.",
+      "This measures recurrence prediction, not coaching impact.",
+      "Precision@3 has a high ceiling because the label vocabulary is small."
+    ]
+  },
+  "learning_and_attempt_coverage": {
+    "learning_sessions": {
+      "documents": 13,
+      "users": 9,
+      "skills": 3,
+      "events": 40,
+      "event_types": {"answer_submitted": 1, "help_requested": 5, "lesson_result": 29, "lesson_started": 4, "move_staged": 1},
+      "with_content_version": 4,
+      "with_diagnostic_version": 1,
+      "with_proof_contract_version": 0,
+      "with_compatibility_fingerprint": 0,
+      "accepted_shadow_lesson_results": 29,
+      "accepted_attempt_kinds": {"application": 29},
+      "shadow_projection": {"new": 9},
+      "visible_projection": {"learning": 9}
+    },
+    "puzzle_attempts": {
+      "documents": 400,
+      "users": 18,
+      "correct": 231,
+      "with_created_at": 400,
+      "with_time_taken_ms": 347,
+      "with_nonempty_moves_tried": 9,
+      "with_puzzle_id": 310,
+      "with_quality": 345,
+      "with_attempt_id": 0,
+      "with_played_uci": 0,
+      "with_first_answer_uci": 0,
+      "with_assistance": 0,
+      "with_attempt_time_rating": 0,
+      "with_rating_provenance": 0,
+      "with_model_or_proof_version": 0,
+      "with_admission_fingerprint": 0,
+      "with_content_or_grader_version": 0,
+      "with_source_event_id": 0
+    },
+    "legacy_snapshot_ref": "backend/data/corpus_snapshots/complete_curriculum_learning_evidence_2026-08-30.json",
+    "legacy_skill_records": 7613,
+    "legacy_skill_records_with_auditable_evidence": 187,
+    "migration_decision": {
+      "preserve_raw": "All legitimate sessions, attempts, counters, and timestamps.",
+      "canonical_candidates": "Only 29 valid LessonResult v2 events, subject to compatibility checks.",
+      "measurement_unknown": "All 400 legacy puzzle attempts and counter-derived mastery claims lacking assistance, version, grader, source, or opportunity provenance.",
+      "rejected_shortcut": "Never infer missing assistance, first answer, rating, proof version, event time, or mastery."
+    }
+  },
+  "exact_opportunity_coverage": {
+    "schema_version": 18,
+    "users": 11,
+    "games": 800,
+    "observations": 21342,
+    "eligible_opportunities": 3239,
+    "handled": 2955,
+    "misses": 284,
+    "authorized_fires": 222,
+    "fire_games": 180,
+    "fire_users": 8,
+    "rolling_windows": {
+      "one_game": {"windows": 800, "median_opportunities": 4, "p25": 2, "p90": 8, "pct_gte_1": 85.88, "pct_gte_6": 31.38},
+      "two_games": {"windows": 789, "median_opportunities": 8, "p25": 5, "p90": 14, "pct_gte_1": 93.03, "pct_gte_6": 68.06},
+      "three_games": {"windows": 780, "median_opportunities": 13, "p25": 8, "p90": 20, "pct_gte_1": 95.64, "pct_gte_6": 81.41}
+    },
+    "sensitivity_without_largest_user": {"users": 10, "games_with_opportunities": 62, "largest_user_games_excluded": 625, "two_game_windows": 52, "two_game_median_opportunities": 10, "two_game_pct_gte_6": 96.15},
+    "decision": "Opportunity and outcome are measurable. Transfer/mastery is not lockable because there is no post-lesson handled cohort and one account dominates v18.",
+    "measurement_rule": "No opportunity means no credit and no miss. Handled stays raw evidence until chronology, assistance, versions, and distinct-position rules exist."
+  },
+  "human_model_visibility": {
+    "evidence_refs": [
+      "docs/human_chess_runtime_integration_spec.md",
+      "docs/human_chess_runtime_deployment_2026_09_01.md",
+      "backend/data/corpus_snapshots/human_chess_model_provenance_2026-08-31.json"
+    ],
+    "otter_history": {"held_out_moves": 3257, "top1_pct": 55.7, "top5_pct": 91.6, "nll": 1.351},
+    "maia_no_history": {"top1_pct": 51.8, "frequency_baseline_top1_pct": 10.5},
+    "clock_conditioning": "rejected; worse than history-only",
+    "safe_visible_use": "Rank only an already verified safe PWC candidate set; never widen it.",
+    "shadow_only": ["puzzle findability", "puzzle difficulty", "distractors", "learner prediction audit"],
+    "blocked_reason": "All 400 historical puzzle attempts lack first-answer, assistance, attempt-time rating, and model/proof provenance."
+  },
+  "plan_duration": {
+    "decision": "Do not display a promised completion duration or Elo result.",
+    "allowed": "A game-based review checkpoint; later, a calibrated forecast range with confidence and as-of date.",
+    "evidence": [
+      "The prior D_live lock selected three measured games plus a 21-day calendar backstop from 24 users.",
+      "Exact v18 covers only 11 users and one account dominates.",
+      "No lesson-completion-to-transfer cohort exists."
+    ],
+    "rejected": ["fixed 7-day review", "guaranteed 21-day improvement", "calendar-only mastery", "rating-gain promise"]
+  },
+  "rival_authority_callers": {
+    "pwc_skill_gate": ["backend/routes/coach.py", "backend/routes/coach_play.py", "backend/routes/training_advanced.py", "backend/services/realtime_coaching_feedback.py"],
+    "pick_next_skill": ["backend/routes/admin.py", "backend/services/today_composer.py"],
+    "summarize_mastery": ["backend/routes/training_advanced.py"],
+    "legacy_focus_mastery": ["backend/focus_mastery_service.py", "backend/routes/missions.py#/focus-mastery", "backend/routes/coach_advanced.py#focus_mastery"],
+    "mastery_gate_status": "services/mastery_gate_service.py remains; no direct runtime invocation found outside its own batch helper.",
+    "direct_focus_read": "backend/routes/training_advanced.py still reads user_active_focus directly."
+  },
+  "source_sha256": {
+    "backend/data/coaching/skill_tree.json": "7e10939f71762c5eaca43ba5010b63aaf2bcdb717668b8611f1f28eb8c142c91",
+    "backend/services/detector_quality.py": "2418d9c6aa9d05d05203f866d00a8fb067706786ec8d4f8e7932b64e83c61009",
+    "backend/services/caption_pipeline.py": "c617aa0316e8ea1fdc19e9032365aa113e1543032fac66bb60d8b0ec4de86b31",
+    "backend/services/personal_curriculum.py": "f207ea16a39465b73bb201e3648faa9b74742541123cd9cf2afa4df3ec928e1e",
+    "backend/services/teaching_engine.py": "b4bd0070a70b16dbca8a6a297c89e0edec8967bb11ecfcffa11c33c777c6e24f",
+    "backend/services/concept_mastery_service.py": "4c9dc219d9f8df2f42308efa94e61ce699482f81d9eff6771d60fe9cf5f8e85f",
+    "backend/services/verified_puzzle_builder.py": "f986a039662e0d30db9c9ba12c938dc2ce98555bdd8376cda1e658496ad7a18e",
+    "backend/services/verified_puzzle_attempt_service.py": "2b766cd59fc2019337a2fb81402b17b9346b40092c7497c562b228c028ee125b",
+    "backend/services/human_policy_runtime.py": "d1e6de12d725347aa38a3a077e10f3b28a575f3d29f598dab9c21d7d5636a165",
+    "backend/data/opening_curriculum.json": "a78cd48d73738413acb0e5a29e7f17649d9423b213320af6aeeb6dd92f546cbc",
+    "backend/data/traps.json": "ca61c29e5e27295baedeab2c39ed29232e18406b65340bd8b75db5d11e02513f",
+    "backend/data/coaching/endgame_theory_tree.json": "10fbb15b95530fe0b19b0748d60e3b6b0f80da57e42b8e0c670e8ad1d221469b"
+  }
+}

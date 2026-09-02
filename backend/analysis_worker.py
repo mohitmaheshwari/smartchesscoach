@@ -1847,12 +1847,13 @@ def process_job(db, job):
             except Exception as pic_err:
                 logger.warning(f"[PIC] Evidence write failed (non-fatal): {pic_err}")
 
-            # Phase 4: append only verified positive simple-hang misses to the
-            # existing learning ledger. Handled/clean games are deliberately
-            # absent until the independent application proof rule is locked.
-            # The nested LessonResult remains shadow-only and cannot alter the
-            # current mastery projection.
+            # Canonical misses continue to append as before.  Phase 2 may also
+            # capture explicit schema-18 handled opportunities, but only in
+            # shadow and only behind the Complete Coaching System flag.
             try:
+                from services.concept_contract_registry import (
+                    complete_coaching_system_enabled,
+                )
                 from services.review_learning_adapter import (
                     application_results_from_observations,
                     build_shadow_learning_event,
@@ -1866,6 +1867,7 @@ def process_job(db, job):
                         or game.get("imported_at")
                         or datetime.now(timezone.utc)
                     ),
+                    include_handled=complete_coaching_system_enabled(),
                 )
                 if _application_results:
                     _application_events = [

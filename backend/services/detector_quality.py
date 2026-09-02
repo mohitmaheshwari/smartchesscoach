@@ -150,42 +150,57 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:aligned_with_stored_payoff": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_aligned_tactic_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "aligned_payoff_caption_promotion_v1.json"
+        ),
         rationale=(
-            "A canonical before/after alignment proposal is independently "
-            "rebuilt by a fresh two-blocker ray walk, and the legal stored line "
-            "must exploit those exact pin or skewer targets for net material."
+            "Independent legal replay confirmed 25/25 pin fires and 25/25 "
+            "skewer fires, with an 86.68% Wilson lower bound for each subtype, "
+            "plus 50/50 stratified near-negative abstentions. All 436 stored "
+            "candidates had exact geometry, payoff and stored-fact agreement."
         ),
         limitations=(
-            "Quiet or merely geometric alignments remain unverified.",
+            "Only alignments whose exact payoff appears in the stored line are named.",
             "Requires a different played move and at least 100cp stored loss.",
+            "Caption only; no persistent prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "tactic:fork_with_stored_payoff": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_fork_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "fork_payoff_caption_promotion_v1.json"
+        ),
         rationale=(
-            "The canonical shape detector's stored-best fork is independently "
-            "reconstructed from the post-move attack map and the complete stored "
-            "line must legally demonstrate a net material gain."
+            "Independent legal replay confirmed 50/50 distinct-source fires "
+            "and 25/25 stratified near-negative abstentions, with a 92.87% "
+            "Wilson precision lower bound. All 709 stored candidates across "
+            "both puzzle pools had exact geometry, payoff and stored-fact agreement."
         ),
         limitations=(
             "Only forks whose payoff appears in the stored continuation are named.",
             "Requires a different played move and at least 100cp stored loss.",
+            "Caption only; no persistent prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "tactic:free_piece_exact": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_free_piece_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "free_piece_exact_caption_promotion_v1.json"
+        ),
         rationale=(
-            "The canonical shape detector proposes the stored best capture; "
-            "a separate verifier confirms the captured piece is worth at least "
-            "a minor piece and enumerates zero legal immediate recaptures."
+            "Independent legal replay confirmed 50/50 distinct-source fires "
+            "and 20/20 stratified near-negative abstentions, with a 92.87% "
+            "Wilson precision lower bound. The full 1,607-candidate population "
+            "had zero semantic or stored-fact mismatches."
         ),
         limitations=(
             "Only immediate unrecapturable best-move captures are named.",
             "Requires a different played move and at least 100cp stored loss.",
+            "Caption only; no persistent prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "tactic:forced_mate_exact": Authorization(

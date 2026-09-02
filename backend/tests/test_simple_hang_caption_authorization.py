@@ -60,6 +60,15 @@ def test_caption_surface_admits_only_evidence_backed_ids():
     """
     allowed = {
         QUALITY_ID,
+        # Plan-grade includes Caption by contract; this promotion already has
+        # its own reviewed plan packet.
+        "gap:piece_safety:destination_safety_exact",
+        # Phase 3 exact-capture packet: Caption only, never Prompt/Plan.
+        "tactic:free_piece_exact",
+        # Phase 3 exact-fork/payoff packet: Caption only, never Prompt/Plan.
+        "tactic:fork_with_stored_payoff",
+        # Phase 3 exact pin/skewer payoff packet: Caption only, never Prompt/Plan.
+        "tactic:aligned_with_stored_payoff",
         "review:verified_single_game_cause",
         "review:exact_endgame_result_change",
     }

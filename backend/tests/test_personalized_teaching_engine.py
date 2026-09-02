@@ -41,6 +41,7 @@ class _Write:
 class _Collection:
     def __init__(self):
         self.docs = []
+        self.fail_shadow_once = False
 
     async def find_one(self, query, projection=None, sort=None):
         matches = [doc for doc in self.docs if _matches(doc, query)]
@@ -58,7 +59,39 @@ class _Collection:
         self.docs.append(stored)
         return _Write()
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, **kwargs):
+        if isinstance(update, list):
+            if self.fail_shadow_once:
+                self.fail_shadow_once = False
+                raise RuntimeError("transient shadow write failure")
+            session_id = query["session_id"]
+            existing = next(
+                (doc for doc in self.docs if doc.get("session_id") == session_id),
+                None,
+            )
+            if existing is None:
+                existing = {
+                    "_id": f"session-{len(self.docs) + 1}",
+                    "session_id": session_id,
+                    "events": [],
+                }
+                self.docs.append(existing)
+            additions = (
+                update[0]["$set"]["events"]["$concatArrays"][1]["$filter"]["input"]
+            )
+            keys = {
+                event.get("idempotency_key")
+                for event in existing.get("events", [])
+            }
+            existing["events"].extend(
+                copy.deepcopy(event)
+                for event in additions
+                if event.get("idempotency_key") not in keys
+            )
+            if additions:
+                existing["skill_id"] = additions[0].get("skill_id")
+                existing["lesson_type"] = "canonical_learning_shadow"
+            return _Write(1)
         for doc in self.docs:
             if not _matches(doc, query):
                 continue
@@ -194,6 +227,77 @@ def test_let_me_try_keeps_independent_credit_and_is_idempotent(monkeypatch):
     assert first == duplicate
     assert first["earned_state"] == "can_do_alone"
     assert first["complete"] is True
+
+
+def test_flag_on_personalized_answer_uses_generic_shadow_ledger_once(monkeypatch):
+    monkeypatch.setenv("COMPLETE_COACHING_SYSTEM_V1_ENABLED", "true")
+    _install(monkeypatch)
+    db = _DB()
+    _start(db)
+
+    first = asyncio.run(process_lesson_move(
+        db,
+        "session-1",
+        "e2f3",
+        interaction_id="stable-move-1",
+        reason_choice="keeps_piece_safe",
+    ))
+    retry = asyncio.run(process_lesson_move(
+        db,
+        "session-1",
+        "e2f3",
+        interaction_id="stable-move-1",
+        reason_choice="keeps_piece_safe",
+    ))
+
+    assert first == retry
+    operational = next(
+        doc for doc in db.learning_sessions.docs
+        if doc.get("lesson_type") == PERSONALIZED_LESSON_TYPE
+    )
+    shadow = next(
+        doc for doc in db.learning_sessions.docs
+        if doc.get("lesson_type") == "canonical_learning_shadow"
+    )
+    assert "lesson_result" not in operational["events"][-1]
+    assert len(shadow["events"]) == 1
+    assert shadow["events"][0]["origin"] == "personalized_lesson"
+
+
+def test_personalized_retry_repairs_a_transient_shadow_write_failure(monkeypatch):
+    monkeypatch.setenv("COMPLETE_COACHING_SYSTEM_V1_ENABLED", "true")
+    _install(monkeypatch)
+    db = _DB()
+    _start(db)
+    db.learning_sessions.fail_shadow_once = True
+
+    first = asyncio.run(process_lesson_move(
+        db,
+        "session-1",
+        "e2f3",
+        interaction_id="repairable-move-1",
+        reason_choice="keeps_piece_safe",
+    ))
+    assert first["complete"] is True
+    assert not any(
+        doc.get("lesson_type") == "canonical_learning_shadow"
+        for doc in db.learning_sessions.docs
+    )
+
+    retry = asyncio.run(process_lesson_move(
+        db,
+        "session-1",
+        "e2f3",
+        interaction_id="repairable-move-1",
+        reason_choice="keeps_piece_safe",
+    ))
+
+    shadow = next(
+        doc for doc in db.learning_sessions.docs
+        if doc.get("lesson_type") == "canonical_learning_shadow"
+    )
+    assert retry == first
+    assert len(shadow["events"]) == 1
 
 
 def test_board_hint_caps_credit_at_with_help(monkeypatch):

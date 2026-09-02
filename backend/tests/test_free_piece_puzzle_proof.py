@@ -41,7 +41,7 @@ def test_candidate_cannot_self_verify_when_a_legal_recapture_exists(monkeypatch)
     assert proof.verifier.verified is False
 
 
-def test_shared_builder_keeps_verified_free_piece_broad_until_promotion():
+def test_caption_promotion_names_fact_without_granting_prompt_identity():
     verdict = build_position_verdict(
         source_kind="free_piece_fixture",
         source_ref="free-rook",
@@ -57,7 +57,12 @@ def test_shared_builder_keeps_verified_free_piece_broad_until_promotion():
     assert verdict.quality_id == FREE_PIECE_QUALITY_ID
     assert verdict.acceptable_moves_uci == ("c4f7",)
     assert verdict.concept_id is None
-    assert "specific_proof_unauthorized" in verdict.reason_codes
+    assert verdict.caption_concept_id == "tactic.free_piece"
+    assert verdict.quality_grade == "caption"
+    assert verdict.reason_codes == (
+        "caption_proof_verified",
+        "broad_category_verified",
+    )
 
 
 def test_free_piece_proof_requires_meaningful_stored_consequence():

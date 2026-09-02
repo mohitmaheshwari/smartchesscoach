@@ -90,6 +90,7 @@ class MissionAttemptRequest(BaseModel):
     played_uci: str
     time_taken_ms: Optional[int] = None
     used_hint: bool = False
+    submission_id: Optional[str] = None
 
 
 # ==================== ENDPOINTS ====================
@@ -366,6 +367,7 @@ async def grade_mission_attempt(
         time_taken_ms=data.time_taken_ms,
         moves_tried=[data.played_uci.strip().lower()],
         attempt_context=f"mission:{mission_id}",
+        submission_id=data.submission_id,
     )
     if grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=grade.get("feedback"))

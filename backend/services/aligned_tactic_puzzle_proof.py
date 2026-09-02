@@ -13,7 +13,7 @@ from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v2"
+ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v3"
 ALIGNED_QUALITY_ID = "tactic:aligned_with_stored_payoff"
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 _ORTHOGONALS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -240,8 +240,16 @@ def _payoff_uses_alignment(
         return None
     return {
         "kind": alignment["kind"],
+        "creation_mode": (
+            "direct"
+            if alignment["attacker_square"] == best.to_square
+            else "discovered"
+        ),
+        "attacker_piece": chess.piece_name(attacker_identity[0]),
         "attacker_square": chess.square_name(alignment["attacker_square"]),
+        "front_piece": chess.piece_name(front_identity[0]),
         "front_square": chess.square_name(front),
+        "rear_piece": chess.piece_name(rear_identity[0]),
         "rear_square": chess.square_name(rear),
         "net_material_gain_cp": replay.net_material_gain_cp,
         "replayed_uci": replay.replayed_uci,

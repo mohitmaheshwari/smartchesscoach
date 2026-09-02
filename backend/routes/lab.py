@@ -1216,6 +1216,7 @@ class MoveEvaluationRequest(BaseModel):
 
     puzzle_id: str
     user_move: str  # UCI
+    submission_id: Optional[str] = None
 
 
 class MoveEvaluationResponse(BaseModel):
@@ -1261,11 +1262,12 @@ async def evaluate_practice_move(
         puzzle=puzzle,
         played_uci=played_uci,
         attempt_context="game_review",
+        submission_id=request.submission_id,
     )
     if grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=grade.get("feedback"))
 
-    if grade.get("recovery_credit_awarded"):
+    if grade.get("recovery_credit_claimed_now"):
         try:
             from services.pattern_decay_service import refresh_user_pattern_decay
             await refresh_user_pattern_decay(db, user.user_id)

@@ -263,7 +263,8 @@ async def attempt_community_puzzle(
     user_id: str,
     puzzle_id: str,
     user_move: str,
-    time_taken: Optional[int] = None
+    time_taken: Optional[int] = None,
+    submission_id: Optional[str] = None,
 ) -> Dict:
     """
     Record a user's attempt on a community puzzle.
@@ -300,24 +301,30 @@ async def attempt_community_puzzle(
         puzzle=resolved,
         played_uci=user_obj.uci(),
         time_taken_ms=time_taken,
+        attempt_context="community_puzzle",
+        submission_id=submission_id,
     )
     if grade.get("quality") == "invalid":
         return {"error": grade.get("feedback") or "This move could not be graded"}
     correct = bool(grade.get("correct"))
     
-    # Update puzzle stats
-    update = {
-        "$inc": {
-            "attempts": 1,
-            "solves": 1 if correct else 0
+    # A transport retry is the same logical attempt. Do not double-count it
+    # in the legacy aggregate fields after the canonical attempt upsert has
+    # already identified it as a duplicate.
+    if grade.get("duplicate"):
+        result = await db.community_puzzles.find_one({"_id": puzzle_oid})
+    else:
+        update = {
+            "$inc": {
+                "attempts": 1,
+                "solves": 1 if correct else 0
+            }
         }
-    }
-    
-    result = await db.community_puzzles.find_one_and_update(
-        {"_id": puzzle_oid},
-        update,
-        return_document=True
-    )
+        result = await db.community_puzzles.find_one_and_update(
+            {"_id": puzzle_oid},
+            update,
+            return_document=True
+        )
     
     # Recalculate solve rate
     if result:

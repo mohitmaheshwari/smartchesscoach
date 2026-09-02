@@ -120,6 +120,7 @@ from mistake_card_service import (
 class CardAttemptRequest(BaseModel):
     card_id: str
     played_uci: str
+    submission_id: Optional[str] = None
 
 
 class SetActiveHabitRequest(BaseModel):
@@ -131,6 +132,7 @@ class PuzzleAttemptRequest(BaseModel):
     played_uci: str
     time_taken_ms: Optional[int] = None
     moves_tried: Optional[List[str]] = []
+    submission_id: Optional[str] = None
 
 
 class PICLessonStartRequest(BaseModel):
@@ -604,6 +606,8 @@ async def record_training_attempt(req: CardAttemptRequest, user: User = Depends(
         puzzle_id=puzzle_id,
         puzzle=puzzle,
         played_uci=req.played_uci,
+        attempt_context="mistake_card",
+        submission_id=req.submission_id,
     )
     if grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=grade.get("feedback"))
@@ -792,6 +796,10 @@ async def record_puzzle_attempt_endpoint(
         played_uci=played_uci,
         time_taken_ms=time_taken_ms,
         moves_tried=moves_tried,
+        # Context is server-owned provenance, not a client-selected identity
+        # namespace that could be varied to bypass retry deduplication.
+        attempt_context="training",
+        submission_id=request.get("submission_id"),
     )
     if server_grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=server_grade.get("feedback"))
@@ -802,7 +810,7 @@ async def record_puzzle_attempt_endpoint(
     # immediately so training visibly moves prioritization (Lab pick, and any
     # consumer of db.user_pattern_decay) without waiting for the next game
     # analysis. Fail-open: recording the attempt never depends on this.
-    if server_grade.get("recovery_credit_awarded"):
+    if server_grade.get("recovery_credit_claimed_now"):
         try:
             from services.pattern_decay_service import refresh_user_pattern_decay
             await refresh_user_pattern_decay(db, user.user_id)

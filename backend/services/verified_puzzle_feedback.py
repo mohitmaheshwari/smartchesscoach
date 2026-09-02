@@ -2,7 +2,7 @@
 
 The renderer consumes only the frozen board, accepted move and the two proof
 fact sets stored at admission time.  It never calls an engine, model or network
-service, and it never invents a named lesson when admission is broad/generic.
+service, and names an exact fact only when its Caption surface is authorized.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Optional
 
 import chess
+
+from services.detector_quality import QualitySurface, is_authorized
 
 
 def _first_fact(admission: Mapping[str, Any], key: str) -> Mapping[str, Any]:
@@ -187,17 +189,50 @@ def _specific_context(
         square = fact.get("fork_square") or "its square"
         targets = ", ".join(str(item) for item in (fact.get("targets") or ()))
         return (
-            f"{best_san} puts the {piece} on {square}, attacking two targets on {targets}.",
-            "Before settling on a move, scan every legal check and capture for one move that attacks two pieces.",
+            f"{best_san} puts your {piece} on {square}, attacking the pieces "
+            f"on {targets} at the same time.",
+            "Before choosing a move, scan every legal check and capture for one "
+            "move that attacks more than one piece.",
         )
     if concept in {"tactic.pin", "tactic.skewer"}:
         kind = str(fact.get("kind") or concept.rsplit(".", 1)[-1])
+        attacker = fact.get("attacker_piece") or "piece"
+        attacker_square = fact.get("attacker_square") or "its square"
+        front_piece = fact.get("front_piece") or "piece"
+        rear_piece = fact.get("rear_piece") or "piece"
         front, rear = fact.get("front_square"), fact.get("rear_square")
-        if kind == "pin":
-            why = f"After {best_san}, the piece on {front} cannot move freely without exposing the piece on {rear}."
+        if fact.get("creation_mode") == "discovered":
+            lead = (
+                f"{best_san} clears a line for your {attacker} on "
+                f"{attacker_square}, lining it up with"
+            )
         else:
-            why = f"After {best_san}, the piece on {front} must answer first, leaving the piece on {rear} behind it."
-        return why, "When two pieces share a line, examine the front piece and what sits behind it."
+            lead = (
+                f"{best_san} puts your {attacker} on {attacker_square}, "
+                "lining it up with"
+            )
+        if kind == "pin":
+            why = (
+                f"{lead} the {front_piece} on {front} and the {rear_piece} "
+                f"on {rear}. If the {front_piece} moves, the {rear_piece} "
+                f"on {rear} is exposed behind it."
+            )
+            remember = (
+                "When one piece shields something more valuable, check every "
+                "rook, bishop and queen line through both pieces."
+            )
+        else:
+            why = (
+                f"{lead} the {front_piece} on {front} and the {rear_piece} "
+                f"on {rear}. When the {front_piece} moves off that line, the "
+                f"{rear_piece} on {rear} is left available to your {attacker}."
+            )
+            remember = (
+                "When a valuable piece stands in front of another piece, look "
+                "along that line for what becomes available after the front "
+                "piece moves."
+            )
+        return why, remember
     if concept == "tactic.discovered_attack":
         slider, slider_square = fact.get("slider_piece"), fact.get("slider_square")
         target, target_square = fact.get("target_piece"), fact.get("target_square")
@@ -256,6 +291,23 @@ def build_verified_puzzle_feedback(
     if status == "specific":
         why, remember = _specific_context(
             board, admission, focus, correct=correct, alternative=alternative
+        )
+    elif (
+        status == "broad"
+        and admission.get("caption_concept_id")
+        and admission.get("quality_id")
+        and is_authorized(
+            str(admission["quality_id"]), QualitySurface.CAPTION
+        )
+    ):
+        caption_admission = dict(admission)
+        caption_admission["concept_id"] = admission["caption_concept_id"]
+        why, remember = _specific_context(
+            board,
+            caption_admission,
+            focus,
+            correct=correct,
+            alternative=alternative,
         )
     else:
         why = _move_effect(board, focus)

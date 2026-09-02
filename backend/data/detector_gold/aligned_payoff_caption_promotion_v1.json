@@ -1,0 +1,3637 @@
+{
+  "caption_claim": "The stored best move creates a new pin or skewer with exact attacker, front and rear pieces and squares.",
+  "database_writes": 0,
+  "fires": [
+    {
+      "best_move_uci": "g5f4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "99497dc2027b576c9a3b",
+      "cp_loss": 267,
+      "fen_before": "r7/ppk3pp/8/2PPr1B1/8/8/PP3PPP/R4RK1 w - - 1 23",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "f4",
+        "creation_mode": "direct",
+        "front_piece": "rook",
+        "front_square": "e5",
+        "kind": "pin",
+        "net_material_gain_cp": 500,
+        "rear_piece": "king",
+        "rear_square": "c7",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "g5f4",
+          "c7d8",
+          "f4e5",
+          "a7a5",
+          "a1d1"
+        ]
+      },
+      "played_move_uci": "d5d6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kd8",
+        "Bxe5",
+        "a5",
+        "Rad1"
+      ],
+      "source_key": "458ef3d4ba6b53c4182f"
+    },
+    {
+      "best_move_uci": "c2d2",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "3436d28e21dd916802fe",
+      "cp_loss": 215,
+      "fen_before": "6r1/7p/5pk1/Q2p2p1/8/2P3P1/P1q2P1P/4R1K1 b - - 0 29",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d2",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "c3",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "a5",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "c2d2",
+          "e1f1",
+          "g8c8",
+          "a5b5",
+          "d2c3"
+        ]
+      },
+      "played_move_uci": "g8c8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rf1",
+        "Rc8",
+        "Qb5",
+        "Qxc3"
+      ],
+      "source_key": "e7e28476a594226d22fa"
+    },
+    {
+      "best_move_uci": "c1g5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "5b478b49e7d63d266615",
+      "cp_loss": 173,
+      "fen_before": "r1bq1rk1/p1p2ppp/2pb1n2/8/3QP3/2N2N2/PPP3PP/R1B1K2R w KQ - 0 10",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "g5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "f6",
+        "kind": "pin",
+        "net_material_gain_cp": 900,
+        "rear_piece": "queen",
+        "rear_square": "d8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "c1g5",
+          "h7h6",
+          "g5f6",
+          "d8f6",
+          "d4f6"
+        ]
+      },
+      "played_move_uci": "e4e5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "h6",
+        "Bxf6",
+        "Qxf6",
+        "Qxf6"
+      ],
+      "source_key": "7ee78c4375095c19b021"
+    },
+    {
+      "best_move_uci": "c7c8",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "77e00c93c546cb91757f",
+      "cp_loss": 164,
+      "fen_before": "5rk1/N1R3p1/4p2p/p1Nb4/5prP/1P4P1/P4P2/R5K1 w - - 0 28",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c8",
+        "creation_mode": "direct",
+        "front_piece": "rook",
+        "front_square": "f8",
+        "kind": "pin",
+        "net_material_gain_cp": 400,
+        "rear_piece": "king",
+        "rear_square": "g8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "c7c8",
+          "f4g3",
+          "f2f3",
+          "g4f4",
+          "c8f8"
+        ]
+      },
+      "played_move_uci": "c5d7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "fxg3",
+        "f3",
+        "Rf4",
+        "Rxf8+"
+      ],
+      "source_key": "f3094003f023ce6ec52a"
+    },
+    {
+      "best_move_uci": "d2f2",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "706ef92e87dab4abf837",
+      "cp_loss": 150,
+      "fen_before": "5k1r/ppN2p1p/5np1/2q5/3n1Bb1/2NB4/PPPQ1bPP/R4K1R w - - 2 17",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "f2",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "d4",
+        "kind": "pin",
+        "net_material_gain_cp": 900,
+        "rear_piece": "queen",
+        "rear_square": "c5",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d2f2",
+          "g4f3",
+          "g2f3",
+          "c5h5",
+          "f2d4"
+        ]
+      },
+      "played_move_uci": "c3a4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bf3",
+        "gxf3",
+        "Qh5",
+        "Qxd4"
+      ],
+      "source_key": "c413cdd26eb4df17142f"
+    },
+    {
+      "best_move_uci": "f8b4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "aa64f31dc93610a2b205",
+      "cp_loss": 175,
+      "fen_before": "rn1qkb1r/pp3ppp/2p2n2/3Pp3/3P4/2N1B3/PPP1QPPP/R3K1NR b KQkq - 0 7",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "b4",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c3",
+        "kind": "pin",
+        "net_material_gain_cp": 200,
+        "rear_piece": "king",
+        "rear_square": "e1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "f8b4",
+          "e3d2",
+          "e8g8",
+          "d4e5",
+          "b4c3"
+        ]
+      },
+      "played_move_uci": "c6d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd2",
+        "O-O",
+        "dxe5",
+        "Bxc3"
+      ],
+      "source_key": "66c5e5efb19bdbd61b87"
+    },
+    {
+      "best_move_uci": "e5f3",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "2838d3010847dbec216b",
+      "cp_loss": 10227,
+      "fen_before": "4Q3/6pk/2pq3p/3pn1r1/4P3/2P3PP/PP4BK/3R4 b - - 0 29",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d6",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "g3",
+        "kind": "pin",
+        "net_material_gain_cp": 1000,
+        "rear_piece": "king",
+        "rear_square": "h2",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "e5f3",
+          "h2h1",
+          "d6g3",
+          "e8h8",
+          "h7h8"
+        ]
+      },
+      "played_move_uci": "g5g6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kh1",
+        "Qxg3",
+        "Qh8+",
+        "Kxh8"
+      ],
+      "source_key": "ba367d859213af4913d5"
+    },
+    {
+      "best_move_uci": "d3b5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "a64beca320e620878b5b",
+      "cp_loss": 215,
+      "fen_before": "r3r1k1/pb1n1ppp/1p1b1q2/8/1P3P2/2PB1N2/P5PP/R1BQ1K1R w - - 1 14",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "b5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "d7",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "rook",
+        "rear_square": "e8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d3b5",
+          "a8d8",
+          "f1f2",
+          "a7a6",
+          "b5d7"
+        ]
+      },
+      "played_move_uci": "f3g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rad8",
+        "Kf2",
+        "a6",
+        "Bxd7"
+      ],
+      "source_key": "6b12df1476ec312842d4"
+    },
+    {
+      "best_move_uci": "c4b5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "567291773ba8452c5af9",
+      "cp_loss": 511,
+      "fen_before": "r2qk2r/pp2bppp/2nppn2/2p5/2B1P3/2NPBQ1P/PPP2PP1/R3K2R w KQkq - 1 9",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "b5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c6",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "king",
+        "rear_square": "e8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "c4b5",
+          "d8b6",
+          "e1g1",
+          "e8g8",
+          "b5c6"
+        ]
+      },
+      "played_move_uci": "c4a6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qb6",
+        "O-O",
+        "O-O",
+        "Bxc6"
+      ],
+      "source_key": "5f2a78b26e228d11e25f"
+    },
+    {
+      "best_move_uci": "f4g5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "611ab86d3fc0c5a3bdc5",
+      "cp_loss": 394,
+      "fen_before": "2kr1b1r/ppp1qp1p/3p1np1/8/P3PB2/5R1P/1PPN2P1/R2Q2K1 w - - 0 13",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "g5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "f6",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "queen",
+        "rear_square": "e7",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "f4g5",
+          "f8g7",
+          "d1f1",
+          "d6d5",
+          "g5f6"
+        ]
+      },
+      "played_move_uci": "a4a5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bg7",
+        "Qf1",
+        "d5",
+        "Bxf6"
+      ],
+      "source_key": "93ed6f4a70700e147c4e"
+    },
+    {
+      "best_move_uci": "c7b7",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "08ec47495db8ffb896bf",
+      "cp_loss": 175,
+      "fen_before": "6k1/p1r1bp1p/3pp1p1/1P6/2rP1P2/2P1R1P1/1B5P/2R3K1 b - - 4 29",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "b7",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "b5",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "bishop",
+        "rear_square": "b2",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "c7b7",
+          "c1a1",
+          "b7b5",
+          "b2c1",
+          "a7a5"
+        ]
+      },
+      "played_move_uci": "e7f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Ra1",
+        "Rxb5",
+        "Bc1",
+        "a5"
+      ],
+      "source_key": "0e84990160d16451bbcc"
+    },
+    {
+      "best_move_uci": "d6c5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "17b6b12fba8b9ff45fcc",
+      "cp_loss": 436,
+      "fen_before": "r5k1/p3q1pp/2pb4/3pn2N/3Q4/8/PPPB2PP/5RK1 b - - 1 19",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "d4",
+        "kind": "pin",
+        "net_material_gain_cp": 600,
+        "rear_piece": "king",
+        "rear_square": "g1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d6c5",
+          "d2c3",
+          "c5d4",
+          "c3d4",
+          "c6c5"
+        ]
+      },
+      "played_move_uci": "a8f8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bc3",
+        "Bxd4+",
+        "Bxd4",
+        "c5"
+      ],
+      "source_key": "6497b9fb06cf9e7097f4"
+    },
+    {
+      "best_move_uci": "f8b4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "00515b35ed1345a416d8",
+      "cp_loss": 178,
+      "fen_before": "r1bqkb1r/pppp1ppp/2n1pn2/8/3PP3/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 4 4",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "b4",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c3",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "king",
+        "rear_square": "e1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "f8b4",
+          "f1d3",
+          "d7d5",
+          "e1g1",
+          "b4c3"
+        ]
+      },
+      "played_move_uci": "e6e5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd3",
+        "d5",
+        "O-O",
+        "Bxc3"
+      ],
+      "source_key": "1cf41454a36a153c981b"
+    },
+    {
+      "best_move_uci": "d8d5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "8708ab78a462785cf93c",
+      "cp_loss": 467,
+      "fen_before": "r2qkbnr/1pp2ppp/p1N1p3/1B3b2/8/3PP3/PP3PPP/RNBQK2R b KQkq - 0 8",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "g2",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "h1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d8d5",
+          "b5a4",
+          "d5g2",
+          "c6e5",
+          "b7b5"
+        ]
+      },
+      "played_move_uci": "b7c6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ba4",
+        "Qxg2",
+        "Ne5+",
+        "b5"
+      ],
+      "source_key": "4e9a82a1a3458d184e8a"
+    },
+    {
+      "best_move_uci": "b6c6",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "f45c3110eca449dbc45e",
+      "cp_loss": 168,
+      "fen_before": "2r1r2k/1p5p/pq2n1pP/3NPpP1/3n4/P2QK3/1P1B4/6RR b - - 0 25",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "c6",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "d5",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "rook",
+        "rear_square": "h1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "b6c6",
+          "d2c3",
+          "c6d5",
+          "e3f2",
+          "e8d8"
+        ]
+      },
+      "played_move_uci": "b6b2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bc3",
+        "Qxd5",
+        "Kf2",
+        "Red8"
+      ],
+      "source_key": "f4b5c9721c6f828da101"
+    },
+    {
+      "best_move_uci": "e5b2",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "467b85a0189b3388312a",
+      "cp_loss": 155,
+      "fen_before": "r3r1k1/ppp2p2/3p1p2/3Nq1nR/2B1P1P1/3P4/PPP1KP2/R7 b - - 4 18",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "b2",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "c2",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "king",
+        "rear_square": "e2",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "e5b2",
+          "a1h1",
+          "b2c2",
+          "e2e1",
+          "e8e4"
+        ]
+      },
+      "played_move_uci": "c7c6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Rah1",
+        "Qxc2+",
+        "Ke1",
+        "Rxe4+"
+      ],
+      "source_key": "2817b63dfe641fa970f5"
+    },
+    {
+      "best_move_uci": "g7d4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "043fe9ecf30345e272b7",
+      "cp_loss": 171,
+      "fen_before": "1q2rk2/p4pb1/2p1b1pp/2N5/6n1/3P1N2/PPP1QPPP/3RR1K1 b - - 0 18",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "d4",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "f2",
+        "kind": "pin",
+        "net_material_gain_cp": 700,
+        "rear_piece": "king",
+        "rear_square": "g1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "g7d4",
+          "e2e6",
+          "d4f2",
+          "g1f1",
+          "f7e6"
+        ]
+      },
+      "played_move_uci": "b8b2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxe6",
+        "Bxf2+",
+        "Kf1",
+        "fxe6"
+      ],
+      "source_key": "01db8559b860fb14563d"
+    },
+    {
+      "best_move_uci": "e3g5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "3b610887d476ade1b8ff",
+      "cp_loss": 445,
+      "fen_before": "1rbk4/2pp4/1Pn2b2/p6p/8/4B3/PP2RPPP/4R1K1 w - - 1 24",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "g5",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "f6",
+        "kind": "pin",
+        "net_material_gain_cp": 200,
+        "rear_piece": "king",
+        "rear_square": "d8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "e3g5",
+          "c7b6",
+          "g5f6",
+          "d8c7",
+          "e2d2"
+        ]
+      },
+      "played_move_uci": "a2a3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "cxb6",
+        "Bxf6+",
+        "Kc7",
+        "Rd2"
+      ],
+      "source_key": "abbb1f6534b6019155d6"
+    },
+    {
+      "best_move_uci": "a8e8",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "4b8f3e8677e4c070ad06",
+      "cp_loss": 363,
+      "fen_before": "r4rk1/1bqp1ppp/p2b1n2/4N3/QPP2B2/8/5PPP/RN2R1K1 b - - 2 19",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "e8",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "e5",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "e1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "a8e8",
+          "b1d2",
+          "e8e5",
+          "f4e5",
+          "d6e5"
+        ]
+      },
+      "played_move_uci": "d6e5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nd2",
+        "Rxe5",
+        "Bxe5",
+        "Bxe5"
+      ],
+      "source_key": "740556c7677d7bde53eb"
+    },
+    {
+      "best_move_uci": "e7h4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "aacd93739af6e9dfc1ab",
+      "cp_loss": 575,
+      "fen_before": "r2q2k1/ppp1b1pp/4p1r1/4Pp2/3P4/1BP1P2b/PP3RPP/R1B1Q1K1 b - - 2 16",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "h4",
+        "creation_mode": "direct",
+        "front_piece": "rook",
+        "front_square": "f2",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "queen",
+        "rear_square": "e1",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "e7h4",
+          "e3e4",
+          "h4f2",
+          "e1f2",
+          "g6g2"
+        ]
+      },
+      "played_move_uci": "a7a5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "e4",
+        "Bxf2+",
+        "Qxf2",
+        "Rxg2+"
+      ],
+      "source_key": "9b9fe4dcc9bc1b439d8e"
+    },
+    {
+      "best_move_uci": "e3d2",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "021db40c4a82d97e386a",
+      "cp_loss": 174,
+      "fen_before": "5b1r/pkp1ppp1/7p/qN1r4/Pn6/3PBQ2/1P3PPP/R3R1K1 w - - 0 17",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "d2",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "b4",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "a5",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "e3d2",
+          "c7c6",
+          "f3f7",
+          "c6b5",
+          "d2b4"
+        ]
+      },
+      "played_move_uci": "b5c3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "c6",
+        "Qxf7",
+        "cxb5",
+        "Bxb4"
+      ],
+      "source_key": "0e0571cdf5ffb02a9c3d"
+    },
+    {
+      "best_move_uci": "d1d4",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "d6f4b0bb134f7901f127",
+      "cp_loss": 231,
+      "fen_before": "r3kb1r/ppp1pppp/6q1/3PP3/4p1b1/6P1/PPP2P1P/R1BQK1NR w KQkq - 1 10",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d4",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "e4",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "bishop",
+        "rear_square": "g4",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d1d4",
+          "g6a6",
+          "d4e4",
+          "g4d7",
+          "g1e2"
+        ]
+      },
+      "played_move_uci": "f2f3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qa6",
+        "Qxe4",
+        "Bd7",
+        "Ne2"
+      ],
+      "source_key": "1dda1d8d8b47f1e5ffba"
+    },
+    {
+      "best_move_uci": "b5d3",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "462c26471221aff57a3f",
+      "cp_loss": 206,
+      "fen_before": "7r/ppQ2pp1/5q2/1B1p1k2/1b2b3/8/PPP2PPP/3R2K1 w - - 1 23",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "d3",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "e4",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "king",
+        "rear_square": "f5",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "b5d3",
+          "f5g6",
+          "d3e4",
+          "d5e4",
+          "c7b7"
+        ]
+      },
+      "played_move_uci": "b5d7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kg6",
+        "Bxe4+",
+        "dxe4",
+        "Qxb7"
+      ],
+      "source_key": "90eb6a487abbda558dfc"
+    },
+    {
+      "best_move_uci": "d3b5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "9e6a14da1f58665943ec",
+      "cp_loss": 153,
+      "fen_before": "r1bqk2r/ppp4p/2n1p1p1/3p1p2/3Pn3/2NBPNP1/PPP1QPP1/R3K2R w KQkq - 4 10",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "b5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c6",
+        "kind": "pin",
+        "net_material_gain_cp": 300,
+        "rear_piece": "king",
+        "rear_square": "e8",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d3b5",
+          "c8d7",
+          "b5c6",
+          "d7c6",
+          "c3e4"
+        ]
+      },
+      "played_move_uci": "d3e4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd7",
+        "Bxc6",
+        "Bxc6",
+        "Nxe4"
+      ],
+      "source_key": "8acb352c492f06c40af1"
+    },
+    {
+      "best_move_uci": "d6c5",
+      "candidate_fired": true,
+      "candidate_kind": "pin",
+      "case_id": "c6fdac96d47345b43d03",
+      "cp_loss": 156,
+      "fen_before": "1k1r3r/ppp1q1pp/2nb1pn1/4p2B/4P2B/P1PP4/1P1N2PP/R3QRK1 b - - 2 16",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d8",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "d3",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "knight",
+        "rear_square": "d2",
+        "reason": "pin_exact",
+        "replayed_uci": [
+          "d6c5",
+          "g1h1",
+          "d8d3",
+          "h4f2",
+          "g6f4"
+        ]
+      },
+      "played_move_uci": "g6f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kh1",
+        "Rxd3",
+        "Bf2",
+        "Nf4"
+      ],
+      "source_key": "11a2bba184620b4e8ae0"
+    },
+    {
+      "best_move_uci": "e7e1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "49652c9f3985919334ac",
+      "cp_loss": 810,
+      "fen_before": "4r1k1/pp2rpp1/3q1p1R/2pn4/3P4/2PB1PP1/PP3PK1/R1Q5 b - - 0 21",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "e1",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "c1",
+        "kind": "skewer",
+        "net_material_gain_cp": 500,
+        "rear_piece": "rook",
+        "rear_square": "a1",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e7e1",
+          "c1g5",
+          "e1a1",
+          "g5h5",
+          "g8f8"
+        ]
+      },
+      "played_move_uci": "g7h6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qg5",
+        "Rxa1",
+        "Qh5",
+        "Kf8"
+      ],
+      "source_key": "b3a55daf53dc805e7f3d"
+    },
+    {
+      "best_move_uci": "e1h1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "4adde2c5f7a061ea503f",
+      "cp_loss": 251,
+      "fen_before": "8/ppp5/2k5/2Pb3P/5P2/2R3PK/8/4r3 b - - 0 42",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "h1",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "h3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "h5",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e1h1",
+          "h3g4",
+          "d5f7",
+          "f4f5",
+          "h1h5"
+        ]
+      },
+      "played_move_uci": "d5e6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kg4",
+        "Bf7",
+        "f5",
+        "Rxh5"
+      ],
+      "source_key": "b4d914fcad3afa66ab78"
+    },
+    {
+      "best_move_uci": "f8c5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "18eb16b55d35372742f4",
+      "cp_loss": 210,
+      "fen_before": "r1bqkb1r/p1pp1ppp/1pn2n2/4P3/8/4Q2P/PPP2PP1/RNB1KBNR b KQkq - 0 6",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "e3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "f2",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "f8c5",
+          "e3g5",
+          "d8e7",
+          "g1f3",
+          "c5f2"
+        ]
+      },
+      "played_move_uci": "f6d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qg5",
+        "Qe7",
+        "Nf3",
+        "Bxf2+"
+      ],
+      "source_key": "f482c2c3565c462bed88"
+    },
+    {
+      "best_move_uci": "e1a1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "31812f154c0183cebbd3",
+      "cp_loss": 793,
+      "fen_before": "3r2k1/2p3p1/p4nBp/1p2N3/3P4/2P4P/bP3PPK/4R3 w - - 13 40",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "a1",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "a2",
+        "kind": "skewer",
+        "net_material_gain_cp": 400,
+        "rear_piece": "pawn",
+        "rear_square": "a6",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e1a1",
+          "a2d5",
+          "a1a6",
+          "f6d7",
+          "e5d7"
+        ]
+      },
+      "played_move_uci": "g6f7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd5",
+        "Rxa6",
+        "Nd7",
+        "Nxd7"
+      ],
+      "source_key": "e602335fe05db46d19ea"
+    },
+    {
+      "best_move_uci": "c7a5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "a81e4871536f41d72ede",
+      "cp_loss": 178,
+      "fen_before": "3rn1k1/ppq2p1p/2npb1p1/4p3/2P5/BP2PQP1/P4PBP/3R1RK1 b - - 6 20",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "a5",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "a3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "a2",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "c7a5",
+          "a3c1",
+          "a5a2",
+          "d1d3",
+          "a7a5"
+        ]
+      },
+      "played_move_uci": "c7c8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bc1",
+        "Qxa2",
+        "Rd3",
+        "a5"
+      ],
+      "source_key": "990783a72d23ee318da2"
+    },
+    {
+      "best_move_uci": "e8f8",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "0709bc057c13683f3b99",
+      "cp_loss": 528,
+      "fen_before": "4R3/7p/5kp1/5r2/5PK1/6P1/8/8 w - - 7 44",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "f8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "f6",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "f5",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e8f8",
+          "f6g7",
+          "f8f5",
+          "g6f5",
+          "g4f5"
+        ]
+      },
+      "played_move_uci": "e8h8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kg7",
+        "Rxf5",
+        "gxf5+",
+        "Kxf5"
+      ],
+      "source_key": "18ee7af63e1a47f8f416"
+    },
+    {
+      "best_move_uci": "d7d6",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "03463cfe91a3ebbf9d9d",
+      "cp_loss": 225,
+      "fen_before": "r1b1k1nr/pppp1ppp/8/n1bNp3/2B1P1Q1/7N/PPPP1qPP/R1BK3R b kq - 3 7",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c8",
+        "creation_mode": "discovered",
+        "front_piece": "queen",
+        "front_square": "g4",
+        "kind": "skewer",
+        "net_material_gain_cp": 200,
+        "rear_piece": "knight",
+        "rear_square": "h3",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "d7d6",
+          "g4g7",
+          "f2h4",
+          "c4e2",
+          "c8h3"
+        ]
+      },
+      "played_move_uci": "g8f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qxg7",
+        "Qh4",
+        "Be2",
+        "Bxh3"
+      ],
+      "source_key": "a7102622223042119b5f"
+    },
+    {
+      "best_move_uci": "g1g7",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "53ef45789c1105d5a9bb",
+      "cp_loss": 154,
+      "fen_before": "5r2/n2k3B/1p2pq1p/p1ppQ3/5P2/8/2P2P1P/4K1R1 w - - 2 25",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "g7",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d7",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "knight",
+        "rear_square": "a7",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "g1g7",
+          "d7c6",
+          "g7a7",
+          "c6b5",
+          "h7d3"
+        ]
+      },
+      "played_move_uci": "e5f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kc6",
+        "Rxa7",
+        "Kb5",
+        "Bd3+"
+      ],
+      "source_key": "cd88d64044e083ad5c55"
+    },
+    {
+      "best_move_uci": "d8a8",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "1a5c3814f6b0036b2386",
+      "cp_loss": 148,
+      "fen_before": "3r1rk1/1p4b1/5pPp/B3p3/P2p2P1/3q1P2/3PNK1Q/7R b - - 0 26",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "a8",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "a5",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "a4",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "d8a8",
+          "a5b4",
+          "f8e8",
+          "e2g3",
+          "a8a4"
+        ]
+      },
+      "played_move_uci": "d8c8",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bb4",
+        "Rfe8",
+        "Ng3",
+        "Rxa4"
+      ],
+      "source_key": "bf80740e2383f308a6c4"
+    },
+    {
+      "best_move_uci": "b2c1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "422757b2b8127a379116",
+      "cp_loss": 668,
+      "fen_before": "8/8/7B/4pk1p/8/4K1PP/1b6/8 b - - 2 47",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c1",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "e3",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "bishop",
+        "rear_square": "h6",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "b2c1",
+          "e3f3",
+          "e5e4",
+          "f3f2",
+          "c1h6"
+        ]
+      },
+      "played_move_uci": "e5e4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kf3",
+        "e4+",
+        "Kf2",
+        "Bxh6"
+      ],
+      "source_key": "e63dced2ee955d22e23b"
+    },
+    {
+      "best_move_uci": "e8f8",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "bd61649bae354bb18f9b",
+      "cp_loss": 224,
+      "fen_before": "2k1r3/pp1n3p/2p4q/3p1Q2/P6P/2B1P3/1P6/1R1K1R2 b - - 0 38",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "f8",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "f5",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "f1",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e8f8",
+          "f5h3",
+          "f8f1",
+          "h3f1",
+          "h6e3"
+        ]
+      },
+      "played_move_uci": "h6e3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qh3",
+        "Rxf1+",
+        "Qxf1",
+        "Qxe3"
+      ],
+      "source_key": "954f3cf1c7e7fef375ce"
+    },
+    {
+      "best_move_uci": "e3g5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "ca1c142e61954ba16465",
+      "cp_loss": 593,
+      "fen_before": "1k1rr3/pppbq1pp/2nb4/3p1p2/3Pn3/2PBBN1P/PPQN1PP1/2KRR3 w - - 0 14",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "g5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "e7",
+        "kind": "skewer",
+        "net_material_gain_cp": 200,
+        "rear_piece": "rook",
+        "rear_square": "d8",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e3g5",
+          "e7f8",
+          "g5d8",
+          "c6d8",
+          "d2b3"
+        ]
+      },
+      "played_move_uci": "f3g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qf8",
+        "Bxd8",
+        "Nxd8",
+        "Nb3"
+      ],
+      "source_key": "7fee27c2154340a105b6"
+    },
+    {
+      "best_move_uci": "g4e6",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "af4085baf37c373d462d",
+      "cp_loss": 672,
+      "fen_before": "r3r1k1/1pp2pp1/2n4p/3Q4/p5b1/P3PNPq/R2NBP1P/5RK1 b - - 0 23",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "e6",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "d5",
+        "kind": "skewer",
+        "net_material_gain_cp": 400,
+        "rear_piece": "rook",
+        "rear_square": "a2",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "g4e6",
+          "d5b5",
+          "e6a2",
+          "b5b7",
+          "h3e6"
+        ]
+      },
+      "played_move_uci": "g4f3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qb5",
+        "Bxa2",
+        "Qxb7",
+        "Qe6"
+      ],
+      "source_key": "7756761ce285b248fc69"
+    },
+    {
+      "best_move_uci": "g3e5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "a5ae7fb62b478ba2a35d",
+      "cp_loss": 199,
+      "fen_before": "r3r1k1/5p1p/6p1/p2P4/1p1KP1n1/1P4bP/3NR1P1/R7 b - - 1 25",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "e5",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d4",
+        "kind": "skewer",
+        "net_material_gain_cp": 200,
+        "rear_piece": "rook",
+        "rear_square": "a1",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "g3e5",
+          "d4d3",
+          "e5a1",
+          "h3g4",
+          "a5a4"
+        ]
+      },
+      "played_move_uci": "g4f6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kd3",
+        "Bxa1",
+        "hxg4",
+        "a4"
+      ],
+      "source_key": "56c85d64f7f60588c8c5"
+    },
+    {
+      "best_move_uci": "c4d5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "74e1950cf69e8cdd64d2",
+      "cp_loss": 432,
+      "fen_before": "r1b1k1nr/p2pppbp/1pq3p1/8/2B1P3/N7/PPP2PPP/R1BQ1RK1 w kq - 0 9",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "c6",
+        "kind": "skewer",
+        "net_material_gain_cp": 500,
+        "rear_piece": "rook",
+        "rear_square": "a8",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "c4d5",
+          "c6c7",
+          "d5a8",
+          "c8a6",
+          "f1e1"
+        ]
+      },
+      "played_move_uci": "d1f3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qc7",
+        "Bxa8",
+        "Ba6",
+        "Re1"
+      ],
+      "source_key": "dd300f2651b6e208b2ec"
+    },
+    {
+      "best_move_uci": "e3d4",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "4320950e15fa1395b7ec",
+      "cp_loss": 469,
+      "fen_before": "r1b1k2r/pp3pp1/2pbpn2/4q2p/2Q5/2N1B1P1/PP2PPBP/R2R2K1 w kq - 1 14",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "d4",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "e5",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "knight",
+        "rear_square": "f6",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e3d4",
+          "e5f5",
+          "d4f6",
+          "f5f6",
+          "d1d6"
+        ]
+      },
+      "played_move_uci": "e3f4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qf5",
+        "Bxf6",
+        "Qxf6",
+        "Rxd6"
+      ],
+      "source_key": "b0f638729f78418bb1c7"
+    },
+    {
+      "best_move_uci": "c8a6",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "0627d0a2a8b4286dca39",
+      "cp_loss": 363,
+      "fen_before": "r1b2rk1/4qppp/1p1b1n2/p2P4/2Q5/P2B1N2/1B3PPP/R2R2K1 b - - 0 20",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "a6",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "c4",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "bishop",
+        "rear_square": "d3",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "c8a6",
+          "c4h4",
+          "a6d3",
+          "b2f6",
+          "e7f6"
+        ]
+      },
+      "played_move_uci": "e7c7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qh4",
+        "Bxd3",
+        "Bxf6",
+        "Qxf6"
+      ],
+      "source_key": "b83c73135967c5c6d968"
+    },
+    {
+      "best_move_uci": "a5c3",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "90d9910a5c9fe1885cc8",
+      "cp_loss": 185,
+      "fen_before": "2r4r/p7/b4k1p/B1bB2p1/4P3/P2p2P1/1PPR1P1P/6K1 w - - 0 30",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c3",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "f6",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "rook",
+        "rear_square": "h8",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "a5c3",
+          "f6e7",
+          "c3h8",
+          "c8h8",
+          "c2d3"
+        ]
+      },
+      "played_move_uci": "c2d3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ke7",
+        "Bxh8",
+        "Rxh8",
+        "cxd3"
+      ],
+      "source_key": "7daacb5c77e2274b12a2"
+    },
+    {
+      "best_move_uci": "d1d5",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "eb69721c6fc16a7e0986",
+      "cp_loss": 288,
+      "fen_before": "r4rk1/ppp2pp1/3p3p/4q2n/8/1PN2Q2/PP3PPP/1K1R3R w - - 0 16",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "e5",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "knight",
+        "rear_square": "h5",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "d1d5",
+          "e5f4",
+          "d5h5",
+          "f4f3",
+          "g2f3"
+        ]
+      },
+      "played_move_uci": "h1e1",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qf4",
+        "Rxh5",
+        "Qxf3",
+        "gxf3"
+      ],
+      "source_key": "b4d7132325f576445252"
+    },
+    {
+      "best_move_uci": "b6b7",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "9ad73e0ee02121fb933d",
+      "cp_loss": 350,
+      "fen_before": "8/3kr3/pR6/3pP3/P1p5/2P5/KP5R/4r3 w - - 1 41",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "b7",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d7",
+        "kind": "skewer",
+        "net_material_gain_cp": 500,
+        "rear_piece": "rook",
+        "rear_square": "e7",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "b6b7",
+          "d7e6",
+          "h2h6",
+          "e6f5",
+          "b7e7"
+        ]
+      },
+      "played_move_uci": "b6d6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ke6",
+        "Rh6+",
+        "Kf5",
+        "Rxe7"
+      ],
+      "source_key": "5cec61f366f5e2aeabec"
+    },
+    {
+      "best_move_uci": "a1f1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "d73d98c78af75f98f4d3",
+      "cp_loss": 336,
+      "fen_before": "5rk1/6pp/Q1p1pqb1/4N3/3P2P1/2P4P/P7/R5K1 w - - 1 23",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "f1",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "f6",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "f8",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "a1f1",
+          "f6e7",
+          "f1f8",
+          "g8f8",
+          "a6c6"
+        ]
+      },
+      "played_move_uci": "a6c6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qe7",
+        "Rxf8+",
+        "Kxf8",
+        "Qxc6"
+      ],
+      "source_key": "e765c3e841e7dc274454"
+    },
+    {
+      "best_move_uci": "d1c1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "2c6b40e61f1146f9b60f",
+      "cp_loss": 167,
+      "fen_before": "5r2/p1p2pkp/1p4p1/4p3/4P3/6N1/PPb2PPP/3R2K1 w - - 2 23",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c1",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "c2",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "c7",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "d1c1",
+          "c2d3",
+          "c1c7",
+          "f8d8",
+          "f2f3"
+        ]
+      },
+      "played_move_uci": "d1d7",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bd3",
+        "Rxc7",
+        "Rd8",
+        "f3"
+      ],
+      "source_key": "8a00c0060a28d6931df7"
+    },
+    {
+      "best_move_uci": "e3h6",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "86692028c1cadf4c8682",
+      "cp_loss": 248,
+      "fen_before": "r2q1r2/p1p1n1k1/1p1p1pp1/2nPp3/4P1pQ/2N1B3/PPP2P1P/R3R1K1 w - - 0 21",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "h6",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "g7",
+        "kind": "skewer",
+        "net_material_gain_cp": 200,
+        "rear_piece": "rook",
+        "rear_square": "f8",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "e3h6",
+          "g7f7",
+          "h6f8",
+          "d8f8",
+          "b2b4"
+        ]
+      },
+      "played_move_uci": "h4h6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kf7",
+        "Bxf8",
+        "Qxf8",
+        "b4"
+      ],
+      "source_key": "594d1ff322bcecf3486d"
+    },
+    {
+      "best_move_uci": "d1c1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "f019358a56d3b5a074b1",
+      "cp_loss": 380,
+      "fen_before": "1r5r/2p1kp1p/p2p4/4p3/1p6/8/P1b1BPPP/3R1RK1 w - - 0 20",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c1",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "c2",
+        "kind": "skewer",
+        "net_material_gain_cp": 200,
+        "rear_piece": "pawn",
+        "rear_square": "c7",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "d1c1",
+          "c2a4",
+          "c1c7",
+          "e7e6",
+          "e2a6"
+        ]
+      },
+      "played_move_uci": "e2d3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ba4",
+        "Rxc7+",
+        "Ke6",
+        "Bxa6"
+      ],
+      "source_key": "7fa806894ab78a65c87c"
+    },
+    {
+      "best_move_uci": "f1d1",
+      "candidate_fired": true,
+      "candidate_kind": "skewer",
+      "case_id": "375db9bc31e96e2dc24d",
+      "cp_loss": 635,
+      "fen_before": "r3k2r/ppQbnppp/4p3/8/8/6P1/P2qPPBP/R4RK1 w kq - 1 13",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d1",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "d2",
+        "kind": "skewer",
+        "net_material_gain_cp": 400,
+        "rear_piece": "bishop",
+        "rear_square": "d7",
+        "reason": "skewer_exact",
+        "replayed_uci": [
+          "f1d1",
+          "a8c8",
+          "c7b7",
+          "d2a5",
+          "d1d7"
+        ]
+      },
+      "played_move_uci": "g2b7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rc8",
+        "Qxb7",
+        "Qa5",
+        "Rxd7"
+      ],
+      "source_key": "6b61fcc078280d92e3e9"
+    }
+  ],
+  "generated_at": "2026-09-02",
+  "llm_calls": 0,
+  "negatives": [
+    {
+      "best_move_uci": "h5e5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "76dd0942d0aa40ac2f24",
+      "cp_loss": 191,
+      "fen_before": "6k1/pQ1R2p1/2p1r3/7q/2P1P3/1P3P2/P5P1/6K1 b - - 1 35",
+      "gold": {
+        "attacker_piece": null,
+        "attacker_square": null,
+        "creation_mode": null,
+        "front_piece": null,
+        "front_square": null,
+        "kind": null,
+        "net_material_gain_cp": null,
+        "rear_piece": null,
+        "rear_square": null,
+        "reason": "no_created_alignment",
+        "replayed_uci": []
+      },
+      "played_move_uci": "e6g6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Rd1",
+        "a5",
+        "Qc8+",
+        "Kh7"
+      ],
+      "source_key": "34b8fae3bcebf12e692a"
+    },
+    {
+      "best_move_uci": "g4e2",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "478ed5a54c29af3ae889",
+      "cp_loss": 215,
+      "fen_before": "r4rk1/1b2bppp/pq3n2/1ppPp3/2p1P1Q1/P1N1B1P1/1P3PBP/2R1R1K1 w - - 2 18",
+      "gold": {
+        "attacker_piece": null,
+        "attacker_square": null,
+        "creation_mode": null,
+        "front_piece": null,
+        "front_square": null,
+        "kind": null,
+        "net_material_gain_cp": null,
+        "rear_piece": null,
+        "rear_square": null,
+        "reason": "no_created_alignment",
+        "replayed_uci": []
+      },
+      "played_move_uci": "g4h3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ne8",
+        "f4",
+        "f6",
+        "Rf1"
+      ],
+      "source_key": "264a80abbe0864b3ac83"
+    },
+    {
+      "best_move_uci": "e1g1",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "0b9003d536c163024181",
+      "cp_loss": 121,
+      "fen_before": "r1bq1bnr/pppp2p1/2n3kp/8/2BpP3/8/PPP2PPP/RNBQK2R w KQ - 2 7",
+      "gold": {
+        "attacker_piece": null,
+        "attacker_square": null,
+        "creation_mode": null,
+        "front_piece": null,
+        "front_square": null,
+        "kind": null,
+        "net_material_gain_cp": null,
+        "rear_piece": null,
+        "rear_square": null,
+        "reason": "no_created_alignment",
+        "replayed_uci": []
+      },
+      "played_move_uci": "d1g4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kh7",
+        "Bd3",
+        "g6",
+        "f4"
+      ],
+      "source_key": "0a938230ad9c4737bf2f"
+    },
+    {
+      "best_move_uci": "b2b3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "24890403f36042511ce1",
+      "cp_loss": 352,
+      "fen_before": "r2qk2N/ppp1bp1p/8/4Q3/2bnp3/8/PPPP1PPP/R1B1K2R w KQq - 3 12",
+      "gold": {
+        "attacker_piece": null,
+        "attacker_square": null,
+        "creation_mode": null,
+        "front_piece": null,
+        "front_square": null,
+        "kind": null,
+        "net_material_gain_cp": null,
+        "rear_piece": null,
+        "rear_square": null,
+        "reason": "no_created_alignment",
+        "replayed_uci": []
+      },
+      "played_move_uci": "e5g7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qd5",
+        "Qxd5",
+        "Bxd5",
+        "c4"
+      ],
+      "source_key": "41c1173b6665265526ad"
+    },
+    {
+      "best_move_uci": "d8b6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "113c97470922d86a5ba7",
+      "cp_loss": 182,
+      "fen_before": "r2qk2r/p4ppp/b1p1pn2/3p4/1b1P4/2N2Q1N/PPPB1PPP/R3K2R b KQkq - 2 10",
+      "gold": {
+        "attacker_piece": null,
+        "attacker_square": null,
+        "creation_mode": null,
+        "front_piece": null,
+        "front_square": null,
+        "kind": null,
+        "net_material_gain_cp": null,
+        "rear_piece": null,
+        "rear_square": null,
+        "reason": "no_created_alignment",
+        "replayed_uci": []
+      },
+      "played_move_uci": "b4c3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "O-O-O",
+        "Qxd4",
+        "Be3",
+        "Qg4"
+      ],
+      "source_key": "254a65f9fbb38779d073"
+    },
+    {
+      "best_move_uci": "c2c7",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "7489792ba53fd5dbc571",
+      "cp_loss": 326,
+      "fen_before": "2k3rr/pppqbp2/5n2/3p1N2/4P3/4BP2/PPQ1KP1p/2R1R3 w - - 0 23",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "c7",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "d7",
+        "kind": "skewer",
+        "net_material_gain_cp": null,
+        "rear_piece": "bishop",
+        "rear_square": "e7",
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "c2c7"
+        ]
+      },
+      "played_move_uci": "e3a7",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qxc7",
+        "Nxe7+",
+        "Kb8",
+        "Rxc7"
+      ],
+      "source_key": "719f1ef26ee6976740a8"
+    },
+    {
+      "best_move_uci": "h5d5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "fe1721c1c179f042706b",
+      "cp_loss": 287,
+      "fen_before": "rnb1kb1r/ppp4p/6p1/3p3Q/3qp3/2N5/PPP2PPP/R1B1KB1R w KQkq - 0 11",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "b7",
+        "kind": "pin",
+        "net_material_gain_cp": null,
+        "rear_piece": "rook",
+        "rear_square": "a8",
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "h5d5"
+        ]
+      },
+      "played_move_uci": "h5g5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxd5",
+        "Nxd5",
+        "Bd6",
+        "Bc4"
+      ],
+      "source_key": "a79f4f03c949939a7cf1"
+    },
+    {
+      "best_move_uci": "c7c5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "f2c91859fd73a540f076",
+      "cp_loss": 244,
+      "fen_before": "2r2rk1/1bq1n3/1p5p/pPPpP1p1/R3ppP1/2Q4P/3B1P1K/1NR5 b - - 0 26",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "c5",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "c3",
+        "kind": "skewer",
+        "net_material_gain_cp": null,
+        "rear_piece": "rook",
+        "rear_square": "c1",
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "c7c5"
+        ]
+      },
+      "played_move_uci": "e4e3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxc5",
+        "Rxc5",
+        "Rxc5",
+        "bxc5"
+      ],
+      "source_key": "f160ae3e131118f8410f"
+    },
+    {
+      "best_move_uci": "g4f3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "b56fb2a73f18f4aa341f",
+      "cp_loss": 471,
+      "fen_before": "r2qk1nr/ppp2pb1/7p/4p3/3n1Bb1/2N1QN1P/PPP3B1/2KR3R b kq - 0 14",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "f3",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "g2",
+        "kind": "pin",
+        "net_material_gain_cp": null,
+        "rear_piece": "rook",
+        "rear_square": "h1",
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "g4f3"
+        ]
+      },
+      "played_move_uci": "h6h5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bxf3",
+        "Qe7",
+        "Rhe1",
+        "O-O-O"
+      ],
+      "source_key": "8316655ae62d227e00fc"
+    },
+    {
+      "best_move_uci": "e2g4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "c1aec571acb4b0ffd4f8",
+      "cp_loss": 200,
+      "fen_before": "5rk1/r2q1pbp/p2p2p1/2pP4/8/3P3P/P2BQPP1/3RR1K1 w - - 2 26",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "g4",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "g6",
+        "kind": "pin",
+        "net_material_gain_cp": null,
+        "rear_piece": "bishop",
+        "rear_square": "g7",
+        "reason": "incomplete_line",
+        "replayed_uci": [
+          "e2g4"
+        ]
+      },
+      "played_move_uci": "a2a4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxg4",
+        "hxg4",
+        "f5",
+        "Re6"
+      ],
+      "source_key": "f8ce132dcf393e687521"
+    },
+    {
+      "best_move_uci": "f8c5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "aab286f14e7015702b63",
+      "cp_loss": 374,
+      "fen_before": "rnbqkbnr/pppp1ppp/8/3Pp3/8/8/PPP1PPPP/RNBQKBNR b KQkq - 0 2",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "f2",
+        "kind": "pin",
+        "net_material_gain_cp": 0,
+        "rear_piece": "knight",
+        "rear_square": "g1",
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "f8c5",
+          "e2e4",
+          "d7d6",
+          "f1d3",
+          "a7a5"
+        ]
+      },
+      "played_move_uci": "b8c6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "e4",
+        "d6",
+        "Bd3",
+        "a5"
+      ],
+      "source_key": "77a3b6fbc8342dac98d6"
+    },
+    {
+      "best_move_uci": "h3b3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "da1350ed37fcf6758223",
+      "cp_loss": 185,
+      "fen_before": "7r/pp3p1k/6pq/8/1b2p3/7Q/PPP2PPP/3R2K1 w - - 0 30",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "b3",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "b4",
+        "kind": "skewer",
+        "net_material_gain_cp": 0,
+        "rear_piece": "pawn",
+        "rear_square": "b7",
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "h3b3",
+          "h6f8",
+          "d1d7",
+          "h7g7",
+          "b3d5"
+        ]
+      },
+      "played_move_uci": "h3d7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qf8",
+        "Rd7",
+        "Kg7",
+        "Qd5"
+      ],
+      "source_key": "35304986a1bee0c7c052"
+    },
+    {
+      "best_move_uci": "a4g4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "27cf3dbd8b4d354d4663",
+      "cp_loss": 738,
+      "fen_before": "1rr5/3k2pp/2n2p2/Rp1pp3/Q7/3qB3/5PPP/2R3K1 w - - 0 26",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "g4",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d7",
+        "kind": "skewer",
+        "net_material_gain_cp": 0,
+        "rear_piece": "rook",
+        "rear_square": "c8",
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "a4g4",
+          "d7d8",
+          "g4e6",
+          "d5d4",
+          "e6g8"
+        ]
+      },
+      "played_move_uci": "a4b4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kd8",
+        "Qe6",
+        "d4",
+        "Qg8+"
+      ],
+      "source_key": "909253b98744adb4a48a"
+    },
+    {
+      "best_move_uci": "f3f4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "7769e982d30e3f38ac09",
+      "cp_loss": 78,
+      "fen_before": "6k1/p4ppp/8/1p6/1P1K2nP/3P1r2/P7/R7 b - - 0 29",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "f4",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d4",
+        "kind": "skewer",
+        "net_material_gain_cp": 0,
+        "rear_piece": "pawn",
+        "rear_square": "b4",
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "f3f4"
+        ]
+      },
+      "played_move_uci": "a7a6",
+      "pool": "community_puzzles",
+      "pv_after_best": [],
+      "source_key": "e882cd0cd5a40ae5e5d0"
+    },
+    {
+      "best_move_uci": "f1e1",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "4d3edc50ab17d9ce41e2",
+      "cp_loss": 191,
+      "fen_before": "r2qkb1r/p3pppp/p7/6B1/3Pb3/5N1P/PPP2PP1/R2Q1RK1 w kq - 0 12",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "e1",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "e4",
+        "kind": "skewer",
+        "net_material_gain_cp": 0,
+        "rear_piece": "pawn",
+        "rear_square": "e7",
+        "reason": "insufficient_net_gain",
+        "replayed_uci": [
+          "f1e1",
+          "e4b7",
+          "c2c4",
+          "f7f6",
+          "d4d5"
+        ]
+      },
+      "played_move_uci": "g5e3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bb7",
+        "c4",
+        "f6",
+        "d5"
+      ],
+      "source_key": "85cee9f2b0222ec23d2e"
+    },
+    {
+      "best_move_uci": "h8h3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "612746bd2ca1185c9be6",
+      "cp_loss": 297,
+      "fen_before": "2kr3r/1pp2pp1/p4b2/1b1Pp3/4P3/P1N5/1PP2PRP/1K1R4 b - - 4 22",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "h3",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "a3",
+        "reason": "attacker_left_before_payoff",
+        "replayed_uci": [
+          "h8h3",
+          "a3a4",
+          "b5d7",
+          "g2g3",
+          "h3h2"
+        ]
+      },
+      "played_move_uci": "c7c6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "a4",
+        "Bd7",
+        "Rg3",
+        "Rxh2"
+      ],
+      "source_key": "a341f58ec43899a31d7d"
+    },
+    {
+      "best_move_uci": "g4d7",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "f15ae22feb1425865568",
+      "cp_loss": 163,
+      "fen_before": "r4r1k/3n1p1n/3p1q2/p1p1p2p/Pp2P1Q1/1B1P2N1/1PP2PP1/2R1R1K1 w - - 0 23",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d7",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "f7",
+        "kind": "pin",
+        "net_material_gain_cp": 400,
+        "rear_piece": "knight",
+        "rear_square": "h7",
+        "reason": "attacker_left_before_payoff",
+        "replayed_uci": [
+          "g4d7",
+          "h7g5",
+          "g3f5",
+          "f8g8",
+          "d7d6"
+        ]
+      },
+      "played_move_uci": "g3h5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Ng5",
+        "Nf5",
+        "Rg8",
+        "Qxd6"
+      ],
+      "source_key": "48d807c243cb2711b0d3"
+    },
+    {
+      "best_move_uci": "d3d5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "0dad439ec2289d2f1697",
+      "cp_loss": 242,
+      "fen_before": "r5k1/pppqrpp1/3b3p/3n4/5Pb1/3Q2P1/PP2P1BP/R1B1R1K1 w - - 0 16",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "f7",
+        "kind": "pin",
+        "net_material_gain_cp": 200,
+        "rear_piece": "king",
+        "rear_square": "g8",
+        "reason": "attacker_left_before_payoff",
+        "replayed_uci": [
+          "d3d5",
+          "g4e2",
+          "c1d2",
+          "c7c6",
+          "d5d4"
+        ]
+      },
+      "played_move_uci": "g2d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bxe2",
+        "Bd2",
+        "c6",
+        "Qd4"
+      ],
+      "source_key": "4c6b75bd84820ea5e423"
+    },
+    {
+      "best_move_uci": "d2g5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "6dd8023b3cc390fc06d1",
+      "cp_loss": 193,
+      "fen_before": "r1q2rk1/2p2ppp/p4n2/2b2N2/2p5/1P4P1/P2QPPBP/RN1R2K1 w - - 1 16",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "g5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "g7",
+        "kind": "pin",
+        "net_material_gain_cp": 900,
+        "rear_piece": "king",
+        "rear_square": "g8",
+        "reason": "attacker_left_before_payoff",
+        "replayed_uci": [
+          "d2g5",
+          "g7g6",
+          "g5f6",
+          "c8f5",
+          "f6f5"
+        ]
+      },
+      "played_move_uci": "g2a8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "g6",
+        "Qxf6",
+        "Qxf5",
+        "Qxf5"
+      ],
+      "source_key": "258faaa87c86d5616500"
+    },
+    {
+      "best_move_uci": "e7f6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "7a1fc386a43ad5960e89",
+      "cp_loss": 60,
+      "fen_before": "r1br2k1/4qpb1/p1n1p3/2pn4/1p6/1B1P1NN1/PPPQ1PPP/3RR1K1 b - - 6 19",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "f6",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "f3",
+        "kind": "skewer",
+        "net_material_gain_cp": 600,
+        "rear_piece": "pawn",
+        "rear_square": "f2",
+        "reason": "attacker_left_before_payoff",
+        "replayed_uci": [
+          "e7f6",
+          "g3h5",
+          "f6h6",
+          "h5g7",
+          "h6d2"
+        ]
+      },
+      "played_move_uci": "g7b2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Nh5",
+        "Qh6",
+        "Nxg7",
+        "Qxd2"
+      ],
+      "source_key": "566b37cc9a50597cb9a6"
+    },
+    {
+      "best_move_uci": "d4e5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "de071b7c94dfa9f7fb8d",
+      "cp_loss": 150,
+      "fen_before": "rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d1",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "d7",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "d8",
+        "reason": "pin_front_escaped",
+        "replayed_uci": [
+          "d4e5",
+          "b8c6",
+          "g1f3",
+          "d7d5",
+          "c1f4"
+        ]
+      },
+      "played_move_uci": "d4d5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nc6",
+        "Nf3",
+        "d5",
+        "Bf4"
+      ],
+      "source_key": "4ae264e523a19fa5a580"
+    },
+    {
+      "best_move_uci": "b6a5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "3edc16e77d467e9fd0c7",
+      "cp_loss": 256,
+      "fen_before": "r3kb1r/pp1n1ppp/1q2pn2/2pp4/3P1B2/1PN1PN2/P1P2PPP/R2QK2R b KQkq - 0 8",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "a5",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "c3",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "king",
+        "rear_square": "e1",
+        "reason": "pin_front_escaped",
+        "replayed_uci": [
+          "b6a5",
+          "d1d2",
+          "c5d4",
+          "c3e2",
+          "f8b4"
+        ]
+      },
+      "played_move_uci": "a8c8",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qd2",
+        "cxd4",
+        "Ne2",
+        "Bb4"
+      ],
+      "source_key": "7482c93c20a99a776ef7"
+    },
+    {
+      "best_move_uci": "d4e5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "f8b22c764f6b9de8127d",
+      "cp_loss": 207,
+      "fen_before": "r1bqnrk1/2p1bppp/p2p4/np2p3/3PP3/1BN1BN1P/PPP2PP1/R2Q1RK1 w - - 1 11",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d1",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "d6",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "d8",
+        "reason": "pin_front_escaped",
+        "replayed_uci": [
+          "d4e5",
+          "c8b7",
+          "f1e1",
+          "d6e5",
+          "f3e5"
+        ]
+      },
+      "played_move_uci": "d1d2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bb7",
+        "Re1",
+        "dxe5",
+        "Nxe5"
+      ],
+      "source_key": "bd93e962ad37e6b59779"
+    },
+    {
+      "best_move_uci": "d4e5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "6f54e79dbe91d961884e",
+      "cp_loss": 151,
+      "fen_before": "rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d1",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "d7",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "d8",
+        "reason": "pin_front_escaped",
+        "replayed_uci": [
+          "d4e5",
+          "b8c6",
+          "g1f3",
+          "d7d5",
+          "c1f4"
+        ]
+      },
+      "played_move_uci": "g1f3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nc6",
+        "Nf3",
+        "d5",
+        "Bf4"
+      ],
+      "source_key": "a02f867d6272f832ac37"
+    },
+    {
+      "best_move_uci": "d5c6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "9dd20d5f49bb040e3ceb",
+      "cp_loss": 159,
+      "fen_before": "r1b1kb1r/ppp3pp/2n2q2/3Bp3/8/5Q2/PPPP1PPP/RNB1K2R w KQ - 1 9",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "c6",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "b7",
+        "kind": "pin",
+        "net_material_gain_cp": 900,
+        "rear_piece": "rook",
+        "rear_square": "a8",
+        "reason": "pin_front_escaped",
+        "replayed_uci": [
+          "d5c6",
+          "b7c6",
+          "f3h5",
+          "f6f7",
+          "h5f7"
+        ]
+      },
+      "played_move_uci": "f3f6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "bxc6",
+        "Qh5+",
+        "Qf7",
+        "Qxf7+"
+      ],
+      "source_key": "89418dcdf4f2f50307b2"
+    },
+    {
+      "best_move_uci": "d8e7",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "4177d46de4abecf4d0b3",
+      "cp_loss": 205,
+      "fen_before": "r1bqk2r/p1pp1ppp/2p5/4P3/1nP5/B7/P1P2PPP/R2QKB1R b KQkq - 2 10",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "e7",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "e5",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "king",
+        "rear_square": "e1",
+        "reason": "pin_target_not_captured",
+        "replayed_uci": [
+          "d8e7",
+          "a3b2",
+          "d7d5",
+          "f1e2",
+          "d5c4"
+        ]
+      },
+      "played_move_uci": "a7a5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bb2",
+        "d5",
+        "Be2",
+        "dxc4"
+      ],
+      "source_key": "4449ea242ddf3438764d"
+    },
+    {
+      "best_move_uci": "c6d4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "98b49fc751b183c5a56b",
+      "cp_loss": 266,
+      "fen_before": "1brq1rk1/pp3ppp/2n1p3/3p4/3Pn3/2P4Q/PPB2PPP/RNB2RK1 b - - 8 14",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c8",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "c3",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "bishop",
+        "rear_square": "c2",
+        "reason": "pin_target_not_captured",
+        "replayed_uci": [
+          "c6d4",
+          "c2d3",
+          "d4c6",
+          "b1d2",
+          "e4g5"
+        ]
+      },
+      "played_move_uci": "c6e7",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bd3",
+        "Nc6",
+        "Nd2",
+        "Ng5"
+      ],
+      "source_key": "c19d26d647e4db9f4c4f"
+    },
+    {
+      "best_move_uci": "b2d4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "a46002e3389808911488",
+      "cp_loss": 154,
+      "fen_before": "r4rk1/1p1b1ppp/p3pn2/3p4/3P1P2/8/Pq1N1PPP/R2QRBK1 b - - 1 14",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d4",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "f2",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "king",
+        "rear_square": "g1",
+        "reason": "pin_target_not_captured",
+        "replayed_uci": [
+          "b2d4",
+          "g2g3",
+          "d7a4",
+          "d1e2",
+          "f8c8"
+        ]
+      },
+      "played_move_uci": "d7b5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "g3",
+        "Ba4",
+        "Qe2",
+        "Rfc8"
+      ],
+      "source_key": "562a92ffd72bc57f8c3b"
+    },
+    {
+      "best_move_uci": "d7e7",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "0218497052f3f10bf88a",
+      "cp_loss": 292,
+      "fen_before": "bk1r4/p1pq4/Pr5p/Rp6/3P2pP/4P3/1PQ1N1P1/4R1K1 b - - 0 31",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "e7",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "e3",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "knight",
+        "rear_square": "e2",
+        "reason": "pin_target_not_captured",
+        "replayed_uci": [
+          "d7e7",
+          "e2g3",
+          "d8d4",
+          "c2b3",
+          "d4d8"
+        ]
+      },
+      "played_move_uci": "b6c6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Ng3",
+        "Rxd4",
+        "Qb3",
+        "Rd8"
+      ],
+      "source_key": "cb782467f97e369ed03d"
+    },
+    {
+      "best_move_uci": "d8d5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "f923fc2b3f92f9db6157",
+      "cp_loss": 377,
+      "fen_before": "r1bqkbnr/ppp1pppp/2n5/3P4/3P4/8/PP2PPPP/RNBQKBNR b KQkq - 0 3",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "d4",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "queen",
+        "rear_square": "d1",
+        "reason": "pin_target_not_captured",
+        "replayed_uci": [
+          "d8d5",
+          "e2e3",
+          "e7e5",
+          "b1c3",
+          "f8b4"
+        ]
+      },
+      "played_move_uci": "c6b4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "e3",
+        "e5",
+        "Nc3",
+        "Bb4"
+      ],
+      "source_key": "c0b658459c4273c58348"
+    },
+    {
+      "best_move_uci": "b7c8q",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "64278eeac1cc63ba9a16",
+      "cp_loss": 240,
+      "fen_before": "1rb1k2r/pPp2ppp/8/b7/2B2pn1/P1N5/1PPP1PPP/R1B1K2R w KQk - 0 12",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "c8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "e8",
+        "kind": "skewer",
+        "net_material_gain_cp": 1100,
+        "rear_piece": "rook",
+        "rear_square": "h8",
+        "reason": "skewer_front_not_cleared",
+        "replayed_uci": [
+          "b7c8q"
+        ]
+      },
+      "played_move_uci": "e1g1",
+      "pool": "community_training_positions",
+      "pv_after_best": [],
+      "source_key": "c1f2a2d4340ccccac1a3"
+    },
+    {
+      "best_move_uci": "d6f6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "bd2d68261876c8344754",
+      "cp_loss": 159,
+      "fen_before": "r3kb1r/p4ppp/2pq4/3p4/4n3/BP3N1P/P1P2PP1/RN3QK1 b kq - 1 13",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "f6",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "f3",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "pawn",
+        "rear_square": "f2",
+        "reason": "skewer_front_not_cleared",
+        "replayed_uci": [
+          "d6f6",
+          "a3f8",
+          "e8f8",
+          "b1d2",
+          "e4d2"
+        ]
+      },
+      "played_move_uci": "c6c5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bxf8",
+        "Kxf8",
+        "Nbd2",
+        "Nxd2"
+      ],
+      "source_key": "2bb898e195e94987a9d0"
+    },
+    {
+      "best_move_uci": "a8d8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "4905eab0b23180d32ec8",
+      "cp_loss": 389,
+      "fen_before": "r3k2r/pp4pp/5n2/2N5/4p1b1/2N1B3/PPPKB2q/R2Q2R1 b kq - 6 24",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "d2",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "queen",
+        "rear_square": "d1",
+        "reason": "skewer_front_not_cleared",
+        "replayed_uci": [
+          "a8d8",
+          "c5d3",
+          "e8g8",
+          "g1h1",
+          "e4d3"
+        ]
+      },
+      "played_move_uci": "h2d6",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nd3",
+        "O-O",
+        "Rh1",
+        "exd3"
+      ],
+      "source_key": "6d5e2521d2e486bb92b1"
+    },
+    {
+      "best_move_uci": "c5b4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "ec88a9c5ca3e60eb9ccb",
+      "cp_loss": 562,
+      "fen_before": "2r2rk1/p1B2p1p/8/2b1P3/2P3b1/3Q4/PP1KBqPP/R4R2 b - - 6 21",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c8",
+        "creation_mode": "discovered",
+        "front_piece": "bishop",
+        "front_square": "c7",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "pawn",
+        "rear_square": "c4",
+        "reason": "skewer_front_not_cleared",
+        "replayed_uci": [
+          "c5b4",
+          "d2c2",
+          "f2e2",
+          "d3e2",
+          "g4e2"
+        ]
+      },
+      "played_move_uci": "f2h4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Kc2",
+        "Qxe2+",
+        "Qxe2",
+        "Bxe2"
+      ],
+      "source_key": "f7d767b34580f7231ba2"
+    },
+    {
+      "best_move_uci": "e4d2",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "1c527781bd8526718bdb",
+      "cp_loss": 271,
+      "fen_before": "b3r1k1/p1p3pp/4r1q1/2P5/3Bn3/P2QRB1P/5PP1/4R1K1 b - - 0 31",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "a8",
+        "creation_mode": "discovered",
+        "front_piece": "bishop",
+        "front_square": "f3",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "pawn",
+        "rear_square": "g2",
+        "reason": "skewer_front_not_cleared",
+        "replayed_uci": [
+          "e4d2",
+          "d3g6",
+          "d2f3",
+          "g1h1",
+          "h7g6"
+        ]
+      },
+      "played_move_uci": "e4c5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxg6",
+        "Nxf3+",
+        "Kh1",
+        "hxg6"
+      ],
+      "source_key": "ec8d1a05eeba8c73ee94"
+    },
+    {
+      "best_move_uci": "d4f3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "1cd423c5938b50f304ff",
+      "cp_loss": 399,
+      "fen_before": "3rr1k1/ppp2ppp/5q2/8/3nP1b1/3Q1PP1/PP1N2BP/R4RK1 b - - 0 19",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d8",
+        "creation_mode": "discovered",
+        "front_piece": "queen",
+        "front_square": "d3",
+        "kind": "skewer",
+        "net_material_gain_cp": 500,
+        "rear_piece": "knight",
+        "rear_square": "d2",
+        "reason": "skewer_rear_escaped",
+        "replayed_uci": [
+          "d4f3",
+          "d3f3",
+          "g4f3",
+          "d2f3",
+          "e8e4"
+        ]
+      },
+      "played_move_uci": "g4h5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qxf3",
+        "Bxf3",
+        "Nxf3",
+        "Rxe4"
+      ],
+      "source_key": "dba1e8b737b44d6df856"
+    },
+    {
+      "best_move_uci": "e1e6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "fda7daa1e73ec0db7a72",
+      "cp_loss": 221,
+      "fen_before": "3r1r2/3P1ppk/7p/3Q4/5pR1/5P1P/R5PK/4q3 b - - 4 39",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "e6",
+        "creation_mode": "direct",
+        "front_piece": "queen",
+        "front_square": "d5",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "a2",
+        "reason": "skewer_rear_escaped",
+        "replayed_uci": [
+          "e1e6",
+          "d5d3",
+          "f7f5",
+          "a2e2",
+          "d8d7"
+        ]
+      },
+      "played_move_uci": "f7f5",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Qd3+",
+        "f5",
+        "Re2",
+        "Rxd7"
+      ],
+      "source_key": "2475b2f126b813eb05ed"
+    },
+    {
+      "best_move_uci": "d6g3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "ff818e1c7a024415a4c1",
+      "cp_loss": 178,
+      "fen_before": "r1br2k1/ppq2ppp/3bp3/8/2P5/1P1Q1NP1/P2N1P1P/3R1RK1 b - - 0 20",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "d8",
+        "creation_mode": "discovered",
+        "front_piece": "queen",
+        "front_square": "d3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "knight",
+        "rear_square": "d2",
+        "reason": "skewer_rear_escaped",
+        "replayed_uci": [
+          "d6g3",
+          "d3e2",
+          "g3f4",
+          "d2e4",
+          "c8d7"
+        ]
+      },
+      "played_move_uci": "b7b6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qe2",
+        "Bf4",
+        "Ne4",
+        "Bd7"
+      ],
+      "source_key": "2e1d12972f4d2b735d1d"
+    },
+    {
+      "best_move_uci": "d1d8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "084acd22cd31dc080f32",
+      "cp_loss": 230,
+      "fen_before": "r2qk1nr/ppp2ppp/2n5/2b2b2/8/6N1/PPP2PPP/RNBQKB1R w KQkq - 4 9",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "e8",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "knight",
+        "rear_square": "g8",
+        "reason": "skewer_rear_escaped",
+        "replayed_uci": [
+          "d1d8",
+          "e8d8",
+          "g3f5",
+          "g8e7",
+          "f5e3"
+        ]
+      },
+      "played_move_uci": "g3f5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kxd8",
+        "Nxf5",
+        "Nge7",
+        "Ne3"
+      ],
+      "source_key": "f9503b7404869cc42e22"
+    },
+    {
+      "best_move_uci": "d1d8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "b65fa8ed6ab214871c1f",
+      "cp_loss": 320,
+      "fen_before": "r1bqkb1r/ppp2p1p/2n4p/4p3/2B1P3/5N2/PPP2PPP/RN1QK2R w KQkq - 0 7",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "e8",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "bishop",
+        "rear_square": "f8",
+        "reason": "skewer_rear_escaped",
+        "replayed_uci": [
+          "d1d8",
+          "e8d8",
+          "c4f7",
+          "f8c5",
+          "f7d5"
+        ]
+      },
+      "played_move_uci": "b2b4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kxd8",
+        "Bxf7",
+        "Bc5",
+        "Bd5"
+      ],
+      "source_key": "3656ba9f4883f7d3d8fd"
+    },
+    {
+      "best_move_uci": "a5b4",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "e62cb4caa575177e5184",
+      "cp_loss": 278,
+      "fen_before": "r2q1rk1/1pp1bppp/2n5/p3p3/1BB5/N2P1Q1P/PPP2PP1/R3K2R b KQ - 0 12",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "a8",
+        "creation_mode": "discovered",
+        "front_piece": "knight",
+        "front_square": "a3",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "pawn",
+        "rear_square": "a2",
+        "reason": "skewer_rear_not_captured",
+        "replayed_uci": [
+          "a5b4",
+          "a3b1",
+          "c6d4",
+          "f3d1",
+          "b7b5"
+        ]
+      },
+      "played_move_uci": "e7b4",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nb1",
+        "Nd4",
+        "Qd1",
+        "b5"
+      ],
+      "source_key": "f5af39f2c348c358a175"
+    },
+    {
+      "best_move_uci": "d1d8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "e674a03d2d967655ac9d",
+      "cp_loss": 228,
+      "fen_before": "rnbqk2r/ppp1bpp1/5n1p/4p3/2B1P2P/5N2/PPP2PP1/RNBQK2R w KQkq - 0 8",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d8",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "e8",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "h8",
+        "reason": "skewer_rear_not_captured",
+        "replayed_uci": [
+          "d1d8",
+          "e7d8",
+          "f3e5",
+          "e8g8",
+          "f2f3"
+        ]
+      },
+      "played_move_uci": "b1d2",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Bxd8",
+        "Nxe5",
+        "O-O",
+        "f3"
+      ],
+      "source_key": "a87da7d087582559f2dd"
+    },
+    {
+      "best_move_uci": "b6c8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "e8fc6c6ab3bba70b9824",
+      "cp_loss": 221,
+      "fen_before": "1r1q1rk1/R5p1/1n3b1p/1NpP4/8/1P4P1/6KP/2BQ1R2 b - - 0 24",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "b8",
+        "creation_mode": "discovered",
+        "front_piece": "knight",
+        "front_square": "b5",
+        "kind": "skewer",
+        "net_material_gain_cp": 400,
+        "rear_piece": "pawn",
+        "rear_square": "b3",
+        "reason": "skewer_rear_not_captured",
+        "replayed_uci": [
+          "b6c8",
+          "c1h6",
+          "c8a7",
+          "b5a7",
+          "g7h6"
+        ]
+      },
+      "played_move_uci": "b6d5",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bxh6",
+        "Nxa7",
+        "Nxa7",
+        "gxh6"
+      ],
+      "source_key": "ef94d97f9b14de696056"
+    },
+    {
+      "best_move_uci": "f2c2",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "fbc9646121da034e0e94",
+      "cp_loss": 373,
+      "fen_before": "1r2k1nr/2q2ppp/p1p1p3/2bpP3/P2N1P2/P7/1B3RPP/1R1Q3K w k - 5 21",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "c2",
+        "creation_mode": "direct",
+        "front_piece": "bishop",
+        "front_square": "c5",
+        "kind": "skewer",
+        "net_material_gain_cp": 500,
+        "rear_piece": "pawn",
+        "rear_square": "c6",
+        "reason": "skewer_rear_not_captured",
+        "replayed_uci": [
+          "f2c2",
+          "c5d4",
+          "b2d4",
+          "g8e7",
+          "b1b8"
+        ]
+      },
+      "played_move_uci": "f2d2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bxd4",
+        "Bxd4",
+        "Ne7",
+        "Rxb8+"
+      ],
+      "source_key": "afa748737f633fe90666"
+    },
+    {
+      "best_move_uci": "a8e8",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "b968d8fb688e9c1377f5",
+      "cp_loss": 208,
+      "fen_before": "r4rk1/7p/8/1p5P/pP1PN1P1/2B1P3/5p2/2n2K1R b - - 0 34",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "e8",
+        "creation_mode": "direct",
+        "front_piece": "knight",
+        "front_square": "e4",
+        "kind": "skewer",
+        "net_material_gain_cp": 300,
+        "rear_piece": "pawn",
+        "rear_square": "e3",
+        "reason": "skewer_rear_not_captured",
+        "replayed_uci": [
+          "a8e8",
+          "e4f6",
+          "f8f6",
+          "d4d5",
+          "f6d6"
+        ]
+      },
+      "played_move_uci": "a4a3",
+      "pool": "community_training_positions",
+      "pv_after_best": [
+        "Nf6+",
+        "Rxf6",
+        "d5",
+        "Rd6"
+      ],
+      "source_key": "826d45d6ebefc5fdc048"
+    },
+    {
+      "best_move_uci": "f4e5",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "781c0255922934e30eeb",
+      "cp_loss": 51,
+      "fen_before": "6k1/pp3ppp/1n1p4/2pP4/5b2/6P1/PPP1K2P/R6R b - - 0 21",
+      "gold": {
+        "attacker_piece": "bishop",
+        "attacker_square": "e5",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "b2",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "a1",
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "f4e5",
+          "a1d1",
+          "b6a4",
+          "d1d3",
+          "e5b2"
+        ]
+      },
+      "played_move_uci": "f4h6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Rad1",
+        "Na4",
+        "Rd3",
+        "Bxb2"
+      ],
+      "source_key": "81b70ad3fa2e16448e84"
+    },
+    {
+      "best_move_uci": "d7e6",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "90ba034ebbc5ce54177d",
+      "cp_loss": 61,
+      "fen_before": "1r1qr1k1/p2b1pbp/1p1P2p1/2pN3P/8/P3BP2/1PPQB3/2KR3R b - - 0 20",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "d8",
+        "creation_mode": "discovered",
+        "front_piece": "pawn",
+        "front_square": "d6",
+        "kind": "pin",
+        "net_material_gain_cp": 400,
+        "rear_piece": "knight",
+        "rear_square": "d5",
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "d7e6",
+          "e3g5",
+          "d8d6",
+          "d5f6",
+          "g7f6"
+        ]
+      },
+      "played_move_uci": "d7c6",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bg5",
+        "Qxd6",
+        "Nf6+",
+        "Bxf6"
+      ],
+      "source_key": "7571f01804dc86a8c227"
+    },
+    {
+      "best_move_uci": "d1f3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "91fd037ac08111c1de67",
+      "cp_loss": 96,
+      "fen_before": "r3k1nr/ppp2ppp/3P2q1/8/2Bb4/3P3b/PP3PPP/RNBQ1RK1 w kq - 1 11",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "f3",
+        "creation_mode": "direct",
+        "front_piece": "pawn",
+        "front_square": "b7",
+        "kind": "pin",
+        "net_material_gain_cp": 100,
+        "rear_piece": "rook",
+        "rear_square": "a8",
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "d1f3",
+          "h3d7",
+          "f3b7",
+          "a8c8",
+          "b1c3"
+        ]
+      },
+      "played_move_uci": "d1e2",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Bd7",
+        "Qxb7",
+        "Rc8",
+        "Nc3"
+      ],
+      "source_key": "9119426ea5e92c12e5da"
+    },
+    {
+      "best_move_uci": "g4g2",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "3366bfcd5d8b6395450e",
+      "cp_loss": 70,
+      "fen_before": "8/ppp5/1b1p3R/4kP2/2P1P1r1/3P4/PPK5/8 b - - 3 29",
+      "gold": {
+        "attacker_piece": "rook",
+        "attacker_square": "g2",
+        "creation_mode": "direct",
+        "front_piece": "king",
+        "front_square": "c2",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "b2",
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "g4g2",
+          "c2b3",
+          "b6d4",
+          "h6h7",
+          "g2b2"
+        ]
+      },
+      "played_move_uci": "b6d4",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Kb3",
+        "Bd4",
+        "Rh7",
+        "Rxb2+"
+      ],
+      "source_key": "d2208dabfeff52d89170"
+    },
+    {
+      "best_move_uci": "b4d3",
+      "candidate_fired": false,
+      "candidate_kind": null,
+      "case_id": "bcb35e5b965b97b3e378",
+      "cp_loss": 77,
+      "fen_before": "r3k2r/1p1b1p2/pq2pn1p/3p2p1/1n1P4/1Q1BPNP1/PP1N1PP1/R3K2R b KQkq - 6 15",
+      "gold": {
+        "attacker_piece": "queen",
+        "attacker_square": "b6",
+        "creation_mode": "discovered",
+        "front_piece": "queen",
+        "front_square": "b3",
+        "kind": "skewer",
+        "net_material_gain_cp": 100,
+        "rear_piece": "pawn",
+        "rear_square": "b2",
+        "reason": "insufficient_consequence",
+        "replayed_uci": [
+          "b4d3",
+          "b3d3",
+          "b6b2",
+          "e1g1",
+          "d7b5"
+        ]
+      },
+      "played_move_uci": "a8c8",
+      "pool": "community_puzzles",
+      "pv_after_best": [
+        "Qxd3",
+        "Qxb2",
+        "O-O",
+        "Bb5"
+      ],
+      "source_key": "ad30a2f68c5167b0b5b2"
+    }
+  ],
+  "population": {
+    "by_attacker_piece": {
+      "bishop": 178,
+      "queen": 107,
+      "rook": 151
+    },
+    "by_creation_mode": {
+      "direct": 374,
+      "discovered": 62
+    },
+    "by_kind": {
+      "pin": 285,
+      "skewer": 151
+    },
+    "by_pool": {
+      "community_puzzles": 104,
+      "community_training_positions": 332
+    },
+    "candidate_replay_failures": 0,
+    "distinct_source_keys": 363,
+    "documents_scanned": 52085,
+    "full_pool_outcomes": {
+      "attacker_left_before_payoff": 1963,
+      "incomplete_line": 609,
+      "insufficient_consequence": 44,
+      "insufficient_net_gain": 4666,
+      "no_created_alignment": 41305,
+      "pin_exact": 422,
+      "pin_front_escaped": 350,
+      "pin_target_not_captured": 1423,
+      "same_move": 296,
+      "skewer_exact": 215,
+      "skewer_front_not_cleared": 280,
+      "skewer_rear_escaped": 69,
+      "skewer_rear_not_captured": 443
+    },
+    "independent_outcomes": {
+      "pin_exact": 285,
+      "skewer_exact": 151
+    },
+    "stored_candidates": 436,
+    "stored_fact_mismatches": 0
+  },
+  "proof_contract": "The complete legal stored line uses the original alignment attacker and target for at least one pawn of net material gain.",
+  "quality_id": "tactic:aligned_with_stored_payoff",
+  "read_only": true,
+  "schema_version": "aligned_payoff.caption_promotion.v1",
+  "selection": {
+    "distinct_source_fingerprints_required": true,
+    "negative_strata": {
+      "attacker_left_before_payoff": 5,
+      "incomplete_line": 5,
+      "insufficient_consequence": 5,
+      "insufficient_net_gain": 5,
+      "no_created_alignment": 5,
+      "pin_front_escaped": 5,
+      "pin_target_not_captured": 5,
+      "skewer_front_not_cleared": 5,
+      "skewer_rear_escaped": 5,
+      "skewer_rear_not_captured": 5
+    },
+    "negative_target": 50,
+    "positive_per_kind": 25,
+    "positive_target": 50,
+    "required_attacker_pieces_per_kind": [
+      "bishop",
+      "rook",
+      "queen"
+    ],
+    "required_creation_modes_per_kind": [
+      "direct",
+      "discovered"
+    ],
+    "required_pools_per_kind": [
+      "community_puzzles",
+      "community_training_positions"
+    ],
+    "seed": "20260902-aligned-payoff-caption-v1",
+    "selection_fingerprint_sha256": "de3ccb6ff3338b63e37c0945875dabb15151e4b8a85762283716d4dc53fc7c37"
+  },
+  "stockfish_runs": 0,
+  "summary": {
+    "caption_promotion_gate_passed": true,
+    "combined_wilson_lower_pct": 92.87,
+    "critical_adversarial_errors": 0,
+    "pin_true_positives": 25,
+    "pin_wilson_lower_pct": 86.68,
+    "reviewed_fires": 50,
+    "semantic_precision_pct": 100,
+    "skewer_true_positives": 25,
+    "skewer_wilson_lower_pct": 86.68,
+    "true_negative_cases": 50,
+    "true_negatives": 50,
+    "true_positives": 50
+  }
+}

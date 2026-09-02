@@ -29,6 +29,7 @@ import Layout from "@/components/Layout";
 import EvalBadge from "@/components/shared/EvalBadge";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { toast } from "sonner";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import {
   ArrowLeft,
   Play,
@@ -385,6 +386,10 @@ const LabV2 = ({ user }) => {
   const [interactiveMoment, setInteractiveMoment] = useState(null); // Current moment user is trying to solve
   const [userAttemptResult, setUserAttemptResult] = useState(null); // Result of user's move attempt
   const [interactiveFen, setInteractiveFen] = useState(null); // FEN for interactive mode (to allow resetting)
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(
+      interactiveMoment ? `${gameId}_m${interactiveMoment.move_number}` : null,
+    );
   // Holds the pending "play the right line after a wrong answer" timeout so
   // handleTryAgain can cancel it if the user retries before the line fires.
   const wrongAnswerLineTimeoutRef = useRef(null);
@@ -978,12 +983,14 @@ const LabV2 = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: `${gameId}_m${interactiveMoment.move_number}`,
-          user_move: userMoveUci
+          user_move: userMoveUci,
+          submission_id: puzzleSubmissionId,
         })
       });
       
       if (evalResponse.ok) {
         const evalResult = await evalResponse.json();
+        rotatePuzzleSubmissionId();
         
         // Handle based on move quality
         if (evalResult.is_correct) {

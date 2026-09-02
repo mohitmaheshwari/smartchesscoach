@@ -28,8 +28,15 @@ class _Collection:
 
     async def update_one(self, query, update, **_kwargs):
         self.updated.append((query, update))
+        if _kwargs.get("upsert") and isinstance(update, dict):
+            inserted = dict(update.get("$setOnInsert") or {})
+            if inserted and self.document is None:
+                self.document = inserted
+                return type(
+                    "UpdateResult", (), {"upserted_id": query.get("_id")}
+                )()
         return type("UpdateResult", (), {
-            "upserted_id": "new-credit" if _kwargs.get("upsert") else None,
+            "upserted_id": None,
         })()
 
     def aggregate(self, _pipeline):
@@ -129,7 +136,37 @@ def test_generic_correct_solve_does_not_write_named_recovery_credit():
 
     assert result["solved"] is True
     assert db.puzzle_recovery_credits.updated == []
-    assert db.puzzle_attempts.inserted[0]["weakness_type"] is None
+    assert db.puzzle_attempts.document["weakness_type"] is None
+
+
+def test_transport_retry_does_not_duplicate_legacy_attempt_or_position_stats():
+    db = _Db(_position(["e2e4"]))
+    submission_id = "12345678-1234-4234-8234-1234567890ab"
+
+    first = asyncio.run(
+        service.record_solve_attempt(
+            db,
+            "user-1",
+            "game-1_m1",
+            "e4",
+            submission_id=submission_id,
+        )
+    )
+    retry = asyncio.run(
+        service.record_solve_attempt(
+            db,
+            "user-1",
+            "game-1_m1",
+            "e4",
+            submission_id=submission_id,
+        )
+    )
+
+    assert first["solved"] is True
+    assert retry["solved"] is True
+    assert len(db.puzzle_attempts.updated) == 2
+    assert len(db.training_solve_attempts.inserted) == 1
+    assert len(db.community_training_positions.updated) == 1
 
 
 def test_enforced_solve_rejects_incomplete_verdict_without_writing(monkeypatch):

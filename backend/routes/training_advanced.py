@@ -1979,6 +1979,8 @@ async def record_skill_puzzle_attempt(
         played_uci=move_uci,
         time_taken_ms=request.get("time_taken_ms"),
         moves_tried=[move_uci],
+        attempt_context="skill_drill",
+        submission_id=request.get("submission_id"),
     )
     if grade.get("quality") == "invalid":
         raise HTTPException(status_code=400, detail=grade.get("feedback"))
@@ -3159,7 +3161,14 @@ async def attempt_community_puzzle_endpoint(
     if not user_move:
         raise HTTPException(status_code=400, detail="Missing user_move")
 
-    result = await attempt_community_puzzle(db, user.user_id, puzzle_id, user_move, time_taken)
+    result = await attempt_community_puzzle(
+        db,
+        user.user_id,
+        puzzle_id,
+        user_move,
+        time_taken,
+        submission_id=data.get("submission_id"),
+    )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -3246,6 +3255,7 @@ class SolveAttemptRequest(BaseModel):
     position_id: str
     user_move: str
     time_taken_seconds: int = 0
+    submission_id: Optional[str] = None
 
 
 @router.post("/training/solve-attempt")
@@ -3256,7 +3266,12 @@ async def record_solve_attempt_endpoint(
     """Record a training position solve attempt."""
     from services.community_training_service import record_solve_attempt
     return await record_solve_attempt(
-        db, user.user_id, data.position_id, data.user_move, data.time_taken_seconds
+        db,
+        user.user_id,
+        data.position_id,
+        data.user_move,
+        data.time_taken_seconds,
+        submission_id=data.submission_id,
     )
 
 

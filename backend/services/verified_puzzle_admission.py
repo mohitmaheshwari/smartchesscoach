@@ -33,6 +33,7 @@ class AdmissionStatus(str, Enum):
 
 class AdmissionReason(str, Enum):
     SPECIFIC_PROOF_VERIFIED = "specific_proof_verified"
+    CAPTION_PROOF_VERIFIED = "caption_proof_verified"
     SPECIFIC_PROOF_UNAUTHORIZED = "specific_proof_unauthorized"
     SPECIFIC_PROOF_MISMATCH = "specific_proof_mismatch"
     BROAD_CATEGORY_VERIFIED = "broad_category_verified"
@@ -117,6 +118,9 @@ class AdmissionVerdict:
     verifier_version: Optional[str]
     quality_id: Optional[str]
     quality_grade: Optional[str]
+    # A Caption-grade exact fact may explain a completed attempt, but it must
+    # not become a drill identity. `concept_id` remains Prompt/Plan-only.
+    caption_concept_id: Optional[str] = None
     detector_facts: Tuple[Mapping[str, Any], ...] = ()
     verifier_facts: Tuple[Mapping[str, Any], ...] = ()
     admission_version: str = ADMISSION_VERSION
@@ -124,6 +128,10 @@ class AdmissionVerdict:
     def to_document(self) -> Dict[str, Any]:
         document = asdict(self)
         document["status"] = self.status.value
+        # Keep v2 byte-compatible for every non-Caption verdict. Otherwise a
+        # future reconciliation would rewrite the whole pool just to add null.
+        if document.get("caption_concept_id") is None:
+            document.pop("caption_concept_id", None)
         document["verdict_fingerprint"] = _stable_hash(document)
         return document
 
@@ -225,6 +233,7 @@ def stored_verdict_is_structurally_current(puzzle: Mapping[str, Any]) -> bool:
         if (
             not is_authorized(quality_id, QualitySurface.PROMPT)
             or verdict.get("quality_grade") != grade_for(quality_id).value
+            or verdict.get("caption_concept_id")
         ):
             return False
         detector_facts = verdict.get("detector_facts") or ()
@@ -243,8 +252,34 @@ def stored_verdict_is_structurally_current(puzzle: Mapping[str, Any]) -> bool:
             or len(accepted) != 1
         ):
             return False
+        caption_concept_id = verdict.get("caption_concept_id")
+        if caption_concept_id:
+            required = (
+                "detector_id", "detector_version", "verifier_id",
+                "verifier_version", "quality_id", "quality_grade",
+            )
+            if any(not verdict.get(field) for field in required):
+                return False
+            quality_id = str(verdict.get("quality_id"))
+            if (
+                not is_authorized(quality_id, QualitySurface.CAPTION)
+                or is_authorized(quality_id, QualitySurface.PROMPT)
+                or verdict.get("quality_grade") != grade_for(quality_id).value
+                or verdict.get("detector_id") == verdict.get("verifier_id")
+            ):
+                return False
+            detector_facts = verdict.get("detector_facts") or ()
+            verifier_facts = verdict.get("verifier_facts") or ()
+            if (
+                not detector_facts
+                or not verifier_facts
+                or any(not isinstance(item, Mapping) for item in detector_facts)
+                or any(not isinstance(item, Mapping) for item in verifier_facts)
+            ):
+                return False
     elif (
         verdict.get("concept_id")
+        or verdict.get("caption_concept_id")
         or verdict.get("broad_category")
         or len(accepted) != 1
     ):
@@ -428,6 +463,34 @@ def adjudicate_puzzle(candidate: PuzzleCandidate) -> AdmissionVerdict:
                 played_move_uci=played_move.uci(),
                 acceptable_moves_uci=tuple(sorted(detector_answers)),
                 concept_id=detector.concept_id,
+                broad_category=candidate.broad_category,
+                detector_id=detector.detector_id,
+                detector_version=detector.detector_version,
+                verifier_id=verifier.verifier_id,
+                verifier_version=verifier.verifier_version,
+                quality_id=candidate.quality_id,
+                quality_grade=grade,
+                detector_facts=tuple(detector.facts),
+                verifier_facts=tuple(verifier.facts),
+            )
+        if (
+            candidate.broad_category
+            and is_authorized(candidate.quality_id, QualitySurface.CAPTION)
+        ):
+            return AdmissionVerdict(
+                status=AdmissionStatus.BROAD,
+                reason_codes=(
+                    AdmissionReason.CAPTION_PROOF_VERIFIED.value,
+                    AdmissionReason.BROAD_CATEGORY_VERIFIED.value,
+                ),
+                source_kind=candidate.source_kind,
+                source_fingerprint=source_fingerprint,
+                analysis_fingerprint=analysis_fingerprint,
+                reconstructed_fen=reconstructed_fen,
+                played_move_uci=played_move.uci(),
+                acceptable_moves_uci=tuple(sorted(detector_answers)),
+                concept_id=None,
+                caption_concept_id=detector.concept_id,
                 broad_category=candidate.broad_category,
                 detector_id=detector.detector_id,
                 detector_version=detector.detector_version,

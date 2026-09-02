@@ -32,6 +32,7 @@ kind and content_ref for the frontend/today_composer to route correctly.
 
 import json
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -243,6 +244,11 @@ def reload_tree() -> None:
     """Force-reload the tree. Mostly for tests."""
     global _TREE_CACHE
     _TREE_CACHE = None
+
+
+def get_skill_tree_snapshot() -> Dict:
+    """Return a detached snapshot for read-only composition/audit layers."""
+    return deepcopy(_load_tree())
 
 
 def _identity_token(value: object) -> str:

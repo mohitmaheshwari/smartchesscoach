@@ -25,6 +25,7 @@ import {
   Flag,
 } from "lucide-react";
 import { ProgressRing } from "@/components/ui/premium";
+import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 
 /**
  * MissionRunner - The page where users execute their daily missions.
@@ -123,6 +124,8 @@ const MissionRunner = ({ user }) => {
   // Timer
   const [startTime, setStartTime] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
+    usePuzzleSubmissionIdentity(positions[currentStep]?.puzzle_id);
 
   useEffect(() => {
     fetchMissionData();
@@ -222,10 +225,12 @@ const MissionRunner = ({ user }) => {
           played_uci: playedUci,
           time_taken_ms: Date.now() - startTime,
           used_hint: showHint,
+          submission_id: puzzleSubmissionId,
         }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const grade = await response.json();
+      rotatePuzzleSubmissionId();
       setScore((current) => ({
         ...current,
         attempted: current.attempted + 1,
