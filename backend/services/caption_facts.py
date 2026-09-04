@@ -84,9 +84,12 @@ from dataclasses import dataclass
 import hashlib
 import json
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import chess
+
+if TYPE_CHECKING:
+    from services.stored_line_verifier import StoredLineEvent, StoredLineReplay
 
 from services.exact_endgame_service import ExactEndgameCause
 
@@ -120,6 +123,20 @@ PIECE_VALUE_CP: Dict[int, int] = {
 
 LEGAL_MATERIAL_LOSS_CAUSE_VERSION = "legal_material_loss_cause.v2"
 VERIFIED_LINE_CAUSE_VERSION = "verified_line_cause.v1"
+VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION = "verified_line_cause.v2"
+TARGET_LINE_CAUSAL_PROOF_VERSION = "target_line_causal_proof.v6"
+TARGET_LINE_CAUSAL_QUALITY_ID = "review:target_line_causal_proof"
+TARGET_LINE_MIN_PAYOFF_CP = PIECE_VALUE_CP[chess.KNIGHT]
+FORCING_TEMPO_CAUSAL_PROOF_VERSION = "forcing_tempo_causal_proof.v2"
+FORCING_TEMPO_CAUSAL_QUALITY_ID = "review:forcing_tempo_causal_proof"
+ENDGAME_GEOMETRY_CAUSAL_PROOF_VERSION = "endgame_geometry_causal_proof.v2"
+ENDGAME_GEOMETRY_CAUSAL_QUALITY_ID = "review:endgame_geometry_causal_proof"
+BOARD_TRANSFORMATION_CAUSAL_PROOF_VERSION = (
+    "board_transformation_causal_proof.v1"
+)
+BOARD_TRANSFORMATION_CAUSAL_QUALITY_ID = (
+    "review:board_transformation_causal_proof"
+)
 VERIFIED_LINE_MIN_CP_LOSS = 100
 _LEGAL_MATERIAL_PURPOSES = frozenset({
     "moves_affected_piece",
@@ -283,6 +300,462 @@ class CauseRelationship:
 
 
 @dataclass(frozen=True)
+class VerifiedBranchDifference:
+    """Objective differences between two complete stored branch traces."""
+
+    played_trace_fingerprint: str
+    best_trace_fingerprint: str
+    played_terminal: str
+    best_terminal: str
+    net_material_edge_cp: int
+    played_only_captures: Tuple[VerifiedLineCapture, ...]
+    best_only_captures: Tuple[VerifiedLineCapture, ...]
+    played_check_plies: Tuple[int, ...]
+    best_check_plies: Tuple[int, ...]
+    played_single_reply_plies: Tuple[int, ...]
+    best_single_reply_plies: Tuple[int, ...]
+    played_promotion_plies: Tuple[int, ...]
+    best_promotion_plies: Tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not self.played_trace_fingerprint or not self.best_trace_fingerprint:
+            raise ValueError("branch trace fingerprints are required")
+        terminals = {
+            "none",
+            "initiator_mates",
+            "opponent_mates",
+            "stalemate",
+        }
+        if (
+            self.played_terminal not in terminals
+            or self.best_terminal not in terminals
+        ):
+            raise ValueError("unknown branch terminal result")
+        for values in (
+            self.played_check_plies,
+            self.best_check_plies,
+            self.played_single_reply_plies,
+            self.best_single_reply_plies,
+            self.played_promotion_plies,
+            self.best_promotion_plies,
+        ):
+            if any(value < 1 for value in values):
+                raise ValueError("branch event plies must be positive")
+
+    def contract_dict(self) -> Dict[str, Any]:
+        return {
+            "played_trace_fingerprint": self.played_trace_fingerprint,
+            "best_trace_fingerprint": self.best_trace_fingerprint,
+            "played_terminal": self.played_terminal,
+            "best_terminal": self.best_terminal,
+            "net_material_edge_cp": self.net_material_edge_cp,
+            "played_only_captures": [
+                item.contract_dict() for item in self.played_only_captures
+            ],
+            "best_only_captures": [
+                item.contract_dict() for item in self.best_only_captures
+            ],
+            "played_check_plies": list(self.played_check_plies),
+            "best_check_plies": list(self.best_check_plies),
+            "played_single_reply_plies": list(
+                self.played_single_reply_plies
+            ),
+            "best_single_reply_plies": list(self.best_single_reply_plies),
+            "played_promotion_plies": list(self.played_promotion_plies),
+            "best_promotion_plies": list(self.best_promotion_plies),
+        }
+
+
+@dataclass(frozen=True)
+class VerifiedBranchEvidence:
+    """Complete typed branch traces plus their objective difference.
+
+    The trace objects are owned by stored_line_verifier. This wrapper is the
+    canonical cause projection and deliberately contains no motif label.
+    """
+
+    played_trace: StoredLineReplay
+    best_trace: StoredLineReplay
+    difference: VerifiedBranchDifference
+
+    def __post_init__(self) -> None:
+        for name, trace in (
+            ("played", self.played_trace),
+            ("best", self.best_trace),
+        ):
+            if (
+                not getattr(trace, "complete", False)
+                or not getattr(trace, "events", ())
+            ):
+                raise ValueError(f"{name} branch trace must be complete")
+            if trace.events[0].actor != "initiator":
+                raise ValueError(f"{name} branch must start with initiator")
+            if trace.fingerprint != getattr(
+                self.difference, f"{name}_trace_fingerprint"
+            ):
+                raise ValueError(f"{name} trace fingerprint mismatch")
+
+    def contract_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION,
+            "played": self.played_trace.contract_dict(),
+            "best": self.best_trace.contract_dict(),
+            "difference": self.difference.contract_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class VerifiedCausalStep:
+    """One exact setup, constraint, or payoff fact in a proved chain."""
+
+    role: str
+    branch: str
+    ply: int
+    fact_kind: str
+    actor: str
+    move_san: str
+    moving_piece: str
+    moving_piece_id: str
+    origin: str
+    destination: str
+    target_piece: Optional[str] = None
+    target_piece_id: Optional[str] = None
+    target_square: Optional[str] = None
+    target_value_cp: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if self.role not in {"setup", "constraint", "payoff"}:
+            raise ValueError("unknown causal-step role")
+        if self.branch not in {"played", "best"}:
+            raise ValueError("unknown causal-step branch")
+        if self.ply < 1 or not self.fact_kind:
+            raise ValueError("causal step requires ply and fact kind")
+        if not self.moving_piece_id:
+            raise ValueError("causal step requires persistent piece identity")
+        target_values = (
+            self.target_piece,
+            self.target_piece_id,
+            self.target_square,
+        )
+        if any(target_values) and not all(target_values):
+            raise ValueError("causal-step target identity must be complete")
+        if self.target_value_cp is not None:
+            if not all(target_values):
+                raise ValueError(
+                    "causal-step target value requires target identity"
+                )
+            if self.target_value_cp < 0:
+                raise ValueError("causal-step target value cannot be negative")
+
+    def contract_dict(self) -> Dict[str, Any]:
+        payload = {
+            "role": self.role,
+            "branch": self.branch,
+            "ply": self.ply,
+            "fact_kind": self.fact_kind,
+            "actor": self.actor,
+            "move_san": self.move_san,
+            "moving_piece": self.moving_piece,
+            "moving_piece_id": self.moving_piece_id,
+            "origin": self.origin,
+            "destination": self.destination,
+        }
+        if self.target_piece_id is not None:
+            payload.update({
+                "target_piece": self.target_piece,
+                "target_piece_id": self.target_piece_id,
+                "target_square": self.target_square,
+            })
+            if self.target_value_cp is not None:
+                payload["target_value_cp"] = self.target_value_cp
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedTargetLineOpportunity:
+    """Shadow-only target/line chain derived from both stored branches."""
+
+    mechanism: str
+    setup: VerifiedCausalStep
+    constraint: VerifiedCausalStep
+    payoff: VerifiedCausalStep
+    branch_evidence: VerifiedBranchEvidence
+    settled_material_gain_cp: int
+    supporting_quality_ids: Tuple[str, ...] = ()
+    supporting_concept_ids: Tuple[str, ...] = ()
+    family: str = "target_and_line_geometry_with_payoff"
+    quality_id: str = TARGET_LINE_CAUSAL_QUALITY_ID
+    proof_version: str = TARGET_LINE_CAUSAL_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        if self.mechanism not in {
+            "persistent_piece_attack",
+            "target_enters_controlled_square",
+            "exchange_sequence",
+            "remove_future_attacker",
+            "immediate_free_capture",
+        }:
+            raise ValueError("unknown target/line mechanism")
+        if (
+            self.setup.role != "setup"
+            or self.constraint.role != "constraint"
+            or self.payoff.role != "payoff"
+        ):
+            raise ValueError("causal chain roles are out of order")
+        if self.branch_evidence.difference.net_material_edge_cp <= 0:
+            raise ValueError("target/line proof requires a positive branch edge")
+        if (
+            self.payoff.target_value_cp is None
+            or self.payoff.target_value_cp < TARGET_LINE_MIN_PAYOFF_CP
+        ):
+            raise ValueError(
+                "target/line payoff must win at least a minor piece"
+            )
+        if self.settled_material_gain_cp < TARGET_LINE_MIN_PAYOFF_CP:
+            raise ValueError(
+                "target/line payoff must survive whole-branch settlement"
+            )
+        if len(self.supporting_quality_ids) != len(
+            self.supporting_concept_ids
+        ):
+            raise ValueError("supporting proof identities must stay paired")
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "mechanism": self.mechanism,
+            "quality_id": self.quality_id,
+            "setup": self.setup.contract_dict(),
+            "constraint": self.constraint.contract_dict(),
+            "payoff": self.payoff.contract_dict(),
+            "supporting_quality_ids": list(self.supporting_quality_ids),
+            "supporting_concept_ids": list(self.supporting_concept_ids),
+            "settled_material_gain_cp": self.settled_material_gain_cp,
+            "branch_evidence": self.branch_evidence.contract_dict(),
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedForcingTempoOpportunity:
+    """Shadow-only move-order proof from exact cross-branch events."""
+
+    mechanism: str
+    setup: VerifiedCausalStep
+    constraint: VerifiedCausalStep
+    payoff: VerifiedCausalStep
+    material_payoff_cp: int
+    branch_evidence: VerifiedBranchEvidence
+    family: str = "forcing_tempo_and_move_order"
+    quality_id: str = FORCING_TEMPO_CAUSAL_QUALITY_ID
+    proof_version: str = FORCING_TEMPO_CAUSAL_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        if self.mechanism not in {
+            "profitable_exchange_before_retreat",
+            "check_displaces_recapturer",
+            "forced_exchange_then_escape",
+            "forcing_target_displacement",
+            "check_saves_future_target",
+            "capture_order_compound_payoff",
+        }:
+            raise ValueError("unknown forcing-tempo mechanism")
+        if (
+            self.setup.role != "setup"
+            or self.constraint.role != "constraint"
+            or self.payoff.role != "payoff"
+        ):
+            raise ValueError("forcing-tempo causal roles are out of order")
+        if self.material_payoff_cp <= 0:
+            raise ValueError("forcing-tempo proof requires positive payoff")
+        if self.branch_evidence.difference.net_material_edge_cp <= 0:
+            raise ValueError("forcing-tempo proof requires positive branch edge")
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "mechanism": self.mechanism,
+            "quality_id": self.quality_id,
+            "setup": self.setup.contract_dict(),
+            "constraint": self.constraint.contract_dict(),
+            "payoff": self.payoff.contract_dict(),
+            "material_payoff_cp": self.material_payoff_cp,
+            "branch_evidence": self.branch_evidence.contract_dict(),
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedEndgameGeometryOpportunity:
+    """Shadow-only endgame resource proved by stored-board geometry."""
+
+    mechanism: str
+    setup: VerifiedCausalStep
+    constraint: VerifiedCausalStep
+    payoff: VerifiedCausalStep
+    payoff_kind: str
+    payoff_value_cp: int
+    branch_evidence: VerifiedBranchEvidence
+    promotion_piece: Optional[str] = None
+    family: str = "exact_endgame_and_promotion_geometry"
+    quality_id: str = ENDGAME_GEOMETRY_CAUSAL_QUALITY_ID
+    proof_version: str = ENDGAME_GEOMETRY_CAUSAL_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        mechanisms = {
+            "king_route_reaches_pawn",
+            "immediate_pawn_push_promotes",
+            "king_move_preserves_rook_exchange",
+            "alternate_rook_preserves_promotion_capture",
+        }
+        payoff_kinds = {
+            "pawn_capture",
+            "promotion",
+            "checking_rook_exchange",
+            "promoted_piece_capture",
+        }
+        if self.mechanism not in mechanisms:
+            raise ValueError("unknown endgame-geometry mechanism")
+        if self.payoff_kind not in payoff_kinds:
+            raise ValueError("unknown endgame-geometry payoff kind")
+        if (
+            self.setup.role != "setup"
+            or self.constraint.role != "constraint"
+            or self.payoff.role != "payoff"
+        ):
+            raise ValueError("endgame-geometry causal roles are out of order")
+        if self.payoff_value_cp <= 0:
+            raise ValueError("endgame geometry requires a concrete payoff")
+        if self.branch_evidence.difference.net_material_edge_cp <= 0:
+            raise ValueError("endgame geometry requires a positive branch edge")
+        if self.payoff_kind == "promotion":
+            if self.promotion_piece is None:
+                raise ValueError("promotion proof requires the promoted piece")
+        elif self.promotion_piece is not None:
+            raise ValueError("non-promotion proof cannot claim a promotion")
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "mechanism": self.mechanism,
+            "quality_id": self.quality_id,
+            "payoff_kind": self.payoff_kind,
+            "payoff_value_cp": self.payoff_value_cp,
+            "setup": self.setup.contract_dict(),
+            "constraint": self.constraint.contract_dict(),
+            "payoff": self.payoff.contract_dict(),
+            "branch_evidence": self.branch_evidence.contract_dict(),
+        }
+        if self.promotion_piece is not None:
+            payload["promotion_piece"] = self.promotion_piece
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedBoardTransformationOpportunity:
+    """Shadow-only multi-step board transformation with a resolved payoff."""
+
+    mechanism: str
+    setup: VerifiedCausalStep
+    transformation_steps: Tuple[VerifiedCausalStep, ...]
+    payoff: VerifiedCausalStep
+    line_net_material_gain_cp: int
+    branch_evidence: VerifiedBranchEvidence
+    family: str = "board_transformations_with_payoff"
+    quality_id: str = BOARD_TRANSFORMATION_CAUSAL_QUALITY_ID
+    proof_version: str = BOARD_TRANSFORMATION_CAUSAL_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        if self.mechanism not in {
+            "intermediate_exchange_preserves_rook",
+            "forced_king_capture_then_queen_capture",
+            "sacrifice_opens_rook_capture_route",
+        }:
+            raise ValueError("unknown board-transformation mechanism")
+        if self.setup.role != "setup" or self.payoff.role != "payoff":
+            raise ValueError("board-transformation endpoints are invalid")
+        if not self.transformation_steps or any(
+            step.role != "constraint" for step in self.transformation_steps
+        ):
+            raise ValueError("board transformation requires ordered steps")
+        if self.line_net_material_gain_cp <= 0:
+            raise ValueError("board transformation requires a positive line gain")
+        if self.branch_evidence.difference.net_material_edge_cp <= 0:
+            raise ValueError("board transformation requires a positive branch edge")
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "mechanism": self.mechanism,
+            "quality_id": self.quality_id,
+            "setup": self.setup.contract_dict(),
+            "transformation_steps": [
+                step.contract_dict() for step in self.transformation_steps
+            ],
+            "payoff": self.payoff.contract_dict(),
+            "line_net_material_gain_cp": self.line_net_material_gain_cp,
+            "branch_evidence": self.branch_evidence.contract_dict(),
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+@dataclass(frozen=True)
 class VerifiedLineCause:
     """Caption-only truth rebuilt from complete, already-stored legal lines.
 
@@ -310,6 +783,7 @@ class VerifiedLineCause:
     reply_from: Optional[str] = None
     reply_to: Optional[str] = None
     relationships: Tuple[CauseRelationship, ...] = ()
+    branch_evidence: Optional[VerifiedBranchEvidence] = None
     proof_authority: str = "stored_line_verifier.replay_stored_line"
     proof_version: str = VERIFIED_LINE_CAUSE_VERSION
 
@@ -335,6 +809,11 @@ class VerifiedLineCause:
             raise ValueError("mate distance must be positive")
         if bool(self.reply_san) != bool(self.reply_from and self.reply_to):
             raise ValueError("reply identity must be complete")
+        if (
+            self.branch_evidence is not None
+            and self.proof_version != VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION
+        ):
+            raise ValueError("causal branch evidence requires cause schema v2")
 
     @property
     def first_best_capture(self) -> Optional[VerifiedLineCapture]:
@@ -377,6 +856,8 @@ class VerifiedLineCause:
                 "version": self.proof_version,
             },
         }
+        if self.branch_evidence is not None:
+            payload["branch_evidence"] = self.branch_evidence.contract_dict()
         if include_fingerprint:
             payload["fingerprint"] = self.fingerprint
         return payload
@@ -1017,6 +1498,1970 @@ def _verified_line_capture(raw: Any) -> VerifiedLineCapture:
     )
 
 
+def _capture_identity(
+    capture: VerifiedLineCapture,
+) -> Tuple[str, str, str]:
+    """Identify the payoff target without conflating branch move order."""
+    return (
+        capture.actor,
+        capture.captured_piece,
+        capture.captured_square,
+    )
+
+
+def _capture_difference(
+    primary: Tuple[VerifiedLineCapture, ...],
+    comparison: Tuple[VerifiedLineCapture, ...],
+) -> Tuple[VerifiedLineCapture, ...]:
+    remaining: Dict[Tuple[str, str, str], int] = {}
+    for capture in comparison:
+        key = _capture_identity(capture)
+        remaining[key] = remaining.get(key, 0) + 1
+    unique = []
+    for capture in primary:
+        key = _capture_identity(capture)
+        if remaining.get(key, 0):
+            remaining[key] -= 1
+        else:
+            unique.append(capture)
+    return tuple(unique)
+
+
+def _branch_terminal(replay: Any) -> str:
+    if replay.checkmate:
+        first_actor_color = chess.Board(replay.initial_fen).turn
+        if replay.checkmating_color == first_actor_color:
+            return "initiator_mates"
+        return "opponent_mates"
+    if replay.events and replay.events[-1].stalemate:
+        return "stalemate"
+    return "none"
+
+
+def _verified_branch_evidence(
+    *,
+    played_replay: Any,
+    best_replay: Any,
+    played_captures: Tuple[VerifiedLineCapture, ...],
+    best_captures: Tuple[VerifiedLineCapture, ...],
+) -> VerifiedBranchEvidence:
+    difference = VerifiedBranchDifference(
+        played_trace_fingerprint=played_replay.fingerprint,
+        best_trace_fingerprint=best_replay.fingerprint,
+        played_terminal=_branch_terminal(played_replay),
+        best_terminal=_branch_terminal(best_replay),
+        net_material_edge_cp=(
+            best_replay.net_material_gain_cp
+            - played_replay.net_material_gain_cp
+        ),
+        played_only_captures=_capture_difference(
+            played_captures, best_captures
+        ),
+        best_only_captures=_capture_difference(
+            best_captures, played_captures
+        ),
+        played_check_plies=tuple(
+            event.ply for event in played_replay.events if event.gave_check
+        ),
+        best_check_plies=tuple(
+            event.ply for event in best_replay.events if event.gave_check
+        ),
+        played_single_reply_plies=tuple(
+            event.ply
+            for event in played_replay.events
+            if event.legal_reply_count == 1
+        ),
+        best_single_reply_plies=tuple(
+            event.ply
+            for event in best_replay.events
+            if event.legal_reply_count == 1
+        ),
+        played_promotion_plies=tuple(
+            event.ply
+            for event in played_replay.events
+            if event.promotion_piece is not None
+        ),
+        best_promotion_plies=tuple(
+            event.ply
+            for event in best_replay.events
+            if event.promotion_piece is not None
+        ),
+    )
+    return VerifiedBranchEvidence(
+        played_trace=played_replay,
+        best_trace=best_replay,
+        difference=difference,
+    )
+
+
+def build_verified_branch_evidence(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+) -> Optional[VerifiedBranchEvidence]:
+    """Build complete branch traces without selecting a lesson or motif."""
+    try:
+        before = chess.Board(fen_before)
+        played = before.parse_san(played_san)
+        best = before.parse_san(best_move_san)
+    except (ValueError, AssertionError):
+        return None
+    if played == best:
+        return None
+
+    from services.stored_line_verifier import replay_stored_line
+
+    played_replay = replay_stored_line(
+        before,
+        played,
+        pv_after_played,
+        include_events=True,
+        resolve_ambiguous_continuation=True,
+    )
+    best_replay = replay_stored_line(
+        before,
+        best,
+        pv_after_best,
+        include_events=True,
+        resolve_ambiguous_continuation=True,
+    )
+    if (
+        not played_replay.complete
+        or not best_replay.complete
+        or not played_replay.events
+        or not best_replay.events
+    ):
+        return None
+    return _verified_branch_evidence(
+        played_replay=played_replay,
+        best_replay=best_replay,
+        played_captures=tuple(
+            _verified_line_capture(item)
+            for item in played_replay.captures
+        ),
+        best_captures=tuple(
+            _verified_line_capture(item)
+            for item in best_replay.captures
+        ),
+    )
+
+
+def _causal_step(
+    event: StoredLineEvent,
+    *,
+    role: str,
+    branch: str,
+    fact_kind: str,
+    target_piece: Optional[str] = None,
+    target_piece_id: Optional[str] = None,
+    target_square: Optional[str] = None,
+    target_value_cp: Optional[int] = None,
+) -> VerifiedCausalStep:
+    return VerifiedCausalStep(
+        role=role,
+        branch=branch,
+        ply=event.ply,
+        fact_kind=fact_kind,
+        actor=event.actor,
+        move_san=event.move_san,
+        moving_piece=event.moving_piece,
+        moving_piece_id=event.moving_piece_id,
+        origin=event.origin,
+        destination=event.destination,
+        target_piece=target_piece,
+        target_piece_id=target_piece_id,
+        target_square=target_square,
+        target_value_cp=target_value_cp,
+    )
+
+
+def _captured_target(event: StoredLineEvent) -> Dict[str, Any]:
+    if (
+        event.captured_piece is None
+        or event.captured_piece_id is None
+        or event.captured_square is None
+    ):
+        raise ValueError("capture event has no complete target identity")
+    return {
+        "target_piece": event.captured_piece,
+        "target_piece_id": event.captured_piece_id,
+        "target_square": event.captured_square,
+        "target_value_cp": event.captured_value_cp,
+    }
+
+
+def _state_after_for_piece(
+    event: StoredLineEvent,
+    piece_id: str,
+) -> Optional[Any]:
+    return next(
+        (
+            change.after
+            for change in event.relation_changes
+            if change.after is not None
+            and change.after.piece_id == piece_id
+        ),
+        None,
+    )
+
+
+def _supporting_target_line_proofs(
+    *,
+    board: chess.Board,
+    played_uci: str,
+    best_uci: str,
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    """Reuse canonical exact proof owners; never recreate their motifs."""
+    from services.aligned_tactic_puzzle_proof import (
+        build_aligned_tactic_proof,
+    )
+    from services.fork_puzzle_proof import build_fork_proof
+    from services.free_piece_puzzle_proof import build_free_piece_proof
+
+    candidates = (
+        build_free_piece_proof(board, played_uci, best_uci, cp_loss),
+        build_fork_proof(
+            board,
+            played_uci,
+            best_uci,
+            pv_after_best,
+            cp_loss,
+        ),
+        build_aligned_tactic_proof(
+            board,
+            played_uci,
+            best_uci,
+            pv_after_best,
+            cp_loss,
+        ),
+    )
+    verified = tuple(
+        bundle
+        for bundle in candidates
+        if bundle is not None and bundle.verifier.verified
+    )
+    return (
+        tuple(bundle.quality_id for bundle in verified),
+        tuple(bundle.verifier.concept_id for bundle in verified),
+    )
+
+
+def _line_piece_material_yield_cp(
+    events: Tuple[Any, ...],
+    *,
+    moving_piece_id: str,
+    payoff_event: Any,
+) -> int:
+    """Return the proved material yield of one physical piece's sequence.
+
+    A captured target is not a payoff when the capturing piece is simply
+    recaptured for an equal or worse trade.  When the payoff is the final
+    stored ply, a legal immediate recapture is treated pessimistically as a
+    loss of the capturing piece.  This closes the four-ply horizon leak while
+    preserving genuinely profitable exchanges such as bishop-for-rook.
+    """
+    later_recapture = next(
+        (
+            event
+            for event in events[payoff_event.ply :]
+            if event.captured_piece_id == moving_piece_id
+        ),
+        None,
+    )
+    captured_value_cp = sum(
+        event.captured_value_cp
+        for event in events
+        if (
+            event.moving_piece_id == moving_piece_id
+            and event.captured_piece_id is not None
+            and (
+                later_recapture is None
+                or event.ply < later_recapture.ply
+            )
+        )
+    )
+    if later_recapture is not None:
+        return captured_value_cp - later_recapture.captured_value_cp
+
+    last_piece_move = next(
+        (
+            event
+            for event in reversed(events)
+            if event.moving_piece_id == moving_piece_id
+        ),
+        payoff_event,
+    )
+    board = chess.Board(events[-1].fen_after)
+    payoff_square = chess.parse_square(last_piece_move.destination)
+    payoff_piece = board.piece_at(payoff_square)
+    if payoff_piece is None or payoff_piece.color == board.turn:
+        return captured_value_cp
+    # Resolve the complete legal exchange on the payoff square. A legal
+    # recapture is not automatically a refutation when the recapturing piece
+    # is itself lost (for example ...Qxd4 Rxd4). The canonical legal exchange
+    # evaluator pushes every capture, includes king legality and x-rays, and
+    # lets each later side stop. Subtract only material the opponent can
+    # actually win from initiating that exchange.
+    return captured_value_cp - legal_exchange_gain(
+        board,
+        payoff_square,
+        board.turn,
+    )
+
+
+def _causal_sequence_material_yield_cp(
+    events: Tuple[Any, ...],
+    *,
+    payoff_piece_id: str,
+    payoff_event: Any,
+) -> int:
+    """Net material proved by the complete sequence through one payoff.
+
+    Every capture before the payoff is counted for its side, so an equal queen
+    trade contributes zero rather than being mistaken for a queen sacrifice.
+    The payoff piece's canonical yield then adds any pessimistic post-horizon
+    recapture adjustment without counting its captures twice.
+    """
+    through_payoff = sum(
+        (
+            event.captured_value_cp
+            if event.actor == "initiator"
+            else -event.captured_value_cp
+        )
+        for event in events[: payoff_event.ply]
+        if event.captured_piece_id is not None
+    )
+    payoff_piece_captures = sum(
+        event.captured_value_cp
+        for event in events[: payoff_event.ply]
+        if (
+            event.actor == "initiator"
+            and event.moving_piece_id == payoff_piece_id
+            and event.captured_piece_id is not None
+        )
+    )
+    payoff_piece_yield = _line_piece_material_yield_cp(
+        events,
+        moving_piece_id=payoff_piece_id,
+        payoff_event=payoff_event,
+    )
+    return through_payoff + payoff_piece_yield - payoff_piece_captures
+
+
+def _piece_survives_stored_horizon(
+    events: Tuple[Any, ...],
+    *,
+    piece_id: str,
+) -> bool:
+    """Require an escaping piece to remain safe through the stored horizon.
+
+    A line ending immediately before a legal recapture does not prove that the
+    piece was saved. If the same side is to move at the horizon, it has already
+    survived to its next turn; otherwise every legal immediate capture is
+    checked pessimistically.
+    """
+    if any(event.captured_piece_id == piece_id for event in events):
+        return False
+    last_piece_move = next(
+        (
+            event
+            for event in reversed(events)
+            if event.moving_piece_id == piece_id
+        ),
+        None,
+    )
+    if last_piece_move is None:
+        return False
+    board = chess.Board(events[-1].fen_after)
+    square = chess.parse_square(last_piece_move.destination)
+    piece = board.piece_at(square)
+    if piece is None:
+        return False
+    if piece.color == board.turn:
+        return True
+    return not any(
+        board.is_capture(move) and move.to_square == square
+        for move in board.legal_moves
+    )
+
+
+def _piece_name_value_cp(piece_name: str) -> int:
+    return next(
+        (
+            PIECE_VALUE_CP[piece_type]
+            for piece_type, name in PIECE_TYPE_NAMES.items()
+            if name == piece_name
+        ),
+        0,
+    )
+
+
+def _moved_piece_target(event: Any) -> Dict[str, Any]:
+    return {
+        "target_piece": event.moving_piece,
+        "target_piece_id": event.moving_piece_id,
+        "target_square": event.destination,
+        "target_value_cp": _piece_name_value_cp(event.moving_piece),
+    }
+
+
+def _persistent_piece_attack_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep]]:
+    best_events = evidence.best_trace.events
+    if not best_events:
+        return None
+    setup_event = best_events[0]
+    setup_state = _state_after_for_piece(
+        setup_event, setup_event.moving_piece_id
+    )
+    if setup_state is None:
+        return None
+    played_captures = {
+        event.captured_piece_id
+        for event in evidence.played_trace.events
+        if event.actor == "initiator" and event.captured_piece_id
+    }
+    candidates = []
+    for payoff_event in best_events[1:]:
+        if (
+            payoff_event.actor != "initiator"
+            or payoff_event.moving_piece_id != setup_event.moving_piece_id
+            or payoff_event.captured_piece_id is None
+            or payoff_event.captured_piece_id in played_captures
+            or payoff_event.destination not in setup_state.attack_squares
+        ):
+            continue
+        intervening = tuple(
+            event
+            for event in best_events[1 : payoff_event.ply - 1]
+            if event.moving_piece_id == setup_event.moving_piece_id
+        )
+        if intervening:
+            continue
+        causal_sequence_yield_cp = _causal_sequence_material_yield_cp(
+            best_events,
+            payoff_piece_id=setup_event.moving_piece_id,
+            payoff_event=payoff_event,
+        )
+        if causal_sequence_yield_cp <= 0:
+            continue
+        target_moves = tuple(
+            event
+            for event in best_events[1 : payoff_event.ply - 1]
+            if event.moving_piece_id == payoff_event.captured_piece_id
+        )
+        if target_moves:
+            target_move = target_moves[-1]
+            if target_move.destination != payoff_event.destination:
+                continue
+            mechanism = "target_enters_controlled_square"
+            constraint = _causal_step(
+                target_move,
+                role="constraint",
+                branch="best",
+                fact_kind="target_enters_controlled_square",
+                target_piece=setup_event.moving_piece,
+                target_piece_id=setup_event.moving_piece_id,
+                target_square=setup_event.destination,
+            )
+        else:
+            initial_target_square = payoff_event.captured_piece_id.rsplit(
+                ":", 1
+            )[-1]
+            if initial_target_square != payoff_event.destination:
+                continue
+            target_state = _state_after_for_piece(
+                setup_event, payoff_event.captured_piece_id
+            )
+            fact_kind = (
+                "pinned_target"
+                if target_state is not None
+                and target_state.pinned_to_king
+                else "target_starts_on_controlled_square"
+            )
+            mechanism = "persistent_piece_attack"
+            constraint = _causal_step(
+                setup_event,
+                role="constraint",
+                branch="best",
+                fact_kind=fact_kind,
+                **_captured_target(payoff_event),
+            )
+        candidates.append((
+            payoff_event.captured_value_cp,
+            -payoff_event.ply,
+            mechanism,
+            _causal_step(
+                setup_event,
+                role="setup",
+                branch="best",
+                fact_kind="establishes_persistent_attack",
+                **_captured_target(payoff_event),
+            ),
+            constraint,
+            _causal_step(
+                payoff_event,
+                role="payoff",
+                branch="best",
+                fact_kind="same_piece_captures_target",
+                **_captured_target(payoff_event),
+            ),
+        ))
+    if not candidates:
+        return None
+    _, _, mechanism, setup, constraint, payoff = max(
+        candidates, key=lambda item: item[:2]
+    )
+    return mechanism, setup, constraint, payoff
+
+
+def _exchange_sequence_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep]]:
+    events = evidence.best_trace.events
+    if len(events) < 3:
+        return None
+    first, second, third = events[:3]
+    played_initiator_captures = {
+        event.captured_piece_id
+        for event in evidence.played_trace.events
+        if event.actor == "initiator" and event.captured_piece_id
+    }
+    if (
+        first.actor != "initiator"
+        or first.captured_piece_id is None
+        or first.captured_piece_id in played_initiator_captures
+        or second.actor != "opponent"
+        or second.captured_piece_id != first.moving_piece_id
+        or third.actor != "initiator"
+        or third.captured_piece_id != second.moving_piece_id
+    ):
+        return None
+    return (
+        "exchange_sequence",
+        _causal_step(
+            first,
+            role="setup",
+            branch="best",
+            fact_kind="initiates_exchange",
+            **_captured_target(first),
+        ),
+        _causal_step(
+            second,
+            role="constraint",
+            branch="best",
+            fact_kind="opponent_recaptures",
+            **_captured_target(second),
+        ),
+        _causal_step(
+            third,
+            role="payoff",
+            branch="best",
+            fact_kind="initiator_recaptures",
+            **_captured_target(third),
+        ),
+    )
+
+
+def _remove_future_attacker_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep]]:
+    best_events = evidence.best_trace.events
+    if not best_events or best_events[0].captured_piece_id is None:
+        return None
+    setup_event = best_events[0]
+    future_attacker_id = setup_event.captured_piece_id
+    best_opponent_losses = {
+        event.captured_piece_id
+        for event in best_events
+        if event.actor == "opponent" and event.captured_piece_id
+    }
+    candidates = []
+    for contrast_event in evidence.played_trace.events:
+        if (
+            contrast_event.actor != "opponent"
+            or contrast_event.moving_piece_id != future_attacker_id
+            or contrast_event.captured_piece_id is None
+            or contrast_event.captured_piece_id in best_opponent_losses
+        ):
+            continue
+        candidates.append((
+            contrast_event.captured_value_cp,
+            -contrast_event.ply,
+            contrast_event,
+        ))
+    if not candidates:
+        return None
+    _, _, contrast_event = max(
+        candidates, key=lambda item: item[:2]
+    )
+    return (
+        "remove_future_attacker",
+        _causal_step(
+            setup_event,
+            role="setup",
+            branch="best",
+            fact_kind="captures_future_attacker",
+            **_captured_target(setup_event),
+        ),
+        _causal_step(
+            contrast_event,
+            role="constraint",
+            branch="played",
+            fact_kind="same_piece_attacks_in_played_branch",
+            **_captured_target(contrast_event),
+        ),
+        _causal_step(
+            contrast_event,
+            role="payoff",
+            branch="played",
+            fact_kind="piece_loss_absent_from_best_branch",
+            **_captured_target(contrast_event),
+        ),
+    )
+
+
+def _immediate_free_capture_chain(
+    evidence: VerifiedBranchEvidence,
+    supporting_quality_ids: Tuple[str, ...],
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep]]:
+    if "tactic:free_piece_exact" not in supporting_quality_ids:
+        return None
+    event = evidence.best_trace.events[0]
+    if event.captured_piece_id is None:
+        return None
+    if _line_piece_material_yield_cp(
+        evidence.best_trace.events,
+        moving_piece_id=event.moving_piece_id,
+        payoff_event=event,
+    ) <= 0:
+        return None
+    if any(
+        played_event.actor == "initiator"
+        and played_event.captured_piece_id == event.captured_piece_id
+        for played_event in evidence.played_trace.events
+    ):
+        return None
+    target = _captured_target(event)
+    return (
+        "immediate_free_capture",
+        _causal_step(
+            event,
+            role="setup",
+            branch="best",
+            fact_kind="loose_target_is_capturable",
+            **target,
+        ),
+        _causal_step(
+            event,
+            role="constraint",
+            branch="best",
+            fact_kind="no_legal_immediate_recapture",
+            **target,
+        ),
+        _causal_step(
+            event,
+            role="payoff",
+            branch="best",
+            fact_kind="captures_loose_target",
+            **target,
+        ),
+    )
+
+
+def build_target_line_opportunity_proof(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Optional[VerifiedTargetLineOpportunity]:
+    """Build one shadow target/line chain without authoring a motif claim."""
+    evidence = build_verified_branch_evidence(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+    )
+    if (
+        evidence is None
+        or evidence.difference.net_material_edge_cp <= 0
+    ):
+        return None
+    board = chess.Board(fen_before)
+    played = board.parse_san(played_san)
+    best = board.parse_san(best_move_san)
+    quality_ids, concept_ids = _supporting_target_line_proofs(
+        board=board,
+        played_uci=played.uci(),
+        best_uci=best.uci(),
+        pv_after_best=pv_after_best,
+        cp_loss=cp_loss,
+    )
+    chain = next(
+        (
+            candidate
+            for candidate in (
+                _persistent_piece_attack_chain(evidence),
+                _exchange_sequence_chain(evidence),
+                _remove_future_attacker_chain(evidence),
+                _immediate_free_capture_chain(evidence, quality_ids),
+            )
+            if (
+                candidate is not None
+                and candidate[3].target_value_cp is not None
+                and candidate[3].target_value_cp
+                >= TARGET_LINE_MIN_PAYOFF_CP
+            )
+        ),
+        None,
+    )
+    if chain is None:
+        return None
+    mechanism, setup, constraint, payoff = chain
+    # Local import avoids the existing module cycle: the stored-line verifier
+    # reads this module's canonical piece-value table.
+    from services.stored_line_verifier import settled_material_gain_cp
+
+    settled_gain = settled_material_gain_cp(evidence.best_trace)
+    if settled_gain is None or settled_gain < TARGET_LINE_MIN_PAYOFF_CP:
+        return None
+    return VerifiedTargetLineOpportunity(
+        mechanism=mechanism,
+        setup=setup,
+        constraint=constraint,
+        payoff=payoff,
+        branch_evidence=evidence,
+        settled_material_gain_cp=settled_gain,
+        supporting_quality_ids=quality_ids,
+        supporting_concept_ids=concept_ids,
+    )
+
+
+def _profitable_exchange_tempo_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    events = evidence.best_trace.events
+    if len(events) < 2:
+        return None
+    first, second = events[:2]
+    if (
+        first.actor != "initiator"
+        or first.captured_piece_id is None
+        or second.actor != "opponent"
+        or second.captured_piece_id != first.moving_piece_id
+    ):
+        return None
+    material_payoff_cp = (
+        first.captured_value_cp - second.captured_value_cp
+    )
+    if material_payoff_cp <= 0 or any(
+        event.actor == "initiator"
+        and event.captured_piece_id == first.captured_piece_id
+        for event in evidence.played_trace.events
+    ):
+        return None
+    return (
+        "profitable_exchange_before_retreat",
+        _causal_step(
+            first,
+            role="setup",
+            branch="best",
+            fact_kind="captures_higher_value_target_first",
+            **_captured_target(first),
+        ),
+        _causal_step(
+            second,
+            role="constraint",
+            branch="best",
+            fact_kind="opponent_recaptures",
+            **_captured_target(second),
+        ),
+        _causal_step(
+            first,
+            role="payoff",
+            branch="best",
+            fact_kind="exchange_remains_materially_profitable",
+            **_captured_target(first),
+        ),
+        material_payoff_cp,
+    )
+
+
+def _check_displaces_recapturer_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    played = evidence.played_trace.events
+    best = evidence.best_trace.events
+    if len(played) < 2 or len(best) < 3:
+        return None
+    played_capture, played_recapture = played[:2]
+    setup, king_move, payoff = best[:3]
+    if (
+        played_capture.actor != "initiator"
+        or played_capture.captured_piece_id is None
+        or played_recapture.actor != "opponent"
+        or played_recapture.moving_piece != "king"
+        or played_recapture.captured_piece_id
+        != played_capture.moving_piece_id
+        or not setup.gave_check
+        or king_move.actor != "opponent"
+        or king_move.moving_piece_id != played_recapture.moving_piece_id
+        or payoff.actor != "initiator"
+        or payoff.moving_piece_id != played_capture.moving_piece_id
+        or payoff.captured_piece_id != played_capture.captured_piece_id
+    ):
+        return None
+    material_payoff_cp = _line_piece_material_yield_cp(
+        best,
+        moving_piece_id=payoff.moving_piece_id,
+        payoff_event=payoff,
+    )
+    if material_payoff_cp <= 0:
+        return None
+    return (
+        "check_displaces_recapturer",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="inserts_check_before_capture",
+            **(
+                _captured_target(setup)
+                if setup.captured_piece_id is not None
+                else _moved_piece_target(setup)
+            ),
+        ),
+        _causal_step(
+            king_move,
+            role="constraint",
+            branch="best",
+            fact_kind="recapturing_king_is_displaced",
+            **_moved_piece_target(king_move),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="same_target_captured_without_king_recapture",
+            **_captured_target(payoff),
+        ),
+        material_payoff_cp,
+    )
+
+
+def _forced_exchange_then_escape_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if len(best) < 3:
+        return None
+    setup, recapture = best[:2]
+    if (
+        not setup.gave_check
+        or setup.captured_piece_id is None
+        or setup.legal_reply_count != 1
+        or recapture.actor != "opponent"
+        or recapture.captured_piece_id != setup.moving_piece_id
+    ):
+        return None
+    played_losses = [
+        event
+        for event in played
+        if event.actor == "opponent" and event.captured_piece_id
+    ]
+    for loss in sorted(
+        played_losses, key=lambda event: (-event.captured_value_cp, event.ply)
+    ):
+        escape = next(
+            (
+                event
+                for event in best[2:]
+                if (
+                    event.actor == "initiator"
+                    and event.moving_piece_id == loss.captured_piece_id
+                    and event.captured_piece_id is None
+                )
+            ),
+            None,
+        )
+        if (
+            escape is None
+            or not _piece_survives_stored_horizon(
+                best,
+                piece_id=loss.captured_piece_id,
+            )
+        ):
+            continue
+        return (
+            "forced_exchange_then_escape",
+            _causal_step(
+                setup,
+                role="setup",
+                branch="best",
+                fact_kind="forces_exchange_with_check",
+                **_captured_target(setup),
+            ),
+            _causal_step(
+                recapture,
+                role="constraint",
+                branch="best",
+                fact_kind="sole_reply_completes_exchange",
+                **_captured_target(recapture),
+            ),
+            _causal_step(
+                escape,
+                role="payoff",
+                branch="best",
+                fact_kind="endangered_piece_escapes_after_exchange",
+                **_moved_piece_target(escape),
+            ),
+            loss.captured_value_cp,
+        )
+    return None
+
+
+def _forcing_target_displacement_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    best = evidence.best_trace.events
+    if len(best) < 3:
+        return None
+    setup, displaced, payoff = best[:3]
+    if (
+        not setup.gave_check
+        or setup.legal_reply_count != 1
+        or displaced.actor != "opponent"
+        or payoff.actor != "initiator"
+        or payoff.moving_piece_id != setup.moving_piece_id
+        or payoff.captured_piece_id != displaced.moving_piece_id
+        or payoff.destination not in (
+            _state_after_for_piece(setup, setup.moving_piece_id).attack_squares
+            if _state_after_for_piece(setup, setup.moving_piece_id)
+            is not None
+            else ()
+        )
+    ):
+        return None
+    material_payoff_cp = _line_piece_material_yield_cp(
+        best,
+        moving_piece_id=setup.moving_piece_id,
+        payoff_event=payoff,
+    )
+    if material_payoff_cp <= 0:
+        return None
+    return (
+        "forcing_target_displacement",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="check_controls_forced_reply_square",
+            **_captured_target(payoff),
+        ),
+        _causal_step(
+            displaced,
+            role="constraint",
+            branch="best",
+            fact_kind="sole_reply_moves_target_into_control",
+            **_moved_piece_target(displaced),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="forcing_piece_captures_displaced_target",
+            **_captured_target(payoff),
+        ),
+        material_payoff_cp,
+    )
+
+
+def _check_saves_future_target_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    best = evidence.best_trace.events
+    if not best or not best[0].gave_check:
+        return None
+    setup = best[0]
+    played_loss = next(
+        (
+            event
+            for event in evidence.played_trace.events
+            if (
+                event.actor == "opponent"
+                and event.captured_piece_id == setup.moving_piece_id
+            )
+        ),
+        None,
+    )
+    if (
+        played_loss is None
+        or not _piece_survives_stored_horizon(
+            best,
+            piece_id=setup.moving_piece_id,
+        )
+    ):
+        return None
+    return (
+        "check_saves_future_target",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="moves_endangered_piece_with_check",
+            **_moved_piece_target(setup),
+        ),
+        _causal_step(
+            played_loss,
+            role="constraint",
+            branch="played",
+            fact_kind="same_piece_is_captured_without_tempo",
+            **_captured_target(played_loss),
+        ),
+        _causal_step(
+            setup,
+            role="payoff",
+            branch="best",
+            fact_kind="piece_survives_by_moving_with_tempo",
+            **_moved_piece_target(setup),
+        ),
+        played_loss.captured_value_cp,
+    )
+
+
+def _capture_order_compound_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, int]]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if not best or best[0].captured_piece_id is None:
+        return None
+    moving_piece_id = best[0].moving_piece_id
+    best_captures = [
+        event
+        for event in best
+        if (
+            event.actor == "initiator"
+            and event.moving_piece_id == moving_piece_id
+            and event.captured_piece_id is not None
+        )
+    ]
+    if len(best_captures) < 2:
+        return None
+    played_capture = next(
+        (
+            event
+            for event in played
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == moving_piece_id
+                and event.captured_piece_id is not None
+            )
+        ),
+        None,
+    )
+    played_loss = next(
+        (
+            event
+            for event in played
+            if event.captured_piece_id == moving_piece_id
+        ),
+        None,
+    )
+    if played_capture is None or played_loss is None:
+        return None
+    best_payoff = _line_piece_material_yield_cp(
+        best,
+        moving_piece_id=moving_piece_id,
+        payoff_event=best_captures[-1],
+    )
+    played_payoff = _line_piece_material_yield_cp(
+        played,
+        moving_piece_id=moving_piece_id,
+        payoff_event=played_capture,
+    )
+    material_payoff_cp = best_payoff - played_payoff
+    if material_payoff_cp <= 0:
+        return None
+    return (
+        "capture_order_compound_payoff",
+        _causal_step(
+            best[0],
+            role="setup",
+            branch="best",
+            fact_kind="starts_capture_route_with_correct_target",
+            **_captured_target(best[0]),
+        ),
+        _causal_step(
+            played_loss,
+            role="constraint",
+            branch="played",
+            fact_kind="same_piece_is_lost_in_played_order",
+            **_captured_target(played_loss),
+        ),
+        _causal_step(
+            best_captures[-1],
+            role="payoff",
+            branch="best",
+            fact_kind="same_piece_completes_compound_capture_route",
+            **_captured_target(best_captures[-1]),
+        ),
+        material_payoff_cp,
+    )
+
+
+def build_forcing_tempo_opportunity_proof(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Optional[VerifiedForcingTempoOpportunity]:
+    """Prove a forcing move-order payoff from both complete stored lines."""
+    if build_target_line_opportunity_proof(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+        cp_loss=cp_loss,
+    ) is not None:
+        return None
+    evidence = build_verified_branch_evidence(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+    )
+    if (
+        evidence is None
+        or evidence.difference.net_material_edge_cp <= 0
+    ):
+        return None
+    chain = (
+        _profitable_exchange_tempo_chain(evidence)
+        or _check_displaces_recapturer_chain(evidence)
+        or _forced_exchange_then_escape_chain(evidence)
+        or _forcing_target_displacement_chain(evidence)
+        or _check_saves_future_target_chain(evidence)
+        or _capture_order_compound_chain(evidence)
+    )
+    if chain is None:
+        return None
+    mechanism, setup, constraint, payoff, material_payoff_cp = chain
+    return VerifiedForcingTempoOpportunity(
+        mechanism=mechanism,
+        setup=setup,
+        constraint=constraint,
+        payoff=payoff,
+        material_payoff_cp=material_payoff_cp,
+        branch_evidence=evidence,
+    )
+
+
+def _king_route_reaches_pawn_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, str, int, Optional[str]]]:
+    board = chess.Board(evidence.best_trace.initial_fen)
+    if any(
+        piece.piece_type not in {chess.KING, chess.PAWN}
+        for piece in board.piece_map().values()
+    ):
+        return None
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if not best or best[0].moving_piece != "king":
+        return None
+    king_id = best[0].moving_piece_id
+    payoff = next(
+        (
+            event
+            for event in best[1:]
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == king_id
+                and event.captured_piece == "pawn"
+            )
+        ),
+        None,
+    )
+    if payoff is None or any(
+        event.actor == "initiator"
+        and event.captured_piece_id == payoff.captured_piece_id
+        for event in played
+    ):
+        return None
+    route_step = next(
+        (
+            event
+            for event in reversed(best[1 : payoff.ply - 1])
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == king_id
+            )
+        ),
+        None,
+    )
+    if route_step is None:
+        return None
+    material_yield = _line_piece_material_yield_cp(
+        best,
+        moving_piece_id=king_id,
+        payoff_event=payoff,
+    )
+    if material_yield <= 0:
+        return None
+    return (
+        "king_route_reaches_pawn",
+        _causal_step(
+            best[0],
+            role="setup",
+            branch="best",
+            fact_kind="king_starts_capture_route",
+            **_moved_piece_target(best[0]),
+        ),
+        _causal_step(
+            route_step,
+            role="constraint",
+            branch="best",
+            fact_kind="same_king_continues_route",
+            **_moved_piece_target(route_step),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="same_king_reaches_pawn",
+            **_captured_target(payoff),
+        ),
+        "pawn_capture",
+        payoff.captured_value_cp,
+        None,
+    )
+
+
+def _immediate_pawn_push_promotes_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, str, int, Optional[str]]]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if (
+        not best
+        or best[0].moving_piece != "pawn"
+        or best[0].captured_piece_id is not None
+        or best[0].promotion_piece is not None
+    ):
+        return None
+    pawn_id = best[0].moving_piece_id
+    promotion = next(
+        (
+            event
+            for event in best[1:]
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == pawn_id
+                and event.promotion_piece is not None
+            )
+        ),
+        None,
+    )
+    played_push = next(
+        (
+            event
+            for event in played
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == pawn_id
+                and event.destination == best[0].destination
+            )
+        ),
+        None,
+    )
+    if (
+        promotion is None
+        or played_push is None
+        or played_push.ply <= best[0].ply
+        or any(
+            event.moving_piece_id == pawn_id
+            and event.promotion_piece is not None
+            for event in played
+        )
+        or not _piece_survives_stored_horizon(best, piece_id=pawn_id)
+    ):
+        return None
+    promoted_type = chess.PIECE_NAMES.index(promotion.promotion_piece)
+    promotion_gain = (
+        PIECE_VALUE_CP[promoted_type] - PIECE_VALUE_CP[chess.PAWN]
+    )
+    if promotion_gain <= 0:
+        return None
+    return (
+        "immediate_pawn_push_promotes",
+        _causal_step(
+            best[0],
+            role="setup",
+            branch="best",
+            fact_kind="pushes_passed_pawn_immediately",
+            **_moved_piece_target(best[0]),
+        ),
+        _causal_step(
+            played_push,
+            role="constraint",
+            branch="played",
+            fact_kind="same_pawn_push_arrives_later",
+            **_moved_piece_target(played_push),
+        ),
+        _causal_step(
+            promotion,
+            role="payoff",
+            branch="best",
+            fact_kind="same_pawn_promotes_in_stored_line",
+            **_moved_piece_target(promotion),
+        ),
+        "promotion",
+        promotion_gain,
+        promotion.promotion_piece,
+    )
+
+
+def _king_move_preserves_rook_exchange_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, str, int, Optional[str]]]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if (
+        not best
+        or not played
+        or best[0].moving_piece != "king"
+        or played[0].moving_piece != "rook"
+    ):
+        return None
+    rook_id = played[0].moving_piece_id
+    payoff = next(
+        (
+            event
+            for event in best[1:]
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == rook_id
+                and event.captured_piece == "rook"
+            )
+        ),
+        None,
+    )
+    if payoff is None or payoff.ply < 2:
+        return None
+    checking_rook = best[payoff.ply - 2]
+    if (
+        not checking_rook.gave_check
+        or payoff.captured_piece_id != checking_rook.moving_piece_id
+        or any(
+            event.moving_piece_id == rook_id
+            for event in best[: payoff.ply - 1]
+        )
+        or any(
+            event.actor == "initiator"
+            and event.captured_piece_id == checking_rook.moving_piece_id
+            for event in played
+        )
+    ):
+        return None
+    return (
+        "king_move_preserves_rook_exchange",
+        _causal_step(
+            best[0],
+            role="setup",
+            branch="best",
+            fact_kind="king_moves_without_displacing_rook",
+            **_moved_piece_target(best[0]),
+        ),
+        _causal_step(
+            checking_rook,
+            role="constraint",
+            branch="best",
+            fact_kind="opponent_rook_gives_check_on_capture_line",
+            **_moved_piece_target(checking_rook),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="preserved_rook_exchanges_checking_rook",
+            **_captured_target(payoff),
+        ),
+        "checking_rook_exchange",
+        payoff.captured_value_cp,
+        None,
+    )
+
+
+def _alternate_rook_preserves_promotion_capture_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[Tuple[str, VerifiedCausalStep, VerifiedCausalStep, VerifiedCausalStep, str, int, Optional[str]]]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if (
+        not best
+        or not played
+        or best[0].moving_piece != "rook"
+        or played[0].moving_piece != "rook"
+        or best[0].moving_piece_id == played[0].moving_piece_id
+        or best[0].captured_piece_id is None
+        or best[0].captured_piece_id != played[0].captured_piece_id
+    ):
+        return None
+    best_promotion = next(
+        (event for event in best if event.promotion_piece is not None),
+        None,
+    )
+    played_promotion = next(
+        (event for event in played if event.promotion_piece is not None),
+        None,
+    )
+    if (
+        best_promotion is None
+        or played_promotion is None
+        or best_promotion.moving_piece_id
+        != played_promotion.moving_piece_id
+        or best_promotion.destination != played_promotion.destination
+        or best_promotion.promotion_piece != played_promotion.promotion_piece
+    ):
+        return None
+    preserved_rook_id = played[0].moving_piece_id
+    payoff = next(
+        (
+            event
+            for event in best
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == preserved_rook_id
+                and event.captured_piece_id == best_promotion.moving_piece_id
+            )
+        ),
+        None,
+    )
+    if (
+        payoff is None
+        or not _piece_survives_stored_horizon(
+            played,
+            piece_id=played_promotion.moving_piece_id,
+        )
+        or any(
+            event.actor == "initiator"
+            and event.captured_piece_id == played_promotion.moving_piece_id
+            for event in played
+        )
+        or _line_piece_material_yield_cp(
+            best,
+            moving_piece_id=preserved_rook_id,
+            payoff_event=payoff,
+        ) <= 0
+    ):
+        return None
+    return (
+        "alternate_rook_preserves_promotion_capture",
+        _causal_step(
+            best[0],
+            role="setup",
+            branch="best",
+            fact_kind="other_rook_captures_blocker",
+            **_captured_target(best[0]),
+        ),
+        _causal_step(
+            best_promotion,
+            role="constraint",
+            branch="best",
+            fact_kind="opponent_pawn_promotes_on_first_rank",
+            **_moved_piece_target(best_promotion),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="preserved_rook_captures_promoted_piece",
+            **_captured_target(payoff),
+        ),
+        "promoted_piece_capture",
+        payoff.captured_value_cp,
+        None,
+    )
+
+
+def build_endgame_geometry_opportunity_proof(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Optional[VerifiedEndgameGeometryOpportunity]:
+    """Prove one endgame resource without asserting an unproved result."""
+    common = {
+        "fen_before": fen_before,
+        "played_san": played_san,
+        "best_move_san": best_move_san,
+        "pv_after_played": pv_after_played,
+        "pv_after_best": pv_after_best,
+        "cp_loss": cp_loss,
+    }
+    if (
+        build_target_line_opportunity_proof(**common) is not None
+        or build_forcing_tempo_opportunity_proof(**common) is not None
+    ):
+        return None
+    evidence = build_verified_branch_evidence(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+    )
+    if (
+        evidence is None
+        or evidence.difference.net_material_edge_cp <= 0
+        or _detect_phase(chess.Board(fen_before), chess.Board(fen_before).fullmove_number)
+        != "endgame"
+    ):
+        return None
+    chain = (
+        _king_route_reaches_pawn_chain(evidence)
+        or _immediate_pawn_push_promotes_chain(evidence)
+        or _king_move_preserves_rook_exchange_chain(evidence)
+        or _alternate_rook_preserves_promotion_capture_chain(evidence)
+    )
+    if chain is None:
+        return None
+    (
+        mechanism,
+        setup,
+        constraint,
+        payoff,
+        payoff_kind,
+        payoff_value_cp,
+        promotion_piece,
+    ) = chain
+    return VerifiedEndgameGeometryOpportunity(
+        mechanism=mechanism,
+        setup=setup,
+        constraint=constraint,
+        payoff=payoff,
+        payoff_kind=payoff_kind,
+        payoff_value_cp=payoff_value_cp,
+        promotion_piece=promotion_piece,
+        branch_evidence=evidence,
+    )
+
+
+def _line_net_material_after_horizon_exchange_cp(
+    trace: Any,
+    *,
+    payoff_event: Any,
+) -> int:
+    """Resolve any immediate legal exchange after the stored payoff line."""
+    events = trace.events
+    if not events or payoff_event not in events:
+        return 0
+    if any(
+        event.ply > payoff_event.ply
+        and event.captured_piece_id == payoff_event.moving_piece_id
+        for event in events
+    ):
+        return trace.net_material_gain_cp
+    last_piece_move = next(
+        (
+            event
+            for event in reversed(events)
+            if event.moving_piece_id == payoff_event.moving_piece_id
+        ),
+        None,
+    )
+    if last_piece_move is None:
+        return 0
+    board = chess.Board(events[-1].fen_after)
+    square = chess.parse_square(last_piece_move.destination)
+    piece = board.piece_at(square)
+    if piece is None or piece.color == board.turn:
+        return trace.net_material_gain_cp
+    return trace.net_material_gain_cp - legal_exchange_gain(
+        board,
+        square,
+        board.turn,
+    )
+
+
+def _transformation_step(
+    event: Any,
+    *,
+    fact_kind: str,
+) -> VerifiedCausalStep:
+    target = (
+        _captured_target(event)
+        if event.captured_piece_id is not None
+        else _moved_piece_target(event)
+    )
+    return _causal_step(
+        event,
+        role="constraint",
+        branch="best",
+        fact_kind=fact_kind,
+        **target,
+    )
+
+
+def _intermediate_exchange_preserves_rook_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[
+    Tuple[
+        str,
+        VerifiedCausalStep,
+        Tuple[VerifiedCausalStep, ...],
+        VerifiedCausalStep,
+        int,
+    ]
+]:
+    best = evidence.best_trace.events
+    played = evidence.played_trace.events
+    if len(best) < 5 or len(played) < 2:
+        return None
+    setup, recapture = best[:2]
+    if (
+        setup.actor != "initiator"
+        or setup.captured_piece_id is None
+        or recapture.actor != "opponent"
+        or recapture.captured_piece_id != setup.moving_piece_id
+    ):
+        return None
+    played_rook_loss = next(
+        (
+            event
+            for event in played
+            if (
+                event.actor == "opponent"
+                and event.captured_piece == "rook"
+                and event.captured_piece_id is not None
+            )
+        ),
+        None,
+    )
+    if played_rook_loss is None:
+        return None
+    rook_escape = next(
+        (
+            event
+            for event in best[2:]
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == played_rook_loss.captured_piece_id
+                and event.captured_piece_id is None
+            )
+        ),
+        None,
+    )
+    payoff = next(
+        (
+            event
+            for event in best[2:]
+            if (
+                event.actor == "initiator"
+                and event.ply > (rook_escape.ply if rook_escape else 0)
+                and event.captured_piece_id == played_rook_loss.moving_piece_id
+            )
+        ),
+        None,
+    )
+    if rook_escape is None or payoff is None:
+        return None
+    between = tuple(event for event in best[1 : payoff.ply - 1])
+    if rook_escape not in between:
+        return None
+    line_gain = _line_net_material_after_horizon_exchange_cp(
+        evidence.best_trace,
+        payoff_event=payoff,
+    )
+    if line_gain <= 0:
+        return None
+    step_kinds = {
+        recapture.ply: "opponent_accepts_intermediate_exchange",
+        rook_escape.ply: "same_threatened_rook_leaves_capture_line",
+    }
+    return (
+        "intermediate_exchange_preserves_rook",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="starts_intermediate_exchange_before_rook_escape",
+            **_captured_target(setup),
+        ),
+        tuple(
+            _transformation_step(
+                event,
+                fact_kind=step_kinds.get(
+                    event.ply,
+                    "opponent_uses_intervening_move_before_payoff",
+                ),
+            )
+            for event in between
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="captures_exact_rook_attacker_after_escape",
+            **_captured_target(payoff),
+        ),
+        line_gain,
+    )
+
+
+def _forced_king_capture_then_queen_capture_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[
+    Tuple[
+        str,
+        VerifiedCausalStep,
+        Tuple[VerifiedCausalStep, ...],
+        VerifiedCausalStep,
+        int,
+    ]
+]:
+    best = evidence.best_trace.events
+    if len(best) < 5:
+        return None
+    setup, king_capture, queen_check, queen_move, payoff = best[:5]
+    if (
+        setup.actor != "initiator"
+        or setup.moving_piece != "rook"
+        or not setup.gave_check
+        or setup.legal_reply_count != 1
+        or king_capture.actor != "opponent"
+        or king_capture.moving_piece != "king"
+        or king_capture.captured_piece_id != setup.moving_piece_id
+        or queen_check.actor != "initiator"
+        or queen_check.moving_piece != "queen"
+        or not queen_check.gave_check
+        or queen_move.actor != "opponent"
+        or queen_move.moving_piece != "queen"
+        or payoff.actor != "initiator"
+        or payoff.moving_piece_id != queen_check.moving_piece_id
+        or payoff.captured_piece_id != queen_move.moving_piece_id
+    ):
+        return None
+    if any(
+        event.actor == "initiator"
+        and event.captured_piece_id == payoff.captured_piece_id
+        for event in evidence.played_trace.events
+    ):
+        return None
+    line_gain = _line_net_material_after_horizon_exchange_cp(
+        evidence.best_trace,
+        payoff_event=payoff,
+    )
+    if line_gain <= 0:
+        return None
+    return (
+        "forced_king_capture_then_queen_capture",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="offers_rook_with_only_one_legal_reply",
+            **_moved_piece_target(setup),
+        ),
+        (
+            _transformation_step(
+                king_capture,
+                fact_kind="king_is_forced_to_capture_offered_rook",
+            ),
+            _transformation_step(
+                queen_check,
+                fact_kind="queen_check_uses_displaced_king",
+            ),
+            _transformation_step(
+                queen_move,
+                fact_kind="opponent_queen_interposes_on_capture_square",
+            ),
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="same_queen_captures_interposing_queen",
+            **_captured_target(payoff),
+        ),
+        line_gain,
+    )
+
+
+def _sacrifice_opens_rook_capture_route_chain(
+    evidence: VerifiedBranchEvidence,
+) -> Optional[
+    Tuple[
+        str,
+        VerifiedCausalStep,
+        Tuple[VerifiedCausalStep, ...],
+        VerifiedCausalStep,
+        int,
+    ]
+]:
+    best = evidence.best_trace.events
+    if len(best) < 5:
+        return None
+    setup, recapture, rook_capture = best[:3]
+    if (
+        setup.actor != "initiator"
+        or setup.moving_piece in {"pawn", "rook", "queen", "king"}
+        or setup.captured_piece != "pawn"
+        or recapture.actor != "opponent"
+        or recapture.moving_piece != "pawn"
+        or recapture.captured_piece_id != setup.moving_piece_id
+        or rook_capture.actor != "initiator"
+        or rook_capture.moving_piece != "rook"
+        or rook_capture.captured_piece_id != recapture.moving_piece_id
+        or not rook_capture.gave_check
+    ):
+        return None
+    opened_route = any(
+        change.kind == "opened"
+        and change.actor == "initiator"
+        and change.piece == "rook"
+        and change.slider_square == rook_capture.origin
+        and rook_capture.destination in change.changed_squares
+        for change in recapture.line_geometry_changes
+    )
+    if not opened_route:
+        return None
+    payoff = next(
+        (
+            event
+            for event in best[3:]
+            if (
+                event.actor == "initiator"
+                and event.moving_piece_id == rook_capture.moving_piece_id
+                and event.captured_piece
+                in {"knight", "bishop", "rook", "queen"}
+            )
+        ),
+        None,
+    )
+    if payoff is None or any(
+        event.actor == "initiator"
+        and event.captured_piece_id == payoff.captured_piece_id
+        for event in evidence.played_trace.events
+    ):
+        return None
+    between = tuple(event for event in best[1 : payoff.ply - 1])
+    if recapture not in between or rook_capture not in between:
+        return None
+    line_gain = _line_net_material_after_horizon_exchange_cp(
+        evidence.best_trace,
+        payoff_event=payoff,
+    )
+    if line_gain <= 0:
+        return None
+    step_kinds = {
+        recapture.ply: "pawn_recapture_opens_exact_rook_route",
+        rook_capture.ply: "same_rook_enters_opened_route_with_check",
+    }
+    return (
+        "sacrifice_opens_rook_capture_route",
+        _causal_step(
+            setup,
+            role="setup",
+            branch="best",
+            fact_kind="sacrifices_minor_piece_for_pawn_recapture",
+            **_captured_target(setup),
+        ),
+        tuple(
+            _transformation_step(
+                event,
+                fact_kind=step_kinds.get(
+                    event.ply,
+                    "opponent_blocks_first_rook_check",
+                ),
+            )
+            for event in between
+        ),
+        _causal_step(
+            payoff,
+            role="payoff",
+            branch="best",
+            fact_kind="same_rook_captures_piece_after_route_opens",
+            **_captured_target(payoff),
+        ),
+        line_gain,
+    )
+
+
+def build_board_transformation_opportunity_proof(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Optional[VerifiedBoardTransformationOpportunity]:
+    """Prove a multi-step board change and its legal material payoff."""
+    common = {
+        "fen_before": fen_before,
+        "played_san": played_san,
+        "best_move_san": best_move_san,
+        "pv_after_played": pv_after_played,
+        "pv_after_best": pv_after_best,
+        "cp_loss": cp_loss,
+    }
+    if (
+        build_target_line_opportunity_proof(**common) is not None
+        or build_forcing_tempo_opportunity_proof(**common) is not None
+        or build_endgame_geometry_opportunity_proof(**common) is not None
+    ):
+        return None
+    evidence = build_verified_branch_evidence(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+    )
+    if (
+        evidence is None
+        or evidence.difference.net_material_edge_cp <= 0
+    ):
+        return None
+    chain = (
+        _intermediate_exchange_preserves_rook_chain(evidence)
+        or _forced_king_capture_then_queen_capture_chain(evidence)
+        or _sacrifice_opens_rook_capture_route_chain(evidence)
+    )
+    if chain is None:
+        return None
+    mechanism, setup, transformation_steps, payoff, line_gain = chain
+    return VerifiedBoardTransformationOpportunity(
+        mechanism=mechanism,
+        setup=setup,
+        transformation_steps=transformation_steps,
+        payoff=payoff,
+        line_net_material_gain_cp=line_gain,
+        branch_evidence=evidence,
+    )
+
+
 def build_verified_line_cause(
     *,
     fen_before: str,
@@ -1025,6 +3470,7 @@ def build_verified_line_cause(
     pv_after_played: Tuple[Any, ...] | List[Any],
     pv_after_best: Tuple[Any, ...] | List[Any],
     cp_loss: int,
+    include_branch_evidence: bool = False,
 ) -> Optional[VerifiedLineCause]:
     """Build a narrow caption cause from two complete legal stored lines.
 
@@ -1148,6 +3594,18 @@ def build_verified_line_cause(
             "opportunity",
         ))
 
+    branch_evidence = None
+    if include_branch_evidence:
+        branch_evidence = build_verified_branch_evidence(
+            fen_before=fen_before,
+            played_san=played_san,
+            best_move_san=best_move_san,
+            pv_after_played=pv_after_played,
+            pv_after_best=pv_after_best,
+        )
+        if branch_evidence is None:
+            return None
+
     return VerifiedLineCause(
         lesson_kind=lesson_kind,
         phase=_detect_phase(before, before.fullmove_number),
@@ -1183,6 +3641,12 @@ def build_verified_line_cause(
         reply_from=reply_from,
         reply_to=reply_to,
         relationships=tuple(relationships),
+        branch_evidence=branch_evidence,
+        proof_version=(
+            VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION
+            if branch_evidence is not None
+            else VERIFIED_LINE_CAUSE_VERSION
+        ),
     )
 
 
@@ -2170,75 +4634,151 @@ def _pv_resolves_to_mate(pv_san: List[str], max_plies: int = 8) -> Optional[int]
 
 
 def _mate_threat_evidence(
+    board_before: chess.Board,
+    played_san: str,
+    best_move_san: Optional[str],
+    eval_before_cp: Optional[int],
     eval_after_cp: Optional[int],
     pv_after_played: List[str],
     pv_after_best: List[str],
     own_color: chess.Color,
     is_checkmate: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """Detect forced mate from PV + eval sentinels. Returns an evidence
-    dict or None.
+    """Build branch-owned mate evidence from complete stored continuations.
 
-    Four signal sources, in order:
-      0. board_after.is_checkmate() — the PLAYED move just delivered
-         mate. This is the strongest possible signal; the PV is empty
-         because the game is over, so PV-scanning won't find it.
-         From d7ce40cf corpus: #24 OPP Rd1# was being classed as plain
-         check because the other three signals all missed.
-      1. The PV contains a SAN ending in '#' → mate forced; ply distance
-         known directly.
-      2. eval_after_cp is in the mate-sentinel range (|eval| >= 9000) →
-         engine reports forced mate; we know it exists but not the side
-         delivering it without checking sign.
-      3. Both — most reliable.
+    ``eval_before_cp`` belongs to the best branch; ``eval_after_cp`` belongs
+    to the played branch.  Older code merged a mate suffix from either PV with
+    the played-branch evaluation.  That made a missed winning mate read as
+    "you allowed mate."  This contract keeps each result attached to its
+    branch and emits one explicit transition from the mover's perspective.
 
-    Evidence emitted:
-      {
-        "side_delivering_mate": "white" | "black",
-        "ply_to_mate": int | None,         # known if PV has '#' or is_checkmate
-        "via_played_move": bool,           # detected in pv_after_played OR move is mate
-        "via_best_move": bool,             # detected in pv_after_best
-        "engine_eval_indicates_mate": bool,
-        "delivered_on_this_move": bool,    # is_checkmate after the played move
-      }
+    No engine is run here.  Legal lines are replayed by the canonical stored
+    line verifier; a mate sentinel may establish the winner when the stored PV
+    is truncated, but it never supplies a made-up distance.
     """
-    # 0. The played move IS mate (board_after.is_checkmate() == True).
-    if is_checkmate:
+
+    def _eval_mating_side(value: Optional[int]) -> Optional[str]:
+        if value is None or abs(value) < 9000:
+            return None
+        return "white" if value > 0 else "black"
+
+    def _branch(
+        leading_move: Optional[str],
+        continuation: List[str],
+        branch_eval: Optional[int],
+        *,
+        delivered_now: bool = False,
+    ) -> Dict[str, Any]:
+        # Local import avoids the existing module cycle: the stored-line
+        # verifier reads this module's canonical piece-value table.
+        from services.stored_line_verifier import replay_stored_line
+
+        replay = (
+            replay_stored_line(board_before, leading_move, continuation)
+            if leading_move
+            else None
+        )
+        replay_side = None
+        if replay and replay.complete and replay.checkmate:
+            replay_side = (
+                "white"
+                if replay.checkmating_color == chess.WHITE
+                else "black"
+            )
+        eval_side = _eval_mating_side(branch_eval)
+        conflict = bool(replay_side and eval_side and replay_side != eval_side)
+        side = None if conflict else (replay_side or eval_side)
+        raw_ply = replay.mate_ply if replay_side and replay else None
+        if delivered_now:
+            side = "white" if own_color == chess.WHITE else "black"
+            raw_ply = 1
+            conflict = False
+        mate_in = None
+        if raw_ply is not None and side is not None:
+            branch_mover = board_before.turn
+            mating_color = chess.WHITE if side == "white" else chess.BLACK
+            mate_in = (
+                (raw_ply + 1) // 2
+                if mating_color == branch_mover
+                else max(1, raw_ply // 2)
+            )
+        sources = []
+        if delivered_now:
+            sources.append("board_checkmate")
+        elif replay_side:
+            sources.append("stored_line_replay")
+        if eval_side:
+            sources.append("stored_eval_sentinel")
         return {
-            "side_delivering_mate": "white" if own_color == chess.WHITE else "black",
-            "ply_to_mate": 1,
-            "via_played_move": True,
-            "via_best_move": False,
-            "engine_eval_indicates_mate": True,
-            "delivered_on_this_move": True,
+            "complete": bool(replay and replay.complete),
+            "has_forced_mate": bool(side),
+            "side_delivering_mate": side,
+            "ply_to_mate": raw_ply,
+            "mate_in": mate_in,
+            "line_san": list(replay.replayed_san) if replay else [],
+            "engine_eval_indicates_mate": bool(eval_side),
+            "proof_sources": sources,
+            "evidence_conflict": conflict,
         }
 
-    # PV-based mate detection
-    played_mate_ply = _pv_resolves_to_mate(pv_after_played)
-    best_mate_ply = _pv_resolves_to_mate(pv_after_best)
-
-    # Eval-sentinel detection. Note eval_after_cp is from white's POV
-    # by standard convention; user_color flips it for the user's POV.
-    engine_eval_indicates_mate = (
-        eval_after_cp is not None and abs(eval_after_cp) >= 9000
+    played_branch = _branch(
+        played_san,
+        pv_after_played,
+        eval_after_cp,
+        delivered_now=is_checkmate,
     )
-
-    if played_mate_ply is None and best_mate_ply is None and not engine_eval_indicates_mate:
+    best_branch = _branch(
+        best_move_san,
+        pv_after_best,
+        eval_before_cp,
+    )
+    if (
+        played_branch["evidence_conflict"]
+        or best_branch["evidence_conflict"]
+    ):
         return None
 
-    # Determine who's delivering the mate. eval_after is from white's POV;
-    # positive = white winning. So if eval is +9000, white delivers mate.
-    side_delivering_mate = None
-    if eval_after_cp is not None and abs(eval_after_cp) >= 1000:
-        side_delivering_mate = "white" if eval_after_cp > 0 else "black"
+    mover = "white" if own_color == chess.WHITE else "black"
+    opponent = "black" if own_color == chess.WHITE else "white"
+    played_side = played_branch["side_delivering_mate"]
+    best_side = best_branch["side_delivering_mate"]
+
+    if is_checkmate:
+        transition = "delivered"
+        relevant = played_branch
+    elif played_side == opponent:
+        transition = "already_lost" if best_side == opponent else "allowed"
+        relevant = played_branch
+    elif played_side == mover:
+        transition = "preserved"
+        relevant = played_branch
+    elif best_side == mover:
+        transition = "missed"
+        relevant = best_branch
+    elif best_side == opponent:
+        transition = "already_lost"
+        relevant = best_branch
+    else:
+        return None
 
     return {
-        "side_delivering_mate": side_delivering_mate,
-        "ply_to_mate": played_mate_ply or best_mate_ply,
-        "via_played_move": played_mate_ply is not None,
-        "via_best_move": best_mate_ply is not None,
-        "engine_eval_indicates_mate": engine_eval_indicates_mate,
-        "delivered_on_this_move": False,
+        "transition": transition,
+        "mover_color": mover,
+        "opponent_color": opponent,
+        "played_branch": played_branch,
+        "best_branch": best_branch,
+        # Backward-compatible summary fields.  They are derived from the
+        # branch-owned result and must never be used to infer a transition.
+        "side_delivering_mate": relevant["side_delivering_mate"],
+        "ply_to_mate": relevant["mate_in"],
+        "mate_in": relevant["mate_in"],
+        "via_played_move": played_branch["has_forced_mate"],
+        "via_best_move": best_branch["has_forced_mate"],
+        "engine_eval_indicates_mate": bool(
+            played_branch["engine_eval_indicates_mate"]
+            or best_branch["engine_eval_indicates_mate"]
+        ),
+        "delivered_on_this_move": is_checkmate,
     }
 
 
@@ -6519,7 +9059,14 @@ def extract_facts(
 
     # ── Mate threat evidence (commit #4a) ───────────────────────────────
     mate_threat_evidence = _mate_threat_evidence(
-        eval_after_cp, pv_after_played, pv_after_best, own_color,
+        board_before,
+        played_san,
+        best_move_san,
+        eval_before_cp,
+        eval_after_cp,
+        pv_after_played,
+        pv_after_best,
+        own_color,
         is_checkmate=is_checkmate,
     )
 

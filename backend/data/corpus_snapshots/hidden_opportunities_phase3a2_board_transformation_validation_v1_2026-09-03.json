@@ -1,0 +1,44 @@
+{
+  "authorization_grade": "shadow",
+  "board_transformation_family_gold": 3,
+  "branch_reversal_checks": 3,
+  "branch_reversal_rejections": 3,
+  "database_writes": 0,
+  "failures": [],
+  "false_positives": 0,
+  "fresh_engine_runs": 0,
+  "hidden_opportunities": 24,
+  "horizon_adjusted_line_gains_cp": {
+    "009165b2ba85628b33b8": 100,
+    "0092ee3966f8cb299628": 100,
+    "017a76d6a153237ced25": 400
+  },
+  "mechanism_counts": {
+    "forced_king_capture_then_queen_capture": 1,
+    "intermediate_exchange_preserves_rook": 1,
+    "sacrifice_opens_rook_capture_route": 1
+  },
+  "non_opportunities": 76,
+  "passed": true,
+  "positions": 100,
+  "precision_pct": 100.0,
+  "production_reads": 0,
+  "promotion_blockers": [
+    "reviewed_positive_count_below_50",
+    "wilson_lower_bound_below_85_pct",
+    "architecture_packet_not_population_holdout"
+  ],
+  "promotion_eligible": false,
+  "proof_fires": 3,
+  "proof_position_ids": [
+    "009165b2ba85628b33b8",
+    "0092ee3966f8cb299628",
+    "017a76d6a153237ced25"
+  ],
+  "proof_version": "board_transformation_causal_proof.v1",
+  "protected_surface_authorizations": [],
+  "schema_version": "hidden_opportunities_board_transformation_validation.v1",
+  "true_negatives": 76,
+  "true_positives": 3,
+  "wilson_lower_bound_pct": 43.85
+}

@@ -36,7 +36,32 @@ _FREE_RX = re.compile(r"\b(free pawn|hanging|undefended|for free|wins? the pawn|
 _NORECAP_RX = re.compile(r"\b(no recapture|can'?t (?:take|recapture)|"
                          r"loses? (?:the|that) pawn cleanly|without (?:a )?recapture|"
                          r"no way to recapture)\b", re.I)
-_MATE_RX = re.compile(r"\b(checkmate|is mate|delivers mate)\b|#", re.I)
+_MATE_RX = re.compile(
+    r"\b(checkmate|mate|mating|forced win|wins by force|winning by force)\b|#",
+    re.I,
+)
+_MATE_DELIVERED_RX = re.compile(r"\bcheckmate\b|#", re.I)
+_MATE_ALLOWED_RX = re.compile(
+    r"\ballows? (?:mate|a forced win)\b|"
+    r"\ballows?\s+\S+#|"
+    r"\blets\b.*\bforced win\b|"
+    r"\bleaves? (?:mate|a forced win|you a forced win)\b",
+    re.I,
+)
+_MATE_MISSED_RX = re.compile(
+    r"\bmiss(?:es|ed) (?:mate|a forced win|the finish)\b",
+    re.I,
+)
+_MATE_ALREADY_RX = re.compile(
+    r"\bcannot stop\b.*\b(?:mate|forced win)\b|"
+    r"\balready forced\b|\balready on the board\b",
+    re.I,
+)
+_MATE_PRESERVED_RX = re.compile(
+    r"\bforces mate\b|\bwins by force\b|"
+    r"\bopp(?:onent)? (?:threatens mate|is winning by force)\b",
+    re.I,
+)
 _EXPLICIT_MATE_SAN_RX = re.compile(
     r"(?<!\w)(O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)#"
 )
@@ -196,8 +221,29 @@ def _check_false_sacrifice(caption: str, facts: Dict[str, Any]) -> List[Dict[str
         tracked_color = piece.color
         tracked_type = piece.piece_type
         board.push(move)
+
+        # A legal immediate recapture is already sufficient, position-owned
+        # proof that the moved piece is being sacrificed.  Older evidence
+        # packets do not always carry ``pv_after_best``; treating an absent PV
+        # as a *complete* line used to produce the opposite conclusion (that
+        # the piece survived).  Only legal moves count here, so a pinned or
+        # otherwise immobile attacker cannot manufacture sacrifice evidence.
+        immediate_recapture = any(
+            board.is_capture(reply)
+            and _capture_square(board, reply) == tracked_square
+            for reply in board.legal_moves
+        )
+        if immediate_recapture:
+            return []
+
+        continuation = list(facts.get("pv_after_best") or [])
+        if not continuation:
+            return [{
+                "check": "false_sacrifice",
+                "detail": "sacrifice claim has neither a legal immediate recapture nor a stored best line",
+            }]
         alive = True
-        for san in facts.get("pv_after_best") or []:
+        for san in continuation:
             next_move = board.parse_san(str(san))
             capture_square = _capture_square(board, next_move)
             if board.is_capture(next_move) and capture_square == tracked_square:
@@ -453,6 +499,115 @@ def _check_mate(
 ) -> List[Dict[str, str]]:
     if not _MATE_RX.search(caption):
         return []
+
+    evidence = facts.get("mate_threat_evidence")
+    transition = evidence.get("transition") if isinstance(evidence, dict) else None
+    violations: List[Dict[str, str]] = []
+    claimed_transition = None
+    if _MATE_ALREADY_RX.search(caption):
+        claimed_transition = "already_lost"
+    elif _MATE_ALLOWED_RX.search(caption):
+        claimed_transition = "allowed"
+    elif _MATE_MISSED_RX.search(caption):
+        claimed_transition = "missed"
+    elif _MATE_PRESERVED_RX.search(caption):
+        claimed_transition = "preserved"
+    elif _MATE_DELIVERED_RX.search(caption):
+        claimed_transition = "delivered"
+
+    if strict_v2 and transition not in {
+        "delivered", "preserved", "missed", "allowed", "already_lost"
+    }:
+        return [{
+            "check": "mate_direction",
+            "detail": "mate language has no branch-owned transition evidence",
+        }]
+    if claimed_transition and transition and claimed_transition != transition:
+        violations.append({
+            "check": "mate_direction",
+            "detail": (
+                f"caption says {claimed_transition}, but stored branch evidence "
+                f"proves {transition}"
+            ),
+        })
+
+    # Independently reconstruct the transition from the raw stored branches.
+    # The rendered verifier does not trust the extractor's transition merely
+    # because it is present in the same packet.
+    if strict_v2 and transition:
+        try:
+            from services.stored_line_verifier import replay_stored_line
+
+            start = chess.Board(facts["fen_before"])
+            mover = start.turn
+            opponent = not mover
+            played = replay_stored_line(
+                start,
+                facts.get("move_san"),
+                facts.get("pv_after_played") or (),
+            )
+            best = replay_stored_line(
+                start,
+                facts.get("best_move_san"),
+                facts.get("pv_after_best") or (),
+            )
+
+            def eval_side(value: Any):
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    return None
+                if abs(value) < 9000:
+                    return None
+                return chess.WHITE if value > 0 else chess.BLACK
+
+            def proves(replay, value: Any, side: chess.Color) -> bool:
+                exact = (
+                    replay.complete
+                    and replay.checkmate
+                    and replay.checkmating_color == side
+                )
+                return bool(exact or eval_side(value) == side)
+
+            played_mover = proves(played, facts.get("eval_after_cp"), mover)
+            played_opponent = proves(
+                played, facts.get("eval_after_cp"), opponent
+            )
+            best_mover = proves(best, facts.get("eval_before_cp"), mover)
+            best_opponent = proves(best, facts.get("eval_before_cp"), opponent)
+
+            after = start.copy(stack=False)
+            move = after.parse_san(str(facts.get("move_san") or ""))
+            after.push(move)
+            if after.is_checkmate():
+                reconstructed = "delivered"
+            elif played_opponent:
+                reconstructed = "already_lost" if best_opponent else "allowed"
+            elif played_mover:
+                reconstructed = "preserved"
+            elif best_mover:
+                reconstructed = "missed"
+            elif best_opponent:
+                reconstructed = "already_lost"
+            else:
+                reconstructed = None
+            if reconstructed != transition:
+                violations.append({
+                    "check": "mate_direction",
+                    "detail": (
+                        f"branch evidence says {transition}, but independent "
+                        f"replay reconstructs {reconstructed or 'no proven mate'}"
+                    ),
+                })
+        except Exception as exc:
+            violations.append({
+                "check": "mate_direction",
+                "detail": (
+                    "mate branches could not be independently replayed: "
+                    f"{type(exc).__name__}"
+                ),
+            })
+
     explicit_mates = {
         match.group(1)
         for match in _EXPLICIT_MATE_SAN_RX.finditer(caption)
@@ -485,7 +640,7 @@ def _check_mate(
                     )
             unsupported = sorted(explicit_mates - terminal_mates)
             if unsupported:
-                return [{
+                violations.append({
                     "check": "mate",
                     "detail": (
                         "claims "
@@ -493,13 +648,18 @@ def _check_mate(
                         + " is checkmate, but no complete stored branch ends "
                         "in that mate"
                     ),
-                }]
-            return []
+                })
+            return violations
         except Exception:
-            return [{
+            violations.append({
                 "check": "mate",
                 "detail": "explicit mating line could not be verified",
-            }]
+            })
+            return violations
+    if strict_v2 and transition:
+        # Direction and the supporting branch were checked above. Captions such
+        # as "misses mate in 2" do not claim that the first move itself mates.
+        return violations
     try:
         b = chess.Board(facts["fen_before"])
         if facts.get("is_user_move"):

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from services.narrator_claim_verifier import verify_caption as _verify_caption
+from services.caption_facts import extract_facts
 from services.caption_templates import dispatch_promotion, reload_promotion_ladder
 
 
@@ -37,6 +38,26 @@ def _facts(case: dict) -> dict:
         "cp_loss": case["cp_loss"],
         "is_user_move": True,
     }
+
+
+def _with_mate_branch_evidence(facts: dict) -> dict:
+    enriched = dict(facts)
+    extracted = extract_facts(
+        fen_before=facts["fen_before"],
+        played_san=facts["move_san"],
+        best_move_san=facts.get("best_move_san"),
+        eval_before_cp=facts.get("eval_before_cp"),
+        eval_after_cp=facts.get("eval_after_cp"),
+        cp_loss=facts.get("cp_loss") or 0,
+        pv_after_played=list(facts.get("pv_after_played") or []),
+        pv_after_best=list(facts.get("pv_after_best") or []),
+        mover_is_user=True,
+    )
+    enriched["mate_threat_evidence"] = extracted[
+        "mate_threat_evidence"
+    ]
+    enriched["moving_piece_color"] = extracted["moving_piece_color"]
+    return enriched
 
 
 def test_gold_has_ten_unique_game_labels_and_no_runtime_override_permission():
@@ -144,7 +165,7 @@ def test_real_forcing_move_remains_accepted():
     ),
 )
 def test_complete_stored_mating_line_remains_accepted(caption, facts):
-    assert verify_caption(caption, facts) == []
+    assert verify_caption(caption, _with_mate_branch_evidence(facts)) == []
 
 
 def test_explicit_mate_must_be_the_terminal_move_of_a_complete_stored_branch():
@@ -157,8 +178,13 @@ def test_explicit_mate_must_be_the_terminal_move_of_a_complete_stored_branch():
         "cp_loss": 10173,
         "is_user_move": True,
     }
-    violations = verify_caption("Nf4# is checkmate.", facts)
-    assert {item["check"] for item in violations} == {"mate"}
+    violations = verify_caption(
+        "Nf4# is checkmate.", _with_mate_branch_evidence(facts)
+    )
+    assert {item["check"] for item in violations} == {
+        "mate",
+        "mate_direction",
+    }
 
 
 @pytest.mark.parametrize(

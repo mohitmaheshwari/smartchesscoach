@@ -1,0 +1,105 @@
+{
+  "schema_version": "target_line_causal.blinded_review_score.v1",
+  "generated_on": "2026-09-03",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "quality_id": "review:target_line_causal_proof",
+  "proof_version": "target_line_causal_proof.v3",
+  "review_independence": "same implementation agent; useful for defect discovery but not eligible as independent promotion evidence",
+  "sources": {
+    "blinded_packet": {
+      "path": "backend/data/detector_gold/target_line_causal_pre_promotion_review_v1.json",
+      "sha256": "1b93f99c4ba6ffc65c1bb32607fc52148af7255b577355e98b447532f7dce604"
+    },
+    "frozen_review": {
+      "path": "backend/data/detector_gold/target_line_causal_blinded_codex_review_v1.json",
+      "sha256": "e2591e31bdd52cad081bf849f25f6c25786de14190194b57aef50aab727cb826"
+    },
+    "frozen_answer_key": {
+      "path": "backend/data/detector_gold/target_line_causal_pre_promotion_answer_key_v1.json",
+      "sha256": "23c49bf344b5215a8bd5f9f764046aa4e43ae4204835261d22c61450d57b7671"
+    }
+  },
+  "sample": {
+    "cases": 64,
+    "detector_candidates": 34,
+    "sampled_controls": 30,
+    "reviewer_positive": 36,
+    "reviewer_nonpositive": 28
+  },
+  "raw_blinded_score": {
+    "true_positives": 32,
+    "false_positives": 2,
+    "false_negatives": 4,
+    "true_negatives": 26,
+    "semantic_precision_pct": 94.12,
+    "wilson_lower_bound_pct": 80.91,
+    "packet_positive_capture_pct": 88.89,
+    "critical_false_claims": 0,
+    "recall_warning": "Controls are sampled positive-edge near-controls, not an opportunity-denominator population; packet_positive_capture is not population recall."
+  },
+  "raw_gate": {
+    "available_fires_meet_minimum": false,
+    "precision_meets_minimum": false,
+    "wilson_meets_minimum": false,
+    "true_negatives_meet_minimum": true,
+    "zero_critical_errors": true,
+    "independent_review_complete": false,
+    "caption_promotion_gate_passed": false,
+    "status": "shadow",
+    "blockers": [
+      "reviewed_fire_minimum_not_met",
+      "raw_blinded_precision_below_95_pct",
+      "raw_blinded_wilson_below_85_pct",
+      "independent_reviewer_still_required",
+      "final_rendered_claim_audit_pending"
+    ]
+  },
+  "raw_disagreements": [
+    {
+      "case_id": "0aecdec41cec8b456299",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Rxf4+ immediately captures the bishop, and the same rook remains safe through the stored horizon."
+    },
+    {
+      "case_id": "36b1869b3d33c98a5f2d",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "The better branch liquidates queens after g3; that resource is not a target line established by the first move."
+    },
+    {
+      "case_id": "744b40dde590a664c5d6",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Nd5 Nxd5 exd5 is an exact exchange sequence whose final capture removes the recapturing knight."
+    },
+    {
+      "case_id": "dc12a2798a102a91503a",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "The rook on c2 already controls c3; the white queen enters c3 and that same rook captures it."
+    },
+    {
+      "case_id": "e5875d9dd791aa191b80",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "The better branch captures only a pawn and proves no qualifying target payoff."
+    },
+    {
+      "case_id": "fd82eb68e8c3c17b9bdf",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qf3 controls g4; the exact knight moves to g4 with check and that queen captures it."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "authorization_grade": "shadow",
+  "branch_reversal_checks": 4,
+  "branch_reversal_rejections": 4,
+  "checking_rook_exchange_final_legal_recaptures": {
+    "00bb6cd1492bc5b6f355": [
+      "Kxf6",
+      "exf6"
+    ]
+  },
+  "database_writes": 0,
+  "endgame_family_gold": 4,
+  "exact_wdl_claims": 0,
+  "failures": [],
+  "false_positives": 0,
+  "fresh_engine_runs": 0,
+  "hidden_opportunities": 24,
+  "mechanism_counts": {
+    "alternate_rook_preserves_promotion_capture": 1,
+    "immediate_pawn_push_promotes": 1,
+    "king_move_preserves_rook_exchange": 1,
+    "king_route_reaches_pawn": 1
+  },
+  "non_opportunities": 76,
+  "passed": true,
+  "positions": 100,
+  "precision_pct": 100.0,
+  "production_reads": 0,
+  "promotion_blockers": [
+    "reviewed_positive_count_below_50",
+    "wilson_lower_bound_below_85_pct",
+    "architecture_packet_not_population_holdout"
+  ],
+  "promotion_eligible": false,
+  "proof_fires": 4,
+  "proof_position_ids": [
+    "0046fdd1299037467b31",
+    "00bb6cd1492bc5b6f355",
+    "0438c05cad17f5193112",
+    "055d9f8521e114e4d995"
+  ],
+  "proof_version": "endgame_geometry_causal_proof.v2",
+  "protected_surface_authorizations": [],
+  "schema_version": "hidden_opportunities_endgame_geometry_validation.v2",
+  "true_negatives": 76,
+  "true_positives": 4,
+  "wilson_lower_bound_pct": 51.01
+}

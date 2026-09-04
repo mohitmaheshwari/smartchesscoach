@@ -1,0 +1,4611 @@
+{
+  "schema_version": "full_game_chess_fact_classifier_inputs.v1",
+  "generated_on": "2026-09-03",
+  "source": "read-only production export; fields required to rerun the current deterministic category classifier",
+  "privacy": "Anonymous chess-content keys and classifier inputs only; no source or user identifiers.",
+  "games": [
+    {
+      "anonymous_game_key": "2236b5983c8c4e2615854f8115e813ed67d87ee04f3de2c2425d9424a12759f1",
+      "decisions": [
+        {
+          "eval_swing": 192,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 7
+        },
+        {
+          "eval_swing": 693,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 17
+        },
+        {
+          "eval_swing": 172,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 21
+        },
+        {
+          "eval_swing": 381,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 264,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 9324,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "a3e46da7fa977e942a74d550758c9da64eec6e5c3ea12419b0d88a9b255370d5",
+      "decisions": [
+        {
+          "eval_swing": 157,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 5
+        },
+        {
+          "eval_swing": 234,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 13
+        },
+        {
+          "eval_swing": 201,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 19
+        },
+        {
+          "eval_swing": 184,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 21
+        },
+        {
+          "eval_swing": 157,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 8906,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 8824,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 45
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "f9308b780ed2355203394c6e28091e5464a477eaedf9638ada0dc9b8d8d45dbd",
+      "decisions": [
+        {
+          "eval_swing": 9630,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 22
+        },
+        {
+          "eval_swing": 209,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 8906,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 8817,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        },
+        {
+          "eval_swing": 316,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 9150,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "4d2ddebe05ad7f40d0aed88717d9e2547122a905f3ff403eeee266850ed9c178",
+      "decisions": [
+        {
+          "eval_swing": 336,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 13
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "f9dff260ed761ec7618dcd9135fc1bd5a31f5b731e6f48d5a10dc9333d10d626",
+      "decisions": [
+        {
+          "eval_swing": 229,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 15
+        },
+        {
+          "eval_swing": 9684,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 21
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "a38ddb40df1ffa512839003a52babfce689d1d056283adfb73e51be77ac240a8",
+      "decisions": [
+        {
+          "eval_swing": 243,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 9097,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 53
+        },
+        {
+          "eval_swing": 406,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 216,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 79
+        },
+        {
+          "eval_swing": 285,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 91
+        },
+        {
+          "eval_swing": 275,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 105
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "35d90baa3a0a7f29ee15b8a8b86238fc180ca835f36541cc0d786a81cefa4985",
+      "decisions": [
+        {
+          "eval_swing": 622,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 153,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        },
+        {
+          "eval_swing": 381,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "929b11b549b19c5f2a7314f7fb5db419b3bfa54e0385639f5c3ef87abe0c422c",
+      "decisions": [
+        {
+          "eval_swing": 945,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 75
+        },
+        {
+          "eval_swing": 998,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 81
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "862959897dbc60ee39a914172972d47f071a5e2713a843a2d9df1572067cb40b",
+      "decisions": [
+        {
+          "eval_swing": 151,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 185,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 177,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 37
+        },
+        {
+          "eval_swing": 8952,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 65
+        },
+        {
+          "eval_swing": 8986,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 9990,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 81
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "8ebb4e966e07de5a928f95200297a2a607d726014a7a2950d2737c1253e8cf59",
+      "decisions": [
+        {
+          "eval_swing": 270,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 39
+        },
+        {
+          "eval_swing": 231,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 47
+        },
+        {
+          "eval_swing": 9128,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 51
+        },
+        {
+          "eval_swing": 9960,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 55
+        },
+        {
+          "eval_swing": 327,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 531,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 59
+        },
+        {
+          "eval_swing": 286,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 217,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 85
+        },
+        {
+          "eval_swing": 381,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 105
+        },
+        {
+          "eval_swing": 8678,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 137
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "15a5ffd30d66e05f95587f36bbf43f62340ff35c586f7e6475a845254a391060",
+      "decisions": [
+        {
+          "eval_swing": 394,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 408,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "6a282b3d7e7dfb1bb64336a85d8d3bab179e7bc0ad7e33b34c7872e772e9c396",
+      "decisions": [
+        {
+          "eval_swing": 192,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 392,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 236,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 33
+        },
+        {
+          "eval_swing": 288,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 45
+        },
+        {
+          "eval_swing": 231,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        },
+        {
+          "eval_swing": 346,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 53
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d3dd94368b907e55aa5147b7b00bf83aab222b0074c47ee132ff006887477065",
+      "decisions": [
+        {
+          "eval_swing": 472,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "9129f91796de061604385b3d1cd45d788e8ae05323dbeca821b38fa3f117bd02",
+      "decisions": [
+        {
+          "eval_swing": 634,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 167,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 8878,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "de314d2606ba930c66f87cdaf78c5ffe712f3bc0598309927eda94db31eaa988",
+      "decisions": [
+        {
+          "eval_swing": 339,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 280,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 9381,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 462,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        },
+        {
+          "eval_swing": 318,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 60
+        },
+        {
+          "eval_swing": 290,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d65a546c6f2cac7221e457d9d926fdba84636199baf95d9055e0471f07106560",
+      "decisions": [
+        {
+          "eval_swing": 216,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 405,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 33
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "7a4d6a89048617b33b83bb5aff1a3417fb7f254c497e068539e0edcf61a71a7b",
+      "decisions": [
+        {
+          "eval_swing": 163,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "170aadfb78d18ff0eeb0799d889a9ac2ca7df31f7e34f31b70624f8d5dd1c234",
+      "decisions": [
+        {
+          "eval_swing": 160,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "36b4d78b5eabf79024236b880f2dd5ca6c0a43943c4ecb4f5644d6499ed536dd",
+      "decisions": [
+        {
+          "eval_swing": 151,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "094c13749408060952a9e0bea80c81de888f06c449bae2e606a005793fffb8d1",
+      "decisions": [
+        {
+          "eval_swing": 165,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "f889eaee31fa6c88d4764ba52320e7615d62c46c5098dc615e63164167b6e95b",
+      "decisions": [
+        {
+          "eval_swing": 145,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 9
+        },
+        {
+          "eval_swing": 92,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 94,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 390,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 258,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 59
+        },
+        {
+          "eval_swing": 107,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 63
+        },
+        {
+          "eval_swing": 302,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 73
+        },
+        {
+          "eval_swing": 451,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 79
+        },
+        {
+          "eval_swing": 180,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 81
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d5546137d3fa1df4c4970740714d85d39a0ba6acb7ae173c2f0693ff43742593",
+      "decisions": [
+        {
+          "eval_swing": 150,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 11
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d86b577c67612a7049a36d48e12110f9db20b62732b629d0f5e0e1d50bed7672",
+      "decisions": [
+        {
+          "eval_swing": 91,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 18
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 22
+        },
+        {
+          "eval_swing": 86,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 210,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 81,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 110,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 9923,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 107,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 1126,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "f9a0a32632f47e1b45f84030b039f00d587bd2153a7f2d512afd76408af337e8",
+      "decisions": [
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 8
+        },
+        {
+          "eval_swing": 469,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 18
+        },
+        {
+          "eval_swing": 207,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 24
+        },
+        {
+          "eval_swing": 104,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 165,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 88,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 70
+        },
+        {
+          "eval_swing": 80,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 86
+        },
+        {
+          "eval_swing": 241,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 90
+        },
+        {
+          "eval_swing": 147,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 92
+        },
+        {
+          "eval_swing": 9214,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 96
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "922e030b6e80d6a8450b38a023c647b436570a7507bdf0463bf59ac0549a3f9d",
+      "decisions": [
+        {
+          "eval_swing": 158,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 18
+        },
+        {
+          "eval_swing": 131,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 20
+        },
+        {
+          "eval_swing": 117,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 22
+        },
+        {
+          "eval_swing": 127,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 24
+        },
+        {
+          "eval_swing": 94,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 9700,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "5e1a4a5abaa726dd66f14f3084c9388fcfd6d076310d8d4d44dc8d2662a09361",
+      "decisions": [
+        {
+          "eval_swing": 9069,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "cab5bd2af2204c13e9cbbc2aadd3ad57577479285387b3dc5391c2402e9eb68c",
+      "decisions": [
+        {
+          "eval_swing": 191,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 176,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 58
+        },
+        {
+          "eval_swing": 177,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 222,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 82
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "cacd8a9b0f6b636e4c67627532a512341bf34a97ab5cc3c13a94d3147ce0c5aa",
+      "decisions": [
+        {
+          "eval_swing": 216,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 78,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 202,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 215,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        },
+        {
+          "eval_swing": 219,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 437,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        },
+        {
+          "eval_swing": 261,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        },
+        {
+          "eval_swing": 99,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 76
+        },
+        {
+          "eval_swing": 103,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 80
+        },
+        {
+          "eval_swing": 377,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 88
+        },
+        {
+          "eval_swing": 166,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 90
+        },
+        {
+          "eval_swing": 241,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 92
+        },
+        {
+          "eval_swing": 193,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 94
+        },
+        {
+          "eval_swing": 126,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 100
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "bb7d264a79d6434046366be5a524022a2af2863bc3dd1eea4543c13e238e36ee",
+      "decisions": [
+        {
+          "eval_swing": 167,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 400,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        },
+        {
+          "eval_swing": 255,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 33
+        },
+        {
+          "eval_swing": 159,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 8951,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 268,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "e37bf1c29a0adec43035ca1e7049adc4871b91949a3d5c92433c884be1f18386",
+      "decisions": [
+        {
+          "eval_swing": 313,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        },
+        {
+          "eval_swing": 235,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 39
+        },
+        {
+          "eval_swing": 235,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 53
+        },
+        {
+          "eval_swing": 75,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 55
+        },
+        {
+          "eval_swing": 236,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 94,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 63
+        },
+        {
+          "eval_swing": 332,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 73
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 93
+        },
+        {
+          "eval_swing": 176,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 113
+        },
+        {
+          "eval_swing": 83,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 115
+        },
+        {
+          "eval_swing": 120,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 127
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "bd7d22ee2d7cb5497845db8896dda08011af8a6610dea796f49b115aac6868ce",
+      "decisions": [
+        {
+          "eval_swing": 628,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 403,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 290,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 160,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "77deb664f861f25bee86a8e70023639bf9ee26800412f274e39fd96f271a8c77",
+      "decisions": [
+        {
+          "eval_swing": 175,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 82,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 140,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        },
+        {
+          "eval_swing": 543,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 109
+        },
+        {
+          "eval_swing": 89,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 125
+        },
+        {
+          "eval_swing": 96,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 135
+        },
+        {
+          "eval_swing": 658,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 137
+        },
+        {
+          "eval_swing": 434,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 141
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "3ef7c574ab16c73347ca266d6f901a10563afb98ef152b3ef620051623ed10a8",
+      "decisions": [
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 9941,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 39
+        },
+        {
+          "eval_swing": 460,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        },
+        {
+          "eval_swing": 263,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 59
+        },
+        {
+          "eval_swing": 677,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "86c5445da4d7a0f5472d4cde5b5441be97ea4f69b43b116ee0988121368dcaf1",
+      "decisions": [
+        {
+          "eval_swing": 283,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 9115,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 51
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "b31734dcb8646698a680e1ba1dd6456dc203a1bf573d29ac9dcc9e15b43440fa",
+      "decisions": [
+        {
+          "eval_swing": 726,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 9851,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 9263,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        },
+        {
+          "eval_swing": 370,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "6d209c5ac00cd0d7fc42382d619632918078ce59a95cdd7afa3a892c57162677",
+      "decisions": [
+        {
+          "eval_swing": 149,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        },
+        {
+          "eval_swing": 193,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 39
+        },
+        {
+          "eval_swing": 212,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 247,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 110,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        },
+        {
+          "eval_swing": 247,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 67
+        },
+        {
+          "eval_swing": 108,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 83
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "957a4b0b9eabf7af91c1b2ba4d36a71e5d70c1719c493ce8bb10c4a18cb76e7e",
+      "decisions": [
+        {
+          "eval_swing": 285,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "ad6edc3662af0ceb9f5208d4da0cac692598315c123b6fdb654e5fd62efe3178",
+      "decisions": [
+        {
+          "eval_swing": 145,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "64ec3002f3ad4805282e3237bf9b4a186aa2815d19d3d28872a13ac1170f93c2",
+      "decisions": [
+        {
+          "eval_swing": 160,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 189,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "477b82e8060740a4a17e15ff674c5b59739442ec95635e60f90ab3f12e585179",
+      "decisions": [
+        {
+          "eval_swing": 354,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "218185673c5365f6fa5bfb54925cf9dc203339e7baaf6822f0ac65af26fd0513",
+      "decisions": [
+        {
+          "eval_swing": 215,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 5
+        },
+        {
+          "eval_swing": 136,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 9
+        },
+        {
+          "eval_swing": 106,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 19
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "6d4d36e90ef9a7354b5319ff8db591f833b4388bbb9e2eb19c8197af6093810c",
+      "decisions": [
+        {
+          "eval_swing": 134,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 16
+        },
+        {
+          "eval_swing": 200,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 176,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        },
+        {
+          "eval_swing": 276,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 692,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 121,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 60
+        },
+        {
+          "eval_swing": 9515,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 9663,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "110835af1f728af7996ad2e7f57c93b4cba16e8b04146abf8d5597932316659b",
+      "decisions": [
+        {
+          "eval_swing": 234,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 12
+        },
+        {
+          "eval_swing": 174,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 16
+        },
+        {
+          "eval_swing": 102,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 24
+        },
+        {
+          "eval_swing": 105,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 79,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 212,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 102,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 335,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 649,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 9278,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 9128,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 70
+        },
+        {
+          "eval_swing": 9026,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "99b8b20f4b59f632fa5d5e60d76b2db2d6ac362fe92d97a9517c6f3a105aab77",
+      "decisions": [
+        {
+          "eval_swing": 259,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 23
+        },
+        {
+          "eval_swing": 124,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 88,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 119,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        },
+        {
+          "eval_swing": 342,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        },
+        {
+          "eval_swing": 116,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 37
+        },
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 119,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 65
+        },
+        {
+          "eval_swing": 341,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 67
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "5d74faee1fc962fba8dff20c368b15b21e3e326e829c4940bbc597ea9c5f4884",
+      "decisions": [
+        {
+          "eval_swing": 133,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 20
+        },
+        {
+          "eval_swing": 268,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 22
+        },
+        {
+          "eval_swing": 266,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 243,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "c6d679a0926e1eac98384414e8db9ddfa6cd56d0aa43f79e21852385ed6361be",
+      "decisions": [
+        {
+          "eval_swing": 170,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 238,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 99,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        },
+        {
+          "eval_swing": 147,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 70
+        },
+        {
+          "eval_swing": 285,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        },
+        {
+          "eval_swing": 231,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 80
+        },
+        {
+          "eval_swing": 1072,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 88
+        },
+        {
+          "eval_swing": 156,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 92
+        },
+        {
+          "eval_swing": 210,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 102
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "e411713f47c2bcc27a27aa15a30e58f5b47ee37337477929918d4765b507d774",
+      "decisions": [
+        {
+          "eval_swing": 93,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 123,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 85,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 398,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 87
+        },
+        {
+          "eval_swing": 209,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 89
+        },
+        {
+          "eval_swing": 9930,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 109
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "3cb93b4063b4a677028efc778b6da8c3db6b7494ba59135788a78d1bdd7a98c0",
+      "decisions": [
+        {
+          "eval_swing": 405,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 63
+        },
+        {
+          "eval_swing": 324,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 144,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        },
+        {
+          "eval_swing": 96,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 107
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "559f01e9251407b7e64c654c050896288fa05f33cef18670b32eac01642348b1",
+      "decisions": [
+        {
+          "eval_swing": 374,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 463,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 226,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 144,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 58
+        },
+        {
+          "eval_swing": 395,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        },
+        {
+          "eval_swing": 222,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 732,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 68
+        },
+        {
+          "eval_swing": 175,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 76
+        },
+        {
+          "eval_swing": 299,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 92
+        },
+        {
+          "eval_swing": 77,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 94
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "0bc87cdeb7340d56f8c0dc85b765306337b42b2385f8799df1d8ed88447dd64b",
+      "decisions": [
+        {
+          "eval_swing": 134,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 39
+        },
+        {
+          "eval_swing": 186,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 55
+        },
+        {
+          "eval_swing": 134,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 69
+        },
+        {
+          "eval_swing": 136,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 79
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "edd73a5bb21ce34c0ded645be6c924801116613a73b87bb232c8e58340531af2",
+      "decisions": [
+        {
+          "eval_swing": 258,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 306,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 152,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "9c360adb46052f1ae2eb2e984c8729b767d1ecc6a7bd9cf6873cbf6f80bdf598",
+      "decisions": [
+        {
+          "eval_swing": 487,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "dcab5e041f60f06f0c31d0a9d0362d69fc52e084b9b48fff38136d608d92ef14",
+      "decisions": [
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 105,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 332,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 86,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "7a548e3f417cd1f4057f105ea8a885555d5eab52a0b18a103d66913e740ca32c",
+      "decisions": [
+        {
+          "eval_swing": 141,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 161,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 135,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 78,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 731,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 356,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 161,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 684,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 208,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "177387f22ba10eecc5ff81759d6c47e04f68e331759b7d5fda07173a6a854cff",
+      "decisions": [
+        {
+          "eval_swing": 636,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 253,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "710eb61c4db6543e3df4edf65979c4b877e39f711877b089e0ec4589415788eb",
+      "decisions": [
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 92,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 83,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 299,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "31c9d45d729ac718dc47f6f48c713e6569bf32ab08b8cbd66dd17c722577350a",
+      "decisions": [
+        {
+          "eval_swing": 106,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 58
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "9ef84de4a121f113d1d358ec244416ff258a4b32584884cbc557bf8149917538",
+      "decisions": [
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 164,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "494f16481e429792a87f8f1b2772c9ac452683e19cd7fe20cb1dd68bc8d3740b",
+      "decisions": [
+        {
+          "eval_swing": 78,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 421,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "f3358cf8f89036840f95c4957a44d8d1f1ca7e290df8c036a290917bc269e9c0",
+      "decisions": [
+        {
+          "eval_swing": 467,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 184,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "77e042c6f30693677e43c94bc1e54dd0c5c53348f81eb96051e23769d0d99c51",
+      "decisions": [
+        {
+          "eval_swing": 94,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 12
+        },
+        {
+          "eval_swing": 82,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 20
+        },
+        {
+          "eval_swing": 58,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 22
+        },
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 24
+        },
+        {
+          "eval_swing": 80,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 123,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 407,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 214,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 67,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 329,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 178,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        },
+        {
+          "eval_swing": 134,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 76
+        },
+        {
+          "eval_swing": 324,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 78
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 86
+        },
+        {
+          "eval_swing": 177,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 88
+        },
+        {
+          "eval_swing": 205,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 90
+        },
+        {
+          "eval_swing": 269,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 96
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "5d865af0573cb70a8ccee933ada74db65d717f5edff13925293362e2ba202803",
+      "decisions": [
+        {
+          "eval_swing": 30,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 11
+        },
+        {
+          "eval_swing": 40,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 13
+        },
+        {
+          "eval_swing": 32,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 19
+        },
+        {
+          "eval_swing": 30,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 21
+        },
+        {
+          "eval_swing": 32,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 23
+        },
+        {
+          "eval_swing": 73,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 27
+        },
+        {
+          "eval_swing": 129,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 75,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 31,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        },
+        {
+          "eval_swing": 135,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 57
+        },
+        {
+          "eval_swing": 9129,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 73
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "a15b5c7bd42097fe40e9ae9ee22c5cabf3a3269928556bd5fcda6f55a4342044",
+      "decisions": [
+        {
+          "eval_swing": 109,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 20
+        },
+        {
+          "eval_swing": 85,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 69,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 111,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 143,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 271,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "db213dcb44c80a4533f3f4e51e2529455a7c752619d499d3c343c80227e4e267",
+      "decisions": [
+        {
+          "eval_swing": 78,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 10
+        },
+        {
+          "eval_swing": 73,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 16
+        },
+        {
+          "eval_swing": 170,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 18
+        },
+        {
+          "eval_swing": 54,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 151,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 79,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 263,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 80,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 138,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 92
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d2a16bf8024bea904d727ad62ef37a6cb051dc0e2c6ba992f698cc18285de5fc",
+      "decisions": [
+        {
+          "eval_swing": 389,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 9
+        },
+        {
+          "eval_swing": 124,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 11
+        },
+        {
+          "eval_swing": 155,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 15
+        },
+        {
+          "eval_swing": 102,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 92,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        },
+        {
+          "eval_swing": 191,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 33
+        },
+        {
+          "eval_swing": 190,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 39
+        },
+        {
+          "eval_swing": 140,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 217,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 51
+        },
+        {
+          "eval_swing": 79,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 53
+        },
+        {
+          "eval_swing": 117,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 55
+        },
+        {
+          "eval_swing": 79,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 137,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 111,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 73
+        },
+        {
+          "eval_swing": 50,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 79
+        },
+        {
+          "eval_swing": 176,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 83
+        },
+        {
+          "eval_swing": 73,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 87
+        },
+        {
+          "eval_swing": 244,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 89
+        },
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 91
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "d9a201774a9bb343fbd57f8b62c71eee80d6f0a8efa4d88b2de7b83451955611",
+      "decisions": [
+        {
+          "eval_swing": 182,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 37
+        },
+        {
+          "eval_swing": 102,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 53
+        },
+        {
+          "eval_swing": 231,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 87
+        },
+        {
+          "eval_swing": 127,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": true,
+          "ply": 95
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "8a30e6fb8dd38cc7df8b8c9943e8822db71fe581040d8bd74f9d843159bbeb03",
+      "decisions": [
+        {
+          "eval_swing": 276,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 70,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 31
+        },
+        {
+          "eval_swing": 87,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 37
+        },
+        {
+          "eval_swing": 68,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 98,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 45
+        },
+        {
+          "eval_swing": 62,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        },
+        {
+          "eval_swing": 185,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 73
+        },
+        {
+          "eval_swing": 136,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        },
+        {
+          "eval_swing": 59,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 83
+        },
+        {
+          "eval_swing": 72,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 97
+        },
+        {
+          "eval_swing": 87,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 99
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "800a624ca91d1c33d80917ae1d4cbe81003a4979fd81e2145a6cb96aa67d751f",
+      "decisions": [
+        {
+          "eval_swing": 143,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 162,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        },
+        {
+          "eval_swing": 59,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 235,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 43
+        },
+        {
+          "eval_swing": 83,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 57
+        },
+        {
+          "eval_swing": 202,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        },
+        {
+          "eval_swing": 410,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 65
+        },
+        {
+          "eval_swing": 9866,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 75
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "ffb703c09afb5fe49a9833cc76f5dcf9944577b1338d9cf7722516754915311b",
+      "decisions": [
+        {
+          "eval_swing": 87,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 91,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 101,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 40
+        },
+        {
+          "eval_swing": 172,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 77,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 185,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 60
+        },
+        {
+          "eval_swing": 9435,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 154,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 997,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 68
+        },
+        {
+          "eval_swing": 803,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        },
+        {
+          "eval_swing": 141,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 76
+        },
+        {
+          "eval_swing": 126,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 80
+        },
+        {
+          "eval_swing": 780,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 94
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "24a06920463802af496ca708f423e67deb907586a0aa92402866fdc53afdcebc",
+      "decisions": [
+        {
+          "eval_swing": 77,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 58,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 205,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 53,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 171,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 73,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 52
+        },
+        {
+          "eval_swing": 143,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 78,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 172,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 9043,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 9044,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 70
+        },
+        {
+          "eval_swing": 118,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "78da3b01edd8b6042a25c261afad8193a98837ee96a831b84051c39de3564cb4",
+      "decisions": [
+        {
+          "eval_swing": 53,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 137,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 58,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 215,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 56,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        },
+        {
+          "eval_swing": 283,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 347,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 48
+        },
+        {
+          "eval_swing": 367,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 62,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 58
+        },
+        {
+          "eval_swing": 366,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 155,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        },
+        {
+          "eval_swing": 9950,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 86
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "7b10c0b83f9a0c2dceb17fc426e6fd4ccf603997c31d8ecb5a78ee1ee4b9a2fa",
+      "decisions": [
+        {
+          "eval_swing": 224,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        },
+        {
+          "eval_swing": 65,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 214,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 160,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 46
+        },
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 86,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 123,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        },
+        {
+          "eval_swing": 53,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 58
+        },
+        {
+          "eval_swing": 88,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 64
+        },
+        {
+          "eval_swing": 50,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        },
+        {
+          "eval_swing": 72,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 76
+        },
+        {
+          "eval_swing": 91,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 78
+        },
+        {
+          "eval_swing": 139,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 84
+        },
+        {
+          "eval_swing": 595,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 86
+        },
+        {
+          "eval_swing": 9128,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 88
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "a1f8f44089c72d470f8709aa4463baa829800de4e83fed0a8c4ae294ee00fed0",
+      "decisions": [
+        {
+          "eval_swing": 213,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 138,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 34
+        },
+        {
+          "eval_swing": 173,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 145,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 57,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 50
+        },
+        {
+          "eval_swing": 112,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 294,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 62
+        },
+        {
+          "eval_swing": 250,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 66
+        },
+        {
+          "eval_swing": 535,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 70
+        },
+        {
+          "eval_swing": 120,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 72
+        },
+        {
+          "eval_swing": 8982,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 74
+        },
+        {
+          "eval_swing": 100,
+          "evaluation": "good",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 78
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "02cb0613b91eab258774e4097dbc79d1e03f5aaa2fabbe98734f619e82e0ca68",
+      "decisions": [
+        {
+          "eval_swing": 53,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 41
+        },
+        {
+          "eval_swing": 197,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        },
+        {
+          "eval_swing": 104,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 59
+        },
+        {
+          "eval_swing": 265,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 65
+        },
+        {
+          "eval_swing": 380,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 67
+        },
+        {
+          "eval_swing": 422,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 71
+        },
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 75
+        },
+        {
+          "eval_swing": 115,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 77
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "8bd1e700aa4ebfb96b6463064aa9f06760fb6310c810520a58dec32fe6c68a4c",
+      "decisions": [
+        {
+          "eval_swing": 95,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 28
+        },
+        {
+          "eval_swing": 455,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 30
+        },
+        {
+          "eval_swing": 113,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 32
+        },
+        {
+          "eval_swing": 126,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 9232,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 170,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 42
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "cb166b34bd90a5216bf344ac2be86d43ba43731649d53c28f6083211f0e1e62c",
+      "decisions": [
+        {
+          "eval_swing": 151,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 1049,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 33
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "3bedf268d5b894790ecf1ff84a02fd82047d63f19f8e2feaf55275f543e6a7a3",
+      "decisions": [
+        {
+          "eval_swing": 254,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 26
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "7436a5570ab39680627bb87c66ba5fef34f05aebd50abfaa13c5601746bd765f",
+      "decisions": [
+        {
+          "eval_swing": 125,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 36
+        },
+        {
+          "eval_swing": 77,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 38
+        },
+        {
+          "eval_swing": 51,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 44
+        },
+        {
+          "eval_swing": 196,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 54
+        },
+        {
+          "eval_swing": 83,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 56
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "91d53596ca5e99650be52d982f25c279bb0f89e44013156931fb4023c4b8b64e",
+      "decisions": [
+        {
+          "eval_swing": 76,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        },
+        {
+          "eval_swing": 72,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 29
+        },
+        {
+          "eval_swing": 175,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 35
+        },
+        {
+          "eval_swing": 122,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 45
+        },
+        {
+          "eval_swing": 282,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 47
+        },
+        {
+          "eval_swing": 68,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 49
+        },
+        {
+          "eval_swing": 288,
+          "evaluation": "inaccuracy",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 61
+        },
+        {
+          "eval_swing": 136,
+          "evaluation": "mistake",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 67
+        }
+      ]
+    },
+    {
+      "anonymous_game_key": "a67e80dfd2f84e2ad2ffce3ea35d06884dfbc431cd521f786a0bafe5c490a827",
+      "decisions": [
+        {
+          "eval_swing": 423,
+          "evaluation": "blunder",
+          "is_best": false,
+          "is_brilliant": false,
+          "is_sacrifice": false,
+          "is_turning_point": false,
+          "ply": 25
+        }
+      ]
+    }
+  ]
+}

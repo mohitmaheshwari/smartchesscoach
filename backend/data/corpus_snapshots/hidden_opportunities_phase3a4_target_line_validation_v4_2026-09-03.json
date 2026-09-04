@@ -1,0 +1,54 @@
+{
+  "all_hidden_opportunity_recall_pct": 41.67,
+  "authorization_grade": "shadow",
+  "branch_reversal_checks": 10,
+  "branch_reversal_rejections": 10,
+  "database_writes": 0,
+  "failures": [],
+  "false_positives": 0,
+  "first_family_hits": 8,
+  "first_family_recall_pct": 88.89,
+  "first_family_total": 9,
+  "fresh_engine_runs": 0,
+  "hidden_opportunities": 24,
+  "horizon_limited_gold_position_ids": [
+    "00906363fd88603401ce"
+  ],
+  "mechanism_counts": {
+    "exchange_sequence": 1,
+    "persistent_piece_attack": 4,
+    "remove_future_attacker": 4,
+    "target_enters_controlled_square": 1
+  },
+  "non_opportunities": 76,
+  "passed": true,
+  "positions": 100,
+  "precision_pct": 100.0,
+  "production_reads": 0,
+  "promotion_blockers": [
+    "reviewed_positive_count_below_50",
+    "wilson_lower_bound_below_85_pct",
+    "architecture_packet_not_population_holdout"
+  ],
+  "promotion_eligible": false,
+  "proof_fires": 10,
+  "proof_position_ids": [
+    "00086ddd68c319a674c3",
+    "001d12f6e8e923e5d08d",
+    "002f0235720da345b731",
+    "008fc95da4d581f54780",
+    "00d2ea0ceda1a2e6ef83",
+    "01b45574328ab7030c22",
+    "01c07bb03731985ac806",
+    "025f08cb296a7e4d14d4",
+    "039bd832a639d9c2f8ab",
+    "03eccd1bf3d294170e7f"
+  ],
+  "proof_version": "target_line_causal_proof.v4",
+  "protected_surface_authorizations": [],
+  "provable_first_family_total": 8,
+  "schema_version": "hidden_opportunities_target_line_validation.v4",
+  "true_negatives": 76,
+  "true_positives": 10,
+  "wilson_lower_bound_pct": 72.25
+}

@@ -1,0 +1,624 @@
+{
+  "schema_version": "hidden_opportunities_chess_gold_annotations_v1",
+  "created_at_utc": "2026-09-02T18:33:59.028Z",
+  "source_packet": "hidden_opportunities_chess_gold_v1_2026-09-02.json",
+  "blinded_review": {
+    "current_detector_output_seen_before_annotation": false,
+    "fresh_engine_runs": 0,
+    "production_reads": 0,
+    "evidence_used": "FEN, played move, best move, stored four-ply continuations, and stored cp_loss from the approved anonymized packet"
+  },
+  "surface_grade_meaning": {
+    "hidden_opportunity": "A memorable, concrete alternative whose chess point and payoff are visible in the stored line.",
+    "caption_only": "A valid coaching lesson or defensive correction, but not a standalone hidden-opportunity moment.",
+    "insufficient_evidence": "The four-ply evidence does not support a truthful causal explanation; do not assert one."
+  },
+  "counts": {
+    "insufficient_evidence": 41,
+    "caption_only": 35,
+    "hidden_opportunity": 24
+  },
+  "annotations": [
+    {
+      "position_id": "004055bd8bace360c3ca",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "opening_center",
+      "gold_note": "d4 is quieter than castling, but the stored line shows no concrete payoff."
+    },
+    {
+      "position_id": "0005a3e0bc6e4041f453",
+      "surface_grade": "caption_only",
+      "idea_family": "king_safety",
+      "gold_note": "Rg8 permits Bxh6+; Kg7 keeps the king and h6 pawn together."
+    },
+    {
+      "position_id": "00323795d9ac962c1fa4",
+      "surface_grade": "caption_only",
+      "idea_family": "recapture_choice",
+      "gold_note": "Both recaptures win the knight; Qxf3 avoids committing the g-pawn structure."
+    },
+    {
+      "position_id": "03eccd1bf3d294170e7f",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "intermediate_capture",
+      "gold_note": "Bxh3 takes the rook before resolving development and returns only a bishop."
+    },
+    {
+      "position_id": "0588e34d8b7eafe3fbfd",
+      "surface_grade": "caption_only",
+      "idea_family": "queen_safety",
+      "gold_note": "Qg4+ looks forcing but the bishop simply takes the queen."
+    },
+    {
+      "position_id": "00110d18c5dd5543c895",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "recapture_choice",
+      "gold_note": "The four-ply lines do not show why the queen recapture is meaningfully better."
+    },
+    {
+      "position_id": "003569d4831fa7c0c11e",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_activity",
+      "gold_note": "Re5 is active, but no concrete consequence appears inside the stored line."
+    },
+    {
+      "position_id": "0042d09d8c6b6823171d",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "development",
+      "gold_note": "Bd3 may improve coordination, but the stored line does not prove the lesson."
+    },
+    {
+      "position_id": "005fe5333ac566baf660",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "exchange_sequence",
+      "gold_note": "The stored line shows an equal-looking liquidation, not a clean tactical payoff."
+    },
+    {
+      "position_id": "008e7cca9a300426edbe",
+      "surface_grade": "caption_only",
+      "idea_family": "piece_safety",
+      "gold_note": "Qxh2 abandons the bishop on d4 to Qxd4+."
+    },
+    {
+      "position_id": "00c277486970bc8984cb",
+      "surface_grade": "caption_only",
+      "idea_family": "forcing_move_awareness",
+      "gold_note": "Bg5 allows Ng4+ to force an unfavorable clarification."
+    },
+    {
+      "position_id": "00344c88ece9fe2aa6b7",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "exchange_win",
+      "gold_note": "Bxf1 takes a rook for a bishop before retreating."
+    },
+    {
+      "position_id": "006ed87e2fcd34f74d85",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "checking_geometry",
+      "gold_note": "Both queen checks continue; four plies do not reveal why Qa4+ is superior."
+    },
+    {
+      "position_id": "0086c668e815275914c2",
+      "surface_grade": "caption_only",
+      "idea_family": "rook_safety",
+      "gold_note": "Bd4 leaves the rook on a8 available to Qxa8+."
+    },
+    {
+      "position_id": "0078ec9422e7b21e603b",
+      "surface_grade": "caption_only",
+      "idea_family": "fork_avoidance",
+      "gold_note": "Qd7 walks into Nxf6+ followed by Nxd7, losing the queen."
+    },
+    {
+      "position_id": "01c07bb03731985ac806",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "loose_rook",
+      "gold_note": "Rxh6 immediately removes the undefended rook."
+    },
+    {
+      "position_id": "025f08cb296a7e4d14d4",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "back_rank_raid",
+      "gold_note": "Qxb7 keeps the queen on the seventh rank and Qxa8+ wins the rook."
+    },
+    {
+      "position_id": "006a6d7e7306f5b6d6c0",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_safety",
+      "gold_note": "The very large engine loss is not explained by the two short lines."
+    },
+    {
+      "position_id": "008fc95da4d581f54780",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "queen_fork",
+      "gold_note": "Qxe2 takes the queen while attacking both rooks; the sequence wins material."
+    },
+    {
+      "position_id": "00f6d38aa9ae1149a7b0",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "forcing_attack",
+      "gold_note": "Qxh2+ forces the king away before Rxe2 takes the queen."
+    },
+    {
+      "position_id": "000bd565e8b1cc9a4ece",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_activity",
+      "gold_note": "The king route differs, but no result-changing idea is visible within four plies."
+    },
+    {
+      "position_id": "00c240497bd3d06c712a",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_endgame_king",
+      "gold_note": "Both king moves lead to similar material and checks in the stored line."
+    },
+    {
+      "position_id": "01b6bee7572cace37b9d",
+      "surface_grade": "caption_only",
+      "idea_family": "promotion_control",
+      "gold_note": "Qa2 gets behind the passed pawn and keeps promotion under control."
+    },
+    {
+      "position_id": "0438c05cad17f5193112",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "key_square",
+      "gold_note": "Ke4 takes the opposition route and reaches Kxf4."
+    },
+    {
+      "position_id": "0046fdd1299037467b31",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "promotion_race",
+      "gold_note": "g7 creates an immediate queen; the pawn capture wastes the only tempo."
+    },
+    {
+      "position_id": "000b9acf6711b1aa5bf0",
+      "surface_grade": "caption_only",
+      "idea_family": "opening_pawn_break",
+      "gold_note": "b4 uses the advanced pawn to disturb the knight and structure."
+    },
+    {
+      "position_id": "005f723cebf75852fd12",
+      "surface_grade": "caption_only",
+      "idea_family": "unsound_sacrifice",
+      "gold_note": "Nxf7 is a familiar-looking fork, but the knight is taken before it wins either target."
+    },
+    {
+      "position_id": "00d2ea0ceda1a2e6ef83",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "knight_fork",
+      "gold_note": "Nxc7+ forks king and rook, then Nxa8 wins the exchange."
+    },
+    {
+      "position_id": "0b54f97530c4ad97316f",
+      "surface_grade": "caption_only",
+      "idea_family": "queen_safety",
+      "gold_note": "Qh5 puts the queen directly where Qxh5 takes it."
+    },
+    {
+      "position_id": "035eeb6701a9f3c4f741",
+      "surface_grade": "caption_only",
+      "idea_family": "queen_safety",
+      "gold_note": "Qxb4 grabs a pawn but Rxb4 takes the queen."
+    },
+    {
+      "position_id": "00277d695ac8211a7302",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "pawn_break",
+      "gold_note": "Bd5 may restrain the position, but the short line has no concrete payoff."
+    },
+    {
+      "position_id": "0028cfeb1ecfd7ce58f9",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_safety",
+      "gold_note": "g3 changes the attack, but the stored line ends before the tactical balance is clear."
+    },
+    {
+      "position_id": "004a053e9a798ce7c5f7",
+      "surface_grade": "caption_only",
+      "idea_family": "pin_and_pressure",
+      "gold_note": "Rfe1 pins the e-pawn and lets the queen collect f5."
+    },
+    {
+      "position_id": "00086ddd68c319a674c3",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "pawn_skewer",
+      "gold_note": "d5 waits for the rook to step onto e4, then dxe4 wins it."
+    },
+    {
+      "position_id": "0015cc1d9d56f3c51c0d",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "bishop_activity",
+      "gold_note": "Bd3 is invasive, but the line does not reveal a forced gain."
+    },
+    {
+      "position_id": "006f02d15026cb8b3f0c",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "queen_tactics",
+      "gold_note": "The best line is materially unclear and does not expose the deciding idea."
+    },
+    {
+      "position_id": "007fc066207f2c1093c4",
+      "surface_grade": "caption_only",
+      "idea_family": "capture_priority",
+      "gold_note": "Kxg2 removes the hanging bishop before starting a speculative knight capture."
+    },
+    {
+      "position_id": "009ff662f8f7a1d7129f",
+      "surface_grade": "caption_only",
+      "idea_family": "king_safety",
+      "gold_note": "Kg3 avoids the rook's forcing entry and keeps the back rank connected."
+    },
+    {
+      "position_id": "00dc41515d83173a5577",
+      "surface_grade": "caption_only",
+      "idea_family": "remove_attacker",
+      "gold_note": "Nxe3 removes the knight before it can check and win the rook."
+    },
+    {
+      "position_id": "00d589c98469de26e2b6",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "move_order",
+      "gold_note": "Rxd8+ trades the active rook first; the played rook move lets Bxe4 win the knight."
+    },
+    {
+      "position_id": "011420237c8af0a723bc",
+      "surface_grade": "caption_only",
+      "idea_family": "fork_avoidance",
+      "gold_note": "Re3 allows Nf2+ and Nxd1; Rf3 steps away from the fork."
+    },
+    {
+      "position_id": "025e9122f0cec5fcb361",
+      "surface_grade": "caption_only",
+      "idea_family": "exchange_avoidance",
+      "gold_note": "Re1 allows Bf2 and Bxg3 to win the exchange; Bxf6 removes pressure first."
+    },
+    {
+      "position_id": "0049242b6dc6f445f55d",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "back_rank_defense",
+      "gold_note": "The correct-rook choice appears mate-related, but four plies do not prove it."
+    },
+    {
+      "position_id": "0080522181f4168a13b6",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_safety",
+      "gold_note": "The huge loss and quiet a5 line require deeper evidence than the packet contains."
+    },
+    {
+      "position_id": "013ec9c8c4437db0ec47",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "forcing_checks",
+      "gold_note": "Bc6+ drives the rook line, Bxd7+ wins the rook, and Bxb5+ continues with tempo."
+    },
+    {
+      "position_id": "0066c0feb1a557193562",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_placement",
+      "gold_note": "Rc8 is more active than Rc7, but the result-changing reason is outside the line."
+    },
+    {
+      "position_id": "003ef402af05473a03e1",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_and_pawn",
+      "gold_note": "Kd2 changes the pawn race, but the decisive result is not visible in four plies."
+    },
+    {
+      "position_id": "00a65496c8e03129feb8",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_endgame",
+      "gold_note": "The played line appears to win a rook, so the cp-loss claim cannot be explained from this horizon."
+    },
+    {
+      "position_id": "01b45574328ab7030c22",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "absolute_pin",
+      "gold_note": "Bg6 pins the rook to the king, then Bxf7 wins it."
+    },
+    {
+      "position_id": "000651ec84177bf665ea",
+      "surface_grade": "caption_only",
+      "idea_family": "opposition",
+      "gold_note": "Kc5 keeps the opposition route; Ke5 lets the enemy king gain the key squares."
+    },
+    {
+      "position_id": "0039cc083d6d4d70b3d1",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "opening_development",
+      "gold_note": "Nc6 is preferred, but the short line does not show a concrete learning reason."
+    },
+    {
+      "position_id": "0002cb371715ab2b00fc",
+      "surface_grade": "caption_only",
+      "idea_family": "recapture_choice",
+      "gold_note": "Nxe6 develops by recapturing and avoids weakening the f-pawn."
+    },
+    {
+      "position_id": "00175031075fe13c6b28",
+      "surface_grade": "caption_only",
+      "idea_family": "piece_safety",
+      "gold_note": "Bf4 moves onto Qxf4; Ne5 keeps the bishop and forces a queen trade."
+    },
+    {
+      "position_id": "0e4a6dba6c4116b214f4",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "opening_center",
+      "gold_note": "d4 is principled, but the stored line does not show why it is worth six pawns of evaluation."
+    },
+    {
+      "position_id": "0a06936ed0875b6060a6",
+      "surface_grade": "caption_only",
+      "idea_family": "threat_defense",
+      "gold_note": "Nd5 ignores Qg3+ and Bxf2; d4 closes the bishop's route."
+    },
+    {
+      "position_id": "00657dbc2b625024c664",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "exchange_sequence",
+      "gold_note": "The apparent knight fork is immediately captured, so it is not a verified fork lesson."
+    },
+    {
+      "position_id": "007af6673281e5b1e2d6",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "knight_maneuver",
+      "gold_note": "Nd7 is preferred, but no payoff appears in the stored line."
+    },
+    {
+      "position_id": "00811a06fe943896b4d6",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "active_defense",
+      "gold_note": "Be6 improves the bishop, but the line does not show a decisive consequence."
+    },
+    {
+      "position_id": "000a0fa9377454c627d6",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "central_break",
+      "gold_note": "d4 starts a plan, but the four-ply line does not prove the plan."
+    },
+    {
+      "position_id": "000e856c700290b87773",
+      "surface_grade": "caption_only",
+      "idea_family": "pawn_structure",
+      "gold_note": "a3 accepts the pawn exchange and activates the rook on the b-file."
+    },
+    {
+      "position_id": "001c97507d051257eca2",
+      "surface_grade": "caption_only",
+      "idea_family": "recapture_choice",
+      "gold_note": "hxg6 keeps the f-pawn and changes which files remain open around the king."
+    },
+    {
+      "position_id": "004d3d08b5eed9736203",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_coordination",
+      "gold_note": "Rgf1 is preferred, but the line shows only an equal exchange."
+    },
+    {
+      "position_id": "009165b2ba85628b33b8",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "removal_of_defender",
+      "gold_note": "Nxd5 pulls the c-pawn away; after the exchange Qxd4 collects the bishop."
+    },
+    {
+      "position_id": "0093c7dfa97e300cf68c",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "piece_activity",
+      "gold_note": "Be5 improves the bishop and pressures f6, but the full payoff is not shown."
+    },
+    {
+      "position_id": "00906363fd88603401ce",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "queen_geometry",
+      "gold_note": "Qf6 keeps the queen off the rook's line and forces a queen-winning sequence."
+    },
+    {
+      "position_id": "00c38fc4a7109e8b990f",
+      "surface_grade": "caption_only",
+      "idea_family": "rook_safety",
+      "gold_note": "Rh4 places the rook on Bxh4; Re4 keeps it active and safe."
+    },
+    {
+      "position_id": "0118dc490429e4892559",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "defensive_tactics",
+      "gold_note": "Nc4 loses less than Kh8, but the short line does not make the idea teachable."
+    },
+    {
+      "position_id": "017869d24654948c5ef8",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_safety",
+      "gold_note": "Qc6 appears to answer a mating threat, but the stored line does not establish the full reason."
+    },
+    {
+      "position_id": "017a76d6a153237ced25",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "decoy_sacrifice",
+      "gold_note": "Rh8+ drags the king onto h8 so Qh2+ and Qxh4+ win the queen."
+    },
+    {
+      "position_id": "020bffcc12757f30de78",
+      "surface_grade": "caption_only",
+      "idea_family": "forcing_move_defense",
+      "gold_note": "Nd5 blocks the dangerous bishop route; Bc4 allows Bd4+ to win the rook."
+    },
+    {
+      "position_id": "003f8f5a70844cfad27d",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "knight_endgame",
+      "gold_note": "Nd3 is preferred, but the decisive endgame idea is beyond the stored line."
+    },
+    {
+      "position_id": "0008cc899d4641aa6b2a",
+      "surface_grade": "caption_only",
+      "idea_family": "promotion_defense",
+      "gold_note": "Ke8 stays in front of the passed pawn; Kf8 lets it reach g7 with check."
+    },
+    {
+      "position_id": "0007865b9b619d5c9be0",
+      "surface_grade": "caption_only",
+      "idea_family": "king_activity",
+      "gold_note": "Kc6 gets the king in front of the pawn before pushing it."
+    },
+    {
+      "position_id": "05622e8ee664fa64e0f6",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "zwischenzug",
+      "gold_note": "f5+ inserts a check before the rook recapture and gains the needed tempo."
+    },
+    {
+      "position_id": "01846e46efc27b8fcd86",
+      "surface_grade": "caption_only",
+      "idea_family": "passed_pawn_blockade",
+      "gold_note": "Qc1 meets the e-pawn from behind and avoids the losing queen trade."
+    },
+    {
+      "position_id": "005ffb8676db567832b4",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "opening_pressure",
+      "gold_note": "Qb6 is more accurate than a6, but no concrete payoff appears in four plies."
+    },
+    {
+      "position_id": "00e5eefd87bc898795af",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "opening_defense",
+      "gold_note": "The played capture wins material in the short line, so the larger danger is not yet visible."
+    },
+    {
+      "position_id": "00c602f41766e197fcb2",
+      "surface_grade": "caption_only",
+      "idea_family": "piece_safety",
+      "gold_note": "Bf4 leaves the c3 knight to bxc3; Ne2 preserves the piece."
+    },
+    {
+      "position_id": "119ce485168615df9842",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "exchange_sequence",
+      "gold_note": "Nxc6 first keeps the other knight free to take a7 and recapture on b5."
+    },
+    {
+      "position_id": "0a0c4404d6a5dda2dbb2",
+      "surface_grade": "caption_only",
+      "idea_family": "king_safety",
+      "gold_note": "Bc8 allows Qh5+ and Qxg6+; Nf6 gives the king a defender."
+    },
+    {
+      "position_id": "000464a01e12a76060dd",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "perpetual_defense",
+      "gold_note": "Kh3 changes the checking geometry, but the line ends before the result is clear."
+    },
+    {
+      "position_id": "00046c5f4d3ea3a62bbd",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "piece_exchange",
+      "gold_note": "Bg5 changes the exchange order, but the stored line shows no durable gain."
+    },
+    {
+      "position_id": "00080450e4f884820a9e",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "king_attack",
+      "gold_note": "Qh6 is defensive, while Qxe4 appears to win material; deeper evidence is required."
+    },
+    {
+      "position_id": "001d12f6e8e923e5d08d",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "loose_queen",
+      "gold_note": "Qxc6 takes the queen; Qxa7 grabs a pawn while the knight falls."
+    },
+    {
+      "position_id": "002f0235720da345b731",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "check_and_fork",
+      "gold_note": "Qd6+ checks the king and attacks d7, then the queen takes the knight and rook."
+    },
+    {
+      "position_id": "002f6caa4f8f8f852060",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "central_break",
+      "gold_note": "e5 is a strong pawn break, but its long-term attack is not proven by this line."
+    },
+    {
+      "position_id": "00a3fd592fca14e9eb29",
+      "surface_grade": "caption_only",
+      "idea_family": "queen_trade",
+      "gold_note": "Qf6+ forces a queen trade into a worse ending; Qxb6 keeps queens and wins a pawn."
+    },
+    {
+      "position_id": "00b9bbf4cfe5fc537839",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "rook_activity",
+      "gold_note": "Rd5 is active, but the concrete improvement is outside the short line."
+    },
+    {
+      "position_id": "00e9bf6d508b9c9d2871",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "queen_activity",
+      "gold_note": "Qd5 creates pressure and a later check, but the payoff is not yet visible."
+    },
+    {
+      "position_id": "0092ee3966f8cb299628",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "clearance_attack",
+      "gold_note": "Bxf5 opens the rook's route; Rxf5+ and Rfxe5 win the knight."
+    },
+    {
+      "position_id": "036a9873713610d2d7b7",
+      "surface_grade": "caption_only",
+      "idea_family": "queen_safety",
+      "gold_note": "Qxa3 abandons the back rank to Qxd8+ and Qxe8+; Qa8 keeps it covered."
+    },
+    {
+      "position_id": "039bd832a639d9c2f8ab",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "zwischenzug",
+      "gold_note": "Qxe4+ inserts a check before resolving the rook contact and then wins c4."
+    },
+    {
+      "position_id": "008b6bb36fc9018c88c1",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "mate_defense",
+      "gold_note": "Rd2 is defensive, but four plies do not show the result-changing threat."
+    },
+    {
+      "position_id": "0144687febbf76daec06",
+      "surface_grade": "caption_only",
+      "idea_family": "recapture_choice",
+      "gold_note": "hxg4 uses the pawn; Bxg4 exposes the bishop and leaves the queen trade worse."
+    },
+    {
+      "position_id": "0168e48fb8c3f11f3021",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "forcing_attack",
+      "gold_note": "Nxf2 is preferred, but the stored line does not show a clean payoff."
+    },
+    {
+      "position_id": "00401fd51c8ae9442efb",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "knight_endgame",
+      "gold_note": "Nd2 improves the knight route, but no decisive fact appears within four plies."
+    },
+    {
+      "position_id": "00332b0973ddf0e7197b",
+      "surface_grade": "caption_only",
+      "idea_family": "pawn_break",
+      "gold_note": "a4 fixes the queenside race before the king crosses; h3 loses the timing."
+    },
+    {
+      "position_id": "00bb6cd1492bc5b6f355",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "king_geometry",
+      "gold_note": "Kg2 steps off the checking line; after Rf6+ the rook can take its attacker."
+    },
+    {
+      "position_id": "055d9f8521e114e4d995",
+      "surface_grade": "hidden_opportunity",
+      "idea_family": "rook_geometry",
+      "gold_note": "Rdxe3 keeps the e1 rook on the first rank so it can take the promoted queen."
+    },
+    {
+      "position_id": "02026bf0f56b8370c237",
+      "surface_grade": "insufficient_evidence",
+      "idea_family": "promotion_counterplay",
+      "gold_note": "Re8 creates counterplay after promotion, but the short line does not prove the result."
+    }
+  ]
+}
+

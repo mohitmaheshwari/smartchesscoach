@@ -1,0 +1,251 @@
+{
+  "schema_version": "target_line_causal.blinded_review_score.v2",
+  "generated_on": "2026-09-04",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "quality_id": "review:target_line_causal_proof",
+  "proof_version": "target_line_causal_proof.v4",
+  "review_independence": {
+    "reviewer": "claude-opus-5",
+    "method": "Both stored branches replayed legally from the FEN; signed material accounting from the side to move at the root; static exchange evaluation at the stored horizon; and a material-only alpha-beta with quiescence continued past the stored horizon to expose recaptures and forks that four plies hide. Verdicts were spot-checked by hand against the board. No detector implementation, packet builder, answer key, or validation snapshot was read.",
+    "frozen": true
+  },
+  "sources": {
+    "blinded_packet": {
+      "path": "backend/data/detector_gold/target_line_causal_pre_promotion_review_v3.json",
+      "sha256": "cc6b129d75fdbe4590c4f5829be57dd2818a45e11a9980ec826a99378fe21699"
+    },
+    "frozen_review": {
+      "path": "backend/data/detector_gold/target_line_causal_independent_review_v3.json",
+      "sha256": "1d8c5f9d89ba07f6e78ef6706175b9da7233c1722d8f2493fe06fcdceb9c03f8"
+    },
+    "frozen_answer_key": {
+      "path": "backend/data/detector_gold/target_line_causal_pre_promotion_answer_key_v3.json",
+      "sha256": "ac6554a5f55a270f290a3f77cd1bccb3fc995a3a627cc78afada997d0ba51cb1"
+    }
+  },
+  "sample": {
+    "cases": 127,
+    "detector_candidates": 97,
+    "sampled_controls": 30,
+    "reviewer_positive": 95,
+    "reviewer_nonpositive": 32
+  },
+  "raw_blinded_score": {
+    "true_positives": 83,
+    "false_positives": 14,
+    "false_negatives": 12,
+    "true_negatives": 18,
+    "semantic_precision_pct": 85.57,
+    "wilson_lower_bound_pct": 77.22,
+    "packet_positive_capture_pct": 87.37,
+    "critical_false_claims": 10,
+    "recall_warning": "Controls are sampled positive-edge near-controls, not an opportunity-denominator population; packet_positive_capture is not population recall.",
+    "candidate_critical_false_claims": 7,
+    "control_critical_flags": 3
+  },
+  "raw_gate": {
+    "available_fires_meet_minimum": true,
+    "precision_meets_minimum": false,
+    "wilson_meets_minimum": false,
+    "true_negatives_meet_minimum": false,
+    "zero_critical_errors": false,
+    "independent_review_complete": true,
+    "caption_promotion_gate_passed": false,
+    "status": "shadow",
+    "blockers": [
+      "raw_blinded_precision_below_95_pct",
+      "raw_blinded_wilson_below_85_pct",
+      "true_negative_minimum_not_met",
+      "critical_candidate_false_claims_present",
+      "final_rendered_claim_audit_pending"
+    ]
+  },
+  "raw_disagreements": [
+    {
+      "case_id": "08ed549afea65d12a34f",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qh5+: queen takes knight on d5; pawn takes queen on d5, +3 within the stored line and +3 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "0c641fc8ae5f0bc3ab25",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "Qxd6 leaves material at +0 through the stored line (settled +0). It avoids the loss taken in the played branch but establishes no positive target/line payoff of its own."
+    },
+    {
+      "case_id": "29f97f4316508bdd995b",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "Nxd5 reads as +9 inside the four stored plies (knight takes knight on d5; queen takes queen on a5), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at +0. No payoff is proved."
+    },
+    {
+      "case_id": "3e86028e2c849454c916",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "Qg4 reads as +1 inside the four stored plies (queen takes knight on h4; bishop takes pawn on g2), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at -2. No payoff is proved."
+    },
+    {
+      "case_id": "46b3992e47e5930056ad",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "Qxc5 leaves material at -1 through the stored line (settled -2). It avoids the loss taken in the played branch but establishes no positive target/line payoff of its own."
+    },
+    {
+      "case_id": "705931f704db03c0938d",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Re6+: rook takes rook on b6, +5 within the stored line and +5 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "7c2050b22efa7c35bb4b",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qh5+: knight takes pawn on g6; queen takes queen on c5, +10 within the stored line and +6 once every recapture and follow-up past the horizon is resolved. The stored line overstates the size -- +10 in-line versus +6 settled -- but the gain itself survives."
+    },
+    {
+      "case_id": "7ebbf923d616daa72677",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "Qxe5+ leaves material at +0 through the stored line (settled +0). It avoids the loss taken in the played branch but establishes no positive target/line payoff of its own."
+    },
+    {
+      "case_id": "8923b4be11e00136e59f",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Bxd8: bishop takes queen on d8; bishop takes pawn on c7, +7 within the stored line and +7 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "8f9dd7fe5c8992d2f0ac",
+      "bucket": "false_positive",
+      "reviewer_verdict": "insufficient_stored_horizon",
+      "critical_false_claim": false,
+      "review_note": "Bg3 ends with the capture on e1 still recapturable, so the stored line stops mid-exchange. Its apparent +4 reduces to +1 once the exchange resolves; a one-pawn margin that depends entirely on moves the stored line does not contain is not proved by this evidence."
+    },
+    {
+      "case_id": "90eec0cd02f4ac9f3aee",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Ra3: rook takes pawn on a2, +1 within the stored line and +1 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "a1b0d35da9f19add30bf",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "Bc5 reads as +4 inside the four stored plies (bishop takes rook on f8), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at -1. No payoff is proved."
+    },
+    {
+      "case_id": "a3bcd002ad5d7b016b3c",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "dxe4: pawn takes pawn on e4, +1 within the stored line and +1 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "aa45380504af32800214",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Nd4: knight takes pawn on c2; knight takes rook on a1, +6 within the stored line and +3 once every recapture and follow-up past the horizon is resolved. The stored line overstates the size -- +6 in-line versus +3 settled -- but the gain itself survives."
+    },
+    {
+      "case_id": "b7fee45ee6f90317925a",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "h6 leaves material at +0 through the stored line (settled +0). It avoids the loss taken in the played branch but establishes no positive target/line payoff of its own."
+    },
+    {
+      "case_id": "c1d5d2537da9d8784fd8",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "Kh6 reads as +4 inside the four stored plies (king takes rook on h7), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at +0. No payoff is proved."
+    },
+    {
+      "case_id": "c3d2ab0707f489f76783",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": false,
+      "review_note": "bxc3 leaves material at +0 through the stored line (settled +0). It avoids the loss taken in the played branch but establishes no positive target/line payoff of its own."
+    },
+    {
+      "case_id": "c51e171edbbe699c73d8",
+      "bucket": "false_positive",
+      "reviewer_verdict": "insufficient_stored_horizon",
+      "critical_false_claim": false,
+      "review_note": "g4 ends with the capture on f5 still recapturable, so the stored line stops mid-exchange. Its apparent +2 reduces to +1 once the exchange resolves; a one-pawn margin that depends entirely on moves the stored line does not contain is not proved by this evidence."
+    },
+    {
+      "case_id": "cdc88f336e1c21bd06d0",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "fxe3 reads as +2 inside the four stored plies (pawn takes bishop on e3), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at -3. No payoff is proved."
+    },
+    {
+      "case_id": "d4f857b83945b9a5c1cf",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qxe7: queen takes bishop on e7, +3 within the stored line and +3 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "d69286e21bac7a06aa92",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Rxc3: rook takes pawn on c3; queen takes pawn on d5, +2 within the stored line and +3 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "dc1ea039f3963184c74a",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qc6+ forces mate within the stored line (queen takes queen on d5). The payoff is terminal and cannot be recovered."
+    },
+    {
+      "case_id": "e5875d9dd791aa191b80",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "exd5 reads as +1 inside the four stored plies (pawn takes pawn on d5), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at +0. No payoff is proved."
+    },
+    {
+      "case_id": "ece43a6f4121538a942f",
+      "bucket": "false_positive",
+      "reviewer_verdict": "not_proved",
+      "critical_false_claim": true,
+      "review_note": "Ng5 reads as +2 inside the four stored plies (knight takes bishop on e6; knight takes queen on d8), but the line stops before the refutation: past the stored horizon the opponent recovers the material and the balance settles at +0. No payoff is proved."
+    },
+    {
+      "case_id": "f37891a76949b9d684fb",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Qf3+: queen takes pawn on g3, +1 within the stored line and +4 once every recapture and follow-up past the horizon is resolved."
+    },
+    {
+      "case_id": "f4b9e3097c731c7f304b",
+      "bucket": "false_negative",
+      "reviewer_verdict": "proved_target_line_payoff",
+      "critical_false_claim": false,
+      "review_note": "Nxc4: knight takes pawn on c4; pawn takes pawn on g5, +2 within the stored line and +2 once every recapture and follow-up past the horizon is resolved."
+    }
+  ]
+}
