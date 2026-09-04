@@ -5790,7 +5790,22 @@ async def evaluate_pending_move(
             pass
 
         # Compute hold time (only for critical)
-        requires_hold = layer == "critical_interrupt"
+        #
+        # HOLD DISABLED 2026-09-04. A critical_interrupt hold stops the move
+        # from being committed until the player releases it -- and the only
+        # control that can release it, ActiveCoachingCard's clock tap, is
+        # imported but never rendered (`<ActiveCoachingCard` appears zero
+        # times in frontend/src). The move was therefore never sent, the
+        # board showed the opponent's legal moves under a green "Your turn"
+        # badge, and the game was permanently stuck. Production logs show 66
+        # evaluate-pending calls against 51 committed moves.
+        #
+        # Do NOT restore this until BOTH are true:
+        #   1. ActiveCoachingCard (or another commit affordance) is rendered;
+        #   2. CoachPlay.jsx's revision branch rebuilds from the pre-move FEN
+        #      instead of the preview FEN, so a retry can actually be made.
+        # The classification below is untouched, so coaching still fires.
+        requires_hold = False
         min_hold_ms = (_get_hold_ms(layer, severity or "low") + extra_hold_ms) if requires_hold else 0
         should_auto_commit = not requires_hold
 
@@ -8043,7 +8058,7 @@ async def _process_move_and_respond(
                     db,
                     fen_after_user,
                     user_rating,
-                    move_history=session_doc.get("move_history", []),
+                    move_history=session_doc_check.get("move_history", []),
                 )
             
             if coach_move_san:

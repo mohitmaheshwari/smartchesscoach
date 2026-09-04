@@ -2431,7 +2431,12 @@ const CoachPlay = ({ user }) => {
                 toast.info("It's a draw.");
               }
             } else {
-              setIsPlayerTurn(true);
+              // Trust the server's turn, never assume it. /state computes
+              // is_player_turn from the position; assuming true handed the
+              // player a board whose side-to-move was the opponent, so
+              // Chessground offered only the opponent's moves and no piece
+              // could be picked up -- under a green "Your turn" badge.
+              setIsPlayerTurn(data.is_player_turn ?? true);
               setMoveStartTime(Date.now());
               // Increment ply for coach's response move
               if (openingIdeas.length) setGamePly(prev => prev + 1);
