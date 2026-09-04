@@ -344,7 +344,30 @@ def same_immutable_baseline(
         "coverage_at_cutoff",
         "learner_state",
     )
-    return all(existing.get(key) == proposed.get(key) for key in keys)
+    return all(
+        _comparable(existing.get(key)) == _comparable(proposed.get(key))
+        for key in keys
+    )
+
+
+def _comparable(value: Any) -> Any:
+    """Normalise a stored value so it can be compared with a freshly built one.
+
+    MongoDB returns BSON dates as NAIVE datetimes, while a newly built
+    baseline carries timezone-aware ones. Comparing them with == made every
+    stored baseline read as an "immutable baseline conflict" the moment it
+    was re-checked -- a healthy, byte-identical baseline reported as
+    corruption. Only the tzinfo differed.
+    """
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, dict):
+        return {key: _comparable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_comparable(item) for item in value]
+    return value
 
 
 async def record_phase8_reach_event(
