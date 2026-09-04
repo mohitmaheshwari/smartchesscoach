@@ -11,7 +11,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence
 from services.personal_curriculum import HelpAction
 
 
-TEACHING_PROFILE_SCHEMA_VERSION = "personal_teaching_profile.v1"
+TEACHING_PROFILE_SCHEMA_VERSION = "personal_teaching_profile.v2"
 ALLOWED_HELP_ACTIONS = tuple(action.value for action in HelpAction)
 
 
@@ -119,10 +119,17 @@ def _anchor(
 def _help_from_evidence(
     current_interaction: Mapping[str, Any],
     skill_record: Mapping[str, Any],
+    learning_projection: Mapping[str, Any],
 ) -> Optional[str]:
     requested = str(current_interaction.get("requested_help") or "")
     if requested in ALLOWED_HELP_ACTIONS:
         return requested
+    projected = str(
+        _mapping(learning_projection.get("evidence")).get("successful_help")
+        or ""
+    )
+    if projected in ALLOWED_HELP_ACTIONS:
+        return projected
     for evidence in reversed(list(skill_record.get("evidence") or [])):
         if not isinstance(evidence, Mapping):
             continue
@@ -130,6 +137,59 @@ def _help_from_evidence(
         if candidate in ALLOWED_HELP_ACTIONS and evidence.get("correct") is True:
             return candidate
     return None
+
+
+def _learning_history_anchor(
+    projection: Mapping[str, Any],
+) -> Optional[Dict[str, Any]]:
+    evidence = _mapping(projection.get("evidence"))
+    if int(evidence.get("accepted_events") or 0) <= 0:
+        return None
+    state = str(projection.get("state") or "")
+    successful_help = str(evidence.get("successful_help") or "")
+    helped_message = {
+        "show_on_board": (
+            "You solved this after we marked the important squares. Next, try "
+            "a fresh position without those marks."
+        ),
+        "ask_one_question": (
+            "You solved this after one guiding question. Next, try a fresh "
+            "position without the question."
+        ),
+    }.get(
+        successful_help,
+        (
+            "You solved this with support before. Next, try a fresh position "
+            "without help."
+        ),
+    )
+    messages = {
+        "learning": (
+            "You have started this idea before. We will continue from the "
+            "part that still needs a clean answer."
+        ),
+        "can_do_with_help": helped_message,
+        "can_do_alone": (
+            "You solved a fresh position without help. The remaining question "
+            "is whether you use the idea in a real game."
+        ),
+        "used_in_games": (
+            "You used this idea in a game we checked. This session tests "
+            "whether it still comes back without help."
+        ),
+    }
+    message = messages.get(state)
+    latest = _mapping(evidence.get("latest_event"))
+    if not message or not str(latest.get("ref") or "").strip():
+        return None
+    return _anchor(
+        anchor_type="canonical_learning_history",
+        message=message,
+        owner="learning_sessions.events via concept_mastery_service",
+        ref=str(latest["ref"]),
+        strength="direct",
+        skill_specific=True,
+    )
 
 
 def derive_personal_teaching_profile(
@@ -142,6 +202,7 @@ def derive_personal_teaching_profile(
     player_profile: Optional[Mapping[str, Any]] = None,
     chess_understanding: Optional[Mapping[str, Any]] = None,
     repertoire: Optional[Mapping[str, Any]] = None,
+    learning_projection: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Derive one delivery view without changing the canonical lesson."""
     if not skill_id or not str(skill_id).strip():
@@ -166,6 +227,7 @@ def derive_personal_teaching_profile(
     profile = _mapping(player_profile)
     understanding = _mapping(chess_understanding)
     opening = _mapping(repertoire)
+    projection = _mapping(learning_projection)
     skill = _mapping(_exact_skill(memory, skill_aliases))
     anchors = []
 
@@ -199,7 +261,11 @@ def derive_personal_teaching_profile(
             skill_specific=True,
         ))
 
-    if skill:
+    history_anchor = _learning_history_anchor(projection)
+    if history_anchor:
+        anchors.append(history_anchor)
+
+    if skill and history_anchor is None:
         seen = max(0, int(skill.get("seen") or 0))
         wrong = max(0, int(skill.get("wrong") or 0))
         applied = max(0, int(skill.get("applied") or 0))
@@ -260,11 +326,19 @@ def derive_personal_teaching_profile(
         ))
 
     specific = [item for item in anchors if item["skill_specific"]]
-    preferred_help = _help_from_evidence(interaction, skill)
+    preferred_help = _help_from_evidence(interaction, skill, projection)
     if specific:
         mode = "personalized"
         why_now = specific[0]["message"]
-        first_stage = "explain" if interaction else "diagnose"
+        if interaction:
+            first_stage = "explain"
+        else:
+            first_stage = {
+                "learning": "explain",
+                "can_do_with_help": "transfer",
+                "can_do_alone": "transfer",
+                "used_in_games": "retain",
+            }.get(str(projection.get("state") or ""), "diagnose")
     else:
         mode = "diagnostic_required"
         why_now = (
@@ -285,6 +359,23 @@ def derive_personal_teaching_profile(
         ),
     }
 
+    next_evidence = (
+        str(projection.get("next_evidence"))
+        if history_anchor is not None
+        else "diagnosis"
+    )
+    current_broke_down = bool(
+        interaction
+        and (
+            misconception_key
+            or interaction.get("correct") is False
+            or interaction.get("prediction_correct") is False
+            or interaction.get("reasoning_consistent") is False
+        )
+    )
+    if current_broke_down:
+        next_evidence = "guided_practice"
+
     return {
         "schema_version": TEACHING_PROFILE_SCHEMA_VERSION,
         "skill_id": canonical_skill_id,
@@ -294,6 +385,7 @@ def derive_personal_teaching_profile(
         "first_stage": first_stage,
         "anchors": anchors,
         "misconception": misconception_key or None,
+        "next_evidence": next_evidence,
         "delivery": {
             "allowed_help": list(ALLOWED_HELP_ACTIONS),
             "preferred_help": preferred_help,
@@ -304,6 +396,7 @@ def derive_personal_teaching_profile(
             "personal_claims_require_provenance": True,
             "chess_truth_adapted": False,
             "permanent_learner_type": None,
+            "visible_mastery_changed": False,
         },
     }
 
@@ -381,6 +474,22 @@ async def build_personal_teaching_profile(
     except Exception:
         focus = {}
 
+    from services.concept_mastery_service import (
+        get_learning_shadow_projection,
+    )
+
+    learning_projection = await get_learning_shadow_projection(
+        db,
+        user_id,
+        skill_id=canonical_skill_id,
+        compatible_skill_ids=tuple(skill_aliases[1:]),
+        required_content_identity=(
+            str(canonical_lesson["kind"]),
+            str(canonical_lesson["id"]),
+            str(canonical_lesson["canonical_source"]),
+        ),
+    )
+
     return derive_personal_teaching_profile(
         skill_id=canonical_skill_id,
         canonical_lesson=canonical_lesson,
@@ -390,4 +499,5 @@ async def build_personal_teaching_profile(
         player_profile=profile,
         chess_understanding=understanding,
         repertoire=repertoire,
+        learning_projection=learning_projection,
     )

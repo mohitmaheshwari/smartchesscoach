@@ -28,6 +28,32 @@ class FakeCollection:
                 return doc
         return None
 
+    def find(self, query, projection=None):
+        def matches(doc):
+            for key, expected in query.items():
+                actual = doc.get(key)
+                if isinstance(expected, dict) and "$in" in expected:
+                    if actual not in expected["$in"]:
+                        return False
+                elif actual != expected:
+                    return False
+            return True
+
+        class Cursor:
+            def __init__(self, rows):
+                self.rows = iter(rows)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self.rows)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        return Cursor([doc for doc in self.docs if matches(doc)])
+
     async def count_documents(self, query):
         return self.count
 

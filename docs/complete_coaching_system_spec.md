@@ -158,6 +158,7 @@ Rollback sets `COMPLETE_COACHING_SYSTEM_V1_ENABLED=false`; affected surfaces ret
    - Implemented Caption-only packets: exact free piece, exact fork payoff, exact aligned pin/skewer payoff, and exact mating continuation.
    - No Phase-3 family has inherited Prompt, Plan, or Mastery authority from its Caption promotion.
 6. **Phase 4 — teaching and transfer.** Connect canonical content to concepts; support explain, predict, compare, calculate, recognize, execute, defend, and replay; add unassisted transfer and later-game opportunity measurement.
+   - Implemented behind the existing default-off rollout: validated `LessonResult v2` history now feeds the personal teaching profile across canonical skill aliases, remembers successful help per concept, preserves current-answer precedence, and recommends the next evidence type without changing public mastery.
 7. **Phase 5 — complete Review.** Preserve all verified claims, teach the game's opening/intent/tactics/position/endgame story, ask one useful pre-reveal reflection, and prescribe one canonical next action.
 8. **Phase 6 — human-chess runtime.** Enable exact endgame truth first after deployment provenance tests. Pilot Otter/Maia only for safe opponent choice, findability, distractors, and shadow audit; promote each use separately.
 9. **Phase 7 — one product experience.** Evolve the canonical context across Home, Learn, Review, PWC, and Progress; one primary CTA, one optional support, elective study, and evidence-linked verdicts.
