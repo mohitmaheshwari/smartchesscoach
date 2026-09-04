@@ -1075,20 +1075,40 @@ async def build_player_curriculum(
 
     user_doc = await db.users.find_one(
         {"user_id": user_id},
-        {"_id": 0, "role": 1},
+        {"_id": 0, "role": 1, "feature_flags": 1},
     )
     role = (user_doc or {}).get("role")
+    from services.complete_coaching_access import get_complete_coaching_access
+
+    complete_access = await get_complete_coaching_access(
+        db,
+        user_id,
+        user_doc=user_doc,
+        env=env,
+    )
     if not personal_curriculum_enabled(env):
         return {
             "enabled": False,
             "schema_version": CURRICULUM_SURFACE_SCHEMA_VERSION,
             "rollout": {"eligible": False, "reason": "flag_disabled"},
         }
-    if not personal_curriculum_eligible(role, env):
+    if complete_access.paused:
+        return {
+            "enabled": False,
+            "paused": True,
+            "schema_version": CURRICULUM_SURFACE_SCHEMA_VERSION,
+            "message": complete_access.public_dict().get("message"),
+            "rollout": complete_access.public_dict(),
+        }
+    legacy_eligible = personal_curriculum_eligible(role, env)
+    if not (legacy_eligible or complete_access.enabled):
         return {
             "enabled": False,
             "schema_version": CURRICULUM_SURFACE_SCHEMA_VERSION,
-            "rollout": {"eligible": False, "reason": "role_not_enabled"},
+            "rollout": {
+                "eligible": False,
+                "reason": complete_access.reason,
+            },
         }
 
     analyzed_games = await db.games.count_documents(
@@ -1115,7 +1135,10 @@ async def build_player_curriculum(
     if primary is None:
         primary = _observe_candidate(analyzed_games)
 
-    personalized_enabled = personalized_teaching_eligible(role, env)
+    personalized_enabled = bool(
+        personalized_teaching_enabled(env)
+        and (legacy_eligible or complete_access.enabled)
+    )
     if personalized_enabled:
         primary = _personalized_candidate(primary)
         primary = await _with_latest_lesson_state(db, user_id, primary)
@@ -1197,7 +1220,11 @@ async def build_player_curriculum(
             "decision_id": active_plan["decision_id"],
             "selected_at": active_plan["selected_at"],
         },
-        "rollout": {"eligible": True, "reason": "enabled_for_role"},
+        "rollout": (
+            complete_access.public_dict()
+            if complete_access.enabled
+            else {"eligible": True, "reason": "enabled_for_role"}
+        ),
         "personalized_teaching": {
             "enabled": personalized_enabled,
             "profile": teaching_profile,

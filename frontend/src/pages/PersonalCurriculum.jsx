@@ -18,7 +18,7 @@ export default function PersonalCurriculum({ user }) {
 
   useEffect(() => {
     let cancelled = false;
-    loadPersonalCurriculum(API, user?.user_id)
+    loadPersonalCurriculum(API, user?.user_id, "learn")
       .then((data) => {
         if (cancelled) return;
         setCurriculum(data);

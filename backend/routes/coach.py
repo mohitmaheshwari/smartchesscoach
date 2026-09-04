@@ -1074,6 +1074,28 @@ async def get_game_decryption_v5(
                     ),
                     existing_submission=existing_submission,
                 )
+            from services.phase8_release_evidence import record_phase8_reach_event
+            routed_events = response.get("teachable_events") or []
+            authorized_events = [
+                event
+                for event in routed_events
+                if isinstance(event, dict)
+                and (event.get("display") or {}).get("authorized") is True
+            ]
+            await record_phase8_reach_event(
+                db,
+                user.user_id,
+                step="review_served",
+                source_id=game_id,
+                metadata={
+                    "authorized_event_count": len(authorized_events),
+                    "outcome": (
+                        "authorized_event"
+                        if authorized_events
+                        else "no_authorized_event"
+                    ),
+                },
+            )
             return response
         
         # Check if generation is in progress
@@ -4668,11 +4690,29 @@ async def get_coaching_context(
 
 
 @router.get("/personal-curriculum")
-async def get_personal_curriculum(user: User = Depends(get_current_user)):
+async def get_personal_curriculum(
+    surface: Optional[str] = Query(default=None),
+    user: User = Depends(get_current_user),
+):
     """Return the one default-off curriculum decision shared by Home/Learn."""
     from services.personal_curriculum import build_player_curriculum
 
-    return await build_player_curriculum(db, user.user_id)
+    if surface not in {None, "home", "learn", "progress"}:
+        raise HTTPException(status_code=400, detail="Unknown curriculum surface")
+    result = await build_player_curriculum(db, user.user_id)
+    if result.get("enabled") and surface == "home":
+        from services.phase8_release_evidence import record_phase8_reach_event
+
+        decision_id = str(
+            ((result.get("decision") or {}).get("decision_id") or "current")
+        )
+        await record_phase8_reach_event(
+            db,
+            user.user_id,
+            step="home_focus_served",
+            source_id=decision_id,
+        )
+    return result
 
 @router.get("/active-focus")
 async def get_active_focus(user: User = Depends(get_current_user)):

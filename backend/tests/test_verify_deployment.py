@@ -17,17 +17,20 @@ from verify_deployment import (  # noqa: E402
     FAIL,
     PASS,
     SKIP,
+    RESULTS,
     CheckResult,
     _check_key,
+    check_complete_coaching_journey,
     spike_threshold,
 )
 
 
 class TestCheckKey:
-    def test_all_seven_numbered_checks_map_to_a_key(self):
+    def test_all_eight_numbered_checks_map_to_a_key(self):
         expected = {
             "1": "commit", "2": "bundle", "3": "health",
             "4": "auth", "5": "contract", "6": "queue", "7": "failures",
+            "8": "journey",
         }
         assert CHECK_KEYS == expected
 
@@ -91,3 +94,175 @@ class TestRequiredChecksSummaryLogic:
         # A FAIL on a check nobody required shouldn't show up as unmet.
         results = [CheckResult(name="7. No spike in failed analysis jobs", status=FAIL)]
         assert self._unmet(results, {"health"}) == []
+
+
+class _Response:
+    def __init__(self, body, status_code=200):
+        self._body = body
+        self.status_code = status_code
+        self.text = str(body)
+
+    def json(self):
+        return self._body
+
+
+def test_journey_check_accepts_completed_idempotent_fixture(monkeypatch):
+    import verify_deployment
+
+    RESULTS.clear()
+    get_responses = iter([
+        _Response({
+            "enabled": True,
+            "rollout": {"enabled": True},
+            "decision": {
+                "primary": {
+                    "destination": {
+                        "lesson_kind": "concept",
+                        "lesson_id": "piece_safety",
+                        "href": "/training?kind=concept",
+                    },
+                }
+            },
+        }),
+        _Response({"evidence": [{"attempt": {"correct": True}}]}),
+        _Response({
+            "status": "complete",
+            "decryption_data": [],
+            "teachable_events": [{
+                "display": {"authorized": True},
+            }],
+        }),
+        _Response({
+            "enabled": True,
+            "practice": {"changes_transfer_verdict": False},
+            "transfer": {"verdict": "insufficient_evidence"},
+            "steps": {"verdict_served": True},
+        }),
+    ])
+    monkeypatch.setattr(
+        verify_deployment.requests,
+        "get",
+        lambda *args, **kwargs: next(get_responses),
+    )
+    monkeypatch.setattr(
+        verify_deployment.requests,
+        "post",
+        lambda *args, **kwargs: _Response({
+            "session_id": "fixture-session",
+            "status": "completed",
+            "lesson": {"kind": "concept", "id": "piece_safety"},
+        }),
+    )
+
+    check_complete_coaching_journey(
+        "https://example.test",
+        "token",
+        {"user_id": "fixture-user", "role": "user"},
+        {
+            "content_kind": "concept",
+            "content_id": "piece_safety",
+            "move": "e2e4",
+            "game_id": "fixture-game",
+        },
+        1.0,
+    )
+    assert RESULTS[-1].status == PASS
+
+
+def test_journey_check_proves_duplicate_submission_is_stored_once(monkeypatch):
+    import verify_deployment
+
+    RESULTS.clear()
+    get_responses = iter([
+        _Response({
+            "enabled": True,
+            "rollout": {"enabled": True},
+            "decision": {
+                "primary": {
+                    "destination": {
+                        "lesson_kind": "concept",
+                        "lesson_id": "piece_safety",
+                        "href": "/training?kind=concept",
+                    },
+                }
+            },
+        }),
+        _Response({
+            "evidence": [{
+                "event_id": (
+                    "phase8-deploy-"
+                    "b8cfb90982e7b78e465ac9c9"
+                ),
+                "attempt": {"correct": True},
+            }],
+        }),
+        _Response({
+            "status": "complete",
+            "decryption_data": [],
+            "teachable_events": [{
+                "display": {"authorized": True},
+            }],
+        }),
+        _Response({
+            "enabled": True,
+            "practice": {"changes_transfer_verdict": False},
+            "transfer": {"verdict": "insufficient_evidence"},
+            "steps": {"verdict_served": True},
+        }),
+    ])
+    posts = [
+        _Response({
+            "session_id": "fixture-session",
+            "status": "active",
+            "lesson": {"kind": "concept", "id": "piece_safety"},
+        }),
+        _Response({"correct": True, "complete": True}),
+        _Response({"correct": True, "complete": True}),
+    ]
+    monkeypatch.setattr(
+        verify_deployment.requests,
+        "get",
+        lambda *args, **kwargs: next(get_responses),
+    )
+    monkeypatch.setattr(
+        verify_deployment.requests,
+        "post",
+        lambda *args, **kwargs: posts.pop(0),
+    )
+    monkeypatch.setattr(
+        verify_deployment.hashlib,
+        "sha256",
+        lambda *_args, **_kwargs: type(
+            "_Hash",
+            (),
+            {"hexdigest": lambda self: "b8cfb90982e7b78e465ac9c9" + "0" * 40},
+        )(),
+    )
+
+    check_complete_coaching_journey(
+        "https://example.test",
+        "token",
+        {"user_id": "fixture-user", "role": "user"},
+        {
+            "content_kind": "concept",
+            "content_id": "piece_safety",
+            "move": "e2e4",
+            "game_id": "fixture-game",
+        },
+        1.0,
+    )
+    assert RESULTS[-1].status == PASS
+    assert posts == []
+
+
+def test_journey_check_never_skips_missing_fixture_in_strict_mode():
+    RESULTS.clear()
+    check_complete_coaching_journey(
+        "https://example.test",
+        "token",
+        {"user_id": "fixture-user", "role": "user"},
+        None,
+        1.0,
+    )
+    assert RESULTS[-1].status == SKIP
+    assert _check_key(RESULTS[-1].name) == "journey"

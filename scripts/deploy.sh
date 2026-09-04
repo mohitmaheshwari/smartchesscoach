@@ -29,6 +29,7 @@ TARGET="${1:-all}"
 BRANCH="${DEPLOY_BRANCH:-working-code}"
 DOCROOT="${DEPLOY_DOCROOT:-/var/www/chessguru.ai}"
 HEALTH_URL="${DEPLOY_HEALTH_URL:-https://chessguru.ai/api/health}"
+VERIFY_BASE_URL="${DEPLOY_VERIFY_BASE_URL:-https://chessguru.ai}"
 
 step()  { printf '\n=== %s\n' "$1"; }
 ok()    { printf '    OK   %s\n' "$1"; }
@@ -109,5 +110,43 @@ for _ in $(seq 1 30); do
 done
 [ "$CODE" = "200" ] || die "$HEALTH_URL returned $CODE"
 ok "$HEALTH_URL 200"
+
+# --- 6. prove a non-admin can reach the complete coaching journey ----------
+step "strict deployment and non-admin journey verification"
+for REQUIRED_SECRET in \
+  DEPLOY_VERIFY_AUTH_TOKEN \
+  DEPLOY_VERIFY_GAME_ID \
+  PHASE8_VERIFICATION_FIXTURE_JSON
+do
+  [ -n "${!REQUIRED_SECRET:-}" ] \
+    || die "$REQUIRED_SECRET is required for the deployment reach gate"
+done
+
+case "$TARGET" in
+  all)
+    REQUIRED_CHECKS="commit,bundle,health,auth,contract,queue,failures,journey"
+    ;;
+  backend)
+    REQUIRED_CHECKS="commit,health,auth,contract,queue,failures,journey"
+    ;;
+  frontend)
+    REQUIRED_CHECKS="bundle,health,auth,contract,queue,failures,journey"
+    ;;
+  *)
+    die "unknown deploy target: $TARGET"
+    ;;
+esac
+
+docker exec \
+  -e DEPLOY_VERIFY_AUTH_TOKEN \
+  -e DEPLOY_VERIFY_GAME_ID \
+  -e PHASE8_VERIFICATION_FIXTURE_JSON \
+  chess-coach-backend \
+  python3 scripts/verify_deployment.py \
+    --base-url "$VERIFY_BASE_URL" \
+    --frontend-marker "phase8-transfer-verdict" \
+    --require-checks "$REQUIRED_CHECKS" \
+  || die "strict deployment verification failed; release is not live"
+ok "strict checks passed, including the non-admin coaching journey"
 
 printf '\nDeployed %s at %s\n' "$TARGET" "$(git log -1 --format='%h %s' | cut -c1-64)"

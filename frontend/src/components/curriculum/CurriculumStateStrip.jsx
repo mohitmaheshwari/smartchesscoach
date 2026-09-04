@@ -10,13 +10,24 @@ import {
 export default function CurriculumStateStrip({ user, surface }) {
   const navigate = useNavigate();
   const [curriculum, setCurriculum] = useState(null);
+  const [journey, setJourney] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    loadPersonalCurriculum(API, user?.user_id)
-      .then((payload) => {
-        if (!cancelled) setCurriculum(payload);
+    Promise.all([
+      loadPersonalCurriculum(API, user?.user_id, surface),
+      fetch(API + "/progress/complete-coaching", {
+        credentials: "include",
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ])
+      .then(([payload, journeyPayload]) => {
+        if (!cancelled) {
+          setCurriculum(payload);
+          setJourney(journeyPayload);
+        }
       })
       .catch(() => null)
       .finally(() => {
@@ -25,7 +36,7 @@ export default function CurriculumStateStrip({ user, surface }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.user_id]);
+  }, [surface, user?.user_id]);
 
   if (loading) {
     return (
@@ -39,6 +50,7 @@ export default function CurriculumStateStrip({ user, surface }) {
   if (!primary) return null;
   const state = curriculumStateLabel(primary.state);
   const applicationMeasured = primary.state === "used_in_games";
+  const transfer = journey?.enabled ? journey.transfer : null;
 
   return (
     <section
@@ -50,10 +62,14 @@ export default function CurriculumStateStrip({ user, surface }) {
           Your current lesson · {state}
         </p>
         <p className="text-sm font-medium text-foreground truncate">{primary.title}</p>
-        <p className="text-[11.5px] text-muted-foreground mt-0.5">
-          {applicationMeasured
-            ? "I’ve seen you use this in a game. I’ll keep watching until it holds under pressure."
-            : "We’re still making this feel natural. I’ll watch for it the next time you play."}
+        <p
+          className="text-[11.5px] text-muted-foreground mt-0.5"
+          data-testid={transfer ? "phase8-transfer-verdict" : undefined}
+        >
+          {transfer?.message ||
+            (applicationMeasured
+              ? "I’ve seen you use this in a game. I’ll keep watching until it holds under pressure."
+              : "We’re still making this feel natural. I’ll watch for it the next time you play.")}
         </p>
       </div>
       <button

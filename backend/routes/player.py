@@ -146,6 +146,37 @@ async def get_coaching_progress_report(user: User = Depends(get_current_user)):
     return report
 
 
+@router.get("/progress/complete-coaching")
+async def get_complete_coaching_progress(
+    user: User = Depends(get_current_user),
+):
+    """Return the canonical Phase 8 practice-versus-transfer projection."""
+    from services.phase8_release_evidence import (
+        build_phase8_journey_projection,
+        record_phase8_reach_event,
+    )
+
+    projection = await build_phase8_journey_projection(db, user.user_id)
+    if projection.get("enabled"):
+        focus = projection.get("focus") or {}
+        transfer = projection.get("transfer") or {}
+        await record_phase8_reach_event(
+            db,
+            user.user_id,
+            step="progress_verdict_served",
+            source_id=(
+                f"{focus.get('focus_id') or 'current'}:"
+                f"{transfer.get('evidence_identity') or 'unknown'}"
+            ),
+            metadata={
+                "verdict": transfer.get("verdict"),
+                "evidence_identity": transfer.get("evidence_identity"),
+            },
+        )
+        projection = await build_phase8_journey_projection(db, user.user_id)
+    return projection
+
+
 @router.get("/progress/real")
 async def get_real_progress(user: User = Depends(get_current_user)):
     """

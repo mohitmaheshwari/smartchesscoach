@@ -818,8 +818,18 @@ async def _instruction_fields_eligible_for_write(db, user_id: str) -> bool:
     (write-time here, read-time in focus_bridge for docs written before
     this fix)."""
     from services.focus_bridge import _instruction_fields_eligible
-    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
-    return _instruction_fields_eligible((user_doc or {}).get("role"))
+    user_doc = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "role": 1, "feature_flags": 1},
+    )
+    from services.complete_coaching_access import get_complete_coaching_access
+    complete_access = await get_complete_coaching_access(
+        db, user_id, user_doc=user_doc
+    )
+    return bool(
+        _instruction_fields_eligible((user_doc or {}).get("role"))
+        or complete_access.enabled
+    )
 
 
 async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:

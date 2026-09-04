@@ -77,3 +77,26 @@ test("curriculum responses are never shared between accounts", async () => {
 
   expect(global.fetch).toHaveBeenCalledTimes(2);
 });
+
+test("reach-attributed surfaces use distinct cached requests", async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: jest.fn().mockResolvedValue({ enabled: true }),
+  });
+
+  await loadPersonalCurriculum("/api", "u1", "home");
+  await loadPersonalCurriculum("/api", "u1", "learn");
+  await loadPersonalCurriculum("/api", "u1", "home");
+
+  expect(global.fetch).toHaveBeenCalledTimes(2);
+  expect(global.fetch).toHaveBeenNthCalledWith(
+    1,
+    "/api/coach/personal-curriculum?surface=home",
+    { credentials: "include" }
+  );
+  expect(global.fetch).toHaveBeenNthCalledWith(
+    2,
+    "/api/coach/personal-curriculum?surface=learn",
+    { credentials: "include" }
+  );
+});

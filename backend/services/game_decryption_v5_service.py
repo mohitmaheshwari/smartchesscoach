@@ -2925,6 +2925,8 @@ async def generate_game_decryption_v5(
     game_id: Optional[str] = None,
     opponent_move_evaluations: Optional[List[Dict]] = None,
     game_teaching_plan_output: Optional[Dict[str, object]] = None,
+    persist_learning_side_effects: bool = True,
+    allow_llm_polish: bool = True,
 ) -> List[Dict]:
     """
     Generate V5 "Thinking Simulator" coaching for a game.
@@ -4010,7 +4012,7 @@ async def generate_game_decryption_v5(
             # to base otherwise. Gated on user-mistake-tier captions only
             # to keep latency bounded (LLM call adds ~500ms-1s/move).
             caption_llm_polished: Optional[str] = None
-            if (is_user and (cp_loss or 0) >= 100
+            if (allow_llm_polish and is_user and (cp_loss or 0) >= 100
                     and caption_payload.get("caption")):
                 try:
                     from services.v5_llm_polish import polish_caption_async
@@ -4523,7 +4525,12 @@ async def generate_game_decryption_v5(
             decryption_data.append(move_output)
             
             # Update concept shown count
-            if plan and needs_acknowledgment and db is not None:
+            if (
+                persist_learning_side_effects
+                and plan
+                and needs_acknowledgment
+                and db is not None
+            ):
                 try:
                     await db.user_concept_understanding.update_one(
                         {"user_id": user_id, "concept_id": plan.concept_id},
@@ -4763,7 +4770,13 @@ async def generate_game_decryption_v5(
         # or game_id wasn't passed; callers without those just lose
         # the per-user log for that run (no functional impact on the
         # caption pipeline).
-        if db is not None and user_id and game_id and pattern_miss_events:
+        if (
+            persist_learning_side_effects
+            and db is not None
+            and user_id
+            and game_id
+            and pattern_miss_events
+        ):
             try:
                 from services.pattern_event_logger import replace_events_for_game
                 inserted = await replace_events_for_game(

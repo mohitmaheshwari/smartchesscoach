@@ -73,7 +73,9 @@ def test_curriculum_route_is_authenticated_and_uses_the_canonical_adapter():
 
     assert '@router.get("/personal-curriculum")' in route_source
     assert "user: User = Depends(get_current_user)" in route_source
-    assert "return await build_player_curriculum(db, user.user_id)" in route_source
+    assert "result = await build_player_curriculum(db, user.user_id)" in route_source
+    assert "return result" in route_source
+    assert "record_phase8_reach_event" in route_source
 
 
 def test_less_than_five_games_produces_honest_observe_plan():

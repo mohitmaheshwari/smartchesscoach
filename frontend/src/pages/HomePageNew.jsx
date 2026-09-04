@@ -128,7 +128,7 @@ export default function HomePageNew({ user }) {
 
   useEffect(() => {
     let cancelled = false;
-    loadPersonalCurriculum(API, user?.user_id)
+    loadPersonalCurriculum(API, user?.user_id, "home")
       .then((data) => {
         if (!cancelled) setCurriculum(data);
       })
@@ -275,6 +275,43 @@ export default function HomePageNew({ user }) {
             : timeOfDayGreeting() + "."
         }
       />
+    );
+  }
+
+  if (curriculum?.paused) {
+    return (
+      <Layout user={user}>
+        <main className="cg-page max-w-[900px]" data-testid="phase8-paused-state">
+          <motion.section
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="cg-panel p-6 sm:p-9"
+          >
+            <p className="cg-eyebrow">Your coaching plan</p>
+            <h1 className="cg-title mt-3">Your work is saved.</h1>
+            <p className="cg-lede mt-4 max-w-[620px]">
+              {curriculum.message ||
+                "Your lesson and progress are saved. Your coach is preparing the next step."}
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate("/lab")}
+                className="cg-primary-action"
+              >
+                Review my games
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/training")}
+                className="cg-secondary-action"
+              >
+                Keep practising
+              </button>
+            </div>
+          </motion.section>
+        </main>
+      </Layout>
     );
   }
 

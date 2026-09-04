@@ -40,10 +40,11 @@ export const curriculumStateLabel = (state) => ({
 
 const curriculumRequests = new Map();
 
-export const loadPersonalCurriculum = (api, userId) => {
-  const key = api + "|" + (userId || "anonymous");
+export const loadPersonalCurriculum = (api, userId, surface = null) => {
+  const key = api + "|" + (userId || "anonymous") + "|" + (surface || "shared");
   if (!curriculumRequests.has(key)) {
-    const request = fetch(api + "/coach/personal-curriculum", {
+    const query = surface ? "?surface=" + encodeURIComponent(surface) : "";
+    const request = fetch(api + "/coach/personal-curriculum" + query, {
       credentials: "include",
     })
       .then((response) => {

@@ -203,10 +203,18 @@ async def get_pic_focus_projection(
         return None
     if user_role is None:
         user_doc = await db.users.find_one(
-            {"user_id": user_id}, {"_id": 0, "role": 1}
+            {"user_id": user_id}, {"_id": 0, "role": 1, "feature_flags": 1}
         )
         user_role = (user_doc or {}).get("role")
-    if not _pic_fields_eligible(user_role):
+    else:
+        user_doc = await db.users.find_one(
+            {"user_id": user_id}, {"_id": 0, "role": 1, "feature_flags": 1}
+        )
+    from services.complete_coaching_access import get_complete_coaching_access
+    complete_access = await get_complete_coaching_access(
+        db, user_id, user_doc=user_doc
+    )
+    if not (_pic_fields_eligible(user_role) or complete_access.enabled):
         return None
     if focus is None:
         focus = await db[COLLECTION].find_one(
@@ -402,8 +410,18 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
     # Sprint 2 rollout gate (Correction #7) -- checked here, once, for
     # every consumer. A cheap, targeted lookup; role is small enough on
     # the users collection that this doesn't need caching.
-    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
-    eligible = _instruction_fields_eligible((user_doc or {}).get("role"))
+    user_doc = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "role": 1, "feature_flags": 1},
+    )
+    from services.complete_coaching_access import get_complete_coaching_access
+    complete_access = await get_complete_coaching_access(
+        db, user_id, user_doc=user_doc
+    )
+    eligible = bool(
+        _instruction_fields_eligible((user_doc or {}).get("role"))
+        or complete_access.enabled
+    )
     instruction_id = focus.get("instruction_id") if eligible else None
     instruction_text = focus.get("instruction_text") if eligible else None
     instruction_version = focus.get("instruction_version") if eligible else None
@@ -730,9 +748,16 @@ async def build_coaching_context(
         raise ValueError("unknown coaching context surface")
 
     user_doc = await db.users.find_one(
-        {"user_id": user_id}, {"_id": 0, "role": 1}
+        {"user_id": user_id}, {"_id": 0, "role": 1, "feature_flags": 1}
     )
-    if (user_doc or {}).get("role") not in _coaching_context_rollout_roles():
+    from services.complete_coaching_access import get_complete_coaching_access
+    complete_access = await get_complete_coaching_access(
+        db, user_id, user_doc=user_doc
+    )
+    legacy_eligible = (
+        (user_doc or {}).get("role") in _coaching_context_rollout_roles()
+    )
+    if not (legacy_eligible or complete_access.enabled):
         return None
 
     focus = await get_active_focus_bundle(db, user_id)
@@ -815,7 +840,11 @@ async def build_coaching_context(
         "evidence": evidence,
         "learner_projection": (pic or {}).get("learner_state"),
         "next_action": next_action,
-        "rollout": {"eligible": True, "reason": "enabled"},
+        "rollout": (
+            complete_access.public_dict()
+            if complete_access.enabled
+            else {"eligible": True, "reason": "enabled"}
+        ),
         "surface_context": await _build_surface_context(
             db,
             user_id,

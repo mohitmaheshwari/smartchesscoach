@@ -20,6 +20,7 @@ It checks, against a live base URL:
   5. Canonical coaching contract (GET /api/coach/decryption/v5/{game_id})
   6. Worker queue health        (analysis_queue counts, direct MONGO_URL)
   7. Failed-job spike check     (recent failed count vs a real baseline)
+  8. Non-admin coaching journey (Home -> lesson -> Review -> Progress)
 
 Every check prints PASS / FAIL / SKIPPED with a reason. SKIPPED never
 counts as a pass — it means "could not verify," and is printed loudly
@@ -59,13 +60,16 @@ turn specific SKIPs into hard failures for CI/release use:
   # or require every check that ran-or-should-have-run:
   python backend/scripts/verify_deployment.py --require-all ...
 
-Reads only — no writes, safe to run anytime.
+Checks 1-7 are read-only. Check 8 uses a dedicated non-admin verification
+fixture and may create idempotent lesson/reach evidence in that isolated
+account. It must never use a real learner account.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -105,6 +109,7 @@ CHECK_KEYS = {
     "5": "contract",
     "6": "queue",
     "7": "failures",
+    "8": "journey",
 }
 
 
@@ -128,7 +133,7 @@ DEFAULT_BASE_URL = "https://chessguru.ai"
 # (frontend/src/components/GameDecryptionV5.jsx). Confirmed present in
 # the live main.*.js bundle at time of writing — a real, checkable
 # recent-deploy marker, not a made-up placeholder.
-DEFAULT_FRONTEND_MARKER = "motif-blindspot"
+DEFAULT_FRONTEND_MARKER = "phase8-transfer-verdict"
 
 
 @dataclass
@@ -424,6 +429,216 @@ def check_canonical_endpoint(base_url: str, auth_token: str | None, game_id: str
 
 
 # =====================================================================
+# Check 8 — non-admin complete coaching journey
+# =====================================================================
+
+def check_complete_coaching_journey(
+    base_url: str,
+    auth_token: str | None,
+    auth_body: dict | None,
+    fixture: dict | None,
+    timeout: float,
+) -> None:
+    name = "8. Non-admin complete coaching journey"
+    if not auth_token:
+        record(name, SKIP, ["No --auth-token provided for the journey fixture."])
+        return
+    if not fixture:
+        record(name, SKIP, [
+            "No --journey-fixture-json or PHASE8_VERIFICATION_FIXTURE_JSON provided."
+        ])
+        return
+    if str((auth_body or {}).get("role") or "user").lower() in {
+        "admin",
+        "super_admin",
+    }:
+        record(name, FAIL, ["Journey verification account must be non-admin."])
+        return
+    required = ("content_kind", "content_id", "move", "game_id")
+    missing = [key for key in required if not str(fixture.get(key) or "").strip()]
+    if missing:
+        record(name, FAIL, [f"Journey fixture missing keys: {missing}"])
+        return
+
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Content-Type": "application/json",
+    }
+    detail = []
+    try:
+        home_url = base_url.rstrip("/") + "/api/coach/personal-curriculum?surface=home"
+        home = requests.get(home_url, headers=headers, timeout=timeout)
+        if home.status_code != 200:
+            raise ValueError(f"Home contract returned HTTP {home.status_code}: {home.text[:200]}")
+        home_body = home.json()
+        primary = (home_body.get("decision") or {}).get("primary") or {}
+        destination = primary.get("destination") or {}
+        if (
+            home_body.get("enabled") is not True
+            or not (home_body.get("rollout") or {}).get("enabled")
+            or destination.get("lesson_kind") != fixture["content_kind"]
+            or destination.get("lesson_id") != fixture["content_id"]
+            or not str(destination.get("href") or "").startswith("/training")
+        ):
+            raise ValueError(
+                "Home did not return the enabled canonical focus/action "
+                "for the exact verification lesson"
+            )
+        detail.append("Home returned one enabled canonical focus and training action")
+
+        start_url = base_url.rstrip("/") + "/api/training/personalized/session/start"
+        start = requests.post(
+            start_url,
+            headers=headers,
+            json={
+                "content_kind": fixture["content_kind"],
+                "content_id": fixture["content_id"],
+                "skill_id": fixture.get("skill_id"),
+                "limit": 1,
+            },
+            timeout=timeout,
+        )
+        if start.status_code != 200:
+            raise ValueError(f"Lesson start returned HTTP {start.status_code}: {start.text[:200]}")
+        session = start.json()
+        session_id = session.get("session_id")
+        if not session_id:
+            raise ValueError("Lesson start returned no session_id")
+        lesson = session.get("lesson") or {}
+        if (
+            lesson.get("kind") != destination.get("lesson_kind")
+            or lesson.get("id") != destination.get("lesson_id")
+        ):
+            raise ValueError("Lesson start did not preserve the Home content identity")
+
+        if session.get("status") == "completed":
+            evidence_url = (
+                base_url.rstrip("/")
+                + f"/api/training/personalized/session/{session_id}/evidence"
+            )
+            evidence_response = requests.get(
+                evidence_url, headers=headers, timeout=timeout
+            )
+            if evidence_response.status_code != 200:
+                raise ValueError("Completed fixture has no readable server evidence")
+            evidence_rows = evidence_response.json().get("evidence") or []
+            if not any(
+                (row.get("attempt") or {}).get("correct") is True
+                for row in evidence_rows
+            ):
+                raise ValueError("Completed fixture has no persisted correct verdict")
+            detail.append("Lesson fixture already complete with persisted server verdict")
+        else:
+            respond_url = (
+                base_url.rstrip("/")
+                + "/api/training/personalized/session/respond"
+            )
+            interaction_id = (
+                "phase8-deploy-"
+                + hashlib.sha256(
+                    (session_id + str(fixture["move"])).encode("utf-8")
+                ).hexdigest()[:24]
+            )
+            response_payload = {
+                "session_id": session_id,
+                "move": fixture["move"],
+                "interaction_id": interaction_id,
+            }
+            responded = requests.post(
+                respond_url,
+                headers=headers,
+                json=response_payload,
+                timeout=timeout,
+            )
+            if responded.status_code != 200:
+                raise ValueError(
+                    f"Lesson response returned HTTP {responded.status_code}: "
+                    f"{responded.text[:200]}"
+                )
+            verdict = responded.json()
+            if verdict.get("correct") is not True:
+                raise ValueError(f"Fixture move did not receive a correct verdict: {verdict}")
+            duplicate = requests.post(
+                respond_url,
+                headers=headers,
+                json=response_payload,
+                timeout=timeout,
+            )
+            if duplicate.status_code != 200 or duplicate.json() != verdict:
+                raise ValueError("Duplicate lesson submission was not idempotent")
+            evidence_url = (
+                base_url.rstrip("/")
+                + f"/api/training/personalized/session/{session_id}/evidence"
+            )
+            evidence_response = requests.get(
+                evidence_url, headers=headers, timeout=timeout
+            )
+            if evidence_response.status_code != 200:
+                raise ValueError("Submitted fixture has no readable server evidence")
+            evidence_rows = evidence_response.json().get("evidence") or []
+            stored_matches = [
+                row for row in evidence_rows
+                if row.get("event_id") == interaction_id
+            ]
+            if (
+                len(stored_matches) != 1
+                or (stored_matches[0].get("attempt") or {}).get("correct")
+                is not True
+            ):
+                raise ValueError(
+                    "Lesson attempt was not stored exactly once with a correct verdict"
+                )
+            detail.append(
+                "Interactive lesson returned a verdict and stored one idempotent attempt"
+            )
+
+        review_url = (
+            base_url.rstrip("/")
+            + f"/api/coach/decryption/v5/{fixture['game_id']}"
+        )
+        review = requests.get(review_url, headers=headers, timeout=timeout)
+        review_body = review.json()
+        if review.status_code != 200 or review_body.get("status") != "complete":
+            raise ValueError("Game Review did not return a complete routed contract")
+        events = review_body.get("teachable_events") or []
+        if (
+            not events
+            or any(
+                ((event.get("display") or {}).get("authorized") is not True)
+                for event in events
+                if isinstance(event, dict)
+            )
+            or any(not isinstance(event, dict) for event in events)
+        ):
+            raise ValueError(
+                "Game Review fixture returned no fully authorized teaching event"
+            )
+        detail.append("Game Review returned only authorized teaching events")
+
+        progress_url = base_url.rstrip("/") + "/api/progress/complete-coaching"
+        progress = requests.get(progress_url, headers=headers, timeout=timeout)
+        if progress.status_code != 200:
+            raise ValueError(f"Progress returned HTTP {progress.status_code}")
+        progress_body = progress.json()
+        if (
+            progress_body.get("enabled") is not True
+            or (progress_body.get("practice") or {}).get(
+                "changes_transfer_verdict"
+            ) is not False
+            or (progress_body.get("transfer") or {}).get("verdict")
+            not in {"improved", "still_recurring", "insufficient_evidence"}
+            or (progress_body.get("steps") or {}).get("verdict_served")
+            is not True
+        ):
+            raise ValueError("Progress did not preserve practice-versus-transfer truth")
+        detail.append("Progress returned an honest practice-versus-transfer verdict")
+    except (ValueError, requests.RequestException, json.JSONDecodeError) as exc:
+        record(name, FAIL, [*detail, str(exc)])
+        return
+    record(name, PASS, detail)
+
+
+# =====================================================================
 # Checks 6/7 — worker queue health + failed-job spike (direct Mongo)
 # =====================================================================
 
@@ -602,6 +817,15 @@ async def run(args: argparse.Namespace) -> int:
     check_canonical_endpoint(args.base_url, args.auth_token, game_id, args.timeout)
     _print_result(RESULTS[-1])
 
+    check_complete_coaching_journey(
+        args.base_url,
+        args.auth_token,
+        auth_body,
+        args.journey_fixture,
+        args.timeout,
+    )
+    _print_result(RESULTS[-1])
+
     await check_queue_and_failures(mongo_url, db_name, args.db_timeout_ms, args.max_recent_failures)
     _print_result(RESULTS[-2])
     _print_result(RESULTS[-1])
@@ -647,10 +871,10 @@ def main() -> int:
                          help=f"Site to check (default: {DEFAULT_BASE_URL})")
     parser.add_argument("--frontend-marker", default=DEFAULT_FRONTEND_MARKER,
                          help=f"String expected in the live JS bundle (default: {DEFAULT_FRONTEND_MARKER!r})")
-    parser.add_argument("--auth-token", default=None,
+    parser.add_argument("--auth-token", default=os.environ.get("DEPLOY_VERIFY_AUTH_TOKEN"),
                          help="Session token for authenticated checks (Authorization: Bearer <token>). "
                               "Get one via GET /api/auth/dev-login in DEV_MODE, or a normal login.")
-    parser.add_argument("--game-id", default=None,
+    parser.add_argument("--game-id", default=os.environ.get("DEPLOY_VERIFY_GAME_ID"),
                          help="game_id for the canonical-endpoint check. Auto-discovered from the "
                               "--auth-token user's games if DB access is available and this is omitted.")
     parser.add_argument("--mongo-url", default=None,
@@ -664,14 +888,32 @@ def main() -> int:
                               "zero (default: 5)")
     parser.add_argument("--timeout", type=float, default=15.0,
                          help="HTTP request timeout in seconds (default: 15)")
+    parser.add_argument(
+        "--journey-fixture-json",
+        default=os.environ.get("PHASE8_VERIFICATION_FIXTURE_JSON"),
+        help=(
+            "JSON object for the dedicated non-admin fixture with "
+            "content_kind, content_id, move and game_id. Defaults to "
+            "$PHASE8_VERIFICATION_FIXTURE_JSON."
+        ),
+    )
     parser.add_argument("--require-checks", default=None,
                          help="Comma-separated check keys that must PASS (not just run) or the script "
                               f"exits non-zero, even with zero FAILs. Valid keys: {sorted(set(CHECK_KEYS.values()))}. "
                               "Use this for CI/release gating; omit for exploratory/diagnostic runs.")
     parser.add_argument("--require-all", action="store_true",
                          help="Shorthand for --require-checks with every valid key (commit,bundle,health,"
-                              "auth,contract,queue,failures).")
+                              "auth,contract,queue,failures,journey).")
     args = parser.parse_args()
+    if args.journey_fixture_json:
+        try:
+            args.journey_fixture = json.loads(args.journey_fixture_json)
+        except json.JSONDecodeError as exc:
+            parser.error(f"--journey-fixture-json is not valid JSON: {exc}")
+        if not isinstance(args.journey_fixture, dict):
+            parser.error("--journey-fixture-json must decode to an object")
+    else:
+        args.journey_fixture = None
 
     if args.require_all:
         args.required_checks = sorted(set(CHECK_KEYS.values()))

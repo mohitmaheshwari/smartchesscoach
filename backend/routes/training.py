@@ -51,17 +51,30 @@ async def _require_pic_training_user(user: User):
 
 
 async def _require_personalized_teaching_user(user: User):
-    """Keep the new delivery path inside the existing role allowlist."""
-    from services.personal_curriculum import personalized_teaching_eligible
+    """Allow the legacy role pilot or the baseline-gated Phase 8 cohort."""
+    from services.personal_curriculum import (
+        personal_curriculum_enabled,
+        personalized_teaching_enabled,
+        personalized_teaching_eligible,
+    )
+    from services.complete_coaching_access import get_complete_coaching_access
 
     role = getattr(user, "role", None)
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "role": 1, "feature_flags": 1},
+    )
     if not role:
-        user_doc = await db.users.find_one(
-            {"user_id": user.user_id},
-            {"_id": 0, "role": 1},
-        )
         role = (user_doc or {}).get("role")
-    if not personalized_teaching_eligible(role):
+    complete_access = await get_complete_coaching_access(
+        db, user.user_id, user_doc=user_doc
+    )
+    phase8_eligible = bool(
+        complete_access.enabled
+        and personal_curriculum_enabled()
+        and personalized_teaching_enabled()
+    )
+    if not (personalized_teaching_eligible(role) or phase8_eligible):
         raise HTTPException(status_code=404, detail="Lesson not found")
     return role
 
@@ -287,7 +300,15 @@ async def start_personalized_training_session(
         PERSONALIZED_LESSON_TYPE,
         request.model_dump(exclude_none=True),
     )
-    return _raise_pic_lesson_error(result)
+    result = _raise_pic_lesson_error(result)
+    from services.phase8_release_evidence import record_phase8_reach_event
+    await record_phase8_reach_event(
+        db,
+        user.user_id,
+        step="lesson_opened",
+        source_id=str(result.get("session_id") or "unknown"),
+    )
+    return result
 
 
 @router.get("/personalized/session")
@@ -324,7 +345,16 @@ async def respond_to_personalized_training(
         reason_choice=request.reason_choice,
         reason_component_id=request.reason_component_id,
     )
-    return _raise_pic_lesson_error(result)
+    result = _raise_pic_lesson_error(result)
+    if result.get("complete") is True:
+        from services.phase8_release_evidence import record_phase8_reach_event
+        await record_phase8_reach_event(
+            db,
+            user.user_id,
+            step="lesson_completed",
+            source_id=request.session_id,
+        )
+    return result
 
 
 @router.post("/personalized/session/help")

@@ -145,7 +145,7 @@ describe("CurriculumPrimary", () => {
       />
     ));
 
-    expect(container.textContent).toContain("put you back in the position");
+    expect(container.textContent).toContain("rebuilt one moment from your games");
     expect(container.textContent).not.toContain("What I noticed in your games");
     expect(container.textContent).not.toContain("This is the one idea");
   });
