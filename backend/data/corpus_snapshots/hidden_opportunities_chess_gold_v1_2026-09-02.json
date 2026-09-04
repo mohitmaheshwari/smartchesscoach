@@ -1,0 +1,3203 @@
+{
+  "schema_version": "hidden_opportunities_chess_gold_v1",
+  "generated_at_utc": "2026-09-02T18:27:48.782Z",
+  "source": "production stored analysis, read-only",
+  "database_writes": 0,
+  "privacy": {
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_emails": false,
+    "contains_usernames": false,
+    "contains_credentials": false,
+    "contains_dates": false
+  },
+  "selection": {
+    "count": 100,
+    "rating_bands": [
+      "600-899",
+      "900-1199",
+      "1200-1499",
+      "1500-1999"
+    ],
+    "per_rating_band": 25,
+    "phase_mix_per_band": {
+      "opening": 5,
+      "middlegame": 15,
+      "endgame": 5
+    },
+    "severity_bands_cp_loss": [
+      "75-149",
+      "150-299",
+      "300-599",
+      "600-999",
+      "1000-+"
+    ],
+    "selection_order": "ascending sha256(fen, played move, best move, stored four-ply lines) within each stratum",
+    "detector_labels_included": false,
+    "cell_counts": {
+      "600-899|opening|75-149": 1,
+      "600-899|opening|150-299": 1,
+      "600-899|opening|300-599": 1,
+      "600-899|opening|600-999": 1,
+      "600-899|opening|1000-+": 1,
+      "600-899|middlegame|75-149": 3,
+      "600-899|middlegame|150-299": 3,
+      "600-899|middlegame|300-599": 3,
+      "600-899|middlegame|600-999": 3,
+      "600-899|middlegame|1000-+": 3,
+      "600-899|endgame|75-149": 1,
+      "600-899|endgame|150-299": 1,
+      "600-899|endgame|300-599": 1,
+      "600-899|endgame|600-999": 1,
+      "600-899|endgame|1000-+": 1,
+      "900-1199|opening|75-149": 1,
+      "900-1199|opening|150-299": 1,
+      "900-1199|opening|300-599": 1,
+      "900-1199|opening|600-999": 1,
+      "900-1199|opening|1000-+": 1,
+      "900-1199|middlegame|75-149": 3,
+      "900-1199|middlegame|150-299": 3,
+      "900-1199|middlegame|300-599": 3,
+      "900-1199|middlegame|600-999": 3,
+      "900-1199|middlegame|1000-+": 3,
+      "900-1199|endgame|75-149": 1,
+      "900-1199|endgame|150-299": 1,
+      "900-1199|endgame|300-599": 1,
+      "900-1199|endgame|600-999": 1,
+      "900-1199|endgame|1000-+": 1,
+      "1200-1499|opening|75-149": 1,
+      "1200-1499|opening|150-299": 1,
+      "1200-1499|opening|300-599": 1,
+      "1200-1499|opening|600-999": 1,
+      "1200-1499|opening|1000-+": 1,
+      "1200-1499|middlegame|75-149": 3,
+      "1200-1499|middlegame|150-299": 3,
+      "1200-1499|middlegame|300-599": 3,
+      "1200-1499|middlegame|600-999": 3,
+      "1200-1499|middlegame|1000-+": 3,
+      "1200-1499|endgame|75-149": 1,
+      "1200-1499|endgame|150-299": 1,
+      "1200-1499|endgame|300-599": 1,
+      "1200-1499|endgame|600-999": 1,
+      "1200-1499|endgame|1000-+": 1,
+      "1500-1999|opening|75-149": 1,
+      "1500-1999|opening|150-299": 1,
+      "1500-1999|opening|300-599": 1,
+      "1500-1999|opening|600-999": 1,
+      "1500-1999|opening|1000-+": 1,
+      "1500-1999|middlegame|75-149": 3,
+      "1500-1999|middlegame|150-299": 3,
+      "1500-1999|middlegame|300-599": 3,
+      "1500-1999|middlegame|600-999": 3,
+      "1500-1999|middlegame|1000-+": 3,
+      "1500-1999|endgame|75-149": 1,
+      "1500-1999|endgame|150-299": 1,
+      "1500-1999|endgame|300-599": 1,
+      "1500-1999|endgame|600-999": 1,
+      "1500-1999|endgame|1000-+": 1
+    }
+  },
+  "positions": [
+    {
+      "position_id": "004055bd8bace360c3ca",
+      "rating_band": "600-899",
+      "phase": "opening",
+      "severity_band": "75-149",
+      "cp_loss": 110,
+      "fen": "rnbqkbnr/pppp1p2/4p3/4N2p/2B1P1p1/8/PPPP1PPP/RNBQK2R w KQkq - 0 5",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "O-O",
+        "uci": "e1g1"
+      },
+      "best_move": {
+        "san": "d4",
+        "uci": "d2d4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "d6",
+          "Nd3",
+          "Nc6",
+          "Ne1"
+        ],
+        "after_best": [
+          "d6",
+          "Nd3",
+          "Nc6",
+          "c3"
+        ]
+      }
+    },
+    {
+      "position_id": "0005a3e0bc6e4041f453",
+      "rating_band": "600-899",
+      "phase": "opening",
+      "severity_band": "150-299",
+      "cp_loss": 229,
+      "fen": "rnbq1k1r/ppp1p3/5nBp/3pP3/8/5Q2/PPP2PPP/RNB1K2R b KQ - 0 10",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Rg8",
+        "uci": "h8g8"
+      },
+      "best_move": {
+        "san": "Kg7",
+        "uci": "f8g7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxh6+",
+          "Rg7",
+          "Nc3",
+          "Kg8"
+        ],
+        "after_best": [
+          "Qg3",
+          "Rg8",
+          "Bd3+",
+          "Kf7"
+        ]
+      }
+    },
+    {
+      "position_id": "00323795d9ac962c1fa4",
+      "rating_band": "600-899",
+      "phase": "opening",
+      "severity_band": "300-599",
+      "cp_loss": 384,
+      "fen": "r1bq1rk1/ppp2ppp/8/2b5/2B2B2/3P1n1P/PPP2PP1/RN1Q1RK1 w - - 0 11",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "gxf3",
+        "uci": "g2f3"
+      },
+      "best_move": {
+        "san": "Qxf3",
+        "uci": "d1f3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "b5",
+          "Bb3",
+          "Qh4",
+          "Qd2"
+        ],
+        "after_best": [
+          "Be6",
+          "Nd2",
+          "b5",
+          "Bb3"
+        ]
+      }
+    },
+    {
+      "position_id": "03eccd1bf3d294170e7f",
+      "rating_band": "600-899",
+      "phase": "opening",
+      "severity_band": "600-999",
+      "cp_loss": 665,
+      "fen": "rn1qk2r/pQ1b1p1p/2p4p/8/3p4/P4PbR/1PP1P1P1/RN1K1BN1 b kq - 0 12",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Na6",
+        "uci": "b8a6"
+      },
+      "best_move": {
+        "san": "Bxh3",
+        "uci": "d7h3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxg3",
+          "Nc7",
+          "e4",
+          "dxe3"
+        ],
+        "after_best": [
+          "Nxh3",
+          "O-O",
+          "Nd2",
+          "Nd7"
+        ]
+      }
+    },
+    {
+      "position_id": "0588e34d8b7eafe3fbfd",
+      "rating_band": "600-899",
+      "phase": "opening",
+      "severity_band": "1000-+",
+      "cp_loss": 1023,
+      "fen": "rnb2rk1/pp2np2/2pp1p1p/8/2BNP3/2N1P3/PPP3PP/R2Q2K1 w - - 0 12",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qg4+",
+        "uci": "d1g4"
+      },
+      "best_move": {
+        "san": "Nf3",
+        "uci": "d4f3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxg4",
+          "h3",
+          "b5",
+          "Bb3"
+        ],
+        "after_best": [
+          "Nd7",
+          "Qxd6",
+          "Ng6",
+          "Bb3"
+        ]
+      }
+    },
+    {
+      "position_id": "00110d18c5dd5543c895",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 84,
+      "fen": "2kr3r/ppp4p/2q3p1/2P1pp2/2QP4/1b1RPPP1/PP6/1K5R w - - 0 23",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rxb3",
+        "uci": "d3b3"
+      },
+      "best_move": {
+        "san": "Qxb3",
+        "uci": "c4b3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxf3",
+          "Rh4",
+          "Qd1+",
+          "Qc1"
+        ],
+        "after_best": [
+          "Qxf3",
+          "Rc1",
+          "exd4",
+          "c6"
+        ]
+      }
+    },
+    {
+      "position_id": "003569d4831fa7c0c11e",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 77,
+      "fen": "4rrk1/ppp4p/3p4/3P1b1B/8/8/PPPN4/R2K1R2 b - - 0 23",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Bg6",
+        "uci": "f5g6"
+      },
+      "best_move": {
+        "san": "Re5",
+        "uci": "e8e5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxf8+",
+          "Kxf8",
+          "Bxg6",
+          "hxg6"
+        ],
+        "after_best": [
+          "c4",
+          "Bd3",
+          "Rg1+",
+          "Kh8"
+        ]
+      }
+    },
+    {
+      "position_id": "0042d09d8c6b6823171d",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 86,
+      "fen": "r3k2r/1ppn1pp1/p2b1q2/3Pp1p1/1P2B3/P1N4P/2P2P2/R2QK2R w KQkq - 1 15",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "b5",
+        "uci": "b4b5"
+      },
+      "best_move": {
+        "san": "Bd3",
+        "uci": "e4d3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nc5",
+          "bxa6",
+          "Rxa6",
+          "Qe2"
+        ],
+        "after_best": [
+          "g4",
+          "Ne4",
+          "Qf4",
+          "Qc1"
+        ]
+      }
+    },
+    {
+      "position_id": "005fe5333ac566baf660",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 281,
+      "fen": "r1b2rk1/p3qppp/2p5/2p1n3/Q2pNP2/8/PPP1B1PP/R4RK1 b - - 1 16",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "f5",
+        "uci": "f7f5"
+      },
+      "best_move": {
+        "san": "Ng4",
+        "uci": "e5g4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "fxe5",
+          "fxe4",
+          "Rxf8+",
+          "Kxf8"
+        ],
+        "after_best": [
+          "Bxg4",
+          "Qxe4",
+          "Rae1",
+          "Qg6"
+        ]
+      }
+    },
+    {
+      "position_id": "008e7cca9a300426edbe",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 189,
+      "fen": "4k1r1/3p1p2/2r2P1p/p7/2qBPQ2/P1N5/1P4Pp/R4RK1 w - - 0 26",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qxh2",
+        "uci": "f4h2"
+      },
+      "best_move": {
+        "san": "Kh1",
+        "uci": "g1h1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxd4+",
+          "Kh1",
+          "d6",
+          "Rad1"
+        ],
+        "after_best": [
+          "d6",
+          "Rad1",
+          "h5",
+          "e5"
+        ]
+      }
+    },
+    {
+      "position_id": "00c277486970bc8984cb",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 192,
+      "fen": "2rq1rk1/pp3pbp/4bnp1/2p1p3/2PnP3/2NP2PP/PP2N1BK/R1BQ1R2 w - - 0 13",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bg5",
+        "uci": "c1g5"
+      },
+      "best_move": {
+        "san": "a4",
+        "uci": "a2a4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ng4+",
+          "hxg4",
+          "Qxg5",
+          "Bh3"
+        ],
+        "after_best": [
+          "Nd7",
+          "Nd5",
+          "Bxd5",
+          "cxd5"
+        ]
+      }
+    },
+    {
+      "position_id": "00344c88ece9fe2aa6b7",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 355,
+      "fen": "3r2r1/p1p2p1p/bk3n2/2p2N2/4p1P1/NP2P2P/P1PP4/2KR1R2 b - - 2 18",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Bc8",
+        "uci": "a6c8"
+      },
+      "best_move": {
+        "san": "Bxf1",
+        "uci": "a6f1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ne7",
+          "Nxg4",
+          "Nxc8+",
+          "Kb7"
+        ],
+        "after_best": [
+          "Rxf1",
+          "Kb7",
+          "Nh6",
+          "Rg6"
+        ]
+      }
+    },
+    {
+      "position_id": "006ed87e2fcd34f74d85",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 545,
+      "fen": "1k6/1pr2p1p/6p1/8/1q1P1QP1/7P/K4P2/1R6 b - - 3 47",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qc4+",
+        "uci": "b4c4"
+      },
+      "best_move": {
+        "san": "Qa4+",
+        "uci": "b4a4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rb3",
+          "Qc2+",
+          "Rb2",
+          "Qa4+"
+        ],
+        "after_best": [
+          "Kb2",
+          "Qc2+",
+          "Ka1",
+          "Kc8"
+        ]
+      }
+    },
+    {
+      "position_id": "0086c668e815275914c2",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 379,
+      "fen": "r6k/7p/ppQp4/4p3/4P3/P3b3/KP5P/3q4 b - - 0 30",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Bd4",
+        "uci": "e3d4"
+      },
+      "best_move": {
+        "san": "Rf8",
+        "uci": "a8f8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxa8+",
+          "Kg7",
+          "h4",
+          "Qf3"
+        ],
+        "after_best": [
+          "a4",
+          "Bh6",
+          "Qc4",
+          "Qg4"
+        ]
+      }
+    },
+    {
+      "position_id": "0078ec9422e7b21e603b",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 667,
+      "fen": "r2qk1r1/2p2p2/p2p1p1p/1pbNp3/3nP3/1B1P1P1P/PPP2P2/R2Q1R1K b q - 2 14",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qd7",
+        "uci": "d8d7"
+      },
+      "best_move": {
+        "san": "c6",
+        "uci": "c7c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nxf6+",
+          "Ke7",
+          "Nxd7",
+          "Rg5"
+        ],
+        "after_best": [
+          "Ne3",
+          "Qd7",
+          "Kh2",
+          "d5"
+        ]
+      }
+    },
+    {
+      "position_id": "01c07bb03731985ac806",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 783,
+      "fen": "7k/ppp2p1p/2r4R/3pP3/PP6/2P1PP2/3K4/RNB3r1 b - - 2 23",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "d4",
+        "uci": "d5d4"
+      },
+      "best_move": {
+        "san": "Rxh6",
+        "uci": "c6h6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxc6",
+          "bxc6",
+          "exd4",
+          "h5"
+        ],
+        "after_best": [
+          "Kc2",
+          "Rhh1",
+          "Nd2",
+          "Kg8"
+        ]
+      }
+    },
+    {
+      "position_id": "025f08cb296a7e4d14d4",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 831,
+      "fen": "r3k2r/pp3ppp/3bp3/4q3/2Pn1B2/3P1QP1/PP3P1P/R4RK1 w kq - 3 14",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qg2",
+        "uci": "f3g2"
+      },
+      "best_move": {
+        "san": "Qxb7",
+        "uci": "f3b7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ne2+",
+          "Kh1",
+          "Nxf4",
+          "Qxb7"
+        ],
+        "after_best": [
+          "Ne2+",
+          "Kh1",
+          "Nxf4",
+          "Qxa8+"
+        ]
+      }
+    },
+    {
+      "position_id": "006a6d7e7306f5b6d6c0",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9075,
+      "fen": "8/7b/2prp2k/p4p2/3P1qp1/P5RP/5P1K/8 w - - 3 36",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "hxg4",
+        "uci": "h3g4"
+      },
+      "best_move": {
+        "san": "Kg2",
+        "uci": "h2g2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "fxg4",
+          "Kg2",
+          "Rxd4",
+          "Re3"
+        ],
+        "after_best": [
+          "Qe4+",
+          "Kh2",
+          "Qxd4",
+          "Re3"
+        ]
+      }
+    },
+    {
+      "position_id": "008fc95da4d581f54780",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 1178,
+      "fen": "r5k1/ppp2ppp/3p4/8/2q1r3/4R3/P3QPPP/3R2K1 b - - 1 19",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Rxe3",
+        "uci": "e4e3"
+      },
+      "best_move": {
+        "san": "Qxe2",
+        "uci": "c4e2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxc4",
+          "Re7",
+          "Qd5",
+          "Rb8"
+        ],
+        "after_best": [
+          "Rxe2",
+          "Rxe2",
+          "g4",
+          "Rae8"
+        ]
+      }
+    },
+    {
+      "position_id": "00f6d38aa9ae1149a7b0",
+      "rating_band": "600-899",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 8917,
+      "fen": "4rk1r/p1p3pp/5p2/8/8/8/PP2QK1P/3R3q b - - 1 25",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Rxe2+",
+        "uci": "e8e2"
+      },
+      "best_move": {
+        "san": "Qxh2+",
+        "uci": "h1h2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kxe2",
+          "Qg2+",
+          "Ke1",
+          "Kf7"
+        ],
+        "after_best": [
+          "Kf1",
+          "Rxe2",
+          "Rd8+",
+          "Ke7"
+        ]
+      }
+    },
+    {
+      "position_id": "000bd565e8b1cc9a4ece",
+      "rating_band": "600-899",
+      "phase": "endgame",
+      "severity_band": "75-149",
+      "cp_loss": 81,
+      "fen": "8/pp1k3p/2p5/3p4/3b4/P2P2PN/5P1P/6K1 w - - 1 32",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nf4",
+        "uci": "h3f4"
+      },
+      "best_move": {
+        "san": "Kf1",
+        "uci": "g1f1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "a5",
+          "Kf1",
+          "a4",
+          "Ke1"
+        ],
+        "after_best": [
+          "a5",
+          "Ke2",
+          "a4",
+          "Ng5"
+        ]
+      }
+    },
+    {
+      "position_id": "00c240497bd3d06c712a",
+      "rating_band": "600-899",
+      "phase": "endgame",
+      "severity_band": "150-299",
+      "cp_loss": 162,
+      "fen": "8/ppp5/1b3k1R/1P6/3p4/P2P2P1/r4PKP/8 b - - 10 42",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kg5",
+        "uci": "f6g5"
+      },
+      "best_move": {
+        "san": "Kg7",
+        "uci": "f6g7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rh8",
+          "Rxa3",
+          "h4+",
+          "Kf6"
+        ],
+        "after_best": [
+          "Rh4",
+          "Rxa3",
+          "Rg4+",
+          "Kh6"
+        ]
+      }
+    },
+    {
+      "position_id": "01b6bee7572cace37b9d",
+      "rating_band": "600-899",
+      "phase": "endgame",
+      "severity_band": "300-599",
+      "cp_loss": 379,
+      "fen": "8/2q3PK/8/pp6/8/Q7/2pk3P/8 w - - 2 66",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "h4",
+        "uci": "h2h4"
+      },
+      "best_move": {
+        "san": "Qa2",
+        "uci": "a3a2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "c1=Q",
+          "Qa2+",
+          "Q1c2+",
+          "Qxc2+"
+        ],
+        "after_best": [
+          "Kd3",
+          "Qa3+",
+          "Ke4",
+          "h4"
+        ]
+      }
+    },
+    {
+      "position_id": "0438c05cad17f5193112",
+      "rating_band": "600-899",
+      "phase": "endgame",
+      "severity_band": "600-999",
+      "cp_loss": 998,
+      "fen": "8/8/8/6k1/5p2/4KP2/6P1/8 w - - 0 41",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Kf2",
+        "uci": "e3f2"
+      },
+      "best_move": {
+        "san": "Ke4",
+        "uci": "e3e4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kf6",
+          "Kg1",
+          "Kg5",
+          "Kh2"
+        ],
+        "after_best": [
+          "Kh6",
+          "Kf5",
+          "Kg7",
+          "Kxf4"
+        ]
+      }
+    },
+    {
+      "position_id": "0046fdd1299037467b31",
+      "rating_band": "600-899",
+      "phase": "endgame",
+      "severity_band": "1000-+",
+      "cp_loss": 9198,
+      "fen": "8/2k5/5RP1/pp2p3/1P6/5BK1/r7/8 w - - 0 39",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "bxa5",
+        "uci": "b4a5"
+      },
+      "best_move": {
+        "san": "g7",
+        "uci": "g6g7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "e4",
+          "Bxe4",
+          "Kd7",
+          "g7"
+        ],
+        "after_best": [
+          "Rd2",
+          "g8=Q",
+          "e4",
+          "Bxe4"
+        ]
+      }
+    },
+    {
+      "position_id": "000b9acf6711b1aa5bf0",
+      "rating_band": "900-1199",
+      "phase": "opening",
+      "severity_band": "75-149",
+      "cp_loss": 147,
+      "fen": "r2qk2r/3nbppp/p2pbn2/1p2p1P1/4P3/2N1BN1P/PPPQ1P2/R3KB1R b KQkq - 0 11",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Nh5",
+        "uci": "f6h5"
+      },
+      "best_move": {
+        "san": "b4",
+        "uci": "b5b4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "O-O-O",
+          "Rc8",
+          "Be2",
+          "O-O"
+        ],
+        "after_best": [
+          "gxf6",
+          "bxc3",
+          "Qxc3",
+          "Nxf6"
+        ]
+      }
+    },
+    {
+      "position_id": "005f723cebf75852fd12",
+      "rating_band": "900-1199",
+      "phase": "opening",
+      "severity_band": "150-299",
+      "cp_loss": 282,
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/6N1/3pP3/8/PPP2PPP/RNBQKB1R w KQkq - 2 5",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nxf7",
+        "uci": "g5f7"
+      },
+      "best_move": {
+        "san": "Bc4",
+        "uci": "f1c4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kxf7",
+          "Bd3",
+          "d5",
+          "O-O"
+        ],
+        "after_best": [
+          "d5",
+          "exd5",
+          "Qe7+",
+          "Kf1"
+        ]
+      }
+    },
+    {
+      "position_id": "00d2ea0ceda1a2e6ef83",
+      "rating_band": "900-1199",
+      "phase": "opening",
+      "severity_band": "300-599",
+      "cp_loss": 329,
+      "fen": "rnb1k1nr/pppp1ppp/8/1N2p3/1b2P2q/8/PPPP1PPP/R1BQKBNR w KQkq - 4 4",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "h3",
+        "uci": "h2h3"
+      },
+      "best_move": {
+        "san": "Nxc7+",
+        "uci": "b5c7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxe4+",
+          "Be2",
+          "Ba5",
+          "Nf3"
+        ],
+        "after_best": [
+          "Kd8",
+          "Nxa8",
+          "Qxe4+",
+          "Ne2"
+        ]
+      }
+    },
+    {
+      "position_id": "0b54f97530c4ad97316f",
+      "rating_band": "900-1199",
+      "phase": "opening",
+      "severity_band": "600-999",
+      "cp_loss": 713,
+      "fen": "r4rk1/ppp2ppp/2n5/3pq3/4n3/P1P1P1PB/1P3P1P/RN1Q1RK1 b - - 0 12",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qh5",
+        "uci": "e5h5"
+      },
+      "best_move": {
+        "san": "Na5",
+        "uci": "c6a5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxh5",
+          "Rfe8",
+          "Qd1",
+          "Ne5"
+        ],
+        "after_best": [
+          "Bg2",
+          "Rfe8",
+          "a4",
+          "Rad8"
+        ]
+      }
+    },
+    {
+      "position_id": "035eeb6701a9f3c4f741",
+      "rating_band": "900-1199",
+      "phase": "opening",
+      "severity_band": "1000-+",
+      "cp_loss": 1013,
+      "fen": "1rb1kb1r/p1p2ppp/3p4/3P4/1p1QP2q/1P6/P1P2P1P/R1B1KBNR w KQk - 1 12",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qxb4",
+        "uci": "d4b4"
+      },
+      "best_move": {
+        "san": "Bb2",
+        "uci": "c1b2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxb4",
+          "Be3",
+          "Qxe4",
+          "O-O-O"
+        ],
+        "after_best": [
+          "Bg4",
+          "Be2",
+          "Be7",
+          "h3"
+        ]
+      }
+    },
+    {
+      "position_id": "00277d695ac8211a7302",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 89,
+      "fen": "rqr3k1/1b3ppp/p3p3/4b3/B3p3/2P4P/1PQ1NPP1/R3R1K1 b - - 1 26",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "e3",
+        "uci": "e4e3"
+      },
+      "best_move": {
+        "san": "Bd5",
+        "uci": "b7d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "fxe3",
+          "Ra7",
+          "Nd4",
+          "Ba8"
+        ],
+        "after_best": [
+          "b3",
+          "Qa7",
+          "Rad1",
+          "Rab8"
+        ]
+      }
+    },
+    {
+      "position_id": "0028cfeb1ecfd7ce58f9",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 128,
+      "fen": "r4r1k/ppp4n/3p2n1/8/3PN1bP/1B6/PPP3P1/R4RK1 w - - 1 21",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bf7",
+        "uci": "b3f7"
+      },
+      "best_move": {
+        "san": "g3",
+        "uci": "g2g3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nxh4",
+          "Rf4",
+          "Nf5",
+          "Rxg4"
+        ],
+        "after_best": [
+          "Rae8",
+          "Rae1",
+          "Bh3",
+          "Rxf8+"
+        ]
+      }
+    },
+    {
+      "position_id": "004a053e9a798ce7c5f7",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 112,
+      "fen": "r3kb1r/5p1p/p1p1p3/3p1p2/1q6/2N2Q2/PPP2PPP/3R1RK1 w kq - 2 16",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rb1",
+        "uci": "d1b1"
+      },
+      "best_move": {
+        "san": "Rfe1",
+        "uci": "f1e1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bd6",
+          "Rfe1",
+          "Qg4",
+          "Qe3"
+        ],
+        "after_best": [
+          "Bg7",
+          "Qxf5",
+          "O-O",
+          "Qd3"
+        ]
+      }
+    },
+    {
+      "position_id": "00086ddd68c319a674c3",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 191,
+      "fen": "r1b1r1k1/ppppnppp/q7/8/PR6/8/3N1PPP/3QK2R b K - 2 18",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Nd5+",
+        "uci": "e7d5"
+      },
+      "best_move": {
+        "san": "d5",
+        "uci": "d7d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Re4",
+          "Re6",
+          "Qc2",
+          "d6"
+        ],
+        "after_best": [
+          "h4",
+          "Nc6+",
+          "Re4",
+          "dxe4"
+        ]
+      }
+    },
+    {
+      "position_id": "0015cc1d9d56f3c51c0d",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 223,
+      "fen": "2rq1rk1/p1p2ppp/2p1p3/3p1b2/Q1PP1B2/P3P3/P4PPP/2R1K2R b K - 2 13",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qd7",
+        "uci": "d8d7"
+      },
+      "best_move": {
+        "san": "Bd3",
+        "uci": "f5d3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "cxd5",
+          "Bd3",
+          "Qxc6",
+          "Qxd5"
+        ],
+        "after_best": [
+          "c5",
+          "Qf6",
+          "Kd2",
+          "Bc4"
+        ]
+      }
+    },
+    {
+      "position_id": "006f02d15026cb8b3f0c",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 265,
+      "fen": "k3r3/1pQ5/p3B3/4p3/1P1q3p/P7/5PPP/2Rn2K1 w - - 0 33",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rc2",
+        "uci": "c1c2"
+      },
+      "best_move": {
+        "san": "Qc2",
+        "uci": "c7c2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nc3",
+          "h3",
+          "Qd1+",
+          "Kh2"
+        ],
+        "after_best": [
+          "Nxf2",
+          "Qxf2",
+          "Rxe6",
+          "Rc8+"
+        ]
+      }
+    },
+    {
+      "position_id": "007fc066207f2c1093c4",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 343,
+      "fen": "r3kb1r/2Bn1ppp/p3p3/1p2N3/3P4/2R1P1P1/5PbP/R5K1 w kq - 0 22",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nxf7",
+        "uci": "e5f7"
+      },
+      "best_move": {
+        "san": "Kxg2",
+        "uci": "g1g2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kxf7",
+          "Kxg2",
+          "Be7",
+          "Bf4"
+        ],
+        "after_best": [
+          "Nxe5",
+          "dxe5",
+          "Bb4",
+          "Rc2"
+        ]
+      }
+    },
+    {
+      "position_id": "009ff662f8f7a1d7129f",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 366,
+      "fen": "5rk1/pp3ppp/1b6/8/4BP2/5K2/PP3P1r/R4R2 w - - 0 23",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rg1",
+        "uci": "f1g1"
+      },
+      "best_move": {
+        "san": "Kg3",
+        "uci": "f3g3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxf2+",
+          "Kg3",
+          "Rxb2",
+          "Rgb1"
+        ],
+        "after_best": [
+          "Rh5",
+          "Rh1",
+          "Rxh1",
+          "Rxh1"
+        ]
+      }
+    },
+    {
+      "position_id": "00dc41515d83173a5577",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 468,
+      "fen": "4r3/6k1/pp2r3/2p5/2N2p2/2R1nP2/PP4PP/4R1K1 w - - 2 29",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Kf2",
+        "uci": "g1f2"
+      },
+      "best_move": {
+        "san": "Nxe3",
+        "uci": "c4e3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ng4+",
+          "fxg4",
+          "Rxe1",
+          "Rc2"
+        ],
+        "after_best": [
+          "fxe3",
+          "Kf1",
+          "Kf7",
+          "h3"
+        ]
+      }
+    },
+    {
+      "position_id": "00d589c98469de26e2b6",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 650,
+      "fen": "3rk2r/2p2pp1/p1b1p1p1/2B1Pn2/2P1N3/1P1R3P/P4PP1/R5K1 w k - 2 26",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rad1",
+        "uci": "a1d1"
+      },
+      "best_move": {
+        "san": "Rxd8+",
+        "uci": "d3d8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxd3",
+          "Rxd3",
+          "Bxe4",
+          "Rd1"
+        ],
+        "after_best": [
+          "Kxd8",
+          "Ng5",
+          "Ke8",
+          "f3"
+        ]
+      }
+    },
+    {
+      "position_id": "011420237c8af0a723bc",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 711,
+      "fen": "1r4k1/1pp2p2/p5pp/8/4n3/P1P3R1/1PP4P/3R3K w - - 0 30",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Re3",
+        "uci": "g3e3"
+      },
+      "best_move": {
+        "san": "Rf3",
+        "uci": "g3f3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nf2+",
+          "Kg1",
+          "Nxd1",
+          "Re7"
+        ],
+        "after_best": [
+          "Nd6",
+          "c4",
+          "b6",
+          "Re3"
+        ]
+      }
+    },
+    {
+      "position_id": "025e9122f0cec5fcb361",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 691,
+      "fen": "r3r1k1/1p1b2pp/p2p1p2/2pP4/2P2P2/1P1Bb1R1/PB4PP/1R5K w - - 0 20",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Re1",
+        "uci": "b1e1"
+      },
+      "best_move": {
+        "san": "Bxf6",
+        "uci": "b2f6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bf2",
+          "Rd1",
+          "Bxg3",
+          "hxg3"
+        ],
+        "after_best": [
+          "g6",
+          "f5",
+          "Bf2",
+          "fxg6"
+        ]
+      }
+    },
+    {
+      "position_id": "0049242b6dc6f445f55d",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9352,
+      "fen": "5r1k/4R1p1/2Q4p/5P2/5q2/4nB2/Pr1p2PP/4R1K1 w - - 0 25",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "R1xe3",
+        "uci": "e1e3"
+      },
+      "best_move": {
+        "san": "R7xe3",
+        "uci": "e7e3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rb1+",
+          "Kf2",
+          "Qh4+",
+          "g3"
+        ],
+        "after_best": [
+          "Qd4",
+          "Rd1",
+          "Qxe3+",
+          "Kf1"
+        ]
+      }
+    },
+    {
+      "position_id": "0080522181f4168a13b6",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9145,
+      "fen": "r1k3r1/pp3R2/2pp4/2n1p1N1/4P2P/P2P2Q1/1PP3P1/2K5 b - - 0 25",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Ne6",
+        "uci": "c5e6"
+      },
+      "best_move": {
+        "san": "a5",
+        "uci": "a7a5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qh3",
+          "Re8",
+          "Nxe6",
+          "Kb8"
+        ],
+        "after_best": [
+          "d4",
+          "Kb8",
+          "dxc5",
+          "a4"
+        ]
+      }
+    },
+    {
+      "position_id": "013ec9c8c4437db0ec47",
+      "rating_band": "900-1199",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9291,
+      "fen": "3rk1nr/p1p2ppp/8/1p6/1Bp5/1P2P1P1/P4PBP/2RR2K1 w - - 1 18",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "bxc4",
+        "uci": "b3c4"
+      },
+      "best_move": {
+        "san": "Bc6+",
+        "uci": "g2c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxd1+",
+          "Rxd1",
+          "Ne7",
+          "cxb5"
+        ],
+        "after_best": [
+          "Rd7",
+          "Bxd7+",
+          "Kd8",
+          "Bxb5+"
+        ]
+      }
+    },
+    {
+      "position_id": "0066c0feb1a557193562",
+      "rating_band": "900-1199",
+      "phase": "endgame",
+      "severity_band": "75-149",
+      "cp_loss": 104,
+      "fen": "8/8/k4p2/4n1p1/p5P1/4P3/5r2/2RK4 w - - 0 40",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rc7",
+        "uci": "c1c7"
+      },
+      "best_move": {
+        "san": "Rc8",
+        "uci": "c1c8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kb6",
+          "Rc3",
+          "Kb5",
+          "Rc8"
+        ],
+        "after_best": [
+          "Kb5",
+          "Ra8",
+          "Nxg4",
+          "Rd8"
+        ]
+      }
+    },
+    {
+      "position_id": "003ef402af05473a03e1",
+      "rating_band": "900-1199",
+      "phase": "endgame",
+      "severity_band": "150-299",
+      "cp_loss": 219,
+      "fen": "8/8/8/1P3p2/2R1p3/2P4p/4kP1P/6K1 b - - 0 53",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kd3",
+        "uci": "e2d3"
+      },
+      "best_move": {
+        "san": "Kd2",
+        "uci": "e2d2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rd4+",
+          "Kxc3",
+          "Rd8",
+          "e3"
+        ],
+        "after_best": [
+          "b6",
+          "e3",
+          "fxe3",
+          "Kxe3"
+        ]
+      }
+    },
+    {
+      "position_id": "00a65496c8e03129feb8",
+      "rating_band": "900-1199",
+      "phase": "endgame",
+      "severity_band": "300-599",
+      "cp_loss": 429,
+      "fen": "8/5p1p/6p1/8/1r1k1P2/RP4P1/3K3P/8 b - - 6 39",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Ke4",
+        "uci": "d4e4"
+      },
+      "best_move": {
+        "san": "Kc5",
+        "uci": "d4c5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ra4",
+          "Rd4+",
+          "Kc3",
+          "Rxa4"
+        ],
+        "after_best": [
+          "Kc3",
+          "Re4",
+          "b4+",
+          "Kb6"
+        ]
+      }
+    },
+    {
+      "position_id": "01b45574328ab7030c22",
+      "rating_band": "900-1199",
+      "phase": "endgame",
+      "severity_band": "600-999",
+      "cp_loss": 670,
+      "fen": "4k3/R4r1B/1p2p2p/p1pp4/5P2/8/2P2P1P/4K3 w - - 1 28",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Ra8+",
+        "uci": "a7a8"
+      },
+      "best_move": {
+        "san": "Bg6",
+        "uci": "h7g6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ke7",
+          "Ra6",
+          "Kd6",
+          "Bg6"
+        ],
+        "after_best": [
+          "Kf8",
+          "Bxf7",
+          "Kg7",
+          "Bxe6+"
+        ]
+      }
+    },
+    {
+      "position_id": "000651ec84177bf665ea",
+      "rating_band": "900-1199",
+      "phase": "endgame",
+      "severity_band": "1000-+",
+      "cp_loss": 6424,
+      "fen": "8/8/8/8/3k2K1/8/7P/8 b - - 0 44",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Ke5",
+        "uci": "d4e5"
+      },
+      "best_move": {
+        "san": "Kc5",
+        "uci": "d4c5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kg5",
+          "Ke6",
+          "Kg6",
+          "Ke7"
+        ],
+        "after_best": [
+          "Kg5",
+          "Kc6",
+          "Kg6",
+          "Kd6"
+        ]
+      }
+    },
+    {
+      "position_id": "0039cc083d6d4d70b3d1",
+      "rating_band": "1200-1499",
+      "phase": "opening",
+      "severity_band": "75-149",
+      "cp_loss": 83,
+      "fen": "rn3rk1/ppp1Qppp/5n2/7q/2N5/2N5/PPPP1PPP/R1B1R1K1 b - - 0 11",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Nbd7",
+        "uci": "b8d7"
+      },
+      "best_move": {
+        "san": "Nc6",
+        "uci": "b8c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qe2",
+          "Rae8",
+          "Ne3",
+          "Ng4"
+        ],
+        "after_best": [
+          "Qe2",
+          "Qh4",
+          "Ne3",
+          "Nd4"
+        ]
+      }
+    },
+    {
+      "position_id": "0002cb371715ab2b00fc",
+      "rating_band": "1200-1499",
+      "phase": "opening",
+      "severity_band": "150-299",
+      "cp_loss": 234,
+      "fen": "r2qkbnr/ppp2ppp/3pN3/4p3/2BnP3/8/PPP2PPP/RNBQK2R b KQkq - 0 6",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "fxe6",
+        "uci": "f7e6"
+      },
+      "best_move": {
+        "san": "Nxe6",
+        "uci": "d4e6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "c3",
+          "Nc6",
+          "Bxe6",
+          "Qh4"
+        ],
+        "after_best": [
+          "Bxe6",
+          "fxe6",
+          "Qh5+",
+          "g6"
+        ]
+      }
+    },
+    {
+      "position_id": "00175031075fe13c6b28",
+      "rating_band": "1200-1499",
+      "phase": "opening",
+      "severity_band": "300-599",
+      "cp_loss": 478,
+      "fen": "rn2kb1r/p1Qp1pp1/3npq1p/8/3P4/3B1N2/PP3PPP/R1B1K2R w KQkq - 0 11",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bf4",
+        "uci": "c1f4"
+      },
+      "best_move": {
+        "san": "Ne5",
+        "uci": "f3e5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxf4",
+          "Rc1",
+          "Be7",
+          "O-O"
+        ],
+        "after_best": [
+          "Qd8",
+          "Qxd8+",
+          "Kxd8",
+          "Be4"
+        ]
+      }
+    },
+    {
+      "position_id": "0e4a6dba6c4116b214f4",
+      "rating_band": "1200-1499",
+      "phase": "opening",
+      "severity_band": "600-999",
+      "cp_loss": 605,
+      "fen": "r1bq1knr/pppp4/2nb3p/8/2B1PpQP/8/PPPP2P1/RNB2RK1 w - - 5 10",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "d3",
+        "uci": "d2d3"
+      },
+      "best_move": {
+        "san": "d4",
+        "uci": "d2d4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nf6",
+          "Qe2",
+          "Kg7",
+          "Bxf4"
+        ],
+        "after_best": [
+          "Qe7",
+          "Bxf4",
+          "Ke8",
+          "Nc3"
+        ]
+      }
+    },
+    {
+      "position_id": "0a06936ed0875b6060a6",
+      "rating_band": "1200-1499",
+      "phase": "opening",
+      "severity_band": "1000-+",
+      "cp_loss": 9547,
+      "fen": "r3k1nr/1pp2ppp/p2p4/2b1p3/4P2q/P1N2P1P/1PPP1P2/R1BQR1K1 w kq - 1 12",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nd5",
+        "uci": "c3d5"
+      },
+      "best_move": {
+        "san": "d4",
+        "uci": "d2d4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qg3+",
+          "Kh1",
+          "Bxf2",
+          "Nxc7+"
+        ],
+        "after_best": [
+          "Bxd4",
+          "Be3",
+          "Bxc3",
+          "bxc3"
+        ]
+      }
+    },
+    {
+      "position_id": "00657dbc2b625024c664",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 116,
+      "fen": "r1q2rk1/pp3pp1/2nb1n1p/1B1N4/3PpN2/4Q1Pb/PPP2P1P/R1B1R1K1 b - - 0 13",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Bxf4",
+        "uci": "d6f4"
+      },
+      "best_move": {
+        "san": "Nxd5",
+        "uci": "f6d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nxf6+",
+          "gxf6",
+          "Qxf4",
+          "Nxd4"
+        ],
+        "after_best": [
+          "Nxd5",
+          "Qf5",
+          "Qxe4",
+          "Rae8"
+        ]
+      }
+    },
+    {
+      "position_id": "007af6673281e5b1e2d6",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 114,
+      "fen": "2rk3r/5ppp/4pn2/p2p4/2qP3P/2PNPP2/P1Q3P1/R1R3K1 b - - 4 24",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Re8",
+        "uci": "h8e8"
+      },
+      "best_move": {
+        "san": "Nd7",
+        "uci": "f6d7"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ne5",
+          "Qc7",
+          "Rab1",
+          "Re7"
+        ],
+        "after_best": [
+          "Rab1",
+          "Rc7",
+          "Nb2",
+          "Qa6"
+        ]
+      }
+    },
+    {
+      "position_id": "00811a06fe943896b4d6",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 105,
+      "fen": "5rk1/pp1R1p1p/2p3p1/n3P3/2b1BP2/P1N1P2P/1P3KP1/8 b - - 1 21",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kg7",
+        "uci": "g8g7"
+      },
+      "best_move": {
+        "san": "Be6",
+        "uci": "c4e6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "b4",
+          "Be6",
+          "Rc7",
+          "Nc4"
+        ],
+        "after_best": [
+          "Rc7",
+          "Rd8",
+          "Ke1",
+          "Nc4"
+        ]
+      }
+    },
+    {
+      "position_id": "000a0fa9377454c627d6",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 250,
+      "fen": "1k1r1r2/1pp5/p1np2pp/q7/8/1Q1P1N1P/PPP1BP2/2KRR3 w - - 5 20",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rg1",
+        "uci": "e1g1"
+      },
+      "best_move": {
+        "san": "d4",
+        "uci": "d3d4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rde8",
+          "Rd2",
+          "Rxe2",
+          "Rxe2"
+        ],
+        "after_best": [
+          "Rf4",
+          "d5",
+          "Nb4",
+          "a3"
+        ]
+      }
+    },
+    {
+      "position_id": "000e856c700290b87773",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 261,
+      "fen": "2kr3r/2p2pp1/p4q1p/2bBpP2/1pP1P3/8/PP2Q1PP/R4R1K w - - 0 19",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qc2",
+        "uci": "e2c2"
+      },
+      "best_move": {
+        "san": "a3",
+        "uci": "a2a3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "c6",
+          "a3",
+          "b3",
+          "Qxb3"
+        ],
+        "after_best": [
+          "bxa3",
+          "Rfb1",
+          "axb2",
+          "Rxb2"
+        ]
+      }
+    },
+    {
+      "position_id": "001c97507d051257eca2",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 155,
+      "fen": "2r5/2qr1pkp/4p1P1/p7/3P2Q1/2P2P2/P5P1/R1R3K1 b - - 0 34",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "fxg6",
+        "uci": "f7g6"
+      },
+      "best_move": {
+        "san": "hxg6",
+        "uci": "h7g6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxe6",
+          "Re7",
+          "Qg4",
+          "Rf8"
+        ],
+        "after_best": [
+          "Kf2",
+          "Rd5",
+          "c4",
+          "Rf5"
+        ]
+      }
+    },
+    {
+      "position_id": "004d3d08b5eed9736203",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 301,
+      "fen": "2k1r2r/1bq2p1p/pp1bp1p1/2p1N3/5P1P/2NPQ3/PPP5/2K1R1R1 w - - 1 20",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "d4",
+        "uci": "d3d4"
+      },
+      "best_move": {
+        "san": "Rgf1",
+        "uci": "g1f1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "cxd4",
+          "Qxd4",
+          "Bc5",
+          "Qa4"
+        ],
+        "after_best": [
+          "Rhf8",
+          "Ne4",
+          "Bxe4",
+          "Qxe4"
+        ]
+      }
+    },
+    {
+      "position_id": "009165b2ba85628b33b8",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 355,
+      "fen": "r1b2k1r/p4p1p/2p2p2/3p4/1q1b1P2/1BNQ4/P1P3PP/R3R2K w - - 4 18",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Ne2",
+        "uci": "c3e2"
+      },
+      "best_move": {
+        "san": "Nxd5",
+        "uci": "c3d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxa1",
+          "Rxa1",
+          "Bg4",
+          "Nd4"
+        ],
+        "after_best": [
+          "cxd5",
+          "Rad1",
+          "Be6",
+          "Qxd4"
+        ]
+      }
+    },
+    {
+      "position_id": "0093c7dfa97e300cf68c",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 314,
+      "fen": "2k4r/1p1r1p2/p1p1p2p/3q2p1/1Q1P4/2P3B1/PRP2PPP/5K2 w - - 4 24",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Ke2",
+        "uci": "f1e2"
+      },
+      "best_move": {
+        "san": "Be5",
+        "uci": "g3e5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qb5+",
+          "Qxb5",
+          "cxb5",
+          "Rb4"
+        ],
+        "after_best": [
+          "f6",
+          "c4",
+          "Qe4",
+          "Bxf6"
+        ]
+      }
+    },
+    {
+      "position_id": "00906363fd88603401ce",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 840,
+      "fen": "4r2k/ppq3rp/6b1/5Q2/5P2/2P1pR1P/PP2B1P1/4R2K w - - 2 31",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qe5",
+        "uci": "f5e5"
+      },
+      "best_move": {
+        "san": "Qf6",
+        "uci": "f5f6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxe5",
+          "fxe5",
+          "Be4",
+          "Rf8+"
+        ],
+        "after_best": [
+          "Qd7",
+          "Rd1",
+          "Qe7",
+          "Qxe7"
+        ]
+      }
+    },
+    {
+      "position_id": "00c38fc4a7109e8b990f",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 793,
+      "fen": "3r3k/pp3Qp1/1q1p1b1p/5P2/2B2R2/1P5P/P5P1/7K w - - 1 29",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rh4",
+        "uci": "f4h4"
+      },
+      "best_move": {
+        "san": "Re4",
+        "uci": "f4e4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxh4",
+          "Be6",
+          "Qe3",
+          "Qg6"
+        ],
+        "after_best": [
+          "Qc6",
+          "Re6",
+          "b5",
+          "Rxf6"
+        ]
+      }
+    },
+    {
+      "position_id": "0118dc490429e4892559",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 789,
+      "fen": "6k1/pp3rp1/1n5p/2B5/4q3/PQ3RPP/6K1/8 b - - 1 33",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kh8",
+        "uci": "g8h8"
+      },
+      "best_move": {
+        "san": "Nc4",
+        "uci": "b6c4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxf7",
+          "Na4",
+          "Bf2",
+          "Qc6"
+        ],
+        "after_best": [
+          "Kf2",
+          "Qxf3+",
+          "Qxf3",
+          "b6"
+        ]
+      }
+    },
+    {
+      "position_id": "017869d24654948c5ef8",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9246,
+      "fen": "Q7/p3R1pk/1p3n1p/1P6/8/3P4/5PKP/1qr5 w - - 6 29",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qxa7",
+        "uci": "a8a7"
+      },
+      "best_move": {
+        "san": "Qc6",
+        "uci": "a8c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rg1+",
+          "Kf3",
+          "Qxd3+",
+          "Re3"
+        ],
+        "after_best": [
+          "Rxc6",
+          "bxc6",
+          "Nd5",
+          "Rxa7"
+        ]
+      }
+    },
+    {
+      "position_id": "017a76d6a153237ced25",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 10275,
+      "fen": "5rk1/2Q3p1/4pqPR/p7/Np2p3/8/KPP2P2/3r4 w - - 0 27",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rh3",
+        "uci": "h6h3"
+      },
+      "best_move": {
+        "san": "Rh8+",
+        "uci": "h6h8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxg6",
+          "Qh2",
+          "e5",
+          "Nc5"
+        ],
+        "after_best": [
+          "Kxh8",
+          "Qh2+",
+          "Qh4",
+          "Qxh4+"
+        ]
+      }
+    },
+    {
+      "position_id": "020bffcc12757f30de78",
+      "rating_band": "1200-1499",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9585,
+      "fen": "r4r2/pppk1B2/3p2p1/4b2p/4P1bq/2N5/PPPP2Q1/R1B2RK1 w - - 5 18",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bc4",
+        "uci": "f7c4"
+      },
+      "best_move": {
+        "san": "Nd5",
+        "uci": "c3d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bd4+",
+          "Rf2",
+          "Bxf2+",
+          "Kf1"
+        ],
+        "after_best": [
+          "Bh3",
+          "Qxg6",
+          "Bd4+",
+          "Ne3"
+        ]
+      }
+    },
+    {
+      "position_id": "003f8f5a70844cfad27d",
+      "rating_band": "1200-1499",
+      "phase": "endgame",
+      "severity_band": "75-149",
+      "cp_loss": 78,
+      "fen": "8/p6p/1p1k2p1/1r6/4KN2/6P1/PP5P/8 w - - 1 40",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "b3",
+        "uci": "b2b3"
+      },
+      "best_move": {
+        "san": "Nd3",
+        "uci": "f4d3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ra5",
+          "a4",
+          "b5",
+          "axb5"
+        ],
+        "after_best": [
+          "Ra5",
+          "Nc1",
+          "Rh5",
+          "h4"
+        ]
+      }
+    },
+    {
+      "position_id": "0008cc899d4641aa6b2a",
+      "rating_band": "1200-1499",
+      "phase": "endgame",
+      "severity_band": "150-299",
+      "cp_loss": 231,
+      "fen": "7n/5k2/p4P2/1p3KPP/1P6/P7/2N5/8 b - - 2 52",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kf8",
+        "uci": "f7f8"
+      },
+      "best_move": {
+        "san": "Ke8",
+        "uci": "f7e8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "g6",
+          "a5",
+          "g7+",
+          "Kg8"
+        ],
+        "after_best": [
+          "g6",
+          "Kd7",
+          "Nd4",
+          "a5"
+        ]
+      }
+    },
+    {
+      "position_id": "0007865b9b619d5c9be0",
+      "rating_band": "1200-1499",
+      "phase": "endgame",
+      "severity_band": "300-599",
+      "cp_loss": 448,
+      "fen": "8/p1b5/7p/1KP5/6k1/8/P1B5/8 w - - 1 49",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "c6",
+        "uci": "c5c6"
+      },
+      "best_move": {
+        "san": "Kc6",
+        "uci": "b5c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kf4",
+          "Ka6",
+          "Ke5",
+          "Bd1"
+        ],
+        "after_best": [
+          "Bh2",
+          "Kd7",
+          "Kf4",
+          "c6"
+        ]
+      }
+    },
+    {
+      "position_id": "05622e8ee664fa64e0f6",
+      "rating_band": "1200-1499",
+      "phase": "endgame",
+      "severity_band": "600-999",
+      "cp_loss": 825,
+      "fen": "2RBk3/3r1pK1/1p2p3/p1p1P3/2P5/8/P1P5/8 b - - 0 44",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Rxd8",
+        "uci": "d7d8"
+      },
+      "best_move": {
+        "san": "f5+",
+        "uci": "f7f5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxd8+",
+          "Kxd8",
+          "Kxf7",
+          "b5"
+        ],
+        "after_best": [
+          "Kf6",
+          "Rxd8",
+          "Rc6",
+          "f4"
+        ]
+      }
+    },
+    {
+      "position_id": "01846e46efc27b8fcd86",
+      "rating_band": "1200-1499",
+      "phase": "endgame",
+      "severity_band": "1000-+",
+      "cp_loss": 8495,
+      "fen": "3r3k/3Pq1pp/2Q5/8/1p6/4p3/1P6/6K1 w - - 4 42",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qc8",
+        "uci": "c6c8"
+      },
+      "best_move": {
+        "san": "Qc1",
+        "uci": "c6c1"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "e2",
+          "Qxd8+",
+          "Qxd8",
+          "Kf2"
+        ],
+        "after_best": [
+          "e2",
+          "Qe1",
+          "Qxd7",
+          "Qxe2"
+        ]
+      }
+    },
+    {
+      "position_id": "005ffb8676db567832b4",
+      "rating_band": "1500-1999",
+      "phase": "opening",
+      "severity_band": "75-149",
+      "cp_loss": 80,
+      "fen": "r2qk2r/pp2npbp/2n1p1p1/1B1pP1B1/3P4/2N2Q1P/PP3PP1/R3K2R b KQkq - 2 11",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "a6",
+        "uci": "a7a6"
+      },
+      "best_move": {
+        "san": "Qb6",
+        "uci": "d8b6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxc6+",
+          "bxc6",
+          "O-O",
+          "h6"
+        ],
+        "after_best": [
+          "Qd3",
+          "a6",
+          "Ba4",
+          "O-O"
+        ]
+      }
+    },
+    {
+      "position_id": "00e5eefd87bc898795af",
+      "rating_band": "1500-1999",
+      "phase": "opening",
+      "severity_band": "150-299",
+      "cp_loss": 164,
+      "fen": "r2qkb1r/pbpnppp1/1p1p1n1p/1B1P4/3N4/2N5/PPP2PPP/R1BQR1K1 b kq - 1 9",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Nxd5",
+        "uci": "f6d5"
+      },
+      "best_move": {
+        "san": "Qc8",
+        "uci": "d8c8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qf3",
+          "Nxc3",
+          "Bxd7+",
+          "Qxd7"
+        ],
+        "after_best": [
+          "Qe2",
+          "a6",
+          "Bc6",
+          "Ng8"
+        ]
+      }
+    },
+    {
+      "position_id": "00c602f41766e197fcb2",
+      "rating_band": "1500-1999",
+      "phase": "opening",
+      "severity_band": "300-599",
+      "cp_loss": 342,
+      "fen": "r2qk1nr/1b1nppbp/p2p2p1/2pP4/Pp2P3/1BN2N2/1PP2PPP/R1BQ1RK1 w kq - 0 11",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bf4",
+        "uci": "c1f4"
+      },
+      "best_move": {
+        "san": "Ne2",
+        "uci": "c3e2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "bxc3",
+          "bxc3",
+          "Ngf6",
+          "a5"
+        ],
+        "after_best": [
+          "a5",
+          "Bc4",
+          "Ngf6",
+          "Ng3"
+        ]
+      }
+    },
+    {
+      "position_id": "119ce485168615df9842",
+      "rating_band": "1500-1999",
+      "phase": "opening",
+      "severity_band": "600-999",
+      "cp_loss": 605,
+      "fen": "r2qkbnr/pp1b1ppp/2n1p3/1B6/3NN3/8/PPP2PPP/R1BQK2R w KQkq - 3 8",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nd6+",
+        "uci": "e4d6"
+      },
+      "best_move": {
+        "san": "Nxc6",
+        "uci": "d4c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxd6",
+          "Nxc6",
+          "Bxc6",
+          "Bxc6+"
+        ],
+        "after_best": [
+          "Qb6",
+          "Nxa7",
+          "Bxb5",
+          "Nxb5"
+        ]
+      }
+    },
+    {
+      "position_id": "0a0c4404d6a5dda2dbb2",
+      "rating_band": "1500-1999",
+      "phase": "opening",
+      "severity_band": "1000-+",
+      "cp_loss": 9407,
+      "fen": "r2qkbnr/3b2p1/p1ppP2p/5p2/P1B1P3/2N5/1PP3PP/R1BQ1RK1 b kq - 0 12",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Bc8",
+        "uci": "d7c8"
+      },
+      "best_move": {
+        "san": "Nf6",
+        "uci": "g8f6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qh5+",
+          "g6",
+          "Qxg6+",
+          "Ke7"
+        ],
+        "after_best": [
+          "exd7+",
+          "Qxd7",
+          "Kh1",
+          "d5"
+        ]
+      }
+    },
+    {
+      "position_id": "000464a01e12a76060dd",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 110,
+      "fen": "4r2k/1p4p1/2pR3p/4PQ2/P4P2/4q1P1/P5KP/8 w - - 0 36",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qf7",
+        "uci": "f5f7"
+      },
+      "best_move": {
+        "san": "Kh3",
+        "uci": "g2h3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qe2+",
+          "Kh3",
+          "Rg8",
+          "Qg6"
+        ],
+        "after_best": [
+          "Qe2",
+          "Qd3",
+          "Qh5+",
+          "Kg2"
+        ]
+      }
+    },
+    {
+      "position_id": "00046c5f4d3ea3a62bbd",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 81,
+      "fen": "2r3k1/3r1pp1/p1qp1b1p/1p1Qp3/2P1P3/1P2BP2/P5PP/2R2RK1 b - - 1 26",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "b4",
+        "uci": "b5b4"
+      },
+      "best_move": {
+        "san": "Bg5",
+        "uci": "f6g5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxc6",
+          "Rxc6",
+          "Rcd1",
+          "Kf8"
+        ],
+        "after_best": [
+          "Bxg5",
+          "hxg5",
+          "Qxc6",
+          "Rxc6"
+        ]
+      }
+    },
+    {
+      "position_id": "00080450e4f884820a9e",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "75-149",
+      "cp_loss": 82,
+      "fen": "2kr3r/1p1n1p1p/1np1p1p1/p7/P2PP2q/1PP1bN2/4B1PP/R1BQ1R1K b - - 4 19",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qxe4",
+        "uci": "h4e4"
+      },
+      "best_move": {
+        "san": "Qh6",
+        "uci": "h4h6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bd3",
+          "Qf4",
+          "Ne5",
+          "Bxc1"
+        ],
+        "after_best": [
+          "b4",
+          "Bxc1",
+          "Rxc1",
+          "f5"
+        ]
+      }
+    },
+    {
+      "position_id": "001d12f6e8e923e5d08d",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 213,
+      "fen": "3k1b1r/ppp3p1/2q1pp2/8/Q7/5N2/P4P1P/RK6 w - - 0 25",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qxa7",
+        "uci": "a4a7"
+      },
+      "best_move": {
+        "san": "Qxc6",
+        "uci": "a4c6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxf3",
+          "Kb2",
+          "Qe2+",
+          "Kc1"
+        ],
+        "after_best": [
+          "bxc6",
+          "h4",
+          "Bc5",
+          "a4"
+        ]
+      }
+    },
+    {
+      "position_id": "002f0235720da345b731",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 207,
+      "fen": "r1r2k2/pp1n1p2/4p1p1/q2p1b2/3Pp3/2N3Q1/PPP1N3/2KR1B1R w - - 2 19",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qh4",
+        "uci": "g3h4"
+      },
+      "best_move": {
+        "san": "Qd6+",
+        "uci": "g3d6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "b5",
+          "Ng3",
+          "Rxc3",
+          "bxc3"
+        ],
+        "after_best": [
+          "Kg7",
+          "Qxd7",
+          "Rh8",
+          "Rxh8"
+        ]
+      }
+    },
+    {
+      "position_id": "002f6caa4f8f8f852060",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "150-299",
+      "cp_loss": 165,
+      "fen": "3q1rk1/1b2ppbp/r1p2npB/pp5n/2pPP3/P1N2NP1/1P1Q1PBP/2R1R1K1 w - - 10 15",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bxg7",
+        "uci": "h6g7"
+      },
+      "best_move": {
+        "san": "e5",
+        "uci": "e4e5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nxg7",
+          "Rcd1",
+          "Kh8",
+          "Qh6"
+        ],
+        "after_best": [
+          "Bxh6",
+          "Qxh6",
+          "Ng4",
+          "Qg5"
+        ]
+      }
+    },
+    {
+      "position_id": "00a3fd592fca14e9eb29",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 327,
+      "fen": "3Q4/5pk1/1p2p1p1/4Pq1p/8/5N2/P3bPPP/6K1 w - - 1 27",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Qf6+",
+        "uci": "d8f6"
+      },
+      "best_move": {
+        "san": "Qxb6",
+        "uci": "d8b6"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxf6",
+          "exf6+",
+          "Kxf6",
+          "Nd2"
+        ],
+        "after_best": [
+          "Bxf3",
+          "gxf3",
+          "Qg5+",
+          "Kh1"
+        ]
+      }
+    },
+    {
+      "position_id": "00b9bbf4cfe5fc537839",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 369,
+      "fen": "4r1k1/2r2pp1/5pp1/1R6/4N3/1PPn1P2/1P4PP/5RK1 w - - 1 25",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Nd6",
+        "uci": "e4d6"
+      },
+      "best_move": {
+        "san": "Rd5",
+        "uci": "b5d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Re2",
+          "f4",
+          "Rxb2",
+          "Nc4"
+        ],
+        "after_best": [
+          "Nf4",
+          "Rd2",
+          "g5",
+          "Nd6"
+        ]
+      }
+    },
+    {
+      "position_id": "00e9bf6d508b9c9d2871",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "300-599",
+      "cp_loss": 470,
+      "fen": "r4rk1/5ppp/p2P1q2/1p5Q/3R4/3P2B1/P5PP/6K1 w - - 1 24",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rf4",
+        "uci": "d4f4"
+      },
+      "best_move": {
+        "san": "Qd5",
+        "uci": "h5d5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxd6",
+          "Rg4",
+          "Qxd3",
+          "h3"
+        ],
+        "after_best": [
+          "Rac8",
+          "h4",
+          "Rc1+",
+          "Kh2"
+        ]
+      }
+    },
+    {
+      "position_id": "0092ee3966f8cb299628",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 858,
+      "fen": "4r3/p3qk2/1p1r2p1/3Pnp1p/2P5/1P4PB/P2QR2P/5RK1 w - - 0 27",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rfe1",
+        "uci": "f1e1"
+      },
+      "best_move": {
+        "san": "Bxf5",
+        "uci": "h3f5"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Nf3+",
+          "Kf2",
+          "Nxd2",
+          "Rxe7+"
+        ],
+        "after_best": [
+          "gxf5",
+          "Rxf5+",
+          "Rf6",
+          "Rfxe5"
+        ]
+      }
+    },
+    {
+      "position_id": "036a9873713610d2d7b7",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 712,
+      "fen": "3r2k1/1p3ppp/1B1n2b1/q7/7Q/P7/6PP/1R2N1K1 b - - 0 30",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Qxa3",
+        "uci": "a5a3"
+      },
+      "best_move": {
+        "san": "Qa8",
+        "uci": "a5a8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Qxd8+",
+          "Ne8",
+          "Qxe8+",
+          "Qf8"
+        ],
+        "after_best": [
+          "Rd1",
+          "Rd7",
+          "Nf3",
+          "Qc8"
+        ]
+      }
+    },
+    {
+      "position_id": "039bd832a639d9c2f8ab",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "600-999",
+      "cp_loss": 763,
+      "fen": "7r/1p2kp1p/1q3p2/p2r4/2p1b3/2P1PQ2/PP3PPP/2KR1B1R w - - 0 20",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rxd5",
+        "uci": "d1d5"
+      },
+      "best_move": {
+        "san": "Qxe4+",
+        "uci": "f3e4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Bxf3",
+          "gxf3",
+          "Qc6",
+          "Rf5"
+        ],
+        "after_best": [
+          "Re5",
+          "Qxc4",
+          "Rg8",
+          "Rd2"
+        ]
+      }
+    },
+    {
+      "position_id": "008b6bb36fc9018c88c1",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 10252,
+      "fen": "4rr1k/ppq3pp/8/8/8/PQ3N1n/1BP2P2/R2R1K2 w - - 2 28",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Ne5",
+        "uci": "f3e5"
+      },
+      "best_move": {
+        "san": "Rd2",
+        "uci": "d1d2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rxf2+",
+          "Ke1",
+          "Rxe5+",
+          "Bxe5"
+        ],
+        "after_best": [
+          "Re7",
+          "Re1",
+          "Ref7",
+          "Re3"
+        ]
+      }
+    },
+    {
+      "position_id": "0144687febbf76daec06",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 9250,
+      "fen": "5bk1/Q4p1p/4p3/p2pP3/3P2p1/3n1B1P/5qPK/8 w - - 0 36",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Bxg4",
+        "uci": "f3g4"
+      },
+      "best_move": {
+        "san": "hxg4",
+        "uci": "h3g4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ne1",
+          "Qxf7+",
+          "Kxf7",
+          "Bh5+"
+        ],
+        "after_best": [
+          "Nxe5",
+          "dxe5",
+          "Qxa7",
+          "Bxd5"
+        ]
+      }
+    },
+    {
+      "position_id": "0168e48fb8c3f11f3021",
+      "rating_band": "1500-1999",
+      "phase": "middlegame",
+      "severity_band": "1000-+",
+      "cp_loss": 8790,
+      "fen": "8/8/2Q2nk1/2Pp4/R2Pp3/3n1pPr/3Q1P2/3N2K1 b - - 0 49",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Rh5",
+        "uci": "h3h5"
+      },
+      "best_move": {
+        "san": "Nxf2",
+        "uci": "d3f2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Ra6",
+          "Rh1+",
+          "Kxh1",
+          "Nxf2+"
+        ],
+        "after_best": [
+          "Qxf2",
+          "Rh6",
+          "Ra7",
+          "Rh7"
+        ]
+      }
+    },
+    {
+      "position_id": "00401fd51c8ae9442efb",
+      "rating_band": "1500-1999",
+      "phase": "endgame",
+      "severity_band": "75-149",
+      "cp_loss": 102,
+      "fen": "2k5/1pp1R3/2p5/4pr2/P3n3/4P3/1B6/6K1 b - - 3 35",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Nc5",
+        "uci": "e4c5"
+      },
+      "best_move": {
+        "san": "Nd2",
+        "uci": "e4d2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "a5",
+          "e4",
+          "Ba3",
+          "Nd3"
+        ],
+        "after_best": [
+          "Bc3",
+          "Nc4",
+          "e4",
+          "Rf3"
+        ]
+      }
+    },
+    {
+      "position_id": "00332b0973ddf0e7197b",
+      "rating_band": "1500-1999",
+      "phase": "endgame",
+      "severity_band": "150-299",
+      "cp_loss": 231,
+      "fen": "8/8/3p2kp/1ppP1p2/5P2/P7/4K2P/8 w - - 1 33",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "h3",
+        "uci": "h2h3"
+      },
+      "best_move": {
+        "san": "a4",
+        "uci": "a3a4"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kh5",
+          "Kf2",
+          "Kh4",
+          "Ke2"
+        ],
+        "after_best": [
+          "bxa4",
+          "Kd3",
+          "Kh5",
+          "Kc4"
+        ]
+      }
+    },
+    {
+      "position_id": "00bb6cd1492bc5b6f355",
+      "rating_band": "1500-1999",
+      "phase": "endgame",
+      "severity_band": "300-599",
+      "cp_loss": 420,
+      "fen": "5R2/4p3/4r1kp/6p1/6P1/1p5P/7K/1r6 w - - 0 41",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rg8+",
+        "uci": "f8g8"
+      },
+      "best_move": {
+        "san": "Kg2",
+        "uci": "h2g2"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Kf7",
+          "Kg3",
+          "Rb2",
+          "Rg7+"
+        ],
+        "after_best": [
+          "Rb2+",
+          "Kf3",
+          "Rf6+",
+          "Rxf6+"
+        ]
+      }
+    },
+    {
+      "position_id": "055d9f8521e114e4d995",
+      "rating_band": "1500-1999",
+      "phase": "endgame",
+      "severity_band": "600-999",
+      "cp_loss": 643,
+      "fen": "8/2r5/8/8/8/2PRb3/1P3kp1/1K2R3 w - - 3 48",
+      "side_to_move": "white",
+      "played_move": {
+        "san": "Rexe3",
+        "uci": "e1e3"
+      },
+      "best_move": {
+        "san": "Rdxe3",
+        "uci": "d3e3"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "g1=Q+",
+          "Kc2",
+          "Qg6",
+          "Rf3+"
+        ],
+        "after_best": [
+          "g1=Q",
+          "Rxg1",
+          "Kxe3",
+          "Kc2"
+        ]
+      }
+    },
+    {
+      "position_id": "02026bf0f56b8370c237",
+      "rating_band": "1500-1999",
+      "phase": "endgame",
+      "severity_band": "1000-+",
+      "cp_loss": 8437,
+      "fen": "6r1/6P1/6R1/5k1P/8/8/5PK1/8 b - - 2 63",
+      "side_to_move": "black",
+      "played_move": {
+        "san": "Kf4",
+        "uci": "f5f4"
+      },
+      "best_move": {
+        "san": "Re8",
+        "uci": "g8e8"
+      },
+      "stored_four_ply": {
+        "after_played": [
+          "Rg3",
+          "Ke5",
+          "h6",
+          "Kf6"
+        ],
+        "after_best": [
+          "g8=Q",
+          "Re2",
+          "Qd5+",
+          "Kf4"
+        ]
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,72 @@
+{
+  "schema_version": "target_line_causal.quiet_check_bakeoff.v1",
+  "generated_on": "2026-09-04",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "maia_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "candidate_cases": 97,
+  "material_floor_cp": 300,
+  "decision_candidates": [
+    "captures_only_depth_2",
+    "first_settlement_ply_checks_depth_3",
+    "all_quiet_checks_depth_3",
+    "all_quiet_checks_depth_4"
+  ],
+  "results": [
+    {
+      "candidate": "captures_only_depth_2",
+      "policy": "captures_only",
+      "depth": 2,
+      "retained_candidates": 65,
+      "reviewer_true_positives": 64,
+      "reviewer_false_positives": 1,
+      "reviewer_critical_false_claims": 1,
+      "semantic_precision_pct": 98.46,
+      "wilson_lower_bound_pct": 91.79,
+      "c1d5_retained": true,
+      "c1d5_settled_gain_cp": 400
+    },
+    {
+      "candidate": "first_settlement_ply_checks_depth_3",
+      "policy": "first_ply_checks",
+      "depth": 3,
+      "retained_candidates": 49,
+      "reviewer_true_positives": 49,
+      "reviewer_false_positives": 0,
+      "reviewer_critical_false_claims": 0,
+      "semantic_precision_pct": 100.0,
+      "wilson_lower_bound_pct": 92.73,
+      "c1d5_retained": false,
+      "c1d5_settled_gain_cp": -100
+    },
+    {
+      "candidate": "all_quiet_checks_depth_3",
+      "policy": "all_quiet_checks",
+      "depth": 3,
+      "retained_candidates": 49,
+      "reviewer_true_positives": 49,
+      "reviewer_false_positives": 0,
+      "reviewer_critical_false_claims": 0,
+      "semantic_precision_pct": 100.0,
+      "wilson_lower_bound_pct": 92.73,
+      "c1d5_retained": false,
+      "c1d5_settled_gain_cp": -100
+    },
+    {
+      "candidate": "all_quiet_checks_depth_4",
+      "policy": "all_quiet_checks",
+      "depth": 4,
+      "retained_candidates": 59,
+      "reviewer_true_positives": 59,
+      "reviewer_false_positives": 0,
+      "reviewer_critical_false_claims": 0,
+      "semantic_precision_pct": 100.0,
+      "wilson_lower_bound_pct": 93.89,
+      "c1d5_retained": false,
+      "c1d5_settled_gain_cp": 0
+    }
+  ]
+}

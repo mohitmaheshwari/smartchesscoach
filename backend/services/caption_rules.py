@@ -91,16 +91,15 @@ def _r01_render(f):
     side_delivering = ev.get("side_delivering_mate")
     moving_color = f.get("moving_piece_color")
     cpl = f.get("cp_loss") or 0
-    eval_before_cp = f.get("eval_before_cp")
     facts = {
         "played_san": _played(f),
+        "best_move_san": _best(f),
         "ply": ev.get("ply_to_mate"),
+        "mate_transition": ev.get("transition"),
         "delivered_on_this_move": ev.get("delivered_on_this_move", False),
         "mover_delivers": bool(side_delivering and side_delivering == moving_color),
         "mover_is_user": f.get("mover_is_user"),
-        "mate_already_on_board": (
-            isinstance(eval_before_cp, (int, float)) and eval_before_cp <= -2000
-        ),
+        "mate_already_on_board": ev.get("transition") == "already_lost",
         "pawn_swing": max(1, min(9, round(cpl / 100))) if cpl > 0 else 0,
     }
     # Punishment move for the lost-position "allows" variant: the opponent's
@@ -108,7 +107,13 @@ def _r01_render(f):
     # ("Qd2 lets Qxf2+ in") instead of the generic "position turns against
     # you". Verified by narrator_claim_verifier._check_allows. 2026-06-25.
     _pvp = f.get("pv_after_played") or []
-    if f.get("mover_is_user") and _pvp and isinstance(_pvp[0], str) and _pvp[0]:
+    if (
+        ev.get("transition") == "allowed"
+        and f.get("mover_is_user")
+        and _pvp
+        and isinstance(_pvp[0], str)
+        and _pvp[0]
+    ):
         facts["threat_move"] = _pvp[0]
     cap = render_rule("R01_mate", facts) or ""
     return CaptionOutput(

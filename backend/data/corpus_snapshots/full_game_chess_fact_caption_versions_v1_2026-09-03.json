@@ -1,0 +1,34 @@
+{
+  "schema_version": "full_game_chess_fact_caption_versions.v1",
+  "generated_on": "2026-09-03",
+  "source": "Read-only production rerun of export_full_game_chess_fact_audit.py in classifier-supplement mode",
+  "deployed_commit": "fbe6514c2e222b84c523d63bbcec330387d63d2b",
+  "current_v5_coaching_version": 140,
+  "games": 80,
+  "distribution": {
+    "135": 72,
+    "136": 6,
+    "137": 1,
+    "140": 1
+  },
+  "by_rating_band": {
+    "600-899": {
+      "135": 17,
+      "136": 2,
+      "140": 1
+    },
+    "900-1199": {
+      "135": 18,
+      "136": 2
+    },
+    "1200-1499": {
+      "135": 19,
+      "137": 1
+    },
+    "1500-1999": {
+      "135": 18,
+      "136": 2
+    }
+  },
+  "privacy": "Aggregate counts only; no users, games, positions, dates, URLs, or credentials."
+}

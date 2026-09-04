@@ -64,6 +64,69 @@ _EXACT_ENDGAME_CURRICULUM = Authorization(
 # registry does not grant it product authority. Promotion is a separate,
 # evidence-reviewed edit here.
 _AUTHORIZATIONS: Mapping[str, Authorization] = {
+    "review:board_transformation_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_board_transformation_validation_v1_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact multi-step board transformations retain every stored-line "
+            "move and require a positive material payoff after legal horizon "
+            "exchange resolution."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "Internal Shadow diagnostics only; no player-facing authority.",
+        ),
+    ),
+    "review:endgame_geometry_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_endgame_geometry_validation_v2_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact endgame and promotion resources are reconstructed from "
+            "both legal stored branches without asserting an unproved WDL."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "No named endgame technique without its canonical exact proof.",
+            "Internal Shadow diagnostics only; no player-facing authority.",
+        ),
+    ),
+    "review:forcing_tempo_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_forcing_tempo_validation_v2_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact forcing-tempo chains are reconstructed from both stored "
+            "branches, but the family has not cleared independent Caption "
+            "promotion evidence."
+        ),
+    ),
+    "review:target_line_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a7_target_line_validation_v6_2026-09-04.json"
+        ),
+        rationale=(
+            "Both stored branches are legally replayed with persistent piece "
+            "identity, and the candidate must contain an exact setup, "
+            "constraint and positive whole-sequence target payoff absent or "
+            "weaker in the played line. The payoff must remain at least a "
+            "minor piece after four legal capture/check/evasion settlement plies."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "Internal Shadow diagnostics only; no caption, prompt, plan or mastery authority.",
+            "Generic target/line facts do not authorize a named tactical motif.",
+        ),
+    ),
     "review:exact_endgame_result_change": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref=(

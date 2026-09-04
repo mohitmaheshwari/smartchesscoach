@@ -1,0 +1,379 @@
+{
+  "schema_version": "hidden_opportunities_current_runtime_comparison_v1",
+  "created_at_utc": "2026-09-02T18:37:34.986Z",
+  "evidence_packet": "hidden_opportunities_chess_gold_v1_2026-09-02.json",
+  "blind_gold": "hidden_opportunities_chess_gold_annotations_v1_2026-09-03.json",
+  "fresh_engine_runs": 0,
+  "production_reads": 0,
+  "database_writes": 0,
+  "measured": {
+    "positions": 100,
+    "gold_hidden_opportunities": 24,
+    "gold_caption_only": 35,
+    "gold_insufficient_evidence": 41,
+    "pv_analyzer_non_null": 47,
+    "pv_analyzer_crashes": 1,
+    "pv_analyzer_hits_on_gold_hidden_opportunities": 22,
+    "pv_analyzer_hidden_opportunity_recall_pct": 91.7,
+    "pv_analyzer_surface_precision_if_every_output_were_shown_pct": 46.8,
+    "manual_output_assessment": {
+      "reject": 20,
+      "partial": 19,
+      "usable": 9
+    },
+    "usable_as_written_pct_of_non_null": 19.1,
+    "concept_registry_fires_with_packet_inputs": 0,
+    "geometry_nonempty_by_gold_grade": {
+      "hidden_opportunity": "21/24",
+      "caption_only": "24/35",
+      "insufficient_evidence": "34/41"
+    }
+  },
+  "root_causes": [
+    "The analyzer evaluates only the best branch; it does not prove what changed relative to the played branch.",
+    "Any incidental fork, relative pin, discovered attack, or exposed piece can outrank the causal reason.",
+    "The deflection scan includes kings, producing the impossible phrase 'the king falls next'.",
+    "forker_value is assigned only in the fallback branch but read afterward, causing an UnboundLocalError.",
+    "Material summaries frequently state the result while omitting the reusable chess mechanism.",
+    "Static geometry presence is common in all three gold grades and therefore cannot select an opportunity by itself."
+  ],
+  "assessments": [
+    {
+      "position_id": "00323795d9ac962c1fa4",
+      "verdict": "reject",
+      "reason": "Adds an irrelevant relative-pin claim and does not compare the two recaptures.",
+      "current_output": "Qxf3 pins the pawn against the rook — wins the knight.",
+      "current_error": null
+    },
+    {
+      "position_id": "03eccd1bf3d294170e7f",
+      "verdict": "reject",
+      "reason": "The exchange result is true, but the pawn-against-bishop pin is unrelated and unsafe to say.",
+      "current_output": "Bxh3 pins the pawn against the bishop — wins a rook for a bishop.",
+      "current_error": null
+    },
+    {
+      "position_id": "0588e34d8b7eafe3fbfd",
+      "verdict": "reject",
+      "reason": "The lesson is avoiding a queen hang; saying Nf3 wins a pawn teaches the wrong reason.",
+      "current_output": "Nf3 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "00110d18c5dd5543c895",
+      "verdict": "reject",
+      "reason": "Both candidate moves take the bishop, so this does not explain why Qxb3 is better.",
+      "current_output": "Qxb3 wins a bishop for a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "005fe5333ac566baf660",
+      "verdict": "partial",
+      "reason": "The discovered attack on e4 is real, but the branch comparison and payoff are not established.",
+      "current_output": "Ng4 uncovers an attack on the knight.",
+      "current_error": null
+    },
+    {
+      "position_id": "00344c88ece9fe2aa6b7",
+      "verdict": "usable",
+      "reason": "Directly and correctly states the exchange win.",
+      "current_output": "Bxf1 wins a rook for a bishop.",
+      "current_error": null
+    },
+    {
+      "position_id": "006ed87e2fcd34f74d85",
+      "verdict": "reject",
+      "reason": "The relative pin is incidental and the move-choice difference remains unexplained.",
+      "current_output": "Qa4+ pins the pawn against the queen.",
+      "current_error": null
+    },
+    {
+      "position_id": "01c07bb03731985ac806",
+      "verdict": "usable",
+      "reason": "Directly and correctly states that the loose rook is won.",
+      "current_output": "Rxh6 wins the rook.",
+      "current_error": null
+    },
+    {
+      "position_id": "025f08cb296a7e4d14d4",
+      "verdict": "partial",
+      "reason": "The material result is true, but the seventh-rank route and delayed rook capture are omitted.",
+      "current_output": "Qxb7 wins a rook for a bishop.",
+      "current_error": null
+    },
+    {
+      "position_id": "008fc95da4d581f54780",
+      "verdict": "partial",
+      "reason": "It reaches the right material idea, but the claimed defender move is not tied to a named defender.",
+      "current_output": "Qxe2 forces the defender to move — the rook falls next — comes out a piece ahead after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "00f6d38aa9ae1149a7b0",
+      "verdict": "partial",
+      "reason": "The queen win is true, but the forcing checks and king displacement are omitted.",
+      "current_output": "Qxh2+ wins the queen and more.",
+      "current_error": null
+    },
+    {
+      "position_id": "00c240497bd3d06c712a",
+      "verdict": "reject",
+      "reason": "Both lines take the same pawn; this does not explain why Kg7 is better.",
+      "current_output": "Kg7 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "01b6bee7572cace37b9d",
+      "verdict": "partial",
+      "reason": "The pin is geometrically true, but it never explains that Qa2 stops promotion.",
+      "current_output": "Qa2 pins the pawn against the king.",
+      "current_error": null
+    },
+    {
+      "position_id": "0438c05cad17f5193112",
+      "verdict": "partial",
+      "reason": "The pawn win is true, but the teachable key-square and opposition mechanism is omitted.",
+      "current_output": "Ke4 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "0046fdd1299037467b31",
+      "verdict": "reject",
+      "reason": "The point is immediate promotion, not winning a pawn.",
+      "current_output": "g7 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "005f723cebf75852fd12",
+      "verdict": "reject",
+      "reason": "The point is avoiding an unsound knight sacrifice, not Bc4 winning a pawn.",
+      "current_output": "Bc4 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "00d2ea0ceda1a2e6ef83",
+      "verdict": "usable",
+      "reason": "Correctly identifies the checking knight fork and rook win.",
+      "current_output": "Nxc7+ attacks the king and the rook — wins a rook for a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "0028cfeb1ecfd7ce58f9",
+      "verdict": "reject",
+      "reason": "The apparent rook win is not a proven branch difference within the stored horizon.",
+      "current_output": "g3 wins the rook.",
+      "current_error": null
+    },
+    {
+      "position_id": "004a053e9a798ce7c5f7",
+      "verdict": "partial",
+      "reason": "The pin and pawn capture are true, but the comparison remains shallow.",
+      "current_output": "Rfe1 pins the pawn against the king — wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "00086ddd68c319a674c3",
+      "verdict": "usable",
+      "reason": "Correctly identifies that d5 wins the rook in the shown sequence.",
+      "current_output": "d5 wins the rook.",
+      "current_error": null
+    },
+    {
+      "position_id": "006f02d15026cb8b3f0c",
+      "verdict": "reject",
+      "reason": "A king cannot fall; the output is impossible chess language.",
+      "current_output": "Qc2 forces the defender to move — the king falls next.",
+      "current_error": null
+    },
+    {
+      "position_id": "007fc066207f2c1093c4",
+      "verdict": "partial",
+      "reason": "The net piece gain is true, but the lesson is capture priority and it is not named.",
+      "current_output": "Kxg2 comes out a piece ahead after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "025e9122f0cec5fcb361",
+      "verdict": "partial",
+      "reason": "The material count is plausible, but it misses the exchange-loss avoidance that matters.",
+      "current_output": "Bxf6 wins two pawns.",
+      "current_error": null
+    },
+    {
+      "position_id": "013ec9c8c4437db0ec47",
+      "verdict": "reject",
+      "reason": "It contains the impossible claim that the king falls next.",
+      "current_output": "Bc6+ forces the defender to move — the king falls next — wins the rook and more.",
+      "current_error": null
+    },
+    {
+      "position_id": "01b45574328ab7030c22",
+      "verdict": "usable",
+      "reason": "Correctly names the absolute pin and the rook win.",
+      "current_output": "Bg6 pins the rook against the king — wins the rook and more.",
+      "current_error": null
+    },
+    {
+      "position_id": "0002cb371715ab2b00fc",
+      "verdict": "partial",
+      "reason": "The favorable exchange is true, but the opening recapture reason is not taught.",
+      "current_output": "Nxe6 comes out a piece ahead after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "0e4a6dba6c4116b214f4",
+      "verdict": "reject",
+      "reason": "Both branches take f4; winning a pawn is not the reason d4 is better.",
+      "current_output": "d4 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "00657dbc2b625024c664",
+      "verdict": "reject",
+      "reason": "Nxd5 is immediately captured and exchanges knights; it does not simply win a knight.",
+      "current_output": "Nxd5 wins the knight.",
+      "current_error": null
+    },
+    {
+      "position_id": "001c97507d051257eca2",
+      "verdict": "reject",
+      "reason": "Both recaptures win the pawn, so the branch difference is not explained.",
+      "current_output": "hxg6 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "009165b2ba85628b33b8",
+      "verdict": "partial",
+      "reason": "It sees a net pawn, but misses the removal-of-defender sequence that makes the line memorable.",
+      "current_output": "Nxd5 wins a pawn after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "0093c7dfa97e300cf68c",
+      "verdict": "partial",
+      "reason": "The pawn win is true, but it does not establish why Be5 is the useful move.",
+      "current_output": "Be5 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "00906363fd88603401ce",
+      "verdict": "partial",
+      "reason": "The attacks and queen win are present, but the sentence does not connect them causally.",
+      "current_output": "Qf6 forks bishop and rook — wins the queen.",
+      "current_error": null
+    },
+    {
+      "position_id": "00c38fc4a7109e8b990f",
+      "verdict": "partial",
+      "reason": "The bishop is won later, but the immediate lesson is moving the attacked rook.",
+      "current_output": "Re4 wins the bishop.",
+      "current_error": null
+    },
+    {
+      "position_id": "0118dc490429e4892559",
+      "verdict": "reject",
+      "reason": "It says the queen falls next when the line is a queen-for-rook transaction.",
+      "current_output": "Nc4 forces the defender to move — the queen falls next.",
+      "current_error": null
+    },
+    {
+      "position_id": "017a76d6a153237ced25",
+      "verdict": "usable",
+      "reason": "Correctly summarizes the rook sacrifice and queen win.",
+      "current_output": "Rh8+ wins a queen for a rook.",
+      "current_error": null
+    },
+    {
+      "position_id": "020bffcc12757f30de78",
+      "verdict": "reject",
+      "reason": "Winning a pawn is not the reason Nd5 is needed; the move blocks a forcing attack.",
+      "current_output": "Nd5 wins a pawn.",
+      "current_error": null
+    },
+    {
+      "position_id": "05622e8ee664fa64e0f6",
+      "verdict": "usable",
+      "reason": "Correctly identifies the discovered check and bishop win.",
+      "current_output": "f5+ uncovers an attack on the king — wins the bishop.",
+      "current_error": null
+    },
+    {
+      "position_id": "119ce485168615df9842",
+      "verdict": "partial",
+      "reason": "The exchange result is true, but the move-order geometry is not explained.",
+      "current_output": "Nxc6 uncovers an attack on the bishop — comes out a piece ahead after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "00046c5f4d3ea3a62bbd",
+      "verdict": "reject",
+      "reason": "The analyzer crashes with an unbound local variable.",
+      "current_output": null,
+      "current_error": "UnboundLocalError: cannot access local variable 'forker_value' where it is not associated with a value"
+    },
+    {
+      "position_id": "00080450e4f884820a9e",
+      "verdict": "reject",
+      "reason": "The pin claim is incidental and does not resolve the contradictory short lines.",
+      "current_output": "Qh6 pins the pawn against the king.",
+      "current_error": null
+    },
+    {
+      "position_id": "002f0235720da345b731",
+      "verdict": "usable",
+      "reason": "Correctly identifies the check-and-attack sequence and resulting material win.",
+      "current_output": "Qd6+ attacks the king and the knight — wins the rook and more.",
+      "current_error": null
+    },
+    {
+      "position_id": "00a3fd592fca14e9eb29",
+      "verdict": "partial",
+      "reason": "The pawn gain is true, but the important comparison is avoiding the unfavorable queen trade.",
+      "current_output": "Qxb6 wins a pawn after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "00e9bf6d508b9c9d2871",
+      "verdict": "partial",
+      "reason": "The pin is geometrically true, but the stored line does not show a payoff.",
+      "current_output": "Qd5 pins the pawn against the king.",
+      "current_error": null
+    },
+    {
+      "position_id": "0092ee3966f8cb299628",
+      "verdict": "partial",
+      "reason": "The net material summary is incomplete; the clearance and rook sequence are the lesson.",
+      "current_output": "Bxf5 wins two pawns net after the exchange.",
+      "current_error": null
+    },
+    {
+      "position_id": "039bd832a639d9c2f8ab",
+      "verdict": "usable",
+      "reason": "Correctly identifies the checking zwischenzug and the follow-up material gain.",
+      "current_output": "Qxe4+ attacks the king and the rook — wins the bishop and more.",
+      "current_error": null
+    },
+    {
+      "position_id": "0144687febbf76daec06",
+      "verdict": "reject",
+      "reason": "It falsely says the queen falls next; the shown queen is the side collecting material.",
+      "current_output": "hxg4 forces the defender to move — the queen falls next.",
+      "current_error": null
+    },
+    {
+      "position_id": "00bb6cd1492bc5b6f355",
+      "verdict": "reject",
+      "reason": "A king cannot fall; the actual lesson is stepping off the checking line.",
+      "current_output": "Kg2 forces the defender to move — the king falls next — wins the rook.",
+      "current_error": null
+    },
+    {
+      "position_id": "055d9f8521e114e4d995",
+      "verdict": "partial",
+      "reason": "The exchange result is true, but the correct-rook geometry that stops promotion is omitted.",
+      "current_output": "Rdxe3 wins a queen for a rook.",
+      "current_error": null
+    }
+  ]
+}
+

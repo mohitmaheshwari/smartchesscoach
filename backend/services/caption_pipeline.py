@@ -4686,45 +4686,13 @@ def build_move_teaching_decision(
     except Exception as _wb_exc:
         logger.warning(f"[why_better] append failed m{inputs.full_move_number}: {_wb_exc!r}")
 
-    # ─── 11d. VERIFY-THEN-SHIP (the door's final gate) ───────────
-    # Teachable-caption framework Step 2 (docs/teachable_caption_framework_scope.md):
-    # the per-FEN claim verifier runs INSIDE the central layer so EVERY caller
-    # (V5, PWC, puzzle, any future surface) is auto-protected — a caption that
-    # fails verification is replaced by the verified deterministic floor, never
-    # shipped. Previously this lived only in the V5 service, so other callers
-    # bypassed it. V5's own post-call check becomes a redundant no-op (idempotent).
-    # feedback_verify_rendered_output_always. 2026-06-23.
-    try:
-        _vcap = (caption_payload.get("caption") or "").strip()
-        if _vcap:
-            from services.narrator_claim_verifier import verify_caption as _vc
-            from services.caption_fallback_tiers import tier23_caption as _t23
-            _vfacts = {
-                "move_san": inputs.played_san,
-                "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
-                "fen_after": caption_facts.get("fen_after"),
-                "is_user_move": bool(inputs.mover_is_user),
-                "cp_loss": abs(int(inputs.cp_loss or 0)),
-                "best_move_san": inputs.best_move_san,
-                "pv_after_played": list(inputs.pv_after_played or []),
-                "pv_after_best": list(inputs.pv_after_best or []),
-            }
-            if _vc(_vcap, _vfacts):  # truthy = violations found
-                _safe, _ = _t23(caption_facts, flagged_mistake=True)
-                if _safe and not _vc(_safe, _vfacts):
-                    caption_payload["caption"] = _safe
-                    caption_payload["rule_name"] = (
-                        (caption_payload.get("rule_name") or "") + "→VERIFY_SOFTENED")
-    except Exception as _vexc:
-        logger.warning(f"[verify_then_ship] m{inputs.full_move_number}: {_vexc!r}")
-
-    # ─── 11e. PIN CONTEXT — the crux the caption kept missing ──────
+    # ─── 11d. PIN CONTEXT — the crux the caption kept missing ──────
     # When the user's mistake happens with one of their pieces ABSOLUTELY pinned to
     # their king, that pin is usually THE point (why the piece is fragile, why the move
-    # fails). Prepend it. Runs AFTER verify-then-ship on purpose: the pin is board-
-    # verified by construction (detect_relevant_king_pin uses is_pinned + the pin ray),
-    # so it needs no claim-verifier — and this way it survives even when the primary
-    # caption fell to the verified floor (which discards it). Mohit 2026-07-01 (m9: the
+    # fails). Prepend it before the single final truth boundary. The pin is first
+    # derived with detect_relevant_king_pin (is_pinned + the pin ray), then the complete
+    # rendered sentence is independently checked with every other chess claim. Mohit
+    # 2026-07-01 (m9: the
     # e5 knight was pinned to the king; caption said only "d6 defends it").
     # docs/reasoning_correctness_scope.md
     try:
@@ -4988,16 +4956,24 @@ def build_move_teaching_decision(
             "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
             "fen_after": caption_facts.get("fen_after"),
             "is_user_move": bool(inputs.mover_is_user),
+            "moving_piece_color": caption_facts.get("moving_piece_color"),
+            "is_checkmate": bool(caption_facts.get("is_checkmate")),
             "cp_loss": abs(int(inputs.cp_loss or 0)),
+            "eval_before_cp": inputs.eval_before_cp,
+            "eval_after_cp": inputs.eval_after_cp,
             "best_move_san": inputs.best_move_san,
             "pv_after_played": list(inputs.pv_after_played or []),
             "pv_after_best": list(inputs.pv_after_best or []),
+            "mate_threat_evidence": caption_facts.get("mate_threat_evidence"),
         }
+        def _verify_final(text: str):
+            return _stage4_verify(text, _stage4_facts, strict_v2=True)
+
         _candidate = (caption_payload.get("caption") or "").strip()
-        _violations = _stage4_verify(_candidate, _stage4_facts) if _candidate else []
+        _violations = _verify_final(_candidate) if _candidate else []
         if _violations:
             _base_violations = (
-                _stage4_verify(_board_explanation, _stage4_facts)
+                _verify_final(_board_explanation)
                 if _board_explanation else ["missing board explanation"]
             )
             if not _base_violations:
@@ -5008,7 +4984,7 @@ def build_move_teaching_decision(
                 _rendered_personalization = False
             else:
                 _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
-                if _safe and not _stage4_verify(_safe, _stage4_facts):
+                if _safe and not _verify_final(_safe):
                     caption_payload["caption"] = _safe
                     caption_payload["rule_name"] = (
                         (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
@@ -5017,17 +4993,21 @@ def build_move_teaching_decision(
                     _rendered_personalization = False
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
-            _final_text and not _stage4_verify(_final_text, _stage4_facts)
+            _final_text and not _verify_final(_final_text)
         )
     except Exception as _stage4_exc:
         logger.warning(
             f"[stage4_final_verify] m{inputs.full_move_number}: {_stage4_exc!r}"
         )
-        # Fail closed for the new renderer: an unverified personal enrichment
-        # never becomes visible merely because the verifier was unavailable.
-        if _CAUSAL_PERSONAL_CAPTIONS_ENABLED and _rendered_personalization:
-            caption_payload["caption"] = _board_explanation
-            _rendered_personalization = False
+        # The truth boundary is unavailable, so no chess claim may ship.  Empty
+        # text is intentional: callers can render their non-claim UI state, but
+        # they cannot mistake an unchecked sentence for verified coaching.
+        caption_payload["caption"] = ""
+        caption_payload["rule_name"] = (
+            (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SILENT"
+        )
+        _board_explanation = ""
+        _rendered_personalization = False
 
     # Caption classification must describe the final text, not the pre-
     # personalization template selected earlier.

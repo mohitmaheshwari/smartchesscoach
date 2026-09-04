@@ -1,0 +1,1754 @@
+{
+  "schema_version": "target_line_causal.pre_promotion_review.v2",
+  "generated_on": "2026-09-03",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "quality_id": "review:target_line_causal_proof",
+  "proof_version": "target_line_causal_proof.v4",
+  "status": "pre_promotion_blocked",
+  "sources": [
+    {
+      "path": "backend/data/corpus_snapshots/full_game_chess_fact_audit_v1_2026-09-03.json",
+      "sha256": "63991272bc16330c85989eff35cb47dbd4e7c4eab056737341b0d0808a72c572",
+      "role": "independent_full_game_population"
+    },
+    {
+      "path": "backend/data/detector_gold/verified_single_game_cause_promotion_v1.json",
+      "sha256": "1872d90944f52f3c246252fc7abae891ec296e7689bafb8665ba14fddfbb3bc6",
+      "role": "independent_stored_line_population"
+    },
+    {
+      "path": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_v1_2026-09-02.json",
+      "sha256": "2fec4b84f8f192a138d4ab4048bbfe87eab5c46a343a0f948f6007c3e9081213",
+      "role": "development_overlap_exclusion_only"
+    }
+  ],
+  "claim_under_review": "The two complete stored continuations prove a positive setup-to-constraint-to-material-payoff target/line chain.",
+  "selection": {
+    "candidate_policy": "all independent post-horizon-guard detector fires",
+    "control_policy": "complete two-branch positive-edge no-fires; 23 from the full-game corpus with every rating-band/phase stratum covered and at most two per source unit, plus seven from distinct prior-packet source units",
+    "candidate_target": "all_available",
+    "control_target": 30,
+    "full_game_controls": 23,
+    "prior_packet_controls": 7,
+    "selection_fingerprint_sha256": "90f7821feb99a933aa217639767cc0051fe57928d25e5f6713ac5eba74121ac7"
+  },
+  "population": {
+    "architecture_overlap_excluded": 3,
+    "cases_scanned": 567,
+    "complete_branch_evidence": 563,
+    "incomplete_branch_evidence": 1,
+    "nonpositive_edge_no_fires": 320,
+    "positive_edge_near_controls": 210,
+    "candidate_fires": 33,
+    "candidate_fire_source_units": 28,
+    "mechanisms": {
+      "exchange_sequence": 2,
+      "immediate_free_capture": 5,
+      "persistent_piece_attack": 16,
+      "remove_future_attacker": 7,
+      "target_enters_controlled_square": 3
+    }
+  },
+  "review_packet": {
+    "blinded": true,
+    "detector_labels_exposed": false,
+    "cases": 63,
+    "candidate_fires_hidden": 33,
+    "controls_hidden": 30,
+    "full_control_strata": {
+      "1200-1499:endgame": 1,
+      "1200-1499:middlegame": 1,
+      "1200-1499:opening": 1,
+      "1500-1999:endgame": 1,
+      "1500-1999:middlegame": 10,
+      "1500-1999:opening": 1,
+      "600-899:endgame": 1,
+      "600-899:middlegame": 3,
+      "600-899:opening": 1,
+      "900-1199:endgame": 1,
+      "900-1199:middlegame": 1,
+      "900-1199:opening": 1
+    }
+  },
+  "promotion_gate": {
+    "caption_fire_minimum": 50,
+    "available_independent_fires": 33,
+    "fire_shortfall": 17,
+    "true_negative_minimum": 20,
+    "controls_awaiting_review": 30,
+    "semantic_precision_minimum_pct": 95.0,
+    "wilson_lower_minimum_pct": 85.0,
+    "critical_adversarial_errors_allowed": 0,
+    "independent_review_complete": false,
+    "caption_promotion_gate_passed": false,
+    "blockers": [
+      "reviewed_fire_minimum_not_met",
+      "independent_blinded_review_pending",
+      "final_rendered_claim_audit_pending"
+    ]
+  },
+  "review_rubric": {
+    "verdict_values": [
+      "proved_target_line_payoff",
+      "not_proved",
+      "insufficient_stored_horizon"
+    ],
+    "required_checks": [
+      "both stored branches replay legally and completely",
+      "the same physical setup piece and target are followed",
+      "the claimed target/line relation distinguishes the branches",
+      "the exact causal sequence has a positive material payoff",
+      "no recapture or final-position horizon leak erases the payoff",
+      "no named motif is inferred without its canonical proof"
+    ],
+    "response_contract": {
+      "case_id": "copy from the blinded case",
+      "verdict": "one verdict_values entry",
+      "critical_false_claim": "boolean",
+      "review_note": "short chess reason"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "26b2da4b9c4c9d2e22ec",
+      "review_group": "e4f74d2ddec97016dcdc",
+      "position": {
+        "fen": "4r3/2Q3kp/5np1/p3rp2/2q5/P1PR4/6PP/3R1K2 b - - 0 28",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "R8e7",
+        "stored_continuation_san": [
+          "Qxc4",
+          "h5",
+          "h3",
+          "Re2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxc7",
+        "stored_continuation_san": [
+          "g3",
+          "Qc4",
+          "Rd2",
+          "Kh6"
+        ]
+      }
+    },
+    {
+      "case_id": "6644c49b198f1a822cc3",
+      "review_group": "428ca1055c1360f22499",
+      "position": {
+        "fen": "8/5r2/5p1k/1q4p1/6RP/8/Q4PP1/5RK1 w - - 1 40",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "hxg5+",
+        "stored_continuation_san": [
+          "fxg5",
+          "Rg3",
+          "Kg7",
+          "Rd1"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxf7",
+        "stored_continuation_san": [
+          "Qb2",
+          "hxg5+",
+          "fxg5",
+          "Qe6+"
+        ]
+      }
+    },
+    {
+      "case_id": "e16b9348e9246a27b96e",
+      "review_group": "d1103a16471503f2bc11",
+      "position": {
+        "fen": "r3k1nr/pp1q1ppp/n3p3/1NbN4/5P2/5Q2/PPP3PP/R1B1R2K w kq - 7 16",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Ndc3",
+        "stored_continuation_san": [
+          "Ne7",
+          "f5",
+          "Qc6",
+          "Qg4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "f5",
+        "stored_continuation_san": [
+          "O-O-O",
+          "Ndc3",
+          "Nf6",
+          "fxe6"
+        ]
+      }
+    },
+    {
+      "case_id": "d75f48682df960241be5",
+      "review_group": "65154e22eacdbca50544",
+      "position": {
+        "fen": "r3kb1r/pppb1ppp/1q2p3/8/1n1P2n1/P1N2N2/1PPBQPPP/2KR1B1R b kq - 0 12",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Nc6",
+        "stored_continuation_san": [
+          "Nd5",
+          "Nxd4",
+          "Nxd4",
+          "Qc5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "a5",
+        "stored_continuation_san": [
+          "Bg5",
+          "h6",
+          "Bh4",
+          "h5"
+        ]
+      }
+    },
+    {
+      "case_id": "bd88fefad3884f83e985",
+      "review_group": "eb765ca489d855e676e3",
+      "position": {
+        "fen": "5rk1/1p2r2p/p3pqp1/3pR3/3P2Pn/2N1R3/PP3P1P/3Q2K1 w - - 3 25",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qe1",
+        "stored_continuation_san": [
+          "Nf3+",
+          "Rxf3",
+          "Qxf3",
+          "Qe2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qe2",
+        "stored_continuation_san": [
+          "Ref7",
+          "Nd1",
+          "Nf3+",
+          "Rxf3"
+        ]
+      }
+    },
+    {
+      "case_id": "cfcf0816ad9d38501d36",
+      "review_group": "f9e95411f763b2e13a52",
+      "position": {
+        "fen": "8/4k3/P7/8/8/1PR4P/2P1KP1r/8 w - - 1 44",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "b4",
+        "stored_continuation_san": [
+          "Rh1",
+          "b5",
+          "Ra1",
+          "b6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "a7",
+        "stored_continuation_san": [
+          "Rg2",
+          "a8=Q",
+          "Rg6",
+          "Qb7+"
+        ]
+      }
+    },
+    {
+      "case_id": "7ca595cb5eb3b16df32f",
+      "review_group": "d89c489461dcc9022375",
+      "position": {
+        "fen": "4rrk1/p5pp/1pn5/q2pp3/P7/2P1RN2/3Q1PPP/R5K1 w - - 0 22",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Nxe5",
+        "stored_continuation_san": [
+          "Rxe5",
+          "Rae1",
+          "Rxe3",
+          "Qxe3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rd1",
+        "stored_continuation_san": [
+          "Rd8",
+          "Qa2",
+          "Rf5",
+          "h3"
+        ]
+      }
+    },
+    {
+      "case_id": "e399dd67a7c7eb6d5179",
+      "review_group": "07da5e4edec85e7fd247",
+      "position": {
+        "fen": "1k6/pp3p1p/2p3p1/8/3PK1Q1/1q3P2/6PP/8 b - - 3 30",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Qd5+",
+        "stored_continuation_san": [
+          "Kd3",
+          "a5",
+          "Qf4+",
+          "Ka7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "f5+",
+        "stored_continuation_san": [
+          "Ke5",
+          "fxg4",
+          "Kf6",
+          "Qd3"
+        ]
+      }
+    },
+    {
+      "case_id": "b7fee45ee6f90317925a",
+      "review_group": "e5223dad811b35a4ef98",
+      "position": {
+        "fen": "r5k1/1R3ppp/pnp1p3/3nP1N1/P2P4/3B3P/5PP1/6K1 b - - 4 26",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "f6",
+        "stored_continuation_san": [
+          "Nxe6",
+          "Nxa4",
+          "Rxg7+",
+          "Kh8"
+        ]
+      },
+      "better_branch": {
+        "move_san": "h6",
+        "stored_continuation_san": [
+          "a5",
+          "hxg5",
+          "axb6",
+          "a5"
+        ]
+      }
+    },
+    {
+      "case_id": "14e835473f732db99e2a",
+      "review_group": "9e2fb62447b2bf273020",
+      "position": {
+        "fen": "4rrk1/ppp2p1p/5qp1/8/6b1/3P1N2/PPP1QPPK/R1B1R3 w - - 2 16",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Be3",
+        "stored_continuation_san": [
+          "Re5",
+          "Kg3",
+          "Bh5",
+          "Qd2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxe8",
+        "stored_continuation_san": [
+          "Rxe8",
+          "Rxe8+",
+          "Kg7",
+          "Re3"
+        ]
+      }
+    },
+    {
+      "case_id": "03d1db51466d65afee20",
+      "review_group": "eb70de2b2ea19abe5c2c",
+      "position": {
+        "fen": "r4r2/ppp3bk/2np1qpp/8/2BpP3/5N1P/PPP2P1P/R2Q1R1K w - - 3 17",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "c3",
+        "stored_continuation_san": [
+          "Qxf3+",
+          "Qxf3",
+          "Rxf3",
+          "Bd5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Ne1",
+        "stored_continuation_san": [
+          "Qh4",
+          "Qg4",
+          "Qe7",
+          "Bd3"
+        ]
+      }
+    },
+    {
+      "case_id": "fa87ecd87a20d76edcaf",
+      "review_group": "e5223dad811b35a4ef98",
+      "position": {
+        "fen": "rn2k1nr/p4ppp/B1p1p3/8/P2PP3/2p2N2/1pRB1PPP/3R2K1 b kq - 0 17",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "cxd2",
+        "stored_continuation_san": [
+          "Bb7",
+          "Ke7",
+          "Bxa8",
+          "Nf6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxa6",
+        "stored_continuation_san": [
+          "Bxc3",
+          "Nf6",
+          "Bxb2",
+          "Nb4"
+        ]
+      }
+    },
+    {
+      "case_id": "744b40dde590a664c5d6",
+      "review_group": "e20b597896f5476070e9",
+      "position": {
+        "fen": "r1b1k2r/ppppnppp/2n2q2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w kq - 8 6",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Nb5",
+        "stored_continuation_san": [
+          "Bb6",
+          "d4",
+          "exd4",
+          "Bg5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nd5",
+        "stored_continuation_san": [
+          "Nxd5",
+          "exd5",
+          "e4",
+          "Qe2"
+        ]
+      }
+    },
+    {
+      "case_id": "c4db1d14a393ddf51c2a",
+      "review_group": "ca155f7238723d64f392",
+      "position": {
+        "fen": "r1q1kr2/pbp2p2/1pnp1B2/3N2Qp/2P1P3/3B4/PP3PPP/R3K2R w KQq - 0 15",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "e5",
+        "stored_continuation_san": [
+          "Nd4",
+          "e6",
+          "Nxe6",
+          "Qg3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bc3",
+        "stored_continuation_san": [
+          "h4",
+          "O-O-O",
+          "f6",
+          "Nxf6+"
+        ]
+      }
+    },
+    {
+      "case_id": "c521db73796a3b806a9e",
+      "review_group": "4a2e21b1802db5be522a",
+      "position": {
+        "fen": "8/p2P4/4k3/bp2p3/5r2/3P4/3r2PP/2R1K1R1 b - - 6 33",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Rxd3+",
+        "stored_continuation_san": [
+          "Ke2",
+          "Rd2+",
+          "Ke3",
+          "Rxd7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rxg2+",
+        "stored_continuation_san": [
+          "Rc3",
+          "Rxg1+",
+          "Ke2",
+          "Rg2+"
+        ]
+      }
+    },
+    {
+      "case_id": "dc12a2798a102a91503a",
+      "review_group": "6882e40cec38ad163bb7",
+      "position": {
+        "fen": "2r5/4q2k/3b2p1/Q2Rp1Pp/Pp1n4/1P5P/1BP2r2/1K1R4 b - - 0 31",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Rfxc2",
+        "stored_continuation_san": [
+          "Qb6",
+          "R2c6",
+          "Bxd4",
+          "Rxb6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rcxc2",
+        "stored_continuation_san": [
+          "Bc3",
+          "bxc3",
+          "Qxc3",
+          "Rxc3"
+        ]
+      }
+    },
+    {
+      "case_id": "979a53d87c84259ed8d9",
+      "review_group": "b7c4b5b91ad7c9f8e394",
+      "position": {
+        "fen": "r2r2k1/p2q1ppp/1np2P2/6B1/P1P2P2/8/2Q1B1PP/4NR1K b - - 0 23",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "gxf6",
+        "stored_continuation_san": [
+          "Bxf6",
+          "Qd2",
+          "Bxd8",
+          "Qxc2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "h6",
+        "stored_continuation_san": [
+          "Bh4",
+          "Qd2",
+          "a5",
+          "Qxc2"
+        ]
+      }
+    },
+    {
+      "case_id": "4ee9db323ffcb5bfa9d6",
+      "review_group": "dee9cc8debf6ada5a151",
+      "position": {
+        "fen": "r3k2r/ppp2pp1/2nb4/3p2Bp/3Pn1b1/5B2/PPP2PPP/RN1QNR1K b kq - 0 12",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Bxf3",
+        "stored_continuation_san": [
+          "Nxf3",
+          "f6",
+          "Nbd2",
+          "O-O-O"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxg5",
+        "stored_continuation_san": [
+          "Be2",
+          "Ne4",
+          "Nc3",
+          "O-O-O"
+        ]
+      }
+    },
+    {
+      "case_id": "3cfa24bd68f2fd255579",
+      "review_group": "50b4329e58d28e3d3cec",
+      "position": {
+        "fen": "rnbqkbnr/ppp3pp/3p4/4p3/2BPp3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 5",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Ng1",
+        "stored_continuation_san": [
+          "exd4",
+          "Bxg8",
+          "Rxg8",
+          "Ne2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxe5",
+        "stored_continuation_san": [
+          "Nf6",
+          "Nf7",
+          "Bg4",
+          "Nxd8"
+        ]
+      }
+    },
+    {
+      "case_id": "c303949a9ebb0f6544fd",
+      "review_group": "86e76350f706ae80ac5b",
+      "position": {
+        "fen": "2kr1bnr/ppp5/2n1bp1p/4P3/4pB2/1B6/PPP1NPPP/RN2K2R w - - 0 11",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Nbc3",
+        "stored_continuation_san": [
+          "Bxb3",
+          "axb3",
+          "fxe5",
+          "Be3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bxe6+",
+        "stored_continuation_san": [
+          "Kb8",
+          "Nbc3",
+          "Nge7",
+          "Rd1"
+        ]
+      }
+    },
+    {
+      "case_id": "55f5ef23bb1d16f8ce4f",
+      "review_group": "2cab24f11b0171cde35e",
+      "position": {
+        "fen": "2r3k1/ppN1Qp1p/6p1/2N3B1/8/8/PPn1B1PP/R4K1R w - - 3 25",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Bh6",
+        "stored_continuation_san": [
+          "Nxa1",
+          "Nd3",
+          "Nc2",
+          "Qd7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rd1",
+        "stored_continuation_san": [
+          "Ne3+",
+          "Bxe3",
+          "h6",
+          "Nd7"
+        ]
+      }
+    },
+    {
+      "case_id": "46b3992e47e5930056ad",
+      "review_group": "f79cd81eed0f7ef5e400",
+      "position": {
+        "fen": "r1bq1rk1/ppp2ppp/8/2bQp1N1/2B5/3P4/PPn2PPP/RNB2RK1 w - - 0 10",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qxd8",
+        "stored_continuation_san": [
+          "Rxd8",
+          "Nc3",
+          "Nxa1",
+          "Be3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxc5",
+        "stored_continuation_san": [
+          "Nxa1",
+          "Be3",
+          "Bf5",
+          "Nxf7"
+        ]
+      }
+    },
+    {
+      "case_id": "afc8f64cf6942d936ee9",
+      "review_group": "8c504c998a16ecd2c207",
+      "position": {
+        "fen": "8/p7/1p3k2/5p1p/1p2B3/1P6/P1P4r/2K2R2 b - - 1 36",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "h4",
+        "stored_continuation_san": [
+          "Rxf5+",
+          "Kg7",
+          "Rh5",
+          "Kf6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "f4",
+        "stored_continuation_san": [
+          "Rh1",
+          "Rxh1+",
+          "Bxh1",
+          "h4"
+        ]
+      }
+    },
+    {
+      "case_id": "b5110246897911ddd622",
+      "review_group": "9c3b944a1c4f45d505f0",
+      "position": {
+        "fen": "r1b2rk1/pp3qpp/2p3n1/3p1p2/3Pn3/3QPNP1/PPP1NPBP/R3R1K1 w - - 0 15",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "c4",
+        "stored_continuation_san": [
+          "dxc4",
+          "Qc2",
+          "Be6",
+          "Nf4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nf4",
+        "stored_continuation_san": [
+          "b6",
+          "Rac1",
+          "Bb7",
+          "Nxg6"
+        ]
+      }
+    },
+    {
+      "case_id": "6c75d119e2fbe02f339d",
+      "review_group": "7c182089678a408bb0ba",
+      "position": {
+        "fen": "6k1/1pp2bp1/2n5/p1n5/7P/P1P3P1/1Br2P2/1R1R2K1 b - - 0 29",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Bg6",
+        "stored_continuation_san": [
+          "Rdc1",
+          "Ne5",
+          "Rxc2",
+          "Bxc2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Ba2",
+        "stored_continuation_san": [
+          "c4",
+          "Bxb1",
+          "Rxb1",
+          "a4"
+        ]
+      }
+    },
+    {
+      "case_id": "8fa62bdf8a0cc00fd294",
+      "review_group": "7a097182a204a6189db0",
+      "position": {
+        "fen": "rnbqkbnr/pp2pppp/2p5/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Ng5",
+        "stored_continuation_san": [
+          "h6",
+          "Nf3",
+          "dxe4",
+          "Ne5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nc3",
+        "stored_continuation_san": [
+          "dxe4",
+          "Nxe4",
+          "Nf6",
+          "Qe2"
+        ]
+      }
+    },
+    {
+      "case_id": "63aef1a07881f2a8107d",
+      "review_group": "0dcdef760d9578ea93d2",
+      "position": {
+        "fen": "2r2rk1/pp3ppp/1q1bpn2/3p1BB1/7Q/P1N4P/1PP2PP1/3R1RK1 b - - 0 16",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "exf5",
+        "stored_continuation_san": [
+          "Bxf6",
+          "h6",
+          "Nxd5",
+          "Qb5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rc4",
+        "stored_continuation_san": [
+          "g4",
+          "exf5",
+          "Bxf6",
+          "Re8"
+        ]
+      }
+    },
+    {
+      "case_id": "01958f247f19917ee7f2",
+      "review_group": "d54cd2a4369e1d2066df",
+      "position": {
+        "fen": "2kr3r/pppbqp2/2Nbp1pp/1N1p3n/P2P4/2PBP1B1/1P3PPP/R2QK2R b KQ - 0 12",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Bxc6",
+        "stored_continuation_san": [
+          "Bxd6",
+          "cxd6",
+          "Nxa7+",
+          "Kc7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "bxc6",
+        "stored_continuation_san": [
+          "Qb3",
+          "cxb5",
+          "Bxd6",
+          "cxd6"
+        ]
+      }
+    },
+    {
+      "case_id": "7133951a2ef255c236ae",
+      "review_group": "01a5a28d580cbfad3e75",
+      "position": {
+        "fen": "4r1k1/5bp1/ppp4p/5R2/1P1pPR2/P2P4/3K4/8 b - - 1 35",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Re7",
+        "stored_continuation_san": [
+          "Rf1",
+          "Be8",
+          "a4",
+          "h5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bg6",
+        "stored_continuation_san": [
+          "Ke2",
+          "Bxf5",
+          "Rxf5",
+          "Re6"
+        ]
+      }
+    },
+    {
+      "case_id": "93479ea96f627e865fe3",
+      "review_group": "0ea9d27c7ad143b8d635",
+      "position": {
+        "fen": "r1b1k2r/pppp1Npp/2n5/4p3/2B4q/6n1/PPPP3P/RNBQK1R1 b kq - 1 9",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Qe4+",
+        "stored_continuation_san": [
+          "Kf2",
+          "Nh1+",
+          "Rxh1",
+          "O-O"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Ne4+",
+        "stored_continuation_san": [
+          "Rg3",
+          "Nxg3",
+          "Qf3",
+          "Ne4+"
+        ]
+      }
+    },
+    {
+      "case_id": "3788e6d3510d9883862d",
+      "review_group": "193e7c7ebe462576e143",
+      "position": {
+        "fen": "r1q1r1k1/1p1n1ppp/p3pb2/nP1pB3/P2P4/2PB2QP/3N1PP1/1RR3K1 b - - 10 19",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Nc4",
+        "stored_continuation_san": [
+          "Bxc4",
+          "Bxe5",
+          "dxe5",
+          "dxc4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bxe5",
+        "stored_continuation_san": [
+          "dxe5",
+          "Qc7",
+          "f4",
+          "axb5"
+        ]
+      }
+    },
+    {
+      "case_id": "cf6a573e11b12c9299c8",
+      "review_group": "0c182226f94306b24872",
+      "position": {
+        "fen": "r3r1k1/1p1P1p2/pb6/8/QP1p2qp/6B1/P4P2/5RK1 b - - 0 30",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Re6",
+        "stored_continuation_san": [
+          "Qd1",
+          "Qxd1",
+          "Rxd1",
+          "hxg3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Re2",
+        "stored_continuation_san": [
+          "Rc1",
+          "hxg3",
+          "Rc8+",
+          "Rxc8"
+        ]
+      }
+    },
+    {
+      "case_id": "ea8bb5c36af4f8247b8f",
+      "review_group": "7beaa577ca19311de847",
+      "position": {
+        "fen": "2rk4/3p1p1p/2p1p3/3qP2p/1Q1P4/8/PPP4P/1K1R2R1 w - - 5 26",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qb6+",
+        "stored_continuation_san": [
+          "Ke7",
+          "Qb4+",
+          "c5",
+          "dxc5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qb7",
+        "stored_continuation_san": [
+          "Ke7",
+          "Qxc8",
+          "Qf3",
+          "Qb8"
+        ]
+      }
+    },
+    {
+      "case_id": "6dd27d29b2a0ce28ea8a",
+      "review_group": "2cab24f11b0171cde35e",
+      "position": {
+        "fen": "5k1r/ppN2p1p/5np1/2q5/3n1Bb1/2NB4/PPPQ1bPP/R4K1R w - - 2 17",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Na4",
+        "stored_continuation_san": [
+          "Be2+",
+          "Qxe2",
+          "Nxe2",
+          "Bh6+"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxf2",
+        "stored_continuation_san": [
+          "Bf3",
+          "gxf3",
+          "Qh5",
+          "Qxd4"
+        ]
+      }
+    },
+    {
+      "case_id": "0aecdec41cec8b456299",
+      "review_group": "b49b6931eb0c2d1948b5",
+      "position": {
+        "fen": "8/1p6/p2P2p1/2P2k1p/1P2Rb2/P7/6K1/7R w - - 1 37",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "d7",
+        "stored_continuation_san": [
+          "Bc7",
+          "Rd4",
+          "Kf6",
+          "Kf3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rxf4+",
+        "stored_continuation_san": [
+          "Ke6",
+          "Re1+",
+          "Kd7",
+          "Rf7+"
+        ]
+      }
+    },
+    {
+      "case_id": "fd82eb68e8c3c17b9bdf",
+      "review_group": "6dc978b4eb3ef0fceeaa",
+      "position": {
+        "fen": "3q1rk1/1p1b1pbp/p1r2np1/3Np1B1/2PpP3/1P1P2PP/P5BK/R2Q1R2 w - - 2 17",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Nxf6+",
+        "stored_continuation_san": [
+          "Bxf6",
+          "Rxf6",
+          "Rxf6",
+          "Qd2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qf3",
+        "stored_continuation_san": [
+          "Ng4+",
+          "Qxg4",
+          "f6",
+          "Bxf6"
+        ]
+      }
+    },
+    {
+      "case_id": "430239fe90faaafb5bae",
+      "review_group": "eeb3fd745087e1ea52f3",
+      "position": {
+        "fen": "r3r1k1/p4pp1/1p5p/1Q6/2b5/7P/PPq2PP1/2R2RK1 b - - 1 20",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Qxc1",
+        "stored_continuation_san": [
+          "Qxe8+",
+          "Rxe8",
+          "Rxc1",
+          "Rc8"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bxb5",
+        "stored_continuation_san": [
+          "Rxc2",
+          "Bxf1",
+          "Rc3",
+          "Ba6"
+        ]
+      }
+    },
+    {
+      "case_id": "e0c4ec089334a0f6ed37",
+      "review_group": "b17d606a2eedd7aea5fc",
+      "position": {
+        "fen": "4n3/6pk/4n2p/2p5/1pP1P3/1P4Q1/7P/2Bq1BK1 w - - 2 39",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Be3",
+        "stored_continuation_san": [
+          "Qxb3",
+          "e5",
+          "N8c7",
+          "Bf2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bb2",
+        "stored_continuation_san": [
+          "Nd4",
+          "Qd3",
+          "Qxd3",
+          "Bxd3"
+        ]
+      }
+    },
+    {
+      "case_id": "228eff9109f3ee043da3",
+      "review_group": "b7c4b5b91ad7c9f8e394",
+      "position": {
+        "fen": "r2r2k1/pR3ppp/1np2n2/2b3B1/P1P1PP2/q7/2Q1B1PP/4NR1K b - - 2 20",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Be7",
+        "stored_continuation_san": [
+          "e5",
+          "Rd7",
+          "Rxd7",
+          "Nfxd7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxa4",
+        "stored_continuation_san": [
+          "Qxa4",
+          "Nxa4",
+          "e5",
+          "Rd7"
+        ]
+      }
+    },
+    {
+      "case_id": "7ebbf923d616daa72677",
+      "review_group": "193e7c7ebe462576e143",
+      "position": {
+        "fen": "4r1k1/5ppp/3qpn2/1R2Q3/2PP4/2R4P/3N1PPK/r7 b - - 6 31",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Qa6",
+        "stored_continuation_san": [
+          "Rg3",
+          "Qa4",
+          "Qxf6",
+          "g6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxe5+",
+        "stored_continuation_san": [
+          "dxe5",
+          "Rd1",
+          "Nb3",
+          "Ne4"
+        ]
+      }
+    },
+    {
+      "case_id": "c352e539532bc27b6323",
+      "review_group": "06d41d4f1da6705c89ea",
+      "position": {
+        "fen": "r1b1k1nr/ppp3p1/5pq1/3Nb2p/3p3P/3P4/PP1B1PP1/R2QR1K1 w kq - 0 15",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "f4",
+        "stored_continuation_san": [
+          "Bh3",
+          "Nxc7+",
+          "Kd8",
+          "Qf3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxc7+",
+        "stored_continuation_san": [
+          "Kf8",
+          "Nxa8",
+          "Nh6",
+          "Rc1"
+        ]
+      }
+    },
+    {
+      "case_id": "a134a3e2279cf23737a7",
+      "review_group": "eb765ca489d855e676e3",
+      "position": {
+        "fen": "5r1k/1p2N2p/p3p1p1/4R3/3P2q1/5nR1/PP3PK1/4Q3 w - - 1 31",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qe4",
+        "stored_continuation_san": [
+          "Nh4+",
+          "Kh1",
+          "Qf4",
+          "Rxe6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rxg4",
+        "stored_continuation_san": [
+          "Nxe1+",
+          "Rxe1",
+          "Rf6",
+          "Rge4"
+        ]
+      }
+    },
+    {
+      "case_id": "a860b060acf17771b0e3",
+      "review_group": "1573c0c091204b19bbf5",
+      "position": {
+        "fen": "3R4/5pkp/3P2p1/p7/P7/5P1P/r2r4/3R2K1 w - - 6 37",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Rc1",
+        "stored_continuation_san": [
+          "Rxa4",
+          "d7",
+          "Raa2",
+          "f4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rxd2",
+        "stored_continuation_san": [
+          "Rxd2",
+          "Kf1",
+          "Kf6",
+          "Ra8"
+        ]
+      }
+    },
+    {
+      "case_id": "a5339fb5547019c726d6",
+      "review_group": "193e7c7ebe462576e143",
+      "position": {
+        "fen": "1R2r1k1/5ppp/4p3/7Q/2PP4/1R3NKP/5PP1/q6r b - - 0 36",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Kf8",
+        "stored_continuation_san": [
+          "Qc5+",
+          "Kg8",
+          "Rxe8#"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qa4",
+        "stored_continuation_san": [
+          "Ng5",
+          "Qd7",
+          "Qxh7+",
+          "Kf8"
+        ]
+      }
+    },
+    {
+      "case_id": "36b1869b3d33c98a5f2d",
+      "review_group": "04231dd012b23dad16de",
+      "position": {
+        "fen": "8/2Q5/2p2nkp/p1b5/Ppq5/8/1P3PPP/6K1 w - - 2 35",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qg3+",
+        "stored_continuation_san": [
+          "Ng4",
+          "Qxg4+",
+          "Qxg4",
+          "h4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "g3",
+        "stored_continuation_san": [
+          "Qd4",
+          "Qf4",
+          "Qxf4",
+          "gxf4"
+        ]
+      }
+    },
+    {
+      "case_id": "b1a869eb43aa44bfc618",
+      "review_group": "f4f27aa0420093863e75",
+      "position": {
+        "fen": "r2q3r/ppp2kpp/2np4/b5N1/3Pn1b1/2P1B3/PP4PP/RN1Q1RK1 b - - 1 11",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Kg6",
+        "stored_continuation_san": [
+          "Qxg4",
+          "Nf2",
+          "Rxf2",
+          "Ne5"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Kg8",
+        "stored_continuation_san": [
+          "Qxg4",
+          "Nxg5",
+          "Bxg5",
+          "Qe8"
+        ]
+      }
+    },
+    {
+      "case_id": "e5875d9dd791aa191b80",
+      "review_group": "06d41d4f1da6705c89ea",
+      "position": {
+        "fen": "rnbqkbnr/ppp2ppp/8/3pp3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Bc4",
+        "stored_continuation_san": [
+          "dxc4",
+          "d4",
+          "exd4",
+          "O-O"
+        ]
+      },
+      "better_branch": {
+        "move_san": "exd5",
+        "stored_continuation_san": [
+          "e4",
+          "Qe2",
+          "Nf6",
+          "d3"
+        ]
+      }
+    },
+    {
+      "case_id": "9527306339e79de568e3",
+      "review_group": "0dcdef760d9578ea93d2",
+      "position": {
+        "fen": "2r2rk1/pp3p1p/1q1b1p2/3N1p2/7Q/P6P/1PP2PP1/3R1RK1 b - - 0 18",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Qd8",
+        "stored_continuation_san": [
+          "Nxf6+",
+          "Qxf6",
+          "Qxf6",
+          "Bb8"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Be5",
+        "stored_continuation_san": [
+          "Nxb6",
+          "axb6",
+          "c3",
+          "Kg7"
+        ]
+      }
+    },
+    {
+      "case_id": "992d530c8e1d33d320a4",
+      "review_group": "0ea9d27c7ad143b8d635",
+      "position": {
+        "fen": "8/p7/1p4p1/3p4/1Pk4P/Pr4B1/K7/8 b - - 0 46",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "d4",
+        "stored_continuation_san": [
+          "Bf2",
+          "Re3",
+          "Kb1",
+          "Rf3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rxg3",
+        "stored_continuation_san": [
+          "Kb2",
+          "Rg2+",
+          "Kc1",
+          "Kd3"
+        ]
+      }
+    },
+    {
+      "case_id": "cffc07dc454ab4b82eca",
+      "review_group": "adabcbfbd1472c5700ec",
+      "position": {
+        "fen": "5rk1/5ppp/1Bpp1n2/4p3/1q6/3P1R1P/5PP1/4R1K1 w - - 0 32",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Be3",
+        "stored_continuation_san": [
+          "Qxe1+",
+          "Kh2",
+          "Nd5",
+          "Ba7"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Ra1",
+        "stored_continuation_san": [
+          "Qb2",
+          "Ra6",
+          "Qb5",
+          "Ra3"
+        ]
+      }
+    },
+    {
+      "case_id": "29f97f4316508bdd995b",
+      "review_group": "2fac2e648cdb6e104a3a",
+      "position": {
+        "fen": "r1b2rk1/p1q1bppp/5n2/3Np3/8/3B1Q1P/PPPB1PP1/R4RK1 b - - 0 15",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Bb7",
+        "stored_continuation_san": [
+          "Nxc7",
+          "Bxf3",
+          "Nxa8",
+          "Bxa8"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxd5",
+        "stored_continuation_san": [
+          "Qxd5",
+          "Be6",
+          "Qa5",
+          "Qxa5"
+        ]
+      }
+    },
+    {
+      "case_id": "6bcf79f926e0c6b26d49",
+      "review_group": "b949fef174a249790e1d",
+      "position": {
+        "fen": "r2kr3/1bp4B/p2p1bQp/3Pp1p1/2P3N1/P3P2P/1P6/R5K1 w - - 6 27",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qxf6+",
+        "stored_continuation_san": [
+          "Kc8",
+          "Bg6",
+          "Rd8",
+          "Bf5+"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxf6",
+        "stored_continuation_san": [
+          "c6",
+          "Nxe8",
+          "Bc8",
+          "Qxd6+"
+        ]
+      }
+    },
+    {
+      "case_id": "ae109eb5e49f8d4749cb",
+      "review_group": "2cab24f11b0171cde35e",
+      "position": {
+        "fen": "r1bq1knr/ppN2ppp/2n5/1Bb5/5B2/8/PPP2PPP/R2QK1NR w KQ - 2 10",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Nxa8",
+        "stored_continuation_san": [
+          "Qa5+",
+          "Qd2",
+          "Qxb5",
+          "O-O-O"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qxd8+",
+        "stored_continuation_san": [
+          "Nxd8",
+          "Nxa8",
+          "Ne6",
+          "Ne2"
+        ]
+      }
+    },
+    {
+      "case_id": "715f444a8fdccd15a853",
+      "review_group": "e5921f5e784ad3b86dee",
+      "position": {
+        "fen": "r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Ng5",
+        "stored_continuation_san": [
+          "Be7",
+          "Nf3",
+          "Nf6",
+          "Nbd2"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Nxd4",
+        "stored_continuation_san": [
+          "Nf6",
+          "Nxc6",
+          "bxc6",
+          "Bd3"
+        ]
+      }
+    },
+    {
+      "case_id": "3e86028e2c849454c916",
+      "review_group": "ea14c50f33103ba6ca9f",
+      "position": {
+        "fen": "r3r1k1/3q1ppp/2pb1n2/ppP5/8/1PN2N1b/PBQ2PP1/RB3RK1 b - - 0 19",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Bc7",
+        "stored_continuation_san": [
+          "gxh3",
+          "a4",
+          "Qf5",
+          "Re6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qg4",
+        "stored_continuation_san": [
+          "Nh4",
+          "Qxh4",
+          "cxd6",
+          "Bxg2"
+        ]
+      }
+    },
+    {
+      "case_id": "c1d5d2537da9d8784fd8",
+      "review_group": "e4f74d2ddec97016dcdc",
+      "position": {
+        "fen": "8/3R2kp/6p1/p3rp2/2Q1n3/P1P5/6PP/5K2 b - - 0 31",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "Kf6",
+        "stored_continuation_san": [
+          "Rf7+",
+          "Kg5",
+          "Qd4",
+          "h6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Kh6",
+        "stored_continuation_san": [
+          "Qd4",
+          "Re6",
+          "Rxh7+",
+          "Kxh7"
+        ]
+      }
+    },
+    {
+      "case_id": "eeda9e116794edb263f6",
+      "review_group": "3d7574cef64756290627",
+      "position": {
+        "fen": "r4rk1/1p2qp1p/p2p1np1/2pQ4/8/2PBP3/PP1N1PPP/R4RK1 w - - 1 17",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Qxb7",
+        "stored_continuation_san": [
+          "Qxb7",
+          "e4",
+          "Kh8",
+          "f4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qf3",
+        "stored_continuation_san": [
+          "d5",
+          "Qd1",
+          "Rfe8",
+          "Nf3"
+        ]
+      }
+    },
+    {
+      "case_id": "379633f2ea8683b414ac",
+      "review_group": "4e5cde3117dd4ab5aacf",
+      "position": {
+        "fen": "2r2b1r/pQp1k1pp/4q3/4p3/3n4/N2P4/PPP2PPP/R1B1K2R w KQ - 0 13",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Bg5+",
+        "stored_continuation_san": [
+          "Kf7",
+          "O-O",
+          "Bxa3",
+          "bxa3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "c3",
+        "stored_continuation_san": [
+          "Kd7",
+          "cxd4",
+          "Bxa3",
+          "bxa3"
+        ]
+      }
+    },
+    {
+      "case_id": "7f2b0c61fedd554a846d",
+      "review_group": "efb2856dfd1c57d62f4f",
+      "position": {
+        "fen": "3r2k1/pp3p1p/1np2np1/8/2P5/BP2N1P1/P4PBP/R5K1 w - - 0 20",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "Rd1",
+        "stored_continuation_san": [
+          "Rxd1+",
+          "Nxd1",
+          "Ng4",
+          "f4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Be7",
+        "stored_continuation_san": [
+          "Rd3",
+          "Bxf6",
+          "Nd7",
+          "Bb2"
+        ]
+      }
+    },
+    {
+      "case_id": "cf719f12e48abde9dfe9",
+      "review_group": "d89c489461dcc9022375",
+      "position": {
+        "fen": "4r1k1/p5pp/1p6/q2pn3/P7/2P1Q3/5PPP/R5K1 w - - 2 25",
+        "side_to_move": "white"
+      },
+      "played_branch": {
+        "move_san": "g3",
+        "stored_continuation_san": [
+          "Qc5",
+          "a5",
+          "Qxe3",
+          "fxe3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "f4",
+        "stored_continuation_san": [
+          "Qc5",
+          "Qxc5",
+          "bxc5",
+          "fxe5"
+        ]
+      }
+    },
+    {
+      "case_id": "c1d694cacc14a2621d4e",
+      "review_group": "2fac2e648cdb6e104a3a",
+      "position": {
+        "fen": "r1b2rk1/p1q1bppp/2p2n2/3Pp3/8/2NB1Q1P/PPPB1PP1/R4RK1 b - - 0 14",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "cxd5",
+        "stored_continuation_san": [
+          "Nxd5",
+          "Nxd5",
+          "Qxd5",
+          "Be6"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Bb7",
+        "stored_continuation_san": [
+          "d6",
+          "Bxd6",
+          "Rad1",
+          "c5"
+        ]
+      }
+    },
+    {
+      "case_id": "65a4ba8110a86a7cee0f",
+      "review_group": "e1adb4f4974c6c03302e",
+      "position": {
+        "fen": "8/1pk2p1R/2p2p1p/p2pnP2/6PN/2NBq2P/PPP5/3K3R b - - 4 22",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "d4",
+        "stored_continuation_san": [
+          "Ne4",
+          "Kb6",
+          "Nd2",
+          "Qg3"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Qg3",
+        "stored_continuation_san": [
+          "Kc1",
+          "Qxh4",
+          "Kb1",
+          "Qg3"
+        ]
+      }
+    },
+    {
+      "case_id": "e6995024801ef6e188de",
+      "review_group": "3116e1cbc07865b0adcc",
+      "position": {
+        "fen": "2br2k1/1p2n1pp/2p2p2/4p3/NP2P3/8/4BPPP/5RK1 b - - 0 21",
+        "side_to_move": "black"
+      },
+      "played_branch": {
+        "move_san": "f5",
+        "stored_continuation_san": [
+          "exf5",
+          "Nxf5",
+          "Ra1",
+          "Nd4"
+        ]
+      },
+      "better_branch": {
+        "move_san": "Rd4",
+        "stored_continuation_san": [
+          "Rc1",
+          "Rxb4",
+          "Bc4+",
+          "Kf8"
+        ]
+      }
+    }
+  ]
+}

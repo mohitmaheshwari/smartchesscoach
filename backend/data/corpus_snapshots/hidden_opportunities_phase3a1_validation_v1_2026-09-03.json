@@ -1,0 +1,75 @@
+{
+  "schema_version": "hidden_opportunities_phase3a1_validation.v1",
+  "date": "2026-09-03",
+  "phase": "3A.1_differential_evidence",
+  "source_packet": {
+    "path": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_v1_2026-09-02.json",
+    "sha256": "2fec4b84f8f192a138d4ab4048bbfe87eab5c46a343a0f948f6007c3e9081213",
+    "positions": 100
+  },
+  "implementation_base": "fbe6514c2e222b84c523d63bbcec330387d63d2b",
+  "branch": "codex/hidden-opportunities-chess-gold-v1",
+  "constraints": {
+    "fresh_engine_runs": 0,
+    "production_reads": 0,
+    "production_writes": 0,
+    "runtime_llm_calls": 0,
+    "visible_behavior_changes": 0
+  },
+  "differential_evidence": {
+    "branch_evidence_builds": 100,
+    "branch_traces": 200,
+    "independent_oracle_traces": 200,
+    "events": 1000,
+    "captures": 294,
+    "checks": 111,
+    "checkmates": 0,
+    "promotions": 5,
+    "single_legal_reply_events": 22,
+    "relation_changes": 6538,
+    "line_geometry_changes": 1119,
+    "verified_line_causes": 43,
+    "default_contract_mismatches": 0,
+    "failures": [],
+    "passed": true
+  },
+  "phase_3a2_recertification": {
+    "trace_schema": "stored_line_verifier.v3",
+    "change": "persistent piece identity and attack_squares added for causal proof composition",
+    "branch_traces": 200,
+    "independent_oracle_traces": 200,
+    "default_contract_mismatches": 0,
+    "passed": true
+  },
+  "compatibility": {
+    "positions": 100,
+    "legal_branches": 200,
+    "actual_non_null": 47,
+    "expected_non_null": 47,
+    "actual_crashes": 1,
+    "expected_crashes": 1,
+    "runtime_drift_count": 0,
+    "passed": true
+  },
+  "tests": {
+    "phase_3a1_unit_tests": {
+      "passed": 14,
+      "failed": 0
+    },
+    "focused_caption_regression": {
+      "passed": 132,
+      "failed": 6,
+      "baseline_failed": 6,
+      "new_regressions": 0
+    },
+    "comprehensive_contract_regression": {
+      "passed": 260,
+      "failed": 6,
+      "baseline_failed": 6,
+      "new_regressions": 0
+    },
+    "compile_check": "passed",
+    "git_diff_check": "passed"
+  },
+  "verdict": "PASS_SHADOW_ONLY"
+}
