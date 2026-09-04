@@ -213,9 +213,15 @@ async def _candidate_for_user(db, user: Dict[str, Any]) -> Dict[str, Any]:
             "user_id": user_id,
             "valid_bundle": False,
         }
+    # A user's active rows hold BOTH their weakness and their strength
+    # ("Low blunder rate", type="strength"). Counting a strength as a
+    # competing focus made this bail with multiple_active_focuses for 38 of
+    # 52 users -- every one of which has exactly one weakness and one
+    # strength. Only weakness rows can conflict with a weakness focus.
     active_focuses = await db.user_active_focus.find({
         "user_id": user_id,
         "status": "active",
+        "type": {"$ne": "strength"},
     }).to_list(length=2)
     if len(active_focuses) > 1:
         return {
