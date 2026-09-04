@@ -4,7 +4,9 @@ import json
 import pytest
 
 from scripts.export_full_game_chess_fact_audit import (
+    actor_rating,
     assert_private,
+    hidden_opportunity_candidates_for_game,
     load_target_line_excluded_signatures,
     select_target_line_candidates,
     target_line_position,
@@ -135,3 +137,66 @@ def test_second_population_export_excludes_every_first_export_position():
     assert len(original_exclusions) == 664
     assert len(newly_excluded) == 1500
     assert len(holdout_exclusions) == 2164
+
+
+def _exact_target_line_item():
+    packet_path = (
+        __import__("pathlib").Path(__file__).resolve().parents[1]
+        / "data/corpus_snapshots/hidden_opportunities_chess_gold_v1_2026-09-02.json"
+    )
+    packet = json.loads(packet_path.read_text(encoding="utf-8"))
+    row = next(
+        item
+        for item in packet["positions"]
+        if item["position_id"] == "00d2ea0ceda1a2e6ef83"
+    )
+    return {
+        "fen_before": row["fen"],
+        "move_uci": row["played_move"]["uci"],
+        "best_move_uci": row["best_move"]["uci"],
+        "pv_after_played": row["stored_four_ply"]["after_played"],
+        "pv_after_best": row["stored_four_ply"]["after_best"],
+        "cp_loss": row["cp_loss"],
+        "is_critical": True,
+        "eval_before": 0,
+        "eval_after": -500,
+    }
+
+
+def test_actor_rating_uses_actual_side_to_move():
+    white_to_move = _exact_target_line_item()
+    game = {
+        "user_color": "black",
+        "user_rating": 1300,
+        "opponent_rating": 1190,
+        "white_rating": 1210,
+        "black_rating": 1310,
+    }
+
+    assert actor_rating(game, white_to_move) == 1210
+
+
+def test_hidden_opportunity_candidates_cover_opponent_and_deduplicate():
+    item = _exact_target_line_item()
+    game = {
+        "user_color": "black",
+        "user_rating": 1300,
+        "opponent_rating": 1210,
+        "white_rating": 1210,
+        "black_rating": 1300,
+    }
+    analysis = {
+        "stockfish_analysis": {
+            "move_evaluations": [item],
+            "opponent_move_evaluations": [dict(item)],
+        }
+    }
+
+    candidates = hidden_opportunity_candidates_for_game(game, analysis)
+
+    assert len(candidates) == 1
+    assert candidates[0]["actor"] == "opponent"
+    assert candidates[0]["actor_rating_band"] == "1200-1499"
+    assert candidates[0]["proof"]["family"] == (
+        "target_and_line_geometry_with_payoff"
+    )

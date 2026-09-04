@@ -11,6 +11,7 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import sys
 from collections import Counter
@@ -18,6 +19,18 @@ from collections import Counter
 import chess
 import chess.pgn
 from pymongo import MongoClient
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if not (BACKEND_ROOT / "services").is_dir():
+    BACKEND_ROOT = next(
+        root
+        for root in (Path.cwd(), Path.cwd() / "backend", Path("/app/backend"))
+        if (root / "services").is_dir()
+    )
+sys.path.insert(0, str(BACKEND_ROOT))
+
+from services.caption_facts import build_verified_hidden_opportunity
 
 
 BANDS = {
@@ -67,6 +80,14 @@ def threshold(rating):
     if rating < 1800:
         return 50
     return 30
+
+
+def rating_band(rating):
+    value = int(rating)
+    for name, (low, high) in BANDS.items():
+        if low <= value <= high:
+            return name
+    return None
 
 
 def parse_move(board, token):
@@ -232,6 +253,169 @@ def target_line_position_signature(position):
             "utf-8"
         )
     ).hexdigest()
+
+
+def actor_rating(game, item):
+    """Resolve the actual mover's rating without assuming user perspective."""
+    board = chess.Board(item["fen_before"])
+    color_key = "white_rating" if board.turn == chess.WHITE else "black_rating"
+    value = game.get(color_key)
+    if isinstance(value, (int, float)) and value > 0:
+        return int(value)
+    user_color = str(game.get("user_color") or "").lower()
+    actor_color = "white" if board.turn == chess.WHITE else "black"
+    fallback_key = "user_rating" if actor_color == user_color else "opponent_rating"
+    value = game.get(fallback_key)
+    if isinstance(value, (int, float)) and value > 0:
+        return int(value)
+    return None
+
+
+def hidden_opportunity_candidates_for_game(game, analysis):
+    """Return exact Shadow candidates from both stored actor streams."""
+    user_color = str(game.get("user_color") or "").lower()
+    if user_color not in {"white", "black"}:
+        return []
+    stockfish = analysis.get("stockfish_analysis") or {}
+    rows = list(stockfish.get("move_evaluations") or [])
+    rows.extend(stockfish.get("opponent_move_evaluations") or [])
+    candidates = []
+    seen = set()
+    for item in rows:
+        try:
+            mover_rating = actor_rating(game, item)
+            mover_band = rating_band(mover_rating) if mover_rating else None
+            if mover_band is None:
+                continue
+            if int(item.get("cp_loss") or 0) < threshold(mover_rating):
+                continue
+            position = target_line_position(item, mover_band)
+            signature = target_line_position_signature(position)
+            if signature in seen:
+                continue
+            proof = build_verified_hidden_opportunity(
+                fen_before=position["fen_before"],
+                played_san=position["played_san"],
+                best_move_san=position["best_move_san"],
+                pv_after_played=position["pv_after_played"],
+                pv_after_best=position["pv_after_best"],
+                cp_loss=position["cp_loss"],
+            )
+        except Exception:
+            continue
+        if proof is None:
+            continue
+        actor_color = position["side_to_move"]
+        candidates.append({
+            "candidate_signature": signature,
+            "actor": "player" if actor_color == user_color else "opponent",
+            "actor_rating_band": mover_band,
+            "phase": position["phase"],
+            "fen_before": position["fen_before"],
+            "played_san": position["played_san"],
+            "best_move_san": position["best_move_san"],
+            "pv_after_played": position["pv_after_played"],
+            "pv_after_best": position["pv_after_best"],
+            "cp_loss": position["cp_loss"],
+            "is_critical": bool(item.get("is_critical")),
+            "eval_before": item.get("eval_before"),
+            "eval_after": item.get("eval_after"),
+            "proof": proof.contract_dict(),
+        })
+        seen.add(signature)
+    return sorted(
+        candidates,
+        key=lambda row: (row["candidate_signature"], row["actor"]),
+    )
+
+
+def export_hidden_opportunity_ranking_population(
+    db, games, rating_band_name
+):
+    """Export the full comparable-game census for one player rating band."""
+    projection = {
+        "_id": 0,
+        "game_id": 1,
+        "user_id": 1,
+        "stockfish_analysis.move_evaluations": 1,
+        "stockfish_analysis.opponent_move_evaluations": 1,
+    }
+    query = {
+        "game_id": {"$in": list(games)},
+        "stockfish_analysis.move_evaluations.0": {"$exists": True},
+    }
+    groups = []
+    sensitive_values = set()
+    actor_counts = Counter()
+    games_with_candidate = 0
+    total_candidates = 0
+    for analysis in db.game_analyses.find(query, projection):
+        source_game_id = analysis.get("game_id")
+        game = games.get(source_game_id)
+        if not game:
+            continue
+        sensitive_values.update(
+            str(value)
+            for value in (
+                source_game_id,
+                analysis.get("user_id"),
+                game.get("user_id"),
+            )
+            if value
+        )
+        candidates = hidden_opportunity_candidates_for_game(game, analysis)
+        if not candidates:
+            continue
+        games_with_candidate += 1
+        total_candidates += len(candidates)
+        actor_counts.update(row["actor"] for row in candidates)
+        if len(candidates) < 2:
+            continue
+        group_id = hashlib.sha256(
+            (
+                "hidden-opportunity-ranking-group-v1|"
+                + str(source_game_id)
+            ).encode("utf-8")
+        ).hexdigest()[:20]
+        groups.append({
+            "anonymous_group_key": group_id,
+            "player_rating_band": rating_band_name,
+            "candidates": candidates,
+        })
+    groups.sort(key=lambda row: row["anonymous_group_key"])
+    packet = {
+        "schema_version": (
+            "hidden_opportunity_ranking_population_export.v1"
+        ),
+        "generated_on": "2026-09-04",
+        "source": "read-only production export of stored Stockfish evidence",
+        "rating_band": rating_band_name,
+        "selection": (
+            "Census of analyzed games in the requested player rating band; "
+            "only games with two or more exact Shadow opportunity proofs are "
+            "exported. No detector threshold is inferred from this packet."
+        ),
+        "games_scanned": len(games),
+        "games_with_candidate": games_with_candidate,
+        "candidate_fires": total_candidates,
+        "comparable_games": len(groups),
+        "comparable_candidates": sum(
+            len(group["candidates"]) for group in groups
+        ),
+        "actor_counts": dict(sorted(actor_counts.items())),
+        "read_only_production_export": True,
+        "production_writes": 0,
+        "stockfish_runs": 0,
+        "llm_calls": 0,
+        "privacy": (
+            "No source ids, user ids, names, usernames, emails, dates, URLs, "
+            "PGNs, credentials, captions, or learner profiles. Group keys "
+            "are one-way hashes scoped to this evidence packet."
+        ),
+        "groups": groups,
+    }
+    text = assert_private(packet, sensitive_values)
+    print(base64.b64encode(text.encode("utf-8")).decode("ascii"))
 
 
 def load_target_line_excluded_signatures():
@@ -613,6 +797,7 @@ def main(rating_band, mode="full"):
             {},
             {
                 "_id": 0, "game_id": 1, "user_id": 1, "user_rating": 1,
+                "opponent_rating": 1, "white_rating": 1, "black_rating": 1,
                 "user_color": 1, "result": 1, "opening": 1, "pgn": 1,
                 "time_control_category": 1, "white": 1, "black": 1,
                 "white_player": 1, "black_player": 1,
@@ -627,6 +812,11 @@ def main(rating_band, mode="full"):
             games,
             rating_band,
             excluded_signatures=load_target_line_excluded_signatures(),
+        )
+        return
+    if mode == "hidden-opportunity-ranking":
+        export_hidden_opportunity_ranking_population(
+            db, games, rating_band
         )
         return
     chosen = {stratum: [] for stratum in STRATA}

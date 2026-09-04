@@ -137,6 +137,7 @@ BOARD_TRANSFORMATION_CAUSAL_PROOF_VERSION = (
 BOARD_TRANSFORMATION_CAUSAL_QUALITY_ID = (
     "review:board_transformation_causal_proof"
 )
+HIDDEN_OPPORTUNITY_COMPOSER_VERSION = "hidden_opportunity_composer.v1"
 VERIFIED_LINE_MIN_CP_LOSS = 100
 _LEGAL_MATERIAL_PURPOSES = frozenset({
     "moves_affected_piece",
@@ -2183,9 +2184,10 @@ def build_target_line_opportunity_proof(
     pv_after_played: Tuple[Any, ...] | List[Any],
     pv_after_best: Tuple[Any, ...] | List[Any],
     cp_loss: Any,
+    _branch_evidence: Optional[VerifiedBranchEvidence] = None,
 ) -> Optional[VerifiedTargetLineOpportunity]:
     """Build one shadow target/line chain without authoring a motif claim."""
-    evidence = build_verified_branch_evidence(
+    evidence = _branch_evidence or build_verified_branch_evidence(
         fen_before=fen_before,
         played_san=played_san,
         best_move_san=best_move_san,
@@ -2629,18 +2631,21 @@ def build_forcing_tempo_opportunity_proof(
     pv_after_played: Tuple[Any, ...] | List[Any],
     pv_after_best: Tuple[Any, ...] | List[Any],
     cp_loss: Any,
+    _branch_evidence: Optional[VerifiedBranchEvidence] = None,
+    _prior_owner_checked: bool = False,
 ) -> Optional[VerifiedForcingTempoOpportunity]:
     """Prove a forcing move-order payoff from both complete stored lines."""
-    if build_target_line_opportunity_proof(
+    if not _prior_owner_checked and build_target_line_opportunity_proof(
         fen_before=fen_before,
         played_san=played_san,
         best_move_san=best_move_san,
         pv_after_played=pv_after_played,
         pv_after_best=pv_after_best,
         cp_loss=cp_loss,
+        _branch_evidence=_branch_evidence,
     ) is not None:
         return None
-    evidence = build_verified_branch_evidence(
+    evidence = _branch_evidence or build_verified_branch_evidence(
         fen_before=fen_before,
         played_san=played_san,
         best_move_san=best_move_san,
@@ -3009,6 +3014,8 @@ def build_endgame_geometry_opportunity_proof(
     pv_after_played: Tuple[Any, ...] | List[Any],
     pv_after_best: Tuple[Any, ...] | List[Any],
     cp_loss: Any,
+    _branch_evidence: Optional[VerifiedBranchEvidence] = None,
+    _prior_owner_checked: bool = False,
 ) -> Optional[VerifiedEndgameGeometryOpportunity]:
     """Prove one endgame resource without asserting an unproved result."""
     common = {
@@ -3019,12 +3026,12 @@ def build_endgame_geometry_opportunity_proof(
         "pv_after_best": pv_after_best,
         "cp_loss": cp_loss,
     }
-    if (
+    if not _prior_owner_checked and (
         build_target_line_opportunity_proof(**common) is not None
         or build_forcing_tempo_opportunity_proof(**common) is not None
     ):
         return None
-    evidence = build_verified_branch_evidence(
+    evidence = _branch_evidence or build_verified_branch_evidence(
         fen_before=fen_before,
         played_san=played_san,
         best_move_san=best_move_san,
@@ -3416,6 +3423,8 @@ def build_board_transformation_opportunity_proof(
     pv_after_played: Tuple[Any, ...] | List[Any],
     pv_after_best: Tuple[Any, ...] | List[Any],
     cp_loss: Any,
+    _branch_evidence: Optional[VerifiedBranchEvidence] = None,
+    _prior_owner_checked: bool = False,
 ) -> Optional[VerifiedBoardTransformationOpportunity]:
     """Prove a multi-step board change and its legal material payoff."""
     common = {
@@ -3426,13 +3435,13 @@ def build_board_transformation_opportunity_proof(
         "pv_after_best": pv_after_best,
         "cp_loss": cp_loss,
     }
-    if (
+    if not _prior_owner_checked and (
         build_target_line_opportunity_proof(**common) is not None
         or build_forcing_tempo_opportunity_proof(**common) is not None
         or build_endgame_geometry_opportunity_proof(**common) is not None
     ):
         return None
-    evidence = build_verified_branch_evidence(
+    evidence = _branch_evidence or build_verified_branch_evidence(
         fen_before=fen_before,
         played_san=played_san,
         best_move_san=best_move_san,
@@ -3460,6 +3469,66 @@ def build_board_transformation_opportunity_proof(
         line_net_material_gain_cp=line_gain,
         branch_evidence=evidence,
     )
+
+
+def build_verified_hidden_opportunity(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move_san: str,
+    pv_after_played: Tuple[Any, ...] | List[Any],
+    pv_after_best: Tuple[Any, ...] | List[Any],
+    cp_loss: Any,
+) -> Optional[
+    VerifiedTargetLineOpportunity
+    | VerifiedForcingTempoOpportunity
+    | VerifiedEndgameGeometryOpportunity
+    | VerifiedBoardTransformationOpportunity
+]:
+    """Return the single canonical exact owner for a hidden opportunity.
+
+    The order is the locked Phase 3A proof-family order. Lower-priority
+    builders already reject positions owned by an earlier family; keeping the
+    composition here prevents packet builders, Game Review, and future
+    analysis jobs from recreating that ownership policy independently.
+
+    This function establishes chess evidence only. It does not authorize a
+    player-facing surface, rank the moment, or render coaching language.
+    """
+    evidence = build_verified_branch_evidence(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_move_san=best_move_san,
+        pv_after_played=pv_after_played,
+        pv_after_best=pv_after_best,
+    )
+    if (
+        evidence is None
+        or evidence.difference.net_material_edge_cp <= 0
+    ):
+        return None
+    arguments = {
+        "fen_before": fen_before,
+        "played_san": played_san,
+        "best_move_san": best_move_san,
+        "pv_after_played": pv_after_played,
+        "pv_after_best": pv_after_best,
+        "cp_loss": cp_loss,
+        "_branch_evidence": evidence,
+    }
+    for index, builder in enumerate((
+        build_target_line_opportunity_proof,
+        build_forcing_tempo_opportunity_proof,
+        build_endgame_geometry_opportunity_proof,
+        build_board_transformation_opportunity_proof,
+    )):
+        call_arguments = dict(arguments)
+        if index:
+            call_arguments["_prior_owner_checked"] = True
+        proof = builder(**call_arguments)
+        if proof is not None:
+            return proof
+    return None
 
 
 def build_verified_line_cause(
