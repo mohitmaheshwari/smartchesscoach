@@ -65,6 +65,12 @@ const OpeningLesson = () => {
   const [selectedTrap, setSelectedTrap] = useState(null);
   const [trapPracticeMode, setTrapPracticeMode] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState(null);
+
+  // Exact lessons should always open at their title instead of inheriting a
+  // stale scroll position from the repertoire or a previously viewed lesson.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [openingKey]);
   
   // Fetch lesson data
   useEffect(() => {
@@ -431,31 +437,35 @@ const OpeningLesson = () => {
   const { opening, user_stats, user_mistakes, learning_progress } = lesson;
   
   return (
-    <div className="experience-page experience-lesson-page min-h-screen bg-background">
+    <div className="experience-page experience-lesson-page opening-lesson-shell min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b border-border/50 bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="opening-lesson-header border-b border-border/70 bg-card/80 backdrop-blur-xl">
+        <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => navigate("/openings")}
-            className="mb-2"
+            className="-ml-3 mb-3 h-8 text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back to Repertoire
           </Button>
           
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/20">
-              <BookOpen className="w-6 h-6 text-primary" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="experience-eyebrow mb-1 text-[10px] font-bold uppercase">Opening lesson</p>
+                <h1 className="truncate font-heading text-2xl font-bold tracking-tight sm:text-3xl">{opening.name}</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {opening.eco} • {opening.color === "white" ? "White Opening" : "Black Defense"}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">{opening.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                {opening.eco} • {opening.color === "white" ? "White Opening" : "Black Defense"}
-              </p>
-            </div>
-            <div className="ml-auto">
+
+            <div className="flex flex-wrap items-center gap-3 sm:ml-auto sm:justify-end">
               <OpeningCorrectionDialog
                 sourceContext="openings_page"
                 openingKey={openingKey}
@@ -467,28 +477,27 @@ const OpeningLesson = () => {
                 triggerLabel="Correct opening data"
                 compact={true}
               />
+              {user_stats && (
+                <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/65 px-3 py-1.5">
+                  <Badge variant={user_stats.win_rate >= 50 ? "default" : "destructive"}>
+                    {user_stats.win_rate?.toFixed(0)}% win rate
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {user_stats.games_played} games
+                  </span>
+                </div>
+              )}
             </div>
-            
-            {user_stats && (
-              <div className="flex items-center gap-4">
-                <Badge variant={user_stats.win_rate >= 50 ? "default" : "destructive"}>
-                  {user_stats.win_rate?.toFixed(0)}% win rate
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {user_stats.games_played} games
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </div>
       
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="opening-lesson-main mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         {/* Variation Selector */}
         {opening.variations?.length > 1 && (
-          <div className="mb-4" data-testid="variation-selector">
-            <p className="text-xs text-muted-foreground mb-2">Variation</p>
+          <div className="experience-surface mb-5 rounded-xl border border-border/70 bg-card/70 p-4" data-testid="variation-selector">
+            <p className="experience-eyebrow mb-2 text-[10px] font-bold uppercase">Variation</p>
             <div className="flex flex-wrap gap-2">
               {opening.variations.map((v) => (
                 <button
@@ -496,13 +505,13 @@ const OpeningLesson = () => {
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     (selectedVariation || opening.active_variation) === v.key
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                      : "border-border bg-background/60 text-muted-foreground hover:border-primary/45 hover:text-foreground"
                   }`}
                   onClick={() => setSelectedVariation(v.key)}
                   data-testid={`variation-btn-${v.key}`}
                 >
                   {v.name}
-                  <span className="text-zinc-600 ml-1">({v.total_moves})</span>
+                  <span className="ml-1 opacity-60">({v.total_moves})</span>
                 </button>
               ))}
             </div>
@@ -511,7 +520,7 @@ const OpeningLesson = () => {
 
         {/* Tab Navigation - Full Width */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-4">
+          <TabsList className="opening-lesson-tabs mb-6 grid h-auto w-full grid-cols-4 rounded-xl border border-border/70 bg-card/70 p-1 sm:flex sm:w-fit">
             <TabsTrigger value="learn">Learn</TabsTrigger>
             <TabsTrigger value="practice">
               <MessageCircle className="w-3 h-3 mr-1" />
@@ -529,8 +538,8 @@ const OpeningLesson = () => {
           </TabsList>
           
           {/* Learn Tab - Full width guided experience */}
-          <TabsContent value="learn" className="space-y-4">
-            <div className="max-w-2xl mx-auto">
+          <TabsContent value="learn" className="mt-0 space-y-5">
+            <div className="mx-auto max-w-6xl">
               {/* Guided Interactive Lesson - This is the main experience */}
               <GuidedOpeningLesson
                 openingKey={openingKey}
@@ -551,18 +560,18 @@ const OpeningLesson = () => {
               />
               
               {/* Key Ideas - Collapsed reference */}
-              <Card className="bg-zinc-900/30 border-zinc-800 mt-4">
+              <Card className="experience-surface mt-5 border-border/70 bg-card/75 shadow-none">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2 text-zinc-400">
-                    <Brain className="w-4 h-4 text-amber-500" />
+                  <CardTitle className="flex items-center gap-2 text-sm text-foreground">
+                    <Brain className="h-4 w-4 text-primary" />
                     Key Ideas Reference
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <ul className="space-y-2">
                     {opening.key_ideas?.map((idea, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-zinc-400">
-                        <CheckCircle2 className="w-4 h-4 text-green-500/60 flex-shrink-0 mt-0.5" />
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary/75" />
                         {idea}
                       </li>
                     ))}
@@ -573,7 +582,7 @@ const OpeningLesson = () => {
           </TabsContent>
           
           {/* Other Tabs - 2 column layout with board */}
-          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 lg:grid-cols-2 gap-6"}>
+          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.82fr)]"}>
             {/* Board */}
             <div>
               <Card>

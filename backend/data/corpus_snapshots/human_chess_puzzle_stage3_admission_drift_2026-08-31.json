@@ -1,0 +1,251 @@
+{
+  "aggregate_only": true,
+  "counts": {
+    "completed": 360,
+    "failures": {},
+    "input": {
+      "eligible": 360,
+      "sample_records": 360
+    }
+  },
+  "generated_at": "2026-08-31T17:28:15+00:00",
+  "overall": {
+    "baseline_mismatches": 6,
+    "baseline_wdl_preservation_rate": 0.9833333333333333,
+    "confirmation_rechecks": 6,
+    "confirmed_acceptable_move_loss_cp": {
+      "maximum": 9.0,
+      "median": 9.0,
+      "minimum": 9.0,
+      "p25": 9.0,
+      "p75": 9.0,
+      "p90": 9.0
+    },
+    "confirmed_mismatch_rate": 0.002777777777777778,
+    "confirmed_wdl_mismatches": 1,
+    "positions": 360,
+    "resolved_at_confirmation_depth": 5
+  },
+  "privacy": {
+    "player_trajectories_exported": false,
+    "positions_moves_and_identifiers_exported": false
+  },
+  "provenance": {
+    "baseline_depth": 14,
+    "confirmation_depth": 20,
+    "hash_mb": 64,
+    "show_wdl": true,
+    "stockfish_sha256": "38faa5883b03652f847a87ed168b1bfee81b361db9584dae59a51cb91e69d9d6",
+    "threads": 1
+  },
+  "read_only": true,
+  "runtime": {
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.41",
+    "python": "3.11.16",
+    "wall_seconds": 117.26377418401535
+  },
+  "schema_version": "human_chess.puzzle_stage3_admission_drift.v1",
+  "segments": {
+    "admission_status": {
+      "broad": {
+        "baseline_mismatches": 3,
+        "baseline_wdl_preservation_rate": 0.9833333333333333,
+        "confirmation_rechecks": 3,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": 9.0,
+          "median": 9.0,
+          "minimum": 9.0,
+          "p25": 9.0,
+          "p75": 9.0,
+          "p90": 9.0
+        },
+        "confirmed_mismatch_rate": 0.005555555555555556,
+        "confirmed_wdl_mismatches": 1,
+        "positions": 180,
+        "resolved_at_confirmation_depth": 2
+      },
+      "generic": {
+        "baseline_mismatches": 3,
+        "baseline_wdl_preservation_rate": 0.9833333333333333,
+        "confirmation_rechecks": 3,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 180,
+        "resolved_at_confirmation_depth": 3
+      }
+    },
+    "concept_family": {
+      "calculation_depth": {
+        "baseline_mismatches": 3,
+        "baseline_wdl_preservation_rate": 0.9833333333333333,
+        "confirmation_rechecks": 3,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 180,
+        "resolved_at_confirmation_depth": 3
+      },
+      "missed_tactic": {
+        "baseline_mismatches": 1,
+        "baseline_wdl_preservation_rate": 0.9871794871794872,
+        "confirmation_rechecks": 1,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 78,
+        "resolved_at_confirmation_depth": 1
+      },
+      "opening_knowledge": {
+        "baseline_mismatches": 0,
+        "baseline_wdl_preservation_rate": 1.0,
+        "confirmation_rechecks": 0,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 26,
+        "resolved_at_confirmation_depth": 0
+      },
+      "piece_safety": {
+        "baseline_mismatches": 2,
+        "baseline_wdl_preservation_rate": 0.9736842105263158,
+        "confirmation_rechecks": 2,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": 9.0,
+          "median": 9.0,
+          "minimum": 9.0,
+          "p25": 9.0,
+          "p75": 9.0,
+          "p90": 9.0
+        },
+        "confirmed_mismatch_rate": 0.013157894736842105,
+        "confirmed_wdl_mismatches": 1,
+        "positions": 76,
+        "resolved_at_confirmation_depth": 1
+      }
+    },
+    "difficulty": {
+      "easy": {
+        "baseline_mismatches": 0,
+        "baseline_wdl_preservation_rate": 1.0,
+        "confirmation_rechecks": 0,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 120,
+        "resolved_at_confirmation_depth": 0
+      },
+      "hard": {
+        "baseline_mismatches": 4,
+        "baseline_wdl_preservation_rate": 0.9666666666666667,
+        "confirmation_rechecks": 4,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": 9.0,
+          "median": 9.0,
+          "minimum": 9.0,
+          "p25": 9.0,
+          "p75": 9.0,
+          "p90": 9.0
+        },
+        "confirmed_mismatch_rate": 0.008333333333333333,
+        "confirmed_wdl_mismatches": 1,
+        "positions": 120,
+        "resolved_at_confirmation_depth": 3
+      },
+      "medium": {
+        "baseline_mismatches": 2,
+        "baseline_wdl_preservation_rate": 0.9833333333333333,
+        "confirmation_rechecks": 2,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 120,
+        "resolved_at_confirmation_depth": 2
+      }
+    },
+    "pool": {
+      "community_puzzles": {
+        "baseline_mismatches": 2,
+        "baseline_wdl_preservation_rate": 0.9888888888888889,
+        "confirmation_rechecks": 2,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": null,
+          "median": null,
+          "minimum": null,
+          "p25": null,
+          "p75": null,
+          "p90": null
+        },
+        "confirmed_mismatch_rate": 0.0,
+        "confirmed_wdl_mismatches": 0,
+        "positions": 180,
+        "resolved_at_confirmation_depth": 2
+      },
+      "community_training_positions": {
+        "baseline_mismatches": 4,
+        "baseline_wdl_preservation_rate": 0.9777777777777777,
+        "confirmation_rechecks": 4,
+        "confirmed_acceptable_move_loss_cp": {
+          "maximum": 9.0,
+          "median": 9.0,
+          "minimum": 9.0,
+          "p25": 9.0,
+          "p75": 9.0,
+          "p90": 9.0
+        },
+        "confirmed_mismatch_rate": 0.005555555555555556,
+        "confirmed_wdl_mismatches": 1,
+        "positions": 180,
+        "resolved_at_confirmation_depth": 3
+      }
+    }
+  },
+  "source": {
+    "database": "chess_coach",
+    "sample_filename": "puzzle_stage3_sample_360.json",
+    "sample_records_sha256": "2ca4d90f2e27f50073b976f5f865415a5ffe70d961b93d5a21ae7ed70b8034a2",
+    "source_revision": "4af8313c2575b1c2c7886f581504126f836c3c8f"
+  }
+}

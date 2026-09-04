@@ -31,6 +31,33 @@ except Exception:
     DEFAULT_RATING = 1200
 
 
+def resolve_current_rating(user: Optional[Dict[str, Any]] = None,
+                           profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Resolve current rating with provenance, including explicit fallback."""
+    user = user or {}
+    profile = profile or {}
+
+    # 1) profile.current_rating (most authoritative — re-derived per game)
+    pr = profile.get("current_rating")
+    if isinstance(pr, (int, float)) and pr > 0:
+        return {"rating": int(pr), "source": "player_profiles.current_rating", "measured": True}
+
+    # 2) users[rating_source] — if the user explicitly told us which one to use
+    src = user.get("rating_source")
+    if src and src in user:
+        v = user.get(src)
+        if isinstance(v, (int, float)) and v > 0:
+            return {"rating": int(v), "source": f"users.{src}", "measured": True}
+
+    # 3-5) fall through preferred order
+    for field in ("detected_rating", "lichess_rating", "assessed_rating"):
+        v = user.get(field)
+        if isinstance(v, (int, float)) and v > 0:
+            return {"rating": int(v), "source": f"users.{field}", "measured": True}
+
+    return {"rating": int(DEFAULT_RATING), "source": "config.DEFAULT_RATING", "measured": False}
+
+
 def get_current_rating(user: Optional[Dict[str, Any]] = None,
                        profile: Optional[Dict[str, Any]] = None) -> int:
     """Resolve the user's current rating from whatever fields are populated.
@@ -40,28 +67,7 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
 
     Why this exists: see module docstring + memory/single_source_of_truth.
     """
-    user = user or {}
-    profile = profile or {}
-
-    # 1) profile.current_rating (most authoritative — re-derived per game)
-    pr = profile.get("current_rating")
-    if isinstance(pr, (int, float)) and pr > 0:
-        return int(pr)
-
-    # 2) users[rating_source] — if the user explicitly told us which one to use
-    src = user.get("rating_source")
-    if src and src in user:
-        v = user.get(src)
-        if isinstance(v, (int, float)) and v > 0:
-            return int(v)
-
-    # 3-5) fall through preferred order
-    for field in ("detected_rating", "lichess_rating", "assessed_rating"):
-        v = user.get(field)
-        if isinstance(v, (int, float)) and v > 0:
-            return int(v)
-
-    return int(DEFAULT_RATING)
+    return int(resolve_current_rating(user, profile)["rating"])
 
 
 def _positive_int(value: Any) -> Optional[int]:

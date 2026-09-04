@@ -1,0 +1,42 @@
+{
+  "snapshot_id": "human_chess_model_provenance_2026-08-31",
+  "research_only": true,
+  "models": {
+    "maia2_rapid": {
+      "repository": "https://github.com/CSSLab/maia2",
+      "license": "MIT",
+      "package_version": "0.11.0",
+      "release_commit": "3e6f8d12547bfffdcda205b48535ca3826c88462",
+      "wheel_sha256": "939e69587026be62cd003b8cd1e6e2e66f1120390f68b9d363ce3da099c85029",
+      "weight_filename": "rapid_model.pt",
+      "weight_sha256": "65aae8465eed5e65df66a24ea7370715579f9e5435098d06fe18bdb1e267e997"
+    },
+    "maia2_blitz": {
+      "repository": "https://github.com/CSSLab/maia2",
+      "license": "MIT",
+      "package_version": "0.11.0",
+      "release_commit": "3e6f8d12547bfffdcda205b48535ca3826c88462",
+      "wheel_sha256": "939e69587026be62cd003b8cd1e6e2e66f1120390f68b9d363ce3da099c85029",
+      "weight_filename": "blitz_model.pt",
+      "weight_sha256": "5090d5d0d49dc29787c08d13febbed5b2da81a18c2ddcd8a90070cd3b43c44b2"
+    },
+    "otter": {
+      "repository": "https://github.com/PeargentLabs/otter-chess",
+      "license": "MIT",
+      "package_version": "0.2.0",
+      "release_commit": "0ae08dcff033e9cd3315247ac29a4bf56f4de0b1",
+      "wheel_sha256": "250614cde5e5fe543f66a80c4f80258610ee6d8f771ee079ac2a781a489a2b50",
+      "weights_repository_commit": "eb8dc98b551d2b0744ba45e98fac23cf1af8c629",
+      "weight_filename": "otter-0.2.0-eb8dc98b.safetensors",
+      "weight_sha256": "53dc65068c88e298de5abe3dfd93141ea1e3bf795961a686f239b5574804757d"
+    },
+    "fathom": {
+      "repository": "https://github.com/jdart1/Fathom",
+      "license": "MIT",
+      "commit": "c9c6fef0dddc05d2e242c183acf5833149ab676d",
+      "binary_sha256": "a983230477b0bba0b5beebb5bcd0201e17c49ae84fc6ee425de74f52e860e89f",
+      "audited_table_file_count": 32,
+      "audited_table_manifest_sha256": "3fcb0e8dcffb4996c469381e8025243a3268e4886b22c28d585f0b919501bc93"
+    }
+  }
+}

@@ -10,6 +10,701 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Frontend Experience V1: Warm Intelligence ─────────────────────
+   Scoped to Layout's rollout class. Existing pages remain untouched when
+   REACT_APP_FRONTEND_EXPERIENCE_V1_ENABLED is false. */
+.experience-v1 {
+  --background: 42 33% 97%;
+  --foreground: 222 36% 12%;
+  --card: 42 38% 99%;
+  --card-foreground: 222 36% 12%;
+  --popover: 42 38% 99%;
+  --popover-foreground: 222 36% 12%;
+  --primary: 38 92% 50%;
+  --primary-foreground: 224 32% 8%;
+  --secondary: 42 22% 92%;
+  --secondary-foreground: 222 30% 16%;
+  --muted: 42 20% 92%;
+  --muted-foreground: 218 11% 42%;
+  --accent: 174 58% 38%;
+  --accent-foreground: 0 0% 100%;
+  --border: 38 18% 84%;
+  --input: 38 18% 84%;
+  --ring: 38 92% 50%;
+  --success: 154 57% 38%;
+  --warning: 38 92% 50%;
+  --critical: 356 63% 56%;
+  --experience-ink: 224 32% 8%;
+  --experience-teal: 174 58% 38%;
+  --experience-rose: 356 63% 56%;
+  --experience-shadow: 222 35% 9%;
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.11), transparent 30rem),
+    hsl(var(--background));
+}
+
+.dark .experience-v1 {
+  --background: 224 32% 7%;
+  --foreground: 42 24% 94%;
+  --card: 223 27% 10%;
+  --card-foreground: 42 24% 94%;
+  --popover: 223 27% 10%;
+  --popover-foreground: 42 24% 94%;
+  --primary: 38 92% 54%;
+  --primary-foreground: 224 32% 7%;
+  --secondary: 222 21% 15%;
+  --secondary-foreground: 42 24% 94%;
+  --muted: 222 20% 15%;
+  --muted-foreground: 216 13% 67%;
+  --accent: 174 58% 45%;
+  --accent-foreground: 224 32% 7%;
+  --border: 220 17% 21%;
+  --input: 220 17% 21%;
+  --ring: 38 92% 54%;
+  background:
+    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.10), transparent 32rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-sidebar {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--background) / 0.96));
+  border-right: 1px solid hsl(var(--border) / 0.82);
+  box-shadow: 18px 0 46px hsl(var(--experience-shadow) / 0.05);
+}
+
+.dark .experience-v1 .experience-sidebar {
+  background:
+    linear-gradient(180deg, hsl(224 32% 8% / 0.98), hsl(224 32% 6% / 0.98));
+  box-shadow: 18px 0 56px hsl(0 0% 0% / 0.22);
+}
+
+.experience-v1 .experience-mobile-header {
+  background: hsl(var(--background) / 0.86);
+  border-color: hsl(var(--border) / 0.78);
+}
+
+.experience-v1 .experience-main {
+  min-width: 0;
+  background: transparent;
+}
+
+.experience-v1 .experience-surface {
+  border: 1px solid hsl(var(--border) / 0.82);
+  background:
+    linear-gradient(145deg, hsl(var(--card)), hsl(var(--card) / 0.82));
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.5) inset,
+    0 20px 60px hsl(var(--experience-shadow) / 0.07);
+}
+
+.dark .experience-v1 .experience-surface {
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.04) inset,
+    0 22px 64px hsl(0 0% 0% / 0.20);
+}
+
+.experience-v1 .experience-primary {
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(42 96% 58%), hsl(34 92% 50%));
+  border: 1px solid hsl(38 92% 43% / 0.45);
+  box-shadow: 0 10px 26px hsl(38 92% 42% / 0.20);
+}
+
+.experience-v1 .experience-primary:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 14px 34px hsl(38 92% 42% / 0.28);
+}
+
+.experience-v1 .experience-eyebrow {
+  color: hsl(var(--accent));
+  letter-spacing: 0.18em;
+}
+
+.experience-v1 .experience-coach-copy {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.018em;
+}
+
+.experience-v1 .experience-focus-card {
+  border: 1px solid hsl(var(--primary) / 0.28);
+  background:
+    radial-gradient(circle at 95% 0%, hsl(var(--primary) / 0.15), transparent 14rem),
+    linear-gradient(145deg, hsl(var(--card)), hsl(var(--primary) / 0.035));
+}
+
+.experience-v1 .experience-spinner {
+  border-color: hsl(var(--primary) / 0.24);
+  border-top-color: hsl(var(--primary));
+}
+
+.experience-v1 .experience-link {
+  color: hsl(var(--accent));
+}
+
+.experience-v1 .experience-home-coach {
+  position: relative;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  border-radius: 1.75rem;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background:
+    radial-gradient(circle at 100% 0%, hsl(var(--primary) / 0.11), transparent 19rem),
+    hsl(var(--card) / 0.72);
+  box-shadow: 0 28px 80px hsl(var(--experience-shadow) / 0.075);
+}
+
+.experience-v1 .experience-home-coach::before {
+  content: "Coach Maya";
+  display: block;
+  margin-bottom: 1.25rem;
+  color: hsl(var(--accent));
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.experience-v1 .experience-home-coach > p:first-of-type {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.25rem, 2.5vw, 1.55rem);
+  line-height: 1.45;
+}
+
+.experience-v1 .experience-focus-rail {
+  border-left-color: hsl(var(--primary) / 0.72);
+}
+
+.experience-v1 .experience-utility {
+  border-color: hsl(var(--border) / 0.64);
+  background: hsl(var(--card) / 0.42);
+}
+
+.experience-v1 .experience-utility:hover {
+  border-color: hsl(var(--primary) / 0.30);
+  background: hsl(var(--card) / 0.88);
+  transform: translateY(-1px);
+}
+
+.experience-v1 .experience-page {
+  isolation: isolate;
+}
+
+.experience-v1 .experience-lab-page {
+  background:
+    radial-gradient(circle at 78% 2%, hsl(var(--accent) / 0.055), transparent 26rem);
+}
+
+.experience-v1 .experience-training-page,
+.experience-v1 .experience-progress-page,
+.experience-v1 .experience-pwc-page {
+  background:
+    radial-gradient(circle at 82% 2%, hsl(var(--primary) / 0.06), transparent 28rem);
+}
+
+.experience-v1 .experience-activation-page {
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 82% 4%, hsl(var(--primary) / 0.18), transparent 25rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-activation-shell {
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid hsl(var(--border) / 0.78);
+  border-radius: 2rem;
+  background: hsl(var(--card) / 0.88);
+  box-shadow: 0 34px 100px hsl(var(--experience-shadow) / 0.12);
+}
+
+.experience-v1 .experience-activation-primary {
+  border-color: hsl(var(--primary) / 0.52) !important;
+  background: hsl(var(--primary) / 0.09) !important;
+  box-shadow: 0 14px 36px hsl(var(--primary) / 0.10);
+}
+
+.experience-v1 .experience-activation-secondary {
+  border-color: hsl(var(--border) / 0.86) !important;
+  background: hsl(var(--card)) !important;
+}
+
+.experience-v1 .experience-activation-primary:hover,
+.experience-v1 .experience-activation-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 44px hsl(var(--experience-shadow) / 0.11);
+}
+
+.experience-v1 .experience-study-page,
+.experience-v1 .experience-lesson-page {
+  background:
+    radial-gradient(circle at 86% 2%, hsl(var(--accent) / 0.055), transparent 27rem);
+}
+
+.experience-v1 .experience-lesson-page > .border-b,
+.experience-v1 .experience-study-page > .border-b {
+  background: hsl(var(--card) / 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.experience-v1 .experience-training-page > div,
+.experience-v1 .experience-progress-page {
+  position: relative;
+}
+
+.experience-v1 .experience-training-page .experience-board-stage {
+  box-shadow:
+    0 30px 74px hsl(var(--experience-shadow) / 0.20),
+    0 1px 0 hsl(0 0% 100% / 0.06) inset;
+}
+
+.experience-v1 .experience-pwc-page .pwc-shell {
+  background:
+    radial-gradient(circle at 24% 22%, hsl(var(--primary) / 0.055), transparent 24rem);
+}
+
+.experience-v1 .experience-pwc-page .pwc-coach-col {
+  border-color: hsl(var(--border) / 0.78);
+  background: hsl(var(--card) / 0.72);
+}
+
+.experience-v1 .experience-share-trigger:hover {
+  color: hsl(var(--accent));
+}
+
+.experience-v1 .experience-share-dialog {
+  box-shadow: 0 36px 110px hsl(0 0% 0% / 0.42);
+}
+
+.experience-v1 .experience-share-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid hsl(38 92% 54% / 0.34);
+  background:
+    radial-gradient(circle at 90% 0%, hsl(38 92% 54% / 0.32), transparent 48%),
+    linear-gradient(135deg, hsl(222 42% 12%), hsl(184 54% 9%));
+  box-shadow: 0 28px 72px hsl(222 42% 4% / 0.34);
+}
+
+/* ─── Route families: the remaining 41 routed surfaces ───────────── */
+.experience-v1 .experience-route {
+  min-height: 100vh;
+}
+
+.experience-v1 .experience-route-public,
+.experience-v1 .experience-login-page,
+.experience-v1 .experience-pricing-page,
+.experience-v1 .experience-public-learning-page {
+  background:
+    radial-gradient(circle at 78% 0%, hsl(38 92% 54% / 0.12), transparent 30rem),
+    radial-gradient(circle at 8% 52%, hsl(174 58% 38% / 0.08), transparent 34rem),
+    hsl(224 34% 5%);
+}
+
+.experience-v1 .experience-landing-page {
+  background:
+    radial-gradient(circle at 72% 4%, hsl(38 92% 54% / 0.13), transparent 34rem),
+    radial-gradient(circle at 8% 58%, hsl(174 58% 38% / 0.07), transparent 36rem),
+    hsl(224 34% 5%);
+}
+
+.experience-v1 .experience-landing-page header {
+  border-color: hsl(38 22% 22% / 0.62);
+}
+
+.experience-v1 .experience-auth-panel {
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+  border: 1px solid hsl(38 25% 28% / 0.72);
+  border-radius: 1.75rem;
+  background: hsl(224 28% 8% / 0.82);
+  box-shadow: 0 38px 110px hsl(0 0% 0% / 0.42);
+  backdrop-filter: blur(18px);
+}
+
+.experience-v1 .experience-auth-panel input {
+  min-height: 2.9rem;
+  border-radius: 0.8rem;
+}
+
+.experience-v1 .experience-pricing-page [class*="md:grid-cols-2"] > div {
+  border-radius: 1.5rem;
+  box-shadow: 0 26px 72px hsl(0 0% 0% / 0.24);
+}
+
+.experience-v1 .experience-pricing-page [class*="border-amber-500"] {
+  background:
+    radial-gradient(circle at 100% 0%, hsl(38 92% 54% / 0.14), transparent 17rem),
+    hsl(224 27% 8% / 0.86);
+}
+
+.experience-v1 .experience-route-legal,
+.experience-v1 .experience-legal-page {
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 80% 0%, hsl(var(--primary) / 0.10), transparent 28rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-legal-page > div {
+  max-width: 52rem;
+}
+
+.experience-v1 .experience-legal-page h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  letter-spacing: -0.025em;
+  color: hsl(var(--foreground));
+}
+
+.experience-v1 .experience-legal-page h2 {
+  color: hsl(var(--foreground));
+}
+
+.experience-v1 .experience-legal-page section {
+  padding: 1.25rem 1.35rem;
+  border: 1px solid hsl(var(--border) / 0.66);
+  border-radius: 1rem;
+  background: hsl(var(--card) / 0.58);
+}
+
+.experience-v1 .experience-legal-page a {
+  color: hsl(var(--accent));
+}
+
+.experience-v1 .experience-contact-page [class*="border-white"] {
+  border-color: hsl(var(--border) / 0.78);
+  border-radius: 1.25rem;
+  background: hsl(var(--card) / 0.74);
+  box-shadow: 0 20px 60px hsl(var(--experience-shadow) / 0.06);
+}
+
+.experience-v1 .experience-public-learning-page article,
+.experience-v1 .experience-public-learning-page main {
+  position: relative;
+}
+
+.experience-v1 .experience-route-setup,
+.experience-v1 .experience-onboarding-page,
+.experience-v1 .experience-diagnostic-page,
+.experience-v1 .experience-moments-page {
+  background:
+    radial-gradient(circle at 76% 4%, hsl(var(--primary) / 0.10), transparent 27rem),
+    radial-gradient(circle at 8% 70%, hsl(var(--accent) / 0.06), transparent 30rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-auth-callback-page {
+  background:
+    radial-gradient(circle at 50% 30%, hsl(var(--primary) / 0.10), transparent 24rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-quiz-page > div {
+  border-radius: 1.5rem;
+}
+
+.experience-v1 .experience-onboarding-shell {
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid hsl(var(--border) / 0.78);
+  border-radius: 1.75rem;
+  background: hsl(var(--card) / 0.86);
+  box-shadow: 0 30px 90px hsl(var(--experience-shadow) / 0.10);
+}
+
+.experience-v1 .experience-diagnostic-page h1,
+.experience-v1 .experience-moments-page h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.experience-v1 .experience-diagnostic-page [class*="aspect-square"] {
+  border-radius: 1.1rem;
+}
+
+.experience-v1 .experience-moments-page {
+  color: hsl(var(--foreground));
+}
+
+.experience-v1 .experience-utility-page > div:first-child h1,
+.experience-v1 .experience-dense-page header h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.025em;
+}
+
+.experience-v1 .experience-utility-page [class*="rounded-lg"][class*="border"],
+.experience-v1 .experience-utility-page [class*="rounded-xl"][class*="border"],
+.experience-v1 .experience-dense-page [class*="rounded-lg"][class*="border"] {
+  border-color: hsl(var(--border) / 0.72);
+  background-color: hsl(var(--card) / 0.72);
+  box-shadow: 0 14px 40px hsl(var(--experience-shadow) / 0.045);
+}
+
+.experience-v1 .experience-games-page {
+  max-width: 52rem;
+}
+
+.experience-v1 .experience-import-page,
+.experience-v1 .experience-weakness-page {
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.experience-v1 .experience-settings-page {
+  background:
+    radial-gradient(circle at 92% 2%, hsl(var(--primary) / 0.065), transparent 22rem);
+}
+
+.experience-v1 .experience-review-queue-page table,
+.experience-v1 .experience-review-queue-page [role="table"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.experience-v1 .experience-route-learning,
+.experience-v1 .experience-learning-page {
+  background:
+    radial-gradient(circle at 84% 2%, hsl(var(--accent) / 0.055), transparent 28rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-learning-page h1,
+.experience-v1 .experience-learning-page h2 {
+  letter-spacing: -0.018em;
+}
+
+.experience-v1 .experience-training-library-page [data-testid="training-focus-card"],
+.experience-v1 .experience-challenge-page [class*="border"],
+.experience-v1 .experience-mission-page [class*="border"] {
+  border-color: hsl(var(--border) / 0.74);
+  background-color: hsl(var(--card) / 0.72);
+  box-shadow: 0 16px 46px hsl(var(--experience-shadow) / 0.05);
+}
+
+.experience-v1 .experience-daily-page,
+.experience-v1 .experience-drill-page {
+  position: relative;
+}
+
+.experience-v1 .experience-daily-page [data-testid*="board"],
+.experience-v1 .experience-drill-page [data-testid*="board"],
+.experience-v1 .experience-workspace-page [data-testid*="board"] {
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 28px 72px hsl(var(--experience-shadow) / 0.18);
+}
+
+.experience-v1 .experience-repertoire-page > .border-b,
+.experience-v1 .experience-workspace-page > .border-b {
+  background: hsl(var(--card) / 0.82);
+  border-color: hsl(var(--border) / 0.74);
+  backdrop-filter: blur(16px);
+}
+
+.experience-v1 .experience-route-recovery,
+.experience-v1 .experience-recovery-page {
+  background:
+    radial-gradient(circle at 82% 0%, hsl(var(--critical) / 0.07), transparent 25rem),
+    radial-gradient(circle at 10% 72%, hsl(var(--primary) / 0.055), transparent 30rem),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-recovery-page [class*="rounded"][class*="border"] {
+  border-color: hsl(var(--border) / 0.74);
+}
+
+.experience-v1 .experience-plateau-review-page,
+.experience-v1 .experience-apply-page {
+  background:
+    radial-gradient(circle at 78% 2%, hsl(38 92% 54% / 0.09), transparent 28rem),
+    hsl(224 32% 6%);
+}
+
+.experience-v1 .experience-review-workspace-page {
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: hsl(var(--card) / 0.60);
+}
+
+.experience-v1 .experience-route-admin,
+.experience-v1 .experience-admin-page {
+  background:
+    linear-gradient(hsl(var(--border) / 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.16) 1px, transparent 1px),
+    radial-gradient(circle at 88% 0%, hsl(var(--primary) / 0.055), transparent 28rem),
+    hsl(var(--background));
+  background-size: 32px 32px, 32px 32px, auto, auto;
+}
+
+.experience-v1 .experience-admin-page h1 {
+  font-family: 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.experience-v1 .experience-admin-page [class*="rounded-lg"][class*="border"],
+.experience-v1 .experience-admin-page [class*="rounded-xl"][class*="border"] {
+  border-color: hsl(var(--border) / 0.76);
+  background-color: hsl(var(--card) / 0.78);
+  box-shadow: 0 12px 34px hsl(var(--experience-shadow) / 0.045);
+}
+
+.experience-v1 .experience-admin-page table,
+.experience-v1 .experience-admin-page [class*="font-mono"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.experience-v1 .experience-admin-page input,
+.experience-v1 .experience-admin-page select,
+.experience-v1 .experience-admin-page textarea {
+  border-color: hsl(var(--border) / 0.82);
+  background-color: hsl(var(--background) / 0.78);
+}
+
+.experience-v1 .experience-admin-page [class*="bg-zinc-900"] {
+  background-color: hsl(var(--card) / 0.82);
+}
+
+.experience-v1 .experience-route-prototype,
+.experience-v1 .experience-prototype-page {
+  background:
+    repeating-linear-gradient(135deg, hsl(var(--muted) / 0.32) 0 1px, transparent 1px 14px),
+    hsl(var(--background));
+}
+
+.experience-v1 .experience-review-header {
+  border-color: hsl(var(--border) / 0.72);
+  background: hsl(var(--card) / 0.82);
+  box-shadow: 0 12px 42px hsl(var(--experience-shadow) / 0.05);
+  backdrop-filter: blur(16px);
+}
+
+.experience-v1 .experience-review-workspace {
+  gap: 0;
+  padding: clamp(0.5rem, 1.5vw, 1.25rem);
+  background:
+    radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.055), transparent 30rem);
+}
+
+.experience-v1 .experience-review-board-column,
+.experience-v1 .experience-review-insights {
+  border: 1px solid hsl(var(--border) / 0.76);
+  background: hsl(var(--card) / 0.68);
+}
+
+.experience-v1 .experience-review-board-column {
+  border-radius: 1.25rem 0 0 1.25rem;
+}
+
+.experience-v1 .experience-review-insights {
+  border-left: 0;
+  border-radius: 0 1.25rem 1.25rem 0;
+}
+
+.experience-v1 .experience-board-stage {
+  padding: clamp(0.4rem, 1vw, 0.75rem);
+  border: 1px solid hsl(var(--border) / 0.76);
+  border-radius: 1.1rem;
+  background: linear-gradient(145deg, hsl(224 26% 13%), hsl(224 32% 7%));
+  box-shadow:
+    0 26px 70px hsl(var(--experience-shadow) / 0.24),
+    0 1px 0 hsl(0 0% 100% / 0.07) inset;
+}
+
+.experience-v1 .experience-board-stage .cg-wrap,
+.experience-v1 .experience-board-stage cg-board {
+  border-radius: 0.72rem;
+  overflow: hidden;
+}
+
+.experience-v1 .board-stage-board,
+.experience-v1 .board-stage-board > div:first-child {
+  border-radius: 0.72rem;
+}
+
+.experience-v1 .board-stage-board {
+  overflow: hidden;
+  background: hsl(224 28% 9%);
+}
+
+@media (max-width: 900px) {
+  .experience-v1 .experience-review-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .experience-v1 .experience-review-workspace {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .experience-v1 .experience-review-board-column,
+  .experience-v1 .experience-review-insights {
+    width: 100%;
+    border: 1px solid hsl(var(--border) / 0.76);
+    border-radius: 1.1rem;
+  }
+
+  .experience-v1 .experience-review-insights {
+    margin-top: 0.75rem;
+    min-height: 34rem;
+  }
+}
+
+.experience-mobile-nav {
+  position: fixed;
+  z-index: 60;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 4rem;
+  padding: 0.4rem;
+  border: 1px solid hsl(var(--border) / 0.88);
+  border-radius: 1.25rem;
+  background: hsl(var(--card) / 0.92);
+  box-shadow: 0 20px 55px hsl(var(--experience-shadow) / 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.experience-mobile-nav a {
+  display: flex;
+  min-width: 0;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-radius: 0.9rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.64rem;
+  font-weight: 650;
+}
+
+.experience-mobile-nav a svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.experience-mobile-nav a.is-active {
+  color: hsl(var(--foreground));
+  background: hsl(var(--primary) / 0.12);
+}
+
+.experience-mobile-nav a.experience-mobile-coach {
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(42 96% 58%), hsl(34 92% 50%));
+  box-shadow: 0 8px 22px hsl(38 92% 42% / 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experience-v1 *,
+  .experience-v1 *::before,
+  .experience-v1 *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   /* ─── LIGHT MODE ─── Clean white with wine/gold accents ─── */
   :root {

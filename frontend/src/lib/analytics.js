@@ -145,11 +145,19 @@ export const ANALYTICS_EVENTS = Object.freeze({
   INDEPENDENT_ATTEMPT: "independent_attempt",
   REVIEW_ATTEMPT: "review_attempt",
   BACK_TO_PLAN: "back_to_plan",
+  REVIEW_COACH_STARTED: "review_coach_started",
+  REVIEW_COACH_REFLECTION_SUBMITTED: "review_coach_reflection_submitted",
+  REVIEW_COACH_VISUAL_SHOWN: "review_coach_visual_shown",
+  REVIEW_COACH_COMPLETED: "review_coach_completed",
+  REVIEW_COACH_NEXT_ACTION_STARTED: "review_coach_next_action_started",
+  REVIEW_VALIDATION_MODE_CHANGED: "review_validation_mode_changed",
+  REVIEW_VALIDATION_SUBMITTED: "review_validation_submitted",
 });
 
 const KNOWN_EVENT_IDS = new Set(Object.values(ANALYTICS_EVENTS));
 
 export const CURRICULUM_ANALYTICS_VERSION = "personal_curriculum.baseline.v1";
+export const REVIEW_VALIDATION_ANALYTICS_VERSION = "personalized_game_review.validation.v1";
 
 const CURRICULUM_EVENT_IDS = new Set([
   ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN,
@@ -164,6 +172,11 @@ const CURRICULUM_EVENT_IDS = new Set([
   ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT,
   ANALYTICS_EVENTS.REVIEW_ATTEMPT,
   ANALYTICS_EVENTS.BACK_TO_PLAN,
+]);
+
+const REVIEW_VALIDATION_EVENT_IDS = new Set([
+  ANALYTICS_EVENTS.REVIEW_VALIDATION_MODE_CHANGED,
+  ANALYTICS_EVENTS.REVIEW_VALIDATION_SUBMITTED,
 ]);
 
 // Privacy and schema boundary for the Personal Curriculum run-in. Emitters
@@ -195,6 +208,11 @@ const safeCurriculumValue = (value) => {
   return undefined;
 };
 
+const REVIEW_VALIDATION_ALLOWED_PROP_KEYS = new Set([
+  "presentation_variant",
+  "critical_truth_failure",
+]);
+
 export function track(event, props = {}) {
   try {
     if (!KNOWN_EVENT_IDS.has(event)) {
@@ -209,6 +227,23 @@ export function track(event, props = {}) {
   } catch (_e) {
     /* analytics must never break the product */
   }
+}
+
+export function trackReviewValidation(event, props = {}) {
+  if (!REVIEW_VALIDATION_EVENT_IDS.has(event)) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[analytics] ignored non-review-validation event: ${event}`);
+    }
+    return;
+  }
+  const safeProps = {
+    instrumentation_version: REVIEW_VALIDATION_ANALYTICS_VERSION,
+  };
+  for (const key of REVIEW_VALIDATION_ALLOWED_PROP_KEYS) {
+    const safeValue = safeCurriculumValue(props[key]);
+    if (safeValue !== undefined) safeProps[key] = safeValue;
+  }
+  track(event, safeProps);
 }
 
 export function trackCurriculum(event, props = {}) {

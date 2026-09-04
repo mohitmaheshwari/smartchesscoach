@@ -51,6 +51,8 @@ __pycache__/
 *pyc*
 venv/
 .venv/
+maia2_models/
+maia2_data/
 
 # Throwaway debug scripts — convention: prefix with .tmp_ so they live
 # locally for iterative debugging but never get committed. Matches the

@@ -46,12 +46,12 @@ import {
 } from "lucide-react";
 
 const masteryColors = {
-  mastered: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-  comfortable: "text-blue-400 bg-blue-500/10 border-blue-500/30",
-  learning: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-  needs_work: "text-red-400 bg-red-500/10 border-red-500/30",
-  introduced: "text-purple-400 bg-purple-500/10 border-purple-500/30",
-  unknown: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30",
+  mastered: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  comfortable: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  learning: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  needs_work: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+  introduced: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  unknown: "border-border bg-muted/60 text-muted-foreground",
 };
 
 const masteryLabels = {
@@ -211,17 +211,26 @@ const OpeningsOverview = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="experience-page experience-study-page max-w-5xl mx-auto py-6 px-4 space-y-8" data-testid="openings-overview">
+      <div className="experience-page experience-study-page mx-auto max-w-6xl space-y-7 px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="openings-overview">
         {/* Header + Tabs */}
-        <div>
-          <p className="experience-eyebrow text-[10.5px] uppercase font-semibold mb-2">Your learning library</p>
-          <h1 className="experience-coach-copy text-3xl md:text-4xl font-semibold tracking-tight">Study</h1>
-          <div className="flex gap-1 mt-3 bg-zinc-900 rounded-lg p-1 w-fit" data-testid="study-tabs">
+        <div className="experience-surface rounded-2xl border border-border/70 bg-card/75 p-5 shadow-sm sm:flex sm:items-end sm:justify-between sm:p-6">
+          <div>
+            <p className="experience-eyebrow mb-2 text-[10.5px] font-semibold uppercase">Your learning library</p>
+            <h1 className="experience-coach-copy text-3xl font-semibold tracking-tight md:text-4xl">
+              {activeTab === "openings" ? "Opening repertoire" : "Endgame library"}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              {activeTab === "openings"
+                ? "Study the positions you actually reach and turn familiar starts into confident plans."
+                : "Build reliable technique from essential positions, one lesson at a time."}
+            </p>
+          </div>
+          <div className="mt-5 flex w-full gap-1 rounded-xl border border-border/70 bg-muted/60 p-1 sm:mt-0 sm:w-fit" data-testid="study-tabs">
             <button
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all sm:flex-none ${
                 activeTab === "openings"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
               onClick={() => handleTabChange("openings")}
               data-testid="tab-openings"
@@ -229,10 +238,10 @@ const OpeningsOverview = ({ user }) => {
               Openings
             </button>
             <button
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all sm:flex-none ${
                 activeTab === "endgames"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
               onClick={() => handleTabChange("endgames")}
               data-testid="tab-endgames"
@@ -313,7 +322,7 @@ const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack
         {allWhite.length > 0 && (
           <RepertoireSection
             title="As White"
-            icon={<Crown className="w-4 h-4 text-amber-400" />}
+            icon={<Crown className="h-4 w-4 text-primary" />}
             openings={allWhite}
             progress={progress}
             expandedKey={expandedKey}
@@ -325,7 +334,7 @@ const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack
         {allBlack.length > 0 && (
           <RepertoireSection
             title="As Black"
-            icon={<Shield className="w-4 h-4 text-blue-400" />}
+            icon={<Shield className="h-4 w-4 text-primary" />}
             openings={allBlack}
             progress={progress}
             expandedKey={expandedKey}
@@ -374,7 +383,7 @@ const EndgamesTab = ({ categories, loading, openLesson }) => {
       {categories.map((cat) => (
         <div key={cat.key} data-testid={`endgame-category-${cat.key}`}>
           <div className="flex items-center gap-2 mb-3">
-            {categoryIcons[cat.key] || <Lightbulb className="w-5 h-5 text-zinc-400" />}
+            {categoryIcons[cat.key] || <Lightbulb className="h-5 w-5 text-primary" />}
             <h2 className="text-sm font-semibold">{cat.name}</h2>
             <span className="text-xs text-muted-foreground">
               {cat.lessons.length} lesson{cat.lessons.length !== 1 ? "s" : ""}
@@ -386,7 +395,7 @@ const EndgamesTab = ({ categories, loading, openLesson }) => {
                 key={lesson.key}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="rounded-lg border border-border/50 p-3 cursor-pointer hover:border-primary/40 transition-all"
+                className="cursor-pointer rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 onClick={() => openLesson(cat.key, lesson.key)}
                 data-testid={`endgame-lesson-${lesson.key}`}
               >
@@ -396,7 +405,7 @@ const EndgamesTab = ({ categories, loading, openLesson }) => {
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{lesson.description}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
-                    <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700">
+                    <Badge variant="outline" className="border-border bg-muted/50 text-xs text-muted-foreground">
                       {lesson.position_count} positions
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -423,13 +432,13 @@ const FocusCard = ({ opening, allWhite, allBlack, onStudy }) => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="border-amber-500/30 bg-amber-500/5" data-testid="focus-opening">
+      <Card className="experience-surface overflow-hidden border-primary/25 bg-primary/5 shadow-sm" data-testid="focus-opening">
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-amber-500" />
+              <Target className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-xs text-amber-400 uppercase tracking-wide font-medium">Focus</p>
+                <p className="experience-eyebrow text-[10px] font-semibold uppercase">Recommended focus</p>
                 <h2 className="font-semibold text-base mt-0.5">{opening.opening_name}</h2>
               </div>
             </div>
@@ -442,7 +451,7 @@ const FocusCard = ({ opening, allWhite, allBlack, onStudy }) => {
           <div className="grid grid-cols-3 gap-3 mt-3">
             <Stat label="Win Rate" value={`${winRate.toFixed(0)}%`} color={winRate >= 50 ? "text-emerald-400" : "text-red-400"} />
             <Stat label="Accuracy" value={accuracy > 0 ? `${accuracy.toFixed(0)}%` : "—"} color={accuracy >= 70 ? "text-emerald-400" : "text-amber-400"} />
-            <Stat label="Games" value={opening.real_games} color="text-zinc-300" />
+            <Stat label="Games" value={opening.real_games} color="text-foreground" />
           </div>
           <p className="text-xs text-muted-foreground mt-3">
             {winRate < 40
@@ -511,9 +520,9 @@ const OpeningRow = ({ opening, isExpanded, onToggleExpand, onStudy }) => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`rounded-lg border border-border/50 p-3 ${
-          hasLibrary ? "cursor-pointer hover:border-primary/40 transition-all" : "opacity-75"
-        } ${isExpanded ? "border-primary/40 bg-primary/5" : ""}`}
+        className={`rounded-xl border border-border/70 bg-card/65 p-4 shadow-sm ${
+          hasLibrary ? "cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md" : "opacity-75"
+        } ${isExpanded ? "border-primary/40 bg-primary/5 shadow-md" : ""}`}
         onClick={hasLibrary ? onToggleExpand : undefined}
       >
         <div className="flex items-center justify-between">
@@ -534,11 +543,11 @@ const OpeningRow = ({ opening, isExpanded, onToggleExpand, onStudy }) => {
           <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-1">
               {winRate >= 50 ? (
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
               )}
-              <span className={`text-sm font-medium ${winRate >= 50 ? "text-emerald-400" : "text-red-400"}`}>
+              <span className={`text-sm font-medium ${winRate >= 50 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
                 {winRate.toFixed(0)}%
               </span>
             </div>
@@ -646,10 +655,10 @@ const InlineBoardPreview = ({ openingKey, onStudy }) => {
   const currentMoveData = moveIndex >= 0 ? mainLine[moveIndex] : null;
 
   return (
-    <div className="mt-2 p-3 rounded-lg border border-border/30 bg-zinc-900/30" data-testid="inline-board-preview">
+    <div className="experience-surface mt-2 rounded-xl border border-border/70 bg-card/75 p-4" data-testid="inline-board-preview">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Board */}
-        <div className="aspect-square max-w-[280px] mx-auto w-full" data-testid="preview-board">
+        <div className="experience-board-stage mx-auto aspect-square w-full max-w-[280px] overflow-hidden rounded-lg p-1.5" data-testid="preview-board">
           <LichessBoard
             fen={fen}
             orientation={orientation}
@@ -676,8 +685,8 @@ const InlineBoardPreview = ({ openingKey, onStudy }) => {
                     i === moveIndex
                       ? "bg-primary text-primary-foreground"
                       : i < moveIndex
-                      ? "text-zinc-400 hover:bg-zinc-800"
-                      : "text-zinc-500 hover:bg-zinc-800"
+                      ? "text-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();

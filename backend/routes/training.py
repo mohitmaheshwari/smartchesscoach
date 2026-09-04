@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,25 @@ def set_db(database):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+
+
+async def _require_pic_training_user(user: User):
+    from services.focus_bridge import get_pic_focus_projection
+
+    projection = await get_pic_focus_projection(db, user.user_id)
+    if not projection or not projection.get("eligible"):
+        raise HTTPException(
+            status_code=409,
+            detail="An eligible PIC piece-safety focus is required",
+        )
+    return projection
+
+
+def _raise_pic_lesson_error(result: Dict):
+    if result.get("error"):
+        status = 404 if result["error"] == "Session not found" else 409
+        raise HTTPException(status_code=status, detail=result["error"])
+    return result
 
 # Import training services (from mistake_card_service)
 from mistake_card_service import (
@@ -65,6 +85,95 @@ class PuzzleAttemptRequest(BaseModel):
     correct: bool
     time_taken_ms: Optional[int] = None
     moves_tried: Optional[List[str]] = []
+
+
+class PICLessonStartRequest(BaseModel):
+    limit: int = 5
+
+
+class PICLessonMoveRequest(BaseModel):
+    session_id: str
+    move: str
+    interaction_id: Optional[str] = None
+
+
+class PICLessonPauseRequest(BaseModel):
+    session_id: str
+    choice: str = "pause"
+
+
+# ==================== PERSONAL IMPROVEMENT CYCLE ====================
+
+@router.post("/pic/session/start")
+async def start_pic_training_session(
+    request: PICLessonStartRequest,
+    user: User = Depends(get_current_user),
+):
+    """Start or resume the verified, own-game-first piece-safety lesson."""
+    await _require_pic_training_user(user)
+    from services.teaching_engine import PIC_LESSON_TYPE, start_lesson
+
+    result = await start_lesson(
+        db,
+        str(uuid.uuid4()),
+        user.user_id,
+        PIC_LESSON_TYPE,
+        {"limit": request.limit},
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.get("/pic/session")
+async def get_pic_training_session(user: User = Depends(get_current_user)):
+    """Return the user's current PIC lesson without exposing another user."""
+    await _require_pic_training_user(user)
+    from services.teaching_engine import get_pic_piece_safety_lesson
+
+    result = await get_pic_piece_safety_lesson(db, user.user_id)
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/pic/session/move")
+async def submit_pic_training_move(
+    request: PICLessonMoveRequest,
+    user: User = Depends(get_current_user),
+):
+    """Grade one move through the canonical teaching dispatcher."""
+    await _require_pic_training_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import process_lesson_move
+
+    result = await process_lesson_move(
+        db,
+        request.session_id,
+        request.move,
+        interaction_id=request.interaction_id,
+    )
+    return _raise_pic_lesson_error(result)
+
+
+@router.post("/pic/session/pause")
+async def pause_pic_training_session(
+    request: PICLessonPauseRequest,
+    user: User = Depends(get_current_user),
+):
+    """Pause or exit a PIC lesson while preserving its frozen items."""
+    await _require_pic_training_user(user)
+    owned = await db.learning_sessions.find_one(
+        {"session_id": request.session_id, "user_id": user.user_id},
+        {"_id": 1},
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from services.teaching_engine import exit_lesson
+
+    result = await exit_lesson(db, request.session_id, request.choice)
+    return _raise_pic_lesson_error(result)
 
 
 # ==================== CORE SESSION ENDPOINTS ====================
@@ -251,29 +360,30 @@ async def record_puzzle_attempt_endpoint(
 ):
     """Record an attempt on a training puzzle."""
     global db
-    from datetime import datetime, timezone
-
     puzzle_id = request.get("puzzle_id")
     correct = request.get("correct", False)
-    time_taken_ms = request.get("time_taken_ms")
-    moves_tried = request.get("moves_tried", [])
-    weakness_type = request.get("weakness_type", "unknown")
-    # NEW: optional move-quality field from the graduated evaluator.
-    # Tracks whether the user played best / acceptable / wrong, so we can
-    # later distinguish "user is solving puzzles cleanly" from "user is
-    # scraping by with near-best moves".
-    quality = request.get("quality")  # best / excellent / good / inaccuracy / mistake / blunder / None
 
-    attempt = {
-        "user_id": user.user_id,
-        "puzzle_id": puzzle_id,
-        "correct": correct,
-        "time_taken_ms": time_taken_ms,
-        "moves_tried": moves_tried,
-        "weakness_type": weakness_type,
-        "quality": quality,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
+    # Server-owned measurement context. The client can describe the surface,
+    # but it cannot declare itself a first attempt or supply the solver rating.
+    prior_attempts = 0
+    if puzzle_id:
+        prior_attempts = await db.puzzle_attempts.count_documents({
+            "user_id": user.user_id,
+            "puzzle_id": puzzle_id,
+        })
+    from services.rating_resolver import resolve_current_rating
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    profile_doc = await db.player_profiles.find_one(
+        {"user_id": user.user_id}, {"_id": 0, "current_rating": 1}
+    )
+    rating_evidence = resolve_current_rating(user_doc, profile_doc)
+    from services.puzzle_attempt_evidence import build_puzzle_attempt_evidence
+    attempt = build_puzzle_attempt_evidence(
+        request=request,
+        user_id=user.user_id,
+        prior_attempts=prior_attempts,
+        rating_evidence=rating_evidence,
+    )
 
     await db.puzzle_attempts.insert_one(attempt)
 

@@ -15,7 +15,7 @@ Usage:
 import os
 from pymongo import MongoClient
 
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://admin_user_mii_s_c:Mii123$44$@localhost:27017")
+MONGO_URL = os.environ.get("MONGO_URL", os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 ADMIN_EMAIL = "bhutramohit@gmail.com"

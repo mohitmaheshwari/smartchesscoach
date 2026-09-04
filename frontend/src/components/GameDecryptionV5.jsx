@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
 import EvalBar from "@/components/EvalBar";
@@ -54,6 +55,8 @@ import {
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { API } from "@/App";
+import PersonalizedReviewCoach from "@/components/review/PersonalizedReviewCoach";
+import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
 
 /**
  * Generate POSITION-SPECIFIC reflection options.
@@ -134,6 +137,9 @@ function _generateThoughtOptions(move, posCommentary) {
 
 
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedReviewVariant = searchParams.get("review_variant");
   // ?show_facts=1 enables a per-move JSON-fact panel for caption authoring
   // (Parth's templating round). Off by default — invisible to normal users.
   const showFacts = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("show_facts") === "1";
@@ -145,6 +151,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [decryptionBlock, setDecryptionBlock] = useState(null);
   const [patternEvidence, setPatternEvidence] = useState(null);
   const [motifBlindspot, setMotifBlindspot] = useState(null);
+  const [gameTeachingPlan, setGameTeachingPlan] = useState(null);
+  const [teachableEvents, setTeachableEvents] = useState([]);
+  const [reflectionPrompts, setReflectionPrompts] = useState([]);
+  const [reflectionResponses, setReflectionResponses] = useState([]);
+  const [reviewValidation, setReviewValidation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -190,7 +201,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [goldMap, setGoldMap] = useState({});
   const [prefMap, setPrefMap] = useState({});   // {"{n}:{san}": "system"|"gold"|"neither"} — tester preference
 
-  useEffect(() => { fetchDecryptionData(); }, [gameId]);
+  useEffect(() => { fetchDecryptionData(); }, [gameId, requestedReviewVariant]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -287,7 +298,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       setError(null);
       
       // Use V5 endpoint
-      const res = await fetch(`${API}/coach/decryption/v5/${gameId}`, { credentials: "include" });
+      const reviewQuery = requestedReviewVariant
+        ? `?review_variant=${encodeURIComponent(requestedReviewVariant)}`
+        : "";
+      const res = await fetch(
+        `${API}/coach/decryption/v5/${gameId}${reviewQuery}`,
+        { credentials: "include" }
+      );
       if (!res.ok) throw new Error("Failed to fetch decryption data");
       const data = await res.json();
       
@@ -413,6 +430,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
 
       setDecryptionData(perMoveData);
+      setGameTeachingPlan(data.game_teaching_plan || null);
+      setTeachableEvents(data.teachable_events || []);
+      setReflectionPrompts(data.reflection_prompts || []);
+      setReflectionResponses(data.reflection_responses || []);
+      setReviewValidation(data.review_validation || null);
 
       // Authoring mode: pull raw per-move facts when ?show_facts=1 is set.
       // Backend endpoint added 2026-05-13 for Parth's template-authoring round.
@@ -923,6 +945,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   }, [rawCurrentMove, decryptionBlock]);
 
   const orientation = userColor === "black" ? "black" : "white";
+  const hasPersonalizedReview = Boolean(
+    gameTeachingPlan
+    && gameTeachingPlan.chapters?.length
+    && teachableEvents.length
+  );
 
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
@@ -970,6 +997,23 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   return (
     <>
+      {reviewValidation && (
+        <ReviewValidationPanel
+          gameId={gameId}
+          validation={reviewValidation}
+          onModeChange={(variant) => {
+            const next = new URLSearchParams(searchParams);
+            next.set("review_variant", variant);
+            setSearchParams(next, { replace: true });
+          }}
+          onSubmission={(submission) => {
+            setReviewValidation((current) => current ? ({
+              ...current,
+              existing_submission: submission,
+            }) : current);
+          }}
+        />
+      )}
       {/* Voice layer, post-game. Hidden when user won.
 
           Locked 2026-05-04 — collapsed from three sections to ONE:
@@ -983,8 +1027,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           turning-point puzzles is the load-bearing "highlights with
           options" UX. PatternEvidence stays — factual mini-board. */}
       {false && <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />}
-      <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
-      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />
+      {!hasPersonalizedReview && (
+        <>
+          <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
+          <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />
+        </>
+      )}
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
@@ -992,18 +1040,20 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         {/* Board + vertical eval bar (2026-06-06). Bar reads the current
             move's white-POV eval; flips with orientation. */}
         <div className="flex gap-2 justify-center items-stretch max-w-[540px] mx-auto">
-          <EvalBar
-            evalCp={
-              (planMode || showingFutureMoves)
-                ? (currentMove?.eval_after ?? null)
-                : (currentMove
-                    ? currentMove.eval_after
-                    : (decryptionData?.[0]?.eval_before ?? 20))
-            }
-            mateIn={(!planMode && !showingFutureMoves && currentMove)
-              ? (currentMove.mate_in_after ?? null) : null}
-            orientation={orientation}
-          />
+          {!hasPersonalizedReview && (
+            <EvalBar
+              evalCp={
+                (planMode || showingFutureMoves)
+                  ? (currentMove?.eval_after ?? null)
+                  : (currentMove
+                      ? currentMove.eval_after
+                      : (decryptionData?.[0]?.eval_before ?? 20))
+              }
+              mateIn={(!planMode && !showingFutureMoves && currentMove)
+                ? (currentMove.mate_in_after ?? null) : null}
+              orientation={orientation}
+            />
+          )}
         <div className="aspect-square w-full max-w-[500px] relative">
           <LichessBoard
             ref={boardRef}
@@ -1096,7 +1146,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
         {/* Horizontal eval graph below the board — whole-game timeline,
             click to jump (2026-06-06). Hidden in plan mode. */}
-        {!planMode && (
+        {!planMode && !hasPersonalizedReview && (
           <EvalGraph
             data={decryptionData}
             currentIndex={currentMoveIndex}
@@ -1104,7 +1154,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           />
         )}
 
-        <div className="flex items-center justify-center gap-2">
+        {!hasPersonalizedReview && <div className="flex items-center justify-center gap-2">
           <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex === -1} data-testid="btn-go-start">
             <ChevronsLeft className="w-4 h-4" />
           </Button>
@@ -1121,18 +1171,38 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           <Button variant="outline" size="icon" onClick={goToEnd} disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1} data-testid="btn-go-end">
             <ChevronsRight className="w-4 h-4" />
           </Button>
-        </div>
+        </div>}
 
-        <MoveListV5 
-          decryptionData={decryptionData} 
-          currentMoveIndex={currentMoveIndex} 
-          onMoveClick={goToMove} 
-        />
+        {!hasPersonalizedReview && (
+          <MoveListV5
+            decryptionData={decryptionData}
+            currentMoveIndex={currentMoveIndex}
+            onMoveClick={goToMove}
+          />
+        )}
       </div>
 
       {/* RIGHT: Coaching */}
       <div className="lg:w-1/2 space-y-4">
-        {currentMoveIndex === -1 ? (
+        {hasPersonalizedReview ? (
+          <PersonalizedReviewCoach
+            gameId={gameId}
+            plan={gameTeachingPlan}
+            events={teachableEvents}
+            prompts={reflectionPrompts}
+            reflectionResponses={reflectionResponses}
+            onChapterSelect={(event) => {
+              const moveIndex = Number(event?.move?.ply) - 1;
+              if (Number.isInteger(moveIndex)) goToMove(moveIndex);
+            }}
+            onShowVisual={(visual) => {
+              setArrows((visual?.arrows || []).map(([from, to]) => [from, to, "amber"]));
+              setHighlights(visual?.highlights || []);
+            }}
+            onNavigate={(href) => navigate(href)}
+            onReplay={() => goToStart()}
+          />
+        ) : currentMoveIndex === -1 ? (
           <GameStartCard
             decryptionData={decryptionData}
             habitsReport={habitsReport}
@@ -1148,8 +1218,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           <MoveCoachingCardV5
             move={currentMove}
             gameId={gameId}
-            goldCaption={currentMove ? goldMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
-            captionPref={currentMove ? prefMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
+            goldCaption={!reviewValidation && currentMove ? goldMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
+            captionPref={!reviewValidation && currentMove ? prefMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
             onPrefer={(pref) => savePreference(currentMove, pref)}
             acknowledgedConcepts={acknowledgedConcepts}
             onAcknowledge={acknowledgeConceptHandler}

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from
 import "@/App.css";
 
 // Pages
-import Landing from "@/pages/Landing";
+import Landing from "@/pages/LandingPremium";
 import Login from "@/pages/Login";
 import Pricing from "@/pages/Pricing";
 import TermsOfService from "@/pages/TermsOfService";

@@ -21,6 +21,8 @@ import chess
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 
+from services.personal_curriculum import PIC_LESSON_ID, PIC_SKILL_ID
+
 logger = logging.getLogger(__name__)
 
 ENDGAME_TREE_PATH = os.path.join(
@@ -512,8 +514,8 @@ async def start_pic_piece_safety_lesson(
         "session_id": session_id,
         "user_id": user_id,
         "lesson_type": PIC_LESSON_TYPE,
-        "lesson_id": "pic-piece-safety-v1",
-        "skill_id": "piece_safety_simple_hang",
+        "lesson_id": PIC_LESSON_ID,
+        "skill_id": PIC_SKILL_ID,
         "content_version": PIC_CONTENT_VERSION,
         "content_tier": "verified",
         "cohort_role": "admin",
@@ -598,6 +600,33 @@ async def process_pic_piece_safety_move(
         "rejection_reason": "assisted_verified_practice",
         "result_payload": result,
     }
+    try:
+        from services.review_learning_adapter import (
+            build_shadow_learning_event,
+            lesson_result_from_guided_pic_practice,
+        )
+        _lesson_result = lesson_result_from_guided_pic_practice(
+            session_id=session_id,
+            item_id=item["item_id"],
+            interaction_id=key,
+            occurred_at=now,
+            correct=correct,
+        )
+        _shadow_evidence = build_shadow_learning_event(
+            _lesson_result,
+            origin="guided_pic_practice",
+        )
+        event.update({
+            "rollout_mode": "shadow",
+            "adapter_version": _shadow_evidence["adapter_version"],
+            "lesson_result": _shadow_evidence["lesson_result"],
+            "shadow_earned_state": _shadow_evidence["shadow_earned_state"],
+        })
+    except Exception as _learning_exc:
+        logger.warning(
+            "[review-learning-shadow] PIC evidence adaptation failed: %s",
+            _learning_exc,
+        )
     update_set: Dict[str, Any] = {
         "current_index": next_index,
         "updated_at": now,

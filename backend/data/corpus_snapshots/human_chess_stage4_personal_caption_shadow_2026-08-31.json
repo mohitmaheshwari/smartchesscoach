@@ -1,0 +1,46 @@
+{
+  "caption_tiers": {
+    "HIGH": 105,
+    "LOW": 7,
+    "MID": 188
+  },
+  "counts": {
+    "eligible_moves": 300,
+    "final_verified": 300,
+    "generic_recommendation_shell": 13,
+    "generic_shell_with_best_move_purpose_fact": 0,
+    "has_best_move_purpose_fact": 186,
+    "has_board_explanation": 300,
+    "has_transferable_instruction": 194,
+    "personal_connection_eligible": 55
+  },
+  "database_writes": 0,
+  "email_redacted": true,
+  "engine_runs": 0,
+  "games_found": 30,
+  "games_requested": 30,
+  "games_with_personal_connection": 25,
+  "max_connections_in_one_game": 5,
+  "mode": "read_only_stored_engine_evidence",
+  "personal_connection_kinds": {
+    "miss": 10,
+    "walk_into": 45
+  },
+  "personal_connection_sources": {
+    "player_motif_threads": 55
+  },
+  "primary_reason_categories": {
+    "blunder": 255,
+    "check_extra": 2,
+    "check_plain": 3,
+    "forced_best": 1,
+    "king_safety": 3,
+    "mate": 14,
+    "material": 2,
+    "opening_central_pawn": 1,
+    "tactic_played": 9,
+    "threat": 10
+  },
+  "schema_version": 1,
+  "visible_text_changed": false
+}

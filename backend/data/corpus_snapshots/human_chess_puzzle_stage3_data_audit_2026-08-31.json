@@ -1,0 +1,118 @@
+{
+  "attempt_rating_counts": {
+    "missing_attempt_time_rating": 400
+  },
+  "attempt_schema_signatures": {
+    "correct|quality|weakness_type": 347,
+    "correct|weakness_type": 53
+  },
+  "collections": {
+    "community_puzzles": 12208,
+    "community_training_positions": 38484,
+    "puzzle_attempts": 400
+  },
+  "eligibility": {
+    "first_attempts_per_user": {
+      "maximum": 84,
+      "median": 2,
+      "minimum": 1,
+      "p90": 41
+    },
+    "outcome_and_timestamp_eligible_rows": 310,
+    "rejections": {
+      "missing_user_or_puzzle_id": 90
+    },
+    "repeat_rows_removed": 105,
+    "unique_user_puzzle_first_attempts": 205,
+    "users_with_first_attempts": 18
+  },
+  "first_attempts": {
+    "difficulty_distribution": {
+      "community_puzzles|intermediate": 5,
+      "community_training_positions|easy": 36,
+      "community_training_positions|hard": 12,
+      "community_training_positions|medium": 39
+    },
+    "matched_metadata": {
+      "admission_status_broad": 54,
+      "admission_status_generic": 38,
+      "has_admission_evidence_field": 92,
+      "has_cp_loss": 87,
+      "legal_target_move": 92,
+      "matched": 92,
+      "missing_cp_loss": 5
+    },
+    "puzzle_source_join": {
+      "community_puzzles": 5,
+      "community_training_positions": 87,
+      "unmatched": 113
+    },
+    "support_x_outcome": {
+      "support_unknown|correct": 116,
+      "support_unknown|incorrect": 89
+    }
+  },
+  "generated_at": "2026-08-31T17:06:34+00:00",
+  "outcome_field_counts": {
+    "correct": 400
+  },
+  "pool_admission": {
+    "community_puzzles": {
+      "acceptable_move_count": {
+        "0": 11,
+        "1": 12197
+      },
+      "quality_grade": {
+        "caption": 977,
+        "missing": 10525,
+        "shadow": 706
+      },
+      "status": {
+        "broad": 1683,
+        "generic": 10514,
+        "quarantine": 11
+      }
+    },
+    "community_training_positions": {
+      "acceptable_move_count": {
+        "0": 123,
+        "1": 38361
+      },
+      "quality_grade": {
+        "caption": 6381,
+        "missing": 29238,
+        "shadow": 2865
+      },
+      "status": {
+        "broad": 9246,
+        "generic": 29115,
+        "quarantine": 123
+      }
+    }
+  },
+  "pool_projection_signatures": {
+    "community_puzzles": {
+      "approved|best_move_san|best_move_uci|cp_loss|difficulty|fen|issue_type|rating|skill_id|source|verified_admission": 135,
+      "approved|best_move_san|best_move_uci|cp_loss|difficulty|fen|issue_type|rating|source|verified_admission": 11775,
+      "approved|best_move_san|best_move_uci|cp_loss|difficulty|fen|issue_type|source|verified_admission": 112,
+      "approved|best_move_san|cp_loss|difficulty|fen|issue_type|rating|source|verified_admission": 186
+    },
+    "community_training_positions": {
+      "approved|best_move_san|best_move_uci|cp_loss|difficulty|fen|pattern_type|position_id|source_user_rating|verified_admission": 38484
+    }
+  },
+  "privacy": {
+    "player_identifiers_exported": false,
+    "positions_or_moves_exported": false,
+    "puzzle_identifiers_exported": false
+  },
+  "read_only": true,
+  "schema_version": "human_chess.puzzle_stage3_data_audit.v1",
+  "source": {
+    "database": "chess_coach",
+    "source_revision": "4af8313c2575b1c2c7886f581504126f836c3c8f"
+  },
+  "support_state_counts": {
+    "support_unknown": 400
+  }
+}

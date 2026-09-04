@@ -416,6 +416,80 @@ async def player_identity_lead_in(db, user_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+async def load_player_caption_context(db, user_id: str) -> Dict[str, Any]:
+    """Load the evidence-backed player context used by the caption door.
+
+    This is the one construction point for both batch Game Review and live
+    coaching.  It deliberately returns empty values when a source is missing:
+    absence of evidence must silence personalization, never manufacture it.
+
+    The function only reads existing canonical stores.  It creates no profile,
+    recomputes no detector, and contains no new rating/quality thresholds.
+    """
+    empty = {
+        "player_motif_threads": None,
+        "player_opening_threads": None,
+        "player_concept_threads": None,
+        "strong_openings": set(),
+        "player_identity": None,
+        "session_focus": None,
+    }
+    if db is None or not user_id:
+        return empty
+
+    result = dict(empty)
+
+    try:
+        profile = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "motif_profile": 1, "motif_recognition": 1,
+             "motif_anticipation": 1, "games_analyzed_count": 1},
+        ) or {}
+        result["player_motif_threads"] = player_motif_threads(
+            profile.get("motif_profile"),
+            profile.get("motif_recognition"),
+            profile.get("games_analyzed_count") or 0,
+            motif_anticipation_raw=profile.get("motif_anticipation"),
+        )
+    except Exception:
+        result["player_motif_threads"] = None
+
+    try:
+        # Read the persisted canonical profile directly.  The public
+        # get_opening_profile() accessor may recompute and write when stale;
+        # rendering a review must remain a read-only operation.
+        opening_profile = await db.user_opening_profiles.find_one(
+            {"user_id": user_id}, {"_id": 0}
+        )
+        result["player_opening_threads"] = player_opening_threads(opening_profile)
+    except Exception:
+        result["player_opening_threads"] = None
+
+    try:
+        result["player_concept_threads"] = await player_concept_threads(db, user_id)
+    except Exception:
+        result["player_concept_threads"] = None
+
+    try:
+        from services.player_performance import get_strong_openings
+        result["strong_openings"] = set(await get_strong_openings(db, user_id) or set())
+    except Exception:
+        result["strong_openings"] = set()
+
+    try:
+        result["player_identity"] = await player_identity_lead_in(db, user_id)
+    except Exception:
+        result["player_identity"] = None
+
+    try:
+        from services.focus_bridge import get_active_focus_bundle
+        result["session_focus"] = await get_active_focus_bundle(db, user_id)
+    except Exception:
+        result["session_focus"] = None
+
+    return result
+
+
 # Map a conductor-thread kind to a matching identity dimension. When the
 # fired thread aligns with the user's known main_leak / phase, we get a
 # real "the coach knows me" moment instead of a generic prepend.

@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 137  # v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md. v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
+V5_COACHING_VERSION = 138  # v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md. v136 (2026-08-03): forced-recapture severity-downgrade fix (caption_pipeline.py compute_severity_for_move — 733 real blunder/mistake/serious moves across 712 games were being silently relabeled "good", suppressing socratic_coaching) + Batch 4 simple-English jargon sweep across R08/R09/R01/R12/R_PROMOTED/distilled_templates/opening_book/traps/game_mirror/concept_templates/v5_llm_narrator/player_decryption/truth_line/middlegame_patterns/get_opening_introduction (docs/simple_english_captions_scope.md). Neither fix had a version bump when first made today — this bump is what actually makes both reach existing users' stored decryption_v5_data. v134 (2026-07-14): verified+distilled caption flags ON in prod (W5 broken-wires fix) — near-best quiet moves get the board-verified "attacks" reason, mistake captions swap to distilled-template renders where available+verified (91% coverage / 99% truth). v133 (2026-07-08): jargon + defeatist-phrase sweep.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -2892,6 +2892,7 @@ async def generate_game_decryption_v5(
     db,  # MongoDB database reference
     game_id: Optional[str] = None,
     opponent_move_evaluations: Optional[List[Dict]] = None,
+    game_teaching_plan_output: Optional[Dict[str, object]] = None,
 ) -> List[Dict]:
     """
     Generate V5 "Thinking Simulator" coaching for a game.
@@ -2997,6 +2998,35 @@ async def generate_game_decryption_v5(
                 _okey = " ".join(_ofen.split()[:4])
                 # Don't clobber a user entry if one somehow shares the key.
                 eval_lookup.setdefault(_okey, _oe)
+
+        # Phase 3 personalized review planner. The optional mutable output is
+        # supplied only by production persistence callers. Observation facts
+        # are regenerated through the existing canonical deriver because the
+        # initial-analysis worker stores them after V5 runs. No engine, LLM or
+        # database write is added here. This shadow work is deliberately
+        # independent of the player-facing feature flag: persistence callers
+        # collect it while the public V5 response remains byte-compatible.
+        _review_shadow_observations: Dict[int, Dict] = {}
+        _review_shadow_events = []
+        _review_shadow_features = {}
+        _review_shadow_ready = False
+        if game_teaching_plan_output is not None and game_id:
+            try:
+                from services.game_review_shadow_runtime import derive_current_review_observations
+                _review_shadow_observations = derive_current_review_observations(
+                    game_id=game_id,
+                    user_id=user_id,
+                    user_color=user_color,
+                    pgn=pgn,
+                    move_evaluations=move_evaluations,
+                    opponent_move_evaluations=_opp_evals or [],
+                )
+                _review_shadow_ready = True
+            except Exception as _review_obs_exc:
+                logger.warning(
+                    "[personalized-review-shadow] observation derivation failed "
+                    f"for {game_id}: {_review_obs_exc}"
+                )
         
         # Get user's acknowledged concepts
         acknowledged_concepts = set()
@@ -3013,6 +3043,19 @@ async def generate_game_decryption_v5(
         
         # Get adaptive config (rating-based filtering + known weaknesses)
         adaptive = await _get_adaptive_config(db, user_id)
+
+        # Stage 4 — load the same evidence-backed player context used by
+        # Play with Coach, once per game rather than once per move.  Review
+        # passes it in shadow-only mode until the causal-personal renderer is
+        # explicitly enabled, so this creates measurement without changing
+        # current visible captions.
+        _v5_player_caption_context: Dict = {}
+        try:
+            from services.coach_conductor import load_player_caption_context
+            _v5_player_caption_context = await load_player_caption_context(db, user_id)
+        except Exception as _pc_exc:
+            logger.info(f"[stage4] player caption context unavailable: {_pc_exc}")
+            _v5_player_caption_context = {}
         
         # Process each move
         decryption_data = []
@@ -3052,6 +3095,7 @@ async def generate_game_decryption_v5(
         # focal squares, different king pair, different best-move family).
         # See project_suppression_key_overhaul.md for the design.
         state_keys_fired_this_game: set = set()
+        conductor_threads_pulled_this_game: set = set()
         # TIER 3 shape-pattern suppression — same convention as principles:
         # each pattern fires at most once per game, so the cue stays a
         # memorable marker instead of a repeated label.
@@ -3091,6 +3135,9 @@ async def generate_game_decryption_v5(
             full_move_number = (idx // 2) + 1
             is_white = (idx % 2 == 0)
             is_user = (user_color == "white" and is_white) or (user_color == "black" and not is_white)
+            _decision = None
+            _review_event_contract = None
+            _review_prompt_contract = None
 
             # v70 (2026-05-23): "Play this line" support. Initialize the
             # per-iteration coach-line state here so it's defined even
@@ -3483,6 +3530,17 @@ async def generate_game_decryption_v5(
             caption_captured_piece = None
             principle_cue = ""
             principle_id_used = None
+            _caption_explanation = {
+                "board_explanation": "",
+                "player_connection": "",
+                "transferable_instruction": "",
+                "confidence": "silent",
+                "provenance": [],
+                "personal_evidence": None,
+                "final_verified": False,
+                "rendered_personalization": False,
+                "rollout_mode": "shadow",
+            }
             if CAPTION_V5_PIPELINE_ENABLED and _build_move_teaching_decision is not None:
                 try:
                     # SAN history (excluding current — central layer
@@ -3540,6 +3598,13 @@ async def generate_game_decryption_v5(
                         prev_move_uci=(prev_move.uci() if prev_move else None),
                         best_move_uci=(eval_data.get("best_move_uci") or None),
                         user_rating=_v5_user_rating,
+                        player_motif_threads=_v5_player_caption_context.get("player_motif_threads"),
+                        player_opening_threads=_v5_player_caption_context.get("player_opening_threads"),
+                        player_concept_threads=_v5_player_caption_context.get("player_concept_threads"),
+                        strong_openings=_v5_player_caption_context.get("strong_openings") or set(),
+                        player_identity=_v5_player_caption_context.get("player_identity"),
+                        session_focus=_v5_player_caption_context.get("session_focus"),
+                        player_context_shadow_only=True,
                     )
                     _state = _CaptionCrossMoveState(
                         fired_principles=set(principles_fired_this_game),
@@ -3548,6 +3613,7 @@ async def generate_game_decryption_v5(
                         active_trap_setup_completed_by_user=active_trap_setup_completed_by_user,
                         active_trap_step_cursor=active_trap_step_cursor,
                         prev_user_eval_after=prev_user_eval_after,
+                        conductor_threads_pulled=conductor_threads_pulled_this_game,
                     )
                     _decision = _build_move_teaching_decision(
                         _inputs, _state,
@@ -3571,7 +3637,7 @@ async def generate_game_decryption_v5(
                     caption_primary_reason = caption_facts.get("primary_reason")
                     caption_captured_piece = caption_facts.get("captured_piece_type")
                     caption_principles_violated = caption_facts.get("principles_violated") or []
-                    principle_cue = caption_facts.get("principle_cue") or ""
+                    principle_cue = _decision.teaching_meta.principle_cue or ""
                     principle_id_used = caption_facts.get("principle_id_used")
                     shape_pattern_record = _decision.shape_pattern_record
                     trap_record = _decision.trap_record
@@ -3581,6 +3647,7 @@ async def generate_game_decryption_v5(
                     # caption text. Field is None for non-R12 captions
                     # (R15 good-move, opening intro, silent).
                     _caption_severity_word = _decision.teaching_meta.caption_severity_word
+                    _caption_explanation = asdict(_decision.explanation)
                     principles_fired_last_move = set(_decision.state_mutations.fired_principles_added)
 
                     # ─── DATA-RICHNESS (Mohit 2026-05-27) ──────────────
@@ -3636,6 +3703,58 @@ async def generate_game_decryption_v5(
                     }
                     caption_primary_reason = None
                     caption_principles_violated = []
+
+            # Adapt the exact central decision. The planner never reads the
+            # FEN or reinterprets a caption, and only promoted observation
+            # evidence can survive the adapter's authorization gate.
+            if is_user and _decision is not None and _review_shadow_observations:
+                try:
+                    from services.game_review_shadow_runtime import adapt_simple_hang_event
+                    _review_pair = adapt_simple_hang_event(
+                        decision=_decision,
+                        observation=_review_shadow_observations.get(full_move_number, {}),
+                        game_id=game_id,
+                        ply=idx + 1,
+                        move_number=full_move_number,
+                        san=move_san,
+                    )
+                    if _review_pair is not None:
+                        _review_event, _review_feature = _review_pair
+                        _review_shadow_events.append(_review_event)
+                        _review_shadow_features[_review_event.event_id] = _review_feature
+                        _review_event_contract = _review_event.contract_dict()
+                        if _review_event.reflection_eligible:
+                            try:
+                                from services.review_reflection_service import (
+                                    build_pic_simple_hang_reflection_prompt,
+                                )
+                                _review_prompt = (
+                                    build_pic_simple_hang_reflection_prompt(
+                                        _review_event,
+                                        fen_before=fen_before,
+                                        user_move=move_san,
+                                        best_move=best_move or "",
+                                        rating=_v5_user_rating or 1200,
+                                        cp_loss=cp_loss or 0,
+                                        move_number=full_move_number,
+                                    )
+                                )
+                                _review_prompt_contract = (
+                                    _review_prompt.public_dict()
+                                )
+                            except Exception as _review_prompt_exc:
+                                logger.warning(
+                                    "[personalized-review-shadow] reflection "
+                                    "prompt failed for %s ply %s: %s",
+                                    game_id,
+                                    idx + 1,
+                                    _review_prompt_exc,
+                                )
+                except Exception as _review_event_exc:
+                    logger.warning(
+                        "[personalized-review-shadow] event adaptation failed "
+                        f"for {game_id} ply {idx + 1}: {_review_event_exc}"
+                    )
 
             # Build move output
             prev_move = move
@@ -4163,6 +4282,11 @@ async def generate_game_decryption_v5(
                 # visually distinct.
                 "principle_cue": principle_cue,
                 "principle_id_used": principle_id_used,
+                # Stage 4 causal/personal contract.  This is generated by the
+                # same central decision as PWC.  While rollout is shadow-only,
+                # `player_connection` can be audited but
+                # `rendered_personalization` remains false.
+                "caption_explanation": _caption_explanation,
 
                 # ── CAPTION CLASSIFICATION (v86) ─────────────────────
                 # Per Mohit 2026-05-25: many context/silent captions
@@ -4224,6 +4348,11 @@ async def generate_game_decryption_v5(
                 # qualify. Per [[one-source-of-truth-for-coaching]].
                 "coach_move_coaching": caption_facts.get("coach_move_coaching"),
                 "socratic_coaching": caption_facts.get("socratic_coaching"),
+                # Default-off review contracts. The API removes these from
+                # the legacy move list and exposes them only through the
+                # verified Phase 5 projection when the server flag is on.
+                "teachable_event": _review_event_contract,
+                "reflection_prompt": _review_prompt_contract,
             }
 
             decryption_data.append(move_output)
@@ -4482,6 +4611,26 @@ async def generate_game_decryption_v5(
                 )
             except Exception as _flush_exc:
                 logger.warning(f"[pattern_events] flush failed: {_flush_exc}")
+
+        if game_teaching_plan_output is not None and game_id and _review_shadow_ready:
+            try:
+                from services.game_review_shadow_runtime import build_shadow_storage_payload
+                _shadow_generated_at = datetime.now(timezone.utc)
+                game_teaching_plan_output.clear()
+                game_teaching_plan_output.update(
+                    build_shadow_storage_payload(
+                        game_id=game_id,
+                        events=tuple(_review_shadow_events),
+                        features=_review_shadow_features,
+                        generated_at=_shadow_generated_at,
+                        source_v5_version=V5_COACHING_VERSION,
+                    )
+                )
+            except Exception as _review_plan_exc:
+                logger.warning(
+                    "[personalized-review-shadow] planner failed "
+                    f"for {game_id}: {_review_plan_exc}"
+                )
 
         return decryption_data
         

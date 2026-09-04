@@ -1,0 +1,35 @@
+{
+  "clean_situation_covered": 234,
+  "clean_situation_distribution_unique": {
+    "allowed_mate_in_one": 3,
+    "allowed_profitable_capture": 171,
+    "deferred_requires_deeper_reason": 195,
+    "delivered_mate": 1,
+    "early_queen_move": 7,
+    "endgame_position": 18,
+    "missed_mate_in_one": 3,
+    "missed_profitable_capture": 31
+  },
+  "database_writes": 0,
+  "duplicate_verified_rows_removed": 477,
+  "engine_runs": 0,
+  "exports_private_rows": false,
+  "gold_rows": 946,
+  "legacy_gap_distribution_unique": {
+    "king_safety": 74,
+    "missed_tactic": 69,
+    "opening_knowledge": 68,
+    "piece_activity": 75,
+    "piece_safety": 74,
+    "tactical_oversight": 69
+  },
+  "mode": "read_only_aggregate",
+  "schema_version": 1,
+  "verified_rows": 906,
+  "verified_unique_positions": 429,
+  "verify_status": {
+    "missing": 40,
+    "verified": 785,
+    "verified_after_correction": 121
+  }
+}

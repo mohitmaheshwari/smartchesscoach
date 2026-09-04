@@ -25,6 +25,7 @@ import chess
 
 # Active Recall Integration (pedagogical Q&A enrichment)
 from services.active_recall_integration import enrich_coaching_with_active_recall
+from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -6700,6 +6701,16 @@ async def start_play_with_coach(
             game_mode=game_mode
         )
 
+        # The canonical snapshot is the only focus authority for eligible
+        # flag-on sessions. Replace any earlier legacy prescription choice
+        # before focus_update can persist it.
+        canonical_session_context = session.coaching_context
+        if canonical_session_context is not None:
+            canonical_primary = canonical_session_context.get("primary_focus")
+            teaching_focus = (
+                canonical_primary.get("topic_key") if canonical_primary else None
+            )
+
         # Store opening preference and activate opening teaching if selected
         logger.info(f"[COACH-START] opening_key={opening_key}, opening_name={opening_name}")
         if opening_key or opening_name:
@@ -6803,22 +6814,23 @@ async def start_play_with_coach(
             logger.info(f"[COACH-START] Teaching focus: {teaching_focus} → {focus_update['teaching_focus']}")
 
         # Auto-detect student weaknesses from focus engine
-        try:
-            from services.focus_engine import get_user_focus
-            user_focus = await get_user_focus(db, user.user_id)
-            if user_focus:
-                focus_update["student_weaknesses"] = [user_focus.get("cluster", "")]
-                if not teaching_focus:
-                    focus_update["teaching_focus"] = WEAKNESS_TO_FOCUS.get(
-                        user_focus.get("cluster", ""), "natural_play"
-                    )
-        except Exception:
-            pass
+        if canonical_session_context is None:
+            try:
+                from services.focus_engine import get_user_focus
+                user_focus = await get_user_focus(db, user.user_id)
+                if user_focus:
+                    focus_update["student_weaknesses"] = [user_focus.get("cluster", "")]
+                    if not teaching_focus:
+                        focus_update["teaching_focus"] = WEAKNESS_TO_FOCUS.get(
+                            user_focus.get("cluster", ""), "natural_play"
+                        )
+            except Exception:
+                pass
 
         # === CURRICULUM BRAIN: Use coach's prescription as teaching focus ===
         # If the coach analyzed previous games and prescribed a focus,
         # that takes priority over generic focus engine detection.
-        if not teaching_focus:
+        if not teaching_focus and canonical_session_context is None:
             try:
                 from services.coach_memory import get_or_create_memory
                 memory = await get_or_create_memory(db, user.user_id)
@@ -7007,24 +7019,51 @@ async def start_play_with_coach(
             logger.warning(f"Coach memory greeting failed: {e}")
             welcome_message = message
         
+        # Coach Mode may present the canonical instruction. Play Mode keeps the
+        # immutable snapshot in Mongo for postgame analysis but shows no live
+        # coaching context.
+        from services.focus_bridge import coaching_context_visible_in_mode
+        visible_coaching_context = coaching_context_visible_in_mode(
+            canonical_session_context, game_mode
+        )
+        if visible_coaching_context is not None:
+            canonical_primary = visible_coaching_context.get("primary_focus")
+            if canonical_primary and canonical_primary.get("instruction_text"):
+                welcome_message = canonical_primary["instruction_text"]
+            elif visible_coaching_context.get("evidence", {}).get("message"):
+                welcome_message = visible_coaching_context["evidence"]["message"]
+
         session_dict = session.to_dict()
+        from services.focus_bridge import coaching_session_payload_for_mode
+        visible_session_dict = coaching_session_payload_for_mode(
+            session_dict, game_mode
+        )
+        if game_mode == "play":
+            welcome_message = message
         logger.info(f"[start_play_with_coach] session.to_dict() has game_mode: {'game_mode' in session_dict}")
         logger.info(f"[start_play_with_coach] session.game_mode attribute: {session.game_mode}")
         return {
             "success": True,
             "session_id": session.session_id,
-            "session": session_dict,
+            "session": visible_session_dict,
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
             "message": welcome_message,
-            "session_goal": session.session_goal,  # coaching-presence v1: today's goal
+            "session_goal": session.session_goal if game_mode == "coach" else None,
+            "coaching_context": visible_coaching_context,
             "opening_key": opening_key,
             "evaluation": {
                 "score": eval_score,
                 "mate_in": mate_in
             },
             "practice_mode": practice_mode,
-            "openingGuidance": _get_initial_opening_guidance(update_fields if (opening_key or opening_name) else {}, logger),
+            "openingGuidance": (
+                _get_initial_opening_guidance(
+                    update_fields if (opening_key or opening_name) else {}, logger
+                )
+                if game_mode == "coach"
+                else None
+            ),
         }
     except Exception as e:
         logger.error(f"Error starting coach session: {e}")
@@ -7537,7 +7576,22 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         },
     }
 
-    await db.games.insert_one(game_doc)
+    # The find_one guard above is necessary but NOT sufficient: there is an
+    # await between the check and this insert, and three call sites
+    # (1222, 7832, 9770) can reach it concurrently. On 2026-08-18 one session
+    # was promoted NINE times inside 122ms because every caller passed the
+    # check before any of them inserted.
+    #
+    # games.coach_session_id now carries a partial UNIQUE index, so the storage
+    # layer settles the race. Losing it means another caller already promoted
+    # this session -- that is SUCCESS, not an error, so exit quietly rather
+    # than surfacing a 500 to a user who just finished a game.
+    try:
+        await db.games.insert_one(game_doc)
+    except DuplicateKeyError:
+        logger.info(f"[COACH] Session {session_id[:8]} already promoted "
+                    f"(concurrent call lost the race) — skipping")
+        return
     await db.game_analyses.insert_one(analysis_doc)
     logger.info(f"[COACH] Promoted session {session_id[:8]} → game {game_id} "
                 f"({len(pgn_moves)} moves, {blunders}B {mistakes}M, acc={accuracy}%)")

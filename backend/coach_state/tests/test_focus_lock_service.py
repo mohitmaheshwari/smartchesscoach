@@ -163,7 +163,7 @@ class TestSimulatedLockSuccessful:
     Simulate a successful lock completion.
     
     User plays 5 games with good compliance (>=75% average).
-    Lock should complete with "Rule mastered." message.
+    Lock should report the observed checkpoint result without claiming mastery.
     """
     
     def test_successful_lock_completion(self):
@@ -199,7 +199,9 @@ class TestSimulatedLockSuccessful:
         exit_info = check_lock_exit(lock)
         assert exit_info["should_exit"] is True
         assert exit_info["exit_type"] == "success"
-        assert "mastered" in exit_info["headline"].lower()
+        assert exit_info["headline"] == "Focus checkpoint passed."
+        assert "master" not in exit_info["headline"].lower()
+        assert "improv" not in exit_info["message"].lower()
         assert exit_info["reward"] == "+1 Discipline Level"
 
 
@@ -403,7 +405,7 @@ class TestLockUIState:
             failed_cycles=0,
             created_at=lock.created_at,
             updated_at=lock.updated_at,
-            headline="Rule mastered.",
+            headline="Focus checkpoint passed.",
             message="Lock lifted.",
         )
         

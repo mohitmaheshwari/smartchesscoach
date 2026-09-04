@@ -1555,6 +1555,12 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                 {"topic_key": 1, "picker_evidence_count": 1}
             )
             if active_focus:
+                from services.detector_quality import (
+                    focus_document_is_authorized,
+                )
+                if not focus_document_is_authorized(active_focus):
+                    active_focus = None
+            if active_focus:
                 focus_topic = active_focus.get("topic_key")
                 for g in unreviewed:
                     gaps = g.get("cognitive_gaps", []) or []

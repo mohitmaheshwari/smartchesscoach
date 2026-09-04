@@ -52,11 +52,32 @@ def set_db(database):
 PRO_PLAN_PRICE_PAISE = int(os.environ.get("PRO_PLAN_PRICE_PAISE", "14900"))  # ₹149
 PRO_PLAN_CURRENCY = "INR"
 PRO_PLAN_NAME = "ChessGuru Pro — Monthly"
+LEGACY_CHECKOUT_FLAG = "LEGACY_ONE_TIME_CHECKOUT_ENABLED"
+
+
+def _checkout_enabled() -> bool:
+    """The legacy order flow is not a recurring subscription.
+
+    Keep it fail-closed so configured Razorpay keys cannot accidentally expose
+    a one-time, permanent Pro entitlement as a monthly plan. The flag exists
+    only for explicit sandbox reconciliation while the subscription lifecycle
+    in docs/recurring_subscription_scope.md is being built.
+    """
+    explicitly_enabled = (
+        os.environ.get(LEGACY_CHECKOUT_FLAG, "false").lower() == "true"
+    )
+    test_key = os.environ.get("RAZORPAY_KEY_ID", "").startswith("rzp_test_")
+    return explicitly_enabled and test_key
 
 
 def _client():
     """Lazy-construct the Razorpay client so the import doesn't break in
     environments without the keys (e.g., dev)."""
+    if not _checkout_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Subscriptions are temporarily unavailable.",
+        )
     key_id = os.environ.get("RAZORPAY_KEY_ID", "")
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
     if not key_id or not key_secret:
@@ -94,7 +115,7 @@ class VerifyPaymentRequest(BaseModel):
 async def billing_config():
     """Lightweight endpoint the frontend can call to know whether
     payments are wired up before it shows the Pay button."""
-    enabled = bool(os.environ.get("RAZORPAY_KEY_ID")) and bool(
+    enabled = _checkout_enabled() and bool(os.environ.get("RAZORPAY_KEY_ID")) and bool(
         os.environ.get("RAZORPAY_KEY_SECRET")
     )
     return {
@@ -103,6 +124,7 @@ async def billing_config():
         "amount": PRO_PLAN_PRICE_PAISE,
         "plan_name": PRO_PLAN_NAME,
         "test_mode": (os.environ.get("RAZORPAY_KEY_ID", "").startswith("rzp_test_")),
+        "legacy_one_time_checkout": _checkout_enabled(),
     }
 
 

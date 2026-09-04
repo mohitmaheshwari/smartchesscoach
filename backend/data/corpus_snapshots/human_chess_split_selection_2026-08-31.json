@@ -1,0 +1,61 @@
+{
+  "snapshot_id": "human_chess_split_selection_2026-08-31",
+  "generated_at": "2026-08-31",
+  "source_manifest": "human_chess_research_2026-08-31.json",
+  "source_manifest_records_sha256": "b63cd4911ab1ce8f1993e2fde9a71c68311e15a2a59cb25a9941a07efd0b73a5",
+  "method": "deterministic chronological last-N evaluation games per eligible user; joined read-only to move_observations schema_version >= 16",
+  "candidates": {
+    "min_history_5_future_3": {
+      "users": 33,
+      "evaluation_games": 99,
+      "observations_total": 2193,
+      "observations_per_user": {"min": 0, "p25": 33, "median": 74, "p75": 98, "max": 176},
+      "mistakes_total": 312,
+      "mistakes_per_user": {"min": 0, "p25": 0, "median": 9, "p75": 16, "max": 29},
+      "named_events_total": 242,
+      "named_events_per_user": {"min": 0, "p25": 0, "median": 6, "p75": 11, "max": 25},
+      "users_with_named_event": 24,
+      "clock_qualified_evaluation_users": 26
+    },
+    "min_history_10_future_5": {
+      "users": 30,
+      "evaluation_games": 150,
+      "observations_total": 3609,
+      "observations_per_user": {"min": 0, "p25": 48, "median": 140, "p75": 161, "max": 250},
+      "mistakes_total": 504,
+      "mistakes_per_user": {"min": 0, "p25": 2, "median": 18, "p75": 27, "max": 41},
+      "named_events_total": 387,
+      "named_events_per_user": {"min": 0, "p25": 1, "median": 12, "p75": 21, "max": 33},
+      "users_with_named_event": 24,
+      "clock_qualified_evaluation_users": 24
+    },
+    "min_history_20_future_5": {
+      "users": 29,
+      "evaluation_games": 145,
+      "observations_total": 3468,
+      "observations_per_user": {"min": 0, "p25": 48, "median": 140, "p75": 161, "max": 250},
+      "mistakes_total": 473,
+      "mistakes_per_user": {"min": 0, "p25": 2, "median": 18, "p75": 27, "max": 41},
+      "named_events_total": 363,
+      "named_events_per_user": {"min": 0, "p25": 1, "median": 12, "p75": 21, "max": 33},
+      "users_with_named_event": 23,
+      "clock_qualified_evaluation_users": 23
+    },
+    "min_history_30_future_10": {
+      "users": 28,
+      "evaluation_games": 280,
+      "observations_total": 6719,
+      "observations_per_user": {"min": 0, "p25": 161, "median": 297, "p75": 355, "max": 488},
+      "mistakes_total": 935,
+      "mistakes_per_user": {"min": 0, "p25": 15, "median": 41, "p75": 46, "max": 69},
+      "named_events_total": 709,
+      "named_events_per_user": {"min": 0, "p25": 9, "median": 30, "p75": 35, "max": 55},
+      "users_with_named_event": 23,
+      "clock_qualified_evaluation_users": 22
+    }
+  },
+  "locks": {
+    "move_policy_and_clock": "min_history_10_future_5",
+    "future_weakness_prediction": "min_history_30_future_10"
+  }
+}

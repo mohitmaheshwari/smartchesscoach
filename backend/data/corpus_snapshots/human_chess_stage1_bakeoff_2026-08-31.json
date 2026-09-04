@@ -1,0 +1,187 @@
+{
+  "snapshot_id": "human_chess_stage1_bakeoff_2026-08-31",
+  "schema_version": "human_chess.stage1_decision_packet.v1",
+  "research_only": true,
+  "production_writes": false,
+  "stockfish_reanalysis": false,
+  "source": {
+    "manifest": "human_chess_research_2026-08-31.json",
+    "manifest_records_sha256": "b63cd4911ab1ce8f1993e2fde9a71c68311e15a2a59cb25a9941a07efd0b73a5",
+    "split": "min_history_10_future_5",
+    "source_revision": "4af8313c2575b1c2c7886f581504126f836c3c8f"
+  },
+  "move_policy": {
+    "input_counts": {
+      "users": 30,
+      "evaluation_games": 150,
+      "joined_observations": 3609,
+      "exact_duplicate_positions_removed": 247,
+      "deduplicated_positions": 3362,
+      "history_qualified_positions": 3257,
+      "clock_and_history_qualified_positions": 2691
+    },
+    "overall": {
+      "legal_move_frequency_baseline": {
+        "count": 3362,
+        "top1": 0.1052944676,
+        "top3": 0.2343842951,
+        "top5": 0.3236168947,
+        "nll": 3.3264038303,
+        "brier": 0.9386533156,
+        "ece_10_bin": 0.0421504732
+      },
+      "maia2_rapid": {
+        "count": 3362,
+        "top1": 0.5184414039,
+        "top3": 0.8019036288,
+        "top5": 0.8917311124,
+        "nll": 1.4777854027,
+        "brier": 0.6148447137,
+        "ece_10_bin": 0.0257393873
+      },
+      "maia2_blitz": {
+        "count": 3362,
+        "top1": 0.5220107079,
+        "top3": 0.7941701368,
+        "top5": 0.8887566924,
+        "nll": 1.482079921,
+        "brier": 0.6152279298,
+        "ece_10_bin": 0.0212987294
+      },
+      "otter_history_only": {
+        "count": 3257,
+        "coverage_of_deduplicated_positions": 0.9687685901,
+        "top1": 0.5572612834,
+        "top3": 0.8320540375,
+        "top5": 0.9161805342,
+        "nll": 1.3510704255,
+        "brier": 0.5802167778,
+        "ece_10_bin": 0.0338718356
+      }
+    },
+    "rating_band_top1": {
+      "600-999": {
+        "baseline": 0.0955,
+        "maia2_rapid": 0.5123,
+        "otter_history_only": 0.5521
+      },
+      "1000-1399": {
+        "baseline": 0.1263,
+        "maia2_rapid": 0.531,
+        "otter_history_only": 0.5739
+      },
+      "1400-1500": {
+        "baseline": 0.0825,
+        "maia2_rapid": 0.5052,
+        "otter_history_only": 0.5325
+      }
+    },
+    "maia_time_control_match_check": {
+      "rapid_positions": {
+        "count": 1757,
+        "rapid_weight_top1": 0.5321570859,
+        "rapid_weight_nll": 1.429523329,
+        "blitz_weight_top1": 0.5293113261,
+        "blitz_weight_nll": 1.448491
+      },
+      "blitz_positions": {
+        "count": 1374,
+        "blitz_weight_top1": 0.518923,
+        "blitz_weight_nll": 1.446389,
+        "rapid_weight_top1": 0.5065502183,
+        "rapid_weight_nll": 1.4608929053
+      }
+    },
+    "paired_clock_ablation": {
+      "count": 2691,
+      "otter_neutral": {
+        "top1": 0.5213675214,
+        "nll": 1.5056545626,
+        "brier": 0.6321469139,
+        "ece_10_bin": 0.0909620524
+      },
+      "otter_clock_only": {
+        "top1": 0.5150501672,
+        "nll": 1.5031280832,
+        "brier": 0.6304999086,
+        "ece_10_bin": 0.0677650848
+      },
+      "otter_history_only": {
+        "top1": 0.558156819,
+        "nll": 1.3422064475,
+        "brier": 0.5798084906,
+        "ece_10_bin": 0.0388767939
+      },
+      "otter_observed_history_and_clock": {
+        "top1": 0.552211074,
+        "nll": 1.3501857947,
+        "brier": 0.5832361202,
+        "ece_10_bin": 0.0186020487
+      },
+      "clock_quartile_top1_observed_vs_history_only": {
+        "q1_lowest_remaining": [0.597923, 0.603858],
+        "q2": [0.568047, 0.572485],
+        "q3": [0.536404, 0.533432],
+        "q4_highest_remaining": [0.505988, 0.522455]
+      }
+    },
+    "aggregate_output_sha256": {
+      "baseline.json": "b677ad749fc886ca87e819030045e52990f038ed85f89401d9de4e164a445f8d",
+      "maia2_rapid.json": "065f8b4c8008b6b2725a06c4d1b9119f4c5dfdc4b4b89dbf84380f7cc4754146",
+      "maia2_blitz.json": "689c40c92fccc540312e7f7ae2b1841801be6f7c61a27268335979206dc52a50",
+      "otter_history_only_all.json": "c0d29c5c95717016bd41d0ff093fc8323254b9dbb91ba206673a27189b0ec1b0",
+      "otter_neutral_paired.json": "9163fc5d32184f69d6f41820d7088296ee86a7356b661e070c1c824e2663a0f8",
+      "otter_clock_only_paired.json": "01a8a7db06d4f4b0c826a98587be294a9949d87e31bae8963076967e46614b76",
+      "otter_history_only_quartiles.json": "dd815cf2babec0da80d2a63b649d40aacaa6d97f39297f92c74c0850e336dad2",
+      "otter_observed_quartiles.json": "bb1faee80c541432bbfb9621701ce3cf5684e7e27868b70fe2e9f6d14e7afa9b"
+    }
+  },
+  "fathom_curriculum_audit": {
+    "canonical_source": "backend/data/coaching/endgame_theory_tree.json",
+    "content_sha256": "68ff630437f6a3943d016149bb169b1ff30054f7da8b7d9977ad98d004445348",
+    "fathom_commit": "c9c6fef0dddc05d2e242c183acf5833149ab676d",
+    "fathom_binary_sha256": "a983230477b0bba0b5beebb5bcd0201e17c49ae84fc6ee425de74f52e860e89f",
+    "table_file_count": 32,
+    "table_file_manifest_sha256": "3fcb0e8dcffb4996c469381e8025243a3268e4886b22c28d585f0b919501bc93",
+    "full_transient_audit_sha256": "4459c222018544cc4294c3b6fe9c7021f311b4237dd34afff05a02d500f27a1c",
+    "counts": {
+      "lessons": 18,
+      "positions": 54,
+      "invalid_positions": 5,
+      "outside_five_man_coverage": 21,
+      "tablebase_probed": 23,
+      "exact_moves_preserving_result": 19,
+      "exact_moves_changing_result": 4,
+      "multiple_result_preserving_moves": 18,
+      "unresolved_fathom_root_probes": 5
+    },
+    "definite_content_blockers": [
+      ["rook_endgames", "active_rook", 1, "invalid_board", "Re5+", "8/8/4k3/p7/P4K2/8/8/r3R3 w - - 0 1"],
+      ["queen_vs_pawn", "stop_promotion", 2, "invalid_board", "Qb1+", "8/8/8/8/6k1/8/1q6/2KP4 b - - 0 1"],
+      ["queen_vs_pawn", "stalemate_tricks", 1, "invalid_board", "Qg8", "K7/P7/8/8/8/8/6q1/7k b - - 0 1"],
+      ["bishop_endgames", "good_vs_bad_bishop", 1, "invalid_board", "Ke8", "8/5k2/4p3/3pPp2/3P1P2/8/4K3/5b2 b - - 0 1"],
+      ["knight_endgames", "knight_blockade", 1, "invalid_board", "Nd3", "8/3k4/8/3pN3/8/4K3/8/8 w - - 0 1"],
+      ["queen_vs_pawn", "stop_promotion", 0, "exact_changes_win_to_loss", "Qc3", "8/8/8/8/7k/1q6/1P6/1K6 b - - 0 1"],
+      ["queen_vs_pawn", "stalemate_tricks", 0, "exact_changes_win_to_draw", "Qe3", "8/8/8/8/5k2/1q6/5P2/5K2 b - - 0 1"],
+      ["practical_endgames", "creating_passed_pawn", 2, "exact_changes_win_to_draw", "f4", "8/2k5/4p3/4P3/2K5/5P2/8/8 w - - 0 1"],
+      ["practical_endgames", "two_vs_one", 0, "exact_changes_win_to_draw", "g5+", "8/8/5k2/8/5pP1/5K2/5P2/8 w - - 0 1"]
+    ],
+    "unresolved_positions": [
+      ["rook_endgames", "lucena", 0, "Rh4", "1K6/1P1k4/8/8/8/8/r7/7R w - - 0 1"],
+      ["rook_endgames", "lucena", 1, "Re4", "3K4/3P1k2/8/8/8/8/r7/4R3 w - - 0 1"],
+      ["rook_endgames", "lucena", 2, "Ke7", "5K2/5P2/8/8/4R3/8/r4k2/8 w - - 0 1"],
+      ["rook_endgames", "philidor", 0, "Ra6", "4k3/8/8/4PK2/8/8/8/r4R2 b - - 0 1"],
+      ["rook_endgames", "philidor", 1, "Rf1", "4k3/8/4PK2/8/8/8/8/r4R2 b - - 0 1"]
+    ]
+  },
+  "verdicts": {
+    "fathom_syzygy_exact_truth": "ADOPT IN SHADOW ONLY",
+    "otter_history_conditioning": "ADOPT IN SHADOW ONLY",
+    "maia2_no_history_fallback": "ADOPT IN SHADOW ONLY",
+    "clock_conditioned_rushed_diagnosis": "REJECT",
+    "serious_error_likelihood": "INCONCLUSIVE",
+    "puzzle_difficulty_and_distractors": "INCONCLUSIVE",
+    "sound_and_findable_move_selection": "INCONCLUSIVE",
+    "caption_generation": "INCONCLUSIVE"
+  }
+}

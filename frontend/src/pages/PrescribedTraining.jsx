@@ -115,6 +115,7 @@ export default function PrescribedTraining() {
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
   const boardRef = useRef(null);
+  const attemptStartedAtRef = useRef(Date.now());
   const lessonStartedRef = useRef(null);
 
   useEffect(() => {
@@ -347,6 +348,10 @@ export default function PrescribedTraining() {
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
 
   useEffect(() => {
+    if (currentPuzzle) attemptStartedAtRef.current = Date.now();
+  }, [currentPuzzle, currentPuzzleIndex]);
+
+  useEffect(() => {
     if (!currentPuzzle) return;
     const contentId = selectedModule?.module_id || selectedModule?.id || weakness;
     if (lessonStartedRef.current === contentId) return;
@@ -379,6 +384,7 @@ export default function PrescribedTraining() {
 
     setUserMove(move.san);
     const userMoveUci = `${sourceSquare}${targetSquare}${move.promotion || ""}`;
+    const attemptElapsedMs = Math.max(0, Date.now() - attemptStartedAtRef.current);
 
     // Binary-match fallback — used if the graduated evaluator fails. Keeps
     // the puzzle usable even when Stockfish is slow/unavailable.
@@ -434,21 +440,21 @@ export default function PrescribedTraining() {
         setSolvedCount((prev) => prev + 1);
         setStreak((prev) => prev + 1);
         setEncouragement(feedback || getEncouragement("correct", streak + 1));
-        recordAttempt(currentPuzzle, true, result.quality);
+        recordAttempt(currentPuzzle, true, result.quality, userMoveUci, attemptElapsedMs);
       } else if (result.is_acceptable) {
         // Good enough to advance, but name the sharper move. No streak credit —
         // strict lesson: the specific tactic mattered.
         setPuzzleState("acceptable");
         setSolvedCount((prev) => prev + 1);
         setEncouragement(feedback || `Solid. ${bestSan} was sharper.`);
-        recordAttempt(currentPuzzle, true, result.quality);
+        recordAttempt(currentPuzzle, true, result.quality, userMoveUci, attemptElapsedMs);
       } else {
         setPuzzleState("incorrect");
         setStreak(0);
         setEncouragement(feedback || getEncouragement("incorrect"));
         game.undo();
         setGame(new Chess(game.fen()));
-        recordAttempt(currentPuzzle, false, result.quality);
+        recordAttempt(currentPuzzle, false, result.quality, userMoveUci, attemptElapsedMs);
       }
       return true;
     }
@@ -459,21 +465,27 @@ export default function PrescribedTraining() {
       setSolvedCount((prev) => prev + 1);
       setStreak((prev) => prev + 1);
       setEncouragement(getEncouragement("correct", streak + 1));
-      recordAttempt(currentPuzzle, true);
+      recordAttempt(currentPuzzle, true, null, userMoveUci, attemptElapsedMs);
     } else {
       setPuzzleState("incorrect");
       setStreak(0);
       setEncouragement(getEncouragement("incorrect"));
       game.undo();
       setGame(new Chess(game.fen()));
-      recordAttempt(currentPuzzle, false);
+      recordAttempt(currentPuzzle, false, null, userMoveUci, attemptElapsedMs);
     }
     return true;
   };
   
   // Record puzzle attempt. `quality` is optional — set when the graduated
   // evaluator ran; omitted on binary-match fallback.
-  const recordAttempt = async (puzzle, solved, quality = null) => {
+  const recordAttempt = async (
+    puzzle,
+    solved,
+    quality = null,
+    playedMoveUci = null,
+    timeTakenMs = null,
+  ) => {
     try {
       track(ANALYTICS_EVENTS.FUNNEL_TRAINING_SOLVE);
       trackCurriculum(ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT, {
@@ -493,7 +505,12 @@ export default function PrescribedTraining() {
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id || puzzle.game_id,
           correct: solved,
-          time_taken_ms: 0, // TODO: track time
+          outcome: solved ? "correct" : "incorrect",
+          support_level: "none",
+          surface: "prescribed_training",
+          puzzle_source: puzzle.source || "unknown",
+          time_taken_ms: timeTakenMs,
+          moves_tried: playedMoveUci ? [playedMoveUci] : [],
           weakness_type: weakness,
           quality,
         }),
@@ -512,6 +529,7 @@ export default function PrescribedTraining() {
       setUserMove(null);
       setShowSolution(false);
       setMissCoaching(null);
+      attemptStartedAtRef.current = Date.now();
 
       const nextPuzzle = trainingData.puzzles[nextIdx];
       if (nextPuzzle.fen) {
@@ -532,6 +550,7 @@ export default function PrescribedTraining() {
       setUserMove(null);
       setShowSolution(false);
       setMissCoaching(null);
+      attemptStartedAtRef.current = Date.now();
     }
   };
 

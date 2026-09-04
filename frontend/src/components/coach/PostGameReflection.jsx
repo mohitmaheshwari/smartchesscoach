@@ -20,7 +20,7 @@ import {
   Trophy, AlertTriangle, Target, ChevronRight, Swords,
   Minus, Brain, CheckCircle2, XCircle
 } from "lucide-react";
-import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
     if (trackedSessionRef.current === data.session_id) return;
     trackedSessionRef.current = data.session_id;
     const pv = data.pattern_verdict;
-    track("pwc_insight_shown", {
+    track(ANALYTICS_EVENTS.PWC_INSIGHT_SHOWN, {
       session_id: data.session_id,
       type: pv.case,
       pattern: pv.pattern,

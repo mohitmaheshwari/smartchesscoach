@@ -751,7 +751,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         if development_phase.get("phase_key") in ("tactical_discipline", "pattern_control"):
             development_phase["momentum_override"] = {
                 "name": "Building Momentum",
-                "description": f"Your {win_streak_data['current_streak']}-game win streak shows real improvement. Keep this energy going!",
+                "description": f"You have won {win_streak_data['current_streak']} games in a row. Keep this energy going!",
                 "color": "emerald",
                 "icon": "trending-up",
             }
@@ -964,13 +964,20 @@ async def get_progress_trend(db, user_id: str) -> Dict:
     ).to_list(None)
     active_id_set = {g["game_id"] for g in active_ids}
     games = await db.game_analyses.find(
-        {"user_id": user_id, "game_id": {"$in": list(active_id_set)}},
+        {
+            "user_id": user_id,
+            "game_id": {"$in": list(active_id_set)},
+            "analyzed_at": {"$type": "date"},
+        },
         {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1,
          "stockfish_analysis.mistakes": 1, "stockfish_analysis.accuracy": 1, "analyzed_at": 1}
     ).sort("analyzed_at", -1).limit(10).to_list(10)
 
-    if len(games) < 4:
-        return {"has_trend": False, "message": "Play a few more games to see your progress."}
+    if len(games) < 10:
+        return {
+            "has_trend": False,
+            "message": "I need 10 dated analyses before comparing two game windows.",
+        }
 
     # Split into recent (first 5) and previous (next 5)
     recent = games[:5]
@@ -994,18 +1001,18 @@ async def get_progress_trend(db, user_id: str) -> Dict:
     if blunder_delta > 0.5:
         trend = "improving"
         if blunder_delta >= 1:
-            message = f"Excellent! {blunder_delta:.1f} fewer blunders per game than before."
+            message = f"Your latest 5 games had {blunder_delta:.1f} fewer blunders per game than the previous 5."
         else:
-            message = "You're blundering less. Keep it up!"
+            message = "Your latest 5 games had fewer blunders than the previous 5."
     elif blunder_delta < -0.5:
         trend = "declining"
         message = "Blunders are creeping up. Let's slow down and focus."
     else:
         trend = "stable"
         if avg_recent_acc and avg_previous_acc and avg_recent_acc > avg_previous_acc:
-            message = "Consistent play, and your accuracy is improving!"
+            message = "Accuracy was higher in your latest 5 games than in the previous 5."
         else:
-            message = "Steady progress. Stay focused on your habits."
+            message = "Your blunder rate was similar across the two 5-game windows."
     
     return {
         "has_trend": True,
@@ -1015,6 +1022,7 @@ async def get_progress_trend(db, user_id: str) -> Dict:
         "previous_blunders_avg": round(previous_blunders, 1),
         "recent_accuracy_avg": round(avg_recent_acc, 1) if avg_recent_acc else None,
         "message": message,
+        "claim_basis": "latest_5_vs_previous_5_dated_analyses",
     }
 
 

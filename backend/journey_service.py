@@ -1097,6 +1097,26 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             game_doc["white"] = white_player
             game_doc["black"] = black_player
 
+            # Persist authoritative game-time ratings at ingestion. Never use
+            # the product's 1200 coaching fallback as corpus provenance.
+            if platform == "chess.com":
+                white_rating = (game_data.get("white") or {}).get("rating")
+                black_rating = (game_data.get("black") or {}).get("rating")
+            else:
+                players = game_data.get("players") or {}
+                white_rating = (players.get("white") or {}).get("rating")
+                black_rating = (players.get("black") or {}).get("rating")
+            if isinstance(white_rating, (int, float)) and white_rating > 0:
+                game_doc["white_rating"] = int(white_rating)
+            if isinstance(black_rating, (int, float)) and black_rating > 0:
+                game_doc["black_rating"] = int(black_rating)
+
+            from services.rating_resolver import resolve_game_user_rating
+            rating_result = resolve_game_user_rating(game_doc)
+            if rating_result["rating"] is not None:
+                game_doc["user_rating"] = rating_result["rating"]
+                game_doc["user_rating_source"] = rating_result["source"]
+
             # date_played — parse PGN [UTCDate]/[Date] "YYYY.MM.DD" (+ [UTCTime]
             # if present). Was never populated, so date sorting/labels had
             # nothing to use. Prefer UTCDate; store ISO8601 UTC.
