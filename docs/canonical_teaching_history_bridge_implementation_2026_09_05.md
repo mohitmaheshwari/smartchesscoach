@@ -16,6 +16,10 @@ does not promote public mastery or create another learner model.
 - `personal_teaching_profile` prefers validated canonical history over legacy
   counters, while a current answer or misconception still comes first.
 - The additive profile response is versioned as `personal_teaching_profile.v2`.
+- Personalized curriculum destinations now resolve the lesson's actual
+  canonical content source before history is joined. Unsupported repair topics
+  remain on their existing puzzle route and do not manufacture a lesson
+  profile.
 - The coach remembers successful help per concept and uses direct language for
   the next step: guided practice, an unassisted fresh position, real-game
   application, or later retention.

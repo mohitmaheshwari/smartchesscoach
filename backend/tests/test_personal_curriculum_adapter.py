@@ -244,6 +244,52 @@ def test_approved_personalized_flag_routes_supported_lesson_through_workspace(
         "personalized",
         "diagnostic_required",
     }
+    assert result["personalized_teaching"]["profile"]["canonical_lesson"][
+        "canonical_source"
+    ] == "backend/data/theory/tactical_patterns.json"
+
+
+def test_unsupported_repair_topic_keeps_puzzles_without_fake_lesson_profile(
+    monkeypatch,
+):
+    db = FakeDB(analyzed_games=7)
+    enabled = {**ENABLED, "PERSONALIZED_TEACHING_ENABLED": "true"}
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f2",
+            "topic_key": "missed_tactic",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db,
+        "u1",
+        generated_at=NOW,
+        env=enabled,
+    ))
+
+    primary = result["decision"]["primary"]
+    assert primary["destination"] == {
+        "href": "/training/pattern/missed_tactic",
+        "medium": "puzzles",
+        "capability": "guided_practice",
+        "lesson_kind": "concept",
+        "lesson_id": "missed_tactic",
+    }
+    assert result["personalized_teaching"] == {
+        "enabled": True,
+        "profile": None,
+    }
 
 
 def test_verified_trap_family_routes_through_personalized_workspace(monkeypatch):

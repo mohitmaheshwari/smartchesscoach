@@ -811,6 +811,7 @@ def _personalized_candidate(
     }:
         return candidate
     from services.personalized_lesson_adapter import (
+        personalized_lesson_source_ref,
         supports_personalized_lesson_identity,
     )
 
@@ -818,6 +819,12 @@ def _personalized_candidate(
         destination.content_kind,
         destination.content_id,
     ):
+        return candidate
+    canonical_source = personalized_lesson_source_ref(
+        destination.content_kind,
+        destination.content_id,
+    )
+    if not canonical_source:
         return candidate
     query = urlencode({
         "personalized": "1",
@@ -830,6 +837,7 @@ def _personalized_candidate(
             destination,
             href=f"/training?{query}",
             medium="personalized_lesson",
+            canonical_source=canonical_source,
         ),
     )
 
@@ -1189,7 +1197,11 @@ async def build_player_curriculum(
         now=now,
     )
     teaching_profile = None
-    if personalized_enabled and primary.outcome != CurriculumOutcome.OBSERVE:
+    if (
+        personalized_enabled
+        and primary.outcome != CurriculumOutcome.OBSERVE
+        and primary.destination.medium == "personalized_lesson"
+    ):
         from services.personal_teaching_profile import (
             build_personal_teaching_profile,
         )
