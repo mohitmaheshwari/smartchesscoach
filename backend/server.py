@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -14,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 import re
 import io
+import chess
 
 # Import centralized config
 from config import (
@@ -323,17 +325,120 @@ GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', '')  # e.g., https://chessguru.ai/auth/callback
 
+def get_mobile_auth_redirect_html(session_token: str, user_id: str) -> str:
+    """Generate HTML response that opens the mobile app via custom URL scheme"""
+    app_url = f"chessguru://auth?token={session_token}&user_id={user_id}"
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Guru Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0;url={app_url}">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #09090b;
+            color: #f4f4f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }}
+        .card {{
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 20px;
+            padding: 36px 28px;
+            text-align: center;
+            max-width: 380px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }}
+        .logo {{
+            width: 56px;
+            height: 56px;
+            background: #3b82f6;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }}
+        h2 {{ font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #fff; }}
+        p {{ font-size: 14px; color: #a1a1aa; line-height: 1.5; margin-bottom: 24px; }}
+        .btn {{
+            display: inline-block;
+            width: 100%;
+            padding: 14px 20px;
+            background: #3b82f6;
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }}
+        .btn:hover {{ background: #2563eb; }}
+        .spinner {{
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    </style>
+    <script>
+        function openApp() {{
+            window.location.href = "{app_url}";
+        }}
+        window.onload = function() {{
+            openApp();
+            setTimeout(function() {{
+                const manualAction = document.getElementById('manual-action');
+                const spinner = document.getElementById('loading-spinner');
+                if (manualAction) manualAction.style.display = 'block';
+                if (spinner) spinner.style.display = 'none';
+            }}, 1500);
+        }};
+    </script>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">♟️</div>
+        <div id="loading-spinner" class="spinner"></div>
+        <h2>Sign In Successful!</h2>
+        <p>Connecting back to your Chess Guru App...</p>
+        <div id="manual-action" style="display: none;">
+            <p style="font-size: 13px; color: #71717a; margin-bottom: 16px;">
+                If your app didn't open automatically, tap below:
+            </p>
+            <a href="{app_url}" class="btn">Open App</a>
+        </div>
+    </div>
+</body>
+</html>"""
+
 @api_router.get("/auth/google/login")
-async def google_login(request: Request):
+async def google_login(request: Request, platform: Optional[str] = None):
     """
     Redirect user to Google OAuth consent screen.
     Frontend should redirect to this endpoint to start login flow.
+    Supports platform='mobile' (or 'android' / 'ios') to trigger deep-link callback.
     """
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     
     # Get redirect URI from environment or construct from request
     redirect_uri = GOOGLE_REDIRECT_URI or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
+    
+    # Pass platform in OAuth state parameter
+    state = platform or request.query_params.get("platform", "web")
     
     # Google OAuth authorization URL
     google_auth_url = (
@@ -344,15 +449,17 @@ async def google_login(request: Request):
         "&scope=openid%20email%20profile"
         "&access_type=offline"
         "&prompt=consent"
+        f"&state={state}"
     )
     
     return {"auth_url": google_auth_url}
 
 @api_router.get("/auth/google/callback")
-async def google_callback(code: str, response: Response):
+async def google_callback(code: str, response: Response, state: Optional[str] = None):
     """
     Handle Google OAuth callback.
     Exchange authorization code for tokens and create user session.
+    For mobile (state='mobile'), redirects back into the app via custom scheme 'chessguru://auth'.
     """
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
@@ -448,9 +555,13 @@ async def google_callback(code: str, response: Response):
             max_age=COOKIE_MAX_AGE_SECONDS
         )
         
+        # Check if login was requested from mobile app (Capacitor/APK)
+        is_mobile = state and any(k in state.lower() for k in ["mobile", "android", "ios", "capacitor"])
+        if is_mobile:
+            return HTMLResponse(content=get_mobile_auth_redirect_html(session_token, user_id))
+        
         # Redirect to frontend dashboard with success
         frontend_url = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
-        from fastapi.responses import RedirectResponse
         return RedirectResponse(url=f"{frontend_url}/dashboard?auth=success")
         
     except HTTPException:
@@ -4007,8 +4118,6 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
     - "What was my opponent threatening?"
     - "What should my plan be here?"
     """
-    import chess
-    
     try:
         # Use fen_before if fen is not provided (common from badge detail modal)
         position_fen = req.fen or req.fen_before

@@ -81,6 +81,7 @@ const Layout = ({ children, user }) => {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('session_token');
       await fetch(`${API}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
@@ -88,6 +89,7 @@ const Layout = ({ children, user }) => {
       navigate('/');
     } catch (error) {
       console.error('Logout failed:', error);
+      navigate('/');
     }
   };
 

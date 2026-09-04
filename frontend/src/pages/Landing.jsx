@@ -1,31 +1,40 @@
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/context/ThemeContext";
 import { ChevronRight, Brain, Target, TrendingUp, Zap, Moon, Sun } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 const Landing = () => {
   const { theme, toggleTheme } = useTheme();
 
   const handleLogin = async () => {
     const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+    const isNative = Capacitor.isNativePlatform();
     
     // Check if we're in Emergent environment (preview URL contains 'emergentagent' or 'preview')
-    const isEmergentEnv = window.location.hostname.includes('emergentagent') || 
+    const isEmergentEnv = !isNative && (
+                          window.location.hostname.includes('emergentagent') || 
                           window.location.hostname.includes('preview') ||
                           API_URL.includes('emergentagent') ||
-                          API_URL.includes('preview');
+                          API_URL.includes('preview'));
     
     if (isEmergentEnv) {
       // Use Emergent auth for testing
       const redirectUrl = window.location.origin + '/dashboard';
       window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
     } else {
-      // Use your own Google OAuth for production
+      // Use Google OAuth for production & mobile
       try {
-        const response = await fetch(`${API_URL}/api/auth/google/login`);
+        const platformParam = isNative ? '?platform=mobile' : '';
+        const response = await fetch(`${API_URL}/api/auth/google/login${platformParam}`);
         const data = await response.json();
         
         if (data.auth_url) {
-          window.location.href = data.auth_url;
+          if (isNative) {
+            await Browser.open({ url: data.auth_url, windowName: '_system' });
+          } else {
+            window.location.href = data.auth_url;
+          }
         } else {
           console.error('Failed to get auth URL');
           alert('Login failed. Please try again.');

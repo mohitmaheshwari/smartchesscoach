@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
     "@fontsource/manrope": "^5.2.8",
     "@fontsource/outfit": "^5.2.8",
     "@hookform/resolvers": "^5.0.1",
@@ -64,7 +70,9 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "sync:android": "craco build && npx cap sync android",
+    "build:apk": "craco build && npx cap sync android && powershell -Command \"$env:JAVA_HOME='C:\\Program Files\\Android\\Android Studio\\jbr'; $env:Path=\\\"$env:JAVA_HOME\\bin;$env:Path\\\"; cd android; .\\gradlew.bat assembleDebug\""
   },
   "browserslist": {
     "production": [

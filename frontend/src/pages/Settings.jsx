@@ -102,6 +102,7 @@ const Settings = ({ user }) => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
+      localStorage.removeItem('session_token');
       await fetch(`${API}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
@@ -110,6 +111,7 @@ const Settings = ({ user }) => {
       navigate('/');
     } catch (error) {
       toast.error('Failed to logout');
+      navigate('/');
     } finally {
       setLoggingOut(false);
     }

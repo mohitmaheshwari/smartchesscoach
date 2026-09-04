@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 import "@/App.css";
 
 // Pages
@@ -32,7 +35,7 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    // If user data passed from AuthCallback, use it directly
+    // If user data passed from AuthCallback or deep link, use it directly
     if (location.state?.user) {
       setUser(location.state.user);
       setIsAuthenticated(true);
@@ -41,8 +44,14 @@ const ProtectedRoute = ({ children }) => {
 
     const checkAuth = async () => {
       try {
+        const token = localStorage.getItem('session_token');
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
         const response = await fetch(`${API}/auth/me`, {
-          credentials: 'include'
+          credentials: 'include',
+          headers
         });
         if (!response.ok) throw new Error('Not authenticated');
         const userData = await response.json();
@@ -71,16 +80,66 @@ const ProtectedRoute = ({ children }) => {
   return children({ user });
 };
 
-// App Router with auth detection
+// App Router with auth detection & deep link listener
 function AppRouter() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Check for auth=success in URL (from Google OAuth callback)
+  // Listen for deep links when opened via custom scheme (e.g. chessguru://auth?token=...)
+  useEffect(() => {
+    let appUrlListener = null;
+
+    if (Capacitor.isNativePlatform()) {
+      const initAppListener = async () => {
+        appUrlListener = await CapApp.addListener('appUrlOpen', async (data) => {
+          console.log('App opened with deep link URL:', data.url);
+
+          // Close browser if it was opened
+          try {
+            await Browser.close();
+          } catch (e) {}
+
+          // Handle chessguru://auth?token=...
+          if (data.url && data.url.includes('auth')) {
+            try {
+              const url = new URL(data.url.replace(/^[a-zA-Z0-9_-]+:\/\//, 'https://dummy/'));
+              const token = url.searchParams.get('token') || url.searchParams.get('session_token');
+              if (token) {
+                localStorage.setItem('session_token', token);
+                const res = await fetch(`${API}/auth/me`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                  const userData = await res.json();
+                  navigate('/dashboard', { state: { user: userData } });
+                } else {
+                  navigate('/');
+                }
+              }
+            } catch (err) {
+              console.error('Error handling deep link:', err);
+            }
+          }
+        });
+      };
+      initAppListener();
+    }
+
+    return () => {
+      if (appUrlListener && appUrlListener.remove) {
+        appUrlListener.remove();
+      }
+    };
+  }, [navigate]);
+
+  // Check for auth=success or token in URL (from Google OAuth callback)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('auth') === 'success') {
-      // Remove the query param and stay on dashboard
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('session_token', token);
+      navigate('/dashboard', { replace: true });
+    } else if (params.get('auth') === 'success') {
       navigate('/dashboard', { replace: true });
     }
   }, [location.search, navigate]);
