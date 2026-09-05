@@ -1,6 +1,6 @@
 # Reflection as Accepted Evidence — Scope
 
-**Status:** DRAFT — awaiting Mohit signoff. No code until signed off.
+**Status:** SIGNED OFF 2026-09-05. V1 implementation in progress.
 **Date:** 2026-09-05
 **Feature name:** `reflection_accepted_evidence`
 
@@ -193,17 +193,25 @@ Mapped from each tag's player-facing label rather than from the predicate name:
 | `user_ignored_forcing_reply` | "I missed a threat" / "I thought I had time" / "I underestimated counterplay" | `threat_awareness` |
 | `simple_tactic_missed` | "I ignored forcing sequence" | `missed_tactic` |
 | `opponent_has_immediate_check` | "I didn't see the check" | `threat_awareness` *(not `king_safety`: the failure is not noticing a forcing move, not a structurally weak king)* |
-| `user_attacked_instead_of_defending` | "I attacked and ignored his threat" | **needs Mohit** — the player says they *saw* the threat and deprioritised it, so this is a priority failure, not an awareness one. None of the 7 names that. Nearest is `threat_awareness`, which would mislabel the cause. |
+| `user_attacked_instead_of_defending` | "I attacked and ignored his threat" | **excluded in V1** — the player says they *saw* the threat and chose to attack anyway, so this is a priority failure, not an awareness one, and none of the 7 names it. Filing it under `threat_awareness` would assert the player failed to notice something they just told us they noticed. Mislabelling the cause is the exact harm this feature exists to prevent, so it is excluded rather than guessed, and recorded as a known gap. |
 | `user_defended_phantom_threat` | "I defended something that wasn't threatened" | **excluded** — a false-positive habit; none of the 7 covers seeing threats that aren't there |
 | `is_opening_phase` | "I was following opening idea" | **excluded** — a phase marker, not a weakness |
 
-So 6 of 9 map cleanly, 1 needs your call, 2 are excluded and stay excluded rather than guessed.
+So **6 of 9 map cleanly and 3 are excluded** rather than guessed. Exclusion is not a gap to be
+filled later by picking the nearest label — it is the fail-closed behaviour this feature requires.
+A predicate with no honest fundamental produces no accepted cause at all.
 
-**Q2. Should an accepted cause be able to override a detector-inferred focus?**
-Why unresolved: product judgement. If a player says "I didn't see the attacker" but the detector
-says the dominant pattern is king safety, which does the coach lead with?
-Unblocking step: Mohit's call. V1 can display both and lead with the accepted one without
-deleting the inferred one.
+**Q2. Should an accepted cause override a detector-inferred focus? — RESOLVED: it leads, it does
+not replace**
+
+V1 shows **both** and leads with the accepted one. It never deletes, downgrades or overwrites a
+detector-inferred focus.
+
+Why this way: overriding is irreversible in effect. Once the inferred cause is gone we can no
+longer tell whether the player's self-report was right. Keeping both preserves the disagreement,
+and the disagreement is itself the signal worth having — a player who says "I didn't see the
+attacker" while the detector says king safety is telling us something about their self-model.
+Overwriting would destroy that comparison before there is enough data to run it.
 
 **Q3. How many accepted events before the profile treats it as a habit?**
 Why unresolved: needs a distribution that does not exist yet.
@@ -230,14 +238,17 @@ option the player actually selected (`thought_piece_safe` → `user_piece_left_h
 
 ## 7. Pre-code requirements
 
-1. **Mohit signs off on this document.** Hard gate.
-2. ~~**Q1 answered**~~ — DONE: the 9-row predicate table is in Section 6, with the two excluded
-   predicates named. One row (`user_attacked_instead_of_defending`) still needs your call.
+1. ~~**Mohit signs off on this document.**~~ — DONE 2026-09-05.
+2. ~~**Q1 answered**~~ — DONE: the 9-row predicate table is in Section 6; 6 map, 3 excluded.
 3. ~~**Q4 answered**~~ — DONE: `calculation.*` does not map; the predicate wins over the prefix.
-4. **Q2 answered** — Mohit's call on accepted-vs-inferred precedence.
-5. **The pilot cohort is enrolled**, so there is at least one non-admin user who can produce a
-   reflection to verify success criteria 1–4 against a real account rather than a fixture.
-6. **`/audit-pre-code` run** once 1–5 are true.
+4. ~~**Q2 answered**~~ — DONE: the accepted cause leads, the inferred one is kept. No overwrite.
+5. ~~**The pilot cohort is enrolled**~~ — DONE 2026-09-05: 39 real non-admin users in cohort
+   `phase8_release_rescue_2026_09`, all with an analyzed game and an active non-strength focus,
+   access granted 39/39. So success criteria 1–4 can be verified against real accounts rather
+   than fixtures. (A 40th is blocked by a duplicate super-admin user doc sharing one email; the
+   synthetic `verify@chessguru.ai` account is paused and must never be counted — its games are
+   clones of the founder's.)
+6. **`/audit-pre-code` run** once 1–5 are true. ← the only remaining gate.
 7. Q3 stays open by design and goes to `/lock-via-data` after the pilot, not before code.
 
 ---
