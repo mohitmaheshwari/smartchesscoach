@@ -212,13 +212,15 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         rationale=(
             "Independent legal replay confirmed 25/25 mate-in-one and 25/25 "
             "longer-line distinct-source claims plus 50/50 stratified "
-            "abstentions. All 261 reproducible stored candidates matched, "
-            "while three legacy rows missing consequence evidence remained "
-            "fail-closed."
+            "abstentions. Every candidate independently reproducible from its "
+            "stored puzzle document matched; rows not reproducible from that "
+            "document were excluded from the authorization packet."
         ),
         limitations=(
             "Only the exact stored best move is accepted.",
             "A mate marker without a complete legal replay remains unverified.",
+            "A re-admission must recover any non-persisted consequence from the "
+            "source game analysis and pass the independent zero-violation gate.",
             "Longer lines describe the verified stored continuation; they do "
             "not claim every defence loses or display a mate distance.",
             "Caption only; no prompt, plan, recurrence or mastery claim.",

@@ -10,16 +10,16 @@
   "case_export_policy": "Aggregate evidence only. No production FEN, move, source key, account identifier, or case record is committed.",
   "selection": {
     "seed": "20260905-forced-mate-exact-caption-v1",
-    "selection_fingerprint_sha256": "628ce54facc3378f5087e3a53f59b73bad54956c73c186211faf2b8902cbbd41",
+    "selection_fingerprint_sha256": "7df797a67df10c1a94d29c80601b0a6b67842d0ee397fd7b8cfbbfdb899aa18b",
     "positive_per_subtype": 25,
     "minimum_pool_cases_per_subtype": 5,
     "negative_per_stratum": 5
   },
   "population": {
-    "documents_scanned": 53882,
-    "stored_candidates": 264,
-    "reproducible_candidates": 261,
-    "full_reproducible_matches": 261,
+    "documents_scanned": 54400,
+    "stored_candidates": 267,
+    "reproducible_candidates": 264,
+    "full_reproducible_matches": 264,
     "unreproducible_candidates": 3,
     "unreproducible_abstentions": 3,
     "fact_mismatches": 0
@@ -32,8 +32,8 @@
     "longer_line_community_puzzles": 6,
     "longer_line_community_training_positions": 19,
     "mate_ply_1": 25,
-    "mate_ply_3": 9,
-    "mate_ply_5": 16
+    "mate_ply_3": 10,
+    "mate_ply_5": 15
   },
   "negative_coverage": {
     "line_does_not_end_in_checkmate": 5,
@@ -56,9 +56,24 @@
     "reviewed_negatives": 50,
     "true_negatives": 50,
     "critical_adversarial_errors": 0,
+    "gate_checks": {
+      "reproducible_population_nonempty": true,
+      "full_population_matches": true,
+      "unreproducible_fail_closed": true,
+      "mate_ply_validity": true,
+      "zero_critical_errors": true
+    },
     "caption_promotion_gate_passed": true
   },
-  "authorized_caption_claim": "The displayed first move and stored legal continuation end in checkmate by the player, with the exact mating move, piece, square, checked king square, and zero terminal legal replies.",
+  "re_admission": {
+    "targeted_rows": 267,
+    "distinct_fens_checked": 239,
+    "captions_and_facts_validated": 267,
+    "violations": 0,
+    "cross_pool_conflicts": 0,
+    "production_readback_v3_caption_rows": 267
+  },
+  "authorized_caption_claim": "One stored legal continuation replays to checkmate by the player. Structured facts preserve the exact mating move, piece, square, checked king square, and zero terminal legal replies; the caption may show that line without claiming every defence loses.",
   "explicitly_unauthorized_claims": [
     "every defence loses",
     "forced",

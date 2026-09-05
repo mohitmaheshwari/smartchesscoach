@@ -26,6 +26,16 @@ does not promote public mastery or create another learner model.
 - `visible_mastery_changed` remains false. No writes, migrations, focus changes,
   detector promotions, or frontend replacements were added.
 
+## Truthfulness correction
+
+When a projection had reached `can_do_with_help` but did not contain a recorded
+`successful_help`, the initial implementation defaulted to “You solved this
+with support before.” That sentence claimed assistance the evidence did not
+establish. The fallback now says only that the player answered correctly and
+asks for a fresh position with the key piece or square named before moving.
+Specific help wording remains available only when the corresponding successful
+help action is recorded.
+
 ## Failure-closed behavior
 
 Malformed events, forged earned states, duplicate source events, mismatched

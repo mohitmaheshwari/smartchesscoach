@@ -19,7 +19,7 @@ import sys
 from collections import Counter, OrderedDict, defaultdict
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import chess
 
@@ -29,6 +29,9 @@ from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 from pymongo import UpdateOne  # noqa: E402
 
 from services.puzzle_extraction_service import verified_issue_type  # noqa: E402
+from services.forced_mate_puzzle_proof import (  # noqa: E402
+    FORCED_MATE_QUALITY_ID,
+)
 from services.verified_puzzle_admission import (  # noqa: E402
     AdmissionReason,
     AdmissionStatus,
@@ -41,12 +44,29 @@ from services.verified_puzzle_builder import (  # noqa: E402
     build_position_verdict,
 )
 from services.verified_puzzle_runtime import find_move_evaluation  # noqa: E402
+from services.verified_puzzle_feedback import (  # noqa: E402
+    build_verified_puzzle_feedback,
+)
+from scripts.measure_forced_mate_caption_promotion import (  # noqa: E402
+    independent_adjudication,
+)
 
 
 POOL_NAMES = ("community_puzzles", "community_training_positions")
 CACHE_LIMIT = 256
 BATCH_SIZE = 500
 _CACHE_MISS = object()
+_FORCED_MATE_FACT_KEYS = (
+    "mate_ply",
+    "replayed_uci",
+    "best_move_san",
+    "mating_move_uci",
+    "mating_move_san",
+    "mating_piece",
+    "mating_square",
+    "king_square",
+    "terminal_legal_replies",
+)
 
 
 def _remember(cache: OrderedDict, key: str, value: Any) -> Any:
@@ -208,12 +228,117 @@ def _set_fields(collection: str, row: Dict, verdict, source_move: Optional[Dict]
     return fields
 
 
+def _forced_mate_validation_row(
+    row: Mapping[str, Any],
+    source_move: Optional[Mapping[str, Any]],
+    fields: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Reconstruct the evidence the runtime used without trusting old verdict facts."""
+    merged = dict(row)
+    merged.update({
+        key: value
+        for key, value in fields.items()
+        if key != "verified_admission"
+    })
+    source = source_move or {}
+    merged.update({
+        "fen": source.get("fen_before") or merged.get("fen"),
+        "played_move": (
+            source.get("move")
+            or source.get("move_san")
+            or merged.get("played_move")
+            or merged.get("user_move_san")
+        ),
+        "best_move_uci": source.get("best_move_uci") or merged.get("best_move_uci"),
+        "best_move_san": (
+            source.get("best_move_san")
+            or source.get("best_move")
+            or merged.get("best_move_san")
+        ),
+        "cp_loss": source.get("cp_loss") if "cp_loss" in source else merged.get("cp_loss"),
+        "pv_after_best": (
+            source.get("pv_after_best")
+            if "pv_after_best" in source
+            else merged.get("pv_after_best") or []
+        ),
+    })
+    merged["verified_admission"] = fields.get("verified_admission") or {}
+    return merged
+
+
+def _forced_mate_readmission_check(
+    row: Mapping[str, Any],
+    source_move: Optional[Mapping[str, Any]],
+    fields: Mapping[str, Any],
+) -> Tuple[str, Optional[str]]:
+    """Check one rebuilt row independently before any targeted batch write."""
+    candidate = _forced_mate_validation_row(row, source_move, fields)
+    gold = independent_adjudication(candidate)
+    admission = candidate.get("verified_admission") or {}
+    is_caption_admission = bool(
+        admission.get("status") == AdmissionStatus.BROAD.value
+        and admission.get("quality_id") == FORCED_MATE_QUALITY_ID
+        and admission.get("caption_concept_id")
+        in {"tactic.mate_in_one", "tactic.forced_mate"}
+        and admission.get("quality_grade") == "caption"
+    )
+
+    if gold.get("status") != "exact":
+        if is_caption_admission:
+            return "violation", "ineligible_candidate_did_not_abstain"
+        return "abstained", None
+    if not is_caption_admission:
+        return "violation", "eligible_candidate_not_caption_admitted"
+
+    facts = admission.get("verifier_facts") or ()
+    fact = facts[0] if facts and isinstance(facts[0], Mapping) else {}
+    if any(
+        (
+            tuple(fact.get(key) or ()) != tuple(gold.get(key) or ())
+            if key == "replayed_uci"
+            else fact.get(key) != gold.get(key)
+        )
+        for key in _FORCED_MATE_FACT_KEYS
+    ):
+        return "violation", "independent_fact_mismatch"
+    if fact.get("terminal_legal_replies") != 0:
+        return "violation", "terminal_reply_count_not_zero"
+
+    try:
+        feedback = build_verified_puzzle_feedback(
+            candidate,
+            str(admission.get("played_move_uci") or ""),
+            correct=False,
+            primary_uci=str(gold.get("best_move_uci") or ""),
+        )
+    except (KeyError, TypeError, ValueError, AssertionError):
+        return "violation", "caption_render_failed"
+    why = str(feedback.get("why") or "")
+    rendered_line = " ".join(str(move) for move in gold.get("replayed_san") or ())
+    required_caption_facts = (
+        (
+            gold.get("best_move_san")
+            if gold.get("subtype") == "mate_in_one"
+            else rendered_line
+        ),
+        gold.get("king_square"),
+        "no legal reply",
+    )
+    if any(
+        not value or str(value).lower() not in why.lower()
+        for value in required_caption_facts
+    ):
+        return "violation", "caption_omits_verified_fact"
+    return "validated", None
+
+
 async def process_rows(
     db,
     *,
     collections,
     limit: Optional[int] = None,
     apply: bool = False,
+    quality_id: Optional[str] = None,
 ):
     """Stream both pools with bounded memory; optionally write in batches."""
     caches = {
@@ -224,9 +349,18 @@ async def process_rows(
     counts = Counter()
     processed = 0
     by_fen = defaultdict(list)
+    strict_forced_mate = quality_id == FORCED_MATE_QUALITY_ID
+    staged_updates = defaultdict(list)
+    checked_fens = set()
+    strict_violations = 0
     for collection in collections:
         pending = []
-        cursor = db[collection].find({})
+        query = (
+            {"verified_admission.quality_id": quality_id}
+            if quality_id
+            else {}
+        )
+        cursor = db[collection].find(query)
         if limit:
             cursor = cursor.limit(limit)
         async for row in cursor:
@@ -235,12 +369,23 @@ async def process_rows(
             )
             fields = _set_fields(collection, row, verdict, source_move)
             processed += 1
+            if strict_forced_mate:
+                normalized = _normalized_fen(row.get("fen"))
+                if normalized:
+                    checked_fens.add(normalized)
+                outcome, violation = _forced_mate_readmission_check(
+                    row, source_move, fields
+                )
+                counts[("all", f"forced_mate_{outcome}")] += 1
+                if violation:
+                    strict_violations += 1
+                    counts[("all", f"violation:{violation}")] += 1
             counts[(collection, verdict.status.value)] += 1
             if row.get("approved") is False and fields.get("approved") is False:
                 counts[(collection, "preserved_quality_rejection")] += 1
-            quality_id = getattr(verdict, "quality_id", None)
-            if quality_id:
-                counts[(collection, f"quality:{quality_id}")] += 1
+            verdict_quality_id = getattr(verdict, "quality_id", None)
+            if verdict_quality_id:
+                counts[(collection, f"quality:{verdict_quality_id}")] += 1
             for reason in verdict.reason_codes:
                 counts[(collection, f"reason:{reason}")] += 1
             normalized = _normalized_fen(row.get("fen"))
@@ -252,12 +397,14 @@ async def process_rows(
                     verdict,
                 ))
             if apply:
-                pending.append(UpdateOne(
-                    {"_id": row["_id"]}, {"$set": fields}
-                ))
-                if len(pending) >= BATCH_SIZE:
-                    await db[collection].bulk_write(pending, ordered=False)
-                    pending = []
+                operation = UpdateOne({"_id": row["_id"]}, {"$set": fields})
+                if strict_forced_mate:
+                    staged_updates[collection].append(operation)
+                else:
+                    pending.append(operation)
+                    if len(pending) >= BATCH_SIZE:
+                        await db[collection].bulk_write(pending, ordered=False)
+                        pending = []
         if apply and pending:
             await db[collection].bulk_write(pending, ordered=False)
 
@@ -280,14 +427,14 @@ async def process_rows(
         for collection, row_id, old_verdict in grouped:
             conflict_rows += 1
             old_status = old_verdict.status.value
-            quality_id = getattr(old_verdict, "quality_id", None)
+            verdict_quality_id = getattr(old_verdict, "quality_id", None)
             if old_status != AdmissionStatus.QUARANTINE.value:
                 counts[(collection, old_status)] -= 1
                 counts[(collection, AdmissionStatus.QUARANTINE.value)] += 1
-                if quality_id:
-                    counts[(collection, f"quality:{quality_id}")] -= 1
+                if verdict_quality_id:
+                    counts[(collection, f"quality:{verdict_quality_id}")] -= 1
             counts[(collection, f"reason:{AdmissionReason.CROSS_POOL_ANSWER_CONFLICT.value}")] += 1
-            if apply:
+            if apply and not strict_forced_mate:
                 conflict_verdict = replace(
                     old_verdict,
                     status=AdmissionStatus.QUARANTINE,
@@ -315,7 +462,36 @@ async def process_rows(
                 ))
     counts[("all", "cross_pool_conflict_positions")] = conflict_positions
     counts[("all", "cross_pool_conflict_rows")] = conflict_rows
-    if apply:
+    if strict_forced_mate:
+        if conflict_rows:
+            strict_violations += conflict_rows
+            counts[("all", "violation:cross_pool_answer_conflict")] += conflict_rows
+        counts[("all", "forced_mate_distinct_fens_checked")] = len(checked_fens)
+        counts[("all", "forced_mate_violations")] = strict_violations
+        gate_passed = bool(
+            processed > 0
+            and strict_violations == 0
+            and (
+                counts[("all", "forced_mate_validated")]
+                + counts[("all", "forced_mate_abstained")]
+                == processed
+            )
+        )
+        counts[("all", "forced_mate_zero_violation_gate_passed")] = int(
+            gate_passed
+        )
+        if apply and not gate_passed:
+            raise RuntimeError(
+                "forced-mate re-admission aborted before writes: "
+                f"rows={processed} violations={strict_violations}"
+            )
+        if apply:
+            for collection, operations in staged_updates.items():
+                for start in range(0, len(operations), BATCH_SIZE):
+                    await db[collection].bulk_write(
+                        operations[start:start + BATCH_SIZE], ordered=False
+                    )
+    elif apply:
         for collection, operations in conflict_updates.items():
             for start in range(0, len(operations), BATCH_SIZE):
                 await db[collection].bulk_write(
@@ -329,6 +505,14 @@ async def main():
     parser.add_argument("--apply", action="store_true", help="write updates; default is dry-run")
     parser.add_argument("--limit", type=int, default=None, help="limit rows per collection")
     parser.add_argument("--collection", choices=POOL_NAMES, action="append")
+    parser.add_argument(
+        "--quality-id",
+        default=None,
+        help=(
+            "rebuild only rows carrying this stored verified-admission quality ID; "
+            "forced-mate rows receive an automatic zero-violation caption gate"
+        ),
+    )
     args = parser.parse_args()
 
     mongo_url = os.environ.get("MONGO_URL")
@@ -344,6 +528,7 @@ async def main():
         collections=collections,
         limit=args.limit,
         apply=args.apply,
+        quality_id=args.quality_id,
     )
     print(f"mode={'APPLY' if args.apply else 'DRY_RUN'} rows={processed}")
     for key in sorted(counts, key=str):

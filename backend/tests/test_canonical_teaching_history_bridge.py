@@ -155,6 +155,37 @@ def test_profile_prefers_validated_history_to_legacy_counter():
     assert result["honesty"]["visible_mastery_changed"] is False
 
 
+def test_profile_does_not_invent_support_when_successful_help_is_unknown():
+    projection = {
+        "state": "can_do_with_help",
+        "next_evidence": "unassisted_transfer",
+        "visible_mastery_changed": False,
+        "evidence": {
+            "accepted_events": 1,
+            "assistance": {
+                "assisted": 0,
+                "unassisted": 1,
+                "unknown": 0,
+            },
+            "successful_help": None,
+            "latest_event": {"ref": "guided-without-recorded-help"},
+        },
+    }
+
+    result = derive_personal_teaching_profile(
+        skill_id="piece_safety",
+        canonical_lesson=LESSON,
+        learning_projection=projection,
+    )
+
+    assert result["why_now"] == (
+        "You answered this correctly before. Next, try a fresh position and "
+        "name the key piece or square before you move."
+    )
+    assert "support" not in result["why_now"]
+    assert "help" not in result["why_now"]
+
+
 def test_current_answer_still_outranks_older_canonical_history():
     result = derive_personal_teaching_profile(
         skill_id="piece_safety",

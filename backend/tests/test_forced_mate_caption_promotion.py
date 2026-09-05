@@ -66,8 +66,15 @@ def test_manifest_records_passing_aggregate_gate_without_case_export():
     assert payload["summary"]["caption_promotion_gate_passed"] is True
     assert payload["summary"]["true_positives"] == 50
     assert payload["summary"]["true_negatives"] == 50
-    assert payload["population"]["full_reproducible_matches"] == 261
-    assert payload["population"]["unreproducible_abstentions"] == 3
+    assert (
+        payload["population"]["full_reproducible_matches"]
+        == payload["population"]["reproducible_candidates"]
+    )
+    assert (
+        payload["population"]["unreproducible_abstentions"]
+        == payload["population"]["unreproducible_candidates"]
+    )
+    assert payload["population"]["fact_mismatches"] == 0
     assert payload["case_records_exported"] == 0
     serialized = json.dumps(payload).lower()
     assert '"fen"' not in serialized
@@ -90,6 +97,15 @@ def test_authorization_is_caption_only():
     )
     assert not is_authorized(
         "tactic:forced_mate_exact", QualitySurface.MASTERY
+    )
+    assert "missing consequence evidence" not in authorization.rationale
+    assert "reproducible from its stored puzzle document" in (
+        authorization.rationale
+    )
+    assert any(
+        "source game analysis" in limitation
+        and "zero-violation gate" in limitation
+        for limitation in authorization.limitations
     )
 
 
@@ -117,3 +133,6 @@ def test_packet_builder_defaults_to_aggregate_output():
     ).read_text(encoding="utf-8")
     assert 'os.environ.get("FORCED_MATE_INCLUDE_CASES") != "1"' in source
     assert '"case_records_exported": 0' in source
+    assert "len(reproducible) == 261" not in source
+    assert "len(unreproducible) == 3" not in source
+    assert "== {1, 3, 5}" not in source

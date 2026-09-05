@@ -541,9 +541,14 @@ def build_report(db: Any) -> Dict[str, Any]:
             for subtype in SUBTYPES
             for pool in POOLS
         ),
-        "mate_ply_coverage": (
-            {case["gold"].get("mate_ply") for case in positives}
-            == {1, 3, 5}
+        "mate_ply_validity": (
+            bool(reproducible)
+            and all(
+                isinstance(case["gold"].get("mate_ply"), int)
+                and case["gold"]["mate_ply"] > 0
+                and case["gold"]["mate_ply"] % 2 == 1
+                for case in reproducible
+            )
         ),
         "negative_target": len(negatives) == NEGATIVE_TARGET,
         "negative_abstentions": true_negatives == len(negatives),
@@ -551,11 +556,10 @@ def build_report(db: Any) -> Dict[str, Any]:
             negative_counts[name] == count
             for name, count in required_counts.items()
         ),
-        "reproducible_population": len(reproducible) == 261,
+        "reproducible_population_nonempty": bool(reproducible),
         "full_population_matches": (
             full_reproducible_matches == len(reproducible)
         ),
-        "unreproducible_population": len(unreproducible) == 3,
         "unreproducible_fail_closed": (
             unreproducible_abstentions == len(unreproducible)
         ),

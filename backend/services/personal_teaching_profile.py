@@ -156,19 +156,17 @@ def _learning_history_anchor(
             "You solved this after one guiding question. Next, try a fresh "
             "position without the question."
         ),
-    }.get(
-        successful_help,
-        (
-            "You solved this with support before. Next, try a fresh position "
-            "without help."
-        ),
+    }.get(successful_help)
+    unmeasured_help_message = (
+        "You answered this correctly before. Next, try a fresh position and "
+        "name the key piece or square before you move."
     )
     messages = {
         "learning": (
             "You have started this idea before. We will continue from the "
             "part that still needs a clean answer."
         ),
-        "can_do_with_help": helped_message,
+        "can_do_with_help": helped_message or unmeasured_help_message,
         "can_do_alone": (
             "You solved a fresh position without help. The remaining question "
             "is whether you use the idea in a real game."

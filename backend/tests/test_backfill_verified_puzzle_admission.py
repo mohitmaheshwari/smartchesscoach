@@ -4,6 +4,7 @@ import asyncio
 
 from scripts import backfill_verified_puzzle_admission as backfill
 from services.verified_puzzle_admission import AdmissionStatus
+from services.verified_puzzle_builder import build_position_verdict
 
 
 class _Cursor:
@@ -30,8 +31,10 @@ class _Collection:
     def __init__(self, rows):
         self.rows = rows
         self.batch_sizes = []
+        self.query = None
 
-    def find(self, _query):
+    def find(self, query):
+        self.query = query
         return _Cursor(self.rows)
 
     async def bulk_write(self, operations, ordered=False):
@@ -52,6 +55,8 @@ def _verdict(status, answers):
         status=status,
         reason_codes=(f"reason_{status.value}",),
         acceptable_moves_uci=tuple(answers),
+        broad_category="calculation_depth",
+        quality_id=None,
         to_document=lambda: {
             "status": status.value,
             "acceptable_moves_uci": list(answers),
@@ -158,3 +163,111 @@ def test_apply_writes_in_bounded_batches(monkeypatch):
     assert processed == backfill.BATCH_SIZE + 1
     assert counts[("all", "cross_pool_conflict_rows")] == 0
     assert collection.batch_sizes == [backfill.BATCH_SIZE, 1]
+
+
+def test_forced_mate_re_admission_validates_caption_before_targeted_write(monkeypatch):
+    fen = "6k1/5ppp/8/8/8/8/5PPP/R6K w - - 0 1"
+    evidence = {
+        "fen_before": fen,
+        "move": "Ra2",
+        "best_move_san": "Kg1",
+        "cp_loss": 300,
+        "pv_after_best": ["Kg1", "Kh8", "Ra8#"],
+    }
+    verdict = build_position_verdict(
+        source_kind="game",
+        source_ref="mate-source",
+        move_evaluation=evidence,
+        broad_category="missed_tactic",
+    )
+    row = {
+        "_id": "mate-row",
+        "fen": fen,
+        "verified_admission": {"quality_id": backfill.FORCED_MATE_QUALITY_ID},
+    }
+    collection = _Collection([row])
+
+    async def fake_source(_db, _collection, _row, _caches):
+        return verdict, evidence
+
+    monkeypatch.setattr(backfill, "_source_verdict", fake_source)
+    processed, counts = asyncio.run(backfill.process_rows(
+        _Database({"community_puzzles": collection}),
+        collections=("community_puzzles",),
+        apply=True,
+        quality_id=backfill.FORCED_MATE_QUALITY_ID,
+    ))
+
+    assert processed == 1
+    assert collection.query == {
+        "verified_admission.quality_id": backfill.FORCED_MATE_QUALITY_ID
+    }
+    assert counts[("all", "forced_mate_validated")] == 1
+    assert counts[("all", "forced_mate_violations")] == 0
+    assert counts[("all", "forced_mate_zero_violation_gate_passed")] == 1
+    assert collection.batch_sizes == [1]
+
+
+def test_forced_mate_re_admission_aborts_entire_batch_before_any_write(monkeypatch):
+    row = {
+        "_id": "bad-mate-row",
+        "fen": "6k1/5ppp/8/8/8/8/5PPP/R6K w - - 0 1",
+        "verified_admission": {"quality_id": backfill.FORCED_MATE_QUALITY_ID},
+    }
+    collection = _Collection([row])
+
+    async def fake_source(_db, _collection, _row, _caches):
+        return _verdict(AdmissionStatus.BROAD, ("a1a8",)), None
+
+    monkeypatch.setattr(backfill, "_source_verdict", fake_source)
+    monkeypatch.setattr(
+        backfill,
+        "_forced_mate_readmission_check",
+        lambda *_args: ("violation", "independent_fact_mismatch"),
+    )
+
+    try:
+        asyncio.run(backfill.process_rows(
+            _Database({"community_puzzles": collection}),
+            collections=("community_puzzles",),
+            apply=True,
+            quality_id=backfill.FORCED_MATE_QUALITY_ID,
+        ))
+    except RuntimeError as exc:
+        assert "aborted before writes" in str(exc)
+    else:
+        raise AssertionError("unsafe forced-mate batch should not write")
+    assert collection.batch_sizes == []
+
+
+def test_quality_filter_remains_stable_across_collections(monkeypatch):
+    first = _Collection([{
+        "_id": "now-abstains",
+        "fen": "8/8/8/8/8/2k5/8/K7 w - - 0 1",
+        "verified_admission": {"quality_id": backfill.FORCED_MATE_QUALITY_ID},
+    }])
+    second = _Collection([])
+
+    async def generic_source(_db, _collection, _row, _caches):
+        return _verdict(AdmissionStatus.GENERIC, ("a1a2",)), None
+
+    monkeypatch.setattr(backfill, "_source_verdict", generic_source)
+    monkeypatch.setattr(
+        backfill,
+        "_forced_mate_readmission_check",
+        lambda *_args: ("abstained", None),
+    )
+    asyncio.run(backfill.process_rows(
+        _Database({
+            "community_puzzles": first,
+            "community_training_positions": second,
+        }),
+        collections=("community_puzzles", "community_training_positions"),
+        quality_id=backfill.FORCED_MATE_QUALITY_ID,
+    ))
+
+    expected = {
+        "verified_admission.quality_id": backfill.FORCED_MATE_QUALITY_ID
+    }
+    assert first.query == expected
+    assert second.query == expected
