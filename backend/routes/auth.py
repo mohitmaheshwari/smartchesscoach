@@ -38,6 +38,17 @@ logger = logging.getLogger(__name__)
 # Create router for auth endpoints
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+_env_path = Path(__file__).resolve().parent.parent / '.env'
+if _env_path.exists():
+    load_dotenv(_env_path)
+_root_env = Path(__file__).resolve().parent.parent.parent / '.env'
+if _root_env.exists():
+    load_dotenv(_root_env)
+
 # Database reference - will be set by server.py
 db = None
 
@@ -98,53 +109,42 @@ class RegisterRequest(BaseModel):
     name: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    """Email + password login."""
+    """Email + password sign-in."""
     email: str
     password: str
 
-# ==================== AUTH HELPERS ====================
-
+# Dev mode config
 DEV_MODE = os.environ.get("DEV_MODE", "false").lower() == "true"
-DEV_USER_ID = os.environ.get("DEV_USER_ID", "dev_user_local")
+DEV_USER_ID = "dev_user_local"
 
-async def get_current_user(request: Request) -> User:
-    """Get current user from session token in cookie or Authorization header"""
+# Helper for current user
+async def get_current_user(request: Request) -> Optional[User]:
+    """Get current user from session token (cookie or header) or dev mode"""
     global db
-    
-    # First, try normal auth flow
     session_token = request.cookies.get("session_token")
     
-    if not session_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
+    # Also check Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        session_token = auth_header.replace("Bearer ", "")
     
-    # If we have a session token, validate it (even in DEV_MODE)
-    if session_token:
-        session_doc = await db.user_sessions.find_one(
-            {"session_token": session_token},
-            {"_id": 0}
-        )
-        
-        if session_doc:
-            expires_at = session_doc["expires_at"]
-            if isinstance(expires_at, str):
-                expires_at = datetime.fromisoformat(expires_at)
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if session_token and db is not None:
+        session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
+        if session:
+            # Check expiry
+            expires_at = session.get("expires_at")
+            if expires_at:
+                if isinstance(expires_at, str):
+                    expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if expires_at < datetime.now(timezone.utc):
+                    return None
             
-            # Valid session - return the actual user
-            if expires_at >= datetime.now(timezone.utc):
-                user_doc = await db.users.find_one(
-                    {"user_id": session_doc["user_id"]},
-                    {"_id": 0}
-                )
-                if user_doc:
-                    return User(**user_doc)
+            user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+            if user_doc:
+                return User(**user_doc)
     
-    # DEV MODE fallback: Only use dev user if no valid session exists
-    if DEV_MODE:
-        logger.warning("⚠️ DEV_MODE: No valid session, using dev user fallback")
+    # Dev mode fallback
+    if DEV_MODE and db is not None:
         dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
         if not dev_user:
             dev_user = {
@@ -164,36 +164,45 @@ async def get_current_user(request: Request) -> User:
 
 # ==================== GOOGLE OAUTH ====================
 
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', '')
+def _get_google_config():
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', '').strip()
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000').strip()
+    return client_id, client_secret, redirect_uri, frontend_url
 
 @router.get("/google/login")
-async def google_login(request: Request):
+async def google_login(request: Request, platform: Optional[str] = None, redirect_to: Optional[str] = None):
     """
     Redirect user to Google OAuth consent screen.
     Frontend should redirect to this endpoint to start login flow.
     """
-    if not GOOGLE_CLIENT_ID:
+    client_id, client_secret, redirect_uri, _ = _get_google_config()
+    if not client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     
-    redirect_uri = GOOGLE_REDIRECT_URI or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
+    effective_redirect_uri = redirect_uri or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
+    
+    plat = platform or request.query_params.get("platform", "web")
+    dest = redirect_to or request.query_params.get("redirect_to", "/home")
+    state = f"{plat}___{dest}"
     
     google_auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={redirect_uri}"
-        "&response_type=code"
-        "&scope=openid%20email%20profile"
-        "&access_type=offline"
-        "&prompt=consent"
+        f"client_id={client_id}"
+        f"&redirect_uri={effective_redirect_uri}"
+        f"&response_type=code"
+        f"&scope=openid%20email%20profile"
+        f"&access_type=offline"
+        f"&prompt=consent"
+        f"&state={state}"
     )
     
     return {"auth_url": google_auth_url}
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, response: Response, request: Request, background_tasks: BackgroundTasks = None):
+async def google_callback(code: str, response: Response, request: Request, state: Optional[str] = None, background_tasks: BackgroundTasks = None):
     """
     Handle Google OAuth callback.
     Exchange authorization code for tokens and create user session.
@@ -201,10 +210,11 @@ async def google_callback(code: str, response: Response, request: Request, backg
     global db
     print(f"[AUTH] OAuth callback - Origin: {request.headers.get('origin')}, Referer: {request.headers.get('referer')}")
     
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    client_id, client_secret, redirect_uri, frontend_url = _get_google_config()
+    if not client_id or not client_secret:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     
-    redirect_uri = GOOGLE_REDIRECT_URI or ''
+    effective_redirect_uri = redirect_uri or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
     
     try:
         async with httpx.AsyncClient() as client_http:
@@ -212,9 +222,9 @@ async def google_callback(code: str, response: Response, request: Request, backg
                 "https://oauth2.googleapis.com/token",
                 data={
                     "code": code,
-                    "client_id": GOOGLE_CLIENT_ID,
-                    "client_secret": GOOGLE_CLIENT_SECRET,
-                    "redirect_uri": redirect_uri,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": effective_redirect_uri,
                     "grant_type": "authorization_code"
                 }
             )
@@ -286,28 +296,93 @@ async def google_callback(code: str, response: Response, request: Request, backg
             from services.coach_memory import backfill_coach_memory_from_imported_games
             background_tasks.add_task(backfill_coach_memory_from_imported_games, db, user_id)
 
-        frontend_url = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
-        print(f"[AUTH] Setting session cookie for user {user_id}, token: {session_token[:20]}...")
-        print(f"[AUTH] FRONTEND_URL from env: {frontend_url}")
-        print(f"[AUTH] Cookie settings: httponly=True, secure=True, samesite=lax, path=/, max_age={COOKIE_MAX_AGE_SECONDS}")
+        # Check if login was requested from mobile app
+        state_val = state or request.query_params.get("state", "web")
+        is_mobile = any(k in state_val.lower() for k in ["mobile", "android", "ios", "capacitor", "app"])
 
-        # Get the redirect_to parameter from query string (page user was trying to access)
-        redirect_to = request.query_params.get("redirect_to", "/home")
-        redirect_url = f"{frontend_url}{redirect_to}?auth=success"
+        if is_mobile:
+            from fastapi.responses import HTMLResponse
+            app_url = f"chessguru://auth?token={session_token}&user_id={user_id}"
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Signing in...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0;url={app_url}">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #09090b;
+            color: #f4f4f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            text-align: center;
+        }}
+        .card {{
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 20px;
+            padding: 36px 28px;
+            max-width: 380px;
+            width: 100%;
+        }}
+        .logo {{ font-size: 44px; margin-bottom: 16px; }}
+        h2 {{ font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #fff; }}
+        p {{ font-size: 14px; color: #a1a1aa; line-height: 1.5; margin-bottom: 24px; }}
+        .btn {{
+            display: inline-block;
+            width: 100%;
+            padding: 14px 20px;
+            background: #B7F34A;
+            color: #0A1712;
+            text-decoration: none;
+            font-weight: 700;
+            border-radius: 12px;
+            font-size: 16px;
+        }}
+    </style>
+    <script>
+        window.onload = function() {{
+            window.location.href = "{app_url}";
+        }};
+    </script>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">♟️</div>
+        <h2>Sign In Successful!</h2>
+        <p>Connecting back to your ChessGuru App...</p>
+        <a href="{app_url}" class="btn">Open ChessGuru App</a>
+    </div>
+</body>
+</html>"""
+            return HTMLResponse(content=html_content)
 
+        if not frontend_url:
+            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000').strip()
+        redirect_to = "/home"
+        if "___" in state_val:
+            redirect_to = state_val.split("___")[1]
+
+        redirect_url = f"{frontend_url}{redirect_to}?auth=success&token={session_token}"
+
+        is_localhost = "localhost" in frontend_url or "127.0.0.1" in frontend_url
         from fastapi.responses import RedirectResponse
         redirect_response = RedirectResponse(url=redirect_url)
         redirect_response.set_cookie(
             key="session_token",
             value=session_token,
             httponly=True,
-            secure=True,
+            secure=False if is_localhost else True,
             samesite="lax",
             path="/",
             max_age=COOKIE_MAX_AGE_SECONDS
         )
-
-        print(f"[AUTH] Cookie set on redirect response, redirecting to {redirect_url}")
         return redirect_response
         
     except HTTPException:
