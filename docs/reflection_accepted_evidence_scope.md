@@ -106,10 +106,12 @@ regression, no empty provenance row.
 
 ## 3. In scope (V1)
 
-- **One canonical fundamentals vocabulary.** The dotted reflection id is already
-  `<fundamental>.<mechanism>` where the prefix *is* an existing `topic_key`
-  (`piece_safety.simple_hang` → `piece_safety`). Adopt that as canonical; it needs no new
-  vocabulary invented.
+- **One canonical fundamentals vocabulary: the 7 `topic_key` values.** I originally claimed the
+  dotted reflection id is always `<fundamental>.<mechanism>` with the prefix equal to a
+  `topic_key`. Checking the real rows, that holds for `piece_safety.simple_hang` and **not** for
+  the other two — `calculation.*` has no matching `topic_key` (see Q4, now resolved). So the
+  prefix is a *hint*, not the spine. The spine is `topic_key`, and everything maps onto it through
+  the predicate table below.
 - **One `fundamental` field added to each `TAG_DEFINITIONS` row**, derived from the predicate it
   already declares. Extending the existing registry rather than adding a parallel mapping file —
   the registry is already the canonical quick-tag authority that builds the options.
@@ -122,7 +124,12 @@ regression, no empty provenance row.
   measured, never called improved or still-recurring.
 - **`not_sure` and `none_of_these` are never written as a cause.** They are the player declining
   to answer. Counting them as accepted evidence would be the worst failure this feature could
-  have.
+  have — and this is not hypothetical: of the 3 reflections that exist, the selected options are
+  `thought_piece_safe`, `thought_piece_safe`, `not_sure`. **One in three is already a non-answer.**
+- **Filter `user_active_focus` on `type`, and handle `type: None`.** 39 rows are strengths (all
+  with `topic_key: None`), and 8 more carry `type: None` with a real `topic_key`. A `!= "strength"`
+  filter keeps those 8, which is the intent — but the null must be handled explicitly rather than
+  relied on.
 - **Provenance is first-class.** Every weakness the profile holds carries `player_accepted` or
   `detector_inferred`. Nothing is silently merged.
 - **Misconception is orthogonal to fundamental.** `thought_piece_safe` already appeared under two
@@ -174,14 +181,23 @@ Those are outcomes of launching, not of this architecture.
 
 ## 6. Open questions
 
-**Q1. Where do the 9 predicates land among the 7 fundamentals?**
-Why unresolved: most are obvious — `user_piece_left_hanging` → `piece_safety`,
-`simple_tactic_missed` → `missed_tactic`, `time_pressure_detected` → `time_management`. Three are
-not. `user_attacked_instead_of_defending` could be `king_safety` or `threat_awareness`;
-`user_defended_phantom_threat` is a false-alarm habit that matches none of the 7; `is_opening_phase`
-is a phase, not a weakness.
-Unblocking step: one 9-row table, reviewed in a single pass. The three hard rows either get a
-fundamental or get excluded — no guessing.
+**Q1. Where do the 9 predicates land among the 7 fundamentals? — RESOLVED, one call left**
+
+Mapped from each tag's player-facing label rather than from the predicate name:
+
+| predicate | tags | fundamental |
+|---|---|---|
+| `user_piece_left_hanging` | "I thought my piece was safe" / "I thought it was protected" | `piece_safety` |
+| `time_pressure_detected` | "Time pressure" | `time_management` |
+| `opponent_has_winning_capture` | "I missed a capture threat" | `threat_awareness` |
+| `user_ignored_forcing_reply` | "I missed a threat" / "I thought I had time" / "I underestimated counterplay" | `threat_awareness` |
+| `simple_tactic_missed` | "I ignored forcing sequence" | `missed_tactic` |
+| `opponent_has_immediate_check` | "I didn't see the check" | `threat_awareness` *(not `king_safety`: the failure is not noticing a forcing move, not a structurally weak king)* |
+| `user_attacked_instead_of_defending` | "I attacked and ignored his threat" | **needs Mohit** — the player says they *saw* the threat and deprioritised it, so this is a priority failure, not an awareness one. None of the 7 names that. Nearest is `threat_awareness`, which would mislabel the cause. |
+| `user_defended_phantom_threat` | "I defended something that wasn't threatened" | **excluded** — a false-positive habit; none of the 7 covers seeing threats that aren't there |
+| `is_opening_phase` | "I was following opening idea" | **excluded** — a phase marker, not a weakness |
+
+So 6 of 9 map cleanly, 1 needs your call, 2 are excluded and stay excluded rather than guessed.
 
 **Q2. Should an accepted cause be able to override a detector-inferred focus?**
 Why unresolved: product judgement. If a player says "I didn't see the attacker" but the detector
@@ -194,23 +210,30 @@ Why unresolved: needs a distribution that does not exist yet.
 Unblocking step: deferred to `/lock-via-data` after the pilot produces reflections. V1 shows the
 raw count ("You told us this twice") rather than a threshold verdict.
 
-**Q4. Does `calculation.*` map to an existing fundamental or need a new one?**
-Why unresolved: `calculation.legal_material_loss` has no `canonical_source` and its
-`quality_id` is the many-to-one `review:verified_single_game_cause`, unlike
-`piece_safety.simple_hang` which maps 1:1 to a detector.
-Unblocking step: inspect the `calculation.*` concepts against the 7 topic_keys before coding. If
-the reflection `concept_id` prefix and the tag predicate disagree on the fundamental, the predicate
-wins — it is the board fact.
+**Q4. Does `calculation.*` map to an existing fundamental? — RESOLVED: no**
+
+The two real `calculation.*` rows are `calculation.verified_stored_line` and
+`calculation.legal_material_loss`. Both carry `quality_id: review:verified_single_game_cause` and
+`canonical_source: None`, unlike `piece_safety.simple_hang` which carries
+`gap:piece_safety:simple_hang` and `personal_curriculum.piece_safety.v1`.
+
+"calculation" is **not** one of the 7 `topic_key` values, so the prefix does not resolve to a
+fundamental. That is what breaks the spine claim in Section 3. Two of the three stored reflections
+are therefore unmappable by prefix — the predicate table is what makes them mappable, via the
+option the player actually selected (`thought_piece_safe` → `user_piece_left_hanging` →
+`piece_safety`), regardless of which concept the event was filed under.
+
+**Rule this settles:** where the reflection `concept_id` prefix and the tag predicate disagree, the
+**predicate wins** — it is tied to the option the player chose, and it resolves for every row.
 
 ---
 
 ## 7. Pre-code requirements
 
 1. **Mohit signs off on this document.** Hard gate.
-2. **Q1 answered** — the 9-row predicate table is written and reviewed, with the excluded
-   predicates named.
-3. **Q4 answered** — `calculation.*` either maps to an existing fundamental or is explicitly
-   deferred.
+2. ~~**Q1 answered**~~ — DONE: the 9-row predicate table is in Section 6, with the two excluded
+   predicates named. One row (`user_attacked_instead_of_defending`) still needs your call.
+3. ~~**Q4 answered**~~ — DONE: `calculation.*` does not map; the predicate wins over the prefix.
 4. **Q2 answered** — Mohit's call on accepted-vs-inferred precedence.
 5. **The pilot cohort is enrolled**, so there is at least one non-admin user who can produce a
    reflection to verify success criteria 1–4 against a real account rather than a fixture.
