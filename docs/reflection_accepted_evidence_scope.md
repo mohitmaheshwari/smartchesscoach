@@ -16,6 +16,7 @@
 | `user_active_focus` + `focus_bridge` | The one thing a player is working on; 7 `topic_key` values | 273 / 53 |
 | `phase8_release_evidence.py:541-559` | Transfer verdict from later unassisted games: `improved` / `still_recurring` / `insufficient_evidence` | live |
 | `reflection_sessions` | The player's accepted cause, bound to an engine-verified event | 3 / 1 |
+| `quick_tag_registry.TAG_DEFINITIONS` | The 21 answer options, each already carrying `predicates` (the board fact that licensed it) and `category_boost` | code |
 | `user_concept_understanding` | Legacy per-concept model, 229 distinct ids | 3,852 / 63 |
 | `user_pattern_events` | Raw pattern fires | 108,181 / 59 |
 | `user_teaching_memory` | What was taught | 29,974 / 48 |
@@ -28,10 +29,22 @@ The chain this feature wants — *fundamental → tracked → measured improveme
 
 Two things are genuinely absent:
 
-1. **Reflections cannot join it.** Four vocabularies, no mapping:
-   `topic_key` (7) · reflection `concept_id` (dotted) · `concept_used` (13) · legacy `concept_id` (229).
+1. **Reflections cannot join it.** Six vocabularies, no mapping between them:
+   `topic_key` (7) · reflection `concept_id` (dotted) · `concept_used` (13) · legacy
+   `concept_id` (229) · tag `predicates` (9) · `category_boost` (6).
 2. **Nothing carries provenance.** Every weakness on `/progress` is *inferred* by a detector.
    There is no way to record "the player agreed to this", which is the entire value here.
+
+The good news, found while auditing: `TAG_DEFINITIONS` is already a clean table. Every answer
+option states the board fact that licensed it — `thought_piece_safe` and `thought_protected` both
+carry `predicates: ["user_piece_left_hanging"]`. **The join runs through predicates, not through
+the 229 legacy ids**: 9 predicate values map onto the 7 fundamentals. That is a reviewable table,
+not a migration.
+
+It also exposes a split that matters. Five options carry **no predicate at all** —
+`thought_winning`, `felt_danger`, `wanted_to_finish`, `rushed_conversion`, `played_fast`. These
+are self-reported *states*, not board facts. Nothing engine-side can confirm or refute them, so
+they cannot drive a transfer verdict. Two more, `not_sure` and `none_of_these`, are non-answers.
 
 ### Decision: **EXTEND**
 
@@ -97,11 +110,19 @@ regression, no empty provenance row.
   `<fundamental>.<mechanism>` where the prefix *is* an existing `topic_key`
   (`piece_safety.simple_hang` → `piece_safety`). Adopt that as canonical; it needs no new
   vocabulary invented.
-- **A mapping table** from the other three vocabularies onto it, stored as data, not code
-  branches. Unmapped legacy ids stay unmapped and are excluded rather than guessed.
+- **One `fundamental` field added to each `TAG_DEFINITIONS` row**, derived from the predicate it
+  already declares. Extending the existing registry rather than adding a parallel mapping file —
+  the registry is already the canonical quick-tag authority that builds the options.
 - **Write the accepted cause into the profile** on reflection submit: the `selected_option_id`
-  (one of the 19 already in `reflect_constants.py`), the fundamental, the mechanism, the
-  `event_id`, and `source: player_accepted`.
+  (one of the 21 in `QuickTagId`), the fundamental, the mechanism, the `event_id`, and
+  `source: player_accepted`.
+- **Two tiers, kept apart.** An option with a predicate is *board-anchored* and can carry a
+  transfer verdict. An option without one (`thought_winning`, `felt_danger`, `wanted_to_finish`,
+  `rushed_conversion`, `played_fast`) is a *self-reported state*: recorded and shown, never
+  measured, never called improved or still-recurring.
+- **`not_sure` and `none_of_these` are never written as a cause.** They are the player declining
+  to answer. Counting them as accepted evidence would be the worst failure this feature could
+  have.
 - **Provenance is first-class.** Every weakness the profile holds carries `player_accepted` or
   `detector_inferred`. Nothing is silently merged.
 - **Misconception is orthogonal to fundamental.** `thought_piece_safe` already appeared under two
@@ -120,8 +141,8 @@ regression, no empty provenance row.
 - **Any ranking or scoring rule** that weighs accepted vs inferred evidence numerically. There
   are 3 reflections in the database; a weight picked now would be picked with no distribution.
   V1 stores and displays; it does not score.
-- **Migrating the 229 legacy `user_concept_understanding` ids.** They are mapped where a mapping
-  is obvious and otherwise left alone. No backfill, no deletion.
+- **Migrating the 229 legacy `user_concept_understanding` ids.** The predicate join makes them
+  unnecessary for V1. No backfill, no deletion, no mapping attempted.
 - **Changing the reflection prompt, its options, or when it appears.** The capture format is
   already correct.
 - **Retiring any of the nine existing weakness stores.** Consolidation is a separate decision.
@@ -153,12 +174,14 @@ Those are outcomes of launching, not of this architecture.
 
 ## 6. Open questions
 
-**Q1. Which vocabulary wins where a mapping is ambiguous?**
-Why unresolved: `topic_key` has 7 values; the legacy store has 229. Some legacy ids
-(`TAC_HANGING_PIECE`) map cleanly to `piece_safety`; others (`DEF_WALK_KING`, `knight_on_rim`)
-do not obviously belong to any of the 7.
-Unblocking step: list every legacy id against the 7 fundamentals and mark the residue
-explicitly unmapped. One pass, reviewable as a table.
+**Q1. Where do the 9 predicates land among the 7 fundamentals?**
+Why unresolved: most are obvious — `user_piece_left_hanging` → `piece_safety`,
+`simple_tactic_missed` → `missed_tactic`, `time_pressure_detected` → `time_management`. Three are
+not. `user_attacked_instead_of_defending` could be `king_safety` or `threat_awareness`;
+`user_defended_phantom_threat` is a false-alarm habit that matches none of the 7; `is_opening_phase`
+is a phase, not a weakness.
+Unblocking step: one 9-row table, reviewed in a single pass. The three hard rows either get a
+fundamental or get excluded — no guessing.
 
 **Q2. Should an accepted cause be able to override a detector-inferred focus?**
 Why unresolved: product judgement. If a player says "I didn't see the attacker" but the detector
@@ -175,15 +198,17 @@ raw count ("You told us this twice") rather than a threshold verdict.
 Why unresolved: `calculation.legal_material_loss` has no `canonical_source` and its
 `quality_id` is the many-to-one `review:verified_single_game_cause`, unlike
 `piece_safety.simple_hang` which maps 1:1 to a detector.
-Unblocking step: inspect the `calculation.*` concepts against the 7 topic_keys before coding.
+Unblocking step: inspect the `calculation.*` concepts against the 7 topic_keys before coding. If
+the reflection `concept_id` prefix and the tag predicate disagree on the fundamental, the predicate
+wins — it is the board fact.
 
 ---
 
 ## 7. Pre-code requirements
 
 1. **Mohit signs off on this document.** Hard gate.
-2. **Q1 answered** — the legacy-id mapping table exists and is reviewed, with the unmapped
-   residue named.
+2. **Q1 answered** — the 9-row predicate table is written and reviewed, with the excluded
+   predicates named.
 3. **Q4 answered** — `calculation.*` either maps to an existing fundamental or is explicitly
    deferred.
 4. **Q2 answered** — Mohit's call on accepted-vs-inferred precedence.
