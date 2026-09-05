@@ -119,7 +119,13 @@ def build_forced_mate_proof(
             before_mate.push(move)
         mating_move = parse_legal_move(before_mate, replay.replayed_uci[-1])
         if mating_move is not None:
-            piece = before_mate.piece_at(mating_move.from_square)
+            # Name the piece that ENDS on the mating square, not the one
+            # that left the from-square. A promotion mate is delivered by
+            # the promoted piece; reading the from-square reports "pawn"
+            # and the caption then tells the player a pawn gave mate.
+            after_mate = before_mate.copy(stack=False)
+            after_mate.push(mating_move)
+            piece = after_mate.piece_at(mating_move.to_square)
             mating_piece = chess.piece_name(piece.piece_type) if piece else None
             mating_square = chess.square_name(mating_move.to_square)
             mating_move_uci = mating_move.uci()

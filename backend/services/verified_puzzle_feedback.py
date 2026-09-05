@@ -279,24 +279,36 @@ def _specific_context(
                 "Before choosing a move, examine every legal check and count "
                 "the king's escape squares.",
             )
+        # Longer lines: the proof establishes that ONE stored line replays
+        # legally to mate. It never enumerates the opponent's alternatives,
+        # so the caption must not read as "this mate is forced" -- on real
+        # stored rows the opponent has a choice about half the time. Show
+        # the moves, and say plainly that other defences exist.
+        replayed_san = fact.get("replayed_san")
+        line = (
+            " ".join(str(token) for token in replayed_san)
+            if isinstance(replayed_san, (list, tuple)) and replayed_san
+            else ""
+        )
         if (
-            mating_piece
+            line
+            and mating_piece
             and mating_square
-            and mating_san
             and king_square
             and fact.get("terminal_legal_replies") == 0
         ):
+            # The stored line already opens with best_san, so naming it
+            # again ahead of the line would just repeat it.
             return (
-                f"{best_san} begins the verified continuation. It ends with "
-                f"{mating_san}, when your {mating_piece} reaches "
-                f"{mating_square} and the king on {king_square} has no legal "
-                "reply.",
+                f"One line: {line}. At the end the king on "
+                f"{king_square} has no legal reply. The opponent can "
+                "defend differently, so check their other tries too.",
                 "Before choosing a move, examine every legal check, capture "
                 "and direct threat.",
             )
         return (
-            f"The verified continuation beginning with {best_san} ends in "
-            "checkmate.",
+            f"{best_san} starts a line that ends in checkmate. The opponent "
+            "can defend differently, so check their other tries too.",
             "Before choosing a move, examine every legal check, capture and "
             "direct threat.",
         )

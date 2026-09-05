@@ -148,7 +148,6 @@ def independent_adjudication(row: Mapping[str, Any]) -> Dict[str, Any]:
                 "legal_prefix_plies": len(replayed_uci),
             }
         mover = replay.turn
-        piece = replay.piece_at(move.from_square)
         san = replay.san(move)
         replayed_uci.append(move.uci())
         replayed_san.append(san)
@@ -165,7 +164,13 @@ def independent_adjudication(row: Mapping[str, Any]) -> Dict[str, Any]:
                 "mate_ply": ply,
                 "mating_move_uci": move.uci(),
                 "mating_move_san": san,
-                "mating_piece": _piece_name(piece),
+                # The piece standing on the mating square AFTER the move.
+                # Reading the from-square reports "pawn" for a promotion
+                # mate, and the shipped proof had the same defect, so the
+                # two agreed while both were wrong.
+                "mating_piece": _piece_name(
+                    replay.piece_at(move.to_square)
+                ),
                 "mating_square": chess.square_name(move.to_square),
                 "king_square": (
                     chess.square_name(king_square)
