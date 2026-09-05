@@ -242,14 +242,11 @@ def get_all_trap_statistics() -> Dict[str, Any]:
     }
 
 
-# Openings whose ECO/name ownership belongs to Black. Used by
-# analyze_game_for_traps to figure out who benefits from a trap.
-_BLACK_OPENINGS = {
-    "sicilian-defense", "french-defense", "caro-kann", "scandinavian-defense",
-    "petrov-defense", "philidor-defense", "kings-indian-defense", "nimzo-indian",
-    "queens-indian", "grunfeld-defense", "benoni-defense", "slav-defense",
-    "dutch-defense", "budapest-gambit",
-}
+# The beneficiary of a trap is the trap's own `trap_color`, never the colour
+# that "owns" the opening name. A family-name table got this wrong for 17 of
+# the 36 forced traps -- White springs Legal's Mate inside a Philidor, Black
+# springs Noah's Ark inside a Ruy Lopez -- so the player who executed the trap
+# was told "You fell into the ...!" and the victim was congratulated.
 
 
 def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
@@ -279,10 +276,14 @@ def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
 
             if setup_str in moves_str:
                 setup_end_idx = len(setup_moves)
-                opening_color = "black" if opening_key in _BLACK_OPENINGS else "white"
+                trap_beneficiary = str(trap.get("trap_color") or "").lower()
+                if trap_beneficiary not in ("white", "black"):
+                    # Fail closed: without a stated beneficiary we cannot say
+                    # who sprang the trap, and guessing produces the exact
+                    # backwards verdict this replaced.
+                    continue
 
                 if full_trap_str in moves_str:
-                    trap_beneficiary = opening_color
                     if user_color == trap_beneficiary:
                         traps_executed.append({
                             "trap_name": trap["name"],
@@ -298,10 +299,11 @@ def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
                             "result": trap.get("result_type"),
                             "move_number": (setup_end_idx // 2) + 1,
                             "description": f"You fell into the {trap['name']}!",
-                            "how_to_avoid": (
-                                f"After {setup_moves[-1]}, avoid "
-                                f"{normalized_trap[0] if len(trap_line) > 1 else 'the trap sequence'}"
-                            ),
+                            # Use the authored advice. The derived version named
+                            # trap_line[0], which is the TRAP-SETTER's move in 30
+                            # of 55 entries, so it told the victim to avoid a
+                            # move that was never theirs to play.
+                            "how_to_avoid": trap.get("how_to_avoid"),
                         })
 
     return {
