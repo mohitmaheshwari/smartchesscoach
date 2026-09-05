@@ -90,7 +90,8 @@ After this, when the player has told us, it says so:
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Three states for the bottom line, and only these three:
+Three states for the bottom line, and only these three — **though V1 renders only the first**, because
+the transfer verdict it would need is not reusable (see Section 3):
 
 - `not enough games yet to say if it's improving` — fewer than the transfer window
 - `still happening — 3 times in your last 10 games` — recurring
@@ -106,22 +107,40 @@ regression, no empty provenance row.
 
 ## 3. In scope (V1)
 
-- **One canonical fundamentals vocabulary: the 7 `topic_key` values.** I originally claimed the
-  dotted reflection id is always `<fundamental>.<mechanism>` with the prefix equal to a
-  `topic_key`. Checking the real rows, that holds for `piece_safety.simple_hang` and **not** for
-  the other two — `calculation.*` has no matching `topic_key` (see Q4, now resolved). So the
-  prefix is a *hint*, not the spine. The spine is `topic_key`, and everything maps onto it through
-  the predicate table below.
+- **One canonical fundamentals vocabulary: the topic universe in
+  `primary_weakness_picker.IMPACT_TABLE_BY_BAND`.** Two earlier drafts of this line were wrong and
+  the correction matters, so it is recorded rather than quietly edited:
+  - The dotted reflection id is *not* reliably `<fundamental>.<mechanism>` — that holds for
+    `piece_safety.simple_hang` but not for `calculation.*` (Q4). The prefix is a hint, not a spine.
+  - The spine is *not* "the 7 `topic_key` values" either. Those 7 are simply the values that
+    happen to exist in `user_active_focus` today. The **code** can write 12: the 11 keys in
+    `IMPACT_TABLE_BY_BAND` (`piece_safety`, `king_safety`, `missed_tactic`, `tactical_oversight`,
+    `calculation_depth`, `piece_activity`, `pawn_structure`, `opening_knowledge`,
+    `endgame_technique`, `threat_awareness`, `punish_blunders`) plus `time_management`, which
+    `primary_weakness_picker.py:732` appends as a candidate outside the band table.
+  Binding the mapping to observed data rather than to the writable universe would have produced a
+  table that silently stops matching the moment a new topic is picked. The mapping targets the
+  writable universe.
+  **Known sprawl, deliberately not "fixed" here:** at least two other topic dictionaries disagree
+  with it — `TOPIC_TO_MOMENTS_KEY` (11 keys, e.g. `fork_misses`, `neglecting_development`) and
+  `focus_area_badges._TOPIC_BADGE` (9 keys). V1 does not add a fourth; it maps onto the writable
+  universe and leaves reconciliation as its own piece of work.
 - **One `fundamental` field added to each `TAG_DEFINITIONS` row**, derived from the predicate it
   already declares. Extending the existing registry rather than adding a parallel mapping file —
   the registry is already the canonical quick-tag authority that builds the options.
 - **Write the accepted cause into the profile** on reflection submit: the `selected_option_id`
   (one of the 21 in `QuickTagId`), the fundamental, the mechanism, the `event_id`, and
   `source: player_accepted`.
-- **Two tiers, kept apart.** An option with a predicate is *board-anchored* and can carry a
-  transfer verdict. An option without one (`thought_winning`, `felt_danger`, `wanted_to_finish`,
-  `rushed_conversion`, `played_fast`) is a *self-reported state*: recorded and shown, never
-  measured, never called improved or still-recurring.
+- **Three tiers, not two.** An earlier draft said "an option without a predicate is a
+  self-reported state" and listed 5. There are **7** predicate-less tags, and two of them are the
+  non-answers — so "no predicate" must never be used as the test for "self-reported state":
+  - *board-anchored* (14 tags, 9 predicates) — carries a fundamental and can be measured.
+  - *self-reported state* (5: `thought_winning`, `felt_danger`, `wanted_to_finish`,
+    `rushed_conversion`, `played_fast`) — recorded and shown, never measured, never called
+    improved or still-recurring.
+  - *non-answer* (2: `not_sure`, `none_of_these`) — recorded as "asked and declined", never a
+    cause of any kind. `REQUIRED_ESCAPE_IDS` in `review_reflection_service.py:19` already names
+    exactly this pair; use that constant rather than re-listing them.
 - **`not_sure` and `none_of_these` are never written as a cause.** They are the player declining
   to answer. Counting them as accepted evidence would be the worst failure this feature could
   have — and this is not hypothetical: of the 3 reflections that exist, the selected options are
@@ -136,8 +155,19 @@ regression, no empty provenance row.
   different concepts in one game — the model must express "one habit, two fundamentals" rather
   than two weaknesses.
 - **Feed `focus_bridge`** so a player-accepted cause can inform the active focus.
-- **Reuse the Phase 8 transfer verdict unchanged** — accepted causes flow into the same
-  `improved` / `still_recurring` / `insufficient_evidence` machinery.
+- **~~Reuse the Phase 8 transfer verdict unchanged~~ — CUT FROM V1. It cannot be reused, and the
+  earlier claim that it could was wrong.** `build_phase8_journey_projection(db, user_id)`
+  (`phase8_release_evidence.py:491`) takes **no parameter naming what is measured**. It is a
+  hardcoded singleton for one detector: it filters on the module constants `QUALITY_ID`
+  (destination-safety), `FOCUS_KIND = "piece_safety/destination_safety_exact"` and `PIC_SKILL_ID`,
+  and gates on `is_authorized(QUALITY_ID, PLAN)` — the single PLAN-grade entry in the whole
+  authorization registry. A player-accepted cause cannot enter it without parameterising the
+  module and granting a second PLAN authorization, and PLAN grade demands board-verified evidence
+  that a self-report by definition is not.
+  So V1 stores the accepted cause and shows the raw count; the "is it improving?" verdict is a
+  separate piece of work with its own scope. The three-state line in Section 2 therefore renders
+  only `not enough games yet` in V1 — which is honest, since with 3 reflections in the database it
+  is also true.
 - **`/progress` renders the provenance line** and the three states above.
 - **Fail closed**: no accepted cause, no provenance row. Never invent one.
 
@@ -167,8 +197,11 @@ V1 is successful when, for a player who has answered at least one reflection:
 1. Their accepted cause appears on `/progress` with `You said this`, naming the fundamental and
    the number of games — verified by opening the page as a real non-admin pilot user.
 2. The same accepted cause reaches `focus_bridge` and can become the active focus.
-3. Phase 8's transfer verdict runs on it and returns one of the three states honestly, including
-   `insufficient_evidence` when that is the truth.
+3. The stored cause carries enough to measure later — `event_id`, fundamental, mechanism, tier and
+   `source: player_accepted` — verified by reading the row back, not by a verdict. (Replaces the
+   original criterion, which required the Phase 8 verdict to run on it. That is not achievable in
+   V1: the verdict is a hardcoded singleton for one detector. Keeping the old criterion would have
+   made V1 fail on a dependency it was never going to have.)
 4. A player with no reflections sees `/progress` exactly as it renders today — no empty rows, no
    regression. Verified against a second pilot user.
 5. Zero cases where a misconception the player did not select is attributed to them. This is a
