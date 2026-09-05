@@ -105,9 +105,12 @@ def test_shared_builder_exposes_only_caption_identity_after_promotion():
         correct=False,
     )
     assert feedback["why"] == (
-        "Qg7# puts your queen on g7 with checkmate. "
-        "The king on h8 has no legal reply."
+        "Qg7# gives checkmate: the king on h8 has no legal reply."
     )
+    # SAN already names the piece and the destination square; restating
+    # them is the shape this file forbids for pins and skewers, and it
+    # reads worse than the generic sentence it would replace.
+    assert "puts your queen on g7" not in feedback["why"]
 
 
 def test_longer_line_caption_names_verified_finish_without_forced_claim():
@@ -230,5 +233,10 @@ def test_promotion_mate_caption_does_not_claim_a_pawn_gave_mate():
         correct=False,
     )
     why = feedback["why"]
-    assert "queen on c8" in why
-    assert "pawn on c8" not in why
+    # The mate-in-one caption no longer names the mating piece at all, so
+    # the false "pawn" claim is gone by construction. The piece fact itself
+    # stays locked by test_promotion_mate_names_the_promoted_piece_not_the_pawn,
+    # which asserts the stored fact rather than the rendered string.
+    assert "pawn" not in why.lower()
+    assert "gives checkmate" in why
+    assert "king on c1 has no legal reply" in why

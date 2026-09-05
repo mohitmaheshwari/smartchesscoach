@@ -273,9 +273,15 @@ def _specific_context(
             and king_square
             and fact.get("terminal_legal_replies") == 0
         ):
+            # For mate in one the displayed move IS the mating move, so its
+            # SAN already carries the piece, the destination square and the
+            # "#" marker. Restating them is the shape this file forbids ~70
+            # lines above, and it reads worse than the generic _move_effect
+            # sentence it would replace. Say what the move DOES; the
+            # authorized facts still gate whether this branch is reached.
             return (
-                f"{best_san} puts your {mating_piece} on {mating_square} "
-                f"with checkmate. The king on {king_square} has no legal reply.",
+                f"{best_san} gives checkmate: the king on {king_square} "
+                "has no legal reply.",
                 "Before choosing a move, examine every legal check and count "
                 "the king's escape squares.",
             )
