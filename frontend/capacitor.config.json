@@ -1,0 +1,13 @@
+{
+  "appId": "com.example.app",
+  "appName": "chessguru",
+  "webDir": "build",
+  "plugins": {
+    "CapacitorCookies": {
+      "enabled": true
+    },
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

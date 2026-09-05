@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 import "@/App.css";
 
 // Pages
@@ -115,8 +118,14 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
 
         // If user data passed from AuthCallback, use it directly
         if (!userData) {
+          const token = new URLSearchParams(location.search).get('token') || localStorage.getItem('session_token');
+          const headers = {};
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
           const response = await fetch(`${API}/auth/me`, {
-            credentials: 'include'
+            credentials: 'include',
+            headers
           });
           if (!response.ok) throw new Error('Not authenticated');
           userData = await response.json();
@@ -190,9 +199,57 @@ function AppRouter() {
   const navigate = useNavigate();
   const experienceFamily = getExperienceFamily(location.pathname);
 
+  // Listen for native deep links when opened in Android APK
+  useEffect(() => {
+    let appUrlListener = null;
+
+    if (Capacitor.isNativePlatform()) {
+      const initAppListener = async () => {
+        appUrlListener = await CapApp.addListener('appUrlOpen', async (data) => {
+          try {
+            await Browser.close();
+          } catch (e) {}
+
+          if (data.url && (data.url.includes('auth') || data.url.includes('token'))) {
+            try {
+              const url = new URL(data.url.replace(/^[a-zA-Z0-9_-]+:\/\//, 'https://dummy/'));
+              const token = url.searchParams.get('token') || url.searchParams.get('session_token');
+              if (token) {
+                localStorage.setItem('session_token', token);
+                const res = await fetch(`${API}/auth/me`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                  credentials: 'include'
+                });
+                if (res.ok) {
+                  const userData = await res.json();
+                  navigate('/home', { state: { user: userData } });
+                } else {
+                  navigate('/');
+                }
+              }
+            } catch (err) {
+              console.error('Error handling deep link:', err);
+            }
+          }
+        });
+      };
+      initAppListener();
+    }
+
+    return () => {
+      if (appUrlListener && appUrlListener.remove) {
+        appUrlListener.remove();
+      }
+    };
+  }, [navigate]);
+
   // Check for auth=success in URL (from Google OAuth callback)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('session_token', token);
+    }
     if (params.get('auth') === 'success') {
       navigate(consumeStoredRedirectPath(), { replace: true });
     }

@@ -10,6 +10,8 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -54,15 +56,30 @@ export default function Login() {
 
   const handleGoogle = async () => {
     try {
+      setError("");
       // Get the page user was trying to access (from URL or default to home)
       const redirectTo = new URLSearchParams(window.location.search).get('redirect_to') || window.location.pathname;
       const safeRedirect = ['/', '/home', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
+      const isNative = Capacitor.isNativePlatform();
+      const platformParam = isNative ? '&platform=mobile' : '';
 
-      const res = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}`);
-      const data = await res.json();
-      if (data.auth_url) window.location.href = data.auth_url;
+      const res = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}${platformParam}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.detail || "Google sign-in is currently unavailable.");
+        return;
+      }
+      if (data.auth_url) {
+        if (isNative) {
+          await Browser.open({ url: data.auth_url });
+        } else {
+          window.location.href = data.auth_url;
+        }
+      } else {
+        setError("Invalid response from server. Please try again.");
+      }
     } catch {
-      setError("Google sign-in failed. Please try again.");
+      setError("Google sign-in failed. Please check your connection and try again.");
     }
   };
 

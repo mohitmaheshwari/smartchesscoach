@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 const ACID = "#B7F34A";
 const MINT = "#7EE7C2";
@@ -203,10 +205,19 @@ export default function Landing() {
   const startPlan = async (source = "hero") => {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
     window.sessionStorage.setItem("post_auth_redirect", "/welcome");
+    const isNative = Capacitor.isNativePlatform();
+    const platformParam = isNative ? '&platform=mobile' : '';
     try {
-      const response = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}`);
+      const response = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}${platformParam}`);
       const data = await response.json();
-      if (data.auth_url) { window.location.href = data.auth_url; return; }
+      if (data.auth_url) {
+        if (isNative) {
+          await Browser.open({ url: data.auth_url });
+        } else {
+          window.location.href = data.auth_url;
+        }
+        return;
+      }
     } catch (_) { /* The normal login page remains the safe fallback. */ }
     navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`);
   };
