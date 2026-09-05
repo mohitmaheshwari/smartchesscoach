@@ -11,7 +11,11 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* ./
 
 # Install dependencies
-RUN yarn install
+# --ignore-engines: @capacitor/cli requires Node >=22, but it is APK build
+# tooling that never runs here -- the web bundle only imports
+# @capacitor/core, /app and /browser. Bumping this image to Node 22 would
+# change the production web build for no benefit.
+RUN yarn install --ignore-engines
 
 # Copy frontend source
 COPY frontend/ ./
