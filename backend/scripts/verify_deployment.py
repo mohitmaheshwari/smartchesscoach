@@ -180,7 +180,7 @@ def _local_git_head() -> str | None:
 # Check 1 — git commit match
 # =====================================================================
 
-def check_commit_match(health_json: dict | None) -> None:
+def check_commit_match(health_json: dict | None, expect_commit: str | None = None) -> None:
     name = "1. Git commit match"
 
     commit_keys = [k for k in (health_json or {}) if any(
@@ -202,7 +202,11 @@ def check_commit_match(health_json: dict | None) -> None:
                 "GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
             ])
             return
-        local_head = _local_git_head()
+        # Prefer the commit the deploy script just published. Inside the
+        # container there is no git checkout, so _local_git_head() always
+        # returns None and this check silently SKIPPED on every deploy --
+        # and a SKIP is explicitly not a pass.
+        local_head = (expect_commit or '').strip() or _local_git_head()
         detail = [f"Health endpoint exposes: {exposed}"]
         if local_head:
             detail.append(f"Local HEAD (this checkout): {local_head}")
@@ -798,7 +802,7 @@ async def run(args: argparse.Namespace) -> int:
     health_json = check_health(args.base_url, args.timeout)
     _print_result(RESULTS[-1])
 
-    check_commit_match(health_json)
+    check_commit_match(health_json, args.expect_commit)
     _print_result(RESULTS[-1])
 
     check_frontend_marker(args.base_url, args.frontend_marker, args.timeout)
@@ -895,6 +899,15 @@ def main() -> int:
             "JSON object for the dedicated non-admin fixture with "
             "content_kind, content_id, move and game_id. Defaults to "
             "$PHASE8_VERIFICATION_FIXTURE_JSON."
+        ),
+    )
+    parser.add_argument(
+        "--expect-commit",
+        default=os.environ.get("DEPLOY_EXPECT_COMMIT"),
+        help=(
+            "Commit the deployment is expected to be running. Defaults to "
+            "$DEPLOY_EXPECT_COMMIT. Needed because there is no git checkout "
+            "inside the container, so HEAD cannot be resolved locally."
         ),
     )
     parser.add_argument("--require-checks", default=None,
