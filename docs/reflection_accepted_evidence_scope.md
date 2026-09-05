@@ -302,8 +302,37 @@ option the player actually selected (`thought_piece_safe` → `user_piece_left_h
    than fixtures. (A 40th is blocked by a duplicate super-admin user doc sharing one email; the
    synthetic `verify@chessguru.ai` account is paused and must never be counted — its games are
    clones of the founder's.)
-6. **`/audit-pre-code` run** once 1–5 are true. ← the only remaining gate.
+6. ~~**`/audit-pre-code` run**~~ — DONE, and it cut or redesigned four V1 items (Phase 8 reuse,
+   the `focus_bridge` write, the store, the topic spine). The reduced shape needs re-approval
+   before code. ← the only remaining gate.
 7. Q3 stays open by design and goes to `/lock-via-data` after the pilot, not before code.
+
+### Implementation constraints the audit established
+
+Recorded so the build is mechanical rather than rediscovered:
+
+- **Insertion point:** `reflect.py:606`, a new block between the existing best-effort shadow-ledger
+  block (585–605) and `return public_reflection_receipt(stored)`. Copy that block's shape: local
+  import, try/except, warn-and-continue. It must run after line 584, where the reflection is
+  validated and stored.
+- **The write cannot be inline.** `tests/test_review_reflection_route.py:74-80` reads the handler's
+  *source text* and asserts the literal string `insert_one` does not appear in it. The accepted-cause
+  write must go through a service function.
+- **It must be idempotent on the same key.** `store_event_reflection` upserts on
+  `reflection_id = "grr_" + sha256(user_id, game_id, event_id)[:20]`, so a re-answer **overwrites**
+  rather than appending. If the accepted-cause write appends, a player changing their answer — or
+  any client retry — inflates the weakness model. Key the cause on the same `reflection_id`.
+- **`selected_option_id` is never validated as a real `QuickTagId`** — only for membership in
+  `shown_option_ids`. A stale client can store an id with no `TAG_DEFINITIONS` entry, so the
+  tag → predicate → fundamental lookup must miss safely rather than raise.
+- **The read path already exists.** `public_reflection_history`
+  (`review_reflection_service.py:303`) is consumed at `routes/coach.py:1027`, which attaches
+  `reflection_responses` to the game-review payload. "You said this" reads from there rather than
+  needing a new endpoint.
+- **Capture is live for the pilot.** Prod has `PERSONALIZED_GAME_REVIEW_COACH_ENABLED=true` and
+  `ROLLOUT=validation`; validation mode requires the per-user flag, and all 39 enrolled users
+  return `enabled: True` from `personalized_game_review_access`. The route 404s (deliberately, not
+  403) for everyone else.
 
 ---
 
