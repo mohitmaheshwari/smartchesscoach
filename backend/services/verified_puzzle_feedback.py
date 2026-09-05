@@ -262,9 +262,43 @@ def _specific_context(
             "Before any quiet move, examine every legal check and count the king's escape squares.",
         )
     if concept in {"tactic.forced_mate", "tactic.missed_mate", "tactic.mate_in_one"}:
+        mating_piece = fact.get("mating_piece")
+        mating_square = fact.get("mating_square")
+        mating_san = fact.get("mating_move_san")
+        king_square = fact.get("king_square")
+        if (
+            fact.get("claim_strength") == "mate_in_one"
+            and mating_piece
+            and mating_square
+            and king_square
+            and fact.get("terminal_legal_replies") == 0
+        ):
+            return (
+                f"{best_san} puts your {mating_piece} on {mating_square} "
+                f"with checkmate. The king on {king_square} has no legal reply.",
+                "Before choosing a move, examine every legal check and count "
+                "the king's escape squares.",
+            )
+        if (
+            mating_piece
+            and mating_square
+            and mating_san
+            and king_square
+            and fact.get("terminal_legal_replies") == 0
+        ):
+            return (
+                f"{best_san} begins the verified continuation. It ends with "
+                f"{mating_san}, when your {mating_piece} reaches "
+                f"{mating_square} and the king on {king_square} has no legal "
+                "reply.",
+                "Before choosing a move, examine every legal check, capture "
+                "and direct threat.",
+            )
         return (
-            f"{best_san} starts a forced line that ends in checkmate.",
-            "Before any quiet move, examine every legal check and count the king's escape squares.",
+            f"The verified continuation beginning with {best_san} ends in "
+            "checkmate.",
+            "Before choosing a move, examine every legal check, capture and "
+            "direct threat.",
         )
     return (
         _move_effect(board, focus_uci),

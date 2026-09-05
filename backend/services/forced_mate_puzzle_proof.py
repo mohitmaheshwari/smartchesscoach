@@ -13,7 +13,7 @@ from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-FORCED_MATE_PROOF_VERSION = "forced_mate_puzzle_proof.v2"
+FORCED_MATE_PROOF_VERSION = "forced_mate_puzzle_proof.v3"
 FORCED_MATE_QUALITY_ID = "tactic:forced_mate_exact"
 
 
@@ -64,14 +64,16 @@ def _terminal_mate_candidate(
 
 def build_forced_mate_proof(
     board_before: chess.Board,
+    played_move: str,
     best_move: str,
     pv_after_best: Sequence[Any],
     cp_loss: Any,
 ) -> Optional[ForcedMateProofBundle]:
     """Build marker-based candidate plus independent legal mate replay."""
     try:
+        played = parse_legal_move(board_before, played_move)
         best = parse_legal_move(board_before, best_move)
-        if best is None:
+        if played is None or best is None or played == best:
             return None
         best_san = board_before.san(best)
         loss = require_nonnegative_cp_loss(cp_loss)
@@ -103,6 +105,26 @@ def build_forced_mate_proof(
         if candidate.get("kind") == "mate_in_1"
         else "tactic.forced_mate"
     )
+    terminal = chess.Board(replay.final_fen)
+    mating_piece = None
+    mating_square = None
+    mating_move_uci = None
+    mating_move_san = None
+    if replay.replayed_uci:
+        before_mate = board_before.copy(stack=False)
+        for raw in replay.replayed_uci[:-1]:
+            move = parse_legal_move(before_mate, raw)
+            if move is None:
+                break
+            before_mate.push(move)
+        mating_move = parse_legal_move(before_mate, replay.replayed_uci[-1])
+        if mating_move is not None:
+            piece = before_mate.piece_at(mating_move.from_square)
+            mating_piece = chess.piece_name(piece.piece_type) if piece else None
+            mating_square = chess.square_name(mating_move.to_square)
+            mating_move_uci = mating_move.uci()
+            mating_move_san = before_mate.san(mating_move)
+    checked_king = terminal.king(terminal.turn)
     detector = DetectorProof(
         concept_id=concept_id,
         family="tactics",
@@ -126,6 +148,27 @@ def build_forced_mate_proof(
         facts=({
             "mate_ply": replay.mate_ply,
             "replayed_uci": replay.replayed_uci,
+            "replayed_san": replay.replayed_san,
+            "best_move_san": best_san,
+            "first_piece": chess.piece_name(
+                board_before.piece_at(best.from_square).piece_type
+            ),
+            "first_destination": chess.square_name(best.to_square),
+            "mating_move_uci": mating_move_uci,
+            "mating_move_san": mating_move_san,
+            "mating_piece": mating_piece,
+            "mating_square": mating_square,
+            "king_square": (
+                chess.square_name(checked_king)
+                if checked_king is not None
+                else None
+            ),
+            "terminal_legal_replies": terminal.legal_moves.count(),
+            "claim_strength": (
+                "mate_in_one"
+                if replay.mate_ply == 1
+                else "verified_stored_continuation"
+            ),
         },),
     )
     return ForcedMateProofBundle(detector=detector, verifier=verifier)

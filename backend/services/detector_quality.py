@@ -204,16 +204,24 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:forced_mate_exact": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_forced_mate_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "forced_mate_exact_caption_promotion_v1.json"
+        ),
         rationale=(
-            "The stored best line is independently replayed as legal chess to "
-            "an actual checkmate delivered by the player side, with at least "
-            "100cp of stored consequence for the missed move."
+            "Independent legal replay confirmed 25/25 mate-in-one and 25/25 "
+            "longer-line distinct-source claims plus 50/50 stratified "
+            "abstentions. All 261 reproducible stored candidates matched, "
+            "while three legacy rows missing consequence evidence remained "
+            "fail-closed."
         ),
         limitations=(
             "Only the exact stored best move is accepted.",
             "A mate marker without a complete legal replay remains unverified.",
+            "Longer lines describe the verified stored continuation; they do "
+            "not claim every defence loses or display a mate distance.",
+            "Caption only; no prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "curriculum:opening_exact_decision": Authorization(

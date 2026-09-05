@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from datetime import datetime, timezone
 
+from services.learning_evidence_ledger import build_shadow_learning_event
+from services.personal_curriculum import AttemptKind, LessonResult
 from services.personal_teaching_profile import (
     build_personal_teaching_profile,
     derive_personal_teaching_profile,
@@ -139,6 +142,25 @@ class _ReadOnlyCollection:
         self.last_query = copy.deepcopy(query)
         return copy.deepcopy(self.doc)
 
+    def find(self, query, projection=None, **kwargs):
+        self.last_query = copy.deepcopy(query)
+        rows = [] if self.doc is None else [copy.deepcopy(self.doc)]
+
+        class _Cursor:
+            def __init__(self, values):
+                self.values = iter(values)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self.values)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        return _Cursor(rows)
+
     async def update_one(self, *args, **kwargs):
         self.write_calls += 1
         raise AssertionError("teaching profile must not write")
@@ -252,3 +274,55 @@ def test_async_builder_reads_legacy_session_alias_for_canonical_skill(monkeypatc
     assert "london_system" in aliases
     assert result["skill_id"] == "opening_london_white"
     assert result["mode"] == "personalized"
+
+
+def test_async_builder_uses_validated_lesson_result_history(monkeypatch):
+    async def no_focus(db, user_id):
+        return None
+
+    monkeypatch.setattr(
+        "services.focus_bridge.get_active_focus_bundle",
+        no_focus,
+    )
+    db = _DB()
+    db.coach_memory = _ReadOnlyCollection({
+        "learning": {
+            "skills": [{"skill_id": "piece_safety", "seen": 9, "wrong": 4}]
+        }
+    })
+    result_event = build_shadow_learning_event(
+        LessonResult(
+            content_kind="concept",
+            content_id="piece_safety",
+            canonical_source="backend/data/theory/tactical_patterns.json",
+            content_version="1",
+            skill_id="piece_safety",
+            primary_skill_id="piece_safety",
+            attempt_kind=AttemptKind.INDEPENDENT,
+            occurred_at=datetime(2026, 9, 5, tzinfo=timezone.utc),
+            correct=True,
+            position_id="fresh-position",
+            board_verified=True,
+            distinct_position=True,
+            source_event_id="transfer-proof",
+        ),
+        origin="test",
+    )
+    db.learning_sessions = _ReadOnlyCollection({"events": [result_event]})
+
+    result = asyncio.run(build_personal_teaching_profile(
+        db,
+        "u1",
+        skill_id="piece_safety",
+        canonical_lesson=LESSON,
+    ))
+
+    assert result["why_now"].startswith(
+        "You solved a fresh position without help"
+    )
+    assert result["next_evidence"] == "real_game_application"
+    assert result["anchors"][0]["provenance"]["ref"] == "transfer-proof"
+    assert all(
+        anchor["type"] != "exact_skill_history"
+        for anchor in result["anchors"]
+    )

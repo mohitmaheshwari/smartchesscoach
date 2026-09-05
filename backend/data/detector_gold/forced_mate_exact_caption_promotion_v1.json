@@ -1,0 +1,70 @@
+{
+  "schema_version": "forced_mate_exact.caption_promotion.v1.aggregate",
+  "generated_at": "2026-09-05",
+  "quality_id": "tactic:forced_mate_exact",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_writes": 0,
+  "case_records_exported": 0,
+  "case_export_policy": "Aggregate evidence only. No production FEN, move, source key, account identifier, or case record is committed.",
+  "selection": {
+    "seed": "20260905-forced-mate-exact-caption-v1",
+    "selection_fingerprint_sha256": "628ce54facc3378f5087e3a53f59b73bad54956c73c186211faf2b8902cbbd41",
+    "positive_per_subtype": 25,
+    "minimum_pool_cases_per_subtype": 5,
+    "negative_per_stratum": 5
+  },
+  "population": {
+    "documents_scanned": 53882,
+    "stored_candidates": 264,
+    "reproducible_candidates": 261,
+    "full_reproducible_matches": 261,
+    "unreproducible_candidates": 3,
+    "unreproducible_abstentions": 3,
+    "fact_mismatches": 0
+  },
+  "positive_coverage": {
+    "mate_in_one": 25,
+    "longer_line": 25,
+    "mate_in_one_community_puzzles": 5,
+    "mate_in_one_community_training_positions": 20,
+    "longer_line_community_puzzles": 6,
+    "longer_line_community_training_positions": 19,
+    "mate_ply_1": 25,
+    "mate_ply_3": 9,
+    "mate_ply_5": 16
+  },
+  "negative_coverage": {
+    "line_does_not_end_in_checkmate": 5,
+    "illegal_or_incomplete_line": 5,
+    "insufficient_consequence": 5,
+    "played_best_move": 5,
+    "invalid_played_move": 5,
+    "invalid_consequence": 5,
+    "truncated_before_mate": 5,
+    "moves_after_checkmate": 5,
+    "different_leading_move": 5,
+    "mating_move_replaced": 5
+  },
+  "summary": {
+    "reviewed_fires": 50,
+    "true_positives": 50,
+    "mate_in_one_wilson_lower_pct": 86.68,
+    "longer_line_wilson_lower_pct": 86.68,
+    "combined_wilson_lower_pct": 92.87,
+    "reviewed_negatives": 50,
+    "true_negatives": 50,
+    "critical_adversarial_errors": 0,
+    "caption_promotion_gate_passed": true
+  },
+  "authorized_caption_claim": "The displayed first move and stored legal continuation end in checkmate by the player, with the exact mating move, piece, square, checked king square, and zero terminal legal replies.",
+  "explicitly_unauthorized_claims": [
+    "every defence loses",
+    "forced",
+    "unavoidable",
+    "only move",
+    "mate in N for longer lines",
+    "persistent weakness or mastery"
+  ]
+}

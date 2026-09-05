@@ -28,6 +28,32 @@ class FakeCollection:
                 return doc
         return None
 
+    def find(self, query, projection=None):
+        def matches(doc):
+            for key, expected in query.items():
+                actual = doc.get(key)
+                if isinstance(expected, dict) and "$in" in expected:
+                    if actual not in expected["$in"]:
+                        return False
+                elif actual != expected:
+                    return False
+            return True
+
+        class Cursor:
+            def __init__(self, rows):
+                self.rows = iter(rows)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self.rows)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        return Cursor([doc for doc in self.docs if matches(doc)])
+
     async def count_documents(self, query):
         return self.count
 
@@ -217,6 +243,52 @@ def test_approved_personalized_flag_routes_supported_lesson_through_workspace(
     assert result["personalized_teaching"]["profile"]["mode"] in {
         "personalized",
         "diagnostic_required",
+    }
+    assert result["personalized_teaching"]["profile"]["canonical_lesson"][
+        "canonical_source"
+    ] == "backend/data/theory/tactical_patterns.json"
+
+
+def test_unsupported_repair_topic_keeps_puzzles_without_fake_lesson_profile(
+    monkeypatch,
+):
+    db = FakeDB(analyzed_games=7)
+    enabled = {**ENABLED, "PERSONALIZED_TEACHING_ENABLED": "true"}
+
+    async def focus(_db, _user_id):
+        return {
+            "focus_id": "f2",
+            "topic_key": "missed_tactic",
+            "baseline_metric": {"occurrence_count": 3},
+        }
+
+    async def no_knowledge(_db, _user_id):
+        return None
+
+    import services.focus_bridge as focus_bridge
+    import services.today_composer as today_composer
+
+    monkeypatch.setattr(focus_bridge, "get_active_focus_bundle", focus)
+    monkeypatch.setattr(today_composer, "pick_knowledge_focus", no_knowledge)
+
+    result = asyncio.run(build_player_curriculum(
+        db,
+        "u1",
+        generated_at=NOW,
+        env=enabled,
+    ))
+
+    primary = result["decision"]["primary"]
+    assert primary["destination"] == {
+        "href": "/training/pattern/missed_tactic",
+        "medium": "puzzles",
+        "capability": "guided_practice",
+        "lesson_kind": "concept",
+        "lesson_id": "missed_tactic",
+    }
+    assert result["personalized_teaching"] == {
+        "enabled": True,
+        "profile": None,
     }
 
 

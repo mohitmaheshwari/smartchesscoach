@@ -1,6 +1,6 @@
 # Complete Coaching System — Architecture Spec
 
-**Status:** ARCHITECTURE LOCKED; PHASES 0–2 IMPLEMENTED LOCALLY — default-off, not deployed.
+**Status:** ARCHITECTURE LOCKED; PHASES 0–2 AND FOUR PHASE-3 CAPTION PACKETS IMPLEMENTED LOCALLY — default-off, not deployed.
 **Version:** v1 (2026-09-02).  
 **Scope:** largest; multi-phase migration built on `docs/complete_coaching_system_scope.md`.  
 **Audited base:** `origin/working-code` at `656e3374`.  
@@ -155,7 +155,10 @@ Rollback sets `COMPLETE_COACHING_SYSTEM_V1_ENABLED=false`; affected surfaces ret
 3. **Sign-off gate.** No runtime adapters or data writes start until Mohit approves §10 and Phase 0 measurements.
 4. **Phase 2 — one evidence ledger.** Make every migrated lesson, puzzle, review, and game opportunity emit idempotent `LessonResult v2`; extend puzzle attempts to v2; run the canonical mastery reducer in shadow beside legacy outputs.
 5. **Phase 3 — chess-intelligence breadth.** Select the next detector families from measured prevalence, distinctiveness, proofability, opportunity coverage, and lesson readiness. Build/polish proof families, independent gold, adversarial packets, Caption promotion, then Plan/Mastery promotion where earned.
+   - Implemented Caption-only packets: exact free piece, exact fork payoff, exact aligned pin/skewer payoff, and exact mating continuation.
+   - No Phase-3 family has inherited Prompt, Plan, or Mastery authority from its Caption promotion.
 6. **Phase 4 — teaching and transfer.** Connect canonical content to concepts; support explain, predict, compare, calculate, recognize, execute, defend, and replay; add unassisted transfer and later-game opportunity measurement.
+   - Implemented behind the existing default-off rollout: validated `LessonResult v2` history now feeds the personal teaching profile across canonical skill aliases, remembers successful help per concept, preserves current-answer precedence, and recommends the next evidence type without changing public mastery.
 7. **Phase 5 — complete Review.** Preserve all verified claims, teach the game's opening/intent/tactics/position/endgame story, ask one useful pre-reveal reflection, and prescribe one canonical next action.
 8. **Phase 6 — human-chess runtime.** Enable exact endgame truth first after deployment provenance tests. Pilot Otter/Maia only for safe opponent choice, findability, distractors, and shadow audit; promote each use separately.
 9. **Phase 7 — one product experience.** Evolve the canonical context across Home, Learn, Review, PWC, and Progress; one primary CTA, one optional support, elective study, and evidence-linked verdicts.

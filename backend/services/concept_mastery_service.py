@@ -259,7 +259,11 @@ def reduce_lesson_results_shadow(
     accepted = 0
     rejected = 0
     by_attempt: Dict[str, int] = {}
+    by_outcome: Dict[str, int] = {}
+    assistance = {"assisted": 0, "unassisted": 0, "unknown": 0}
     source_event_ids = set()
+    latest_result: Optional[LessonResult] = None
+    successful_help: Optional[str] = None
 
     for event in sorted(
         list(events or []),
@@ -310,12 +314,44 @@ def reduce_lesson_results_shadow(
         by_attempt[result.attempt_kind.value] = (
             by_attempt.get(result.attempt_kind.value, 0) + 1
         )
+        if result.attempt_kind.value == "application":
+            outcome = result.application_outcome.value
+        elif result.correct is True:
+            outcome = "correct"
+        elif result.correct is False:
+            outcome = "incorrect"
+        else:
+            outcome = "not_scored"
+        by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
+
+        effective_help = tuple(
+            action.value
+            for action in result.requested_help
+            if action.value != "let_me_try"
+        )
+        if not result.assistance_measured:
+            assistance["unknown"] += 1
+        elif result.assistance or effective_help:
+            assistance["assisted"] += 1
+        else:
+            assistance["unassisted"] += 1
+        if result.correct is True and effective_help:
+            successful_help = effective_help[-1]
+        latest_result = result
         earned = result.earned_state()
         if (
             earned is not None
             and _SHADOW_STATE_ORDER[earned] > _SHADOW_STATE_ORDER[state]
         ):
             state = earned
+
+    next_evidence = {
+        StudentState.NEW: "diagnosis",
+        StudentState.LEARNING: "guided_practice",
+        StudentState.CAN_DO_WITH_HELP: "unassisted_transfer",
+        StudentState.CAN_DO_ALONE: "real_game_application",
+        StudentState.USED_IN_GAMES: "delayed_retention",
+    }[state]
 
     return {
         "skill_id": skill_id,
@@ -326,7 +362,25 @@ def reduce_lesson_results_shadow(
             "accepted_events": accepted,
             "rejected_events": rejected,
             "by_attempt": dict(sorted(by_attempt.items())),
+            "by_outcome": dict(sorted(by_outcome.items())),
+            "assistance": assistance,
+            "successful_help": successful_help,
+            "latest_event": (
+                {
+                    "ref": latest_result.source_event_id,
+                    "occurred_at": latest_result.occurred_at.isoformat(),
+                    "attempt_kind": latest_result.attempt_kind.value,
+                    "earned_state": (
+                        latest_result.earned_state().value
+                        if latest_result.earned_state() is not None
+                        else None
+                    ),
+                }
+                if latest_result is not None
+                else None
+            ),
         },
+        "next_evidence": next_evidence,
     }
 
 
@@ -355,11 +409,14 @@ async def get_learning_shadow_projection(
     *,
     skill_id: str,
     diagnosed: bool = False,
+    compatible_skill_ids: Tuple[str, ...] = (),
+    required_content_identity: Optional[Tuple[str, str, str]] = None,
 ) -> Dict[str, Any]:
     """Read and reduce one private canonical skill ledger."""
     events: List[Dict[str, Any]] = []
+    skill_ids = tuple(dict.fromkeys((skill_id, *compatible_skill_ids)))
     sessions = db.learning_sessions.find(
-        {"user_id": user_id, "skill_id": skill_id},
+        {"user_id": user_id, "skill_id": {"$in": list(skill_ids)}},
         {"_id": 0, "events": 1},
     )
     async for session in sessions:
@@ -368,6 +425,10 @@ async def get_learning_shadow_projection(
         events,
         skill_id=skill_id,
         diagnosed=diagnosed,
+        compatible_skill_ids=tuple(
+            candidate for candidate in skill_ids if candidate != skill_id
+        ),
+        required_content_identity=required_content_identity,
     )
 
 
