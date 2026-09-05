@@ -12,8 +12,8 @@
 
 | Surface / store | What it already provides | Rows / users |
 |---|---|---|
-| `/progress` (`UnifiedProgress.jsx`) | "Currently working on" → "Also tracking" → "You beat these", with `reduction_pct` over 90 days | live page |
-| `user_active_focus` + `focus_bridge` | The one thing a player is working on; 7 `topic_key` values | 273 / 53 |
+| `/progress` (`UnifiedProgress.jsx`) | "Currently working on" → "Also tracking" → "You beat these" — synthesised in ONE frontend `useMemo` (lines 249-485) from `/progress/narrative`. **Correction: this page does NOT read `user_active_focus` or `focus_bridge` at all.** `get_progress_narrative` builds `sections["weaknesses"]` from `problem_lifecycle` + `cognitive_gap`. The original audit row below mis-attributed the page to the focus system, which is why the first draft's render plan did not connect. | live page |
+| `user_active_focus` + `focus_bridge` | The one thing a player is working on. Feeds Play-with-Coach, greetings, HomePage FocusCard and dashboard v2 — **not** `/progress`. | 273 / 53 |
 | `phase8_release_evidence.py:541-559` | Transfer verdict from later unassisted games: `improved` / `still_recurring` / `insufficient_evidence` | live |
 | `reflection_sessions` | The player's accepted cause, bound to an engine-verified event | 3 / 1 |
 | `quick_tag_registry.TAG_DEFINITIONS` | The 21 answer options, each already carrying `predicates` (the board fact that licensed it) and `category_boost` | code |
@@ -46,10 +46,21 @@ It also exposes a split that matters. Five options carry **no predicate at all**
 are self-reported *states*, not board facts. Nothing engine-side can confirm or refute them, so
 they cannot drive a transfer verdict. Two more, `not_sure` and `none_of_these`, are non-answers.
 
-### Decision: **EXTEND**
+### Decision: **EXTEND the surface, but NOT the store** (revised after the pre-code audit)
 
-Building a separate reflection profile would be the third surface showing a player their
-weaknesses. Reflections become a **provenance-carrying input** to the model that exists.
+The original decision was a flat EXTEND: put the accepted cause into `user_active_focus` and let
+the existing model carry it. The audit showed that specific extension is unsafe — a second active
+row breaks a single-focus invariant enforced by an unsorted `find_one` across five consumers, and
+leaks into an unfiltered read in `training_advanced.py:1553`.
+
+So the revision is narrower and, I think, more honest:
+- **Store:** the accepted cause gets its **own collection**, keyed by `event_id`, carrying
+  provenance. It does not become a second `user_active_focus` row.
+- **Surface:** still no new page. `/progress` remains the one place a player sees their weaknesses;
+  the accepted cause is joined into the existing `sections["weaknesses"]` payload at render time.
+
+That keeps the thing worth keeping from EXTEND — no third weakness surface — while not welding
+player self-reports into a collection whose consumers all assume detector-inferred rows.
 
 ---
 
@@ -154,7 +165,17 @@ regression, no empty provenance row.
 - **Misconception is orthogonal to fundamental.** `thought_piece_safe` already appeared under two
   different concepts in one game — the model must express "one habit, two fundamentals" rather
   than two weaknesses.
-- **Feed `focus_bridge`** so a player-accepted cause can inform the active focus.
+- **~~Feed `focus_bridge`~~ — CUT FROM V1. Writing a player-accepted row into `user_active_focus`
+  would corrupt existing consumers.** Two verified reasons:
+  - `routes/training_advanced.py:1553` reads `find_one({"user_id", "status": "active"})` with **no
+    `type` filter and no sort**. A new row type leaks straight into the Lab Coach's-Pick selection.
+    This is the same bug class already recorded for strength rows.
+  - `focus_bridge.get_active_focus_bundle` names five consumers (session goal, session greeting,
+    coach game session, HomePage FocusCard, dashboard v2), all of which assume exactly one active
+    weakness row. The invariant is enforced by an unsorted `find_one`, not a unique index, so a
+    second active row makes "the user's focus" non-deterministic across every one of them.
+  The accepted cause therefore lives in **its own store** in V1 and is joined at render time. It
+  never becomes a second active-focus row.
 - **~~Reuse the Phase 8 transfer verdict unchanged~~ — CUT FROM V1. It cannot be reused, and the
   earlier claim that it could was wrong.** `build_phase8_journey_projection(db, user_id)`
   (`phase8_release_evidence.py:491`) takes **no parameter naming what is measured**. It is a
