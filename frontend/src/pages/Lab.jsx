@@ -8,7 +8,7 @@
  * Classic: The original 5-tab analysis view
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
@@ -34,12 +34,7 @@ const Lab = ({ user }) => {
   const [error, setError] = useState(null);
   const [refreshingCoaching, setRefreshingCoaching] = useState(false);
   
-  // Fetch game and analysis data
-  useEffect(() => {
-    fetchGameData();
-  }, [gameId]);
-  
-  const fetchGameData = async () => {
+  const fetchGameData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -72,7 +67,12 @@ const Lab = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gameId]);
+
+  // Fetch game and analysis data
+  useEffect(() => {
+    fetchGameData();
+  }, [fetchGameData]);
   
   const handleRefreshCoaching = async () => {
     setRefreshingCoaching(true);

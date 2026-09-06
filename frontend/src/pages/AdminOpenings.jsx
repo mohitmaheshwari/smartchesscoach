@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
 import Layout from "@/components/Layout";
 import { API } from "@/App";
@@ -92,25 +92,25 @@ export default function AdminOpenings({ user }) {
     }
   }, [editorValue]);
 
-  const fetchOpenings = async () => {
+  const fetchOpenings = useCallback(async () => {
     try {
       const response = await fetch(`${API}/admin/openings`, { credentials: "include" });
       if (!response.ok) throw new Error("Failed to load admin openings");
       const data = await response.json();
       setOpenings(data.openings || []);
-      if (!selectedKey && data.openings?.length > 0) {
-        setSelectedKey(data.openings[0].opening_key);
+      if (data.openings?.length > 0) {
+        setSelectedKey((current) => current || data.openings[0].opening_key);
       }
     } catch (error) {
       toast.error(error.message || "Failed to load opening feedback");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOpenings();
-  }, []);
+  }, [fetchOpenings]);
 
   useEffect(() => {
     const fetchSelected = async () => {
