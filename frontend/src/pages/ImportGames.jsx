@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { 
   Import, 
   CheckCircle2, 
@@ -72,7 +73,17 @@ const ImportGames = ({ user }) => {
         throw new Error(result.detail || 'Import failed');
       }
 
-      toast.success(`I found new games on ${platform}. I’ll start learning from them now.`);
+      const importedGames = Number(result.imported) || 0;
+      toast.success(
+        importedGames > 0
+          ? `I found new games on ${platform}. I’ll start learning from them now.`
+          : `Your ${platform} games are already up to date.`
+      );
+      track(ANALYTICS_EVENTS.FUNNEL_IMPORT_DONE, {
+        source: "import_page",
+        status: importedGames > 0 ? "new_games" : "already_current",
+        total_items: importedGames,
+      });
 
       // Refresh games list
       const gamesResponse = await fetch(`${API}/games`, {

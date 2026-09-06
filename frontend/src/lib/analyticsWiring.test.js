@@ -20,4 +20,14 @@ describe("analytics identity lifecycle wiring", () => {
       expect(file).toMatch(/auth\/logout[\s\S]*resetAnalyticsContext\(\)/);
     }
   );
+
+  test.each(["pages/Onboarding.jsx", "pages/ImportGames.jsx"])(
+    "%s emits import completion through the canonical registry",
+    (relativePath) => {
+      const file = source(relativePath);
+      expect(file).toContain("ANALYTICS_EVENTS.FUNNEL_IMPORT_DONE");
+      expect(file).toContain("total_items:");
+      expect(file).not.toContain('track("funnel_import_done"');
+    }
+  );
 });
