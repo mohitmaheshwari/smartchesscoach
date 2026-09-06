@@ -16,7 +16,10 @@ from services.verified_puzzle_builder import (
     build_imported_game_verdict,
     build_position_verdict,
 )
-from services.verified_puzzle_feedback import build_verified_puzzle_feedback
+from services.verified_puzzle_feedback import (
+    build_verified_puzzle_feedback,
+    build_verified_puzzle_retry_feedback,
+)
 
 
 GRADER_VERSION = "verified_puzzle_runtime.v1"
@@ -337,6 +340,15 @@ def grade_resolved_puzzle(puzzle: Mapping[str, Any], played_uci: str) -> Dict:
         correct=correct,
         primary_uci=primary,
     )
+    retry_coaching = (
+        None
+        if correct
+        else build_verified_puzzle_retry_feedback(
+            puzzle,
+            played.uci(),
+            primary_uci=primary,
+        )
+    )
     admission_status = verdict.get("status")
     # Persisted legacy labels are candidate metadata, not verified truth. Only
     # a BROAD/SPECIFIC admission has earned the right to name the weakness it
@@ -361,9 +373,41 @@ def grade_resolved_puzzle(puzzle: Mapping[str, Any], played_uci: str) -> Dict:
         "user_move_san": played_san,
         "feedback": coaching["feedback"],
         "coaching_feedback": coaching,
+        "retry_feedback": retry_coaching,
+        "concept_result": (
+            retry_coaching.get("concept_result")
+            if retry_coaching
+            else "pass"
+        ),
         "pattern_type": verified_pattern or "calculation_depth",
         "recovery_weakness": verified_pattern,
         "admission_status": admission_status,
         "source": "verified_stored_evidence",
         "grader_version": GRADER_VERSION,
     }
+
+
+def public_grade_payload(
+    grade: Mapping[str, Any],
+    *,
+    reveal_answer: bool = False,
+) -> Dict[str, Any]:
+    """Hide the answer after a miss while preserving a useful retry hint."""
+    result = dict(grade)
+    if result.get("quality") == "invalid":
+        return result
+    if result.get("correct") or reveal_answer:
+        result.pop("retry_feedback", None)
+        return result
+
+    retry = dict(result.get("retry_feedback") or {})
+    result.pop("best_move_san", None)
+    result.pop("best_move_uci", None)
+    result.pop("retry_feedback", None)
+    if retry:
+        result["feedback"] = retry.get("feedback")
+        result["coaching_feedback"] = retry
+        result["concept_result"] = retry.get("concept_result", "unmeasured")
+    else:
+        result.pop("coaching_feedback", None)
+    return result

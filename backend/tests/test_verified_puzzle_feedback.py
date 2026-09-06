@@ -88,6 +88,66 @@ def test_generic_feedback_describes_only_a_visible_move_effect():
     assert "verified" not in result["feedback"].lower()
 
 
+def test_destination_safety_reveal_names_original_move_reply_and_safe_move():
+    puzzle = {
+        "fen": "6nr/pp3kp1/3p3p/b2NP3/4P2B/3P4/Prn3PP/2R2K1R b - - 4 19",
+        "best_move_uci": "d6e5",
+        "source": "community",
+        "verified_admission": {
+            "status": "specific",
+            "concept_id": "piece_safety.destination_safety_exact",
+            "played_move_uci": "c2e3",
+            "detector_facts": [{
+                "piece": "knight",
+                "square": "e3",
+                "winning_reply_uci": "d5e3",
+            }],
+            "verifier_facts": [{
+                "played_destination": "e3",
+                "best_destination": "e5",
+            }],
+        },
+    }
+
+    result = feedback.build_verified_puzzle_feedback(
+        puzzle,
+        "d6e5",
+        correct=False,
+        primary_uci="d6e5",
+        revealed=True,
+    )
+
+    assert "Ne3+" in result["why"]
+    assert "Nxe3" in result["why"]
+    assert "knight on e3" in result["why"]
+    assert "dxe5 takes the pawn on e5" in result["why"]
+    assert "Even when a move gives check" in result["remember"]
+    assert result["feedback"].startswith("Here is the idea: dxe5.")
+
+
+def test_destination_safety_retry_credits_safe_move_without_answer_leak():
+    puzzle = {
+        "fen": "6nr/pp3kp1/3p3p/b2NP3/4P2B/3P4/Prn3PP/2R2K1R b - - 4 19",
+        "best_move_uci": "d6e5",
+        "verified_admission": {
+            "status": "specific",
+            "concept_id": "piece_safety.destination_safety_exact",
+        },
+    }
+
+    result = feedback.build_verified_puzzle_retry_feedback(
+        puzzle,
+        "b2a2",
+        primary_uci="d6e5",
+    )
+
+    assert result["concept_result"] == "pass"
+    assert "Rxa2 keeps your rook safe on a2" in result["why"]
+    assert "pawn on d6" in result["remember"]
+    assert "pawn on e5" in result["remember"]
+    assert "dxe5" not in result["feedback"]
+
+
 def test_feedback_renderer_has_no_engine_model_or_network_dependency():
     source = inspect.getsource(feedback).lower()
     forbidden = (
