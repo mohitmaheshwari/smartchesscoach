@@ -2146,6 +2146,60 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
         sections["weaknesses"] = []
         sections["archived_weaknesses"] = []
 
+    # ─── 3a-bis. PLAYER-ACCEPTED PROVENANCE ───
+    # Everything above is INFERRED by a detector. Where the player has told us
+    # the cause themselves -- picked before any reveal, against an
+    # engine-verified mistake -- say so, and say it separately. The accepted
+    # cause LEADS but never replaces the inferred one: overwriting would
+    # destroy the disagreement, and the disagreement is the signal worth
+    # keeping. Purely additive, so a player who has answered nothing sees the
+    # page exactly as before.
+    try:
+        from services.accepted_cause_service import (
+            accepted_causes_for_user,
+            summarize_accepted_causes,
+        )
+
+        _accepted = summarize_accepted_causes(
+            await accepted_causes_for_user(db, user_id)
+        )
+        if _accepted:
+            for _bucket in (
+                sections.get("weaknesses") or [],
+                sections.get("archived_weaknesses") or [],
+            ):
+                for _w in _bucket:
+                    _match = _accepted.get(str(_w.get("category") or ""))
+                    if _match:
+                        _w["accepted_by_player"] = True
+                        _w["accepted_games"] = _match["accepted_games"]
+                        _w["accepted_events"] = _match["accepted_events"]
+                        _w["provenance"] = "player_accepted"
+            # Causes the player accepted that no detector surfaced. Kept out
+            # of the ranked list so they cannot displace measured weaknesses,
+            # but not discarded -- the player did tell us.
+            _shown = {
+                str(_w.get("category") or "")
+                for _b in (
+                    sections.get("weaknesses") or [],
+                    sections.get("archived_weaknesses") or [],
+                )
+                for _w in _b
+            }
+            sections["accepted_causes"] = [
+                _match for _key, _match in _accepted.items()
+            ]
+            sections["accepted_only_causes"] = [
+                _match
+                for _key, _match in _accepted.items()
+                if _key not in _shown
+            ]
+    except Exception as _accepted_exc:
+        logger.warning(
+            f"[narrative] accepted-cause join skipped for {user_id}: "
+            f"{_accepted_exc}"
+        )
+
     # ─── 3b. PERSONAL CONCEPT SHELF (UnifiedProgress v2, Path A) ───
     # Locked Formula C 2026-06-05 via 10-user bake-off
     # (docs/unified_progress_v2_scope.md §Q1). One concept per family,
