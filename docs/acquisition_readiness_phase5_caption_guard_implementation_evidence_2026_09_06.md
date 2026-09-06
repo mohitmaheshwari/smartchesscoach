@@ -6,7 +6,7 @@
 
 **Scope:** `docs/acquisition_readiness_phase5_caption_guard_precode_audit_2026_09_06.md`
 
-**Status:** SOURCE COMPLETE — CI execution and independent review pending
+**Status:** SOURCE + INDEPENDENT REVIEW COMPLETE — CI execution pending
 
 ## Outcome
 
@@ -74,7 +74,7 @@ Direct probes:
 ```text
 strict scan of backend/tests/test_caption_source_guard_ci.py: exit 0
 whole backend strict scan: exit 1, 176 findings
-real committed diff: 1 backend Python path selected, exit 0
+final committed self-diff: 2 backend Python paths selected, exit 0
 invalid/all-zero head: configuration failure, exit 2
 workflow YAML parse: OK
 git diff --check: pass
