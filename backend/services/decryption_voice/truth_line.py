@@ -18,7 +18,11 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from .validators import validate_truth_block, TRUTH_LINE_MAX_WORDS
+from .validators import (
+    validate_truth_block,
+    validate_narrative_claims,
+    TRUTH_LINE_MAX_WORDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,8 @@ SCENARIO_THREW = "threw"             # was winning, simplified/relaxed away
 SCENARIO_EQUALIZED = "equalized"     # was losing, opp let you back in, you gave it back
 SCENARIO_SQUEEZED = "squeezed"       # gradual passivity, no single moment
 SCENARIO_OUTPLAYED = "outplayed"     # opponent saw a plan; no clear failure
+SCENARIO_TIME_WINNING = "time_winning"  # flag fell in a position still winning
+SCENARIO_TIME = "time"               # clock ran out on a position already slipping
 
 
 # Pivot tiers — different shades of "the game flipped on this move".
@@ -55,16 +61,27 @@ _REASON_TO_SCENARIO = {
     "opening_disaster": SCENARIO_BLUNDERED,
     "positional": SCENARIO_SQUEEZED,
     "endgame_collapse": SCENARIO_SQUEEZED,
-    "time_collapse": SCENARIO_BLUNDERED,
+    # "time_collapse" is resolved in classify_scenario() against the game's
+    # trajectory — a flag that falls in a winning position is a different
+    # story from one that falls in a position already going wrong, and
+    # neither is a blunder. Mapping it to SCENARIO_BLUNDERED (as this table
+    # did until 2026-09-06) made "you lost on the clock" unsayable.
 }
 
 
-def classify_scenario(game_reason: str, blunder_count: int) -> str:
+def classify_scenario(game_reason: str, blunder_count: int,
+                      trajectory: Optional[Dict] = None) -> str:
     """Map game_reason_classifier output → behavioral scenario.
 
     Public so player_decryption.py can route to the same scenario as
     Truth without duplicating the mapping.
     """
+    if (game_reason or "") == "time_collapse":
+        traj = trajectory or {}
+        if traj.get("ended_winning") or traj.get("stayed_winning_after_critical"):
+            return SCENARIO_TIME_WINNING
+        return SCENARIO_TIME
+
     s = _REASON_TO_SCENARIO.get(game_reason or "")
     if s:
         return s
@@ -109,6 +126,16 @@ IDENTITY_BY_SCENARIO: Dict[str, List[str]] = {
         "You were playing moves. They were playing a plan.",
         "They saw a plan you didn't.",
     ],
+    SCENARIO_TIME_WINNING: [
+        "You won this on the board. The clock took it.",
+        "Nothing here beat you. You ran out of time.",
+        "You outplayed them. You just didn't have the seconds.",
+    ],
+    SCENARIO_TIME: [
+        "The clock ended this, not a single move.",
+        "You ran out of time before you ran out of position.",
+        "Time decided this one.",
+    ],
 }
 
 
@@ -142,6 +169,16 @@ ANCHOR_PHRASES_BY_SCENARIO: Dict[str, List[str]] = {
         "their pieces were already converging",
         "their pieces had a direction yours didn't",
         "{san} answered their threat — not yours",
+    ],
+    SCENARIO_TIME_WINNING: [
+        "{san} cost the most, yet you stayed winning",
+        "{san} was the slip — you still had the better position",
+        "you were still winning after {san}",
+    ],
+    SCENARIO_TIME: [
+        "{san} was the costly one before the flag fell",
+        "the clock caught you after {san}",
+        "{san} cost you, and the clock did the rest",
     ],
 }
 
@@ -231,6 +268,16 @@ TRIGGER_BY_SCENARIO: Dict[str, List[str]] = {
         "Notice what their pieces are pointed at.",
         "Their plan is half the game.",
     ],
+    SCENARIO_TIME_WINNING: [
+        "Winning positions still need seconds. Spend them earlier.",
+        "Decide faster when you're already winning.",
+        "Bank time early so you can finish.",
+    ],
+    SCENARIO_TIME: [
+        "Spend your time on the hard moves only.",
+        "Move fast where the position is simple.",
+        "Watch the clock like a piece.",
+    ],
 }
 
 
@@ -252,7 +299,8 @@ def pick_variant(pool: List[str], game_id: str) -> str:
 _pick_variant = pick_variant
 
 
-def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:
+def _format_anchor(critical_move: Dict, scenario: str, game_id: str,
+                   trajectory: Optional[Dict] = None) -> str:
     """Build line 2 — the anchor.
 
     Three template paths in priority order:
@@ -288,7 +336,13 @@ def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:
         line = phrase_template.format(opp_n=opp_n, pivot_n=move_num, san=move_san)
         return line
 
-    if cp_loss >= CATASTROPHIC_CP_LOSS:
+    # A catastrophic cp_loss only licenses catastrophic language if the move
+    # actually decided something. On qBNJQg3g move 16 lost 468cp and the
+    # player was still winning on all 54 moves that followed — "{san} ended
+    # the game on the spot" would have been flatly false. Trajectory wins over
+    # cp_loss whenever the two disagree.
+    stayed_winning = bool((trajectory or {}).get("stayed_winning_after_critical"))
+    if cp_loss >= CATASTROPHIC_CP_LOSS and not stayed_winning:
         pool = CATASTROPHIC_ANCHOR_PHRASES
     else:
         pool = ANCHOR_PHRASES_BY_SCENARIO.get(scenario) or ANCHOR_PHRASES_BY_SCENARIO[SCENARIO_BLUNDERED]
@@ -597,6 +651,7 @@ def generate_truth_line(
     game_id: str,
     user_won: bool = False,
     user_color: str = "white",
+    trajectory: Optional[Dict] = None,
 ) -> Optional[Dict[str, str]]:
     """Build the 3-line Truth headline for a finished game.
 
@@ -608,6 +663,10 @@ def generate_truth_line(
             scenario selection.
         game_id: stable hash key for variant selection.
         user_won: skip Truth generation entirely if the user won.
+        trajectory: game_trajectory.compute_trajectory() output. Decides
+            which time scenario applies and vetoes collapse language on a
+            game the player kept winning. Optional so existing callers keep
+            working, but the orchestrator always supplies it.
 
     Returns:
         {"identity": str, "anchor": str, "trigger": str, "scenario": str}
@@ -630,16 +689,21 @@ def generate_truth_line(
     # the most reliable signal. Tier picks scenario: 'won' → THREW (you
     # had a winning position), 'equalized' → EQUALIZED (you got back to
     # even and gave it back).
+    # A game lost on the clock is a time game whatever the pivot says: the
+    # pivot detector reads eval swings, and an eval swing the player recovered
+    # from did not decide a game the flag decided.
     pivot_tier = critical.get("pivot_tier")
-    if pivot_tier == PIVOT_TIER_EQUALIZED:
+    if (game_reason or "") == "time_collapse":
+        scenario = _classify_scenario(game_reason or "", blunder_count, trajectory)
+    elif pivot_tier == PIVOT_TIER_EQUALIZED:
         scenario = SCENARIO_EQUALIZED
     elif critical.get("is_pivot"):
         scenario = SCENARIO_THREW
     else:
-        scenario = _classify_scenario(game_reason or "", blunder_count)
+        scenario = _classify_scenario(game_reason or "", blunder_count, trajectory)
 
     identity = _pick_variant(IDENTITY_BY_SCENARIO[scenario], game_id)
-    anchor = _format_anchor(critical, scenario, game_id)
+    anchor = _format_anchor(critical, scenario, game_id, trajectory)
     trigger = _pick_variant(TRIGGER_BY_SCENARIO[scenario], game_id)
 
     # Apply final budget trim (rare safety net for very long move SANs).
@@ -667,6 +731,32 @@ def generate_truth_line(
         if not ok2:
             logger.error(f"[truth_line] safe fallback also invalid: {reason2}")
             return None
+
+    # Truth gate: style validation above says the line READS right; this says
+    # it is TRUE of this game. A line that claims a collapse the player never
+    # suffered, or a clock that never ran out, is replaced by the neutral
+    # anchor rather than shipped (docs/review_truth_layer_scope.md).
+    if trajectory:
+        claim_violations = []
+        for part in (identity, anchor, trigger):
+            claim_violations.extend(validate_narrative_claims(part, trajectory))
+        if claim_violations:
+            logger.warning(
+                "[truth_line] claim gate tripped for game=%s scenario=%s: %s",
+                game_id, scenario, "; ".join(claim_violations))
+            move_num = critical.get("move_number") or "?"
+            move_san = critical.get("move_san") or ""
+            anchor = (f"Move {move_num} — you played {move_san}."
+                      if move_san else f"Move {move_num} — the costly moment.")
+            identity = "You didn't lose this to their plan. One moment cost you."
+            trigger = TRIGGER_BY_SCENARIO[scenario][0]
+            still_bad = (validate_narrative_claims(identity, trajectory)
+                         + validate_narrative_claims(anchor, trajectory)
+                         + validate_narrative_claims(trigger, trajectory))
+            if still_bad:
+                logger.error("[truth_line] claim-safe fallback still violates: %s",
+                             "; ".join(still_bad))
+                return None
 
     return {
         "identity": identity,

@@ -35,11 +35,14 @@ from .truth_line import (
     SCENARIO_EQUALIZED,
     SCENARIO_SQUEEZED,
     SCENARIO_OUTPLAYED,
+    SCENARIO_TIME,
+    SCENARIO_TIME_WINNING,
     PIVOT_TIER_EQUALIZED,
     classify_scenario,
     pick_critical_move,
     pick_variant,
 )
+from .validators import validate_narrative_claims
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +75,26 @@ STORY_BY_SCENARIO: Dict[str, List[str]] = {
         "You played calmly. They played sharper.",
         "There's no move to undo. They were better today.",
     ],
+    SCENARIO_TIME_WINNING: [
+        "You were winning when the clock ran out. The position was never the problem.",
+        "You outplayed them and ran out of time. Move {move_n} cost the most, and you still stayed on top.",
+        "The board was yours at the end. The clock wasn't.",
+    ],
+    SCENARIO_TIME: [
+        "The clock ended this before the position did.",
+        "Move {move_n} cost you, and then time ran out.",
+        "You ran short of time and the game went with it.",
+    ],
 }
+
+# Trajectory-free stories. Used when a scenario's own line would assert
+# something this game's data contradicts (e.g. a collapse the player recovered
+# from). Says only what is true of every loss with a costly move.
+STORY_CLAIM_SAFE: List[str] = [
+    "Move {move_n} cost you the most this game.",
+    "Move {move_n} was the moment worth replaying.",
+    "One move carried most of the damage: move {move_n}.",
+]
 
 
 # ── Pattern (line 2 — the gold) ──────────────────────────────────────
@@ -104,6 +126,16 @@ PATTERN_BY_SCENARIO: Dict[str, List[str]] = {
         "You watched your side of the board, not theirs.",
         "Their plan was already moving while yours was still waiting.",
     ],
+    SCENARIO_TIME_WINNING: [
+        "You can find the moves. You just spend too long finding them.",
+        "Your chess is faster than your clock management.",
+        "You think longest in the positions that need it least.",
+    ],
+    SCENARIO_TIME: [
+        "You spend your time early and have none left when it matters.",
+        "You slow down when the position gets hard — and that's when the clock bites.",
+        "The clock is a piece you keep forgetting to move.",
+    ],
 }
 
 
@@ -134,6 +166,16 @@ CARRY_FORWARD_BY_SCENARIO: Dict[str, List[str]] = {
         "Watch what they're doing, not just what you want.",
         "Their plan is half the game.",
         "Notice what their pieces are pointed at.",
+    ],
+    SCENARIO_TIME_WINNING: [
+        "Play the obvious moves fast. Save the clock for the hard ones.",
+        "When you're winning, simplify and move.",
+        "A won position needs seconds on the clock to finish.",
+    ],
+    SCENARIO_TIME: [
+        "Spend time only where the position is genuinely hard.",
+        "Move quickly when there's one sensible move.",
+        "Check the clock as often as you check their threats.",
     ],
 }
 
@@ -171,8 +213,12 @@ def build_player_decryption(
     game_reason: str,
     game_id: str,
     user_color: str = "white",
+    trajectory: Optional[Dict] = None,
 ) -> Optional[Dict]:
     """Build the Player Decryption block: story + pattern + carry_forward.
+
+    `trajectory` is game_trajectory.compute_trajectory() output — it selects
+    the time scenario and gates every line against what the game actually did.
 
     Args:
         decryption_v5_data: list of move dicts (V5 schema). Read for
@@ -197,13 +243,17 @@ def build_player_decryption(
     # Pivot tier picks scenario: 'won' → THREW (had a winning position),
     # 'equalized' → EQUALIZED (came back to even, gave it back). Falls
     # through to game_reason classification when no pivot fires.
+    # A clock loss routes on termination, not on the eval pivot: an eval swing
+    # the player recovered from did not decide a game the flag decided.
     pivot_tier = critical.get("pivot_tier")
-    if pivot_tier == PIVOT_TIER_EQUALIZED:
+    if (game_reason or "") == "time_collapse":
+        scenario = classify_scenario(game_reason or "", blunder_count, trajectory)
+    elif pivot_tier == PIVOT_TIER_EQUALIZED:
         scenario = SCENARIO_EQUALIZED
     elif critical.get("is_pivot"):
         scenario = SCENARIO_THREW
     else:
-        scenario = classify_scenario(game_reason or "", blunder_count)
+        scenario = classify_scenario(game_reason or "", blunder_count, trajectory)
 
     # Salt the game_id for each layer so the three lines don't all
     # come from the same pool index — feels less canned across games.
@@ -212,6 +262,34 @@ def build_player_decryption(
 
     pattern = pick_variant(PATTERN_BY_SCENARIO[scenario], game_id + "::pattern")
     carry_forward = pick_variant(CARRY_FORWARD_BY_SCENARIO[scenario], game_id + "::carry")
+
+    # Truth gate. STORY_BY_SCENARIO lines make factual claims about the game
+    # ("you were winning", "it never came back"); until 2026-09-06 nothing
+    # checked them against the game itself. On qBNJQg3g that shipped "Move 16
+    # flipped the game — and it never came back" for a player who was still
+    # winning on all 54 moves after move 16 and lost on the clock. A line that
+    # contradicts the trajectory is replaced, never shipped.
+    if trajectory:
+        for line_name, text in (("story", story), ("pattern", pattern),
+                                ("carry_forward", carry_forward)):
+            violations = validate_narrative_claims(text, trajectory)
+            if not violations:
+                continue
+            logger.warning(
+                "[player_decryption] claim gate tripped on %s for game=%s "
+                "scenario=%s: %s", line_name, game_id, scenario,
+                "; ".join(violations))
+            if line_name == "story":
+                story = _format_story(
+                    pick_variant(STORY_CLAIM_SAFE, game_id + "::safestory"),
+                    critical)
+                if validate_narrative_claims(story, trajectory):
+                    return None
+            else:
+                # Pattern / carry-forward are behavioural, not factual; a
+                # violation here means a pool entry needs rewriting, so drop
+                # the game's narrative rather than ship a false line.
+                return None
 
     return {
         "story": story,

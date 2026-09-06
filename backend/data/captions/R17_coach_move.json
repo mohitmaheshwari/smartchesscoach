@@ -215,13 +215,13 @@
       "hint_for_user": ""
     },
     "coach_threat_undefended": {
-      "explanation": "{played_san} — attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}, and it has no defender.",
+      "explanation": "{played_san} attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}, and it has no defender.",
       "plan": "",
       "teaching_point": "The #1 habit of improving players: check what changed after the opponent's move.",
       "hint_for_user": ""
     },
     "coach_threat_specific": {
-      "explanation": "{played_san} — attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}.",
+      "explanation": "{played_san} attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}.",
       "plan": "When a piece is attacked, the three responses are: defend, move, or counter-threat.",
       "teaching_point": "Always identify what each opponent move attacks before choosing your reply.",
       "hint_for_user": ""

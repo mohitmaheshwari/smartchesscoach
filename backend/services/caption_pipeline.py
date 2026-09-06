@@ -3822,6 +3822,49 @@ _CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
 ) not in ("0", "false", "False", "")
 
 
+_SALVAGE_SPLIT_RE = _re_pb.compile(r"(?<=[.!?])\s+")
+
+# A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
+# or a bare principle carries no board content, so it is not worth keeping over
+# the deterministic floor — the floor at least names the stronger move.
+_SALVAGE_CONTENT_RE = _re_pb.compile(
+    r"\b(lets|loses to|drops|hangs|leaves|allows|walks into|wins|attacks|"
+    r"defends|traps|captures|forks|pins|threatens|recaptures|undefended)\b",
+    _re_pb.IGNORECASE)
+
+
+def _salvage_verified_sentences(text: str, verify_fn) -> str:
+    """Keep the sentences of `text` that pass `verify_fn`; drop the rest.
+
+    Returns "" when nothing worth shipping survives, in which case the caller
+    falls through to the deterministic floor as before.
+
+    This exists because the claim verifier is a whole-caption gate: a single
+    false clause discards the true ones with it. Salvage is strictly
+    truth-preserving — every surviving sentence individually passed the same
+    verifier, and the rejoined text is verified again before it is returned.
+    """
+    if not text or not text.strip():
+        return ""
+    sentences = [s.strip() for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]
+    if len(sentences) < 2:
+        return ""  # nothing to salvage from a single failing sentence
+
+    kept = [s for s in sentences if not verify_fn(s)]
+    if not kept or len(kept) == len(sentences):
+        # len(kept) == len(sentences) means every sentence passes alone but the
+        # whole fails — a cross-sentence contradiction. Do not ship that.
+        return ""
+
+    if not any(_SALVAGE_CONTENT_RE.search(s) for s in kept):
+        return ""
+
+    joined = " ".join(kept)
+    if verify_fn(joined):
+        return ""
+    return joined
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -4983,14 +5026,44 @@ def build_move_teaching_decision(
                 )
                 _rendered_personalization = False
             else:
-                _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
-                if _safe and not _verify_final(_safe):
-                    caption_payload["caption"] = _safe
+                # SENTENCE SALVAGE — before falling to the floor.
+                #
+                # The verifier is a whole-caption gate: one false clause
+                # anywhere discards every true clause with it, and the floor it
+                # falls to is the hollow comparative ("You played X; Y was
+                # stronger — it trades his bishop"). On lichess qBNJQg3g move 16
+                # the pipeline had already produced the caption the game needed —
+                #
+                #   "Qf6 lets Qxc5 win your bishop on c5. Nxd3+ was better — it
+                #    attacks the undefended pawn on f2, and your knight ..."
+                #
+                # — and threw ALL of it away over a `free_when_defended`
+                # complaint about the SECOND sentence. The player was left with
+                # no idea why their move lost a bishop.
+                #
+                # Keep the sentences that verify, drop the ones that don't. This
+                # can only ever retain board-verified text; it never invents a
+                # claim, so it cannot lower truthfulness — every surviving
+                # sentence passed the same check the floor passes, and the join
+                # is re-verified before shipping.
+                # docs/review_truth_layer_scope.md, feedback_coverage_is_first_class
+                _salvaged = _salvage_verified_sentences(_candidate, _verify_final)
+                if _salvaged:
+                    caption_payload["caption"] = _salvaged
                     caption_payload["rule_name"] = (
-                        (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
+                        (caption_payload.get("rule_name") or "") + "→SENTENCE_SALVAGED"
                     )
-                    _board_explanation = _safe
+                    _board_explanation = _salvaged
                     _rendered_personalization = False
+                else:
+                    _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
+                    if _safe and not _verify_final(_safe):
+                        caption_payload["caption"] = _safe
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
+                        )
+                        _board_explanation = _safe
+                        _rendered_personalization = False
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
             _final_text and not _verify_final(_final_text)

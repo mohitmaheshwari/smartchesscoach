@@ -62,8 +62,13 @@ LOSS_CATEGORIES = {
         "description": "A mistake in the first 15 moves put you in a bad position from the start.",
     },
     "time_collapse": {
-        "label": "Ran out of time / collapsed under pressure",
-        "description": "Your play fell apart when the clock was low or the position got complicated.",
+        # Was "Ran out of time / collapsed under pressure" with the description
+        # "Your play fell apart when the clock was low...". Both assert a
+        # collapse, and this category also covers games won on the board and
+        # lost on the clock — where nothing fell apart. Say what is true of
+        # every game in the bucket. 2026-09-06.
+        "label": "Ran out of time",
+        "description": "The clock ended these games. Look at where your time went, not just your moves.",
     },
     "threw_winning": {
         "label": "Threw a winning position",
