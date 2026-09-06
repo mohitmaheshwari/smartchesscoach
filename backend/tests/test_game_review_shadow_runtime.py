@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import inspect
+import json
 from pathlib import Path
 
 from services.caption_pipeline import (
@@ -15,19 +16,31 @@ from services.caption_pipeline import (
 from services.caption_facts import (
     LegalMaterialLossCause,
     PieceOnSquare,
+    build_verified_hidden_opportunity,
     build_verified_line_cause,
 )
+from services.game_review_contracts import EventActor
+from services.game_review_event_adapter import maybe_attach_phase5_review_fields
 from services.game_review_shadow_runtime import (
+    HIDDEN_OPPORTUNITY_SHADOW_VERSION,
     VERIFIED_CAUSE_QUALITY_ID,
     adapt_review_event,
     adapt_simple_hang_event,
+    build_hidden_opportunity_shadow_summary,
     build_shadow_storage_payload,
     derive_current_review_observations,
+    evaluate_hidden_opportunity_shadow,
+    evaluate_hidden_opportunity_stored_row,
+    stored_row_matches_played_move,
 )
 from services.move_observation_deriver import current_deriver_identity
 
 
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+HIDDEN_PACKET = Path(__file__).resolve().parents[1] / (
+    "data/corpus_snapshots/"
+    "hidden_opportunities_chess_gold_v1_2026-09-02.json"
+)
 
 
 def _decision(*, verified: bool = True, with_cause: bool = False) -> MoveTeachingDecision:
@@ -109,6 +122,36 @@ def _allowed_mate_decision() -> MoveTeachingDecision:
         ),
         debug_facts={"cp_loss": 10608},
         cause=cause,
+    )
+
+
+def _hidden_opportunity_arguments():
+    packet = json.loads(HIDDEN_PACKET.read_text(encoding="utf-8"))
+    for row in packet["positions"]:
+        arguments = {
+            "fen_before": row["fen"],
+            "played_san": row["played_move"]["san"],
+            "best_move_san": row["best_move"]["san"],
+            "pv_after_played": row["stored_four_ply"]["after_played"],
+            "pv_after_best": row["stored_four_ply"]["after_best"],
+            "cp_loss": row["cp_loss"],
+        }
+        if (
+            row["cp_loss"] >= 75
+            and build_verified_hidden_opportunity(**arguments) is not None
+        ):
+            return arguments
+    raise AssertionError("locked packet has no eligible exact opportunity")
+
+
+def _hidden_shadow_evaluation(*, actor="user"):
+    return evaluate_hidden_opportunity_shadow(
+        game_id="g-hidden",
+        ply=17,
+        move_number=9,
+        actor=actor,
+        actor_rating=1200,
+        **_hidden_opportunity_arguments(),
     )
 
 
@@ -273,6 +316,24 @@ def test_storage_payload_is_shadow_versioned_and_honestly_allows_no_plan():
     assert empty["source_v5_version"] == 138
     assert empty["deriver_identity"] == current_deriver_identity()
     assert empty["plan"] is None
+    assert empty["hidden_opportunities"] == {
+        "schema_version": HIDDEN_OPPORTUNITY_SHADOW_VERSION,
+        "composer_version": "hidden_opportunity_composer.v1",
+        "rollout_mode": "shadow",
+        "ranking_formula": None,
+        "positions_seen": 0,
+        "above_threshold_positions": 0,
+        "candidate_count": 0,
+        "status_counts": {
+            "below_rating_threshold": 0,
+            "candidate": 0,
+            "invalid_stored_evidence": 0,
+            "missing_actor_rating": 0,
+            "missing_stored_evidence": 0,
+            "not_proved": 0,
+        },
+        "candidates": [],
+    }
 
     event, features = adapt_simple_hang_event(
         decision=_decision(),
@@ -291,6 +352,165 @@ def test_storage_payload_is_shadow_versioned_and_honestly_allows_no_plan():
     )
     assert payload["plan"]["rollout_mode"] == "shadow"
     assert payload["selected_event_ids"] == [event.event_id]
+
+
+def test_hidden_opportunity_shadow_records_both_actors_without_authority():
+    user = _hidden_shadow_evaluation(actor=EventActor.USER)
+    opponent = _hidden_shadow_evaluation(actor=EventActor.OPPONENT)
+
+    for result, actor in (
+        (user, "user"),
+        (opponent, "opponent"),
+    ):
+        assert result["status"] == "candidate"
+        candidate = result["candidate"]
+        event = candidate["event"]
+        proof = candidate["proof"]
+        assert candidate["selection_features"]["actor"] == actor
+        assert event["move"]["actor"] == actor
+        assert event["display"] == {
+            "requested_surface": "diagnostic",
+            "authorized": False,
+            "reflection_eligible": False,
+        }
+        assert not any(event["evidence"]["authorized_surfaces"].values())
+        assert event["evidence"]["quality_id"] == proof["quality_id"]
+        assert proof["fingerprint"] in event["evidence"]["provenance"][1]
+
+
+def test_hidden_opportunity_shadow_reports_denominator_failures_explicitly():
+    arguments = _hidden_opportunity_arguments()
+    missing_rating = evaluate_hidden_opportunity_shadow(
+        game_id="g",
+        ply=1,
+        move_number=1,
+        actor="user",
+        actor_rating=None,
+        **arguments,
+    )
+    below_threshold = evaluate_hidden_opportunity_shadow(
+        game_id="g",
+        ply=1,
+        move_number=1,
+        actor="user",
+        actor_rating=800,
+        **{**arguments, "cp_loss": 149},
+    )
+    invalid = evaluate_hidden_opportunity_shadow(
+        game_id="g",
+        ply=1,
+        move_number=1,
+        actor="user",
+        actor_rating=1200,
+        **{**arguments, "fen_before": "not a FEN"},
+    )
+    assert missing_rating == {"status": "missing_actor_rating"}
+    assert below_threshold == {"status": "below_rating_threshold"}
+    assert invalid == {"status": "invalid_stored_evidence"}
+
+    summary = build_hidden_opportunity_shadow_summary(
+        (missing_rating, below_threshold, invalid, _hidden_shadow_evaluation())
+    )
+    assert summary["positions_seen"] == 4
+    assert summary["above_threshold_positions"] == 2
+    assert summary["candidate_count"] == 1
+    assert summary["status_counts"]["candidate"] == 1
+    assert summary["status_counts"]["missing_actor_rating"] == 1
+    assert summary["status_counts"]["below_rating_threshold"] == 1
+    assert summary["status_counts"]["invalid_stored_evidence"] == 1
+    assert summary["ranking_formula"] is None
+
+
+def test_hidden_opportunity_shadow_fails_closed_on_composer_error(monkeypatch):
+    monkeypatch.setattr(
+        "services.game_review_shadow_runtime.build_verified_hidden_opportunity",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("unexpected")),
+    )
+    result = evaluate_hidden_opportunity_shadow(
+        game_id="g",
+        ply=1,
+        move_number=1,
+        actor="user",
+        actor_rating=1200,
+        **_hidden_opportunity_arguments(),
+    )
+    assert result == {"status": "invalid_stored_evidence"}
+
+
+def test_stored_row_adapter_uses_board_actor_and_canonical_side_rating():
+    arguments = _hidden_opportunity_arguments()
+    board = __import__("chess").Board(arguments["fen_before"])
+    played = board.parse_san(arguments["played_san"])
+    best = board.parse_san(arguments["best_move_san"])
+    mover_color = "white" if board.turn else "black"
+    user_color = "black" if mover_color == "white" else "white"
+    result = evaluate_hidden_opportunity_stored_row(
+        game_id="g-stored",
+        user_color=user_color,
+        side_ratings={"white": 1200, "black": 1200},
+        row={
+            "fen_before": arguments["fen_before"],
+            "move_uci": played.uci(),
+            "best_move_uci": best.uci(),
+            "pv_after_played": arguments["pv_after_played"],
+            "pv_after_best": arguments["pv_after_best"],
+            "cp_loss": arguments["cp_loss"],
+        },
+    )
+    assert result["status"] == "candidate"
+    assert result["candidate"]["event"]["move"]["actor"] == "opponent"
+
+
+def test_stored_row_alignment_rejects_same_fen_with_a_different_move():
+    arguments = _hidden_opportunity_arguments()
+    board = __import__("chess").Board(arguments["fen_before"])
+    played = board.parse_san(arguments["played_san"])
+    different = next(move for move in board.legal_moves if move != played)
+    exact_row = {
+        "fen_before": arguments["fen_before"],
+        "move_uci": played.uci(),
+    }
+    wrong_move_row = {
+        "fen_before": arguments["fen_before"],
+        "move_uci": different.uci(),
+    }
+    assert stored_row_matches_played_move(
+        row=exact_row,
+        fen_before=arguments["fen_before"],
+        played_san=arguments["played_san"],
+    )
+    assert not stored_row_matches_played_move(
+        row=wrong_move_row,
+        fen_before=arguments["fen_before"],
+        played_san=arguments["played_san"],
+    )
+
+
+def test_hidden_opportunity_shadow_is_removed_by_public_plan_projection():
+    event, features = adapt_simple_hang_event(
+        decision=_decision(),
+        observation=_observation(),
+        game_id="g-hidden",
+        ply=17,
+        move_number=9,
+        san="Bg5",
+    )
+    stored_plan = build_shadow_storage_payload(
+        game_id="g-hidden",
+        events=(event,),
+        features={event.event_id: features},
+        generated_at=NOW,
+        source_v5_version=140,
+        hidden_opportunity_evaluations=(_hidden_shadow_evaluation(),),
+    )
+    response = maybe_attach_phase5_review_fields(
+        {"decryption_data": [{}], "status": "complete"},
+        stored_moves=({"teachable_event": event.contract_dict()},),
+        stored_plan=stored_plan,
+        env={"PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true"},
+    )
+    assert response.get("game_teaching_plan")
+    assert "hidden_opportunities" not in json.dumps(response)
 
 
 def test_quality_v2_storage_uses_the_practical_candidate_formula_only_when_enabled():
@@ -382,6 +602,10 @@ def test_production_callers_persist_shadow_without_returning_it():
         root / "backend" / "services" / "game_decryption_v5_service.py"
     ).read_text(encoding="utf-8")
     assert "game_teaching_plan_output" in v5_source
+    assert "evaluate_hidden_opportunity_stored_row" in v5_source
+    assert "stored_row_matches_played_move" in v5_source
+    assert "_review_hidden_consumed_row_ids" in v5_source
+    assert "hidden_opportunity_evaluations=" in v5_source
     # Shadow measurement cannot require enabling the visible API feature.
     shadow_block = v5_source[v5_source.index("# Phase 3 personalized review planner."):]
     assert "personalized_game_review_enabled" not in shadow_block

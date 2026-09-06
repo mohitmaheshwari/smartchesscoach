@@ -31,6 +31,7 @@ if not (BACKEND_ROOT / "services").is_dir():
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from services.caption_facts import build_verified_hidden_opportunity
+from services.rating_resolver import caption_suppress_threshold_cp
 
 
 BANDS = {
@@ -73,13 +74,8 @@ URL_RE = re.compile(r"https?://|www\.", re.I)
 
 
 def threshold(rating):
-    if rating < 1000:
-        return 150
-    if rating < 1400:
-        return 75
-    if rating < 1800:
-        return 50
-    return 30
+    """Backward-compatible alias for the canonical Review threshold."""
+    return caption_suppress_threshold_cp(rating)
 
 
 def rating_band(rating):

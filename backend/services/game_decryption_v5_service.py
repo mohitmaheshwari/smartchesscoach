@@ -2973,7 +2973,6 @@ async def generate_game_decryption_v5(
         _v5_opponent_rating = (
             _black_header_rating if user_color == "white" else _white_header_rating
         )
-
         # Resolve the game owner's rating ONCE per render (Q1, 2026-07-14).
         # The pipeline's rating-band caption gate (suppress sub-threshold
         # "is a mistake" critiques for lower-rated players) only fires when
@@ -3088,8 +3087,22 @@ async def generate_game_decryption_v5(
         _review_shadow_observations: Dict[int, Dict] = {}
         _review_shadow_events = []
         _review_shadow_features = {}
+        _review_hidden_opportunity_evaluations = []
+        _review_hidden_consumed_row_ids = set()
+        _review_hidden_rows_by_fen = {}
         _review_shadow_ready = False
         if game_teaching_plan_output is not None and game_id:
+            for _review_row in [
+                *list(move_evaluations or []),
+                *list(_opp_evals or []),
+            ]:
+                _review_row_fen = str(_review_row.get("fen_before") or "")
+                if not _review_row_fen:
+                    continue
+                _review_row_key = " ".join(_review_row_fen.split()[:4])
+                _review_hidden_rows_by_fen.setdefault(
+                    _review_row_key, []
+                ).append(_review_row)
             try:
                 from services.game_review_shadow_runtime import derive_current_review_observations
                 _review_shadow_observations = derive_current_review_observations(
@@ -3375,6 +3388,69 @@ async def generate_game_decryption_v5(
             pv_after_played = eval_data.get("pv_after_played", [])
             pv_after_best = eval_data.get("pv_after_best", [])
             best_move = eval_data.get("best_move")
+
+            # Phase 3A Hidden Opportunities: both sides are evaluated from
+            # their already-stored four-ply branches. The canonical composer
+            # owns chess truth; this loop only supplies actor/move context.
+            # Results live solely inside the internal shadow-plan envelope.
+            if game_teaching_plan_output is not None and game_id:
+                try:
+                    from services.game_review_shadow_runtime import (
+                        evaluate_hidden_opportunity_stored_row,
+                        stored_row_matches_played_move,
+                    )
+                    _hidden_row = next(
+                        (
+                            _candidate_row
+                            for _candidate_row in (
+                                _review_hidden_rows_by_fen.get(fen_key) or []
+                            )
+                            if id(_candidate_row)
+                            not in _review_hidden_consumed_row_ids
+                            and stored_row_matches_played_move(
+                                row=_candidate_row,
+                                fen_before=fen_before,
+                                played_san=move_san,
+                            )
+                        ),
+                        None,
+                    )
+                    if _hidden_row is None:
+                        _hidden_result = {
+                            "status": "missing_stored_evidence",
+                        }
+                    else:
+                        _review_hidden_consumed_row_ids.add(id(_hidden_row))
+                        _review_side_ratings = {
+                            "white": _white_header_rating,
+                            "black": _black_header_rating,
+                        }
+                        _user_side = str(user_color or "").lower()
+                        if (
+                            _user_side in _review_side_ratings
+                            and _review_side_ratings[_user_side] is None
+                        ):
+                            _review_side_ratings[_user_side] = _v5_user_rating
+                        _hidden_result = (
+                            evaluate_hidden_opportunity_stored_row(
+                                game_id=game_id,
+                                user_color=user_color,
+                                side_ratings=_review_side_ratings,
+                                row=_hidden_row,
+                            )
+                        )
+                    _review_hidden_opportunity_evaluations.append(
+                        _hidden_result
+                    )
+                except Exception as _hidden_opportunity_exc:
+                    logger.warning(
+                        "[hidden-opportunity-shadow] evaluation failed "
+                        f"for {game_id} ply {idx + 1}: "
+                        f"{_hidden_opportunity_exc}"
+                    )
+                    _review_hidden_opportunity_evaluations.append({
+                        "status": "invalid_stored_evidence",
+                    })
 
             # v59 (2026-05-22): v58's PV-vs-stored-best reconciliation reverted.
             # The assumption "PV[0] is more reliable than stored best_move"
@@ -4790,7 +4866,7 @@ async def generate_game_decryption_v5(
             except Exception as _flush_exc:
                 logger.warning(f"[pattern_events] flush failed: {_flush_exc}")
 
-        if game_teaching_plan_output is not None and game_id and _review_shadow_ready:
+        if game_teaching_plan_output is not None and game_id:
             try:
                 from services.game_review_shadow_runtime import build_shadow_storage_payload
                 _shadow_generated_at = datetime.now(timezone.utc)
@@ -4802,6 +4878,9 @@ async def generate_game_decryption_v5(
                         features=_review_shadow_features,
                         generated_at=_shadow_generated_at,
                         source_v5_version=V5_COACHING_VERSION,
+                        hidden_opportunity_evaluations=tuple(
+                            _review_hidden_opportunity_evaluations
+                        ),
                     )
                 )
             except Exception as _review_plan_exc:
