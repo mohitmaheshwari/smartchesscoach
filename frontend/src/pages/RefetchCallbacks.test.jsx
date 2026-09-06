@@ -57,10 +57,26 @@ describe("load and explicit-refetch callback identities", () => {
         return Promise.resolve(response({}));
       }
       if (url === "https://api.test/admin/openings") {
-        return Promise.resolve(response({ openings: [{ opening_key: "italian" }] }));
+        return Promise.resolve(response({ openings: [
+          { opening_key: "italian", opening_name: "Italian Game" },
+          { opening_key: "sicilian", opening_name: "Sicilian Defence" },
+        ] }));
       }
       if (url === "https://api.test/admin/openings/italian") {
-        return Promise.resolve(response({ feedback: { opening_name: "Italian Game" } }));
+        return Promise.resolve(response({
+          feedback: { opening_key: "italian", opening_name: "Italian Game" },
+        }));
+      }
+      if (url === "https://api.test/admin/openings/sicilian") {
+        return Promise.resolve(response({
+          feedback: { opening_key: "sicilian", opening_name: "Sicilian Defence" },
+        }));
+      }
+      if (url === "https://api.test/admin/openings/save") {
+        return Promise.resolve(response({ opening_name: "Sicilian Defence" }));
+      }
+      if (url === "https://api.test/games/game-2/regenerate-coaching") {
+        return Promise.resolve(response({ status: "ok" }));
       }
       return Promise.resolve(response({}, false));
     });
@@ -94,9 +110,21 @@ describe("load and explicit-refetch callback identities", () => {
     await flush();
     expect(global.fetch).toHaveBeenCalledTimes(4);
     expect(global.fetch.mock.calls[2][0]).toBe("https://api.test/games/game-2");
+
+    await act(async () => {
+      container.querySelector('[data-testid="refresh-coaching-btn"]').dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+    await flush();
+    expect(global.fetch.mock.calls.slice(4).map(([url]) => url)).toEqual([
+      "https://api.test/games/game-2/regenerate-coaching",
+      "https://api.test/games/game-2",
+      "https://api.test/analysis/game-2",
+    ]);
   });
 
-  test("Admin openings list is not fetched again when its first selection lands", async () => {
+  test("Admin refresh and save preserve a non-first opening selection", async () => {
     await act(async () => root.render(<AdminOpenings user={{ role: "admin" }} />));
     await flush();
 
@@ -109,5 +137,35 @@ describe("load and explicit-refetch callback identities", () => {
     expect(global.fetch.mock.calls.filter(
       ([url]) => url === "https://api.test/admin/openings"
     )).toHaveLength(1);
+
+    const selector = container.querySelector('[data-testid="admin-openings-selector"]');
+    await act(async () => {
+      selector.value = "sicilian";
+      selector.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect(selector.value).toBe("sicilian");
+
+    await act(async () => {
+      container.querySelector('[data-testid="admin-openings-refresh-btn"]').dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+    await flush();
+    expect(selector.value).toBe("sicilian");
+    expect(global.fetch.mock.calls.filter(
+      ([url]) => url === "https://api.test/admin/openings"
+    )).toHaveLength(2);
+
+    await act(async () => {
+      container.querySelector('[data-testid="admin-openings-save-btn"]').dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+    await flush();
+    expect(selector.value).toBe("sicilian");
+    expect(global.fetch.mock.calls.filter(
+      ([url]) => url === "https://api.test/admin/openings"
+    )).toHaveLength(3);
   });
 });

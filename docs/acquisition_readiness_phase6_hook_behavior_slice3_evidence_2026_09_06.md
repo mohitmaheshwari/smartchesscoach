@@ -29,8 +29,10 @@ Tests:       2 passed
 
 The tests prove an unrelated rerender does not repeat either load, a changed
 Lab game identity performs exactly the two expected game/analysis requests,
-and the opening catalog remains a single request when the first selection
-lands.
+and its Refresh action regenerates then refetches that current game. The admin
+test selects the non-first opening, then proves both Refresh and post-Save
+catalog reloads preserve that selection while issuing exactly one catalog
+request each.
 
 ## Debt measurement
 
