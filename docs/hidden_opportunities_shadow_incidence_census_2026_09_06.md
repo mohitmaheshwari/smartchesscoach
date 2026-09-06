@@ -130,6 +130,58 @@ the reported count suggests.
 
 ---
 
+## CONSEQUENCE: the blinded ranking review cannot run on its current input
+
+The census was meant to answer "is there enough evidence for the blinded
+ranking review?" The answer is yes in production — and no in the packet the
+review actually consumes.
+
+`build_hidden_opportunity_moment_ranking_review.py` reads a FIXED source:
+`backend/data/corpus_snapshots/full_game_chess_fact_audit_v1_2026-09-03.json`,
+an 80-game anonymized audit. Its own `--summary-only` output:
+
+| Metric | Review packet (80-game audit) | Production census |
+|---|---|---|
+| Games scanned | 80 | 14,356 |
+| Candidate fires | 14 | 6,148 |
+| **Comparable games** | **1** | **1,299** |
+| **Candidates in comparable games** | **2** | **3,306** |
+
+**The entire within-game ranking review would rest on one game and two
+candidates.** That cannot license a ranking formula, and the project's own
+ranking-evidence gate already says so in its locked-off list: *"Do not select
+or tune a visible ranking formula from the one comparison."* That rule was
+written for exactly this state.
+
+The packet also states two limitations that the census now quantifies:
+
+- *"cannot validate opponent-opportunity selection"* — opponent candidates are
+  **2,266 of 6,148 (37%)** of production incidence. A review that structurally
+  cannot see them would authorize a system whose behaviour on more than a
+  third of its fires is unexamined.
+- *"an 80-game stratified audit, not a production-incidence estimate"* — and
+  at 80 games (~3,000 positions), the expected count of
+  `board_transformations_with_payoff` at its production rate of ~1 in 110,000
+  is **0.03**. That family cannot appear in this packet, so no review built on
+  it can say anything about that family.
+
+### What would unblock it
+
+Rebuild the review packet from **production incidence, stratified by proof
+family**, rather than from the 80-game audit. The census establishes the
+population exists; the blocker is that production positions are not
+anonymized, and the packet builder asserts no identity field may leak.
+
+So the unblocking step is an approved, read-only, anonymized export from the
+census population, stratified by family with a per-family floor — not more
+detector work, and not a review of the current packet.
+
+Until then the honest status is: **evidence sufficient in production, review
+input insufficient.** Those are different sentences and only the first was
+true of the census.
+
+---
+
 ## What remains locked off
 
 Unchanged by this census. All four proof authorizations are SHADOW; the
