@@ -37,10 +37,12 @@ for 32/71 findings. They are not suitable for an unreviewed mass edit.
 7. `CoachPlay`, `LabClassic` and `Reflect` only after characterization of their
    state-machine boundaries.
 
-The first code slice contains only the two direct `navigate` dependencies in
-`CoachReplay.jsx` and `DiagnosticPuzzles.jsx`. React Router documents the hook
-value as the effect dependency; adding it does not change the request trigger
-from the existing game/mount boundary.
+The first code slice contains only the two navigation closures in
+`CoachReplay.jsx` and `DiagnosticPuzzles.jsx`. In this app's declarative router,
+the callback identity can change with location. The load must stay bounded to
+the existing game/mount trigger while an in-flight redirect uses the latest
+callback, so the callback is synchronized through a ref rather than made a
+load dependency.
 
 ## Rejected approaches
 

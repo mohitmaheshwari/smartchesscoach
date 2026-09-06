@@ -43,10 +43,15 @@ const DiagnosticPuzzles = () => {
   const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const boardRef = useRef(null);
+  const navigateRef = useRef(navigate);
   // Analytics (2026-08-05 residency, revised event list -- "where does
   // commitment break," not every answer). Refs, not state: firing must
   // never trigger a re-render.
   const firstAnswerFiredRef = useRef(false);
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   // ── Start the diagnostic on mount ──────────────────────────────
   useEffect(() => {
@@ -58,7 +63,7 @@ const DiagnosticPuzzles = () => {
         });
         if (res.status === 401) {
           // Not authenticated - redirect to login with redirect_to parameter
-          navigate(`/login?redirect_to=${encodeURIComponent('/diagnostic')}`);
+          navigateRef.current(`/login?redirect_to=${encodeURIComponent('/diagnostic')}`);
           return;
         }
         if (!res.ok) {
@@ -69,7 +74,7 @@ const DiagnosticPuzzles = () => {
         const data = await res.json();
         if (data.status === "superseded") {
           // User has 10+ analyzed games — diagnostic isn't needed.
-          navigate("/home");
+          navigateRef.current("/home");
           return;
         }
         if (data.status === "no_pool") {
@@ -105,7 +110,7 @@ const DiagnosticPuzzles = () => {
         setLoading(false);
       }
     })();
-  }, [navigate]);
+  }, []);
 
   // A tab backgrounded mid-puzzle is a different user story from a
   // session resumed days later -- "interrupted" vs. "came back." Only

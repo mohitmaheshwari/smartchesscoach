@@ -8,8 +8,8 @@
 
 ## Bounded change
 
-The first slice adds React Router's stable `navigate` identity to the existing
-load effects in:
+The first slice synchronizes React Router's current `navigate` callback through
+a ref while preserving the existing load effects in:
 
 - `pages/CoachReplay.jsx`; and
 - `pages/DiagnosticPuzzles.jsx`.
@@ -19,10 +19,12 @@ player copy changed.
 
 ## Behavioral characterization
 
-A new React 19 `createRoot` test renders and then rerenders each routed page
-with an unchanged navigation identity while its first request remains in
-flight. Each page makes exactly one request; an unrelated rerender does not
-duplicate the load/start call.
+A new React 19 `createRoot` test renders each routed page with a request in
+flight, changes the router callback identity, and rerenders. Each page still
+makes exactly one request. When the request resolves through a failure branch,
+the old callback is not called and the latest callback receives the exact
+redirect: non-OK replay returns to its game; diagnostic `401` returns to login
+with the diagnostic destination encoded.
 
 The test uses the repository's existing React/Jest harness and adds no test or
 runtime dependency.
