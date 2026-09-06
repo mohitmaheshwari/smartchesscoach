@@ -69,17 +69,12 @@ def test_warn_mode_does_not_masquerade_as_the_ci_contract(monkeypatch):
 
 
 @pytest.mark.parametrize("requested", ["", "0" * 40])
-def test_invalid_or_zero_base_falls_back_to_the_single_root(monkeypatch, requested):
-    head = "b" * 40
-    root = "a" * 40
+def test_invalid_or_zero_base_falls_back_to_the_empty_tree(monkeypatch, requested):
+    monkeypatch.setattr(changed_gate, "_commit_exists", lambda *_args: False)
 
-    def fake_git(_repo_root, *args):
-        assert args == ("rev-list", "--max-parents=0", head)
-        return f"{root}\n".encode("ascii")
-
-    monkeypatch.setattr(changed_gate, "_git", fake_git)
-
-    assert changed_gate.resolve_base(REPO_ROOT, requested, head) == root
+    assert changed_gate.resolve_base(REPO_ROOT, requested, "b" * 40) == (
+        changed_gate.EMPTY_TREE_SHA
+    )
 
 
 def test_existing_full_base_is_used_without_root_fallback(monkeypatch):
@@ -129,6 +124,47 @@ def test_changed_path_selection_uses_acmr_and_only_backend_python(monkeypatch):
     ]
 
 
+def test_empty_tree_base_scans_and_blocks_a_one_commit_lineage(tmp_path):
+    repo = tmp_path / "one-commit"
+    (repo / "backend/scripts").mkdir(parents=True)
+    (repo / "backend/new_caption_path.py").write_text(
+        'import chess\nmessage = "Qh5 was better"\n', encoding="utf-8"
+    )
+    (repo / "backend/scripts/check_caption_sources.py").write_text(
+        SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Caption Gate Test",
+            "-c",
+            "user.email=caption-gate@example.invalid",
+            "commit",
+            "-qm",
+            "one commit",
+        ],
+        check=True,
+    )
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    base = changed_gate.resolve_base(repo, "0" * 40, head)
+    paths = changed_gate.changed_backend_python_paths(repo, base, head)
+
+    assert base == changed_gate.EMPTY_TREE_SHA
+    assert "backend/new_caption_path.py" in paths
+    assert changed_gate.run_strict_guard(repo, paths) == 1
+
+
 def test_changed_gate_propagates_strict_guard_status(monkeypatch):
     monkeypatch.setattr(changed_gate, "require_head", lambda *_args: "b" * 40)
     monkeypatch.setattr(changed_gate, "resolve_base", lambda *_args: "a" * 40)
@@ -153,8 +189,13 @@ def test_ci_runs_contract_and_changed_gate_without_discarding_status():
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert "fetch-depth: 0" in source
-    assert "python -m pytest backend/tests/test_caption_source_guard_ci.py -q" in source
+    assert (
+        "python -m pytest --noconftest backend/tests/test_caption_source_guard_ci.py -q"
+        in source
+    )
     assert "python backend/scripts/check_changed_caption_sources.py" in source
     assert '--base "$BASE_SHA"' in source
     assert '--head "$GITHUB_SHA"' in source
-    assert "check_caption_sources.py || true" not in source
+    assert "set -euo pipefail" in source
+    assert "|| true" not in source
+    assert "continue-on-error" not in source

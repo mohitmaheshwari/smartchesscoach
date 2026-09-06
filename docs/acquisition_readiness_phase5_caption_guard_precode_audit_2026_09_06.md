@@ -63,10 +63,11 @@ Rejected. It does not close `AR-QA-003` and provides no release protection.
 1. CI checks out full history so its comparison base exists.
 2. Pull requests compare with the PR base SHA; pushes compare with the event's
    before SHA.
-3. An absent, all-zero or unavailable base falls back deterministically to the
-   repository root commit; an invalid or unavailable head fails closed. With
-   the known legacy inventory, that root comparison is intentionally red
-   rather than silently under-scanning a new lineage.
+3. An absent, all-zero or unavailable base compares Git's canonical empty tree
+   with the head snapshot so even a one-commit/orphan lineage is fully scanned;
+   an invalid or unavailable head fails closed. With the known legacy
+   inventory, that full-tree comparison is intentionally red rather than
+   silently under-scanning a new lineage.
 4. Only added/copied/modified/renamed `backend/**/*.py` paths are passed.
 5. No matching path is an explicit pass, not a fallback whole-tree scan.
 6. A violating changed file makes the step and job fail.
@@ -92,5 +93,7 @@ accepted shortcut.
 - a synthetic violating file produces exit 1 in strict mode;
 - a synthetic clean file produces exit 0;
 - the current whole-tree strict count remains reported as 176;
+- an all-zero base against a one-commit repository selects its root files and
+  blocks a governed violation;
 - `git diff --check` passes; and
 - independent review confirms the workflow cannot discard the guard result.

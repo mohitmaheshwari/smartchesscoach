@@ -14,8 +14,8 @@ from pathlib import Path, PurePosixPath
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-GUARD_PATH = REPO_ROOT / "backend/scripts/check_caption_sources.py"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
+EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 class GateConfigurationError(RuntimeError):
@@ -55,17 +55,10 @@ def resolve_base(repo_root: Path, requested_base: str, head: str) -> str:
     base = requested_base.strip()
     if _is_full_nonzero_sha(base) and _commit_exists(repo_root, base):
         return base
-
-    roots = [
-        line
-        for line in _git(repo_root, "rev-list", "--max-parents=0", head)
-        .decode("ascii")
-        .splitlines()
-        if line
-    ]
-    if len(roots) != 1 or not _is_full_nonzero_sha(roots[0]):
-        raise GateConfigurationError("could not resolve one deterministic root commit")
-    return roots[0]
+    # Comparing a root commit to itself is empty and would under-scan a new
+    # one-commit/orphan lineage. Git's canonical empty tree makes every file
+    # in the head snapshot appear as added.
+    return EMPTY_TREE_SHA
 
 
 def changed_backend_python_paths(repo_root: Path, base: str, head: str) -> list[str]:
@@ -100,7 +93,12 @@ def run_strict_guard(repo_root: Path, paths: list[str]) -> int:
         print("[caption-guard] No changed backend Python files.")
         return 0
     completed = subprocess.run(
-        [sys.executable, str(GUARD_PATH), "--strict", *paths],
+        [
+            sys.executable,
+            str(repo_root / "backend/scripts/check_caption_sources.py"),
+            "--strict",
+            *paths,
+        ],
         cwd=repo_root,
         check=False,
     )

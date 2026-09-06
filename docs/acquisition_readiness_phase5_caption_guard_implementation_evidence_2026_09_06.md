@@ -18,13 +18,15 @@ The workflow now:
 
 - checks out full Git history;
 - uses the pull-request base SHA or push `before` SHA;
-- falls back to the repository root commit for an invalid, unavailable or
-  all-zero base and fails closed for an invalid/unavailable head; the known
-  legacy inventory makes a root comparison intentionally red instead of
-  silently accepting an under-scanned new lineage;
+- compares Git's canonical empty tree with the full head snapshot for an
+  invalid, unavailable or all-zero base and fails closed for an
+  invalid/unavailable head; the known legacy inventory makes that full-tree
+  comparison intentionally red instead of accepting an under-scanned new
+  lineage;
 - selects added, copied, modified or renamed `backend/**/*.py` paths;
 - explicitly passes when that set is empty;
-- runs the boundary contract tests on every CI execution;
+- runs the boundary contract tests in isolated `--noconftest` mode on every CI
+  execution, so unrelated live-service fixtures cannot control collection;
 - invokes the existing guard with `--strict`; and
 - does not discard the command status with `|| true`.
 
@@ -48,7 +50,8 @@ Focused Phase 5 behavior and workflow tests plus the adjacent frontend
 dependency workflow contract:
 
 ```text
-19 passed in 0.46s
+Phase 5 isolated CI contract: 12 passed
+Adjacent dependency contract:  8 passed
 ```
 
 The Phase 5 cases prove:
@@ -57,9 +60,11 @@ The Phase 5 cases prove:
 - an explicit line exception is narrow;
 - strict mode returns 1 on a finding;
 - warning mode is not confused with the CI contract; and
-- invalid/all-zero base selection falls back deterministically;
+- invalid/all-zero base selection falls back to the empty tree;
 - an existing base is retained and an invalid head fails closed;
 - NUL-delimited path selection uses ACMR and selects only backend Python;
+- a real one-commit temporary repository is fully scanned from the empty tree
+  and its governed violation returns 1;
 - the strict guard status propagates through the changed-file gate; and
 - CI invokes these contract tests plus the changed-file gate without
   discarding status.

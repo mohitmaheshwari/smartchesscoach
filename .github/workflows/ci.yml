@@ -54,7 +54,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          python -m pytest backend/tests/test_caption_source_guard_ci.py -q
+          python -m pytest --noconftest backend/tests/test_caption_source_guard_ci.py -q
           python backend/scripts/check_changed_caption_sources.py \
             --base "$BASE_SHA" \
             --head "$GITHUB_SHA"
