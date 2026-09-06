@@ -24,6 +24,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { resetAnalyticsContext } from "@/lib/analytics";
+import { Capacitor } from "@capacitor/core";
 
 // ─── Row: title + description on the left, control on the right ──────────────
 // `last` omits the bottom hairline (used for the last row in a section).
@@ -139,15 +140,24 @@ const Settings = ({ user }) => {
 
   const handleLogout = async () => {
     setLoggingOut(true);
+    const nativeToken = Capacitor.isNativePlatform()
+      ? localStorage.getItem("session_token")
+      : null;
     try {
       await fetch(`${API}/auth/logout`, {
         method: "POST",
         credentials: "include",
+        headers: nativeToken ? { Authorization: `Bearer ${nativeToken}` } : {},
       });
+      localStorage.removeItem("session_token");
+      localStorage.removeItem("authToken");
       resetAnalyticsContext();
       toast.success("Signed out");
       navigate("/");
     } catch (error) {
+      localStorage.removeItem("session_token");
+      localStorage.removeItem("authToken");
+      resetAnalyticsContext();
       toast.error("Failed to sign out");
     } finally {
       setLoggingOut(false);

@@ -206,16 +206,17 @@ export default function Landing() {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
     window.sessionStorage.setItem("post_auth_redirect", "/welcome");
     const isNative = Capacitor.isNativePlatform();
-    const platformParam = isNative ? '&platform=mobile' : '';
+    const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}`;
     try {
-      const response = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}${platformParam}`);
+      if (isNative) {
+        await Browser.open({ url: `${startUrl}&platform=mobile&flow=redirect` });
+        return;
+      }
+
+      const response = await fetch(startUrl, { credentials: "include" });
       const data = await response.json();
       if (data.auth_url) {
-        if (isNative) {
-          await Browser.open({ url: data.auth_url });
-        } else {
-          window.location.href = data.auth_url;
-        }
+        window.location.href = data.auth_url;
         return;
       }
     } catch (_) { /* The normal login page remains the safe fallback. */ }

@@ -6,15 +6,14 @@ export default function NextRecommendation({ recommendation }) {
   const handleAccept = async () => {
     try {
       setAccepting(true)
-      const token = localStorage.getItem('authToken')
       await fetch(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/coaching/accept-prescription`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` })
+            'Content-Type': 'application/json'
           },
+          credentials: 'include',
           body: JSON.stringify({
             plan_id: recommendation.recommended_plan_id
           })

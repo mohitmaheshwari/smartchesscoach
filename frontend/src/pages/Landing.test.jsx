@@ -86,7 +86,10 @@ describe("outcome-led Landing", () => {
     });
 
     expect(window.sessionStorage.getItem("post_auth_redirect")).toBe("/welcome");
-    expect(global.fetch).toHaveBeenCalledWith("https://api.test/api/auth/google/login?redirect_to=%2Fwelcome");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.test/api/auth/google/login?redirect_to=%2Fwelcome",
+      { credentials: "include" }
+    );
     expect(mockNavigate).toHaveBeenCalledWith("/login?redirect_to=%2Fwelcome");
     expect(mockTrack).toHaveBeenCalledWith("funnel_landing_cta_clicked", { source: "hero" });
   });

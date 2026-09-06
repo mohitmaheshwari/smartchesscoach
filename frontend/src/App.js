@@ -119,7 +119,11 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
 
         // If user data passed from AuthCallback, use it directly
         if (!userData) {
-          const token = new URLSearchParams(location.search).get('token') || localStorage.getItem('session_token');
+          // Native apps keep their explicitly mobile bearer session. Browser
+          // sessions authenticate only through the HttpOnly cookie.
+          const token = Capacitor.isNativePlatform()
+            ? localStorage.getItem('session_token')
+            : null;
           const headers = {};
           if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -247,17 +251,32 @@ function AppRouter() {
     };
   }, [navigate]);
 
-  // Check for auth=success in URL (from Google OAuth callback)
+  // Complete browser OAuth without ever accepting credentials from the URL.
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+
+    // Remove credentials left by versions that predate cookie-only web auth.
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('authToken');
+
     const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    if (token) {
-      localStorage.setItem('session_token', token);
-    }
+    const hadCredentialQuery = params.has('token') || params.has('session_token');
+    params.delete('token');
+    params.delete('session_token');
+
     if (params.get('auth') === 'success') {
       navigate(consumeStoredRedirectPath(), { replace: true });
+      return;
     }
-  }, [location.search, navigate]);
+
+    if (hadCredentialQuery) {
+      const safeSearch = params.toString();
+      navigate(
+        `${location.pathname}${safeSearch ? `?${safeSearch}` : ''}${location.hash || ''}`,
+        { replace: true }
+      );
+    }
+  }, [location.pathname, location.search, location.hash, navigate]);
 
   // Legacy: Check URL fragment for session_id (OAuth callback)
   if (location.hash?.includes('session_id=')) {

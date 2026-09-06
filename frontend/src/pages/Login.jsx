@@ -59,22 +59,25 @@ export default function Login() {
       setError("");
       // Get the page user was trying to access (from URL or default to home)
       const redirectTo = new URLSearchParams(window.location.search).get('redirect_to') || window.location.pathname;
-      const safeRedirect = ['/', '/home', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
+      const safeRedirect = ['/', '/home', '/welcome', '/onboarding', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
       const isNative = Capacitor.isNativePlatform();
-      const platformParam = isNative ? '&platform=mobile' : '';
+      const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}`;
 
-      const res = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}${platformParam}`);
+      if (isNative) {
+        // Start at our backend in the system browser so the browser-bound
+        // OAuth nonce is present again when Google returns to the callback.
+        await Browser.open({ url: `${startUrl}&platform=mobile&flow=redirect` });
+        return;
+      }
+
+      const res = await fetch(startUrl, { credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.detail || "Google sign-in is currently unavailable.");
         return;
       }
       if (data.auth_url) {
-        if (isNative) {
-          await Browser.open({ url: data.auth_url });
-        } else {
-          window.location.href = data.auth_url;
-        }
+        window.location.href = data.auth_url;
       } else {
         setError("Invalid response from server. Please try again.");
       }

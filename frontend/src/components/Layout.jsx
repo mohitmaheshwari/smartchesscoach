@@ -32,6 +32,7 @@ import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
 import { resetAnalyticsContext } from "@/lib/analytics";
+import { Capacitor } from "@capacitor/core";
 import {
   CURRICULUM_ROUTES,
   loadPersonalCurriculum,
@@ -179,11 +180,25 @@ const Layout = ({ children, user }) => {
   const isReviewer = !!user?.is_reviewer;
 
   const handleLogout = async () => {
+    const nativeToken = Capacitor.isNativePlatform()
+      ? localStorage.getItem('session_token')
+      : null;
     try {
-      await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`${API}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: nativeToken ? { Authorization: `Bearer ${nativeToken}` } : {},
+      });
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('authToken');
       resetAnalyticsContext();
       navigate('/');
-    } catch (e) {}
+    } catch (e) {
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('authToken');
+      resetAnalyticsContext();
+      navigate('/');
+    }
   };
 
   const userName = user?.name || "User";

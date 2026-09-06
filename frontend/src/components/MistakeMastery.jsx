@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { formatCpLoss } from "@/utils/evalFormatter";
 
-const MistakeMastery = ({ token, onComplete }) => {
+const MistakeMastery = ({ onComplete }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -59,7 +59,7 @@ const MistakeMastery = ({ token, onComplete }) => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/training/session`, {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: "include"
       });
       if (!res.ok) throw new Error("Failed to fetch training session");
       const data = await res.json();
@@ -71,7 +71,7 @@ const MistakeMastery = ({ token, onComplete }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => { fetchSession(); }, [fetchSession]);
 
@@ -119,7 +119,8 @@ const MistakeMastery = ({ token, onComplete }) => {
     try {
       const res = await fetch(`${API}/training/attempt`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ card_id: currentCard.card_id, correct: isCorrect })
       });
       if (!res.ok) throw new Error("Failed to record attempt");
@@ -275,7 +276,7 @@ const MistakeMastery = ({ token, onComplete }) => {
     setLoadingWhy(true);
     try {
       const res = await fetch(`${API}/training/card/${currentCard.card_id}/why`, {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: "include"
       });
       if (res.ok) {
         const data = await res.json();
