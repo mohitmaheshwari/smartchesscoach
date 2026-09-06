@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -48,9 +50,24 @@ jobs:
           python tests/test_royal_fork_evidence.py
           python tests/test_player_country.py
       - name: Caption-source guard (no new parallel caption paths)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ -f backend/scripts/check_caption_sources.py ]; then
-            python backend/scripts/check_caption_sources.py || true
+          set -euo pipefail
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          changed_output="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA")"
+          changed_python=()
+          while IFS= read -r path; do
+            case "$path" in
+              backend/*.py) changed_python+=("$path") ;;
+            esac
+          done <<< "$changed_output"
+          if [ "${#changed_python[@]}" -eq 0 ]; then
+            echo "[caption-guard] No changed backend Python files."
+          else
+            python backend/scripts/check_caption_sources.py --strict "${changed_python[@]}"
           fi
       - name: Data-file integrity (curriculum + caption JSONs parse)
         run: |

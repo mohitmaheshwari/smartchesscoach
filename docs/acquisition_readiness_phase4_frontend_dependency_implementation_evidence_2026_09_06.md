@@ -4,7 +4,7 @@
 
 **Program:** `docs/acquisition_readiness_program_scope.md`
 
-**Status:** SOURCE COMPLETE — independent review and deployed build proof pending
+**Status:** SOURCE + INDEPENDENT REVIEW COMPLETE — deployed build proof pending
 
 ## Outcome
 
@@ -13,7 +13,7 @@ The frontend now has one reproducible dependency authority:
 - `package.json` continues to declare Yarn 1.22.22;
 - the first `yarn.lock` is versioned;
 - the contradictory npm lock is removed;
-- every production Docker build uses `yarn install --frozen-lockfile`;
+- every tracked frontend Docker install path uses `yarn install --frozen-lockfile`;
 - GitHub CI caches that same lock and installs/tests/builds with Yarn;
 - the tracked legacy PowerShell publish path installs from that same frozen
   lock and rebuilds before any upload;
@@ -120,13 +120,11 @@ Globally disabling the rule is not an accepted fix.
 
 ## Remaining proof
 
-1. Independent review must confirm the deleted wrapper was unreachable and
-   the Docker paths all consume the frozen lock.
-2. Claude's deployment lane must prove the image builds from the committed
+1. Claude's deployment lane must prove the image builds from the committed
    lock and that the deployed bundle is produced by the expected commit.
-3. The supply-chain phase must inventory and disposition the frozen graph;
+2. The supply-chain phase must inventory and disposition the frozen graph;
    a successful install is not a vulnerability or license clearance.
-4. `AR-QA-006` remains open and must be remediated in bounded behavioral
+3. `AR-QA-006` remains open and must be remediated in bounded behavioral
    groups.
 
 ## Change control
