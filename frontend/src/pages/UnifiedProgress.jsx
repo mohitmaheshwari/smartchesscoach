@@ -327,6 +327,12 @@ const UnifiedProgress = ({ user }) => {
           name: humanize(activeWeakness.category),
           desc: activeWeakness.description || "",
           category: activeWeakness.category,
+          // Provenance. Everything else on this card was INFERRED by a
+          // detector; these fields are present only when the player told us
+          // the cause themselves, before any reveal. Undefined when they
+          // haven't, so the card renders exactly as it did before.
+          acceptedByPlayer: activeWeakness.accepted_by_player === true,
+          acceptedGames: activeWeakness.accepted_games || 0,
           pattern:
             PATTERN_MAP[activeWeakness.category] ||
             activeWeakness.category ||
@@ -676,6 +682,19 @@ const UnifiedProgress = ({ user }) => {
                   {derived.active.desc && (
                     <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[440px]">
                       {derived.active.desc}
+                    </p>
+                  )}
+                  {/* Provenance: separates what the player TOLD us from what a
+                      detector inferred. Renders only when they actually
+                      answered, so nothing changes for anyone who hasn't. */}
+                  {derived.active.acceptedByPlayer && (
+                    <p className="mt-3 text-[12.5px] text-foreground/70 leading-relaxed max-w-[440px]">
+                      <span className="font-medium text-foreground/85">
+                        You told us this
+                      </span>
+                      {derived.active.acceptedGames > 1
+                        ? ` — in ${derived.active.acceptedGames} games you said this was what happened.`
+                        : " — you said this was what happened."}
                     </p>
                   )}
                   <div className="hidden mt-6 items-center gap-3 flex-wrap" aria-hidden="true">
