@@ -136,3 +136,77 @@ Baseline and post-fix numbers are recorded in this document before merge.
   show, not a defect to fix silently.
 - Reconciling local `working-code` (131 behind / 11 ahead of origin). Flagged
   separately; this work branches from `origin/working-code`.
+
+---
+
+## Addendum, 2026-09-06 — what is actually IN the unexplained bucket
+
+Measured on the 455 mistakes from this user's corpus that reach
+`R16_board_state_fallback` / `HELD_FLOOR` with no played-move why. Recorded
+because the intuitive answers (write positional detectors / fix tactical
+routing) both turn out to be much smaller than they feel.
+
+### Composition of the 455
+
+| what is really going on | share |
+|---|---|
+| No material change **and** no meaningful geometry change | **65.5%** |
+| Material heuristic fires but the engine prefers a quiet reply (nothing hangs) | 12.3% |
+| No `pv_after_played` stored at all | 14.5% |
+| **Confirmed tactical** — engine's actual reply IS a capture | **7.7%** |
+
+Method: for every move, replay `fen_before` + played SAN, compute the best
+static-exchange capture available to the opponent, then cross-check against the
+engine's real first reply from the stored PV. A crude "opponent can win
+material" screen said 26.8%; cross-checking against the engine's actual reply
+cut that to 7.7%. **Do not quote the screen without the cross-check** — it
+over-fires by more than 3x.
+
+### Positional shapes present (differential, before vs after the played move)
+
+| shape | count | share of 455 |
+|---|---|---|
+| piece went passive (mobility drop >= 4) | 27 | 5.9% |
+| pawn move blocks own bishop (pawns on its colour >= 4 and rising) | 21 | 4.6% |
+| gave up king shelter | 15 | 3.3% |
+| rook left / lost its open file | 12 | 2.6% |
+| self-blocking (own total mobility drop >= 6) | 10 | 2.2% |
+| created doubled pawn | 7 | 1.5% |
+| created isolated pawn | 5 | 1.1% |
+| trapped the moved piece (>=4 squares down to <=1) | 4 | 0.9% |
+
+**Union coverage: 7.5%.** Every measure above is board arithmetic computed
+before and after the move, so a caption built on one is verifiable per-FEN and
+will survive the claim gate. The mechanism is sound; the addressable volume is
+small.
+
+### Why these moves fall through today
+
+`R12_blunder`'s trigger is permissive (`cp_loss >= 30`), so the rule IS
+reached. The suppression is deliberate, per its own `_trigger_note`: a USER
+move with `cp_loss < 250` and no why-clause is silenced. 388 of the 455 sit at
+cp 100-199, so they are suppressed by design and land on the board-state
+fallback. **The suppression is not the bug.** The bug is that we still label
+these moves "mistake" to the player while having nothing concrete to say.
+
+### Consequence for the roadmap
+
+1. **Genuine defects worth fixing** — the 7.7% confirmed-tactical (a nameable
+   cause we fail to state) and the 14.5% with no stored PV.
+2. **Positional failure modes** — worth building, but scoped honestly at ~7.5%
+   of this bucket, not as the answer to the 65% headline.
+3. **The ~300 no-consequence moves are a product question, not an engineering
+   one**: at cp 100-199 with no material and no geometry change, for a
+   ~1000-1300 player, these are marginal engine preferences. Raising the
+   user-move flagging bar would make the remaining flags mean more. Deliberately
+   left undecided here — Mohit's call.
+
+### Caveat on the headline metric
+
+The PLAYED_WHY / ALT_WHY_ONLY / NO_WHY split comes from a structural text
+classifier (`backend/scripts/caption_why_class.py`), hand-validated on 7
+constructed cases and then on a 30-row stratified sample of real captions.
+On that sample PLAYED_WHY precision was 10/10; two NO_WHY rows were really
+ALT_WHY_ONLY (both stay inside the "does not explain the played move" bucket)
+and one row should not have been in the denominator (played move == engine
+best, yet flagged `serious`). Treat the headline as +/- 2pp, not exact.
