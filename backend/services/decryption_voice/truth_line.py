@@ -61,6 +61,10 @@ _REASON_TO_SCENARIO = {
     "opening_disaster": SCENARIO_BLUNDERED,
     "positional": SCENARIO_SQUEEZED,
     "endgame_collapse": SCENARIO_SQUEEZED,
+    # Damage clustered late, cause unknown — no clock evidence, so it must not
+    # reach the time copy. Keeps the copy these games rendered before the
+    # time_collapse split.
+    "late_collapse": SCENARIO_BLUNDERED,
     # "time_collapse" is resolved in classify_scenario() against the game's
     # trajectory — a flag that falls in a winning position is a different
     # story from one that falls in a position already going wrong, and

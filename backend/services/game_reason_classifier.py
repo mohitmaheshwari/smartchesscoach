@@ -67,8 +67,17 @@ LOSS_CATEGORIES = {
         # collapse, and this category also covers games won on the board and
         # lost on the clock — where nothing fell apart. Say what is true of
         # every game in the bucket. 2026-09-06.
+        # Now means ONLY termination == "timeout" — a clock that actually ran
+        # out. The "mistakes clustered late" inference is late_collapse.
         "label": "Ran out of time",
         "description": "The clock ended these games. Look at where your time went, not just your moves.",
+    },
+    "late_collapse": {
+        # Split out of time_collapse on 2026-09-06. Same signal (the damage
+        # came in the closing stretch), but no claim about WHY — we have no
+        # clock evidence on these games, only the position of the mistakes.
+        "label": "Fell apart late",
+        "description": "Most of the damage came in the closing stretch of these games.",
     },
     "threw_winning": {
         "label": "Threw a winning position",
@@ -254,9 +263,17 @@ def _classify_game_reason_inner(
             critical = max(calc_gaps, key=lambda m: m.get("cp_loss", 0) or 0)
             return _build("calculation_error", "loss", critical.get("move_number"))
 
-        # Late collapse (time pressure signal)
+        # Most of the damage came late. This used to return "time_collapse",
+        # conflating an INFERENCE ("mistakes clustered late, maybe the clock")
+        # with the clock-evidenced case above (termination == "timeout").
+        # Harmless while both rendered blunder copy; the moment time_collapse
+        # got real time copy it would have told players on checkmate,
+        # resignation and abandonment games that they ran out of time. Caught
+        # by the narrative claim gate on 2026-09-06 — 6 abandonment/checkmate
+        # games were asserting a clock that never ran. Keep the signal, drop
+        # the unfounded cause.
         if len(late_mistakes) >= 3 and len(late_mistakes) >= len(mistakes) * 0.6:
-            return _build("time_collapse", "loss")
+            return _build("late_collapse", "loss")
 
         # Positional — many small mistakes, no huge blunders
         if len(blunders) == 0 and len(mistakes) >= 3:

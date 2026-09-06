@@ -96,6 +96,11 @@ STORY_CLAIM_SAFE: List[str] = [
     "One move carried most of the damage: move {move_n}.",
 ]
 
+# Claim-free replacements for the behavioural lines. These assert nothing about
+# how the game went, so they are true of any game and can never trip the gate.
+PATTERN_CLAIM_SAFE = "You commit to a plan before checking what they can do back."
+CARRY_CLAIM_SAFE = "Before every move, ask what they are threatening."
+
 
 # ── Pattern (line 2 — the gold) ──────────────────────────────────────
 # Identity-level. Player's inner voice about himself. NOT coach prose.
@@ -279,17 +284,23 @@ def build_player_decryption(
                 "[player_decryption] claim gate tripped on %s for game=%s "
                 "scenario=%s: %s", line_name, game_id, scenario,
                 "; ".join(violations))
+            # Degrade the offending line, never the whole block. Returning
+            # None here deleted the narrative for 6 of 357 games in the first
+            # run — silence is a worse outcome than a plainer true line
+            # (feedback_coverage_is_first_class).
             if line_name == "story":
                 story = _format_story(
                     pick_variant(STORY_CLAIM_SAFE, game_id + "::safestory"),
                     critical)
                 if validate_narrative_claims(story, trajectory):
-                    return None
+                    story = "Move %s cost you the most this game." % (
+                        critical.get("move_number") or "?")
+            elif line_name == "pattern":
+                # A factual claim in a behavioural pool is a content bug in
+                # that entry; swap in a claim-free line and log it above.
+                pattern = PATTERN_CLAIM_SAFE
             else:
-                # Pattern / carry-forward are behavioural, not factual; a
-                # violation here means a pool entry needs rewriting, so drop
-                # the game's narrative rather than ship a false line.
-                return None
+                carry_forward = CARRY_CLAIM_SAFE
 
     return {
         "story": story,
