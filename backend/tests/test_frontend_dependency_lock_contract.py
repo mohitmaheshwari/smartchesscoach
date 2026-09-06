@@ -13,6 +13,7 @@ DOCKERFILES = (
     REPO_ROOT / "Dockerfile.frontend.build",
 )
 CI_WORKFLOW = REPO_ROOT / ".github/workflows/ci.yml"
+LEGACY_PUBLISH = FRONTEND / "publish.ps1"
 
 
 def test_yarn_is_the_only_frontend_resolution_authority():
@@ -61,3 +62,13 @@ def test_frontend_ci_consumes_the_same_frozen_yarn_lock():
     assert "yarn install --frozen-lockfile" in source
     assert "package-lock" not in source
     assert "npm ci" not in source
+
+
+def test_tracked_publish_script_cannot_resolve_or_publish_an_npm_graph():
+    source = LEGACY_PUBLISH.read_text(encoding="utf-8")
+
+    assert "yarn install --frozen-lockfile --ignore-engines --non-interactive" in source
+    assert "yarn build" in source
+    assert "npm install" not in source
+    assert "npm run build" not in source
+    assert "Skipping npm install" not in source

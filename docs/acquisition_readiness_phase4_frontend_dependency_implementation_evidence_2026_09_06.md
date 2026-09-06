@@ -15,6 +15,8 @@ The frontend now has one reproducible dependency authority:
 - the contradictory npm lock is removed;
 - every production Docker build uses `yarn install --frozen-lockfile`;
 - GitHub CI caches that same lock and installs/tests/builds with Yarn;
+- the tracked legacy PowerShell publish path installs from that same frozen
+  lock and rebuilds before any upload;
 - the unused React-18-only `react-day-picker@8.10.1` dependency is removed;
   and
 - its unreachable `src/components/ui/calendar.jsx` wrapper is removed.
@@ -107,8 +109,10 @@ Globally disabling the rule is not an accepted fix.
 - no `react-day-picker` reference remains in the frontend manifest, lock or
   source;
 - production Dockerfiles no longer refer to `package-lock.json`;
+- the tracked `frontend/publish.ps1` path cannot resolve an npm graph or upload
+  a build without first running the frozen Yarn install and a fresh build;
 - the removed calendar wrapper had no source import; and
-- seven repository contract cases lock the single Yarn authority, exact direct
+- eight repository contract cases lock the single Yarn authority, exact direct
   version pins, removed
   dependency, all three frozen Docker install paths and the CI install path;
   and
