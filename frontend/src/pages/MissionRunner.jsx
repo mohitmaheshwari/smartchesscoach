@@ -148,11 +148,17 @@ const MissionRunner = ({ user }) => {
           const res = await fetch(`${API}/missions/today`, {
             credentials: "include",
           });
-          if (res.ok) {
-            missionData = await res.json();
-            if (superseded) return;
-            setMission(missionData);
+          if (!res.ok) {
+            throw new Error(`Mission request failed: ${res.status}`);
           }
+          missionData = await res.json();
+          if (superseded) return;
+          if (missionData?.mission_id !== missionId) {
+            setMission(null);
+            setError("This mission is no longer active. Return to Today for your current mission.");
+            return;
+          }
+          setMission(missionData);
         }
 
         if (superseded) return;

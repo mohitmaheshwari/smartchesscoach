@@ -136,4 +136,26 @@ describe("MissionRunner route-owned loading", () => {
       "https://api.test/missions/mission-1/positions"
     );
   });
+
+  test("fails closed when today's mission does not match the route", async () => {
+    mockMissionId = "mission-2";
+    mockLocationState = null;
+    global.fetch = jest.fn(() => Promise.resolve(response({
+      mission_id: "mission-3",
+      focus_label: "Different mission",
+    })));
+
+    await act(async () => root.render(<MissionRunner user={{ user_id: "student-1" }} />));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.test/missions/today",
+      { credentials: "include" }
+    );
+    expect(global.fetch.mock.calls.map(([url]) => url)).not.toContain(
+      "https://api.test/missions/mission-3/positions"
+    );
+    expect(container.textContent).toContain("This mission is no longer active");
+  });
 });

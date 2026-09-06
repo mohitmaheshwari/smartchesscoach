@@ -10,8 +10,10 @@
 
 `MissionRunner` now treats the URL mission ID and matching router state as the
 load authority. A mission payload is reused only when its `mission_id` matches
-the route. A route change with stale or absent navigation state loads the
-current mission rather than carrying the prior mission forward.
+the route. A route change with stale or absent navigation state requests the
+current mission rather than carrying the prior mission forward. If that
+response names a different mission, the page fails closed without loading its
+positions or permitting a split between displayed and submitted missions.
 
 The load is effect-owned, keyed to `missionId`, route mission, and route
 session. Its cleanup marks an in-flight request superseded, so a late response
@@ -22,7 +24,7 @@ cleared in the same guarded `finally` path as page loading.
 
 ```text
 Test Suites: 1 passed
-Tests:       3 passed
+Tests:       4 passed
 ```
 
 The tests prove:
@@ -32,7 +34,9 @@ The tests prove:
 - stale mission state is rejected after a route change and the returned
   mission's positions are loaded; and
 - resolving an old `/missions/today` request after a new route renders cannot
-  request positions for the superseded mission.
+  request positions for the superseded mission; and
+- a `/missions/today` response with a third mission ID produces a closed error
+  state and never requests that third mission's positions.
 
 ## Debt measurement
 
