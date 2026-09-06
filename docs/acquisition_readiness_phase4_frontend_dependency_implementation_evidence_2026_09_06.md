@@ -14,6 +14,7 @@ The frontend now has one reproducible dependency authority:
 - the first `yarn.lock` is versioned;
 - the contradictory npm lock is removed;
 - every production Docker build uses `yarn install --frozen-lockfile`;
+- GitHub CI caches that same lock and installs/tests/builds with Yarn;
 - the unused React-18-only `react-day-picker@8.10.1` dependency is removed;
   and
 - its unreachable `src/components/ui/calendar.jsx` wrapper is removed.
@@ -40,21 +41,29 @@ An unconstrained first Yarn resolution selected newer Radix minor versions.
 `@radix-ui/primitive/is-development` subpath, which the repository's Jest 27
 resolver could not load. One suite failed before running its tests.
 
-The 27 directly declared Radix packages are therefore pinned to the exact
-versions in the previously passing committed npm graph. This is not a Radix
-upgrade: it prevents the new Yarn authority from changing the already-tested
-UI dependency set while it is being introduced.
+Every directly declared dependency is pinned to the exact version in the
+previously passing committed npm graph, except the intentionally removed
+`react-day-picker`. This includes the 27 Radix packages. The independent
+review caught that the first draft preserved Radix but still allowed 15 other
+direct packages—including React, the router, Recharts and Framer Motion—to
+resolve newer. That draft was rejected before handoff.
+
+These exact pins are not package upgrades. They prevent the new Yarn authority
+from changing the already-tested direct dependency set while it is introduced.
 
 ## Verification
 
 ### Frozen install from empty state
 
 A temporary directory inside the isolated worktree received only
-`package.json` and `yarn.lock`.
+`package.json` and `yarn.lock`. The generated `node_modules` in the source
+tree was also removed after an absolute-path containment check, then rebuilt
+with the exact Docker install command so the functional tests did not reuse
+the former npm-installed tree.
 
 ```text
-yarn install --frozen-lockfile --ignore-engines --ignore-scripts --non-interactive
-Done in 186.67s.
+yarn install --frozen-lockfile --ignore-engines --non-interactive
+Done in 190.13s.
 exit 0
 ```
 
@@ -64,6 +73,9 @@ worktree before recursive cleanup.
 ### Complete frontend test suite
 
 ```text
+yarn check --integrity
+success Folder in sync.
+
 Test Suites: 30 passed, 30 total
 Tests:       162 passed, 162 total
 exit 0
@@ -75,7 +87,7 @@ The same command used by production, without `CI=true`, completed:
 
 ```text
 Compiled with warnings.
-main JavaScript: 545.31 kB gzip
+main JavaScript: 543.11 kB gzip
 main CSS:         45.48 kB gzip
 exit 0
 ```
@@ -96,8 +108,10 @@ Globally disabling the rule is not an accepted fix.
   source;
 - production Dockerfiles no longer refer to `package-lock.json`;
 - the removed calendar wrapper had no source import; and
-- five repository contract cases lock the single Yarn authority, removed
-  dependency and all three frozen Docker install paths; and
+- seven repository contract cases lock the single Yarn authority, exact direct
+  version pins, removed
+  dependency, all three frozen Docker install paths and the CI install path;
+  and
 - `git diff --check` is required immediately before the local commit.
 
 ## Remaining proof
