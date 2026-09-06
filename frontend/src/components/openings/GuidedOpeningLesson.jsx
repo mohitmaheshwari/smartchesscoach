@@ -247,13 +247,13 @@ const GuidedOpeningLesson = ({
   const introMessage = COACH_INTROS[userColor][Math.floor(Math.random() * 3)];
   
   return (
-    <div className="guided-opening-lesson grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
+    <div className="guided-opening-lesson grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
       <div className="min-w-0 space-y-3">
         {/* Board */}
-        <Card className="experience-board-stage overflow-hidden border-border/70 bg-card p-2 shadow-[0_24px_64px_hsl(var(--experience-shadow)/0.18)] sm:p-3">
+        <Card className="experience-board-stage max-w-full overflow-hidden border-border/70 bg-card p-1.5 shadow-[0_24px_64px_hsl(var(--experience-shadow)/0.18)] sm:p-3">
           <CardContent className="p-0">
-            <div className="relative overflow-hidden rounded-lg">
-              <div className="aspect-square w-full">
+            <div className="relative overflow-hidden rounded-md sm:rounded-lg">
+              <div className="aspect-square w-full max-w-full">
                 <LichessBoard
                   ref={boardRef}
                   fen={currentFen}
@@ -271,7 +271,7 @@ const GuidedOpeningLesson = ({
                   animate={{ opacity: 1, scale: 1 }}
                   className="absolute left-2 top-2"
                 >
-                  <Badge className="bg-black/70 px-3 py-1 text-white backdrop-blur">
+                  <Badge className="bg-black/70 px-2 py-1 text-[11px] text-white backdrop-blur sm:px-3 sm:text-xs">
                     {coachMessage.moveNumber}.
                     {coachMessage.isWhite ? "" : "..."}
                     <span className="ml-1 font-mono font-bold">{coachMessage.move}</span>
@@ -303,10 +303,10 @@ const GuidedOpeningLesson = ({
       <div className="min-w-0 space-y-4 lg:sticky lg:top-6">
       {/* Coach Message Panel */}
       <Card className="experience-surface overflow-hidden border-border/70 bg-card shadow-[0_18px_48px_hsl(var(--experience-shadow)/0.08)]">
-        <div className="border-b border-border/60 bg-muted/40 px-5 py-3">
+        <div className="border-b border-border/60 bg-muted/40 px-4 py-3 sm:px-5">
           <p className="experience-eyebrow text-[10px] font-bold uppercase">Your coach</p>
         </div>
-        <CardContent className="p-5 sm:p-6">
+        <CardContent className="p-4 sm:p-6">
           <AnimatePresence mode="wait">
             {showIntro ? (
               <motion.div
@@ -320,14 +320,14 @@ const GuidedOpeningLesson = ({
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
                     <MessageCircle className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="mb-1 text-sm font-semibold text-foreground">Ready when you are</p>
-                    <p className="experience-coach-copy text-lg leading-relaxed text-foreground">{introMessage}</p>
+                    <p className="experience-coach-copy text-base leading-relaxed text-foreground sm:text-lg">{introMessage}</p>
                   </div>
                 </div>
                 
                 {keyIdeas.length > 0 && (
-                  <div className="mt-4 pl-13">
+                  <div className="mt-4 sm:pl-13">
                     <p className="mb-2 text-xs font-medium text-muted-foreground">Key ideas to watch for</p>
                     <div className="flex flex-wrap gap-2">
                       {keyIdeas.slice(0, 3).map((idea, i) => (
@@ -346,7 +346,7 @@ const GuidedOpeningLesson = ({
                 
                 <Button 
                   onClick={startLesson} 
-                  className="experience-primary mt-4 w-full"
+                  className="experience-primary mt-4 h-11 w-full"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   Start Lesson
@@ -390,7 +390,7 @@ const GuidedOpeningLesson = ({
                           <span className="text-sm">Thinking deeper...</span>
                         </div>
                       ) : deeperExplanation && (
-                        <div className="mt-2 rounded-xl border border-accent/20 bg-accent/10 p-4">
+                        <div className="mt-2 rounded-xl border border-accent/20 bg-accent/10 p-3 sm:p-4">
                           <div className="flex items-start gap-2">
                             <Brain className="mt-0.5 h-4 w-4 text-accent-foreground" />
                             <div>
@@ -446,11 +446,11 @@ const GuidedOpeningLesson = ({
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Button 
                     onClick={reset}
                     variant="outline"
-                    className="flex-1 border-border"
+                    className="w-full border-border"
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Watch Again
@@ -458,7 +458,7 @@ const GuidedOpeningLesson = ({
                   {onStartPractice && (
                     <Button 
                       onClick={onStartPractice}
-                      className="experience-primary flex-1"
+                      className="experience-primary w-full"
                     >
                       <Play className="w-4 h-4 mr-2" />
                       Practice Now
@@ -473,55 +473,58 @@ const GuidedOpeningLesson = ({
       
       {/* Controls */}
       {!showIntro && (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={reset}
-            className="border-border"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => goToMove(currentMoveIndex - 1)}
-            disabled={currentMoveIndex <= 0}
-            className="border-border"
-          >
-            <SkipBack className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            onClick={togglePlay}
-            className={`flex-1 ${isPlaying ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "experience-primary"}`}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 mr-2" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                {isComplete ? "Replay" : "Continue"}
-              </>
-            )}
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => goToMove(currentMoveIndex + 1)}
-            disabled={currentMoveIndex >= mainLine.length - 1}
-            className="border-border"
-          >
-            <SkipForward className="w-4 h-4" />
-          </Button>
-          
+        <div className="space-y-3">
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={reset}
+              className="border-border"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToMove(currentMoveIndex - 1)}
+              disabled={currentMoveIndex <= 0}
+              className="border-border"
+            >
+              <SkipBack className="h-4 w-4" />
+            </Button>
+
+            <Button
+              onClick={togglePlay}
+              className={`min-w-0 px-2 sm:px-4 ${isPlaying ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "experience-primary"}`}
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="mr-1.5 h-4 w-4 sm:mr-2" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="mr-1.5 h-4 w-4 sm:mr-2" />
+                  {isComplete ? "Replay" : "Continue"}
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToMove(currentMoveIndex + 1)}
+              disabled={currentMoveIndex >= mainLine.length - 1}
+              className="border-border"
+            >
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </div>
+
           {/* Speed control */}
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center justify-end gap-2 rounded-lg border border-border/60 bg-muted/35 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Playback speed</span>
             <Volume2 className="h-4 w-4 text-muted-foreground" />
             <Slider
               value={[playSpeed]}
@@ -529,7 +532,7 @@ const GuidedOpeningLesson = ({
               min={1000}
               max={5000}
               step={500}
-              className="w-20"
+              className="w-24 sm:w-28"
             />
           </div>
         </div>

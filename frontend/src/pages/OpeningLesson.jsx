@@ -23,6 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
@@ -30,13 +31,14 @@ import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 
+import InteractivePractice from "@/components/openings/InteractivePractice";
+import TrapPractice from "@/components/openings/TrapPractice";
 import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
-import Layout from "@/components/Layout";
 
-const OpeningLesson = ({ user }) => {
+const OpeningLesson = () => {
   const { openingKey } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,8 +66,6 @@ const OpeningLesson = ({ user }) => {
   const [trapPracticeMode, setTrapPracticeMode] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState(null);
 
-  // Exact lessons should always open at their title instead of inheriting a
-  // stale scroll position from the repertoire or a previously viewed lesson.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [openingKey]);
@@ -402,20 +402,12 @@ const OpeningLesson = ({ user }) => {
     }
   };
   
+  // Trap practice - use TrapPractice component
   const startTrapPractice = useCallback((trap) => {
-    const contentId = trap?.content_id;
-    if (!contentId) {
-      toast.error("This trap needs a verified lesson before practice.");
-      return;
-    }
-    const params = new URLSearchParams({
-      personalized: "1",
-      kind: "trap",
-      lesson: contentId,
-      mode: "avoidance",
-    });
-    navigate(`/training?${params.toString()}`);
-  }, [navigate]);
+    setSelectedTrap(trap);
+    setTrapPracticeMode(true);
+    setActiveTab("traps");
+  }, []);
   
   const closeTrapPractice = useCallback(() => {
     setSelectedTrap(null);
@@ -432,45 +424,46 @@ const OpeningLesson = ({ user }) => {
   
   if (loading) {
     return (
-      <Layout user={user}><div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div></Layout>
+      </div>
     );
   }
   
   if (!lesson) return null;
   
-  const { opening, user_mistakes } = lesson;
+  const { opening, user_stats, user_mistakes, learning_progress } = lesson;
   
   return (
-    <Layout user={user}>
-    <div className="experience-page experience-lesson-page cg-page cg-page--wide">
+    <div className="experience-page experience-lesson-page opening-lesson-shell min-h-screen bg-background">
       {/* Header */}
-      <div className="cg-hero">
-        <div>
+      <div className="opening-lesson-header border-b border-border/70 bg-card/80 backdrop-blur-xl">
+        <div className="mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => navigate("/openings")}
-            className="-ml-3 mb-3 h-8 text-muted-foreground hover:text-foreground"
+            className="-ml-3 mb-2 h-8 text-muted-foreground hover:text-foreground sm:mb-3"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back to Repertoire
           </Button>
           
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/20">
-              <BookOpen className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <p className="cg-eyebrow mb-2">Opening lesson</p>
-              <h1 className="font-heading text-[clamp(2rem,5vw,3.6rem)] font-semibold leading-[1.04] tracking-[-0.04em]">{opening.name}</h1>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Learn what you are trying to achieve, what can go wrong, and how to find the next move without memorising.
-              </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 sm:h-11 sm:w-11">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="experience-eyebrow mb-1 text-[10px] font-bold uppercase">Opening lesson</p>
+                <h1 className="truncate font-heading text-xl font-bold tracking-tight sm:text-3xl">{opening.name}</h1>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  {opening.eco} • {opening.color === "white" ? "White Opening" : "Black Defense"}
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 sm:ml-auto sm:justify-end">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3">
               <OpeningCorrectionDialog
                 sourceContext="openings_page"
                 openingKey={openingKey}
@@ -482,23 +475,26 @@ const OpeningLesson = ({ user }) => {
                 triggerLabel="Correct opening data"
                 compact={true}
               />
+              {user_stats && (
+                <div className="flex min-w-0 items-center gap-2 rounded-full border border-border/70 bg-background/65 px-2.5 py-1.5 sm:gap-3 sm:px-3">
+                  <Badge variant={user_stats.win_rate >= 50 ? "default" : "destructive"}>
+                    {user_stats.win_rate?.toFixed(0)}% win rate
+                  </Badge>
+                  <span className="whitespace-nowrap text-xs text-muted-foreground">
+                    {user_stats.games_played} games
+                  </span>
+                </div>
+              )}
             </div>
-            
           </div>
         </div>
       </div>
       
       {/* Main Content */}
-      <div className="mt-7">
-        {opening.lesson_relation === "family_foundation" && (
-          <div className="mb-4 rounded-lg border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-            You reached <span className="font-medium">{opening.recognized_opening_name}</span> in your game.
-            This lesson teaches the verified <span className="font-medium">{opening.name}</span> foundation it belongs to.
-          </div>
-        )}
+      <div className="opening-lesson-main mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
         {/* Variation Selector */}
         {opening.variations?.length > 1 && (
-          <div className="experience-surface mb-5 rounded-xl border border-border/70 bg-card/70 p-4" data-testid="variation-selector">
+          <div className="experience-surface mb-4 rounded-xl border border-border/70 bg-card/70 p-3 sm:mb-5 sm:p-4" data-testid="variation-selector">
             <p className="experience-eyebrow mb-2 text-[10px] font-bold uppercase">Variation</p>
             <div className="flex flex-wrap gap-2">
               {opening.variations.map((v) => (
@@ -522,16 +518,24 @@ const OpeningLesson = ({ user }) => {
 
         {/* Tab Navigation - Full Width */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="opening-lesson-tabs mb-6 grid h-auto w-full grid-cols-4 rounded-xl border border-border/70 bg-card/70 p-1 sm:flex sm:w-fit">
-            <TabsTrigger value="learn">Learn</TabsTrigger>
-            <TabsTrigger value="practice">
-              <MessageCircle className="w-3 h-3 mr-1" />
+          <TabsList className="opening-lesson-tabs mb-5 grid h-auto w-full grid-cols-4 rounded-xl border border-border/70 bg-card/70 p-1 sm:mb-6 sm:flex sm:w-fit">
+            <TabsTrigger value="learn" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">Learn</TabsTrigger>
+            <TabsTrigger value="practice" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">
+              <MessageCircle className="mr-1 hidden h-3 w-3 sm:block" />
               Practice
             </TabsTrigger>
-            <TabsTrigger value="traps">
+            <TabsTrigger value="traps" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">
               Traps
+              {opening.traps?.length > 0 && (
+                <Badge variant="secondary" className="ml-1 hidden h-5 sm:inline-flex">
+                  {opening.traps.length}
+                </Badge>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="mistakes">Your Mistakes</TabsTrigger>
+            <TabsTrigger value="mistakes" className="px-1 text-[11px] sm:px-3 sm:text-sm">
+              <span className="sm:hidden">Mistakes</span>
+              <span className="hidden sm:inline">Your Mistakes</span>
+            </TabsTrigger>
           </TabsList>
           
           {/* Learn Tab - Full width guided experience */}
@@ -557,7 +561,7 @@ const OpeningLesson = ({ user }) => {
               />
               
               {/* Key Ideas - Collapsed reference */}
-              <Card className="experience-surface mt-5 border-border/70 bg-card/75 shadow-none">
+              <Card className="experience-surface mt-4 border-border/70 bg-card/75 shadow-none sm:mt-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-sm text-foreground">
                     <Brain className="h-4 w-4 text-primary" />
@@ -579,7 +583,7 @@ const OpeningLesson = ({ user }) => {
           </TabsContent>
           
           {/* Other Tabs - 2 column layout with board */}
-          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.82fr)]"}>
+          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.82fr)]"}>
             {/* Board */}
             <div>
               <Card>
@@ -690,37 +694,29 @@ const OpeningLesson = ({ user }) => {
             <div>
               
               <TabsContent value="practice" className="space-y-4">
-                <Card>
-                  <CardContent className="p-6">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Your coach will ask for the move and the reason behind it,
-                      remember when you use help, and check the line again without help.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        const params = new URLSearchParams({
-                          personalized: "1",
-                          kind: "opening",
-                          lesson: opening.content_id || openingKey,
-                        });
-                        if (selectedVariation) params.set("variation", selectedVariation);
-                        navigate(`/training?${params.toString()}`);
-                      }}
-                    >
-                      Practise this opening with your coach
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                <InteractivePractice
+                  openingKey={openingKey}
+                  openingName={opening.name}
+                  userColor={opening.color}
+                />
               </TabsContent>
               
               <TabsContent value="traps" className="space-y-4">
                 {opening.traps?.length > 0 ? (
                   <>
-                    <>
+                    {/* Active Trap Practice Mode */}
+                    {selectedTrap && trapPracticeMode ? (
+                      <TrapPractice
+                        trap={selectedTrap}
+                        openingKey={openingKey}
+                        onClose={closeTrapPractice}
+                        onComplete={onTrapComplete}
+                      />
+                    ) : (
+                      /* Trap List */
+                      <>
                         <div className="text-sm text-muted-foreground mb-2">
-                          Learn to spot and stop the trap first. Your coach will
-                          then help you understand how the attacking line works.
+                          Click a trap to practice executing it against the coach.
                         </div>
                         {opening.traps.map((trap, i) => (
                           <Card 
@@ -757,6 +753,9 @@ const OpeningLesson = ({ user }) => {
                                     <Badge variant="secondary" className="text-xs">
                                       {trap.result_type?.replace(/_/g, " ")}
                                     </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {trap.trap_line?.length || 0} moves
+                                    </span>
                                   </div>
                                 </div>
                                 <Play className="w-4 h-4 text-amber-400" />
@@ -764,7 +763,8 @@ const OpeningLesson = ({ user }) => {
                             </CardContent>
                           </Card>
                         ))}
-                    </>
+                      </>
+                    )}
                   </>
                 ) : (
                   <Card className="border-dashed">
@@ -862,11 +862,14 @@ const OpeningLesson = ({ user }) => {
                                 Principle: {mistake.coach.principle}
                               </p>
                             )}
-                            {mistake.cognitive_gap && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                The lesson here is {String(mistake.cognitive_gap).replace(/_/g, " ")}.
-                              </p>
-                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Loss: {Math.abs(mistake.cp_loss)} cp
+                              {mistake.cognitive_gap && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-foreground/70 uppercase tracking-wide text-[10px]">
+                                  {String(mistake.cognitive_gap).replace(/_/g, " ")}
+                                </span>
+                              )}
+                            </p>
                             {mistake.fen_before && (
                               <div className="flex gap-2 mt-3">
                                 {mistake.your_move_uci && (
@@ -919,7 +922,6 @@ const OpeningLesson = ({ user }) => {
         </Tabs>
       </div>
     </div>
-    </Layout>
   );
 };
 
