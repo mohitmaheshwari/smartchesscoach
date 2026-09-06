@@ -105,7 +105,7 @@ const DiagnosticPuzzles = () => {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [navigate]);
 
   // A tab backgrounded mid-puzzle is a different user story from a
   // session resumed days later -- "interrupted" vs. "came back." Only

@@ -47,7 +47,7 @@ const CoachReplay = ({ user }) => {
         setLoading(false);
       }
     })();
-  }, [gameId]);
+  }, [gameId, navigate]);
 
   if (loading) {
     return <Layout user={user}><div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div></Layout>;
