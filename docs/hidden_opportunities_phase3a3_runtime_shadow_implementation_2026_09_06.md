@@ -76,6 +76,9 @@ python backend/scripts/report_hidden_opportunity_shadow_incidence.py
 
 The first command is a smoke census. The second is the complete read-only
 population census required before ranking formulas are predeclared.
+The report includes the number of games with two or more exact candidates and
+the number of candidates inside those comparable games; total candidate count
+alone is not accepted as ranking evidence.
 
 ## Verification
 

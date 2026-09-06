@@ -66,12 +66,15 @@ def build_incidence_report(
     })
     actors: Counter[str] = Counter()
     families: Counter[str] = Counter()
+    candidates_per_game: Counter[int] = Counter()
     analyses_seen = 0
     joined_games = 0
     missing_game_context = 0
     positions_seen = 0
     duplicate_positions = 0
     candidate_games = 0
+    comparable_games = 0
+    candidates_in_comparable_games = 0
 
     for analysis in analyses:
         analyses_seen += 1
@@ -90,7 +93,7 @@ def build_incidence_report(
         rows = list(stockfish.get("move_evaluations") or [])
         rows.extend(stockfish.get("opponent_move_evaluations") or [])
         seen = set()
-        game_has_candidate = False
+        game_candidate_count = 0
         for row in rows:
             signature = _row_signature(row)
             signature_complete = all(signature)
@@ -112,11 +115,15 @@ def build_incidence_report(
             statuses[status] += 1
             if status != "candidate":
                 continue
-            game_has_candidate = True
+            game_candidate_count += 1
             candidate = result["candidate"]
             actors[str(candidate["selection_features"]["actor"])] += 1
             families[str(candidate["proof"]["family"])] += 1
-        candidate_games += int(game_has_candidate)
+        candidates_per_game[game_candidate_count] += 1
+        candidate_games += int(game_candidate_count > 0)
+        if game_candidate_count >= 2:
+            comparable_games += 1
+            candidates_in_comparable_games += game_candidate_count
 
     candidate_count = statuses["candidate"]
     above_threshold = (
@@ -140,6 +147,14 @@ def build_incidence_report(
             "above_threshold_positions": above_threshold,
             "candidate_count": candidate_count,
             "candidate_games": candidate_games,
+            "comparable_games": comparable_games,
+            "candidates_in_comparable_games": (
+                candidates_in_comparable_games
+            ),
+            "candidate_count_per_game": {
+                str(count): games
+                for count, games in sorted(candidates_per_game.items())
+            },
             "status_counts": dict(sorted(statuses.items())),
             "candidate_actor_counts": dict(sorted(actors.items())),
             "candidate_family_counts": dict(sorted(families.items())),

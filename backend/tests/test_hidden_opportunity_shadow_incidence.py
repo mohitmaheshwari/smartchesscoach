@@ -47,12 +47,71 @@ def test_incidence_report_is_aggregate_only(monkeypatch):
         }],
     )
     assert report["coverage"]["candidate_count"] == 1
+    assert report["coverage"]["candidate_games"] == 1
+    assert report["coverage"]["comparable_games"] == 0
+    assert report["coverage"]["candidates_in_comparable_games"] == 0
+    assert report["coverage"]["candidate_count_per_game"] == {"1": 1}
     assert report["coverage"]["duplicate_positions_skipped"] == 1
     assert report["coverage"]["candidate_actor_counts"] == {"opponent": 1}
     encoded = json.dumps(report).lower()
     assert "secret-game" not in encoded
     assert "never@example.com" not in encoded
     assert "fen_before" not in encoded
+
+
+def test_incidence_report_counts_only_multi_candidate_games_as_comparable(
+    monkeypatch,
+):
+    calls = iter([
+        {
+            "status": "candidate",
+            "candidate": {
+                "selection_features": {"actor": "user"},
+                "proof": {"family": "target_and_line_geometry_with_payoff"},
+            },
+        },
+        {
+            "status": "candidate",
+            "candidate": {
+                "selection_features": {"actor": "opponent"},
+                "proof": {"family": "forcing_tempo_and_move_order"},
+            },
+        },
+    ])
+    monkeypatch.setattr(
+        "scripts.report_hidden_opportunity_shadow_incidence."
+        "evaluate_hidden_opportunity_stored_row",
+        lambda **_: next(calls),
+    )
+    report = build_incidence_report(
+        games=[{
+            "game_id": "g",
+            "user_color": "white",
+            "white_rating": 1200,
+            "black_rating": 1200,
+        }],
+        analyses=[{
+            "game_id": "g",
+            "stockfish_analysis": {
+                "move_evaluations": [
+                    {
+                        "fen_before": "fen-1",
+                        "move": "a",
+                        "best_move": "b",
+                    },
+                    {
+                        "fen_before": "fen-2",
+                        "move": "c",
+                        "best_move": "d",
+                    },
+                ],
+            },
+        }],
+    )
+    assert report["coverage"]["candidate_count"] == 2
+    assert report["coverage"]["comparable_games"] == 1
+    assert report["coverage"]["candidates_in_comparable_games"] == 2
+    assert report["coverage"]["candidate_count_per_game"] == {"2": 1}
 
 
 def test_incidence_script_is_read_only_and_uses_canonical_runtime():
