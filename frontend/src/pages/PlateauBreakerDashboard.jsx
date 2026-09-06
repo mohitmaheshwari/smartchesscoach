@@ -11,7 +11,7 @@
  * Nothing else. No distractions.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
@@ -92,11 +92,7 @@ const PlateauBreakerDashboard = ({ user }) => {
   const [trainingStatus, setTrainingStatus] = useState(null);
   const [recentGame, setRecentGame] = useState(null);
 
-  useEffect(() => {
-    fetchBlockerData();
-  }, [user]);
-
-  const fetchBlockerData = async () => {
+  const fetchBlockerData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -248,7 +244,11 @@ const PlateauBreakerDashboard = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    fetchBlockerData();
+  }, [fetchBlockerData]);
 
   const handleFixNow = () => {
     // Navigate to focused review with blocker context
