@@ -753,7 +753,7 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
 @router.get("/admin/authoring-queue")
 async def get_authoring_queue(
     round_id: Optional[str] = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
 ):
     """Authoring queue for caption-template authoring rounds.
 
@@ -939,8 +939,16 @@ async def admin_export_feedback(
 
 
 @router.get("/admin/feedback/download/{filename}")
-async def admin_download_feedback_file(filename: str):
-    """Serve an exported feedback JSON file."""
+async def admin_download_feedback_file(
+    filename: str,
+    user: User = Depends(require_admin),
+):
+    """Serve an exported feedback JSON file. Admin only.
+
+    The export is CREATED by an admin action, but the download had no
+    dependency at all, so the file -- which contains user feedback -- was
+    reachable by anyone who could guess a timestamp-based filename.
+    """
     from fastapi.responses import FileResponse
     export_dir = os.path.join(os.path.dirname(__file__), "..", "exports")
     filepath = os.path.join(export_dir, filename)

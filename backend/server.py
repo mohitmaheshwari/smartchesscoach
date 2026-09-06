@@ -519,10 +519,19 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3001",
 ]
 
+# The allowlist above was built and then ignored: allow_origins=["*"] with
+# allow_credentials=True meant production echoed ANY Origin back with
+# Access-Control-Allow-Credentials: true, so any website could make
+# credentialed cross-origin requests to the API and read the responses.
+# Verified live against https://evil.example before this fix.
+#
+# Note the browser rule this restores: "*" and credentials are mutually
+# exclusive by spec, so the wildcard was not merely permissive, it defeated
+# the point of the allowlist entirely.
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
