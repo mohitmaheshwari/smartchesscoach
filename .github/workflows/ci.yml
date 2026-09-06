@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install minimal deps (pure-logic suites only)
-        run: pip install chess pymongo motor pydantic fastapi
+        run: pip install chess pymongo motor pydantic fastapi pytest
       - name: Syntax gate — every backend python file must parse
         run: |
           python - <<'EOF'
@@ -54,21 +54,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            BASE_SHA="$(git rev-list --max-parents=0 HEAD)"
-          fi
-          changed_output="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA")"
-          changed_python=()
-          while IFS= read -r path; do
-            case "$path" in
-              backend/*.py) changed_python+=("$path") ;;
-            esac
-          done <<< "$changed_output"
-          if [ "${#changed_python[@]}" -eq 0 ]; then
-            echo "[caption-guard] No changed backend Python files."
-          else
-            python backend/scripts/check_caption_sources.py --strict "${changed_python[@]}"
-          fi
+          python -m pytest backend/tests/test_caption_source_guard_ci.py -q
+          python backend/scripts/check_changed_caption_sources.py \
+            --base "$BASE_SHA" \
+            --head "$GITHUB_SHA"
       - name: Data-file integrity (curriculum + caption JSONs parse)
         run: |
           python - <<'EOF'

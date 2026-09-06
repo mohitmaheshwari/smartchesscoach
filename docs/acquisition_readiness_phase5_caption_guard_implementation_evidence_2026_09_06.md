@@ -18,9 +18,13 @@ The workflow now:
 
 - checks out full Git history;
 - uses the pull-request base SHA or push `before` SHA;
-- falls back to the repository root commit for an invalid or all-zero base;
+- falls back to the repository root commit for an invalid, unavailable or
+  all-zero base and fails closed for an invalid/unavailable head; the known
+  legacy inventory makes a root comparison intentionally red instead of
+  silently accepting an under-scanned new lineage;
 - selects added, copied, modified or renamed `backend/**/*.py` paths;
 - explicitly passes when that set is empty;
+- runs the boundary contract tests on every CI execution;
 - invokes the existing guard with `--strict`; and
 - does not discard the command status with `|| true`.
 
@@ -33,7 +37,7 @@ Whole-tree strict mode currently returns exit 1 for exactly **176 lines** of
 legacy prose outside the central caption layer. Making that inventory a
 permanent allowlist or immediately blocking every build on it was rejected.
 
-Strict changed-file scanning prevents the inventory from growing while
+Strict changed-file scanning prevents the detected inventory from growing while
 keeping the legacy debt visible. A touched legacy file may require
 centralization or a narrowly reviewed line-level exception before it can
 merge.
@@ -44,23 +48,29 @@ Focused Phase 5 behavior and workflow tests plus the adjacent frontend
 dependency workflow contract:
 
 ```text
-13 passed in 0.50s
+19 passed in 0.46s
 ```
 
-The five Phase 5 cases prove:
+The Phase 5 cases prove:
 
 - noncentral chess-teaching prose is detected;
 - an explicit line exception is narrow;
 - strict mode returns 1 on a finding;
 - warning mode is not confused with the CI contract; and
-- workflow YAML parses and contains full-history, diff-bound, strict,
-  non-discarding wiring.
+- invalid/all-zero base selection falls back deterministically;
+- an existing base is retained and an invalid head fails closed;
+- NUL-delimited path selection uses ACMR and selects only backend Python;
+- the strict guard status propagates through the changed-file gate; and
+- CI invokes these contract tests plus the changed-file gate without
+  discarding status.
 
 Direct probes:
 
 ```text
 strict scan of backend/tests/test_caption_source_guard_ci.py: exit 0
 whole backend strict scan: exit 1, 176 findings
+real committed diff: 1 backend Python path selected, exit 0
+invalid/all-zero head: configuration failure, exit 2
 workflow YAML parse: OK
 git diff --check: pass
 ```

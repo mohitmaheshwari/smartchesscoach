@@ -17,8 +17,8 @@ This slice may:
   added, copied, modified or renamed by the push or pull request;
 - remove the CI-level `|| true` that currently discards its status;
 - fetch enough Git history to determine the changed-file boundary;
-- add unit/static tests that prove a governed violation returns non-zero and
-  the workflow preserves that status; and
+- add unit/runtime tests that prove the Git boundary, a governed violation's
+  non-zero result and the workflow's status propagation; and
 - correct stale acquisition-baseline states already proven by earlier phases.
 
 It may not migrate existing caption engines, widen the guard's prose
@@ -50,7 +50,7 @@ unreviewed legacy prose and become a second architecture authority.
 
 ### C. Strictly scan changed backend Python files
 
-Selected. It prevents the inventory from growing, forces an explicit inline
+Selected. It prevents the detected inventory from growing, forces an explicit inline
 exception when a changed file legitimately owns prose, and leaves the existing
 debt measurable rather than hidden.
 
@@ -63,14 +63,17 @@ Rejected. It does not close `AR-QA-003` and provides no release protection.
 1. CI checks out full history so its comparison base exists.
 2. Pull requests compare with the PR base SHA; pushes compare with the event's
    before SHA.
-3. An absent/all-zero base falls back deterministically to the repository root
-   commit.
+3. An absent, all-zero or unavailable base falls back deterministically to the
+   repository root commit; an invalid or unavailable head fails closed. With
+   the known legacy inventory, that root comparison is intentionally red
+   rather than silently under-scanning a new lineage.
 4. Only added/copied/modified/renamed `backend/**/*.py` paths are passed.
 5. No matching path is an explicit pass, not a fallback whole-tree scan.
 6. A violating changed file makes the step and job fail.
 7. A clean changed file passes.
 8. `|| true` is absent from the governed invocation.
-9. Unit/static tests lock the exit status and workflow wiring.
+9. Unit/runtime tests lock base resolution, path discrimination, exit status
+   and workflow wiring, and CI executes those tests on every run.
 10. The 176 existing findings stay recorded as migration debt; this slice
     claims prevention, not architectural completion.
 
