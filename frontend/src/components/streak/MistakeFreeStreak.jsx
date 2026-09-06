@@ -39,29 +39,29 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (userId) {
-      fetchStreakStatus();
-    }
-  }, [userId]);
+    if (!userId) return;
 
-  const fetchStreakStatus = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API}/streak/status?user_id=${userId}`, {
-        credentials: "include"
-      });
-      
-      if (!res.ok) throw new Error("Failed to fetch streak");
-      
-      const data = await res.json();
-      setStreakData(data);
-    } catch (err) {
-      console.error("Error fetching streak:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchStreakStatus = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API}/streak/status?user_id=${userId}`, {
+          credentials: "include"
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch streak");
+
+        const data = await res.json();
+        setStreakData(data);
+      } catch (err) {
+        console.error("Error fetching streak:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStreakStatus();
+  }, [userId]);
 
   if (loading) {
     return (
