@@ -3824,6 +3824,27 @@ _CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
 
 _SALVAGE_SPLIT_RE = _re_pb.compile(r"(?<=[.!?])\s+")
 
+# "X was better — <Capitalised sentence>" is a broken join. The em-dash slot
+# promises a reason for the move just named and expects a lower-case verb
+# phrase ("it defends the pawn on f2"); some why-variants are standalone
+# sentences, which renders:
+#
+#   "Bc7 was better — This spot got hard a few moves ago, around move 12."
+#
+# The dash promises a why and delivers a topic change. 23 of 1127 flagged
+# mistakes in one user's corpus shipped this shape. A SAN after the dash is
+# fine and common ("— Kh2 lets Qh5+ come in with check"), so SAN tokens are
+# excluded. 2026-09-06.
+_DASH_BEFORE_SENTENCE_RE = _re_pb.compile(
+    r"\s+[—–]\s+(?=(?!(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8])\b)[A-Z][a-z]{2,})")
+
+
+def _repair_dash_before_sentence(text: str) -> str:
+    """Turn a dash that introduces a full sentence into a full stop."""
+    if not text:
+        return text
+    return _DASH_BEFORE_SENTENCE_RE.sub(". ", text)
+
 # A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
 # or a bare principle carries no board content, so it is not worth keeping over
 # the deterministic floor — the floor at least names the stronger move.
@@ -5011,6 +5032,13 @@ def build_move_teaching_decision(
         }
         def _verify_final(text: str):
             return _stage4_verify(text, _stage4_facts, strict_v2=True)
+
+        # Repair a dash that introduces a whole sentence before anything is
+        # verified or shipped, so every downstream path sees the fixed text.
+        _repaired = _repair_dash_before_sentence(
+            (caption_payload.get("caption") or "").strip())
+        if _repaired != (caption_payload.get("caption") or "").strip():
+            caption_payload["caption"] = _repaired
 
         _candidate = (caption_payload.get("caption") or "").strip()
         _violations = _verify_final(_candidate) if _candidate else []
