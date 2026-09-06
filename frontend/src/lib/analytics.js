@@ -172,6 +172,16 @@ const KNOWN_EVENT_IDS = new Set(Object.values(ANALYTICS_EVENTS));
 
 export const CURRICULUM_ANALYTICS_VERSION = "personal_curriculum.baseline.v1";
 export const REVIEW_VALIDATION_ANALYTICS_VERSION = "personalized_game_review.validation.v1";
+export const ANALYTICS_CONTEXT_VERSION = "acquisition_readiness.phase0.v1";
+
+const ANONYMOUS_ANALYTICS_CONTEXT = Object.freeze({
+  analytics_context_version: ANALYTICS_CONTEXT_VERSION,
+  actor_type: "anonymous",
+  metrics_eligible: false,
+});
+
+let analyticsContext = { ...ANONYMOUS_ANALYTICS_CONTEXT };
+let identifiedUserId = null;
 
 const CURRICULUM_EVENT_IDS = new Set([
   ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN,
@@ -252,6 +262,135 @@ const REVIEW_VALIDATION_ALLOWED_PROP_KEYS = new Set([
   "critical_truth_failure",
 ]);
 
+// One fail-closed boundary for every explicit event. Specialized helpers keep
+// their narrower schemas; this outer allowlist prevents a future generic
+// track() caller from leaking a FEN, caption, game/session id, email, or free
+// text to PostHog.
+const ANALYTICS_ALLOWED_PROP_KEYS = new Set([
+  "action",
+  "action_kind",
+  "action_type",
+  "attempt_number",
+  "chapter_count",
+  "chapter_index",
+  "chapter_role",
+  "conclusion",
+  "content_id",
+  "content_kind",
+  "content_type",
+  "critical_truth_failure",
+  "cta",
+  "decision_id",
+  "decision_source",
+  "exited_early",
+  "explore_level",
+  "flag_state",
+  "games_together",
+  "has_conversation",
+  "help_action",
+  "insight_id",
+  "instrumentation_version",
+  "is_recommended",
+  "move_number",
+  "next_action",
+  "occurrences",
+  "origin",
+  "outcome",
+  "position_index",
+  "presentation_variant",
+  "puzzle_count",
+  "puzzle_number",
+  "question_index",
+  "question_total",
+  "rating_band",
+  "recommendation_kind",
+  "resumed",
+  "schema_version",
+  "separate_soundness_issue",
+  "source",
+  "state",
+  "status",
+  "support_level",
+  "surface",
+  "tab",
+  "tile",
+  "total_items",
+  "type",
+  "version",
+  "was_loss",
+]);
+
+const safeAnalyticsValue = (value) => {
+  if (typeof value === "string") return value.slice(0, 120);
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return undefined;
+};
+
+const safeInternalUserId = (value) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return /^[A-Za-z0-9_-]{1,128}$/.test(normalized) ? normalized : null;
+};
+
+export function analyticsActorType(user, { demoMode = false } = {}) {
+  if (!user || !safeInternalUserId(user.user_id)) return "excluded";
+  if (user.analytics_excluded === true) return "excluded";
+  if (demoMode || user.is_demo === true || user.user_id === "dev_user_local") return "demo";
+  if (user.role === "admin" || user.role === "super_admin") return "staff";
+  if (user.is_reviewer === true) return "reviewer";
+  return "player";
+}
+
+export function configureAnalyticsContext(user, options = {}) {
+  const internalUserId = safeInternalUserId(user?.user_id);
+  const actorType = analyticsActorType(user, options);
+  analyticsContext = {
+    analytics_context_version: ANALYTICS_CONTEXT_VERSION,
+    actor_type: actorType,
+    metrics_eligible: actorType === "player",
+  };
+
+  try {
+    if (typeof window === "undefined" || !window.posthog) return analyticsContext;
+    if (identifiedUserId && (actorType !== "player" || internalUserId !== identifiedUserId)) {
+      if (typeof window.posthog.reset === "function") window.posthog.reset();
+      identifiedUserId = null;
+    }
+    if (
+      actorType === "player" &&
+      internalUserId &&
+      internalUserId !== identifiedUserId &&
+      typeof window.posthog.identify === "function"
+    ) {
+      // The opaque internal id is the only identity sent. Never add email,
+      // name, platform username, rating, or chess-derived profile properties.
+      window.posthog.identify(internalUserId);
+      identifiedUserId = internalUserId;
+    }
+    if (typeof window.posthog.register === "function") {
+      window.posthog.register(analyticsContext);
+    }
+  } catch (_e) {
+    /* analytics must never break authentication or navigation */
+  }
+  return analyticsContext;
+}
+
+export function resetAnalyticsContext() {
+  analyticsContext = { ...ANONYMOUS_ANALYTICS_CONTEXT };
+  identifiedUserId = null;
+  try {
+    if (typeof window === "undefined" || !window.posthog) return;
+    if (typeof window.posthog.reset === "function") window.posthog.reset();
+    if (typeof window.posthog.register === "function") {
+      window.posthog.register(analyticsContext);
+    }
+  } catch (_e) {
+    /* analytics must never break logout */
+  }
+}
+
 export function track(event, props = {}) {
   try {
     if (!KNOWN_EVENT_IDS.has(event)) {
@@ -260,8 +399,14 @@ export function track(event, props = {}) {
       }
       return;
     }
+    const safeProps = {};
+    for (const [key, value] of Object.entries(props || {})) {
+      if (!ANALYTICS_ALLOWED_PROP_KEYS.has(key)) continue;
+      const safeValue = safeAnalyticsValue(value);
+      if (safeValue !== undefined) safeProps[key] = safeValue;
+    }
     if (typeof window !== "undefined" && window.posthog && typeof window.posthog.capture === "function") {
-      window.posthog.capture(event, props);
+      window.posthog.capture(event, { ...safeProps, ...analyticsContext });
     }
   } catch (_e) {
     /* analytics must never break the product */

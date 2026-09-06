@@ -31,6 +31,7 @@ import {
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
+import { resetAnalyticsContext } from "@/lib/analytics";
 import {
   CURRICULUM_ROUTES,
   loadPersonalCurriculum,
@@ -178,7 +179,11 @@ const Layout = ({ children, user }) => {
   const isReviewer = !!user?.is_reviewer;
 
   const handleLogout = async () => {
-    try { await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' }); navigate('/'); } catch (e) {}
+    try {
+      await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
+      resetAnalyticsContext();
+      navigate('/');
+    } catch (e) {}
   };
 
   const userName = user?.name || "User";

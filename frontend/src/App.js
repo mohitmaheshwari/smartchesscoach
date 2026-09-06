@@ -51,6 +51,7 @@ import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
 import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
+import { configureAnalyticsContext, resetAnalyticsContext } from "@/lib/analytics";
 
 // V1 Plateau Breaker Mode (Enforced Learning)
 import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
@@ -133,6 +134,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
 
         if (cancelled) return;
 
+        configureAnalyticsContext(userData, { demoMode: demoBypass });
         setUser(userData);
         setIsAuthenticated(true);
 
@@ -154,6 +156,7 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
         }
       } catch (error) {
         if (cancelled) return;
+        resetAnalyticsContext();
         const intendedPath = `${location.pathname}${location.search}`;
         if (intendedPath && intendedPath !== '/') {
           window.sessionStorage.setItem('post_auth_redirect', intendedPath);
@@ -224,6 +227,7 @@ function AppRouter() {
                   const userData = await res.json();
                   navigate('/home', { state: { user: userData } });
                 } else {
+                  resetAnalyticsContext();
                   navigate('/');
                 }
               }

@@ -179,9 +179,23 @@
             posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
                 api_host: "https://us.i.posthog.com",
                 person_profiles: "identified_only",
-                session_recording: {
-                    recordCrossOriginIframes: false,
-                    capturePerformance: false,
+                autocapture: false,
+                capture_pageview: false,
+                capture_pageleave: false,
+                disable_session_recording: true,
+                before_send: function (event) {
+                    if (!event || !event.properties) return event;
+                    ["$current_url", "$referrer", "$initial_current_url", "$initial_referrer"].forEach(function (key) {
+                        var value = event.properties[key];
+                        if (typeof value !== "string") return;
+                        try {
+                            var parsed = new URL(value, window.location.origin);
+                            event.properties[key] = parsed.origin + parsed.pathname;
+                        } catch (_error) {
+                            delete event.properties[key];
+                        }
+                    });
+                    return event;
                 },
             });
         </script>

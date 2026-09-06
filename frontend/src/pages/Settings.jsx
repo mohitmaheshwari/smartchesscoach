@@ -23,6 +23,7 @@ import Layout from "@/components/Layout";
 import { useTheme } from "@/context/ThemeContext";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
+import { resetAnalyticsContext } from "@/lib/analytics";
 
 // ─── Row: title + description on the left, control on the right ──────────────
 // `last` omits the bottom hairline (used for the last row in a section).
@@ -143,6 +144,7 @@ const Settings = ({ user }) => {
         method: "POST",
         credentials: "include",
       });
+      resetAnalyticsContext();
       toast.success("Signed out");
       navigate("/");
     } catch (error) {

@@ -72,6 +72,10 @@ class User(BaseModel):
     # ALL users (not just their own). Used for content-quality auditors
     # like Parth Gilda, who flag bugs against any user's coaching output.
     is_reviewer: bool = False
+    # Explicit provenance for analytics and test isolation. These fields are
+    # returned to the authenticated client, but never contain identity data.
+    is_demo: bool = False
+    analytics_excluded: bool = False
     # Self-declared "why are you here" (compete/improve/learn/fun). Exposed so
     # the Home backfill prompt knows whether the user has answered yet.
     player_motivation: Optional[str] = None
@@ -91,6 +95,8 @@ class User(BaseModel):
             "lichess_username": self.lichess_username,
             "role": self.role or "user",
             "is_reviewer": self.is_reviewer,
+            "is_demo": self.is_demo,
+            "analytics_excluded": self.analytics_excluded,
             "player_motivation": self.player_motivation,
         }
 

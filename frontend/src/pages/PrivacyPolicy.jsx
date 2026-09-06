@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
         </button>
 
         <h1 className="text-3xl font-heading mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-500 mb-10">Last updated: 12 May 2026</p>
+        <p className="text-sm text-gray-500 mb-10">Last updated: 6 September 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed">
           <section>
@@ -55,8 +55,10 @@ export default function PrivacyPolicy() {
               </li>
               <li>
                 <strong className="text-gray-100">Usage data:</strong> pages
-                visited, features used, in-app events, IP address, browser
-                user agent, device type.
+                visited, features used, explicit in-app events, IP address,
+                browser user agent, and device type. We do not record full
+                sessions or send your email, imported games, board positions,
+                move lines, or coaching text to our product analytics provider.
               </li>
               <li>
                 <strong className="text-gray-100">Payment data:</strong> when
@@ -91,6 +93,8 @@ export default function PrivacyPolicy() {
               <li>
                 <strong className="text-gray-100">Service providers:</strong>{" "}
                 Razorpay (payments), cloud hosting (MongoDB, hosting provider),
+                PostHog (product analytics using an opaque internal account
+                identifier and coarse interaction events), and
                 Stockfish (engine analysis runs on our servers — no third-party
                 transmission of your games).
               </li>
@@ -119,10 +123,14 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">6. Cookies and tracking</h2>
             <p>
               We use essential cookies for authentication (session cookies) and
-              functional cookies to remember your preferences. We do NOT use
-              third-party advertising or cross-site tracking cookies. You can
-              clear cookies from your browser at any time; doing so will log
-              you out.
+              functional storage to remember your preferences. After sign-in,
+              our product analytics provider uses a first-party identifier so
+              we can understand whether players return and which product flows
+              work. Automatic page capture, interaction capture, and session
+              replay are disabled; only explicit product events are sent. We do
+              NOT use third-party advertising or cross-site tracking cookies.
+              You can clear cookies and site data from your browser at any time;
+              doing so will log you out and reset the analytics identifier.
             </p>
           </section>
 
