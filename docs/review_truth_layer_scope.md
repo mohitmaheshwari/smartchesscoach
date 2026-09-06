@@ -1,6 +1,6 @@
 # Review Truth Layer — scope
 
-**Status:** in progress
+**Status:** verified on 744 games; ready to merge
 **Date:** 2026-09-06
 **Author:** Claude (for Mohit)
 **Trigger:** comparing our game review against an independent engine review on
@@ -210,3 +210,59 @@ On that sample PLAYED_WHY precision was 10/10; two NO_WHY rows were really
 ALT_WHY_ONLY (both stay inside the "does not explain the played move" bucket)
 and one row should not have been in the denominator (played move == engine
 best, yet flagged `serious`). Treat the headline as +/- 2pp, not exact.
+
+---
+
+## Result — all 744 analysed games, before vs after
+
+Both runs rendered 744/744 with zero failures, on identical inputs. The "after"
+run was taken on the final shipped code (V5=141), after the two bugs the first
+run exposed were fixed.
+
+| Acceptance criterion | before | after | met |
+|---|---|---|---|
+| 1. Narrative claims contradicting the game | 5 games | **0** | yes |
+| 2. Timeout games rendering "blundered" copy | 106 | **0** | yes |
+|    Timeout games that mention the clock | 8 (5%) | **129 (83%)** | yes |
+| 3. Captions explaining the PLAYED move | 34.8% | **36.0%** | yes (+1.3pp) |
+|    Fallback-floor usage (must not rise) | — | no increase | yes |
+| 4. `pwc_coaching_lint` | 2 defects | **clean** | yes |
+|    Dangling-subject captions | 56 | **0** | yes |
+|    Broken "was better — Sentence" joins | 151 | **0** | yes |
+| 5. `qBNJQg3g` names the clock, drops the false collapse | no | **yes** | yes |
+
+Narratives lost to the gate: **0** (357 before, 357 after). Surviving claim
+violations: **0**. Claim gate blocked 109 false statements.
+
+### Honest reading of criterion 3
+
++1.3pp is the weakest result here, and it was predicted at "low 40s" before
+measurement — an over-estimate of roughly 4x. Sentence salvage fired on 100
+captions; 43 moved ALT_WHY_ONLY -> PLAYED_WHY and 3 NO_WHY -> PLAYED_WHY,
+against 2 that went the other way. The other 54 salvaged captions kept a
+sentence that still explained only the alternative. **Salvage recovers the
+played-move why only when the pipeline generated one and the verifier rejected
+a different sentence.** It cannot manufacture a why that was never written,
+which is the situation for the 402 mistakes in `R_PROMOTED_basic_mistake` /
+`R16_board_state_fallback` / `HELD_FLOOR`.
+
+### What the gate caught that the baseline metric could not
+
+The baseline D2 measure counted one claim type (a collapse assertion on a game
+the player recovered from) and found 5. The gate checks three, and the dominant
+one was different: **107 games asserted "You were winning" about a player who
+never reached a winning position.** The rarity conclusion drawn from the
+baseline measure was an artefact of measuring one third of the problem.
+
+### The bug the gate caught in this very change
+
+`game_reason_classifier` had two paths to `time_collapse`: `termination ==
+"timeout"`, and an inference from mistakes clustering late. Both returned the
+same category. Harmless while both rendered blunder copy — but giving
+`time_collapse` real time copy would have told players on checkmate,
+resignation and abandonment games that they ran out of time. The gate blocked
+it on 6 games before it shipped. Split into `late_collapse`.
+
+This is the strongest argument in this document for a truth gate over careful
+authoring: the failure was introduced by the change that added the gate, and
+the gate caught it.
