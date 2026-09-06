@@ -48,58 +48,57 @@ const PostLossRecovery = ({ user }) => {
   const [arrows, setArrows] = useState([]);
 
   useEffect(() => {
+    const fetchRecoveryData = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API}/reflect/v1/post-loss/${gameId}`, {
+          credentials: "include",
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setRecoveryData(data);
+
+          // Set up the board with the critical moment
+          if (data.critical_moment) {
+            setBoardFen(data.critical_moment.fen || "start");
+
+            // Show arrows for the mistake
+            const sanToArrow = (san, fen, color) => {
+              if (!san || !fen) return null;
+              try {
+                const chess = new Chess(fen);
+                const move = chess.move(san);
+                if (move) {
+                  return [move.from, move.to, color];
+                }
+              } catch (e) {
+                return null;
+              }
+              return null;
+            };
+            const userArrow = sanToArrow(data.critical_moment.user_move, data.critical_moment.fen, "red");
+            const betterArrow = sanToArrow(data.critical_moment.best_move, data.critical_moment.fen, "green");
+            const newArrows = [];
+            if (userArrow) newArrows.push(userArrow);
+            if (betterArrow) newArrows.push(betterArrow);
+            setArrows(newArrows);
+          }
+        } else {
+          setError("Could not load recovery data");
+        }
+      } catch (err) {
+        console.error("Error fetching recovery data:", err);
+        setError("Could not load recovery data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (gameId) {
       fetchRecoveryData();
     }
   }, [gameId]);
-
-  const fetchRecoveryData = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API}/reflect/v1/post-loss/${gameId}`, {
-        credentials: "include",
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setRecoveryData(data);
-        
-        // Set up the board with the critical moment
-        if (data.critical_moment) {
-          setBoardFen(data.critical_moment.fen || "start");
-          
-          // Show arrows for the mistake
-          const userArrow = sanToArrow(data.critical_moment.user_move, data.critical_moment.fen, "red");
-          const betterArrow = sanToArrow(data.critical_moment.best_move, data.critical_moment.fen, "green");
-          const newArrows = [];
-          if (userArrow) newArrows.push(userArrow);
-          if (betterArrow) newArrows.push(betterArrow);
-          setArrows(newArrows);
-        }
-      } else {
-        setError("Could not load recovery data");
-      }
-    } catch (err) {
-      console.error("Error fetching recovery data:", err);
-      setError("Could not load recovery data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sanToArrow = (san, fen, color) => {
-    if (!san || !fen) return null;
-    try {
-      const chess = new Chess(fen);
-      const move = chess.move(san);
-      if (move) {
-        return [move.from, move.to, color];
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
-  };
 
   const handleStartRecovery = async () => {
     setStarting(true);
