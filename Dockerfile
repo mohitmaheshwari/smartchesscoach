@@ -9,10 +9,10 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 
 # Copy package files first for better caching
-COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* ./
+COPY frontend/package.json frontend/yarn.lock ./
 
-# Install dependencies (yarn handles peer deps gracefully unlike npm ci)
-RUN yarn install
+# The checked-in Yarn lock is the only frontend resolution authority.
+RUN yarn install --frozen-lockfile --ignore-engines --non-interactive
 
 # Copy frontend source
 COPY frontend/ ./
