@@ -59,11 +59,11 @@ const AdminAuthoringReview = () => {
 
   useEffect(() => { loadQueue(); }, [loadQueue]);
 
-  const advance = () => {
+  const advance = useCallback(() => {
     setEditing(false);
     setEditText("");
     setCursor((c) => Math.min(c + 1, queue.length));
-  };
+  }, [queue.length]);
 
   const doApprove = useCallback(async (caption_override) => {
     if (!current || actionPending) return;
@@ -86,7 +86,7 @@ const AdminAuthoringReview = () => {
     } finally {
       setActionPending(false);
     }
-  }, [current, actionPending, queue]);
+  }, [current, actionPending, advance]);
 
   const doReject = useCallback(async () => {
     if (!current || actionPending) return;
@@ -111,7 +111,7 @@ const AdminAuthoringReview = () => {
     } finally {
       setActionPending(false);
     }
-  }, [current, actionPending]);
+  }, [current, actionPending, advance]);
 
   const doSkip = useCallback(async () => {
     if (!current || actionPending) return;
@@ -125,7 +125,7 @@ const AdminAuthoringReview = () => {
     } finally {
       setActionPending(false);
     }
-  }, [current, actionPending]);
+  }, [current, actionPending, advance]);
 
   const startEdit = useCallback(() => {
     if (!current) return;

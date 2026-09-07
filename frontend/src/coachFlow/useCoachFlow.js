@@ -171,8 +171,8 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       if (result.weaknesses) {
         setPlayerWeaknessList(result.weaknesses);
       }
-      if (result.playerProfile && !playerProfile) {
-        setPlayerProfile(result.playerProfile);
+      if (result.playerProfile) {
+        setPlayerProfile(previous => previous || result.playerProfile);
       }
       if (result.commentary) {
         setCommentary(result.commentary);
@@ -269,7 +269,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       setPendingMove(null);
       return { autoCommitted: true };
     }
-  }, [session, userRating, _clearHoldTimer]);
+  }, [session, userRating, gameMode, _clearHoldTimer]);
 
   // ─── Clock Tap (Commit) ─────────────────────────────────────
   const handleClockTap = useCallback(async (commitFn, timeSpent) => {
