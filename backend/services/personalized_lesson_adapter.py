@@ -743,6 +743,104 @@ def _parse_move(fen: str, supplied: str) -> Optional[chess.Move]:
             return None
 
 
+
+_PIECE_WORD = {
+    chess.PAWN: "pawn",
+    chess.KNIGHT: "knight",
+    chess.BISHOP: "bishop",
+    chess.ROOK: "rook",
+    chess.QUEEN: "queen",
+    chess.KING: "king",
+}
+
+
+def _cheapest_attacker_word(board: "chess.Board", move: "chess.Move") -> Optional[str]:
+    """Name the piece that punishes this move, from the board itself.
+
+    The detector proves the destination is unsafe but does not say what
+    takes it, and "the piece can still be won on its new square" leaves the
+    player hunting for something we already know. We play the move and read
+    the cheapest enemy attacker of the landing square -- cheapest because
+    that is the capture a player would actually face.
+    """
+    try:
+        after = board.copy(stack=False)
+        after.push(move)
+        attackers = after.attackers(after.turn, move.to_square)
+        if not attackers:
+            return None
+        best_square, best_value = None, None
+        for square in attackers:
+            piece = after.piece_at(square)
+            if piece is None:
+                continue
+            value = {
+                chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+                chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 4,
+            }.get(piece.piece_type, 9)
+            if best_value is None or value < best_value:
+                best_square, best_value = square, value
+        if best_square is None:
+            return None
+        piece = after.piece_at(best_square)
+        return "%s on %s" % (
+            _PIECE_WORD.get(piece.piece_type, "piece"),
+            chess.square_name(best_square),
+        )
+    except Exception:
+        return None
+
+
+def _destination_safety_feedback(
+    board: "chess.Board",
+    move: "chess.Move",
+    target_status: str,
+    soundness_status: str,
+) -> str:
+    """Two plain sentences: what went wrong here, then the check to carry.
+
+    Replaces four fixed strings that said the same thing on every board.
+    Deliberately does NOT name the better move -- that is the answer, and
+    whether the answer is revealed is decided upstream by the lesson stage.
+    """
+    try:
+        played_san = board.san(move)
+    except Exception:
+        played_san = ""
+    piece = board.piece_at(move.from_square)
+    moved = _PIECE_WORD.get(piece.piece_type, "piece") if piece else "piece"
+    landing = chess.square_name(move.to_square)
+
+    if target_status == "fail":
+        attacker = _cheapest_attacker_word(board, move)
+        opening = (
+            "Your %s lands on %s, where the %s can take it."
+            % (moved, landing, attacker)
+            if attacker
+            else "Your %s can be taken on %s." % (moved, landing)
+        )
+        return opening + " Before you let go of a piece, check what is aimed at the square it lands on."
+
+    if target_status == "pass" and soundness_status == "sound":
+        return (
+            "Your %s is safe on %s, and the move holds up." % (moved, landing)
+        )
+
+    if target_status == "pass":
+        return (
+            "Your %s is safe on %s, so the piece-safety part is right. "
+            "This move gives something else away though, so it is not the one to play here."
+            % (moved, landing)
+        )
+
+    if played_san:
+        return (
+            "I cannot measure %s fairly here, so I will not judge it."
+            % played_san
+        )
+    return "I cannot measure this move fairly here, so I will not judge it."
+
+
 async def grade_personalized_move(
     descriptor: Mapping[str, Any],
     item: Mapping[str, Any],
@@ -824,26 +922,21 @@ async def grade_personalized_move(
             soundness = {"status": "sound", "reason": "verified_acceptable"}
 
         target_status = str(target.get("status") or "unmeasured")
-        if target_status == "pass" and soundness["status"] == "sound":
-            feedback = "You kept the moved piece safe, and the move holds up."
-        elif target_status == "pass":
-            feedback = (
-                "You kept the moved piece safe. "
-                "There is a separate problem with the move that we should examine."
-            )
-        elif target_status == "fail":
-            feedback = "The piece can still be won on its new square."
-        else:
-            feedback = "This move does not let me measure the decision fairly."
+        feedback = _destination_safety_feedback(
+            board, parsed, target_status, str(soundness["status"])
+        )
         return {
             "correct": target_status == "pass",
             "target_result": target_status,
             "target_reason": target.get("reason"),
             "soundness": soundness,
             "feedback": feedback,
-            "answer_san": None,
-            "answer_uci": None,
-            "grader_version": "home_replay_diagnostic.v2",
+            # The engine already found the better move; returning None here
+            # meant the answer could never be shown even where the lesson
+            # stage allows it. Whether it is revealed stays upstream.
+            "answer_san": engine_grade.get("best_move_san"),
+            "answer_uci": engine_grade.get("best_move_uci"),
+            "grader_version": "home_replay_diagnostic.v3",
         }
 
     if item.get("_puzzle_evaluator"):
