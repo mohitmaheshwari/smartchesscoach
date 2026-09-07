@@ -3845,6 +3845,40 @@ def _repair_dash_before_sentence(text: str) -> str:
         return text
     return _DASH_BEFORE_SENTENCE_RE.sub(". ", text)
 
+
+# Verdict without evidence. R12 already refuses to assert on this exact shape —
+# its trigger note: "User-side low-cp moves stay silent via suppression
+# (mover_is_user:true + why_clause:absent + cp_loss<250)". The fallback paths
+# (R_PROMOTED_basic_mistake, R16_board_state_fallback, HELD_FLOOR) never got
+# that rule, so 362 captions in one user's corpus still announced "X is a
+# mistake" with no reason attached — 70% of them at cp 100-199. Telling a
+# 1000-1300 player they blundered and then going quiet is worse than not
+# calling it a blunder.
+#
+# Same threshold as R12 on purpose (feedback_single_source_of_truth): this is
+# not a new judgement about what counts as a mistake, it is the existing one
+# applied where it was missing. Above the bar the verdict stays — a real
+# blunder must be named even when we cannot explain it.
+_VERDICT_NO_EVIDENCE_CP = 250
+_VERDICT_RE = _re_pb.compile(
+    r"\bis (?:a|an) (?:major blunder|serious mistake|mistake|inaccuracy)\b",
+    _re_pb.IGNORECASE)
+
+
+def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
+                                     cp_loss: int) -> str:
+    """Drop the mistake verdict when nothing in the caption justifies it."""
+    if not text or not mover_is_user:
+        return text
+    if abs(int(cp_loss or 0)) >= _VERDICT_NO_EVIDENCE_CP:
+        return text
+    if not _VERDICT_RE.search(text):
+        return text
+    # A caption that names a consequence HAS justified its verdict.
+    if _SALVAGE_CONTENT_RE.search(text):
+        return text
+    return _VERDICT_RE.sub("is playable", text)
+
 # A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
 # or a bare principle carries no board content, so it is not worth keeping over
 # the deterministic floor — the floor at least names the stronger move.
@@ -5037,6 +5071,9 @@ def build_move_teaching_decision(
         # verified or shipped, so every downstream path sees the fixed text.
         _repaired = _repair_dash_before_sentence(
             (caption_payload.get("caption") or "").strip())
+        _repaired = _soften_verdict_without_evidence(
+            _repaired, mover_is_user=bool(inputs.mover_is_user),
+            cp_loss=inputs.cp_loss or 0)
         if _repaired != (caption_payload.get("caption") or "").strip():
             caption_payload["caption"] = _repaired
 
