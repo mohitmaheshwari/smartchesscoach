@@ -1292,6 +1292,35 @@ def _unsafe_destination_squares(fen: str) -> list:
         return []
 
 
+async def _answer_move_for_item(db, item, user_id: str):
+    """The move this item is asking for, as (uci, san), or (None, None).
+
+    "Show it on the board" is the strongest help we offer, so it should
+    answer the question rather than hint at it. The move is already known --
+    verified puzzles carry best_move_uci, canonical lines carry
+    _expected_uci -- it was simply never handed to the board.
+    """
+    uci = str(item.get("_expected_uci") or "")
+    san = str(item.get("_expected_san") or "")
+    if uci:
+        return uci, san
+    puzzle_id = item.get("_puzzle_id")
+    if db is None or not puzzle_id:
+        return None, None
+    try:
+        from services.verified_puzzle_runtime import resolve_verified_puzzle
+
+        resolved = await resolve_verified_puzzle(db, str(puzzle_id), user_id=user_id)
+        if not resolved:
+            return None, None
+        return (
+            str(resolved.get("best_move_uci") or "") or None,
+            str(resolved.get("best_move_san") or "") or None,
+        )
+    except Exception:
+        return None, None
+
+
 async def request_personalized_help(
     db,
     user_id: str,
@@ -1325,35 +1354,52 @@ async def request_personalized_help(
         return {"error": "Lesson is complete"}
     item = items[index]
     if help_action == HelpAction.SHOW_ON_BOARD:
-        # Show the squares that punish a move, not the pieces already under
-        # attack. The button says "show it", so it has to show something.
-        unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
-        if unsafe:
+        # The strongest help tier: draw the move. It used to paint squares
+        # and tell the player to trace attacks themselves, under a button
+        # that promises to show it to them.
+        answer_uci, answer_san = await _answer_move_for_item(db, item, user_id)
+        if answer_uci and len(answer_uci) >= 4:
             result = {
                 "action": help_action.value,
                 "message": (
-                    "The marked squares are covered by your opponent. A piece "
-                    "that lands on one of them can be taken."
+                    "The move is %s. Play it and see why the square it lands "
+                    "on is safe." % answer_san
+                    if answer_san
+                    else "Here is the move. Play it and see why its square is safe."
                 ),
-                "highlight_squares": unsafe,
-            }
-        else:
-            result = {
-                "action": help_action.value,
-                "message": (
-                    "Nothing here can be captured on the square it lands on, "
-                    "so pick the move that does the most work."
-                ),
+                "arrows": [[answer_uci[:2], answer_uci[2:4], "green"]],
+                "answer_san": answer_san,
+                "answer_uci": answer_uci,
                 "highlight_squares": [],
             }
+        else:
+            # No verified answer to show. Fall back to marking the squares
+            # that punish a move rather than pretending to reveal one.
+            unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
+            result = {
+                "action": help_action.value,
+                "message": (
+                    "I cannot show the move here, but the marked squares are "
+                    "covered by your opponent."
+                    if unsafe
+                    else "I cannot show the move on this position."
+                ),
+                "arrows": [],
+                "highlight_squares": unsafe,
+            }
     elif help_action == HelpAction.ASK_ONE_QUESTION:
+        unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
         result = {
             "action": help_action.value,
             "message": (
-                "After your move, what is the opponent's strongest capture, "
-                "check, or direct threat?"
+                "The marked squares are covered by your opponent. Which of "
+                "your moves stays off them?"
+                if unsafe
+                else "After your move, what is the opponent's strongest "
+                "capture, check, or direct threat?"
             ),
-            "highlight_squares": [],
+            "arrows": [],
+            "highlight_squares": unsafe,
         }
     else:
         result = {

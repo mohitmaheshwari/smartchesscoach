@@ -99,6 +99,9 @@ export default function PersonalizedLessonWorkspace({
   const [reasonChoice, setReasonChoice] = useState("");
   const [pendingMove, setPendingMove] = useState(null);
   const [boardRevision, setBoardRevision] = useState(0);
+  // Arrows are passed as a prop rather than drawn through the ref so a
+  // re-render cannot wipe them; the board was hardcoded to arrows={[]}.
+  const [boardArrows, setBoardArrows] = useState([]);
   const [evidence, setEvidence] = useState(null);
 
   useEffect(() => {
@@ -165,9 +168,11 @@ export default function PersonalizedLessonWorkspace({
         ...currentSession,
         stage: payload.stage || currentSession.stage,
       }));
-      if (action === "show_on_board") {
+      if (action === "show_on_board" || action === "ask_one_question") {
+        setBoardArrows(payload.arrows || []);
         boardRef.current?.highlightSquares(payload.highlight_squares || []);
       } else if (action === "let_me_try") {
+        setBoardArrows([]);
         boardRef.current?.clearArrows();
       }
     } catch (helpError) {
@@ -229,6 +234,7 @@ export default function PersonalizedLessonWorkspace({
       }));
       setPendingMove(null);
       setReasonChoice("");
+      setBoardArrows([]);
       setBoardRevision((revision) => revision + 1);
     } catch (moveError) {
       setError(moveError.message);
@@ -335,7 +341,7 @@ export default function PersonalizedLessonWorkspace({
                 orientation={item.orientation || "white"}
                 onMove={stageMove}
                 interactive={isReady}
-                arrows={[]}
+                arrows={boardArrows}
               />
             )}
             {!pendingMove && (
