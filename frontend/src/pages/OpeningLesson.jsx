@@ -255,6 +255,21 @@ const OpeningLesson = () => {
     // Record completion
     toast.success(`Mastered: ${selectedTrap?.name}!`);
   }, [selectedTrap]);
+
+  const onGuidedComplete = useCallback(() => {
+    console.log("Lesson completed");
+  }, []);
+
+  const startGuidedPractice = useCallback(() => {
+    trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
+      surface: "legacy_opening_lesson",
+      content_type: "opening",
+      content_id: openingKey,
+      origin: "lesson_route",
+      is_recommended: false,
+    });
+    setActiveTab("practice");
+  }, [openingKey]);
   
   if (loading) {
     return (
@@ -379,19 +394,8 @@ const OpeningLesson = () => {
               <GuidedOpeningLesson
                 openingKey={openingKey}
                 opening={opening}
-                onComplete={() => {
-                  console.log("Lesson completed");
-                }}
-                onStartPractice={() => {
-                  trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
-                    surface: "legacy_opening_lesson",
-                    content_type: "opening",
-                    content_id: openingKey,
-                    origin: "lesson_route",
-                    is_recommended: false,
-                  });
-                  setActiveTab("practice");
-                }}
+                onComplete={onGuidedComplete}
+                onStartPractice={startGuidedPractice}
               />
               
               {/* Key Ideas - Collapsed reference */}

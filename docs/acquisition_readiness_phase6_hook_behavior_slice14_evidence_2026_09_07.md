@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07
 **Scope:** `docs/acquisition_readiness_phase6_hook_behavior_precode_audit_2026_09_06.md`
-**Status:** SOURCE COMPLETE - independent review pending
+**Status:** CORRECTED AFTER REVIEW - exact-commit re-review pending
 
 ## Bounded change
 
@@ -10,12 +10,17 @@ The opening-learning surfaces now preserve current ownership without making
 boards or autoplay timers restart on ordinary renders:
 
 - `GuidedOpeningLesson` memoizes the optional main line and keeps one coach
-  introduction for the current color instead of changing it on a rerender;
+  introduction for the current color instead of changing it on a rerender. Its
+  autoplay reads the latest completion callback without restarting when a
+  parent creates a fresh callback;
 - `InteractivePractice` updates board orientation in place and routes board
-  events through the latest opening-owned move handler;
+  events through the latest opening-owned move handler. A changed opening
+  invalidates the old backend session, requests, and delayed UI work before a
+  new session may start;
 - `TrapPractice` memoizes its setup and trap lines, initializes a recreated
   board from the current FEN, and routes user/opponent callbacks through their
-  current trap-owned implementations; and
+  current trap-owned implementations. Trap changes and resets cancel all
+  delayed work owned by the previous trap; and
 - `OpeningLesson` no longer carries a second unreachable practice engine. The
   rendered `InteractivePractice` remains the single owner of opening practice.
 
@@ -24,23 +29,29 @@ boards or autoplay timers restart on ordinary renders:
 `OpeningPracticeEffects.test.jsx` proves:
 
 1. the guided coach introduction stays stable across an unrelated rerender;
-2. changing the student's color updates the live practice board without
+2. a fresh parent completion callback does not restart guided autoplay;
+3. changing the student's color updates the live practice board without
    destroying and recreating Chessground;
-3. an already-registered board event attributes a later move to the current
-   opening identity; and
-4. an already-registered trap board event grades against the current trap
-   after its prop identity changes.
+4. a prior opening's board event cannot reuse its backend session, while the
+   replacement session attributes its result to the current opening;
+5. an already-registered trap board event grades against the current trap
+   after its prop identity changes;
+6. an orientation-driven trap-board recreation keeps the live position; and
+7. changing traps cancels the prior trap's delayed opponent move.
 
 ```text
-focused: 1 suite / 4 tests passed
-full:    44 suites / 197 tests passed
-ordinary production build: exit 0
-strict production build: exit 1, 36 hook findings
-opening-learning findings: 0
-git diff --check: exit 0
+focused before correction: 1 suite / 4 tests passed
+focused after correction:  1 suite / 7 tests passed
+full before correction:    44 suites / 197 tests passed
+ordinary build before correction: exit 0
+strict build before correction: exit 1, 36 hook findings
+opening-learning findings after correction: 0
 ```
 
-This is the exact reduction from 51 to 36. `AR-QA-006` remains open for the
-36 findings in CoachPlay, Lab/Review, authoring, and coach-flow code. No
-backend, endpoint, database, dependency, lint suppression, push, deployment,
-or product-score change is included.
+The first independent review withheld approval because the initial patch did
+not invalidate an old backend opening session, let a fresh parent callback
+restart guided autoplay, and left old trap timers alive. Those three defects
+are corrected above rather than hidden by lint suppression. The exact-commit
+full suite and build evidence, followed by independent re-review, remain the
+acceptance gate. No backend, endpoint, database, dependency, lint suppression,
+push, deployment, or product-score change is included.

@@ -68,6 +68,9 @@ const GuidedOpeningLesson = ({
   const boardRef = useRef(null);
   const chessRef = useRef(new Chess());
   const autoPlayRef = useRef(null);
+  const completionTimerRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -133,12 +136,14 @@ const GuidedOpeningLesson = ({
     updateBoard(newIndex);
     
     // Check if completed
-    if (newIndex === mainLine.length - 1 && onComplete) {
-      setTimeout(() => {
+    if (newIndex === mainLine.length - 1 && onCompleteRef.current) {
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      completionTimerRef.current = setTimeout(() => {
         setIsPlaying(false);
+        completionTimerRef.current = null;
       }, 1000);
     }
-  }, [mainLine.length, updateBoard, onComplete]);
+  }, [mainLine.length, updateBoard]);
   
   // Auto-play logic
   useEffect(() => {
@@ -163,6 +168,10 @@ const GuidedOpeningLesson = ({
     return () => {
       if (autoPlayRef.current) {
         clearInterval(autoPlayRef.current);
+      }
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
+        completionTimerRef.current = null;
       }
     };
   }, [isPlaying, playSpeed, mainLine.length, goToMove]);
