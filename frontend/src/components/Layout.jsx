@@ -47,6 +47,10 @@ const Layout = ({ children, user }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const prevUnreadCountRef = useRef(0);
+  const notificationRequestVersionRef = useRef(0);
+  const notificationReadInProgressRef = useRef(false);
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const [coachPulse, setCoachPulse] = useState(null);
   const [lossStreak, setLossStreak] = useState({ show: false, count: 0 });
   const [personalCurriculumEnabled, setPersonalCurriculumEnabled] = useState(false);
@@ -108,18 +112,20 @@ const Layout = ({ children, user }) => {
   const showBrowserNotification = useCallback((notif) => {
     if ("Notification" in window && window.Notification.permission === "granted") {
       const notification = new window.Notification(notif.title || "ChessGuru", { body: notif.message, icon: "/logo192.png", tag: "chessguru-" + (notif.id || Date.now()) });
-      notification.onclick = () => { window.focus(); if (notif.action_url) navigate(notif.action_url); notification.close(); };
+      notification.onclick = () => { window.focus(); if (notif.action_url) navigateRef.current(notif.action_url); notification.close(); };
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const fetchNotifications = async () => {
+      if (notificationReadInProgressRef.current) return;
+      const requestVersion = ++notificationRequestVersionRef.current;
       try {
         const res = await fetch(`${API}/notifications?limit=10`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          if (cancelled) return;
+          if (cancelled || requestVersion !== notificationRequestVersionRef.current) return;
           const newNotifications = data.notifications || [];
           const newUnread = data.unread_count || 0;
           if (newUnread > prevUnreadCountRef.current && newNotifications.length > 0) {
@@ -141,11 +147,15 @@ const Layout = ({ children, user }) => {
   }, [showBrowserNotification]);
 
   const markAllRead = async () => {
+    notificationReadInProgressRef.current = true;
+    notificationRequestVersionRef.current += 1;
     try {
       await fetch(`${API}/notifications/read`, { method: 'POST', credentials: 'include' });
+      notificationRequestVersionRef.current += 1;
       setUnreadCount(0); prevUnreadCountRef.current = 0;
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (e) {}
+    finally { notificationReadInProgressRef.current = false; }
   };
 
   const navigation = [
