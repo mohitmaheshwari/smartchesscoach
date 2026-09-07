@@ -980,9 +980,19 @@ async def grade_personalized_move(
 
     if item.get("_puzzle_evaluator"):
         if db is None or not item.get("_puzzle_id"):
+            # This item cannot be graded at all -- it carries no puzzle to
+            # grade against. It used to answer correct=False, so the player
+            # was told "Not this one" for a position nothing had checked,
+            # and no move could ever succeed. Saying someone is wrong when
+            # we cannot know is the one thing this product refuses to do
+            # everywhere else, so it is refused here too.
             return {
                 "correct": False,
-                "feedback": "This position is still being checked.",
+                "unmeasured": True,
+                "feedback": (
+                    "I cannot check this position, so I am not going to mark "
+                    "your move either way. Let us move on to the next one."
+                ),
                 "answer_san": None,
                 "answer_uci": None,
                 "grader_version": "verified_puzzle_admission.unavailable",
@@ -1002,12 +1012,26 @@ async def grade_personalized_move(
             if resolved
             else {"quality": "invalid", "feedback": "This position is still being checked."}
         )
+        graded_correct = bool(result.get("correct"))
+        explained = result.get("feedback")
+        parsed_move = _parse_move(item["fen"], supplied_move)
+        if parsed_move is not None:
+            # Same explainer the destination-safety branch uses, so both
+            # paths speak with one voice instead of one being verbose and
+            # the other returning whatever the puzzle row happened to hold.
+            board_for_move = chess.Board(item["fen"])
+            explained = _destination_safety_feedback(
+                board_for_move,
+                parsed_move,
+                "pass" if graded_correct else "fail",
+                "sound" if graded_correct else "serious_problem",
+            )
         return {
-            "correct": bool(result.get("correct")),
-            "feedback": result.get("feedback"),
+            "correct": graded_correct,
+            "feedback": explained or result.get("feedback"),
             "answer_san": result.get("best_move_san"),
             "answer_uci": result.get("best_move_uci"),
-            "grader_version": "verified_puzzle_admission.v2",
+            "grader_version": "verified_puzzle_admission.v3",
         }
 
     parsed = _parse_move(item["fen"], supplied_move)

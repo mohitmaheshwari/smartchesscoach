@@ -1827,7 +1827,16 @@ async def process_personalized_move(
         )
     else:
         misconception = None
-    evidence_complete = not (
+    # A position the grader could not check is not a failed attempt. It
+    # used to strand the player on that item while filing a misconception
+    # nothing had verified, so this must land before the evidence event
+    # is constructed below.
+    unmeasured = bool(grade.get("unmeasured"))
+    if unmeasured:
+        misconception = None
+        correction = str(grade.get("feedback") or "")
+
+    evidence_complete = not bool(grade.get("unmeasured")) and not (
         blind and str((grade.get("soundness") or {}).get("status")) not in {
         "sound",
         "serious_problem",
@@ -1902,7 +1911,7 @@ async def process_personalized_move(
         else current_state
     )
 
-    next_index = index + 1 if (correct or blind) else index
+    next_index = index + 1 if (correct or blind or unmeasured) else index
     complete = bool(next_index >= len(items)) if blind else bool(
         correct and next_index >= len(items)
     )
