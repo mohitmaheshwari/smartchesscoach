@@ -850,7 +850,7 @@ def _destination_safety_feedback(
             "Your %s lands on %s, where the %s can take it."
             % (moved, landing, attacker)
             if attacker
-            else "Your %s can be taken on %s." % (moved, landing)
+            else "Your %s is not safe on %s." % (moved, landing)
         )
         # The check itself is stated once, up front, as the lesson's idea.
         # Repeating it under every wrong move turned it into wallpaper.
@@ -1016,16 +1016,25 @@ async def grade_personalized_move(
         explained = result.get("feedback")
         parsed_move = _parse_move(item["fen"], supplied_move)
         if parsed_move is not None:
-            # Same explainer the destination-safety branch uses, so both
-            # paths speak with one voice instead of one being verbose and
-            # the other returning whatever the puzzle row happened to hold.
-            board_for_move = chess.Board(item["fen"])
-            explained = _destination_safety_feedback(
-                board_for_move,
-                parsed_move,
-                "pass" if graded_correct else "fail",
-                "sound" if graded_correct else "serious_problem",
+            # Ask the detector whether the piece is actually unsafe. This
+            # used to pass "fail" whenever the puzzle marked the move wrong,
+            # which made the card announce a hanging piece for any wrong
+            # answer -- including moves whose destination is provably safe.
+            from services.destination_safety_detector import (
+                grade_destination_safety_candidate,
             )
+
+            safety = grade_destination_safety_candidate(
+                item["fen"], parsed_move.uci()
+            )
+            safety_status = str(safety.get("status") or "unmeasured")
+            if safety_status in {"pass", "fail"}:
+                explained = _destination_safety_feedback(
+                    chess.Board(item["fen"]),
+                    parsed_move,
+                    safety_status,
+                    "sound" if graded_correct else "serious_problem",
+                )
         return {
             "correct": graded_correct,
             "feedback": explained or result.get("feedback"),
