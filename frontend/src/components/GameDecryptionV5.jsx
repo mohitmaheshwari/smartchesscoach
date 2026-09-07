@@ -60,6 +60,8 @@ import PersonalizedReviewCoach, {
 } from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 /**
  * Generate POSITION-SPECIFIC reflection options.
  * Uses the actual pieces, squares, and threats from this position.
@@ -161,7 +163,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [boardFen, setBoardFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [boardFen, setBoardFen] = useState(START_FEN);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackRuleName, setFeedbackRuleName] = useState(null);
@@ -189,6 +191,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   
   const boardRef = useRef(null);
   const containerRef = useRef(null);
+  const decryptionLoadRef = useRef({ generation: 0, retryTimer: null });
+  const fetchDecryptionDataRef = useRef(null);
+  const fetchUserThoughtsRef = useRef(null);
+  const reviewNavigationRef = useRef({});
+  const posCommentaryRef = useRef(posCommentary);
+  posCommentaryRef.current = posCommentary;
 
   // v78.3 (2026-05-24) — "Play this line" state. Mohit caught the
   // button was missing on the Lab page. Track which move's playback
@@ -203,14 +211,86 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [goldMap, setGoldMap] = useState({});
   const [prefMap, setPrefMap] = useState({});   // {"{n}:{san}": "system"|"gold"|"neither"} — tester preference
 
-  useEffect(() => { fetchDecryptionData(); }, [gameId, requestedReviewVariant]);
+  useEffect(() => {
+    const load = decryptionLoadRef.current;
+    load.generation += 1;
+    const generation = load.generation;
+    if (load.retryTimer) {
+      clearTimeout(load.retryTimer);
+      load.retryTimer = null;
+    }
+
+    // Every item below belongs to one game + review variant. Clear the prior
+    // owner's optional fields before the replacement request begins.
+    setDecryptionData(null);
+    setCctNarrative(null);
+    setTruthLine(null);
+    setPlayerDecryption(null);
+    setDecryptionBlock(null);
+    setPatternEvidence(null);
+    setMotifBlindspot(null);
+    setGameTeachingPlan(null);
+    setTeachableEvents([]);
+    setReflectionPrompts([]);
+    setReflectionResponses([]);
+    setReviewValidation(null);
+    setHabitsReport(null);
+    setFactsByMove({});
+    setUserThoughts({});
+    setPosCommentary({});
+    setCurrentMoveIndex(-1);
+    setBoardFen(START_FEN);
+    setFeedbackOpen(false);
+    setFeedbackText("");
+    setFeedbackRuleName(null);
+    setSubmittingFeedback(false);
+    setAcknowledgedConcepts(new Set());
+    setShowingFutureMoves(false);
+    setFutureMoveIndex(0);
+    setHighlights([]);
+    setArrows([]);
+    setThoughtInputOpen({});
+    setSavingThought(null);
+    setPlanMode(false);
+    setPlanMoves([]);
+    setPlanBoard(null);
+    setPlanReasoning("");
+    setAnalyzingPlan(false);
+    setPlanAnalysis(null);
+    setCoachLinePlaybackIdx(-1);
+    setCoachLineStepIndex(-1);
+    setInitialMoveHandled(false);
+    fetchDecryptionDataRef.current?.(false, generation);
+
+    return () => {
+      if (load.generation === generation) {
+        load.generation += 1;
+      }
+      if (load.retryTimer) {
+        clearTimeout(load.retryTimer);
+        load.retryTimer = null;
+      }
+    };
+  }, [gameId, requestedReviewVariant]);
 
   useEffect(() => {
     if (!gameId) return;
+    let ownsRequest = true;
+    setGoldMap({});
+    setPrefMap({});
     fetch(`${API}/coach/decryption/gold/${gameId}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => { setGoldMap((d && d.gold) || {}); setPrefMap((d && d.prefs) || {}); })
-      .catch(() => { setGoldMap({}); setPrefMap({}); });
+      .then((d) => {
+        if (!ownsRequest) return;
+        setGoldMap((d && d.gold) || {});
+        setPrefMap((d && d.prefs) || {});
+      })
+      .catch(() => {
+        if (!ownsRequest) return;
+        setGoldMap({});
+        setPrefMap({});
+      });
+    return () => { ownsRequest = false; };
   }, [gameId]);
 
   // record which caption the reviewer prefers on a move (tester compare vote)
@@ -284,18 +364,24 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
       switch (e.key) {
-        case 'ArrowRight': e.preventDefault(); goForward(); break;
-        case 'ArrowLeft': e.preventDefault(); goBackward(); break;
-        case 'ArrowUp': e.preventDefault(); goToStart(); break;
-        case 'ArrowDown': e.preventDefault(); goToEnd(); break;
+        case 'ArrowRight': e.preventDefault(); reviewNavigationRef.current.goForward?.(); break;
+        case 'ArrowLeft': e.preventDefault(); reviewNavigationRef.current.goBackward?.(); break;
+        case 'ArrowUp': e.preventDefault(); reviewNavigationRef.current.goToStart?.(); break;
+        case 'ArrowDown': e.preventDefault(); reviewNavigationRef.current.goToEnd?.(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [decryptionData, currentMoveIndex]);
+  }, []);
 
-  const fetchDecryptionData = async (isRetry = false) => {
+  const fetchDecryptionData = async (
+    isRetry = false,
+    generation = decryptionLoadRef.current.generation,
+  ) => {
+    const ownsRequest = () => generation === decryptionLoadRef.current.generation;
+    let keepLoadingForRetry = false;
     try {
+      if (!ownsRequest()) return;
       if (!isRetry) setLoading(true);
       setError(null);
       
@@ -309,10 +395,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       );
       if (!res.ok) throw new Error("Failed to fetch decryption data");
       const data = await res.json();
+      if (!ownsRequest()) return;
       
       if (data.status === "generating") {
+        keepLoadingForRetry = true;
         setLoading(true);
-        setTimeout(() => fetchDecryptionData(true), 5000);
+        decryptionLoadRef.current.retryTimer = setTimeout(() => {
+          decryptionLoadRef.current.retryTimer = null;
+          fetchDecryptionDataRef.current?.(true, generation);
+        }, 5000);
         return;
       }
       
@@ -420,6 +511,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       } catch (e) {
         console.warn("Per-move caption fetch failed; falling back to V5 narrative:", e);
       }
+      if (!ownsRequest()) return;
 
       // 2026-07-03: attach focus_area badges to every move object. Cheap
       // second pass over perMoveData rather than threading through every
@@ -445,6 +537,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           const fRes = await fetch(`${API}/coach/decryption/facts/${gameId}`, { credentials: "include" });
           if (fRes.ok) {
             const fJson = await fRes.json();
+            if (!ownsRequest()) return;
             const byKey = {};
             for (const m of (fJson.moves || [])) {
               byKey[`${m.move_number}|${m.move_san}`] = m;
@@ -505,20 +598,25 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
       
       // Fetch existing user thoughts for this game
-      fetchUserThoughts();
+      fetchUserThoughtsRef.current?.(gameId, generation);
     } catch (err) {
-      setError(err.message);
+      if (ownsRequest()) setError(err.message);
     } finally {
-      setLoading(false);
+      if (ownsRequest() && !keepLoadingForRetry) setLoading(false);
     }
   };
+  fetchDecryptionDataRef.current = fetchDecryptionData;
   
   // Fetch existing thoughts
-  const fetchUserThoughts = async () => {
+  const fetchUserThoughts = async (
+    targetGameId = gameId,
+    generation = decryptionLoadRef.current.generation,
+  ) => {
     try {
-      const res = await fetch(`${API}/games/${gameId}/thoughts`, { credentials: "include" });
+      const res = await fetch(`${API}/games/${targetGameId}/thoughts`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
+        if (generation !== decryptionLoadRef.current.generation) return;
         if (data.thoughts?.length > 0) {
           const thoughts = {};
           data.thoughts.forEach(t => {
@@ -531,6 +629,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       console.log("Could not fetch existing thoughts");
     }
   };
+  fetchUserThoughtsRef.current = fetchUserThoughts;
   
   // Save user thought for a move
   const saveThought = async (moveNumber, fen, category) => {
@@ -689,14 +788,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     resetFutureView();
     const i = currentMoveIndex - 1;
     setCurrentMoveIndex(i);
-    setBoardFen(i === -1 ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : decryptionData[i].fen_after);
+    setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     setHighlights([]);
   }, [decryptionData, currentMoveIndex]);
 
   const goToStart = useCallback(() => {
     resetFutureView();
     setCurrentMoveIndex(-1);
-    setBoardFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    setBoardFen(START_FEN);
     setHighlights([]);
   }, []);
 
@@ -708,12 +807,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[i].fen_after);
     setHighlights([]);
   }, [decryptionData]);
+  reviewNavigationRef.current = { goForward, goBackward, goToStart, goToEnd };
 
   const goToMove = useCallback((i) => {
     if (!decryptionData || i < -1 || i >= decryptionData.length) return;
     resetFutureView();
     setCurrentMoveIndex(i);
-    setBoardFen(i === -1 ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : decryptionData[i].fen_after);
+    setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     
     if (i >= 0 && decryptionData[i].highlight_squares?.length) {
       setHighlights(decryptionData[i].highlight_squares);
@@ -944,7 +1044,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       your_plan_now: null,
       _narrative_source: "v5_caption",
     };
-  }, [rawCurrentMove, decryptionBlock]);
+  }, [rawCurrentMove]);
 
   const orientation = userColor === "black" ? "black" : "white";
   const hasPersonalizedReview = Boolean(
@@ -955,31 +1055,38 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
-    if (!currentMove || posCommentary[currentMoveIndex]) return;
+    if (!currentMove || posCommentaryRef.current[currentMoveIndex]) return;
     const sev = currentMove.severity;
     if (sev !== "blunder" && sev !== "mistake" && sev !== "inaccuracy") return;
     const fen = currentMove.fen_before || currentMove.fen;
     if (!fen) return;
 
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch(`${API}/coach/play/position/read`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
+          signal: controller.signal,
           body: JSON.stringify({ fen, user_color: userColor }),
         });
-        if (res.ok) {
+        if (res.ok && !controller.signal.aborted) {
           const data = await res.json();
-          setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+          if (!controller.signal.aborted) {
+            setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+          }
         } else {
           console.warn("[Decrypt] Position read failed:", res.status);
         }
       } catch (e) {
-        console.warn("[Decrypt] Position read error:", e.message);
+        if (e.name !== "AbortError") {
+          console.warn("[Decrypt] Position read error:", e.message);
+        }
       }
     })();
-  }, [currentMoveIndex, currentMove?.fen_before]);
+    return () => controller.abort();
+  }, [currentMoveIndex, currentMove, userColor]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">
