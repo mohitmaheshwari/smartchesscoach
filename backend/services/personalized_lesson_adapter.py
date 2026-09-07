@@ -852,11 +852,17 @@ def _destination_safety_feedback(
             if attacker
             else "Your %s can be taken on %s." % (moved, landing)
         )
-        return opening + " Before you let go of a piece, check what is aimed at the square it lands on."
+        # The check itself is stated once, up front, as the lesson's idea.
+        # Repeating it under every wrong move turned it into wallpaper.
+        return opening
 
     if target_status == "pass" and soundness_status == "sound":
+        # A correct answer used to get silence and the next position, which
+        # is where understanding is least likely to stick. Name what they
+        # did, so the habit is what gets remembered rather than the move.
         return (
-            "Your %s is safe on %s, and the move holds up." % (moved, landing)
+            "Your %s is safe on %s — nothing your opponent has wins it there. "
+            "That is the check worth keeping." % (moved, landing)
         )
 
     if target_status == "pass":

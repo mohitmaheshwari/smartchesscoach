@@ -11,9 +11,9 @@
     "name": "Undefended Pieces",
     "pattern_type": "hanging_piece",
     "trigger": "Piece attacked but not defended",
-    "rule": "Before EVERY move, check: Are any of my pieces undefended?",
+    "rule": "Check the square you are moving to, not just the piece you are moving.",
     "explanation": "Many tactics work because a piece was left undefended. An undefended piece is a target for forks, discovered attacks, and double attacks.",
-    "prevention": "After deciding your move, do a final 'blunder check' — scan all your pieces.",
+    "prevention": "Before you let go of a piece, look at the square it is landing on and ask what can capture there.",
     "difficulty": "beginner"
   },
 
