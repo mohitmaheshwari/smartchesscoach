@@ -68,4 +68,39 @@ describe("OpeningsOverview account-owned loading", () => {
     expect(container.textContent).not.toContain("Your Repertoire (3 games)");
     expect(profileCount).toBe(2);
   });
+
+  test("a failed new-account load cannot reveal the prior account's repertoire", async () => {
+    let requestCount = 0;
+    global.fetch = jest.fn((url) => {
+      const generation = Math.floor(requestCount / 3);
+      requestCount += 1;
+      if (generation > 0) return Promise.resolve({ ok: false });
+      if (url.endsWith("/openings/repertoire")) {
+        return Promise.resolve(response({ white_repertoire: [], black_repertoire: [] }));
+      }
+      if (url.endsWith("/training/opening-progress")) {
+        return Promise.resolve(response({ progress: [] }));
+      }
+      if (url.endsWith("/openings/profile")) {
+        return Promise.resolve(response({
+          total_analyzed_games: 7,
+          white: {},
+          black: {},
+          recurring_deviations: [],
+        }));
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await act(async () => root.render(<OpeningsOverview user={{ user_id: "old-user" }} />));
+    await flush();
+    expect(container.textContent).toContain("Your Repertoire (7 games)");
+
+    await act(async () => root.render(<OpeningsOverview user={{ user_id: "current-user" }} />));
+    await flush();
+
+    expect(requestCount).toBe(6);
+    expect(container.textContent).not.toContain("Your Repertoire (7 games)");
+    expect(container.querySelector("[data-testid='your-repertoire-card']")).toBeNull();
+  });
 });

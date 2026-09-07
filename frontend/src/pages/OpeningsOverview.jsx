@@ -80,6 +80,9 @@ const OpeningsOverview = ({ user }) => {
     let cancelled = false;
     const fetchData = async () => {
       setLoading(true);
+      setRepertoire(null);
+      setProgress([]);
+      setOpeningProfile(null);
       try {
         const [repRes, progRes, profRes] = await Promise.all([
           fetch(`${API}/openings/repertoire`, { credentials: "include" }),
