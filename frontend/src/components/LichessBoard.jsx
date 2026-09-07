@@ -62,6 +62,15 @@ const LichessBoard = forwardRef(({
   // v78.3 — in-flight variation playback timer ref. Used by
   // playVariation/cancelVariation in the imperative handle below.
   const variationTimerRef = useRef(null);
+  const initializationPropsRef = useRef(null);
+  initializationPropsRef.current = {
+    fen,
+    interactive,
+    viewOnly,
+    showDests,
+    orientation,
+    arrows,
+  };
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -277,6 +286,7 @@ const LichessBoard = forwardRef(({
   
   // Initialize and recreate chessground when interactivity mode changes
   useEffect(() => {
+    const { fen, interactive, viewOnly, showDests, orientation, arrows } = initializationPropsRef.current;
     // Destroy existing instance
     if (groundRef.current) {
       groundRef.current.destroy();
@@ -448,6 +458,8 @@ const LichessBoard = forwardRef(({
   const prevInteractiveRef = useRef(interactive);
   const prevViewOnlyRef = useRef(viewOnly);
   const prevPlanModeRef = useRef(planMode);
+  const prevShowDestsRef = useRef(showDests);
+  const prevMovableColorRef = useRef(movableColor);
   
   // Update position when fen changes AND update interactivity
   // Combined effect to avoid race conditions between fen updates and interactivity changes
@@ -457,7 +469,9 @@ const LichessBoard = forwardRef(({
       const fenChanged = prevFenRef.current !== fen;
       const interactivityChanged = prevInteractiveRef.current !== interactive || 
                                    prevViewOnlyRef.current !== viewOnly ||
-                                   prevPlanModeRef.current !== planMode;
+                                   prevPlanModeRef.current !== planMode ||
+                                   prevShowDestsRef.current !== showDests ||
+                                   prevMovableColorRef.current !== movableColor;
       
       console.log("LichessBoard update effect:", {
         fenChanged,
@@ -476,6 +490,8 @@ const LichessBoard = forwardRef(({
       prevInteractiveRef.current = interactive;
       prevViewOnlyRef.current = viewOnly;
       prevPlanModeRef.current = planMode;
+      prevShowDestsRef.current = showDests;
+      prevMovableColorRef.current = movableColor;
       
       // If nothing changed, don't update the board (this preserves selection state)
       if (!fenChanged && !interactivityChanged && !lastMove) {
@@ -496,7 +512,11 @@ const LichessBoard = forwardRef(({
       // For plan mode, get moves for BOTH colors
       // For normal mode, only get moves for current turn
       const dests = shouldBeInteractive && showDests 
-        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
+        ? (movableColor
+          ? getMovesForColor(chessRef.current, movableColor)
+          : planMode
+            ? getAllPossibleDests(chessRef.current)
+            : getMovableDests(chessRef.current))
         : new Map();
       
       // Build config - only include properties that need updating
@@ -513,7 +533,9 @@ const LichessBoard = forwardRef(({
         config.viewOnly = !shouldBeInteractive;
         config.movable = {
           free: false,
-          color: shouldBeInteractive ? "both" : undefined,
+          color: shouldBeInteractive
+            ? (movableColor || (planMode ? "both" : getTurnColor(fen)))
+            : undefined,
           dests: dests,
           showDests: showDests && shouldBeInteractive,
         };
@@ -536,7 +558,7 @@ const LichessBoard = forwardRef(({
         groundRef.current.set(config);
       }
     }
-  }, [fen, interactive, viewOnly, showDests, lastMove, planMode]);
+  }, [fen, interactive, viewOnly, showDests, lastMove, planMode, movableColor]);
 
   // Update orientation
   useEffect(() => {
