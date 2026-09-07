@@ -17,6 +17,7 @@ def set_llm(llm_fn):
     call_llm_fn = llm_fn
 
 from routes.auth import get_current_user, User
+from routes.admin import require_admin
 
 logger = logging.getLogger(__name__)
 
@@ -722,16 +723,20 @@ async def send_weekly_summary_to_user(user: User = Depends(get_current_user)):
 
 
 @router.post("/admin/send-all-weekly-summaries")
-async def send_all_weekly_summaries(user: User = Depends(get_current_user)):
-    """Admin endpoint to trigger weekly summaries for all users."""
-    # Simple admin check - in production, use proper admin auth
+async def send_all_weekly_summaries(user: User = Depends(require_admin)):
+    """Admin endpoint to trigger weekly summaries for all users.
+
+    This sends mail to EVERY user. It previously took get_current_user and
+    carried a "use proper admin auth" comment instead of a check, so any
+    signed-in account could trigger a mass send.
+    """
     from weekly_summary_service import send_weekly_summaries
     result = await send_weekly_summaries(db)
     return result
 
 
 @router.post("/admin/backfill-openings")
-async def backfill_openings(user: User = Depends(get_current_user)):
+async def backfill_openings(user: User = Depends(require_admin)):
     """
     Backfill opening info for all games that don't have it.
     This extracts ECO code, opening name from PGN headers.

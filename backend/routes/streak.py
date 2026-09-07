@@ -7,7 +7,7 @@ Endpoints:
 - GET /api/streak/history - Get last 5 games with streak data
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Dict, Any
 from datetime import datetime, timezone
 import logging
@@ -19,7 +19,29 @@ from services.mistake_streak_service import (
     FOCUS_MISTAKE_TYPES
 )
 
+from routes.auth import User, get_current_user
+
 router = APIRouter(prefix="/streak", tags=["streak"])
+
+
+def _own_user_id(user: User, requested: str | None) -> str:
+    """Identity comes from the SESSION, never from the caller.
+
+    These routes previously took user_id straight from the query string or
+    body with no authentication at all, so anyone could read -- and via
+    update/set-focus, modify -- any account's streak by supplying its id.
+    Verified live: GET /api/streak/status?user_id=<anything> returned 200
+    with no credentials.
+
+    The frontend still sends user_id (it always has, with
+    credentials: "include"), so it is accepted when it matches the session
+    and rejected when it does not, rather than silently ignored.
+    """
+    session_id = str(getattr(user, "user_id", "") or "")
+    asked = str(requested or "").strip()
+    if asked and asked != session_id:
+        raise HTTPException(status_code=403, detail="Cannot access another account")
+    return session_id
 logger = logging.getLogger(__name__)
 
 # Database reference - will be set by server.py
@@ -36,7 +58,10 @@ def set_db(database):
 # =============================================================================
 
 @router.get("/status")
-async def get_streak_status(user_id: str) -> Dict[str, Any]:
+async def get_streak_status(
+    user_id: str = None,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Get current streak status for pre-game popup.
 
@@ -49,6 +74,8 @@ async def get_streak_status(user_id: str) -> Dict[str, Any]:
         Streak state with messaging for UI
     """
     global db
+    # Resolve BEFORE the local `user` below shadows the session dependency.
+    user_id = _own_user_id(user, user_id)
 
     # Get user's streak data
     user = await db.users.find_one(
@@ -122,13 +149,17 @@ async def get_streak_status(user_id: str) -> Dict[str, Any]:
 
 
 @router.get("/history")
-async def get_streak_history(user_id: str) -> Dict[str, Any]:
+async def get_streak_history(
+    user_id: str = None,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Get detailed streak history (last 5 games).
     
     Returns:
         Full streak state with game history
     """
+    user_id = _own_user_id(user, user_id)
     global db
     
     user = await db.users.find_one(
@@ -153,7 +184,10 @@ async def get_streak_history(user_id: str) -> Dict[str, Any]:
 # =============================================================================
 
 @router.post("/update")
-async def update_streak(request: Request) -> Dict[str, Any]:
+async def update_streak(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Update streak after a game is analyzed.
     
@@ -170,8 +204,8 @@ async def update_streak(request: Request) -> Dict[str, Any]:
     """
     global db
     body = await request.json()
-    
-    user_id = body.get("user_id")
+
+    user_id = _own_user_id(user, body.get("user_id"))
     game_id = body.get("game_id")
     user_color = body.get("user_color", "white")
     game_analysis = body.get("stockfish_analysis", body.get("analysis", {}))
@@ -228,7 +262,10 @@ async def update_streak(request: Request) -> Dict[str, Any]:
 # =============================================================================
 
 @router.post("/set-focus")
-async def set_focus_mistake(request: Request) -> Dict[str, Any]:
+async def set_focus_mistake(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Set the user's current focus mistake type.
     
@@ -242,8 +279,8 @@ async def set_focus_mistake(request: Request) -> Dict[str, Any]:
     """
     global db
     body = await request.json()
-    
-    user_id = body.get("user_id")
+
+    user_id = _own_user_id(user, body.get("user_id"))
     focus_type = body.get("focus_type")
     reset_streak = body.get("reset_streak", False)
     
@@ -359,7 +396,10 @@ def _get_default_streak_data() -> Dict[str, Any]:
 # =============================================================================
 
 @router.post("/reset-focus")
-async def reset_focus(request: Request) -> Dict[str, Any]:
+async def reset_focus(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Reset user's focus to None (requires re-detection from games).
     
@@ -370,11 +410,11 @@ async def reset_focus(request: Request) -> Dict[str, Any]:
     """
     global db
     body = await request.json()
-    user_id = body.get("user_id")
-    
+    user_id = _own_user_id(user, body.get("user_id"))
+
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id required")
-    
+
     # Reset focus to None
     await db.users.update_one(
         {"user_id": user_id},

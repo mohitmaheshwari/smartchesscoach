@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
+import { buildTrainingFeedbackView } from "@/lib/trainingFeedback";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
@@ -23,7 +24,6 @@ import { Chess } from "chess.js";
 import {
   ArrowLeft,
   CheckCircle2,
-  XCircle,
   ChevronRight,
   Loader2,
   Trophy,
@@ -113,14 +113,12 @@ export default function PrescribedTraining({ user = null }) {
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking, correct, incorrect, revealed
   const [userMove, setUserMove] = useState(null);
-  const [showSolution, setShowSolution] = useState(false);
   const [solvedCount, setSolvedCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const [encouragement, setEncouragement] = useState("");
-  // Per-move coaching from build_miss_coaching — populated when the
-  // user gets a puzzle wrong. Carries position_summary, played_critique,
-  // best_move_idea, takeaway. Cleared on next puzzle / retry.
-  const [missCoaching, setMissCoaching] = useState(null);
+  // Server-owned, proof-backed teaching for the learner's latest action.
+  // On a retry it contains a clue but no answer; reveal returns the full why.
+  const [coachingFeedback, setCoachingFeedback] = useState(null);
   const [verifiedAnswer, setVerifiedAnswer] = useState(null);
   const [evaluationError, setEvaluationError] = useState("");
 
@@ -428,7 +426,11 @@ export default function PrescribedTraining({ user = null }) {
     if (result && result.quality && result.quality !== "invalid") {
       const bestSan = result.best_move_san || "";
       const feedback = result.feedback || "";
-      setVerifiedAnswer({ san: bestSan, uci: result.best_move_uci || "" });
+      if (result.correct && bestSan) {
+        setVerifiedAnswer({ san: bestSan, uci: result.best_move_uci || "" });
+      } else {
+        setVerifiedAnswer(null);
+      }
 
       try {
         await recordAttempt(currentPuzzle, result.quality, userMoveUci);
@@ -440,14 +442,9 @@ export default function PrescribedTraining({ user = null }) {
         return false;
       }
 
-      // Capture rich miss-coaching when the backend included it.
-      // Cleared automatically on next puzzle / retry. Only meaningful
-      // for non-best moves; backend skips it on best.
-      if (result.miss_coaching) {
-        setMissCoaching(result.miss_coaching);
-      } else {
-        setMissCoaching(null);
-      }
+      setCoachingFeedback(
+        result.coaching_feedback || result.miss_coaching || null
+      );
 
       if (result.is_best) {
         setPuzzleState("correct");
@@ -461,7 +458,9 @@ export default function PrescribedTraining({ user = null }) {
         setSolvedCount((prev) => prev + 1);
         setEncouragement(feedback || `Solid. ${bestSan} was sharper.`);
       } else {
-        setPuzzleState("incorrect");
+        setPuzzleState(
+          result.concept_result === "pass" ? "concept_pass" : "incorrect"
+        );
         setStreak(0);
         setEncouragement(feedback || getEncouragement("incorrect"));
         game.undo();
@@ -523,8 +522,7 @@ export default function PrescribedTraining({ user = null }) {
       setCurrentPuzzleIndex(nextIdx);
       setPuzzleState("thinking");
       setUserMove(null);
-      setShowSolution(false);
-      setMissCoaching(null);
+      setCoachingFeedback(null);
       setVerifiedAnswer(null);
       setEvaluationError("");
 
@@ -545,8 +543,7 @@ export default function PrescribedTraining({ user = null }) {
       setGame(newGame);
       setPuzzleState("thinking");
       setUserMove(null);
-      setShowSolution(false);
-      setMissCoaching(null);
+      setCoachingFeedback(null);
       setVerifiedAnswer(null);
       setEvaluationError("");
     }
@@ -579,8 +576,13 @@ export default function PrescribedTraining({ user = null }) {
       });
       if (!response.ok) throw new Error("reveal unavailable");
       const answer = await response.json();
-      setVerifiedAnswer({ san: answer.best_move_san, uci: answer.best_move_uci });
-      setShowSolution(true);
+      setVerifiedAnswer({
+        san: answer.best_move_san,
+        uci: answer.best_move_uci,
+        sourceUci: answer.source_move_uci || "",
+        replyUci: answer.reply_move_uci || "",
+      });
+      setCoachingFeedback(answer.coaching_feedback || null);
       setPuzzleState("revealed");
     } catch (_e) {
       setEvaluationError("I couldn't load the answer just now. Please try again.");
@@ -646,11 +648,25 @@ export default function PrescribedTraining({ user = null }) {
     trainingData.coaching_intro?.lesson ||
     (weakness === "current" ? "Your focus" : weakness.replace(/_/g, " "));
   const solvedMoves = verifiedAnswer?.san;
-  // The move the coach actually verified and explains. The puzzle's STORED
-  // solution can be stale/wrong (it showed "Rd1"/"c3" — illegal for the side to
-  // move); the engine-verified best from build_miss_coaching is ground truth.
-  // Use it in the header so the "(solution)" label never contradicts the lesson.
-  const verifiedSolution = missCoaching?.best_move_san || solvedMoves;
+  const verifiedSolution = solvedMoves;
+  const fallbackPrinciple =
+    currentPuzzle?.source === "your_game" && unifiedCaption?.caption_text
+      ? unifiedCaption.caption_text
+      : isSolvedState
+        ? encouragement ||
+          "You saw the pattern. That's exactly the instinct we're building."
+        : currentPuzzle?.coaching?.what_you_missed ||
+          trainingData?.coaching_intro?.what_to_look_for ||
+          "Before moving, always check what your opponent just threatened.";
+  const feedbackView = buildTrainingFeedbackView({
+    puzzleState,
+    userMove,
+    sourceMove: currentPuzzle?.your_move,
+    verifiedSolution,
+    patternType: currentPuzzle?.pattern_type || weakness,
+    coaching: coachingFeedback,
+    fallback: fallbackPrinciple,
+  });
 
   // Progress pips — solved ✓, missed ✗, current ●, upcoming ○
   // `attempts` list isn't tracked globally; we synthesize pips from solvedCount + current index.
@@ -800,8 +816,9 @@ export default function PrescribedTraining({ user = null }) {
           {/* Board column */}
           <div className="w-full">
             {currentPuzzle?.fen ? (
-              <div className="experience-board-stage rounded-xl overflow-hidden ring-1 ring-border">
-                <LichessBoard
+              <>
+                <div className="experience-board-stage rounded-xl overflow-hidden ring-1 ring-border">
+                  <LichessBoard
                   ref={boardRef}
                   fen={game.fen()}
                   orientation={boardOrientation}
@@ -813,7 +830,7 @@ export default function PrescribedTraining({ user = null }) {
                   interactive={puzzleState === "thinking"}
                   viewOnly={puzzleState !== "thinking"}
                   arrows={
-                    (showSolution || puzzleState === "incorrect")
+                    feedbackView.showSolution
                       ? (() => {
                           const arrows = [];
                           if (verifiedAnswer?.uci) {
@@ -821,6 +838,20 @@ export default function PrescribedTraining({ user = null }) {
                               verifiedAnswer.uci.slice(0, 2),
                               verifiedAnswer.uci.slice(2, 4),
                               "green",
+                            ]);
+                          }
+                          if (verifiedAnswer?.sourceUci) {
+                            arrows.push([
+                              verifiedAnswer.sourceUci.slice(0, 2),
+                              verifiedAnswer.sourceUci.slice(2, 4),
+                              "red",
+                            ]);
+                          }
+                          if (verifiedAnswer?.replyUci) {
+                            arrows.push([
+                              verifiedAnswer.replyUci.slice(0, 2),
+                              verifiedAnswer.replyUci.slice(2, 4),
+                              "blue",
                             ]);
                           }
                           if (currentPuzzle.threat) {
@@ -834,7 +865,7 @@ export default function PrescribedTraining({ user = null }) {
                       : []
                   }
                   highlights={
-                    (showSolution || puzzleState === "incorrect")
+                    feedbackView.showSolution
                       ? (() => {
                           const highlights = [];
                           if (currentPuzzle.your_move_uci) {
@@ -854,8 +885,27 @@ export default function PrescribedTraining({ user = null }) {
                         })()
                       : []
                   }
-                />
-              </div>
+                  />
+                </div>
+                {feedbackView.showSolution && verifiedAnswer?.sourceUci && (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11.5px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Original move
+                    </span>
+                    {verifiedAnswer?.replyUci && (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                        Opponent's reply
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Coach's move
+                    </span>
+                  </div>
+                )}
+              </>
             ) : currentPuzzle?.game_url ? (
               <div className="aspect-square bg-muted/40 rounded-lg flex items-center justify-center">
                 <div className="text-center p-6">
@@ -879,6 +929,10 @@ export default function PrescribedTraining({ user = null }) {
             {(puzzleState === "thinking" || puzzleState === "evaluating") ? (
               <PuzzlePrompt
                 framing={
+                  [
+                    currentPuzzle?.coaching?.personal_note,
+                    currentPuzzle?.coaching?.why_this_matters,
+                  ].filter(Boolean).join(" ") ||
                   currentPuzzle?.framing_text ||
                   currentPuzzle?.context ||
                   (currentPuzzle?.source === "your_game"
@@ -899,43 +953,24 @@ export default function PrescribedTraining({ user = null }) {
               />
             ) : (
               <FeedbackPanel
-                outcome={
-                  puzzleState === "correct"
-                    ? "correct"
-                    : puzzleState === "acceptable"
-                      ? "correct"  // advance path — "solid but not sharpest"
-                      : puzzleState === "revealed"
-                        ? "revealed"
-                        : "missed"
+                outcome={feedbackView.outcome}
+                principle={feedbackView.headline}
+                takeaway={feedbackView.takeaway}
+                nextStep={feedbackView.nextStep}
+                unifiedCaptionLoading={
+                  !coachingFeedback &&
+                  unifiedCaptionLoading &&
+                  currentPuzzle?.source === "your_game"
                 }
-                principle={
-                  // Show unified caption if puzzle is from user's game, otherwise generic
-                  currentPuzzle?.source === "your_game" && unifiedCaption?.caption_text
-                    ? unifiedCaption.caption_text
-                    : isSolvedState
-                    ? encouragement ||
-                      "You saw the pattern. That's exactly the instinct we're building."
-                    : currentPuzzle?.coaching?.what_you_missed ||
-                      trainingData?.coaching_intro?.what_to_look_for ||
-                      "Before moving, always check what your opponent just threatened."
-                }
-                unifiedCaptionLoading={unifiedCaptionLoading && currentPuzzle?.source === "your_game"}
-                san={
-                  isSolvedState
-                    ? verifiedSolution
-                    : userMove && verifiedSolution
-                      ? `${userMove} (you played) · ${verifiedSolution} (solution)`
-                      : currentPuzzle?.your_move && verifiedSolution
-                        ? `${currentPuzzle.your_move} (originally) · ${verifiedSolution} (solution)`
-                        : verifiedSolution
-                }
+                san={feedbackView.san}
                 threat={currentPuzzle?.threat}
                 streak={streak}
                 isComplete={isComplete}
                 onNext={nextPuzzle}
                 onRetry={retryPuzzle}
+                onReveal={revealSolution}
+                canReveal={feedbackView.canReveal}
                 onComplete={() => navigate("/home")}
-                missCoaching={missCoaching}
               />
             )}
           </div>
@@ -1038,27 +1073,41 @@ function FeedbackPanel({
   outcome,
   principle,
   san,
+  takeaway,
+  nextStep,
   threat,
   streak,
   isComplete,
   onNext,
   onRetry,
+  onReveal,
+  canReveal,
   onComplete,
-  missCoaching,
   unifiedCaptionLoading,
 }) {
   const isCorrect = outcome === "correct";
   const isRevealed = outcome === "revealed";
+  const isSafe = outcome === "safe";
   const toneBorder = isCorrect
     ? "border-emerald-400/30 bg-emerald-500/[0.04]"
     : isRevealed
       ? "border-blue-400/30 bg-blue-500/[0.04]"
+      : isSafe
+        ? "border-amber-400/35 bg-amber-500/[0.05]"
       : "border-rose-400/30 bg-rose-500/[0.04]";
-  const label = isCorrect ? "Correct" : isRevealed ? "Solution" : "Missed";
+  const label = isCorrect
+    ? "Correct"
+    : isRevealed
+      ? "Explanation"
+      : isSafe
+        ? "Safe idea"
+        : "Try again";
   const toneAccent = isCorrect
     ? "text-emerald-600 dark:text-emerald-300"
     : isRevealed
       ? "text-blue-600 dark:text-blue-300"
+      : isSafe
+        ? "text-amber-700 dark:text-amber-300"
       : "text-rose-600 dark:text-rose-300";
 
   return (
@@ -1076,6 +1125,8 @@ function FeedbackPanel({
               ? "border-emerald-400/40 bg-emerald-500/10"
               : isRevealed
                 ? "border-blue-400/40 bg-blue-500/10"
+                : isSafe
+                  ? "border-amber-400/40 bg-amber-500/10"
                 : "border-rose-400/40 bg-rose-500/10"
           }`}
         >
@@ -1083,8 +1134,10 @@ function FeedbackPanel({
             <CheckCircle2 className="h-4 w-4 text-emerald-500" strokeWidth={2} />
           ) : isRevealed ? (
             <Eye className="h-4 w-4 text-blue-500" strokeWidth={2} />
+          ) : isSafe ? (
+            <CheckCircle2 className="h-4 w-4 text-amber-600" strokeWidth={2} />
           ) : (
-            <XCircle className="h-4 w-4 text-rose-500" strokeWidth={2} />
+            <RotateCcw className="h-4 w-4 text-rose-500" strokeWidth={2} />
           )}
         </div>
 
@@ -1112,7 +1165,7 @@ function FeedbackPanel({
                 Loading teaching...
               </span>
             ) : (
-              missCoaching?.lesson ? missCoaching.lesson : principle
+              principle
             )}
           </p>
           {threat && !isCorrect && (
@@ -1122,14 +1175,15 @@ function FeedbackPanel({
             </p>
           )}
 
-          {/* ONE line, not four boxes. The lesson (naming the pattern + the
-              verified why) is the headline above; here we add at most one small
-              takeaway. We deliberately dropped the stacked "falls short" / "why
-              best" boxes and the contradictory generic headline — the user reads
-              one studiable line, per Mohit 2026-07-06. */}
-          {!isCorrect && missCoaching?.takeaway && (
+          {takeaway && (
             <p className="mt-3 text-[12px] italic text-muted-foreground leading-relaxed pl-1 max-w-[560px]">
-              {missCoaching.takeaway}
+              {takeaway}
+            </p>
+          )}
+          {nextStep && (
+            <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed max-w-[560px]">
+              <span className="font-medium text-foreground/80">Next: </span>
+              {nextStep}
             </p>
           )}
         </div>
@@ -1152,12 +1206,14 @@ function FeedbackPanel({
                 <RotateCcw className="mr-2 h-3.5 w-3.5" />
                 Try again
               </Button>
-              <button
-                onClick={onNext}
-                className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Move on →
-              </button>
+              {canReveal && (
+                <button
+                  onClick={onReveal}
+                  className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Explain and show answer
+                </button>
+              )}
             </div>
           )}
         </div>

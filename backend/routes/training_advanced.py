@@ -2565,7 +2565,10 @@ async def get_puzzle_difficulty(user: User = Depends(get_current_user)):
 
 
 @router.get("/training/puzzle-leaderboard")
-async def get_puzzle_leaderboard_endpoint(limit: int = 20):
+async def get_puzzle_leaderboard_endpoint(
+    limit: int = 20,
+    user: User = Depends(get_current_user),
+):
     """
     Get global puzzle rating leaderboard.
     """
@@ -3093,7 +3096,12 @@ async def get_tricks_by_difficulty(difficulty: str):
 
 
 @router.get("/training/tricks/{trap_key}/leaderboard")
-async def get_trap_leaderboard_endpoint(request: Request, trap_key: str, mode: str = "execution"):
+async def get_trap_leaderboard_endpoint(
+    request: Request,
+    trap_key: str,
+    mode: str = "execution",
+    user: User = Depends(get_current_user),
+):
     """Get leaderboard for a specific trap."""
     from trap_stats_service import get_trap_leaderboard
 
