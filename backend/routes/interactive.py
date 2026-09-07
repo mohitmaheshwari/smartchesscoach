@@ -74,6 +74,7 @@ def set_llm(llm_fn):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from routes.admin import require_admin
 
 
 # ==================== REFLECTION ROUTES ====================
@@ -883,7 +884,8 @@ async def search_lichess_opening(name: str):
 @router.get("/eval/position")
 async def analyze_position_endpoint(
     fen: str,
-    depth: int = 18
+    depth: int = 18,
+    user: User = Depends(get_current_user),
 ):
     """
     Analyze a chess position using Stockfish with caching.
@@ -902,7 +904,11 @@ async def analyze_position_endpoint(
 
 
 @router.get("/eval/best-move")
-async def get_best_move_endpoint(fen: str, depth: int = 18):
+async def get_best_move_endpoint(
+    fen: str,
+    depth: int = 18,
+    user: User = Depends(get_current_user),
+):
     """
     Quick endpoint to get just the best move for a position.
     """
@@ -921,7 +927,8 @@ async def get_best_move_endpoint(fen: str, depth: int = 18):
 async def analyze_move_endpoint(
     fen: str,
     move: str,
-    depth: int = 18
+    depth: int = 18,
+    user: User = Depends(get_current_user),
 ):
     """
     Analyze a specific move - get evaluation and classification.
@@ -942,8 +949,8 @@ async def analyze_move_endpoint(
 
 
 @router.get("/eval/cache-stats")
-async def get_eval_cache_stats():
-    """Get cache statistics."""
+async def get_eval_cache_stats(user: User = Depends(require_admin)):
+    """Get cache statistics. Admin only -- internal metrics, no reason to be public."""
     from position_analysis_cache_service import PositionAnalysisService
 
     service = PositionAnalysisService(db)
