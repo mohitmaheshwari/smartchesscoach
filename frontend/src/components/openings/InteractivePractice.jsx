@@ -293,6 +293,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           move: moveUci
         })
       });
+      if (!ownsRequest()) return;
       
       if (res.ok) {
         const data = await res.json();
@@ -455,6 +456,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         method: "POST",
         credentials: "include"
       });
+      if (!ownsRequest()) return;
       
       if (res.ok) {
         const data = await res.json();

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07
 **Scope:** `docs/acquisition_readiness_phase6_hook_behavior_precode_audit_2026_09_06.md`
-**Status:** CORRECTED AFTER REVIEW - exact-commit re-review pending
+**Status:** INDEPENDENT REVIEW APPROVED - residual edge guard added
 
 ## Bounded change
 
@@ -37,11 +37,14 @@ boards or autoplay timers restart on ordinary renders:
 5. an already-registered trap board event grades against the current trap
    after its prop identity changes;
 6. an orientation-driven trap-board recreation keeps the live position; and
-7. changing traps cancels the prior trap's delayed opponent move.
+7. changing traps cancels the prior trap's delayed opponent move; and
+8. a failed move request from a superseded opening cannot show a stale error
+   toast in the replacement lesson.
 
 ```text
 focused before correction: 1 suite / 4 tests passed
 focused after correction:  1 suite / 7 tests passed
+focused after residual:    1 suite / 8 tests passed
 full before correction:    44 suites / 197 tests passed
 full after correction:     46 suites / 202 tests passed
 ordinary build after correction: exit 0
@@ -56,6 +59,9 @@ restart guided autoplay, and left old trap timers alive. Those three defects
 are corrected above rather than hidden by lint suppression. Exact-source tests
 and builds were run from a detached clean checkout; the 32 remaining strict
 findings are confined to Game Review, Play with Coach, Lab Classic, Lab V2,
-and Reflect. Independent re-review remains the acceptance gate. No backend,
-endpoint, database, dependency, lint suppression, push, deployment, or
-product-score change is included.
+and Reflect. Independent re-review approved the correction after reproducing
+the focused, parent-discrimination, full-suite, strict-build, and diff checks.
+Its one low-severity residual (a stale non-OK response toast) is now guarded by
+request ownership and the eighth regression test. No backend, endpoint,
+database, dependency, lint suppression, push, deployment, or product-score
+change is included.

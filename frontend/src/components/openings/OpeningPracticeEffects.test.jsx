@@ -6,6 +6,7 @@ import GuidedOpeningLesson from "./GuidedOpeningLesson";
 import InteractivePractice from "./InteractivePractice";
 import TrapPractice from "./TrapPractice";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
+import { toast } from "sonner";
 
 const mockGround = {
   set: jest.fn(),
@@ -171,6 +172,37 @@ describe("opening practice hook ownership", () => {
       expect.objectContaining({ content_id: "current-opening", outcome: "incorrect" })
     );
     expect(JSON.parse(global.fetch.mock.calls.at(-1)[1].body).session_id).toBe("session-2");
+  });
+
+  test("an old opening's failed move response cannot show a stale error", async () => {
+    let resolveMove;
+    const delayedMove = new Promise((resolve) => { resolveMove = resolve; });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(response({ session_id: "session-1", fen: START, move_number: 1 }))
+      .mockReturnValueOnce(delayedMove);
+
+    await act(async () => root.render(
+      <InteractivePractice openingKey="old-opening" openingName="Old" userColor="white" />
+    ));
+    await act(async () => {
+      container.querySelector("[data-testid='start-practice-btn']").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => jest.advanceTimersByTime(500));
+    const moveEvent = mockGround.set.mock.calls
+      .map(([config]) => config?.events?.move)
+      .find(Boolean);
+    let pendingMove;
+    act(() => { pendingMove = moveEvent("e2", "e4"); });
+
+    await act(async () => root.render(
+      <InteractivePractice openingKey="current-opening" openingName="Current" userColor="white" />
+    ));
+    resolveMove({ ok: false, status: 500 });
+    await act(async () => pendingMove);
+
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   test("TrapPractice board events use the current trap after a prop change", async () => {
