@@ -208,23 +208,11 @@ async def has_feature_access(db, user_id: str, feature: str) -> bool:
     return plan_info["limits"].get(feature, False)
 
 
-async def upgrade_to_pro(db, user_id: str) -> bool:
-    """
-    Upgrade user to Pro plan.
-    NOTE: This is a mock - actual implementation would involve payment.
-    """
-    result = await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {
-            "plan": UserPlan.PRO.value,
-            "plan_start_date": datetime.now(timezone.utc).isoformat(),
-            "monthly_analyses_used": 0,
-            "analyses_reset_date": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    logger.info(f"User {user_id} upgraded to Pro")
-    return result.modified_count > 0
+# upgrade_to_pro() was removed on 2026-09-07. It set plan="pro" with no
+# payment check, and POST /subscription/upgrade -- authenticated-only --
+# called it, so any signed-in account could grant itself Pro in one request.
+# Entitlement now comes only from the verified payment path in
+# routes/billing.py, which writes the plan itself.
 
 
 async def downgrade_to_free(db, user_id: str) -> bool:

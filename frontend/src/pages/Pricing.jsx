@@ -243,13 +243,15 @@ export default function Pricing() {
             <div className="text-xs uppercase tracking-wider text-amber-400/70 mb-2">Pro</div>
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-4xl font-heading font-bold text-white">
-                {config?.enabled ? formatINR(config?.amount) : "Coming soon"}
+                {config?.enabled ? formatINR(config?.amount) : "Subscriptions temporarily unavailable"}
               </span>
               {config?.enabled && <span className="text-sm text-gray-500">/month</span>}
             </div>
             <p className="text-sm text-gray-400 mb-6">
-              Ongoing coaching will be sold only after renewal, cancellation
-              and verified-progress behavior match what this page promises.
+              We are not taking payments while complete coaching and billing are
+              still being finished. Ongoing coaching goes on sale only once
+              renewal, cancellation and verified-progress behaviour match what
+              this page promises.
             </p>
             <ul className="space-y-2.5 mb-8">
               {PRO_FEATURES.map((f) => (

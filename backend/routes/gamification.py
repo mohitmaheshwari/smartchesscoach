@@ -15,7 +15,6 @@ Endpoints:
 - POST /rag/process-games - Process games for RAG embeddings
 - GET /rag/status - Get RAG processing status
 - GET /subscription - Get subscription info
-- POST /subscription/upgrade - Upgrade to Pro plan
 - GET /subscription/can-analyze - Check if user can analyze another game
 """
 
@@ -64,7 +63,6 @@ from rag_service import (
 from subscription_service import (
     get_effective_plan,
     can_analyze_game,
-    upgrade_to_pro
 )
 
 
@@ -156,18 +154,6 @@ async def get_subscription_info(user: User = Depends(get_current_user)):
     Get user's subscription/plan information.
     """
     return await get_effective_plan(db, user.user_id)
-
-
-@router.post("/subscription/upgrade")
-async def upgrade_subscription(user: User = Depends(get_current_user)):
-    """
-    Upgrade user to Pro plan.
-    NOTE: This is a mock endpoint. Real implementation would involve payment.
-    """
-    success = await upgrade_to_pro(db, user.user_id)
-    if success:
-        return {"success": True, "message": "Upgraded to Pro!", "plan": "pro"}
-    return {"success": False, "message": "Failed to upgrade"}
 
 
 @router.get("/subscription/can-analyze")

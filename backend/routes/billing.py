@@ -54,6 +54,36 @@ PRO_PLAN_CURRENCY = "INR"
 PRO_PLAN_NAME = "ChessGuru Pro — Monthly"
 
 
+# Env var that may re-open the legacy one-time checkout. Sandbox use only --
+# _checkout_enabled refuses to honour it against live credentials.
+LEGACY_CHECKOUT_FLAG = "BILLING_LEGACY_ONE_TIME_CHECKOUT"
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _checkout_enabled() -> bool:
+    """Whether the legacy one-time checkout may run. Default: no.
+
+    Credentials are not consent. Live Razorpay keys sat in production while
+    this module created a ONE-TIME order and the pricing page advertised
+    "/month", so a real payment bought a permanent entitlement carrying no
+    renewal, expiry, cancellation or failed-payment handling -- and two
+    accounts were charged that way before anyone noticed.
+
+    The flag on its own is not consent either: it is honoured only against
+    rzp_test_ credentials. Real money cannot move through this path at all
+    until the recurring lifecycle the pricing page describes actually
+    exists, or the offer is relabelled as the one-time entitlement it is.
+    """
+    key_id = os.environ.get("RAZORPAY_KEY_ID", "")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        return False
+    if str(os.environ.get(LEGACY_CHECKOUT_FLAG, "")).strip().lower() not in _TRUTHY:
+        return False
+    return key_id.startswith("rzp_test_")
+
+
 def _client():
     """Lazy-construct the Razorpay client so the import doesn't break in
     environments without the keys (e.g., dev)."""
@@ -63,6 +93,13 @@ def _client():
         raise HTTPException(
             status_code=503,
             detail="Payments are not configured on this environment.",
+        )
+    # Both /create-order and /verify-payment come through here, so the switch
+    # is enforced at the API and not merely on the button.
+    if not _checkout_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Payments are not open yet.",
         )
     import razorpay
     return razorpay.Client(auth=(key_id, key_secret)), key_id, key_secret
@@ -94,11 +131,10 @@ class VerifyPaymentRequest(BaseModel):
 async def billing_config():
     """Lightweight endpoint the frontend can call to know whether
     payments are wired up before it shows the Pay button."""
-    enabled = bool(os.environ.get("RAZORPAY_KEY_ID")) and bool(
-        os.environ.get("RAZORPAY_KEY_SECRET")
-    )
+    enabled = _checkout_enabled()
     return {
         "enabled": enabled,
+        "legacy_one_time_checkout": enabled,
         "currency": PRO_PLAN_CURRENCY,
         "amount": PRO_PLAN_PRICE_PAISE,
         "plan_name": PRO_PLAN_NAME,
