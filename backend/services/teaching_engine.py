@@ -1260,6 +1260,38 @@ def _item_help_events(
     ]
 
 
+def _unsafe_destination_squares(fen: str) -> list:
+    """Squares this player can move to where the piece would be takeable.
+
+    "Show it on the board" used to highlight pieces that were ALREADY under
+    attack, which belongs to a different idea than the one this lesson
+    tests -- the safety of the square you are moving TO. It also showed
+    nothing at all when no piece happened to be attacked yet.
+
+    Computed live from the position rather than read off the stored
+    descriptor, so lessons created before this existed get it too.
+    Board-only static exchange, no engine.
+    """
+    try:
+        import chess
+
+        from services.destination_safety_detector import (
+            grade_destination_safety_candidate,
+        )
+
+        board = chess.Board(fen)
+        squares = []
+        for move in board.legal_moves:
+            verdict = grade_destination_safety_candidate(fen, move.uci())
+            if str(verdict.get("status") or "") == "fail":
+                name = chess.square_name(move.to_square)
+                if name not in squares:
+                    squares.append(name)
+        return sorted(squares)
+    except Exception:
+        return []
+
+
 async def request_personalized_help(
     db,
     user_id: str,
@@ -1293,14 +1325,27 @@ async def request_personalized_help(
         return {"error": "Lesson is complete"}
     item = items[index]
     if help_action == HelpAction.SHOW_ON_BOARD:
-        result = {
-            "action": help_action.value,
-            "message": (
-                "Trace every attack on the piece you want to move, "
-                "then check its destination."
-            ),
-            "highlight_squares": list(item.get("_help_squares") or []),
-        }
+        # Show the squares that punish a move, not the pieces already under
+        # attack. The button says "show it", so it has to show something.
+        unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
+        if unsafe:
+            result = {
+                "action": help_action.value,
+                "message": (
+                    "The marked squares are covered by your opponent. A piece "
+                    "that lands on one of them can be taken."
+                ),
+                "highlight_squares": unsafe,
+            }
+        else:
+            result = {
+                "action": help_action.value,
+                "message": (
+                    "Nothing here can be captured on the square it lands on, "
+                    "so pick the move that does the most work."
+                ),
+                "highlight_squares": [],
+            }
     elif help_action == HelpAction.ASK_ONE_QUESTION:
         result = {
             "action": help_action.value,
