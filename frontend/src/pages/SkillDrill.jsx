@@ -24,6 +24,7 @@ import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
 import { ArrowLeft, RotateCcw, ChevronRight, Loader2, ExternalLink, Check, X, Lightbulb } from "lucide-react";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
+import ChessLoader from "@/components/ChessLoader";
 
 // Per-skill drill copy. Keep terse — most teaching is in the verdict
 // line returned by the backend grader.
@@ -182,7 +183,7 @@ const SkillDrill = ({ user }) => {
   if (loading) {
     return (
       <div className="experience-page experience-learning-page min-h-screen flex items-center justify-center text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading drill…
+        <ChessLoader label="Loading drill…" />
       </div>
     );
   }

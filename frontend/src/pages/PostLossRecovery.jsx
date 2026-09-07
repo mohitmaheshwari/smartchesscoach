@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import CoachBoard from "@/components/CoachBoard";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,7 +147,7 @@ const PostLossRecovery = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <ChessLoader />
         </div>
       </Layout>
     );

@@ -26,7 +26,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
-import { ArrowLeft, ChevronRight, Loader2, BookOpen, AlertCircle } from "lucide-react";
+import ChessLoader from "@/components/ChessLoader";
+import { ArrowLeft, ChevronRight, BookOpen, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildDrillBoards, usableDrills } from "@/lib/motifDrill";
 
@@ -123,7 +124,7 @@ const MotifDrill = ({ user }) => {
   if (loading) {
     return (
       <div className="experience-page experience-learning-page min-h-screen flex items-center justify-center text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading drill positions…
+        <ChessLoader label="Loading drill positions…" />
       </div>
     );
   }

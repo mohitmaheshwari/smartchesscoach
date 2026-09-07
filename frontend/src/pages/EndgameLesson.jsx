@@ -21,12 +21,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import LichessBoard from "@/components/LichessBoard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, ChevronRight, RotateCcw, Check, X, Lightbulb,
+  ChevronRight, RotateCcw, Check, X, Lightbulb,
   ArrowLeft, Trophy, Box,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -218,8 +219,7 @@ export default function EndgameLesson({ user }) {
     return (
       <Layout user={user}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="endgame-loading">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading lesson...</p>
+          <ChessLoader label="Loading lesson..." />
         </div>
       </Layout>
     );

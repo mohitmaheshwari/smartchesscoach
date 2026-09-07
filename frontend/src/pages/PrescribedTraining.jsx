@@ -14,6 +14,7 @@ import { buildTrainingFeedbackView } from "@/lib/trainingFeedback";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
+import ChessLoader from "@/components/ChessLoader";
 import DifficultySelector from "@/components/training/DifficultySelector";
 import CanonicalTrainingAssignment from "@/components/training/CanonicalTrainingAssignment";
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
@@ -604,9 +605,7 @@ export default function PrescribedTraining({ user = null }) {
 
   if (picCheckPending) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
-      </div>
+      <ChessLoader fullPage />
     );
   }
 
@@ -616,12 +615,7 @@ export default function PrescribedTraining({ user = null }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your training...</p>
-        </div>
-      </div>
+      <ChessLoader fullPage label="Loading your training..." />
     );
   }
   

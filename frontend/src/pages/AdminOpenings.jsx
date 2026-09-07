@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,7 +210,7 @@ export default function AdminOpenings({ user }) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <ChessLoader />
         </div>
       </Layout>
     );

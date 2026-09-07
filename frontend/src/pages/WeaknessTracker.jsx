@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import ChessLoader from "@/components/ChessLoader";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
@@ -8,7 +9,6 @@ import {
   Target, 
   TrendingUp, 
   AlertTriangle,
-  Loader2,
   Calendar,
   Gamepad2
 } from "lucide-react";
@@ -74,7 +74,7 @@ const WeaknessTracker = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <ChessLoader />
         </div>
       </Layout>
     );

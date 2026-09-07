@@ -14,9 +14,10 @@ import { Chess } from "chess.js";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import LichessBoard from "@/components/LichessBoard";
+import ChessLoader from "@/components/ChessLoader";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2, AlertCircle, Loader2, TrendingUp } from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 
 const CONCEPT_DISPLAY = {
   piece_safety: "Piece Safety",
@@ -262,8 +263,7 @@ const DiagnosticPuzzles = () => {
     return (
       <Layout>
         <div className="min-h-[60vh] flex flex-col items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Choosing a few positions that will help me understand you.</p>
+          <ChessLoader label="Choosing a few positions that will help me understand you." />
         </div>
       </Layout>
     );
@@ -388,7 +388,7 @@ const DiagnosticPuzzles = () => {
     return (
       <Layout>
         <div className="min-h-[60vh] flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin" />
+          <ChessLoader />
         </div>
       </Layout>
     );

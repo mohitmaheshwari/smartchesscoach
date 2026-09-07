@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { Card, CardContent } from "@/components/ui/card";
+import ChessLoader from "@/components/ChessLoader";
 import { Button } from "@/components/ui/button";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
@@ -365,7 +366,7 @@ const MissionRunner = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <ChessLoader />
         </div>
       </Layout>
     );

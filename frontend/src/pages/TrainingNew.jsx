@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import CoachBoard from "@/components/CoachBoard";
 import OpeningTrainer from "@/components/OpeningTrainer";
 import { Button } from "@/components/ui/button";
@@ -715,8 +716,7 @@ const Training = ({ user }) => {
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-500 mx-auto mb-4" />
-            <p className="text-gray-400">Loading your training session...</p>
+            <ChessLoader label="Loading your training session..." />
           </div>
         </div>
       </Layout>

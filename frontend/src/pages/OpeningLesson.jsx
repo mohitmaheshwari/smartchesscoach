@@ -13,13 +13,13 @@ import {
   Lightbulb,
   AlertTriangle,
   CheckCircle2,
-  Loader2,
   Brain,
   Sparkles,
   ExternalLink,
   MessageCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ChessLoader from "@/components/ChessLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -273,9 +273,7 @@ const OpeningLesson = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <ChessLoader fullPage />
     );
   }
   

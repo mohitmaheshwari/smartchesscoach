@@ -20,6 +20,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
+import ChessLoader from "@/components/ChessLoader";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1228,7 +1229,7 @@ const LabV2 = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <ChessLoader />
         </div>
       </Layout>
     );

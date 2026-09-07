@@ -12,13 +12,14 @@ import { Chess } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import {
-  Loader2, ChevronRight, ChevronLeft, BookOpen,
+  ChevronRight, ChevronLeft, BookOpen,
   Target, CheckCircle2, XCircle, AlertTriangle,
   Brain, Lightbulb, Trophy, RotateCcw,
 } from "lucide-react";
@@ -220,8 +221,7 @@ const OpeningWalkthrough = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-          <p className="text-sm text-muted-foreground">Loading your opening lesson...</p>
+          <ChessLoader label="Loading your opening lesson..." />
         </div>
       </Layout>
     );

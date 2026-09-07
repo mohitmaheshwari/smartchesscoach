@@ -5,13 +5,13 @@ import {
   BookOpen,
   ChevronRight,
   Crown,
-  Loader2,
   Sparkles,
   Swords,
   Target,
   X,
 } from "lucide-react";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API } from "@/App";
 
@@ -116,7 +116,7 @@ export default function OpeningRepertoire({ user }) {
     return (
       <Layout user={user}>
         <div className="grid min-h-[60vh] place-items-center">
-          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <ChessLoader />
         </div>
       </Layout>
     );

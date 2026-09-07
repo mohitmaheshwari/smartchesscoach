@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, ChevronRight, Loader2, Target, AlertTriangle, BookOpen, Trophy } from "lucide-react";
+import { ArrowRight, ChevronRight, Target, AlertTriangle, BookOpen, Trophy } from "lucide-react";
 import { API } from "@/App";
 import SEO from "@/components/seo/SEO";
+import ChessLoader from "@/components/ChessLoader";
 
 /**
  * Public opening guide page — /learn/openings/:slug
@@ -55,9 +56,7 @@ const OpeningGuide = () => {
 
   if (loading) {
     return (
-      <div className="experience-page experience-public-learning-page min-h-screen bg-[#06060B] text-white flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
-      </div>
+      <ChessLoader fullPage />
     );
   }
 

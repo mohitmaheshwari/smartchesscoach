@@ -18,6 +18,7 @@ import { Chess } from "chess.js";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import Layout from "@/components/Layout";
+import ChessLoader from "@/components/ChessLoader";
 import LichessBoard from "@/components/LichessBoard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -211,8 +212,7 @@ const OpeningsOverview = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="openings-loading">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
+          <ChessLoader label="Loading..." />
         </div>
       </Layout>
     );
@@ -370,7 +370,7 @@ const EndgamesTab = ({ categories, loading, openLesson }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]" data-testid="endgames-loading">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <ChessLoader />
       </div>
     );
   }

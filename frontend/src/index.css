@@ -1418,3 +1418,59 @@
     border-radius: 1.5rem;
   }
 }
+
+/* ── ChessLoader ─────────────────────────────────────────────────────────
+   A pawn promoting through knight, bishop and rook to queen. Five stacked
+   SVGs cross-fade on one shared 4.3s cycle, each offset by 0.86s from the
+   component, so only one piece is ever visible and the silhouette appears
+   to morph. The square underneath breathes on its own slower rhythm so the
+   two never lock into a single pulse. */
+.cg-chessloader__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.cg-chessloader__square {
+  position: absolute;
+  inset: 8%;
+  border-radius: 22%;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.16),
+    hsl(var(--primary) / 0.04)
+  );
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14);
+  animation: cg-loader-breathe 2.15s ease-in-out infinite;
+}
+
+.cg-chessloader__piece {
+  position: absolute;
+  color: hsl(var(--primary));
+  opacity: 0;
+  transform-origin: 50% 78%;
+  animation: cg-loader-promote 4.3s cubic-bezier(0.32, 0.72, 0.35, 1) infinite;
+  filter: drop-shadow(0 1px 2px hsl(var(--primary) / 0.25));
+}
+
+@keyframes cg-loader-promote {
+  0%   { opacity: 0; transform: translateY(5%) scale(0.84); }
+  4%   { opacity: 1; transform: translateY(0)  scale(1); }
+  16%  { opacity: 1; transform: translateY(0)  scale(1); }
+  20%  { opacity: 0; transform: translateY(-6%) scale(1.09); }
+  100% { opacity: 0; transform: translateY(-6%) scale(1.09); }
+}
+
+@keyframes cg-loader-breathe {
+  0%, 100% { transform: scale(0.94); opacity: 0.5; }
+  50%      { transform: scale(1.06); opacity: 0.9; }
+}
+
+/* Motion is decorative here; the status text carries the meaning. Under
+   reduced-motion we hold the finished piece — the queen — and stop entirely
+   rather than substituting a gentler animation. */
+@media (prefers-reduced-motion: reduce) {
+  .cg-chessloader__piece { animation: none; opacity: 0; }
+  .cg-chessloader__piece:last-of-type { opacity: 1; transform: none; }
+  .cg-chessloader__square { animation: none; opacity: 0.7; transform: none; }
+}
