@@ -384,36 +384,36 @@ const PostGameLesson = ({
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchAnalysis = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fetch comprehensive analysis
+        const response = await fetch(`${API}/coach/play/analysis`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: sessionId })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAnalysis(data);
+        } else {
+          // Fallback to basic summary
+          setError("Analysis not available");
+        }
+      } catch (err) {
+        console.error("Analysis fetch error:", err);
+        setError("Failed to load analysis");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAnalysis();
   }, [sessionId]);
-
-  const fetchAnalysis = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Fetch comprehensive analysis
-      const response = await fetch(`${API}/coach/play/analysis`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ session_id: sessionId })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysis(data);
-      } else {
-        // Fallback to basic summary
-        setError("Analysis not available");
-      }
-    } catch (err) {
-      console.error("Analysis fetch error:", err);
-      setError("Failed to load analysis");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (

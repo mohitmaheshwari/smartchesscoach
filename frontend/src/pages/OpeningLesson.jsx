@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Chess } from "chess.js";
 import { Chessground } from "chessground";
 import { 
@@ -13,7 +13,6 @@ import {
   Lightbulb,
   AlertTriangle,
   CheckCircle2,
-  Trophy,
   Loader2,
   Brain,
   Sparkles,
@@ -56,11 +55,6 @@ const OpeningLesson = () => {
   
   // Learning state
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [isPracticing, setIsPracticing] = useState(false);
-  const [practiceIndex, setPracticeIndex] = useState(0);
-  const [feedback, setFeedback] = useState(null);
-  const [showHint, setShowHint] = useState(false);
-  
   // Trap practice state
   const [selectedTrap, setSelectedTrap] = useState(null);
   const [trapPracticeMode, setTrapPracticeMode] = useState(false);
@@ -242,166 +236,6 @@ const OpeningLesson = () => {
     updateBoard(chessRef.current.fen(), lastMove);
   }, [lesson, updateBoard]);
   
-  // Practice mode handlers
-  const startPractice = useCallback(() => {
-    setIsPracticing(true);
-    setPracticeIndex(0);
-    setFeedback(null);
-    setShowHint(false);
-    chessRef.current.reset();
-    updateBoard(chessRef.current.fen());
-    
-    // Set up for user's first move
-    if (lesson?.opening?.color === "white") {
-      // User plays white, their turn first
-      setupPracticeMove(0);
-    } else {
-      // User plays black, play white's first move
-      const firstMove = lesson?.opening?.main_line[0];
-      if (firstMove) {
-        setTimeout(() => {
-          chessRef.current.move(firstMove.move);
-          updateBoard(chessRef.current.fen());
-          setupPracticeMove(1);
-        }, 500);
-      }
-    }
-  }, [lesson, updateBoard]);
-  
-  const setupPracticeMove = useCallback((index) => {
-    setPracticeIndex(index);
-    setFeedback(null);
-    setShowHint(false);
-    
-    if (groundRef.current) {
-      const chess = chessRef.current;
-      const dests = new Map();
-      
-      for (const move of chess.moves({ verbose: true })) {
-        if (!dests.has(move.from)) {
-          dests.set(move.from, []);
-        }
-        dests.get(move.from).push(move.to);
-      }
-      
-      groundRef.current.set({
-        movable: {
-          free: false,
-          color: chess.turn() === 'w' ? 'white' : 'black',
-          dests
-        },
-        events: {
-          move: (orig, dest) => handlePracticeMove(orig, dest, index)
-        }
-      });
-    }
-  }, []);
-  
-  const handlePracticeMove = useCallback((orig, dest, expectedIndex) => {
-    if (!lesson?.opening?.main_line) return;
-    
-    const expectedMove = lesson.opening.main_line[expectedIndex];
-    const chess = chessRef.current;
-    
-    // Try to make the move
-    const move = chess.move({ from: orig, to: dest, promotion: 'q' });
-    
-    if (!move) {
-      // Invalid move
-      updateBoard(chess.fen());
-      return;
-    }
-    
-    // Check if correct
-    const isCorrect = move.san === expectedMove.move || 
-                      (move.from + move.to) === expectedMove.move.toLowerCase().replace(/[+#x]/g, '');
-    
-    if (isCorrect) {
-      setFeedback({
-        type: "correct",
-        message: expectedMove.explanation
-      });
-      
-      updateBoard(chess.fen(), orig + dest);
-      
-      // Play opponent's response after delay
-      const nextIndex = expectedIndex + 1;
-      if (nextIndex < lesson.opening.main_line.length) {
-        setTimeout(() => {
-          const nextMove = lesson.opening.main_line[nextIndex];
-          const opponentMove = chess.move(nextMove.move);
-          if (opponentMove) {
-            updateBoard(chess.fen(), opponentMove.from + opponentMove.to);
-            
-            // User's next turn
-            const userNextIndex = nextIndex + 1;
-            if (userNextIndex < lesson.opening.main_line.length) {
-              setTimeout(() => {
-                setupPracticeMove(userNextIndex);
-              }, 500);
-            } else {
-              // Practice complete!
-              setFeedback({
-                type: "complete",
-                message: "Excellent! You've completed the main line!"
-              });
-              setIsPracticing(false);
-
-              // Update progress
-              updateProgress(lesson.opening.main_line.length);
-
-              // Mohit 2026-05-30: clean main-line completion grades the
-              // engine2 opening skill. We try multiple candidate skill
-              // ids because the URL openingKey doesn't always include
-              // the colour suffix (e.g. 'london_system' vs
-              // 'opening_london_white'). Whichever one exists in the
-              // tree gets recorded; the rest return 404 silently.
-              const candidates = [
-                `opening_${openingKey}_white`,
-                `opening_${openingKey}_black`,
-                `opening_${openingKey}`,
-              ];
-              for (const skillId of candidates) {
-                fetch(`${API}/engine2/skill-completed`, {
-                  method: "POST",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ skill_id: skillId, outcome: "correct" }),
-                }).catch(() => {});
-              }
-            }
-          }
-        }, 1000);
-      }
-    } else {
-      // Wrong move - undo and show feedback
-      chess.undo();
-      updateBoard(chess.fen());
-      
-      setFeedback({
-        type: "incorrect",
-        message: `Try again! The main line move is ${expectedMove.move}`,
-        hint: expectedMove.explanation
-      });
-    }
-  }, [lesson, updateBoard, setupPracticeMove]);
-  
-  const updateProgress = async (movesLearned) => {
-    try {
-      await fetch(`${API}/openings/${openingKey}/progress`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          main_line_progress: movesLearned,
-          practiced: true
-        })
-      });
-    } catch (err) {
-      console.error("Error updating progress:", err);
-    }
-  };
-  
   // Trap practice - use TrapPractice component
   const startTrapPractice = useCallback((trap) => {
     setSelectedTrap(trap);
@@ -421,6 +255,21 @@ const OpeningLesson = () => {
     // Record completion
     toast.success(`Mastered: ${selectedTrap?.name}!`);
   }, [selectedTrap]);
+
+  const onGuidedComplete = useCallback(() => {
+    console.log("Lesson completed");
+  }, []);
+
+  const startGuidedPractice = useCallback(() => {
+    trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
+      surface: "legacy_opening_lesson",
+      content_type: "opening",
+      content_id: openingKey,
+      origin: "lesson_route",
+      is_recommended: false,
+    });
+    setActiveTab("practice");
+  }, [openingKey]);
   
   if (loading) {
     return (
@@ -545,19 +394,8 @@ const OpeningLesson = () => {
               <GuidedOpeningLesson
                 openingKey={openingKey}
                 opening={opening}
-                onComplete={() => {
-                  console.log("Lesson completed");
-                }}
-                onStartPractice={() => {
-                  trackCurriculum(ANALYTICS_EVENTS.EXPLANATION_COMPLETED, {
-                    surface: "legacy_opening_lesson",
-                    content_type: "opening",
-                    content_id: openingKey,
-                    origin: "lesson_route",
-                    is_recommended: false,
-                  });
-                  setActiveTab("practice");
-                }}
+                onComplete={onGuidedComplete}
+                onStartPractice={startGuidedPractice}
               />
               
               {/* Key Ideas - Collapsed reference */}
@@ -595,7 +433,7 @@ const OpeningLesson = () => {
                   />
                   
                   {/* Navigation */}
-                  {!isPracticing && activeTab !== "practice" && (
+                  {activeTab !== "practice" && (
                     <div className="flex items-center justify-center gap-2 mt-4">
                       <Button 
                         variant="outline" 
@@ -627,65 +465,6 @@ const OpeningLesson = () => {
                     </div>
                   )}
                   
-                  {/* Practice Feedback */}
-                  <AnimatePresence>
-                    {feedback && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className={`mt-4 p-3 rounded-lg ${
-                          feedback.type === "correct" ? "bg-green-500/10 border border-green-500/30" :
-                          feedback.type === "complete" ? "bg-primary/10 border border-primary/30" :
-                          "bg-red-500/10 border border-red-500/30"
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          {feedback.type === "correct" && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
-                          {feedback.type === "complete" && <Trophy className="w-5 h-5 text-primary flex-shrink-0" />}
-                          {feedback.type === "incorrect" && <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />}
-                          <div>
-                            <p className="text-sm">{feedback.message}</p>
-                            {feedback.hint && (
-                              <p className="text-xs text-muted-foreground mt-1">{feedback.hint}</p>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  
-                  {/* Practice Controls */}
-                  {isPracticing && (
-                    <div className="mt-4 flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setShowHint(!showHint)}
-                      >
-                        <Lightbulb className="w-4 h-4 mr-1" />
-                        Hint
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setIsPracticing(false);
-                          setFeedback(null);
-                          goToMove(-1);
-                        }}
-                      >
-                        Exit Practice
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {showHint && isPracticing && (
-                    <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-sm">
-                      <Lightbulb className="w-4 h-4 inline mr-1 text-amber-400" />
-                      {opening.main_line[practiceIndex]?.explanation}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>

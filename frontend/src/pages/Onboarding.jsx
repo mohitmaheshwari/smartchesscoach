@@ -39,7 +39,6 @@ const Onboarding = () => {
   // Auto-detected
   const [detectedRating, setDetectedRating] = useState(null);
   const [detectedPlatform, setDetectedPlatform] = useState("");
-  const [gamesAnalyzed, setGamesAnalyzed] = useState(0);
 
   // Step 2
   const [fideRating, setFideRating] = useState("");
@@ -60,11 +59,21 @@ const Onboarding = () => {
         const res = await fetch(`${API}/auth/me`, { credentials: "include" });
         if (res.ok) {
           const user = await res.json();
-          if (user.chess_com_username || user.lichess_username) navigate("/training");
+          // A stored account link is verified server-side, but it is not proof
+          // that its games were imported. Keep this explicit page available as
+          // the retry surface after an interrupted import.
+          if (user.chess_com_username) {
+            setChessComUsername(user.chess_com_username);
+            setChessComVerified(true);
+          }
+          if (user.lichess_username) {
+            setLichessUsername(user.lichess_username);
+            setLichessVerified(true);
+          }
         }
       } catch (e) { /* ignore */ }
     })();
-  }, [navigate]);
+  }, []);
 
   const verifyAccount = async (platform) => {
     const isChessCom = platform === "chess.com";
@@ -98,7 +107,6 @@ const Onboarding = () => {
       if (data.assessed_rating && (!detectedRating || isChessCom)) {
         setDetectedRating(data.assessed_rating);
         setDetectedPlatform(platform);
-        setGamesAnalyzed(data.games_analyzed || 0);
       }
     } catch (err) {
       isChessCom ? setChessComVerified(false) : setLichessVerified(false);
@@ -123,20 +131,49 @@ const Onboarding = () => {
     setIsLoading(true);
     setError("");
     try {
+      setAnalyzing(true);
+      setAnalysisProgress(20);
+
+      // Import through the registered server authority. Account verification
+      // alone only proves the username exists; it does not persist any games.
+      const linkedAccounts = [];
+      if (chessComVerified) {
+        linkedAccounts.push({ platform: "chess.com", username: chessComUsername.trim().toLowerCase() });
+      }
+      if (lichessVerified) {
+        linkedAccounts.push({ platform: "lichess", username: lichessUsername.trim().toLowerCase() });
+      }
+      let importedGames = 0;
+      for (const account of linkedAccounts) {
+        const importRes = await fetch(`${API}/import-games`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(account),
+        });
+        const importData = await importRes.json().catch(() => ({}));
+        if (!importRes.ok) {
+          throw new Error(importData.detail || `Could not import your ${account.platform} games.`);
+        }
+        importedGames += Number(importData.imported) || 0;
+      }
+      track(ANALYTICS_EVENTS.FUNNEL_IMPORT_DONE, {
+        source: "onboarding",
+        status: importedGames > 0 ? "new_games" : "already_current",
+        total_items: importedGames,
+      });
+
+      // This endpoint marks onboarding complete. Call it only after every
+      // selected account has passed the import boundary, otherwise a failed
+      // import becomes impossible to retry after a reload.
       const profileRes = await fetch(`${API}/settings/profile`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null, player_motivation: playerMotivation || null }),
       });
       const profileData = await profileRes.json().catch(() => ({}));
       if (!profileRes.ok) {
-        throw new Error(profileData.detail || "Could not save your profile.");
+        throw new Error(profileData.detail || "Your games were imported, but your coaching preferences could not be saved. Please try again.");
       }
-
-      setAnalyzing(true);
-      setAnalysisProgress(20);
-
-      // Step 1: Sync games from Chess.com/Lichess (fast — just fetches PGNs)
-      await fetch(`${API}/games/sync`, { method: "POST", credentials: "include" }).catch(() => {});
       setAnalysisProgress(60);
 
       // FIRST-AHA fast path (docs/activation_scope.md): jump the user's most
@@ -181,8 +218,8 @@ const Onboarding = () => {
       // until real-game data takes over.
       setAnalysisProgress(100);
       navigate("/diagnostic");
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(err?.message || "Something went wrong. Please try again.");
       setAnalyzing(false);
     } finally {
       setIsLoading(false);

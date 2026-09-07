@@ -120,6 +120,7 @@ step "strict deployment and non-admin journey verification"
 # brace-expand it and hand the verifier a mangled fixture.
 if [ -f .env ]; then
   for SECRET_KEY in \
+    DEPLOY_VERIFY_SESSION_TOKEN \
     DEPLOY_VERIFY_AUTH_TOKEN \
     DEPLOY_VERIFY_GAME_ID \
     PHASE8_VERIFICATION_FIXTURE_JSON \
@@ -131,8 +132,12 @@ if [ -f .env ]; then
     fi
   done
 fi
+if [ -z "${DEPLOY_VERIFY_SESSION_TOKEN:-}" ] && [ -n "${DEPLOY_VERIFY_AUTH_TOKEN:-}" ]; then
+  export DEPLOY_VERIFY_SESSION_TOKEN="$DEPLOY_VERIFY_AUTH_TOKEN"
+  printf '    note  using legacy DEPLOY_VERIFY_AUTH_TOKEN value as a session cookie\n'
+fi
 for REQUIRED_SECRET in \
-  DEPLOY_VERIFY_AUTH_TOKEN \
+  DEPLOY_VERIFY_SESSION_TOKEN \
   DEPLOY_VERIFY_GAME_ID \
   PHASE8_VERIFICATION_FIXTURE_JSON
 do
@@ -157,7 +162,7 @@ esac
 
 docker exec \
   -e DEPLOY_EXPECT_COMMIT="$HEAD_SHA" \
-  -e DEPLOY_VERIFY_AUTH_TOKEN \
+  -e DEPLOY_VERIFY_SESSION_TOKEN \
   -e DEPLOY_VERIFY_GAME_ID \
   -e PHASE8_VERIFICATION_FIXTURE_JSON \
   chess-coach-backend \

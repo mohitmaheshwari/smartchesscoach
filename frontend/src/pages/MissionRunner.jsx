@@ -97,10 +97,12 @@ const MissionRunner = ({ user }) => {
   const { missionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const routeMission = location.state?.mission || null;
+  const routeSessionId = location.state?.session_id || null;
   
   // State from navigation or fetched
-  const [mission, setMission] = useState(location.state?.mission || null);
-  const [sessionId, setSessionId] = useState(location.state?.session_id || null);
+  const [mission, setMission] = useState(routeMission);
+  const [sessionId, setSessionId] = useState(routeSessionId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -128,8 +130,73 @@ const MissionRunner = ({ user }) => {
     usePuzzleSubmissionIdentity(positions[currentStep]?.puzzle_id);
 
   useEffect(() => {
+    let superseded = false;
+
+    const fetchMissionData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        setPositions([]);
+
+        // Navigation state is valid only for the mission named by the URL.
+        // A mounted route change must never reuse the previous mission.
+        let missionData = routeMission?.mission_id === missionId ? routeMission : null;
+        setMission(missionData);
+        setSessionId(missionData ? routeSessionId : null);
+
+        if (!missionData) {
+          const res = await fetch(`${API}/missions/today`, {
+            credentials: "include",
+          });
+          if (!res.ok) {
+            throw new Error(`Mission request failed: ${res.status}`);
+          }
+          missionData = await res.json();
+          if (superseded) return;
+          if (missionData?.mission_id !== missionId) {
+            setMission(null);
+            setError("This mission is no longer active. Return to Today for your current mission.");
+            return;
+          }
+          setMission(missionData);
+        }
+
+        if (superseded) return;
+
+        // Fetch drill positions for this mission
+        if (missionData?.mission_id) {
+          setPositionsLoading(true);
+          const posRes = await fetch(`${API}/missions/${missionData.mission_id}/positions`, {
+            credentials: "include",
+          });
+          if (posRes.ok) {
+            const posData = await posRes.json();
+            if (superseded) return;
+            setPositions(posData.positions || []);
+            setMission((current) => current ? ({
+              ...current,
+              focus_pattern: posData.focus_pattern || current.focus_pattern,
+              focus_label: posData.focus_label || current.focus_label,
+              micro_protocol: posData.micro_protocol || current.micro_protocol,
+              goal: posData.goal || current.goal,
+            }) : current);
+          }
+        }
+      } catch (err) {
+        if (!superseded) setError("Could not load mission");
+      } finally {
+        if (!superseded) {
+          setPositionsLoading(false);
+          setLoading(false);
+        }
+      }
+    };
+
     fetchMissionData();
-  }, [missionId]);
+    return () => {
+      superseded = true;
+    };
+  }, [missionId, routeMission, routeSessionId]);
   
   // Timer effect
   useEffect(() => {
@@ -140,48 +207,6 @@ const MissionRunner = ({ user }) => {
       return () => clearInterval(interval);
     }
   }, [phase, startTime]);
-
-  const fetchMissionData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch mission if not provided
-      let missionData = mission;
-      if (!missionData) {
-        const res = await fetch(`${API}/missions/today`, {
-          credentials: "include",
-        });
-        if (res.ok) {
-          missionData = await res.json();
-          setMission(missionData);
-        }
-      }
-      
-      // Fetch drill positions for this mission
-      if (missionData?.mission_id) {
-        setPositionsLoading(true);
-        const posRes = await fetch(`${API}/missions/${missionData.mission_id}/positions`, {
-          credentials: "include",
-        });
-        if (posRes.ok) {
-          const posData = await posRes.json();
-          setPositions(posData.positions || []);
-          setMission((current) => current ? ({
-            ...current,
-            focus_pattern: posData.focus_pattern || current.focus_pattern,
-            focus_label: posData.focus_label || current.focus_label,
-            micro_protocol: posData.micro_protocol || current.micro_protocol,
-            goal: posData.goal || current.goal,
-          }) : current);
-        }
-        setPositionsLoading(false);
-      }
-    } catch (err) {
-      setError("Could not load mission");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStartDrill = async () => {
     if (!sessionId) {

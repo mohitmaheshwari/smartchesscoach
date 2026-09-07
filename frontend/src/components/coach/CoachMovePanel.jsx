@@ -84,29 +84,46 @@ const CoachMovePanel = ({
   const cpLoss = Math.abs(currentEval?.cp_loss || 0);
   const bestMove = currentEval?.best_move || "";
 
-  // Reset state when move changes
+  // Reset interaction state when move changes.
   useEffect(() => {
     setReflection("");
     setReflectionSaved(false);
-    setBoardReading(null);
     setBranches(null);
     setSelectedBranch(null);
-
-    // Fetch board reading for important moves
-    if (isImportant && currentFen) {
-      setLoadingReading(true);
-      fetch(`${API}/position/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ fen: currentFen, user_color: userColor }),
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => setBoardReading(data))
-        .catch(() => {})
-        .finally(() => setLoadingReading(false));
-    }
   }, [currentMoveIndex]);
+
+  // Board reading belongs to the exact position being reviewed.
+  useEffect(() => {
+    let superseded = false;
+    setBoardReading(null);
+
+    if (!isImportant || !currentFen) {
+      setLoadingReading(false);
+      return () => {
+        superseded = true;
+      };
+    }
+
+    setLoadingReading(true);
+    fetch(`${API}/position/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ fen: currentFen, user_color: userColor }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!superseded) setBoardReading(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!superseded) setLoadingReading(false);
+      });
+
+    return () => {
+      superseded = true;
+    };
+  }, [currentFen, currentMoveIndex, isImportant, userColor]);
 
   const saveReflection = async () => {
     if (!reflection.trim()) return;

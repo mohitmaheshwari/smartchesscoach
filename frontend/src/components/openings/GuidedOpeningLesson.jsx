@@ -11,7 +11,7 @@
  * - Position-aware context from our coaching engine
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -68,6 +68,9 @@ const GuidedOpeningLesson = ({
   const boardRef = useRef(null);
   const chessRef = useRef(new Chess());
   const autoPlayRef = useRef(null);
+  const completionTimerRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -80,9 +83,13 @@ const GuidedOpeningLesson = ({
   const [showIntro, setShowIntro] = useState(true);
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
-  const mainLine = opening?.main_line || [];
+  const mainLine = useMemo(() => opening?.main_line || [], [opening?.main_line]);
   const keyIdeas = opening?.key_ideas || [];
   const userColor = opening?.color || "white";
+  const introMessage = useMemo(() => {
+    const messages = COACH_INTROS[userColor] || COACH_INTROS.white;
+    return messages[Math.floor(Math.random() * messages.length)];
+  }, [userColor]);
   
   // Update board position
   const updateBoard = useCallback((moveIndex) => {
@@ -129,12 +136,14 @@ const GuidedOpeningLesson = ({
     updateBoard(newIndex);
     
     // Check if completed
-    if (newIndex === mainLine.length - 1 && onComplete) {
-      setTimeout(() => {
+    if (newIndex === mainLine.length - 1 && onCompleteRef.current) {
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      completionTimerRef.current = setTimeout(() => {
         setIsPlaying(false);
+        completionTimerRef.current = null;
       }, 1000);
     }
-  }, [mainLine.length, updateBoard, onComplete]);
+  }, [mainLine.length, updateBoard]);
   
   // Auto-play logic
   useEffect(() => {
@@ -159,6 +168,10 @@ const GuidedOpeningLesson = ({
     return () => {
       if (autoPlayRef.current) {
         clearInterval(autoPlayRef.current);
+      }
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
+        completionTimerRef.current = null;
       }
     };
   }, [isPlaying, playSpeed, mainLine.length, goToMove]);
@@ -244,8 +257,6 @@ const GuidedOpeningLesson = ({
   };
   
   const isComplete = currentMoveIndex === mainLine.length - 1;
-  const introMessage = COACH_INTROS[userColor][Math.floor(Math.random() * 3)];
-  
   return (
     <div className="guided-opening-lesson grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
       <div className="min-w-0 space-y-3">

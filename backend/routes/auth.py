@@ -12,10 +12,19 @@ Handles:
 """
 
 from fastapi import APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlencode, urlsplit
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import os
+import secrets
+import time
 import uuid
 import httpx
 import logging
@@ -72,6 +81,10 @@ class User(BaseModel):
     # ALL users (not just their own). Used for content-quality auditors
     # like Parth Gilda, who flag bugs against any user's coaching output.
     is_reviewer: bool = False
+    # Explicit provenance for analytics and test isolation. These fields are
+    # returned to the authenticated client, but never contain identity data.
+    is_demo: bool = False
+    analytics_excluded: bool = False
     # Self-declared "why are you here" (compete/improve/learn/fun). Exposed so
     # the Home backfill prompt knows whether the user has answered yet.
     player_motivation: Optional[str] = None
@@ -91,6 +104,8 @@ class User(BaseModel):
             "lichess_username": self.lichess_username,
             "role": self.role or "user",
             "is_reviewer": self.is_reviewer,
+            "is_demo": self.is_demo,
+            "analytics_excluded": self.analytics_excluded,
             "player_motivation": self.player_motivation,
         }
 
@@ -117,31 +132,162 @@ class LoginRequest(BaseModel):
 DEV_MODE = os.environ.get("DEV_MODE", "false").lower() == "true"
 DEV_USER_ID = "dev_user_local"
 
+OAUTH_STATE_VERSION = 1
+OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60
+OAUTH_STATE_CLOCK_SKEW_SECONDS = 30
+OAUTH_STATE_COOKIE = "oauth_state_nonce"
+OAUTH_STATE_COOKIE_PATH = "/api/auth/google"
+
+
+def _safe_frontend_redirect_path(value: Optional[str]) -> str:
+    """Return a local path only; query, fragment, hosts and controls are rejected."""
+    if not isinstance(value, str) or not value:
+        return "/home"
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        return "/home"
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        return "/home"
+    if not parsed.path.startswith("/") or parsed.path.startswith("//"):
+        return "/home"
+    return parsed.path
+
+
+def _oauth_platform(value: Optional[str]) -> str:
+    platform = (value or "web").strip().lower()
+    if platform not in {"web", "mobile"}:
+        raise HTTPException(status_code=400, detail="Unsupported OAuth platform")
+    return platform
+
+
+def _urlsafe_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _urlsafe_decode(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + ("=" * (-len(value) % 4)))
+
+
+def _encode_oauth_state(
+    *,
+    platform: str,
+    redirect_to: str,
+    nonce: str,
+    secret: str,
+    issued_at: Optional[int] = None,
+) -> str:
+    payload = {
+        "iat": int(time.time()) if issued_at is None else int(issued_at),
+        "nonce": nonce,
+        "platform": platform,
+        "redirect_to": redirect_to,
+        "version": OAUTH_STATE_VERSION,
+    }
+    body = _urlsafe_encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    signature = _urlsafe_encode(hmac.new(secret.encode("utf-8"), body.encode("ascii"), hashlib.sha256).digest())
+    return f"{body}.{signature}"
+
+
+def _decode_oauth_state(
+    state: Optional[str],
+    *,
+    secret: str,
+    expected_nonce: Optional[str],
+    now: Optional[int] = None,
+) -> dict:
+    if not state or not expected_nonce or len(state) > 2048:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    try:
+        body, supplied_signature = state.split(".", 1)
+        expected_signature = _urlsafe_encode(
+            hmac.new(secret.encode("utf-8"), body.encode("ascii"), hashlib.sha256).digest()
+        )
+        if not hmac.compare_digest(supplied_signature, expected_signature):
+            raise ValueError("signature mismatch")
+        payload = json.loads(_urlsafe_decode(body).decode("utf-8"))
+        issued_at = payload.get("iat")
+        nonce = payload.get("nonce")
+        platform = payload.get("platform")
+        redirect_to = payload.get("redirect_to")
+        if payload.get("version") != OAUTH_STATE_VERSION:
+            raise ValueError("unsupported version")
+        if not isinstance(issued_at, int) or isinstance(issued_at, bool):
+            raise ValueError("invalid timestamp")
+        current_time = int(time.time()) if now is None else int(now)
+        if issued_at > current_time + OAUTH_STATE_CLOCK_SKEW_SECONDS:
+            raise ValueError("future state")
+        if current_time - issued_at > OAUTH_STATE_MAX_AGE_SECONDS:
+            raise ValueError("expired state")
+        if not isinstance(nonce, str) or not hmac.compare_digest(nonce, expected_nonce):
+            raise ValueError("nonce mismatch")
+        if platform not in {"web", "mobile"}:
+            raise ValueError("invalid platform")
+        if redirect_to != _safe_frontend_redirect_path(redirect_to):
+            raise ValueError("unsafe redirect")
+        return payload
+    except HTTPException:
+        raise
+    except (ValueError, TypeError, binascii.Error, json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+
+def _oauth_cookie_secure(effective_redirect_uri: str) -> bool:
+    parsed = urlsplit(effective_redirect_uri)
+    return parsed.scheme == "https" and parsed.hostname not in {"localhost", "127.0.0.1"}
+
+
+def _set_oauth_state_cookie(response: Response, nonce: str, *, secure: bool) -> None:
+    response.set_cookie(
+        key=OAUTH_STATE_COOKIE,
+        value=nonce,
+        max_age=OAUTH_STATE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path=OAUTH_STATE_COOKIE_PATH,
+    )
+
+
+def _delete_oauth_state_cookie(response: Response) -> None:
+    response.delete_cookie(key=OAUTH_STATE_COOKIE, path=OAUTH_STATE_COOKIE_PATH)
+
+
+def _web_auth_payload(user_doc: dict) -> dict:
+    """Web auth credentials live only in the HttpOnly cookie."""
+    return {"user": user_doc}
+
 # Helper for current user
 async def get_current_user(request: Request) -> Optional[User]:
-    """Get current user from session token (cookie or header) or dev mode"""
+    """Authenticate web cookies or explicitly mobile bearer sessions."""
     global db
     session_token = request.cookies.get("session_token")
-    
-    # Also check Authorization header
+    credential_source = "cookie" if session_token else None
+
+    # Bearer auth is reserved for native sessions. A browser cookie always wins.
     auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        session_token = auth_header.replace("Bearer ", "")
+    if not session_token and auth_header and auth_header.startswith("Bearer "):
+        session_token = auth_header.split(" ", 1)[1].strip()
+        credential_source = "bearer"
     
     if session_token and db is not None:
         session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
         if session:
+            if credential_source == "bearer" and session.get("is_mobile") is not True:
+                raise HTTPException(status_code=401, detail="Not authenticated")
             # Check expiry
             expires_at = session.get("expires_at")
             if expires_at:
                 if isinstance(expires_at, str):
                     expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
                 if expires_at < datetime.now(timezone.utc):
-                    return None
+                    raise HTTPException(status_code=401, detail="Not authenticated")
             
             user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
             if user_doc:
                 return User(**user_doc)
+
+    if credential_source is not None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     
     # Dev mode fallback
     if DEV_MODE and db is not None:
@@ -172,7 +318,13 @@ def _get_google_config():
     return client_id, client_secret, redirect_uri, frontend_url
 
 @router.get("/google/login")
-async def google_login(request: Request, platform: Optional[str] = None, redirect_to: Optional[str] = None):
+async def google_login(
+    request: Request,
+    response: Response,
+    platform: Optional[str] = None,
+    redirect_to: Optional[str] = None,
+    flow: Optional[str] = None,
+):
     """
     Redirect user to Google OAuth consent screen.
     Frontend should redirect to this endpoint to start login flow.
@@ -183,21 +335,35 @@ async def google_login(request: Request, platform: Optional[str] = None, redirec
     
     effective_redirect_uri = redirect_uri or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
     
-    plat = platform or request.query_params.get("platform", "web")
-    dest = redirect_to or request.query_params.get("redirect_to", "/home")
-    state = f"{plat}___{dest}"
-    
-    google_auth_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={client_id}"
-        f"&redirect_uri={effective_redirect_uri}"
-        f"&response_type=code"
-        f"&scope=openid%20email%20profile"
-        f"&access_type=offline"
-        f"&prompt=consent"
-        f"&state={state}"
+    plat = _oauth_platform(platform or request.query_params.get("platform", "web"))
+    dest = _safe_frontend_redirect_path(redirect_to or request.query_params.get("redirect_to", "/home"))
+    nonce = secrets.token_urlsafe(32)
+    state = _encode_oauth_state(
+        platform=plat,
+        redirect_to=dest,
+        nonce=nonce,
+        secret=client_secret,
     )
-    
+
+    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
+        "client_id": client_id,
+        "redirect_uri": effective_redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,
+    })
+    secure_cookie = _oauth_cookie_secure(effective_redirect_uri)
+
+    if flow == "redirect":
+        if plat != "mobile":
+            raise HTTPException(status_code=400, detail="Redirect flow is mobile only")
+        redirect_response = RedirectResponse(url=google_auth_url, status_code=302)
+        _set_oauth_state_cookie(redirect_response, nonce, secure=secure_cookie)
+        return redirect_response
+
+    _set_oauth_state_cookie(response, nonce, secure=secure_cookie)
     return {"auth_url": google_auth_url}
 
 
@@ -216,6 +382,14 @@ async def google_callback(code: str, response: Response, request: Request, state
     
     effective_redirect_uri = redirect_uri or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
     
+    state_payload = _decode_oauth_state(
+        state or request.query_params.get("state"),
+        secret=client_secret,
+        expected_nonce=request.cookies.get(OAUTH_STATE_COOKIE),
+    )
+    oauth_platform = state_payload["platform"]
+    redirect_to = state_payload["redirect_to"]
+
     try:
         async with httpx.AsyncClient() as client_http:
             token_resp = await client_http.post(
@@ -286,7 +460,8 @@ async def google_callback(code: str, response: Response, request: Request, state
             "user_id": user_id,
             "session_token": session_token,
             "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_mobile": oauth_platform == "mobile",
         }
         await db.user_sessions.insert_one(session_doc)
 
@@ -296,13 +471,8 @@ async def google_callback(code: str, response: Response, request: Request, state
             from services.coach_memory import backfill_coach_memory_from_imported_games
             background_tasks.add_task(backfill_coach_memory_from_imported_games, db, user_id)
 
-        # Check if login was requested from mobile app
-        state_val = state or request.query_params.get("state", "web")
-        is_mobile = any(k in state_val.lower() for k in ["mobile", "android", "ios", "capacitor", "app"])
-
-        if is_mobile:
-            from fastapi.responses import HTMLResponse
-            app_url = f"chessguru://auth?token={session_token}&user_id={user_id}"
+        if oauth_platform == "mobile":
+            app_url = "chessguru://auth?" + urlencode({"token": session_token, "user_id": user_id})
             html_content = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -361,19 +531,17 @@ async def google_callback(code: str, response: Response, request: Request, state
     </div>
 </body>
 </html>"""
-            return HTMLResponse(content=html_content)
+            html_response = HTMLResponse(content=html_content)
+            _delete_oauth_state_cookie(html_response)
+            return html_response
 
         if not frontend_url:
             frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000').strip()
-        redirect_to = "/home"
-        if "___" in state_val:
-            redirect_to = state_val.split("___")[1]
-
-        redirect_url = f"{frontend_url}{redirect_to}?auth=success&token={session_token}"
+        redirect_url = f"{frontend_url.rstrip('/')}{redirect_to}?auth=success"
 
         is_localhost = "localhost" in frontend_url or "127.0.0.1" in frontend_url
-        from fastapi.responses import RedirectResponse
         redirect_response = RedirectResponse(url=redirect_url)
+        _delete_oauth_state_cookie(redirect_response)
         redirect_response.set_cookie(
             key="session_token",
             value=session_token,
@@ -511,7 +679,7 @@ async def dev_login(response: Response):
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=False,  # Allow HTTP for localhost
+        secure=_web_session_cookie_secure(),
         samesite="lax",
         path="/",
         max_age=COOKIE_MAX_AGE_SECONDS
@@ -523,13 +691,24 @@ async def dev_login(response: Response):
 
 # ==================== EMAIL + PASSWORD AUTH ====================
 
+def _web_session_cookie_secure() -> bool:
+    """Keep production cookies Secure without breaking plain-http local QA."""
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if frontend_url:
+        parsed = urlsplit(frontend_url)
+        if parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}:
+            return False
+        return True
+    return not DEV_MODE
+
+
 def _issue_session_cookie(response: Response, session_token: str) -> None:
     """Apply the standard session cookie used by every auth path here."""
     response.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=True,
+        secure=_web_session_cookie_secure(),
         samesite="lax",
         path="/",
         max_age=COOKIE_MAX_AGE_SECONDS,
@@ -592,7 +771,7 @@ async def register(req: RegisterRequest, response: Response):
 
     user_doc.pop("_id", None)
     user_doc.pop("password_hash", None)
-    return {"user": user_doc, "session_token": session_token}
+    return _web_auth_payload(user_doc)
 
 
 @router.post("/login")
@@ -614,7 +793,7 @@ async def login(req: LoginRequest, response: Response):
 
     user.pop("_id", None)
     user.pop("password_hash", None)
-    return {"user": user, "session_token": session_token}
+    return _web_auth_payload(user)
 
 
 @router.get("/status")
@@ -635,8 +814,15 @@ async def logout(request: Request, response: Response):
     global db
     
     session_token = request.cookies.get("session_token")
-    if session_token:
-        await db.user_sessions.delete_many({"session_token": session_token})
+    session_query = {"session_token": session_token} if session_token else None
+    if not session_query:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            mobile_token = auth_header.split(" ", 1)[1].strip()
+            if mobile_token:
+                session_query = {"session_token": mobile_token, "is_mobile": True}
+    if session_query:
+        await db.user_sessions.delete_many(session_query)
     
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out successfully"}
@@ -784,17 +970,23 @@ async def demo_login(request: DemoLoginRequest):
     Creates or logs in a user with the provided email.
     """
     global db
+
+    if not DEV_MODE:
+        raise HTTPException(status_code=403, detail="Demo login only available in DEV_MODE")
     
     email = request.email.strip().lower()
     
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Valid email required")
     
-    user_id = f"demo_{email.replace('@', '_').replace('.', '_')}"
+    # A demo identity must never alias a real account, even when a tester enters
+    # the email address of an existing user. The stable hash also prevents the
+    # analytics-safe user_id field from containing an email address.
+    user_id = f"demo_{hashlib.sha256(email.encode('utf-8')).hexdigest()[:16]}"
     session_token = f"demo_session_{uuid.uuid4().hex}"
     name = email.split("@")[0].title()
     
-    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    existing_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     
     if existing_user:
         user_id = existing_user["user_id"]
@@ -822,7 +1014,8 @@ async def demo_login(request: DemoLoginRequest):
         "session_token": session_token,
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "is_demo": True
+        "is_demo": True,
+        "is_mobile": True,
     }
     await db.user_sessions.insert_one(session_doc)
     

@@ -11,7 +11,7 @@
  * No tabs. No complexity. One flow.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
@@ -74,13 +74,7 @@ const PlateauBreakerReview = ({ user }) => {
   // Pattern Memory state (confrontation data)
   const [patternMemory, setPatternMemory] = useState(null);
 
-  useEffect(() => {
-    if (gameId) {
-      fetchGameAnalysis();
-    }
-  }, [gameId]);
-
-  const fetchGameAnalysis = async () => {
+  const fetchGameAnalysis = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -235,7 +229,13 @@ const PlateauBreakerReview = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [blocker?.type, gameId, user?.user_id]);
+
+  useEffect(() => {
+    if (gameId) {
+      fetchGameAnalysis();
+    }
+  }, [fetchGameAnalysis, gameId]);
 
   const showMistakePosition = () => {
     if (criticalMistake?.fen) {

@@ -35,6 +35,8 @@ import "chessground/assets/chessground.cburnett.css";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
+const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 // Move quality indicator component - shows on the board
 const MoveIndicator = ({ type, square, orientation, boardSize }) => {
   if (!type || !square || !boardSize) return null;
@@ -86,14 +88,17 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   
   // Use refs for values needed in callbacks to avoid stale closures
   const sessionIdRef = useRef(null);
-  const fenRef = useRef("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const fenRef = useRef(INITIAL_FEN);
   const hintVisibleRef = useRef(false);
   const hintCountRef = useRef(0);
   const moveNumberRef = useRef(1);
+  const handleUserMoveRef = useRef(null);
+  const openingIdentityRef = useRef(openingKey);
+  const asyncLifecycleRef = useRef({ generation: 0, timers: new Set() });
   
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [fen, setFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [fen, setFen] = useState(INITIAL_FEN);
   const [moveNumber, setMoveNumber] = useState(1);
   const [feedback, setFeedback] = useState(null);
   const [coachMessage, setCoachMessage] = useState(null);
@@ -103,6 +108,57 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   const [lastMove, setLastMove] = useState(null);
   const [moveIndicator, setMoveIndicator] = useState(null);
   const [boardSize, setBoardSize] = useState(400);
+  const boardInitializationRef = useRef({ fen, userColor });
+  boardInitializationRef.current = { fen, userColor };
+
+  const invalidateAsyncWork = useCallback(() => {
+    const lifecycle = asyncLifecycleRef.current;
+    lifecycle.generation += 1;
+    lifecycle.timers.forEach((timer) => clearTimeout(timer));
+    lifecycle.timers.clear();
+  }, []);
+
+  const schedule = useCallback((callback, delay) => {
+    const lifecycle = asyncLifecycleRef.current;
+    const generation = lifecycle.generation;
+    const timer = setTimeout(() => {
+      lifecycle.timers.delete(timer);
+      if (generation === lifecycle.generation) callback();
+    }, delay);
+    lifecycle.timers.add(timer);
+    return timer;
+  }, []);
+
+  const resetSessionState = useCallback(() => {
+    invalidateAsyncWork();
+    setSessionId(null);
+    sessionIdRef.current = null;
+    setLoading(false);
+    setFen(INITIAL_FEN);
+    fenRef.current = INITIAL_FEN;
+    setMoveNumber(1);
+    setFeedback(null);
+    setCoachMessage(null);
+    setCompleted(false);
+    setHint(null);
+    setHintCount(0);
+    setMoveIndicator(null);
+    setLastMove(null);
+
+    groundRef.current?.set({
+      fen: INITIAL_FEN,
+      movable: { free: false, color: undefined },
+      lastMove: undefined,
+    });
+  }, [invalidateAsyncWork]);
+
+  useEffect(() => {
+    if (openingIdentityRef.current !== openingKey) {
+      openingIdentityRef.current = openingKey;
+      resetSessionState();
+    }
+    return invalidateAsyncWork;
+  }, [openingKey, invalidateAsyncWork, resetSessionState]);
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -135,9 +191,10 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   // Initialize board
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
+      const initial = boardInitializationRef.current;
       groundRef.current = Chessground(boardRef.current, {
-        fen: fen,
-        orientation: userColor || "white",
+        fen: initial.fen,
+        orientation: initial.userColor || "white",
         movable: {
           free: false,
           color: undefined
@@ -153,6 +210,12 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       }
     };
   }, []);
+
+  // Orientation is a live control. Opening identity can change without this
+  // component being remounted, so keep the existing board instance current.
+  useEffect(() => {
+    groundRef.current?.set({ orientation: userColor || "white" });
+  }, [userColor]);
   
   // Update board when FEN changes
   useEffect(() => {
@@ -196,13 +259,15 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         dests
       },
       events: {
-        move: (orig, dest) => handleUserMove(orig, dest)
+        move: (orig, dest) => handleUserMoveRef.current?.(orig, dest)
       }
     });
   }, []);
   
   // Handle user's move - uses refs to avoid stale closures
   const handleUserMove = async (orig, dest) => {
+    const generation = asyncLifecycleRef.current.generation;
+    const ownsRequest = () => generation === asyncLifecycleRef.current.generation;
     const currentSessionId = sessionIdRef.current;
     if (!currentSessionId) {
       console.error("No session ID available");
@@ -228,9 +293,11 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           move: moveUci
         })
       });
+      if (!ownsRequest()) return;
       
       if (res.ok) {
         const data = await res.json();
+        if (!ownsRequest()) return;
         if (data.complete || data.correct || data.try_again) {
           const attemptEvent = hintVisibleRef.current || hintCountRef.current > 0
             ? ANALYTICS_EVENTS.GUIDED_ATTEMPT
@@ -284,7 +351,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           
           // Show coach's response after a delay
           if (data.coach_move) {
-            setTimeout(() => {
+            schedule(() => {
               // Update FEN with coach's move included
               setFen(data.fen);
               fenRef.current = data.fen;
@@ -305,19 +372,19 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
               });
               
               // Hide indicator after showing coach message
-              setTimeout(() => {
+              schedule(() => {
                 setMoveIndicator(null);
               }, 500);
               
               // Set up for user's next move
-              setTimeout(() => {
+              schedule(() => {
                 setupUserMove(data.fen);
               }, 800);
             }, 1500);
           } else {
             // No coach move - just set up next move
             setFen(data.fen);
-            setTimeout(() => {
+            schedule(() => {
               setMoveIndicator(null);
               setupUserMove(data.fen);
             }, 1000);
@@ -350,7 +417,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           });
           
           // Reset board to original position after showing error
-          setTimeout(() => {
+          schedule(() => {
             setMoveIndicator(null);
             setLastMove(null);
             setFen(data.fen);  // Reset to correct position
@@ -362,13 +429,19 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         toast.error("Failed to make move");
       }
     } catch (err) {
-      console.error("Error making move:", err);
-      toast.error("Failed to make move");
+      if (ownsRequest()) {
+        console.error("Error making move:", err);
+        toast.error("Failed to make move");
+      }
     }
   };
+  handleUserMoveRef.current = handleUserMove;
   
   // Start practice session
   const startSession = useCallback(async () => {
+    invalidateAsyncWork();
+    const generation = asyncLifecycleRef.current.generation;
+    const ownsRequest = () => generation === asyncLifecycleRef.current.generation;
     setLoading(true);
     setFeedback(null);
     setCoachMessage(null);
@@ -383,9 +456,11 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         method: "POST",
         credentials: "include"
       });
+      if (!ownsRequest()) return;
       
       if (res.ok) {
         const data = await res.json();
+        if (!ownsRequest()) return;
         trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
           surface: "legacy_opening_practice",
           content_type: "opening_practice",
@@ -421,23 +496,26 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         }
         
         // Set up board for user's move after a brief delay
-        setTimeout(() => {
+        schedule(() => {
           setupUserMove(data.fen);
         }, 500);
       } else {
         toast.error("Failed to start practice session");
       }
     } catch (err) {
-      console.error("Error starting practice:", err);
-      toast.error("Failed to start practice session");
+      if (ownsRequest()) {
+        console.error("Error starting practice:", err);
+        toast.error("Failed to start practice session");
+      }
     } finally {
-      setLoading(false);
+      if (ownsRequest()) setLoading(false);
     }
-  }, [openingKey, setupUserMove]);
+  }, [openingKey, setupUserMove, invalidateAsyncWork, schedule]);
   
   // Get hint
   const getHint = useCallback(async () => {
     if (!sessionId) return;
+    const generation = asyncLifecycleRef.current.generation;
     
     setHintCount(prev => prev + 1);
     
@@ -454,7 +532,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       
       if (res.ok) {
         const data = await res.json();
-        setHint(data.hint);
+        if (generation === asyncLifecycleRef.current.generation) {
+          setHint(data.hint);
+        }
       }
     } catch (err) {
       console.error("Error getting hint:", err);
@@ -463,27 +543,8 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   
   // Reset session
   const resetSession = useCallback(() => {
-    setSessionId(null);
-    sessionIdRef.current = null;
-    setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    fenRef.current = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    setMoveNumber(1);
-    setFeedback(null);
-    setCoachMessage(null);
-    setCompleted(false);
-    setHint(null);
-    setHintCount(0);
-    setMoveIndicator(null);
-    setLastMove(null);
-    
-    if (groundRef.current) {
-      groundRef.current.set({
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        movable: { free: false, color: undefined },
-        lastMove: undefined
-      });
-    }
-  }, []);
+    resetSessionState();
+  }, [resetSessionState]);
   
   return (
     <div className="space-y-4">

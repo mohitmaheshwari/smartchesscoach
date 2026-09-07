@@ -1,0 +1,118 @@
+{
+  "schema_version": "acquisition_retention_baseline.v1",
+  "generated_at_utc": "2026-09-06T12:18:30.390408+00:00",
+  "source": {
+    "database": "chess_coach",
+    "access": "read_only_via_backend_container_environment",
+    "production_writes": 0,
+    "identities_exported": false,
+    "credentials_exported": false,
+    "positions_exported": false,
+    "engine_runs": 0
+  },
+  "production_counts": {
+    "users": 125,
+    "games": 15063,
+    "game_analyses": 14391,
+    "move_observations": 460251,
+    "coach_sessions": 473,
+    "puzzle_attempts": 404,
+    "learning_sessions": 31,
+    "complete_coaching_journeys": 19
+  },
+  "cohort_rules": {
+    "admin_roles": [
+      "admin",
+      "super_admin"
+    ],
+    "explicit_admin_count": 3,
+    "testish_rule": "is_reviewer OR an identifier contains test, demo, playwright, codex, claude, fable, dev_user, example.com, or localhost; identifiers are used in production only and are not exported",
+    "additional_testish_non_admin_count": 9,
+    "mature_pwc_session": "created at least 24 hours before the measurement and not explicitly terminated as e2e_trace_test, e2e_test, or drive_verify"
+  },
+  "narrow_auth_return": {
+    "definition": "a user_sessions.created_at timestamp on a later UTC calendar date than users.created_at",
+    "all_accounts_with_created_at": 124,
+    "all_accounts_returned_later_day": 14,
+    "all_accounts_not_returned_later_day": 110,
+    "non_admin_accounts_with_created_at": 121,
+    "non_admin_accounts_returned_later_day": 13,
+    "non_admin_accounts_not_returned_later_day": 108,
+    "limitation": "session tokens are long lived; absence of a new user_sessions row does not prove absence of a later product visit"
+  },
+  "last_login_recent_activity": {
+    "definition": "distinct users.last_login within the preceding 30 days",
+    "all_accounts": 6,
+    "non_admin_accounts": 5,
+    "field_coverage": {
+      "users_total": 125,
+      "users_with_last_login": 38
+    },
+    "limitation": "last_login is populated for only 38 of 125 users and is not a complete activity authority"
+  },
+  "recent_direct_action_comparison": {
+    "window_days": 30,
+    "all_accounts": {
+      "last_login": 6,
+      "auth_session": 17,
+      "pwc_started": 10,
+      "diagnostic_started": 9,
+      "lesson_started": 19,
+      "puzzle_attempt": 3,
+      "reflection_started": 1,
+      "union_across_measured_sources": 32
+    },
+    "non_admin_accounts": {
+      "last_login": 5,
+      "auth_session": 16,
+      "pwc_started": 10,
+      "diagnostic_started": 9,
+      "lesson_started": 18,
+      "puzzle_attempt": 2,
+      "reflection_started": 0,
+      "union_across_measured_sources": 31
+    },
+    "limitation": "some lesson/session creation may come from validation or administrative operation; current records do not carry a uniform environment or actor provenance field"
+  },
+  "pwc_early_exit": {
+    "definition": "mature non-admin sessions with fewer than two move_history entries whose by field equals player",
+    "mature_non_admin_sessions": 294,
+    "sessions_with_fewer_than_two_player_moves": 134,
+    "percent": 45.58,
+    "status": "reproduced"
+  },
+  "pwc_outcomes": {
+    "reported_2_6_percent_reproduction": {
+      "definition": "all mature accounts, decided result, at least ten player moves",
+      "games": 116,
+      "wins": 3,
+      "win_percent": 2.59,
+      "status": "numerically_reproduced_but_cohort_contaminated"
+    },
+    "non_admin_comparison": {
+      "definition": "non-admin mature sessions, decided result, at least three player moves",
+      "games": 110,
+      "wins": 3,
+      "win_percent": 2.73
+    },
+    "non_admin_non_testish_comparison": {
+      "definition": "non-admin/non-testish mature sessions, decided result, at least ten player moves",
+      "games": 18,
+      "wins": 0,
+      "win_percent": 0.0,
+      "limitation": "small cohort; the exclusion heuristic must not become a permanent metric without explicit provenance"
+    }
+  },
+  "comparison_to_independent_report": {
+    "reported_105_of_119_day_zero": "directionally reproduced by the narrow auth-session definition, but the exact historical denominator cannot be reconstructed from the current 125-user state without the original query and cutoff",
+    "reported_45_percent_before_move_two": "reproduced as 45.58 percent for mature non-admin sessions with fewer than two player moves",
+    "reported_2_6_percent_wins": "reproduced as 2.59 percent only for all mature accounts with at least ten player moves; not acceptable as a clean customer metric",
+    "reported_six_recent_users": "reproduced exactly using users.last_login, but that field is too incomplete to serve as the retention authority"
+  },
+  "decision": {
+    "commercial_risk": "confirmed",
+    "current_retention_authority": "rejected",
+    "reason": "last_login, auth-session creation, and direct-action records produce materially different reach counts and lack uniform internal/test provenance",
+    "next_measurement_requirement": "use one canonical, server-observed user-action contract with actor/environment provenance for a fresh cohort before locking the improvement target"
+  }
+}

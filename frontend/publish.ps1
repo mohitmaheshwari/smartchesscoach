@@ -36,23 +36,13 @@ if (-not $pscpPath) {
 # ===== BUILD REACT APP =====
 Write-Host "Preparing to build React app..."
 
-# Ask before npm install
-$installConfirm = Read-Host "Do you want to run 'npm install'? (y/n)"
-if ($installConfirm -eq 'y') {
-    npm install
-    if ($LASTEXITCODE -ne 0) { exit 1 }
-} else {
-    Write-Host "Skipping npm install"
-}
+# A publish must be built from the repository's one dependency authority.
+# Never reuse an unknown node_modules tree or a stale build directory.
+yarn install --frozen-lockfile --ignore-engines --non-interactive
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
-# Ask before npm run build
-$buildConfirm = Read-Host "Do you want to run 'npm run build'? (y/n)"
-if ($buildConfirm -eq 'y') {
-    npm run build
-    if ($LASTEXITCODE -ne 0) { exit 1 }
-} else {
-    Write-Host "Build cancelled by user"
-}
+yarn build
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # Check build folder
 if (-Not (Test-Path $BuildDir)) {

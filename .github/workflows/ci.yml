@@ -18,11 +18,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install minimal deps (pure-logic suites only)
-        run: pip install chess pymongo motor pydantic fastapi
+        run: pip install chess pymongo motor pydantic fastapi pytest
       - name: Syntax gate — every backend python file must parse
         run: |
           python - <<'EOF'
@@ -48,10 +50,14 @@ jobs:
           python tests/test_royal_fork_evidence.py
           python tests/test_player_country.py
       - name: Caption-source guard (no new parallel caption paths)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ -f backend/scripts/check_caption_sources.py ]; then
-            python backend/scripts/check_caption_sources.py || true
-          fi
+          set -euo pipefail
+          python -m pytest --noconftest backend/tests/test_caption_source_guard_ci.py -q
+          python backend/scripts/check_changed_caption_sources.py \
+            --base "$BASE_SHA" \
+            --head "$GITHUB_SHA"
       - name: Data-file integrity (curriculum + caption JSONs parse)
         run: |
           python - <<'EOF'
@@ -75,16 +81,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache: "yarn"
+          cache-dependency-path: frontend/yarn.lock
       - name: Install deps
         working-directory: frontend
-        run: npm ci
+        run: yarn install --frozen-lockfile --ignore-engines --non-interactive
       - name: Unit tests (pure logic — no component rendering, no network)
         working-directory: frontend
         env:
           CI: true
-        run: npx craco test --watchAll=false --testPathPattern="src/lib/.*\.test\.js$"
+        run: yarn test --watchAll=false --runInBand --testPathPattern="src/lib/.*\.test\.js$"
       - name: Production build (fails the job on a broken build)
         working-directory: frontend
-        run: npm run build
+        run: yarn build

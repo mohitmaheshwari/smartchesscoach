@@ -9,6 +9,7 @@ CLI tool, not a package) and exercise only the pure, non-network pieces
 """
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
@@ -20,6 +21,8 @@ from verify_deployment import (  # noqa: E402
     RESULTS,
     CheckResult,
     _check_key,
+    check_authenticated_read,
+    check_canonical_endpoint,
     check_complete_coaching_journey,
     spike_threshold,
 )
@@ -139,20 +142,22 @@ def test_journey_check_accepts_completed_idempotent_fixture(monkeypatch):
             "steps": {"verdict_served": True},
         }),
     ])
-    monkeypatch.setattr(
-        verify_deployment.requests,
-        "get",
-        lambda *args, **kwargs: next(get_responses),
-    )
-    monkeypatch.setattr(
-        verify_deployment.requests,
-        "post",
-        lambda *args, **kwargs: _Response({
+    request_kwargs = []
+
+    def fake_get(*args, **kwargs):
+        request_kwargs.append(kwargs)
+        return next(get_responses)
+
+    def fake_post(*args, **kwargs):
+        request_kwargs.append(kwargs)
+        return _Response({
             "session_id": "fixture-session",
             "status": "completed",
             "lesson": {"kind": "concept", "id": "piece_safety"},
-        }),
-    )
+        })
+
+    monkeypatch.setattr(verify_deployment.requests, "get", fake_get)
+    monkeypatch.setattr(verify_deployment.requests, "post", fake_post)
 
     check_complete_coaching_journey(
         "https://example.test",
@@ -167,6 +172,62 @@ def test_journey_check_accepts_completed_idempotent_fixture(monkeypatch):
         1.0,
     )
     assert RESULTS[-1].status == PASS
+    assert request_kwargs
+    assert all(
+        call.get("cookies") == {"session_token": "token"}
+        for call in request_kwargs
+    )
+    assert all(
+        "Authorization" not in (call.get("headers") or {})
+        for call in request_kwargs
+    )
+
+
+def test_authenticated_and_review_checks_use_web_cookie_only(monkeypatch):
+    import verify_deployment
+
+    RESULTS.clear()
+    calls = []
+    responses = iter([
+        _Response({"user_id": "fixture-user", "role": "user"}),
+        _Response({"status": "complete", "decryption_data": []}),
+    ])
+
+    def fake_get(*args, **kwargs):
+        calls.append(kwargs)
+        return next(responses)
+
+    monkeypatch.setattr(verify_deployment.requests, "get", fake_get)
+
+    body = check_authenticated_read("https://example.test", "web-session", 1.0)
+    check_canonical_endpoint(
+        "https://example.test", "web-session", "fixture-game", 1.0
+    )
+
+    assert body["user_id"] == "fixture-user"
+    assert [result.status for result in RESULTS] == [PASS, PASS]
+    assert len(calls) == 2
+    assert all(
+        call.get("cookies") == {"session_token": "web-session"}
+        for call in calls
+    )
+    assert all(
+        "Authorization" not in (call.get("headers") or {})
+        for call in calls
+    )
+
+
+def test_verifier_and_deploy_script_preserve_cookie_transport():
+    repo = Path(__file__).resolve().parents[2]
+    verifier = (repo / "backend" / "scripts" / "verify_deployment.py").read_text(
+        encoding="utf-8"
+    )
+    deploy = (repo / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+
+    assert '"Authorization"' not in verifier
+    assert "DEPLOY_VERIFY_SESSION_TOKEN" in deploy
+    assert "-e DEPLOY_VERIFY_SESSION_TOKEN" in deploy
+    assert "-e DEPLOY_VERIFY_AUTH_TOKEN" not in deploy
 
 
 def test_journey_check_proves_duplicate_submission_is_stored_once(monkeypatch):

@@ -9,7 +9,7 @@
  * - Simple, 1200-friendly language
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -59,6 +59,8 @@ import PersonalizedReviewCoach, {
   boardArrowsForReviewVisual,
 } from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
+
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 /**
  * Generate POSITION-SPECIFIC reflection options.
@@ -161,7 +163,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [boardFen, setBoardFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [boardFen, setBoardFen] = useState(START_FEN);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackRuleName, setFeedbackRuleName] = useState(null);
@@ -189,6 +191,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   
   const boardRef = useRef(null);
   const containerRef = useRef(null);
+  const decryptionLoadRef = useRef({ generation: 0, retryTimer: null, gameId: null });
+  const gameActionOwnerRef = useRef({ generation: 0, gameId: null });
+  const fetchDecryptionDataRef = useRef(null);
+  const fetchUserThoughtsRef = useRef(null);
+  const reviewNavigationRef = useRef({});
+  const posCommentaryRef = useRef(posCommentary);
+  const captureGameOwner = () => ({ ...gameActionOwnerRef.current });
+  const ownsGame = (owner) => (
+    owner.gameId === gameActionOwnerRef.current.gameId
+    && owner.generation === gameActionOwnerRef.current.generation
+  );
 
   // v78.3 (2026-05-24) — "Play this line" state. Mohit caught the
   // button was missing on the Lab page. Track which move's playback
@@ -203,14 +216,106 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [goldMap, setGoldMap] = useState({});
   const [prefMap, setPrefMap] = useState({});   // {"{n}:{san}": "system"|"gold"|"neither"} — tester preference
 
-  useEffect(() => { fetchDecryptionData(); }, [gameId, requestedReviewVariant]);
+  useLayoutEffect(() => {
+    const owner = gameActionOwnerRef.current;
+    owner.generation += 1;
+    owner.gameId = gameId;
+    const generation = owner.generation;
+    return () => {
+      if (owner.gameId === gameId && owner.generation === generation) {
+        owner.generation += 1;
+        owner.gameId = null;
+      }
+    };
+  }, [gameId]);
+
+  useEffect(() => {
+    const load = decryptionLoadRef.current;
+    const gameChanged = load.gameId !== gameId;
+    load.gameId = gameId;
+    load.generation += 1;
+    const generation = load.generation;
+    if (load.retryTimer) {
+      clearTimeout(load.retryTimer);
+      load.retryTimer = null;
+    }
+
+    // Every item below belongs to one game + review variant. Clear the prior
+    // owner's optional fields before the replacement request begins.
+    setDecryptionData(null);
+    setCctNarrative(null);
+    setTruthLine(null);
+    setPlayerDecryption(null);
+    setDecryptionBlock(null);
+    setPatternEvidence(null);
+    setMotifBlindspot(null);
+    setGameTeachingPlan(null);
+    setTeachableEvents([]);
+    setReflectionPrompts([]);
+    setReflectionResponses([]);
+    setReviewValidation(null);
+    setHabitsReport(null);
+    setFactsByMove({});
+    setPosCommentary({});
+    setCurrentMoveIndex(-1);
+    setBoardFen(START_FEN);
+    setAcknowledgedConcepts(new Set());
+    setShowingFutureMoves(false);
+    setFutureMoveIndex(0);
+    setHighlights([]);
+    setArrows([]);
+    setCoachLinePlaybackIdx(-1);
+    setCoachLineStepIndex(-1);
+    setInitialMoveHandled(false);
+
+    // Drafts and user-action state belong to the game, not to a validation
+    // variant of that same game. Preserve them across A/B mode changes.
+    if (gameChanged) {
+      setUserThoughts({});
+      setThoughtInputOpen({});
+      setSavingThought(null);
+      setFeedbackOpen(false);
+      setFeedbackText("");
+      setFeedbackRuleName(null);
+      setSubmittingFeedback(false);
+      setPlanMode(false);
+      setPlanMoves([]);
+      setPlanBoard(null);
+      setPlanReasoning("");
+      setAnalyzingPlan(false);
+      setPlanAnalysis(null);
+    }
+    fetchDecryptionDataRef.current?.(false, generation);
+
+    return () => {
+      if (load.generation === generation) {
+        load.generation += 1;
+      }
+      if (load.retryTimer) {
+        clearTimeout(load.retryTimer);
+        load.retryTimer = null;
+      }
+    };
+  }, [gameId, requestedReviewVariant]);
 
   useEffect(() => {
     if (!gameId) return;
+    let ownsRequest = true;
+    setGoldMap({});
+    setPrefMap({});
     fetch(`${API}/coach/decryption/gold/${gameId}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => { setGoldMap((d && d.gold) || {}); setPrefMap((d && d.prefs) || {}); })
-      .catch(() => { setGoldMap({}); setPrefMap({}); });
+      .then((d) => {
+        if (!ownsRequest) return;
+        setGoldMap((d && d.gold) || {});
+        setPrefMap((d && d.prefs) || {});
+      })
+      .catch(() => {
+        if (!ownsRequest) return;
+        setGoldMap({});
+        setPrefMap({});
+      });
+    return () => { ownsRequest = false; };
   }, [gameId]);
 
   // record which caption the reviewer prefers on a move (tester compare vote)
@@ -284,18 +389,24 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
       switch (e.key) {
-        case 'ArrowRight': e.preventDefault(); goForward(); break;
-        case 'ArrowLeft': e.preventDefault(); goBackward(); break;
-        case 'ArrowUp': e.preventDefault(); goToStart(); break;
-        case 'ArrowDown': e.preventDefault(); goToEnd(); break;
+        case 'ArrowRight': e.preventDefault(); reviewNavigationRef.current.goForward?.(); break;
+        case 'ArrowLeft': e.preventDefault(); reviewNavigationRef.current.goBackward?.(); break;
+        case 'ArrowUp': e.preventDefault(); reviewNavigationRef.current.goToStart?.(); break;
+        case 'ArrowDown': e.preventDefault(); reviewNavigationRef.current.goToEnd?.(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [decryptionData, currentMoveIndex]);
+  }, []);
 
-  const fetchDecryptionData = async (isRetry = false) => {
+  const fetchDecryptionData = async (
+    isRetry = false,
+    generation = decryptionLoadRef.current.generation,
+  ) => {
+    const ownsRequest = () => generation === decryptionLoadRef.current.generation;
+    let keepLoadingForRetry = false;
     try {
+      if (!ownsRequest()) return;
       if (!isRetry) setLoading(true);
       setError(null);
       
@@ -309,10 +420,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       );
       if (!res.ok) throw new Error("Failed to fetch decryption data");
       const data = await res.json();
+      if (!ownsRequest()) return;
       
       if (data.status === "generating") {
+        keepLoadingForRetry = true;
         setLoading(true);
-        setTimeout(() => fetchDecryptionData(true), 5000);
+        decryptionLoadRef.current.retryTimer = setTimeout(() => {
+          decryptionLoadRef.current.retryTimer = null;
+          fetchDecryptionDataRef.current?.(true, generation);
+        }, 5000);
         return;
       }
       
@@ -420,6 +536,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       } catch (e) {
         console.warn("Per-move caption fetch failed; falling back to V5 narrative:", e);
       }
+      if (!ownsRequest()) return;
 
       // 2026-07-03: attach focus_area badges to every move object. Cheap
       // second pass over perMoveData rather than threading through every
@@ -445,6 +562,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           const fRes = await fetch(`${API}/coach/decryption/facts/${gameId}`, { credentials: "include" });
           if (fRes.ok) {
             const fJson = await fRes.json();
+            if (!ownsRequest()) return;
             const byKey = {};
             for (const m of (fJson.moves || [])) {
               byKey[`${m.move_number}|${m.move_san}`] = m;
@@ -452,9 +570,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             setFactsByMove(byKey);
           }
         } catch (e) {
-          console.warn("Facts fetch failed (show_facts mode):", e);
+          if (ownsRequest()) console.warn("Facts fetch failed (show_facts mode):", e);
         }
       }
+      if (!ownsRequest()) return;
 
       // Store habits report if available
       if (data.habits_report) {
@@ -505,33 +624,43 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
       
       // Fetch existing user thoughts for this game
-      fetchUserThoughts();
+      fetchUserThoughtsRef.current?.(gameId, generation);
     } catch (err) {
-      setError(err.message);
+      if (ownsRequest()) setError(err.message);
     } finally {
-      setLoading(false);
+      if (ownsRequest() && !keepLoadingForRetry) setLoading(false);
     }
   };
-  
   // Fetch existing thoughts
-  const fetchUserThoughts = async () => {
+  const fetchUserThoughts = async (
+    targetGameId = gameId,
+    generation = decryptionLoadRef.current.generation,
+  ) => {
     try {
-      const res = await fetch(`${API}/games/${gameId}/thoughts`, { credentials: "include" });
+      const res = await fetch(`${API}/games/${targetGameId}/thoughts`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
+        if (generation !== decryptionLoadRef.current.generation) return;
         if (data.thoughts?.length > 0) {
-          const thoughts = {};
-          data.thoughts.forEach(t => {
-            thoughts[t.move_number] = { text: t.thought_text, saved: true };
+          setUserThoughts((previous) => {
+            const thoughts = { ...previous };
+            data.thoughts.forEach((thought) => {
+              const draft = previous[thought.move_number];
+              if (!draft || draft.saved) {
+                thoughts[thought.move_number] = {
+                  text: thought.thought_text,
+                  saved: true,
+                };
+              }
+            });
+            return thoughts;
           });
-          setUserThoughts(thoughts);
         }
       }
     } catch (e) {
       console.log("Could not fetch existing thoughts");
     }
   };
-  
   // Save user thought for a move
   const saveThought = async (moveNumber, fen, category) => {
     const thoughtText = userThoughts[moveNumber]?.text?.trim();
@@ -541,9 +670,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       return;
     }
 
+    const owner = captureGameOwner();
+    const targetGameId = gameId;
     setSavingThought(moveNumber);
     try {
-      const res = await fetch(`${API}/games/${gameId}/thought`, {
+      const res = await fetch(`${API}/games/${targetGameId}/thought`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -554,9 +685,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           weakness_category: thoughtCategory,
         })
       });
-      
+      if (!ownsGame(owner)) return;
       if (!res.ok) throw new Error("Failed to save");
-      
+
       setUserThoughts(prev => ({
         ...prev,
         [moveNumber]: { text: thoughtText, saved: true }
@@ -564,9 +695,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       setThoughtInputOpen(prev => ({ ...prev, [moveNumber]: false }));
       toast.success("Thanks! This helps improve coaching.");
     } catch (e) {
-      toast.error("Could not save thought");
+      if (ownsGame(owner)) toast.error("Could not save thought");
     } finally {
-      setSavingThought(null);
+      if (ownsGame(owner)) setSavingThought(null);
     }
   };
 
@@ -628,6 +759,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       return;
     }
     
+    const owner = captureGameOwner();
     setAnalyzingPlan(true);
     
     try {
@@ -642,11 +774,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           plan_reasoning: planReasoning
         })
       });
-      
+      if (!ownsGame(owner)) return;
       if (!res.ok) throw new Error("Analysis failed");
-      
+
       const data = await res.json();
-      
+      if (!ownsGame(owner)) return;
       if (data.success && data.analysis) {
         setPlanAnalysis(data.analysis);
         setPlanMode(false);
@@ -663,9 +795,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         toast.error(data.error || "Could not analyze plan");
       }
     } catch (e) {
-      toast.error("Failed to analyze plan");
+      if (ownsGame(owner)) toast.error("Failed to analyze plan");
     } finally {
-      setAnalyzingPlan(false);
+      if (ownsGame(owner)) setAnalyzingPlan(false);
     }
   };
 
@@ -689,14 +821,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     resetFutureView();
     const i = currentMoveIndex - 1;
     setCurrentMoveIndex(i);
-    setBoardFen(i === -1 ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : decryptionData[i].fen_after);
+    setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     setHighlights([]);
   }, [decryptionData, currentMoveIndex]);
 
   const goToStart = useCallback(() => {
     resetFutureView();
     setCurrentMoveIndex(-1);
-    setBoardFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    setBoardFen(START_FEN);
     setHighlights([]);
   }, []);
 
@@ -708,12 +840,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[i].fen_after);
     setHighlights([]);
   }, [decryptionData]);
-
   const goToMove = useCallback((i) => {
     if (!decryptionData || i < -1 || i >= decryptionData.length) return;
     resetFutureView();
     setCurrentMoveIndex(i);
-    setBoardFen(i === -1 ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : decryptionData[i].fen_after);
+    setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     
     if (i >= 0 && decryptionData[i].highlight_squares?.length) {
       setHighlights(decryptionData[i].highlight_squares);
@@ -799,8 +930,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setArrows([]);
   }, [decryptionData, currentMoveIndex]);
 
+  // Publish only functions/state from a committed render. Assigning these
+  // refs during render can leak abandoned concurrent-render values into the
+  // stable keyboard and request callbacks.
+  useLayoutEffect(() => {
+    fetchDecryptionDataRef.current = fetchDecryptionData;
+    fetchUserThoughtsRef.current = fetchUserThoughts;
+    reviewNavigationRef.current = { goForward, goBackward, goToStart, goToEnd };
+    posCommentaryRef.current = posCommentary;
+  });
+
   // Acknowledge a concept
   const acknowledgeConceptHandler = async (conceptId) => {
+    const owner = captureGameOwner();
     try {
       const res = await fetch(`${API}/coach/decryption/acknowledge`, {
         method: "POST",
@@ -808,19 +950,21 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         credentials: "include",
         body: JSON.stringify({ concept_id: conceptId })
       });
-      
+      if (!ownsGame(owner)) return;
       if (res.ok) {
         setAcknowledgedConcepts(prev => new Set([...prev, conceptId]));
         toast.success("Got it! I'll remember you understand this.");
       }
     } catch (err) {
-      toast.error("Failed to save acknowledgment");
+      if (ownsGame(owner)) toast.error("Failed to save acknowledgment");
     }
   };
 
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim() || currentMoveIndex < 0) return;
     const m = decryptionData[currentMoveIndex];
+    const owner = captureGameOwner();
+    const targetGameId = gameId;
     try {
       setSubmittingFeedback(true);
       // Post to /feedback/flag (writes to move_feedback) so the admin queue
@@ -833,7 +977,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         credentials: "include",
         body: JSON.stringify({
           source: "lab",
-          game_id: gameId,
+          game_id: targetGameId,
           move_number: m.move_number,
           fen: m.fen_before || "",
           move_san: m.move_san || null,
@@ -857,6 +1001,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           inaccuracy_reason: feedbackText.trim(),
         })
       });
+      if (!ownsGame(owner)) return;
       if (res.ok) {
         toast.success("Flagged — thanks for the report.");
         setFeedbackOpen(false);
@@ -864,9 +1009,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         setFeedbackRuleName(null);
       }
     } catch (err) {
-      toast.error("Failed to send feedback");
+      if (ownsGame(owner)) toast.error("Failed to send feedback");
     } finally {
-      setSubmittingFeedback(false);
+      if (ownsGame(owner)) setSubmittingFeedback(false);
     }
   };
 
@@ -944,7 +1089,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       your_plan_now: null,
       _narrative_source: "v5_caption",
     };
-  }, [rawCurrentMove, decryptionBlock]);
+  }, [rawCurrentMove]);
 
   const orientation = userColor === "black" ? "black" : "white";
   const hasPersonalizedReview = Boolean(
@@ -955,31 +1100,38 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
-    if (!currentMove || posCommentary[currentMoveIndex]) return;
+    if (!currentMove || posCommentaryRef.current[currentMoveIndex]) return;
     const sev = currentMove.severity;
     if (sev !== "blunder" && sev !== "mistake" && sev !== "inaccuracy") return;
     const fen = currentMove.fen_before || currentMove.fen;
     if (!fen) return;
 
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch(`${API}/coach/play/position/read`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
+          signal: controller.signal,
           body: JSON.stringify({ fen, user_color: userColor }),
         });
-        if (res.ok) {
+        if (res.ok && !controller.signal.aborted) {
           const data = await res.json();
-          setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+          if (!controller.signal.aborted) {
+            setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+          }
         } else {
           console.warn("[Decrypt] Position read failed:", res.status);
         }
       } catch (e) {
-        console.warn("[Decrypt] Position read error:", e.message);
+        if (e.name !== "AbortError") {
+          console.warn("[Decrypt] Position read error:", e.message);
+        }
       }
     })();
-  }, [currentMoveIndex, currentMove?.fen_before]);
+    return () => controller.abort();
+  }, [currentMoveIndex, currentMove, userColor]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">
@@ -1301,15 +1453,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           // Bundle exporter — fetches /api/lab/export/{gameId} and saves
           // the response as chessguru-session-{gameId}-{date}.json.
           const handleExport = async () => {
+            const owner = captureGameOwner();
+            const targetGameId = gameId;
             try {
-              const res = await fetch(`${API}/lab/export/${gameId}`, {
+              const res = await fetch(`${API}/lab/export/${targetGameId}`, {
                 credentials: "include",
               });
+              if (!ownsGame(owner)) return;
               if (!res.ok) {
                 console.warn(`Export failed: ${res.status}`);
                 return;
               }
               const data = await res.json();
+              if (!ownsGame(owner)) return;
               const blob = new Blob([JSON.stringify(data, null, 2)], {
                 type: "application/json",
               });
@@ -1317,13 +1473,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               const a = document.createElement("a");
               const date = new Date().toISOString().slice(0, 10);
               a.href = url;
-              a.download = `chessguru-session-${gameId}-${date}.json`;
+              a.download = `chessguru-session-${targetGameId}-${date}.json`;
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
             } catch (e) {
-              console.warn("Export error:", e);
+              if (ownsGame(owner)) console.warn("Export error:", e);
             }
           };
 
