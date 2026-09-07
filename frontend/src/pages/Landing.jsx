@@ -247,7 +247,7 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             {devMode && <button type="button" onClick={handleDevLogin} disabled={devLoading} data-testid="dev-login-button" className="hidden rounded-full border border-white/15 px-3 py-2 text-xs text-white/60 sm:inline-flex"><Code className="mr-1.5 h-3.5 w-3.5" />{devLoading ? "…" : "Dev"}</button>}
-            <button type="button" onClick={() => navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`)} data-testid="signin-link" className="hidden px-2 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white sm:inline-flex">Sign in</button>
+            <button type="button" onClick={() => navigate(`/login?redirect_to=${encodeURIComponent("/home")}`)} data-testid="signin-link" className="hidden px-2 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white sm:inline-flex">Sign in</button>
             <button type="button" onClick={() => startPlan("nav")} data-testid="login-button" className="rounded-full bg-[#F4EFE4] px-4 py-2.5 text-xs font-bold text-[#071411] transition-transform hover:-translate-y-0.5 sm:px-5 sm:text-sm">Build my plan</button>
           </div>
         </div>

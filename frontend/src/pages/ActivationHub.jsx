@@ -9,7 +9,7 @@
  * sets it server-side) so the redirect-gate doesn't trap the user on /welcome.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
@@ -38,6 +38,37 @@ const ActivationHub = () => {
   const navigate = useNavigate();
   const [motivation, setMotivation] = useState("");
   const [busy, setBusy] = useState(false);
+  // Until this resolves we render nothing, so an already-activated user never
+  // sees "Let's build a plan from your chess" flash before being sent home.
+  const [checking, setChecking] = useState(true);
+
+  // /welcome is mounted with skipOnboardingCheck, so ProtectedRoute's gate is
+  // deliberately off here -- which means this page must ask for itself. Every
+  // sign-in entry point on the landing page used to land returning users here,
+  // and with no check they were asked to start over on top of a full history.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/onboarding/status`, {
+          credentials: "include",
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.needs_onboarding === false) {
+            navigate("/home", { replace: true });
+            return;
+          }
+        }
+      } catch (e) {
+        // Never trap the user on a blank page because the check failed --
+        // fall through and show the hub.
+      }
+      if (!cancelled) setChecking(false);
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   // Mark onboarding seen (clears the redirect-gate) + save motivation if picked.
   const markSeen = async () => {
@@ -62,6 +93,8 @@ const ActivationHub = () => {
     void markSeen();
     navigate(path, { state: { fromActivationHub: true } });
   };
+
+  if (checking) return null;
 
   return (
     <div className="experience-page experience-activation-page min-h-screen bg-[#F4EFE4] flex items-center justify-center px-6 py-12">
