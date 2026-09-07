@@ -152,6 +152,82 @@ async def get_d_live_evidence_summary(
     }
 
 
+async def get_destination_safety_teaching_evidence(db, user_id: str) -> Dict[str, Any]:
+    """The same Plan-authorized fact, shaped for something a coach can say.
+
+    get_destination_safety_evidence_summary above answers "how often"; a
+    lesson also needs "which piece, and what happened last time". The card
+    was showing a fixed sentence from a lookup table while every one of
+    these facts sat verified in move_observations, unread.
+
+    Same match filter as the summary, deliberately -- one definition of
+    what counts as a comparable decision.
+    """
+    match: Dict[str, Any] = {
+        "user_id": user_id,
+        "schema_version": {"$gte": 18},
+        "destination_safety_exact.version": DESTINATION_SAFETY_FACT_VERSION,
+        "destination_safety_exact.derivation_status": "ok",
+        "destination_safety_exact.eligible": True,
+        "destination_safety_exact.outcome": "miss",
+    }
+    pieces: Dict[str, int] = {}
+    games = set()
+    latest: Optional[Dict[str, Any]] = None
+    latest_key = None
+    misses = 0
+
+    cursor = db.move_observations.find(
+        match,
+        {
+            "_id": 0,
+            "game_id": 1,
+            "move_number": 1,
+            "move_san": 1,
+            "san": 1,
+            "destination_safety_exact": 1,
+        },
+    )
+    async for row in cursor:
+        misses += 1
+        fact = row.get("destination_safety_exact") or {}
+        piece = str(fact.get("moved_piece") or "").strip().lower()
+        if piece:
+            pieces[piece] = pieces.get(piece, 0) + 1
+        if row.get("game_id"):
+            games.add(row["game_id"])
+        # "Last time" only means anything if we can name the move and the
+        # reply that punished it; rows missing either are counted, not shown.
+        reply = str(fact.get("opponent_reply_san") or "").strip()
+        played = str(row.get("move_san") or row.get("san") or "").strip()
+        if played and reply:
+            key = (str(row.get("game_id") or ""), int(row.get("move_number") or 0))
+            if latest_key is None or key > latest_key:
+                latest_key = key
+                latest = {
+                    "played_san": played,
+                    "moved_piece": piece or None,
+                    "destination": str(fact.get("destination") or "") or None,
+                    "opponent_reply_san": reply,
+                    "cost_cp": fact.get("exact_exchange_gain_cp"),
+                    "game_id": row.get("game_id"),
+                    "move_number": row.get("move_number"),
+                }
+
+    top_piece, top_piece_count = None, 0
+    if pieces:
+        top_piece, top_piece_count = max(pieces.items(), key=lambda kv: kv[1])
+
+    return {
+        "misses": misses,
+        "games": len(games),
+        "pieces": pieces,
+        "top_piece": top_piece,
+        "top_piece_count": top_piece_count,
+        "latest": latest,
+    }
+
+
 async def get_destination_safety_evidence_summary(
     db, user_id: str, game_ids: Optional[list[str]] = None
 ) -> Dict[str, int]:

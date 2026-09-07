@@ -9,6 +9,10 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Optional, Sequence
 
 from services.personal_curriculum import HelpAction
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 
 TEACHING_PROFILE_SCHEMA_VERSION = "personal_teaching_profile.v2"
@@ -399,6 +403,54 @@ def derive_personal_teaching_profile(
     }
 
 
+
+def _destination_safety_why_now(evidence: Mapping[str, Any]) -> str:
+    """Say what we measured about this player, not a maxim about chess.
+
+    The card used to print a fixed sentence from a lookup table -- "one of
+    your pieces was left where it could be taken" -- while the count, the
+    piece we lose most often, and the reply that punished the last one were
+    all sitting verified in move_observations.
+
+    Leads with the pattern rather than the move: a player recognises "I hang
+    bishops" a week later, not "I played Re5". The move is the evidence.
+    Stays quiet below a handful of occurrences, where a count would read as
+    a verdict drawn from almost nothing.
+    """
+    misses = int(evidence.get("misses") or 0)
+    games = int(evidence.get("games") or 0)
+    if misses < 3 or games < 2:
+        return ""
+
+    text = (
+        "You have moved a piece onto a square where it could be taken "
+        f"{misses} times, across {games} of your games"
+    )
+    piece = str(evidence.get("top_piece") or "").strip()
+    count = int(evidence.get("top_piece_count") or 0)
+    if piece and count >= 2:
+        text += f" — most often a {piece} ({count} of them)"
+    text += "."
+
+    latest = evidence.get("latest") or {}
+    played = str(latest.get("played_san") or "").strip()
+    reply = str(latest.get("opponent_reply_san") or "").strip()
+    dest = str(latest.get("destination") or "").strip()
+    moved = str(latest.get("moved_piece") or "").strip() or "piece"
+    if played and reply and dest:
+        # "took it" alone would read the same for a fair trade. These rows
+        # are already double-gated -- a static exchange evaluation on the
+        # destination square plus Stockfish agreeing the move was costly --
+        # so the exchange genuinely went against the player, and the sentence
+        # is allowed to say so. Material is never quantified here; the count
+        # above is the claim, not a centipawn figure.
+        text += (
+            f" Last time you played {played}: the {moved} landed on {dest}, "
+            f"and after {reply} the exchange there went against you."
+        )
+    return text
+
+
 async def build_personal_teaching_profile(
     db,
     user_id: str,
@@ -488,7 +540,7 @@ async def build_personal_teaching_profile(
         ),
     )
 
-    return derive_personal_teaching_profile(
+    teaching_profile = derive_personal_teaching_profile(
         skill_id=canonical_skill_id,
         canonical_lesson=canonical_lesson,
         current_interaction=current_interaction,
@@ -499,3 +551,22 @@ async def build_personal_teaching_profile(
         repertoire=repertoire,
         learning_projection=learning_projection,
     )
+
+    # Replace the lookup-table sentence with what we actually measured, when
+    # this player's focus is the Plan-authorized destination-safety fact and
+    # there is enough of it to be worth saying.
+    try:
+        if str(focus.get("focus_kind") or "") == "piece_safety/destination_safety_exact":
+            from services.focus_bridge import (
+                get_destination_safety_teaching_evidence,
+            )
+
+            evidence = await get_destination_safety_teaching_evidence(db, user_id)
+            specific_why_now = _destination_safety_why_now(evidence)
+            if specific_why_now:
+                teaching_profile["why_now"] = specific_why_now
+                teaching_profile["evidence_summary"] = evidence
+    except Exception:  # never lose the lesson over its opening sentence
+        logger.exception("destination-safety why_now enrichment failed")
+
+    return teaching_profile
