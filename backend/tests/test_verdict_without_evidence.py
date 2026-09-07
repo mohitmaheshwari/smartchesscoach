@@ -38,6 +38,21 @@ CASES = [
 
     # --- untouched: no verdict phrase at all ---
     ("You played Bf4; Ne2 was the stronger move here.", True, 150, "keep"),
+# --- kept: prose captions that DO explain, in words the keyword list
+    # cannot see. These were wrongly softened when the rule shipped. ---
+    ("Nxf7 is a mistake - you moved your knight away from defending e4. "
+     "Bxf7+ was better - it sacrifices your bishop to break open the pawn shield "
+     "in front of their king. The attack that follows is worth more than the pawn "
+     "you lose. Nxf7 took without the check, so the opponent has time to organise.",
+     True, 178, "keep"),
+    ("Nxd5 is a mistake, but the light-squared bishop is currently white's worst "
+     "piece because the pawn structure blocks its activity. The knight, on the "
+     "other hand, controls important central squares and can be rerouted easily. "
+     "A better choice is to recapture with the bishop.", True, 39, "keep"),
+    ("Your knight on e3 is pinned to your king by the rook on e8. O-O-O is a "
+     "mistake. Qb5+ was better - it gives check, forcing your opponent to respond. "
+     "Between two reasonable moves, pick the one your opponent has less time to "
+     "deal with.", True, 142, "keep"),
 ]
 
 

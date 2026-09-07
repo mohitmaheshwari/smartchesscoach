@@ -3865,6 +3865,23 @@ _VERDICT_RE = _re_pb.compile(
     _re_pb.IGNORECASE)
 
 
+# Only the hollow TEMPLATE shape may be softened. The consequence check below
+# is a keyword list, and prose captions explain in words it does not contain -
+# "Nxf7 is a mistake — you moved your knight away from defending e4" earns its
+# verdict without matching a single keyword. Softening that produced "Nxf7 is
+# playable — you moved your knight away from defending e4", which calls the
+# move fine and then explains why it isn't. Shipped 2026-09-07, caught the same
+# day by reading the softened output.
+#
+# So the rule is inverted: soften only when the caption is demonstrably the
+# hollow shape (verdict + "X was better" + optional principle), never merely
+# when no keyword matched. Cut taken from the corpus - softened template
+# captions ran 46-160 chars (median 133) while every wrongly-softened prose
+# caption ran 217-402.
+_VERDICT_SOFTEN_MAX_CHARS = 180
+_VERDICT_SOFTEN_MAX_SENTENCES = 3
+
+
 def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
                                      cp_loss: int) -> str:
     """Drop the mistake verdict when nothing in the caption justifies it."""
@@ -3876,6 +3893,15 @@ def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
         return text
     # A caption that names a consequence HAS justified its verdict.
     if _SALVAGE_CONTENT_RE.search(text):
+        return text
+    # Anything longer or more elaborate than the hollow template is presumed to
+    # be explaining itself in prose the keyword list cannot see. Leave it alone:
+    # a verdict wrongly kept is a smaller harm than a verdict wrongly removed
+    # from a caption that goes on to justify it.
+    if len(text) > _VERDICT_SOFTEN_MAX_CHARS:
+        return text
+    if len([s for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]) > \
+            _VERDICT_SOFTEN_MAX_SENTENCES:
         return text
     return _VERDICT_RE.sub("is playable", text)
 
