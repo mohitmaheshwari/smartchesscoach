@@ -190,6 +190,39 @@ isn't yet boring.
 class, a deploy that can't silently no-op, a mandatory post-deploy DB-touch
 check.
 
+### Reliability — status update 2026-09-07
+
+**Deploy gate now exists and is mandatory.** `scripts/deploy.sh` refuses a
+dirty server tree, proves the pull actually moved, verifies the running
+container's `GIT_COMMIT` equals repo HEAD, and runs eight strict checks
+including a real non-admin coaching journey. It passed 8/8 for the first time
+on 2026-09-07. This closes the "a deploy that can't silently no-op" and
+"mandatory post-deploy DB-touch check" recommendations above. Deploys go
+through it, not through raw `docker compose`.
+
+**Open debit — the gate is not deterministic.** It failed cold and passed warm
+with no code change: the journey check asserts on the first Game Review
+response, but that request itself triggers V5 generation and returns
+`status: "generating"`. The check must poll for `complete` with a timeout. A
+gate that goes green on a retry teaches people to retry, which is how a real
+failure eventually gets waved through.
+
+**Launch gate — off-box backups.** A nightly `mongodump` runs at 02:20 with
+14-day retention and is healthy (15 consecutive dailies, ~791 MB). It writes
+to `/root/backups/` **on the same disk as the database**, so one disk failure
+loses the database and every backup of it together. Deliberately not fixed
+pre-launch: with no real users, the recovery-point objective is meaningless.
+
+The argument that does *not* depend on being live is corpus value — the DB
+holds 14,273 analyzed games and 456k move observations, i.e. months of
+Stockfish compute plus the gold sets every detector and caption template is
+built on. Losing it costs no customers and a great deal of re-analysis.
+
+**Required before launch:** ship the nightly archive off-box (the postgres job
+on the same host already pushes to S3; reuse it), and exercise one restore.
+A dump nobody has restored is a hypothesis — the first verified restore of
+this database happened on 2026-09-04.
+
 ## 9. Observability — 5.0 / 10 · Confidence: High · Blocker: No
 
 **Evidence.** A PostHog funnel existed and was fully instrumented but unread.
