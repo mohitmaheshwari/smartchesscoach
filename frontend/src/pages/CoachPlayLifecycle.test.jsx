@@ -252,6 +252,66 @@ describe("CoachPlay lifecycle ownership", () => {
     expect(container.querySelector("[data-testid='sidebar-session']").textContent).toBe("session-2");
   });
 
+  test("an in-flight staleness check cannot resurrect the replaced session", async () => {
+    jest.useFakeTimers();
+    const oldStalenessCheck = deferred();
+    const fen1 = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    const fen2 = "8/8/8/8/8/8/3K4/6k1 w - - 0 1";
+    let sessionOneStateCalls = 0;
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "session-1" }] }));
+      }
+      if (url.endsWith("/coach/play/state/session-1")) {
+        sessionOneStateCalls += 1;
+        return sessionOneStateCalls === 1
+          ? Promise.resolve(response(state("session-1", fen1)))
+          : oldStalenessCheck.promise;
+      }
+      if (url.endsWith("/coach/play/messages/session-1")) {
+        return Promise.resolve(response({ messages: [] }));
+      }
+      if (url.endsWith("/coaching/current-prescriptions")) {
+        return Promise.resolve(response({ prescriptions: [] }));
+      }
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({ personal_improvement_cycle: { eligible: false } }));
+      }
+      if (url.endsWith("/lab-coach-pick")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({
+          session: session("session-2"), current_fen: fen2, is_player_turn: true,
+        }));
+      }
+      if (url.endsWith("/coach/play/state/session-2")) {
+        return Promise.resolve(response(state("session-2", fen2)));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => jest.advanceTimersByTime(5001));
+    await flush();
+    expect(sessionOneStateCalls).toBe(2);
+
+    act(() => container.querySelector("[data-testid='new-game']").click());
+    await flush();
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-2");
+
+    oldStalenessCheck.resolve(response({
+      ...state("session-1", fen1),
+      session: { ...session("session-1"), move_history: [{ san: "e4" }] },
+    }));
+    await flush();
+
+    expect(sessionOneStateCalls).toBe(2);
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-2");
+    expect(container.querySelector("[data-testid='board-fen']").textContent).toBe(fen2);
+  });
+
   test("a trap deep link starts the requested lesson only for the committed session", async () => {
     mockSearchParams = new URLSearchParams("trap=legal_trap");
     const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";

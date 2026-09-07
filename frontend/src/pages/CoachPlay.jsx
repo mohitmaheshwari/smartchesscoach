@@ -60,6 +60,7 @@ const CoachPlay = ({ user }) => {
   const pollCoachMessagesRef = useRef(null);
   const currentSessionIdRef = useRef(null);
   const resumeRequestRef = useRef(0);
+  const startRequestRef = useRef(0);
   const executeMoveRef = useRef(null);
 
   // Read opening and focus from URL query params
@@ -209,8 +210,10 @@ const CoachPlay = ({ user }) => {
       if (document.visibilityState !== "visible") return;
       try {
         const res = await fetch(`${API}/coach/play/state/${sessionId}`, { credentials: "include" });
+        if (currentSessionIdRef.current !== sessionId) return;
         if (!res.ok) return;
         const data = await res.json();
+        if (currentSessionIdRef.current !== sessionId) return;
         const realMoveCount = data.session?.move_history?.length;
         if (typeof realMoveCount === "number" && realMoveCount !== localMoveCount) {
           resumeSessionRef.current?.(sessionId);
@@ -1278,6 +1281,9 @@ const CoachPlay = ({ user }) => {
   });
 
   const actuallyStartGame = async () => {
+    startRequestRef.current += 1;
+    const startRequest = startRequestRef.current;
+    const ownsStart = () => startRequest === startRequestRef.current;
     track(ANALYTICS_EVENTS.FUNNEL_PWC_STARTED);
     setShowPreGameStreakPopup(false);
     setLoading(true);
@@ -1288,6 +1294,7 @@ const CoachPlay = ({ user }) => {
     let trainingFocusCognitivGap = null;
     try {
       trainingFocusCognitivGap = await fetchActiveTrainingFocus();
+      if (!ownsStart()) return;
     } catch (e) {
       console.warn("[CoachPlay] Error fetching training focus:", e);
     }
@@ -1299,6 +1306,7 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
       });
       const canonical = canonicalRes.ok ? await canonicalRes.json() : null;
+      if (!ownsStart()) return;
       const context = canonical?.coaching_context;
       const canonicalRule = coachPlayFocusRule(context, gameMode);
       if (context) {
@@ -1321,8 +1329,10 @@ const CoachPlay = ({ user }) => {
         setTimeout(() => setShowFocusBanner(false), 6000);
         } else {
           const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+          if (!ownsStart()) return;
           if (focusRes.ok) {
             const focusData = await focusRes.json();
+            if (!ownsStart()) return;
             const coaching = focusData.coaching;
             if (coaching?.rule && coaching?.diagnosis) {
               setFocusRule({
@@ -1391,6 +1401,7 @@ const CoachPlay = ({ user }) => {
 
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (!ownsStart()) return;
       if (!response.ok) {
         // 402 Payment Required → daily PwC limit reached on Free tier.
         // Surface as upsell modal, not an error toast.
@@ -1485,8 +1496,10 @@ const CoachPlay = ({ user }) => {
         const stateResponse = await fetch(`${API}/coach/play/state/${data.session.session_id}`, {
           credentials: "include"
         });
+        if (!ownsStart()) return;
         if (stateResponse.ok) {
           const stateData = await stateResponse.json();
+          if (!ownsStart()) return;
           if (stateData.opening_teaching) {
             setOpeningGuidance(stateData.opening_teaching);
             
@@ -1531,9 +1544,9 @@ const CoachPlay = ({ user }) => {
         console.error("Error fetching opening guidance:", stateError);
       }
     } catch (error) {
-      toast.error(error.message || "Failed to start game");
+      if (ownsStart()) toast.error(error.message || "Failed to start game");
     } finally {
-      setLoading(false);
+      if (ownsStart()) setLoading(false);
     }
   };
 
@@ -3193,6 +3206,7 @@ const CoachPlay = ({ user }) => {
   };
 
   const newGame = () => {
+    startRequestRef.current += 1;
     setSession(null);
     setGameStarted(false);
     setGameOver(false);
