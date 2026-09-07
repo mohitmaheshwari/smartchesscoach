@@ -41,6 +41,7 @@ describe("opening practice hook ownership", () => {
     jest.useFakeTimers();
     global.ResizeObserver = class {
       observe() {}
+      unobserve() {}
       disconnect() {}
     };
     container = document.createElement("div");
@@ -80,6 +81,30 @@ describe("opening practice hook ownership", () => {
     expect(container.textContent).not.toContain("This is one of my favorite openings to teach.");
   });
 
+  test("a fresh parent callback does not restart guided autoplay", async () => {
+    const opening = {
+      color: "white",
+      main_line: [
+        { move: "e4", explanation: "Claim the centre." },
+        { move: "e5", explanation: "Meet the centre." },
+      ],
+    };
+    await act(async () => root.render(
+      <GuidedOpeningLesson openingKey="italian" opening={opening} onComplete={() => {}} />
+    ));
+    act(() => [...container.querySelectorAll("button")]
+      .find((button) => button.textContent.includes("Start Lesson")).click());
+    expect(container.textContent).toContain("1 / 2");
+
+    act(() => jest.advanceTimersByTime(1000));
+    await act(async () => root.render(
+      <GuidedOpeningLesson openingKey="italian" opening={opening} onComplete={() => {}} />
+    ));
+    act(() => jest.advanceTimersByTime(2000));
+
+    expect(container.textContent).toContain("2 / 2");
+  });
+
   test("InteractivePractice updates orientation without recreating its board", async () => {
     await act(async () => root.render(
       <InteractivePractice openingKey="old" openingName="Old" userColor="white" />
@@ -96,8 +121,10 @@ describe("opening practice hook ownership", () => {
   });
 
   test("InteractivePractice board events use the latest opening identity", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
     global.fetch = jest.fn()
       .mockResolvedValueOnce(response({ session_id: "session-1", fen: START, move_number: 1 }))
+      .mockResolvedValueOnce(response({ session_id: "session-2", fen: START, move_number: 1 }))
       .mockResolvedValueOnce(response({ try_again: true, fen: START, feedback: { message: "Try again" } }));
 
     await act(async () => root.render(
@@ -121,11 +148,29 @@ describe("opening practice hook ownership", () => {
       await moveEvent("e2", "e4");
       await Promise.resolve();
     });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith("No session ID available");
+
+    await act(async () => {
+      container.querySelector("[data-testid='start-practice-btn']").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => jest.advanceTimersByTime(500));
+    const currentMoveEvent = mockGround.set.mock.calls
+      .map(([config]) => config?.events?.move)
+      .filter(Boolean)
+      .at(-1);
+    await act(async () => {
+      await currentMoveEvent("e2", "e4");
+      await Promise.resolve();
+    });
 
     expect(trackCurriculum).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.INDEPENDENT_ATTEMPT,
       expect.objectContaining({ content_id: "current-opening", outcome: "incorrect" })
     );
+    expect(JSON.parse(global.fetch.mock.calls.at(-1)[1].body).session_id).toBe("session-2");
   });
 
   test("TrapPractice board events use the current trap after a prop change", async () => {
@@ -161,5 +206,65 @@ describe("opening practice hook ownership", () => {
         outcome: "correct",
       })
     );
+  });
+
+  test("TrapPractice preserves the current position when orientation recreates the board", async () => {
+    const baseTrap = {
+      key: "orientation-trap",
+      name: "Orientation trap",
+      trap_color: "white",
+      setup_moves: ["e4"],
+      trap_line: [],
+    };
+
+    await act(async () => root.render(<TrapPractice trap={baseTrap} openingKey="opening" />));
+    act(() => container.querySelector("[data-testid='start-trap-practice']").click());
+    act(() => jest.advanceTimersByTime(600));
+
+    const afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+    expect(mockGround.set).toHaveBeenCalledWith(expect.objectContaining({ fen: afterE4 }));
+
+    await act(async () => root.render(
+      <TrapPractice trap={{ ...baseTrap, trap_color: "black" }} openingKey="opening" />
+    ));
+
+    expect(mockedChessground).toHaveBeenCalledTimes(2);
+    expect(mockedChessground.mock.calls[1][1]).toEqual(expect.objectContaining({
+      fen: afterE4,
+      orientation: "black",
+    }));
+  });
+
+  test("changing traps cancels the prior trap's delayed opponent move", async () => {
+    const oldTrap = {
+      key: "old-timed-trap",
+      name: "Old timed trap",
+      trap_color: "white",
+      setup_moves: [],
+      trap_line: [
+        { move: "e4", explanation: "Old first move" },
+        { move: "e5", explanation: "Old opponent move" },
+      ],
+    };
+    const currentTrap = {
+      key: "current-timed-trap",
+      name: "Current timed trap",
+      trap_color: "white",
+      setup_moves: [],
+      trap_line: [{ move: "d4", explanation: "Current first move" }],
+    };
+
+    await act(async () => root.render(<TrapPractice trap={oldTrap} openingKey="opening" />));
+    act(() => container.querySelector("[data-testid='start-trap-practice']").click());
+    const oldMoveEvent = mockGround.set.mock.calls
+      .map(([config]) => config?.events?.move)
+      .find(Boolean);
+    act(() => oldMoveEvent("e2", "e4"));
+
+    await act(async () => root.render(<TrapPractice trap={currentTrap} openingKey="opening" />));
+    act(() => jest.advanceTimersByTime(2000));
+
+    expect(container.querySelector("[data-testid='start-trap-practice']")).not.toBeNull();
+    expect(container.textContent).not.toContain("Opponent played e5");
   });
 });
