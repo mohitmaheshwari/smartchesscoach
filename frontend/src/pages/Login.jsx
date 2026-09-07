@@ -61,9 +61,24 @@ export default function Login() {
       const redirectTo = new URLSearchParams(window.location.search).get('redirect_to') || window.location.pathname;
       const safeRedirect = ['/', '/home', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
       const isNative = Capacitor.isNativePlatform();
-      const platformParam = isNative ? '&platform=mobile' : '';
+      const isMobileWeb = !isNative && typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|wv/i.test(navigator.userAgent);
+      const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}`;
 
-      const res = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}${platformParam}`);
+      if (isNative) {
+        // Start at our backend in the system browser so the browser-bound
+        // OAuth nonce is present again when Google returns to the callback.
+        await Browser.open({ url: `${startUrl}&platform=mobile&flow=redirect` });
+        return;
+      }
+
+      if (isMobileWeb) {
+        // For web-to-app wrappers and mobile browsers: navigate directly with flow=redirect
+        // so state cookie is set on a top-level HTTP response
+        window.location.href = `${startUrl}&platform=mobile&flow=redirect`;
+        return;
+      }
+
+      const res = await fetch(startUrl, { credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.detail || "Google sign-in is currently unavailable.");

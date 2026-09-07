@@ -206,9 +206,20 @@ export default function Landing() {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
     window.sessionStorage.setItem("post_auth_redirect", "/welcome");
     const isNative = Capacitor.isNativePlatform();
-    const platformParam = isNative ? '&platform=mobile' : '';
+    const isMobileWeb = !isNative && typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|wv/i.test(navigator.userAgent);
+    const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}`;
     try {
-      const response = await fetch(`${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}${platformParam}`);
+      if (isNative) {
+        await Browser.open({ url: `${startUrl}&platform=mobile&flow=redirect` });
+        return;
+      }
+
+      if (isMobileWeb) {
+        window.location.href = `${startUrl}&platform=mobile&flow=redirect`;
+        return;
+      }
+
+      const response = await fetch(startUrl, { credentials: "include" });
       const data = await response.json();
       if (data.auth_url) {
         if (isNative) {
