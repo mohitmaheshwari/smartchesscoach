@@ -1,0 +1,771 @@
+{
+ "schema": "target_line_causal.independent_review_response.v3",
+ "packet_sha256": "cc6b129d75fdbe4590c4f5829be57dd2818a45e11a9980ec826a99378fe21699",
+ "reviewer": "claude-opus-5",
+ "reviewed_on": "2026-09-04",
+ "total_cases": 127,
+ "responses": [
+  {
+   "case_id": "26b2da4b9c4c9d2e22ec",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxc7 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +9 with no recapture available."
+  },
+  {
+   "case_id": "d69286e21bac7a06aa92",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Rxc3 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +2 with no recapture available."
+  },
+  {
+   "case_id": "ed5570e3b1382560ddd1",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxh7 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "f061642a817e233f9e07",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +3, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "a1b0d35da9f19add30bf",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bc5 establishes an attack on the rook at f8; the same piece wins it with Bxf8 at ply 3. Net +1 for the mover after the stored horizon (recapture Kxf8 already counted)."
+  },
+  {
+   "case_id": "6644c49b198f1a822cc3",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxf7 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "026834259460fe1af83f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qd2 establishes an attack on the knight at c2; the same piece wins it with Qxc2 at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "a0ec83cb96cdf8424154",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxe3+ controls e2; the queen steps onto it and is taken by the same piece (Qxe2, ply 5). Net +1 after the horizon (recapture Bxe2 counted)."
+  },
+  {
+   "case_id": "3637ccd2c1779e671037",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Rxg7 is available immediately (SEE +1), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "4d3f762d8894128a5b41",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qb2 establishes an attack on the knight at d4; the same piece wins it with Qxd4+ at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "8b632cc565068cb51afa",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxg1 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +2 with no recapture available."
+  },
+  {
+   "case_id": "824c68e7b019d8bef32f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qh5+ establishes an attack on the knight at a5; the same piece wins it with Qxa5 at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "a1c888e93ea4b99bb384",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures Kxc4 are fully offset - the branch nets +0 for the mover, and Kxh3 still hangs at the horizon. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "f96d1909574dc68193eb",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nc6+ establishes an attack on the rook at d8; the same piece wins it with Nxd8 at ply 3. Net +1 for the mover after the stored horizon (recapture Nxd5 already counted)."
+  },
+  {
+   "case_id": "d4f857b83945b9a5c1cf",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxe7 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "7c2050b22efa7c35bb4b",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Qxc5 only trades queens - Nxc5 recaptures at once, so the claimed chain nets zero. Residual +1 is the g6 pawn from Nxg6, and that knight is itself loose (hxg6). No causal payoff from the setup."
+  },
+  {
+   "case_id": "e399dd67a7c7eb6d5179",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup f5+ establishes an attack on the queen at g4; the same piece wins it with fxg4 at ply 3. Net +8 for the mover after the stored horizon (recapture fxg4 already counted)."
+  },
+  {
+   "case_id": "b7fee45ee6f90317925a",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures hxg5 are fully offset - the branch nets +0 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "13d1fa9591ca57980302",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxg7+ establishes an attack on the pawn at h7; the same piece wins it with Rxh7 at ply 5. Net +2 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "068147e2d4c6565b8a9d",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxe4 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "04cd8b734c9a35503fb2",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qf4+ establishes an attack on the rook at c1; the same piece wins it with exd3+ at ply 3. Net +5 for the mover after the stored horizon (recapture Kxd3 already counted)."
+  },
+  {
+   "case_id": "fe980bf844819ffa2bef",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "exd5 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +1 after Qxd2."
+  },
+  {
+   "case_id": "fb9e3ffed66f396dcff0",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (-1) across the stored horizon. The edge comes from the played branch losing +8, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "14e835473f732db99e2a",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxe8 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +1 with no recapture available."
+  },
+  {
+   "case_id": "b58d14ce2a16181f29b2",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Ra5 establishes an attack on the bishop at a3; the same piece wins it with Rxa3 at ply 3. Net +1 for the mover after the stored horizon (recapture Rxf5 already counted)."
+  },
+  {
+   "case_id": "aec0f3a7f8aefbee09bd",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Kb2 controls a1; the rook steps onto it and is taken by the same piece (Kxa1, ply 3). Net +5 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "fa87ecd87a20d76edcaf",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxa6 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +1 with no recapture available."
+  },
+  {
+   "case_id": "a9eb30aa0a50a802784a",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxf4 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +1 after Rxe5."
+  },
+  {
+   "case_id": "50caeb1a736576cb3d3f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nxe4+ controls g5; the rook steps onto it and is taken by the same piece (Nxg5, ply 3). Net +8 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "c521db73796a3b806a9e",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Rxg2+ establishes an attack on the rook at g1; the same piece wins it with Rxg1+ at ply 3. Net +6 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "c0a7bee0de79365d7dcc",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qe6+ controls e7; the queen steps onto it and is taken by the same piece (Qxe7#, ply 5). Net +9 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "7a5f030e35796d731626",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bxb7 establishes an attack on the rook at a8; the same piece wins it with Bxa8 at ply 3. Net +5 for the mover after the stored horizon (recapture Bxe5 already counted)."
+  },
+  {
+   "case_id": "a9679069cc3955d8b777",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nd4+ establishes an attack on the bishop at e2; the same piece wins it with Bxg4 at ply 3. Net +4 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "c3faeaee1a47dd488f54",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: bxc6 is available immediately (SEE +1), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "08ed549afea65d12a34f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qh5+ establishes an attack on the knight at d5; the same piece wins it with exd5 at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "4ee9db323ffcb5bfa9d6",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxg5 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +2 after Nxd5."
+  },
+  {
+   "case_id": "1fadb7d07eb6ed057c4f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nxe5 establishes an attack on the bishop at c4; the same piece wins it with Nxc4 at ply 3. Net +2 for the mover after the stored horizon (recapture Nxd5 already counted)."
+  },
+  {
+   "case_id": "f37891a76949b9d684fb",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qf3+ establishes an attack on the pawn at g3; the same piece wins it with Qxg3+ at ply 3. Net +1 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "e3292201dab2846593ed",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +1, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "728fbae26c58c65906a2",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Qxa2 is available immediately (SEE +1), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "129bac646fa183055a69",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "dxc3 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +2 after Bxa2."
+  },
+  {
+   "case_id": "a3bcd002ad5d7b016b3c",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "dxe4 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +1 with no recapture available."
+  },
+  {
+   "case_id": "705931f704db03c0938d",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Re6+ is the setup: the check forces the king off the 6th rank, and vacating d6 opens the rank so the same rook wins the b6 rook (Rxb6, +5). Line-clearance chain; no recapture at the horizon."
+  },
+  {
+   "case_id": "61b836837b8d2a4295af",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nf7 establishes an attack on the queen at d8; the same piece wins it with Nxd8+ at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "62ea966e242f5f2c2f15",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup d6 establishes an attack on the knight at e7; the same piece wins it with Rxe7 at ply 3. Net +1 for the mover after the stored horizon (recapture Rxa8 already counted)."
+  },
+  {
+   "case_id": "c303949a9ebb0f6544fd",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxe6+ is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +2 after Nxe5."
+  },
+  {
+   "case_id": "0c641fc8ae5f0bc3ab25",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures Qxd6 are fully offset - the branch nets +0 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "871c676bfbc29845ff74",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Rg3 establishes an attack on the queen at f3; the same piece wins it with Rxf3+ at ply 3. Net +4 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "b0951e18ee66b44e8b5e",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxh1 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +4 with no recapture available."
+  },
+  {
+   "case_id": "7e9c9a5ffb271e857a24",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxg7 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +8 with no recapture available."
+  },
+  {
+   "case_id": "b471f69de29b6e69d87c",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxd7+ establishes an attack on the rook at c8; the same piece wins it with Qxc8 at ply 3. Net +5 for the mover after the stored horizon (recapture Qxa2 already counted)."
+  },
+  {
+   "case_id": "5cebc8d9408b748ed326",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures cxb4 are fully offset - the branch nets +0 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "46b3992e47e5930056ad",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures Qxc5, Nxf7 are fully offset - the branch nets -1 for the mover, and Rxf7 still hangs at the horizon. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "6c75d119e2fbe02f339d",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Ba2 establishes an attack on the rook at b1; the same piece wins it with Bxb1 at ply 3. Net +2 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "c3d2ab0707f489f76783",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures bxc3 are fully offset - the branch nets +0 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "a6d22852d7e290beff69",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup f3 establishes an attack on the bishop at g4; the same piece wins it with gxf5 at ply 3. Net +3 for the mover after the stored horizon (recapture exf5 already counted)."
+  },
+  {
+   "case_id": "676b80a2499fcae26374",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Rec1 establishes an attack on the queen at c7; the same piece wins it with Rxc7 at ply 3. Net +1 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "15ac7d6b02b000795a50",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qd8+ controls e7; the queen steps onto it and is taken by the same piece (Qxe7, ply 5). Net +6 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "b201ea4d5a689420a047",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxd4 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "44510c32fd1076803598",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures exd5 are fully offset - the branch nets +0 for the mover, and Nxd5 still hangs at the horizon. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "3159eddcf5346e2ebae5",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxa8 establishes an attack on the pawn at a5; the same piece wins it with Qxb5 at ply 3. Net +4 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "4a84117d1ac18f9f7133",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxb8+ is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "347c5dd3112c5510d6c8",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Rxd5 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +7 after Bxg3."
+  },
+  {
+   "case_id": "116bfc0e29e78194637b",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bh5 establishes an attack on the queen at g6; the same piece wins it with Bxg6 at ply 3. Net +4 for the mover after the stored horizon (recapture Bxf1 already counted)."
+  },
+  {
+   "case_id": "38caaedf8437bda04bdc",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxa1 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "a9f4a986bca25ec479a6",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Rxa2 establishes an attack on the rook at a1; the same piece wins it with Rxa1 at ply 5. Net +2 for the mover after the stored horizon (recapture Qxa1 already counted)."
+  },
+  {
+   "case_id": "01958f247f19917ee7f2",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup bxc6 establishes an attack on the knight at b5; the same piece wins it with cxd6 at ply 3. Net +5 for the mover after the stored horizon (recapture Bxb5 already counted)."
+  },
+  {
+   "case_id": "aa45380504af32800214",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nd4 establishes an attack on the pawn at c2; the same piece wins it with Nxa1 at ply 3. Net +3 for the mover after the stored horizon (recapture Qxa1 already counted)."
+  },
+  {
+   "case_id": "90eec0cd02f4ac9f3aee",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Ra3 establishes an attack on the pawn at a2; the same piece wins it with Rxa2 at ply 3. Net +1 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "7133951a2ef255c236ae",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bg6 establishes an attack on the rook at f5; the same piece wins it with Bxf5 at ply 3. Net +2 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "93479ea96f627e865fe3",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Ne4+ controls g3; the rook steps onto it and is taken by the same piece (Nxg3, ply 3). Net +5 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "f24586d605ddfaca2fc1",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qa4+ establishes an attack on the knight at b4; the same piece wins it with Qxb7 at ply 3. Net +3 for the mover after the stored horizon (recapture Qxd5 already counted)."
+  },
+  {
+   "case_id": "ea8bb5c36af4f8247b8f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qb7 establishes an attack on the rook at c8; the same piece wins it with Qxc8 at ply 3. Net +5 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "5806ec3cec7ba30ded47",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Kxe2 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +3 after Rxg2+."
+  },
+  {
+   "case_id": "6dd27d29b2a0ce28ea8a",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxf2 establishes an attack on the knight at d4; the same piece wins it with Qxd4 at ply 5. Net +8 for the mover after the stored horizon (recapture Qxf3+ already counted)."
+  },
+  {
+   "case_id": "430239fe90faaafb5bae",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bxb5 establishes an attack on the rook at f1; the same piece wins it with Bxf1 at ply 3. Net +5 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "d8c0fa5a50cd84c4c0fd",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +1, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "1fdfda2df1148890ded2",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Bxa6 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "c70c240a9af4f9368974",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +3 but the horizon ends mid-exchange: Bxc5 is available immediately (SEE +3), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "6ffe5901ad98e3fd6c88",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxd5 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "228eff9109f3ee043da3",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Bxf6 is available immediately (SEE +3), leaving net -2. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "7ebbf923d616daa72677",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures Qxe5+ are fully offset - the branch nets +0 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "c352e539532bc27b6323",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nxc7+ establishes an attack on the rook at a8; the same piece wins it with Nxa8 at ply 3. Net +5 for the mover after the stored horizon (recapture Qxd3 already counted)."
+  },
+  {
+   "case_id": "a134a3e2279cf23737a7",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Rxg4 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "8a1f4ec4c73dc9da2c11",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Rxe5 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "7e120e237f7ca48be87b",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +5, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "e5875d9dd791aa191b80",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Qxd5 is available immediately (SEE +1), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "6ab0a8654411434dadff",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxh3 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +10 after cxd5."
+  },
+  {
+   "case_id": "876ff55cff77472a47b5",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxd4 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +2 with no recapture available."
+  },
+  {
+   "case_id": "cfabeea67f66b90d3f56",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Rd1 controls d5; the queen steps onto it and is taken by the same piece (Rxd5, ply 5). Net +3 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "572de735389641c36cf6",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bb5 establishes an attack on the queen at c6; the same piece wins it with Bxc6+ at ply 3. Net +5 for the mover after the stored horizon (recapture Nxd4 already counted)."
+  },
+  {
+   "case_id": "992d530c8e1d33d320a4",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Rxg3 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "8923b4be11e00136e59f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bxd8 establishes an attack on the pawn at c7; the same piece wins it with Bxc7 at ply 3. Net +7 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "2f4dca3c1f0d1b47475a",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +4, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "20789861c5303b3e1920",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxa6 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "8f9dd7fe5c8992d2f0ac",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Bg3 establishes an attack on the rook at e1; the same piece wins it with Bxe1 at ply 5. Net +1 for the mover after the stored horizon (recapture Bxe1 already counted)."
+  },
+  {
+   "case_id": "29f97f4316508bdd995b",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +9 but the horizon ends mid-exchange: Bxa5 is available immediately (SEE +9), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "d9ba6e0cd5e12f9014d5",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxd5 establishes an attack on the queen at f3; the same piece wins it with Qxf3 at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "c51e171edbbe699c73d8",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup g4 establishes an attack on the knight at f5; the same piece wins it with gxf5 at ply 5. Net +1 for the mover after the stored horizon (recapture Nxf5 already counted)."
+  },
+  {
+   "case_id": "3dbb351424e255fa4895",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Rxh6 is available immediately (SEE +1), leaving net +0. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "ece43a6f4121538a942f",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +2 but the horizon ends mid-exchange: Kxd8 is available immediately (SEE +3), leaving net -1. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "6bcf79f926e0c6b26d49",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nxf6 establishes an attack on the rook at e8; the same piece wins it with Qxd6+ at ply 3. Net +6 for the mover after the stored horizon (recapture Kxe8 already counted)."
+  },
+  {
+   "case_id": "a2d1d2c1c8f2327a22d5",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxd3 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "ae109eb5e49f8d4749cb",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxd8+ is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "9cfd38aa0f9cfc7019a9",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures Rxf8 are fully offset - the branch nets -6 for the mover, and Qxe5 still hangs at the horizon. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "5a4c5fbaf14c94654dc6",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +1, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "3aad4eb17662d0fbcefc",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Captures bxc6 are fully offset - the branch nets -1 for the mover. No positive causal payoff to prove."
+  },
+  {
+   "case_id": "ca7691c760e12996fea1",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qf8 controls h8; the queen steps onto it and is taken by the same piece (Qxh8, ply 3). Net +1 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "715f444a8fdccd15a853",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Nxd4 establishes an attack on the knight at c6; the same piece wins it with Nxc6 at ply 3. Net +1 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "3e86028e2c849454c916",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +1 but the horizon ends mid-exchange: Kxg2 is available immediately (SEE +3), leaving net -2. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "46f977842fb9de1ead46",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxe4 establishes an attack on the bishop at b4; the same piece wins it with Qxb4+ at ply 3. Net +5 for the mover after the stored horizon (recapture Rxh2 already counted)."
+  },
+  {
+   "case_id": "dc1ea039f3963184c74a",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qc6+ controls d5; the queen steps onto it and is taken by the same piece (Qxd5+, ply 3). Net +9 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "c1d5d2537da9d8784fd8",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Kh6 controls h7; the rook steps onto it and is taken by the same piece (Kxh7, ply 5). Net +4 after the horizon, no recapture available."
+  },
+  {
+   "case_id": "bcecdcf4d74b91415f94",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxd8 is itself the payoff - it takes the rook and the gain survives all four stored plies. Net +5 with no recapture available."
+  },
+  {
+   "case_id": "379633f2ea8683b414ac",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup c3 establishes an attack on the knight at d4; the same piece wins it with bxa3 at ply 3. Net +2 for the mover after the stored horizon (recapture exd4+ already counted)."
+  },
+  {
+   "case_id": "7f2b0c61fedd554a846d",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Be7 establishes an attack on the knight at f6; the same piece wins it with Bxf6 at ply 3. Net +3 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "cf719f12e48abde9dfe9",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup f4 establishes an attack on the knight at e5; the same piece wins it with fxe5 at ply 5. Net +2 for the mover after the stored horizon (recapture Rxe5 already counted)."
+  },
+  {
+   "case_id": "ef27a53086d4cac5f663",
+   "verdict": "not_proved",
+   "critical_false_claim": true,
+   "review_note": "Better branch makes no capture at all; material is unchanged (+0) across the stored horizon. The edge comes from the played branch losing +5, which is loss-avoidance, not a causal payoff."
+  },
+  {
+   "case_id": "a6321e2bad6696999068",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup d4 establishes an attack on the knight at c3; the same piece wins it with dxc3 at ply 3. Net +2 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "f4b9e3097c731c7f304b",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Nxc4 is itself the payoff - it takes the pawn and the gain survives all four stored plies. Net +1 after Kxg5."
+  },
+  {
+   "case_id": "f7137558e2c2f7509b2f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qxd4 establishes an attack on the rook at a1; the same piece wins it with Qxa1 at ply 3. Net +7 for the mover after the stored horizon, no recapture available."
+  },
+  {
+   "case_id": "157247a57f1f1d4f3180",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxg5 is itself the payoff - it takes the bishop and the gain survives all four stored plies. Net +4 after Qxd5."
+  },
+  {
+   "case_id": "cdc88f336e1c21bd06d0",
+   "verdict": "insufficient_stored_horizon",
+   "critical_false_claim": true,
+   "review_note": "Branch shows +2 but the horizon ends mid-exchange: Qxa1+ is available immediately (SEE +5), leaving net -3. The four stored plies do not settle whether any payoff survives."
+  },
+  {
+   "case_id": "f79d819509d4f75df484",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "hxg4 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +3 with no recapture available."
+  },
+  {
+   "case_id": "65a4ba8110a86a7cee0f",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Setup Qg3 establishes an attack on the knight at h4; the same piece wins it with Qxh4 at ply 3. Net +2 for the mover after the stored horizon (recapture Rxh6 already counted)."
+  },
+  {
+   "case_id": "6145e9c314c257284369",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "Qxc4 is itself the payoff - it takes the knight and the gain survives all four stored plies. Net +2 after Bxb4."
+  },
+  {
+   "case_id": "7fb3748385814b633708",
+   "verdict": "proved_target_line_payoff",
+   "critical_false_claim": false,
+   "review_note": "cxb5 is itself the payoff - it takes the queen and the gain survives all four stored plies. Net +3 after Bxg1."
+  }
+ ]
+}

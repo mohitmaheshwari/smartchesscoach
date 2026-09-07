@@ -5,7 +5,7 @@
  * Handles the interactive lesson flow where user plays along.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -209,11 +209,13 @@ export const ActiveLessonPanel = ({
   onExitLesson
 }) => {
   const [feedback, setFeedback] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const validationVersionRef = useRef(0);
+  const handlersRef = useRef({ onLessonComplete, onMoveValidated });
+  handlersRef.current = { onLessonComplete, onMoveValidated };
 
   // Handle when user makes a move during lesson
-  const validateMove = async (move) => {
-    setLoading(true);
+  const validateMove = useCallback(async (move) => {
+    const validationVersion = ++validationVersionRef.current;
     setFeedback(null);
     
     try {
@@ -229,12 +231,13 @@ export const ActiveLessonPanel = ({
       
       if (response.ok) {
         const data = await response.json();
+        if (validationVersion !== validationVersionRef.current) return;
         
         if (data.complete) {
-          onLessonComplete(data);
+          handlersRef.current.onLessonComplete(data);
         } else if (data.correct) {
           setFeedback({ type: "correct", message: data.message });
-          onMoveValidated(data);
+          handlersRef.current.onMoveValidated(data);
         } else {
           setFeedback({ 
             type: "incorrect", 
@@ -245,17 +248,22 @@ export const ActiveLessonPanel = ({
         }
       }
     } catch (error) {
-      console.error("Error validating move:", error);
+      if (validationVersion === validationVersionRef.current) {
+        console.error("Error validating move:", error);
+      }
     }
-    
-    setLoading(false);
-  };
+  }, [sessionId]);
 
   // Expose validateMove to parent
   useEffect(() => {
     window.validateTeachingMove = validateMove;
-    return () => { delete window.validateTeachingMove; };
-  }, [sessionId]);
+    return () => {
+      validationVersionRef.current += 1;
+      if (window.validateTeachingMove === validateMove) {
+        delete window.validateTeachingMove;
+      }
+    };
+  }, [validateMove]);
 
   return (
     <Card className="border-2 border-amber-500/50 bg-amber-500/5">

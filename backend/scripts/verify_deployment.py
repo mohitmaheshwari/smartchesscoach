@@ -28,18 +28,18 @@ so a clean exit code is never mistaken for "fully verified."
 
 Usage:
   # Against production (default), unauthenticated — checks 1-3 run,
-  # 4-7 SKIP with a clear reason (no --auth-token / no DB access).
+  # 4-7 SKIP with a clear reason (no --session-token / no DB access).
   python backend/scripts/verify_deployment.py
 
   # Against a local stack, fully authenticated:
   python backend/scripts/verify_deployment.py \\
       --base-url http://localhost:8002 \\
-      --auth-token <session_token> \\
+      --session-token <session_token> \\
       --mongo-url mongodb://localhost:27017 --db-name chess_coach
 
   # On the server itself (MONGO_URL/DB_NAME already in env), checks
   # 6-7 run automatically without any extra flags.
-  docker exec -it chess-coach-backend python3 scripts/verify_deployment.py --auth-token <token>
+  docker exec -it chess-coach-backend python3 scripts/verify_deployment.py --session-token <token>
 
 Exit code: 0 only if every check that actually RAN passed. Non-zero
 if any check FAILED. SKIPPED checks do not affect the exit code by
@@ -54,7 +54,7 @@ canonical coaching contract, or worker health. Pass --require-checks to
 turn specific SKIPs into hard failures for CI/release use:
 
   python backend/scripts/verify_deployment.py \\
-      --auth-token <token> --mongo-url ... \\
+      --session-token <token> --mongo-url ... \\
       --require-checks commit,bundle,health,auth,contract,queue,failures
 
   # or require every check that ran-or-should-have-run:
@@ -180,7 +180,7 @@ def _local_git_head() -> str | None:
 # Check 1 — git commit match
 # =====================================================================
 
-def check_commit_match(health_json: dict | None) -> None:
+def check_commit_match(health_json: dict | None, expect_commit: str | None = None) -> None:
     name = "1. Git commit match"
 
     commit_keys = [k for k in (health_json or {}) if any(
@@ -202,7 +202,11 @@ def check_commit_match(health_json: dict | None) -> None:
                 "GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
             ])
             return
-        local_head = _local_git_head()
+        # Prefer the commit the deploy script just published. Inside the
+        # container there is no git checkout, so _local_git_head() always
+        # returns None and this check silently SKIPPED on every deploy --
+        # and a SKIP is explicitly not a pass.
+        local_head = (expect_commit or '').strip() or _local_git_head()
         detail = [f"Health endpoint exposes: {exposed}"]
         if local_head:
             detail.append(f"Local HEAD (this checkout): {local_head}")
@@ -332,21 +336,23 @@ def check_health(base_url: str, timeout: float) -> dict | None:
 # Check 4 — authenticated read reaches MongoDB (GET /api/auth/me)
 # =====================================================================
 
-def check_authenticated_read(base_url: str, auth_token: str | None, timeout: float) -> dict | None:
+def check_authenticated_read(base_url: str, session_token: str | None, timeout: float) -> dict | None:
     name = "4. Authenticated read reaches MongoDB (GET /api/auth/me)"
-    if not auth_token:
+    if not session_token:
         record(name, SKIP, [
-            "No --auth-token provided.",
-            "backend/routes/auth.py get_current_user() accepts either the",
-            "'session_token' cookie or an 'Authorization: Bearer <token>' header.",
-            "Get one via GET /api/auth/dev-login (DEV_MODE only) or a normal",
-            "login, then pass it here: --auth-token <session_token>",
+            "No --session-token provided.",
+            "Use the dedicated non-admin verifier's normal web session and",
+            "pass it here: --session-token <session_token>.",
         ])
         return None
 
     url = base_url.rstrip("/") + "/api/auth/me"
     try:
-        resp = requests.get(url, headers={"Authorization": f"Bearer {auth_token}"}, timeout=timeout)
+        resp = requests.get(
+            url,
+            cookies={"session_token": session_token},
+            timeout=timeout,
+        )
     except Exception as e:
         record(name, FAIL, [f"GET {url} — {e}"])
         return None
@@ -373,11 +379,11 @@ def check_authenticated_read(base_url: str, auth_token: str | None, timeout: flo
 # Check 5 — canonical coaching endpoint contract
 # =====================================================================
 
-def check_canonical_endpoint(base_url: str, auth_token: str | None, game_id: str | None, timeout: float) -> None:
+def check_canonical_endpoint(base_url: str, session_token: str | None, game_id: str | None, timeout: float) -> None:
     name = "5. Canonical coaching endpoint contract (GET /api/coach/decryption/v5/{game_id})"
-    if not auth_token:
+    if not session_token:
         record(name, SKIP, [
-            "No --auth-token provided (this endpoint requires auth) — same",
+            "No --session-token provided (this endpoint requires auth) — same",
             "requirement/reason as check 4.",
         ])
         return
@@ -385,13 +391,17 @@ def check_canonical_endpoint(base_url: str, auth_token: str | None, game_id: str
         record(name, SKIP, [
             "No --game-id provided and none could be auto-discovered",
             "(needs direct DB access — see checks 6/7 for why that's unavailable).",
-            "Pass a real game_id owned by the --auth-token user with --game-id.",
+            "Pass a real game_id owned by the --session-token user with --game-id.",
         ])
         return
 
     url = base_url.rstrip("/") + f"/api/coach/decryption/v5/{game_id}"
     try:
-        resp = requests.get(url, headers={"Authorization": f"Bearer {auth_token}"}, timeout=timeout)
+        resp = requests.get(
+            url,
+            cookies={"session_token": session_token},
+            timeout=timeout,
+        )
     except Exception as e:
         record(name, FAIL, [f"GET {url} — {e}"])
         return
@@ -434,14 +444,14 @@ def check_canonical_endpoint(base_url: str, auth_token: str | None, game_id: str
 
 def check_complete_coaching_journey(
     base_url: str,
-    auth_token: str | None,
+    session_token: str | None,
     auth_body: dict | None,
     fixture: dict | None,
     timeout: float,
 ) -> None:
     name = "8. Non-admin complete coaching journey"
-    if not auth_token:
-        record(name, SKIP, ["No --auth-token provided for the journey fixture."])
+    if not session_token:
+        record(name, SKIP, ["No --session-token provided for the journey fixture."])
         return
     if not fixture:
         record(name, SKIP, [
@@ -460,14 +470,14 @@ def check_complete_coaching_journey(
         record(name, FAIL, [f"Journey fixture missing keys: {missing}"])
         return
 
-    headers = {
-        "Authorization": f"Bearer {auth_token}",
-        "Content-Type": "application/json",
-    }
+    cookies = {"session_token": session_token}
+    headers = {"Content-Type": "application/json"}
     detail = []
     try:
         home_url = base_url.rstrip("/") + "/api/coach/personal-curriculum?surface=home"
-        home = requests.get(home_url, headers=headers, timeout=timeout)
+        home = requests.get(
+            home_url, headers=headers, cookies=cookies, timeout=timeout
+        )
         if home.status_code != 200:
             raise ValueError(f"Home contract returned HTTP {home.status_code}: {home.text[:200]}")
         home_body = home.json()
@@ -490,6 +500,7 @@ def check_complete_coaching_journey(
         start = requests.post(
             start_url,
             headers=headers,
+            cookies=cookies,
             json={
                 "content_kind": fixture["content_kind"],
                 "content_id": fixture["content_id"],
@@ -517,7 +528,7 @@ def check_complete_coaching_journey(
                 + f"/api/training/personalized/session/{session_id}/evidence"
             )
             evidence_response = requests.get(
-                evidence_url, headers=headers, timeout=timeout
+                evidence_url, headers=headers, cookies=cookies, timeout=timeout
             )
             if evidence_response.status_code != 200:
                 raise ValueError("Completed fixture has no readable server evidence")
@@ -547,6 +558,7 @@ def check_complete_coaching_journey(
             responded = requests.post(
                 respond_url,
                 headers=headers,
+                cookies=cookies,
                 json=response_payload,
                 timeout=timeout,
             )
@@ -561,6 +573,7 @@ def check_complete_coaching_journey(
             duplicate = requests.post(
                 respond_url,
                 headers=headers,
+                cookies=cookies,
                 json=response_payload,
                 timeout=timeout,
             )
@@ -571,7 +584,7 @@ def check_complete_coaching_journey(
                 + f"/api/training/personalized/session/{session_id}/evidence"
             )
             evidence_response = requests.get(
-                evidence_url, headers=headers, timeout=timeout
+                evidence_url, headers=headers, cookies=cookies, timeout=timeout
             )
             if evidence_response.status_code != 200:
                 raise ValueError("Submitted fixture has no readable server evidence")
@@ -596,7 +609,9 @@ def check_complete_coaching_journey(
             base_url.rstrip("/")
             + f"/api/coach/decryption/v5/{fixture['game_id']}"
         )
-        review = requests.get(review_url, headers=headers, timeout=timeout)
+        review = requests.get(
+            review_url, headers=headers, cookies=cookies, timeout=timeout
+        )
         review_body = review.json()
         if review.status_code != 200 or review_body.get("status") != "complete":
             raise ValueError("Game Review did not return a complete routed contract")
@@ -616,7 +631,9 @@ def check_complete_coaching_journey(
         detail.append("Game Review returned only authorized teaching events")
 
         progress_url = base_url.rstrip("/") + "/api/progress/complete-coaching"
-        progress = requests.get(progress_url, headers=headers, timeout=timeout)
+        progress = requests.get(
+            progress_url, headers=headers, cookies=cookies, timeout=timeout
+        )
         if progress.status_code != 200:
             raise ValueError(f"Progress returned HTTP {progress.status_code}")
         progress_body = progress.json()
@@ -798,13 +815,13 @@ async def run(args: argparse.Namespace) -> int:
     health_json = check_health(args.base_url, args.timeout)
     _print_result(RESULTS[-1])
 
-    check_commit_match(health_json)
+    check_commit_match(health_json, args.expect_commit)
     _print_result(RESULTS[-1])
 
     check_frontend_marker(args.base_url, args.frontend_marker, args.timeout)
     _print_result(RESULTS[-1])
 
-    auth_body = check_authenticated_read(args.base_url, args.auth_token, args.timeout)
+    auth_body = check_authenticated_read(args.base_url, args.session_token, args.timeout)
     _print_result(RESULTS[-1])
 
     mongo_url = args.mongo_url or os.environ.get("MONGO_URL")
@@ -814,12 +831,12 @@ async def run(args: argparse.Namespace) -> int:
     if not game_id and auth_body and auth_body.get("user_id"):
         game_id = await try_autodiscover_game_id(mongo_url, db_name, args.db_timeout_ms, auth_body.get("user_id"))
 
-    check_canonical_endpoint(args.base_url, args.auth_token, game_id, args.timeout)
+    check_canonical_endpoint(args.base_url, args.session_token, game_id, args.timeout)
     _print_result(RESULTS[-1])
 
     check_complete_coaching_journey(
         args.base_url,
-        args.auth_token,
+        args.session_token,
         auth_body,
         args.journey_fixture,
         args.timeout,
@@ -871,12 +888,23 @@ def main() -> int:
                          help=f"Site to check (default: {DEFAULT_BASE_URL})")
     parser.add_argument("--frontend-marker", default=DEFAULT_FRONTEND_MARKER,
                          help=f"String expected in the live JS bundle (default: {DEFAULT_FRONTEND_MARKER!r})")
-    parser.add_argument("--auth-token", default=os.environ.get("DEPLOY_VERIFY_AUTH_TOKEN"),
-                         help="Session token for authenticated checks (Authorization: Bearer <token>). "
-                              "Get one via GET /api/auth/dev-login in DEV_MODE, or a normal login.")
+    parser.add_argument(
+        "--session-token",
+        "--auth-token",
+        dest="session_token",
+        default=(
+            os.environ.get("DEPLOY_VERIFY_SESSION_TOKEN")
+            or os.environ.get("DEPLOY_VERIFY_AUTH_TOKEN")
+        ),
+        help=(
+            "Dedicated non-admin web session used as the session_token cookie. "
+            "--auth-token and $DEPLOY_VERIFY_AUTH_TOKEN are temporary input aliases; "
+            "the verifier never sends this credential as bearer authorization."
+        ),
+    )
     parser.add_argument("--game-id", default=os.environ.get("DEPLOY_VERIFY_GAME_ID"),
                          help="game_id for the canonical-endpoint check. Auto-discovered from the "
-                              "--auth-token user's games if DB access is available and this is omitted.")
+                              "--session-token user's games if DB access is available and this is omitted.")
     parser.add_argument("--mongo-url", default=None,
                          help="Mongo connection string for checks 6-7. Defaults to $MONGO_URL.")
     parser.add_argument("--db-name", default=None,
@@ -895,6 +923,15 @@ def main() -> int:
             "JSON object for the dedicated non-admin fixture with "
             "content_kind, content_id, move and game_id. Defaults to "
             "$PHASE8_VERIFICATION_FIXTURE_JSON."
+        ),
+    )
+    parser.add_argument(
+        "--expect-commit",
+        default=os.environ.get("DEPLOY_EXPECT_COMMIT"),
+        help=(
+            "Commit the deployment is expected to be running. Defaults to "
+            "$DEPLOY_EXPECT_COMMIT. Needed because there is no git checkout "
+            "inside the container, so HEAD cannot be resolved locally."
         ),
     )
     parser.add_argument("--require-checks", default=None,

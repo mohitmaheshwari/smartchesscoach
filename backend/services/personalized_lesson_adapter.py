@@ -106,6 +106,30 @@ def supports_personalized_lesson_identity(
     return False
 
 
+def personalized_lesson_source_ref(
+    content_kind: str,
+    content_id: str,
+) -> Optional[str]:
+    """Return the canonical chess-content owner for a supported lesson."""
+    kind = str(content_kind or "").strip().lower()
+    lesson_id = str(content_id or "").strip()
+    if not supports_personalized_lesson_identity(kind, lesson_id):
+        return None
+    if kind == "opening":
+        return "backend/data/opening_curriculum.json"
+    if kind in {"trap", "trap_set"}:
+        return "backend/data/traps.json"
+    if kind == "concept":
+        return TACTICAL_SOURCE
+    if kind == "endgame":
+        from services.endgame_theory_service import get_lesson
+
+        parts = lesson_id.split("/", 1)
+        lesson = get_lesson(parts[0], parts[1]) if len(parts) == 2 else None
+        return str((lesson or {}).get("canonical_source") or "") or None
+    return None
+
+
 def _lesson_skill_id(
     kind: str,
     content_id: str,

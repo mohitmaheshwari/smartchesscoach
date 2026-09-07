@@ -1,0 +1,145 @@
+{
+  "schema_version": "hidden_opportunities_phase3a2_target_line_validation.v1",
+  "date": "2026-09-03",
+  "phase": "3A.2_causal_proof_families_target_and_line_geometry_with_payoff",
+  "implementation_base": "fbe6514c2e222b84c523d63bbcec330387d63d2b",
+  "branch": "codex/hidden-opportunities-chess-gold-v1",
+  "source_evidence": {
+    "packet": {
+      "path": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_v1_2026-09-02.json",
+      "sha256": "2fec4b84f8f192a138d4ab4048bbfe87eab5c46a343a0f948f6007c3e9081213"
+    },
+    "annotations": {
+      "path": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_annotations_v1_2026-09-03.json",
+      "sha256": "3311febf78afa941a7743c3132a84a425843ee0e063bc4a6ed70c5d96de89856"
+    },
+    "family_lock": {
+      "path": "backend/data/corpus_snapshots/hidden_opportunities_phase3a_proof_family_lock_v1_2026-09-03.json",
+      "sha256": "0e9e9256bc8c69a4422aa32db63c31540ca510b02b8047e144750279d5e89532"
+    },
+    "validator": {
+      "path": "backend/scripts/validate_hidden_opportunities_target_line_proofs.py",
+      "sha256": "27e84fbde902a53aece2b6de7668609ec74a3a06beb73fb3c5c769afc7e3fa76"
+    }
+  },
+  "privacy_and_execution": {
+    "anonymized": true,
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_emails": false,
+    "contains_credentials": false,
+    "fresh_engine_runs": 0,
+    "production_reads": 0,
+    "database_writes": 0,
+    "runtime_llm_calls": 0,
+    "production_visible_behavior_changes": 0,
+    "target_line_player_facing_wiring": 0
+  },
+  "payoff_floor_bakeoff": [
+    {
+      "floor_cp": 100,
+      "meaning": "pawn_or_better",
+      "fires": 14,
+      "true_hidden_opportunities": 13,
+      "outside_hidden_opportunities": 1,
+      "precision_pct": 92.9,
+      "first_family_recall_pct": 100.0,
+      "decision": "rejected_false_positive"
+    },
+    {
+      "floor_cp": 300,
+      "meaning": "minor_piece_or_better",
+      "fires": 10,
+      "true_hidden_opportunities": 10,
+      "outside_hidden_opportunities": 0,
+      "precision_pct": 100.0,
+      "first_family_recall_pct": 100.0,
+      "decision": "selected"
+    },
+    {
+      "floor_cp": 500,
+      "meaning": "rook_or_better",
+      "fires": 7,
+      "true_hidden_opportunities": 7,
+      "outside_hidden_opportunities": 0,
+      "precision_pct": 100.0,
+      "first_family_recall_pct": 77.8,
+      "decision": "rejected_recall_loss"
+    }
+  ],
+  "independent_validation": {
+    "positions": 100,
+    "hidden_opportunities": 24,
+    "non_opportunities": 76,
+    "proof_fires": 10,
+    "true_positives": 10,
+    "false_positives": 0,
+    "true_negatives": 76,
+    "precision_pct": 100.0,
+    "wilson_lower_bound_pct": 72.25,
+    "all_hidden_opportunity_recall_pct": 41.67,
+    "first_family_hits": 9,
+    "first_family_total": 9,
+    "first_family_recall_pct": 100.0,
+    "mechanism_counts": {
+      "exchange_sequence": 1,
+      "persistent_piece_attack": 4,
+      "remove_future_attacker": 3,
+      "target_enters_controlled_square": 2
+    },
+    "branch_reversal_checks": 10,
+    "branch_reversal_rejections": 10,
+    "failures": [],
+    "passed": true
+  },
+  "proof_position_ids": [
+    "00086ddd68c319a674c3",
+    "001d12f6e8e923e5d08d",
+    "002f0235720da345b731",
+    "008fc95da4d581f54780",
+    "00906363fd88603401ce",
+    "00d2ea0ceda1a2e6ef83",
+    "01b45574328ab7030c22",
+    "01c07bb03731985ac806",
+    "025f08cb296a7e4d14d4",
+    "03eccd1bf3d294170e7f"
+  ],
+  "authorization": {
+    "quality_id": "review:target_line_causal_proof",
+    "grade": "shadow",
+    "internal_diagnostic": true,
+    "caption": false,
+    "prompt": false,
+    "plan": false,
+    "mastery": false
+  },
+  "regression_verification": {
+    "focused_phase_3a": {
+      "passed": 20,
+      "failed": 0
+    },
+    "stage_1_mate_and_ten_game_gold": {
+      "passed": 34,
+      "failed": 0
+    },
+    "broad_caption_and_review_contracts": {
+      "passed": 319,
+      "failed": 6,
+      "baseline_failed": 6,
+      "new_regressions": 0
+    },
+    "phase_3a1_branch_validator": "passed",
+    "legacy_runtime_drift": 0,
+    "compile_check": "passed",
+    "git_diff_check": "passed"
+  },
+  "promotion": {
+    "eligible": false,
+    "blockers": [
+      "reviewed_positive_count_below_50",
+      "wilson_lower_bound_below_85_pct",
+      "architecture_packet_not_population_holdout"
+    ]
+  },
+  "verdict": "PASS_SHADOW_ONLY"
+}

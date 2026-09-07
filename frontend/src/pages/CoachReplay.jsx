@@ -16,7 +16,7 @@
  * After all moments: Rule + Exit
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
@@ -27,10 +27,15 @@ import { ChevronRight, ArrowLeft, BookOpen, Eye } from "lucide-react";
 const CoachReplay = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [momentIndex, setMomentIndex] = useState(0);
   const [subStep, setSubStep] = useState(0); // 0=context, 1=board reading, 2=after move
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   useEffect(() => {
     (async () => {
@@ -39,10 +44,10 @@ const CoachReplay = ({ user }) => {
         if (res.ok) {
           setData(await res.json());
         } else {
-          navigate(`/game/${gameId}`, { replace: true });
+          navigateRef.current(`/game/${gameId}`, { replace: true });
         }
       } catch (e) {
-        navigate(`/game/${gameId}`, { replace: true });
+        navigateRef.current(`/game/${gameId}`, { replace: true });
       } finally {
         setLoading(false);
       }

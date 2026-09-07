@@ -68,6 +68,42 @@ def _move_effect(board: chess.Board, raw: Any) -> str:
     )
 
 
+def _reply_san(board: chess.Board, source_raw: Any, reply_raw: Any) -> str:
+    """Render a reply only after replaying the move that makes it legal."""
+    source = _legal_move(board, source_raw)
+    if source is None:
+        return str(reply_raw or "the reply")
+    after = board.copy(stack=False)
+    after.push(source)
+    return _san(after, reply_raw)
+
+
+def _non_answer_hint(board: chess.Board, primary_uci: str) -> str:
+    """Point to board geometry without spelling out the stored answer."""
+    move = _legal_move(board, primary_uci)
+    if move is None:
+        return "Check every legal capture, check and direct threat before trying again."
+    moving = board.piece_at(move.from_square)
+    piece_name = chess.piece_name(moving.piece_type) if moving else "piece"
+    origin = chess.square_name(move.from_square)
+    destination = chess.square_name(move.to_square)
+    if board.is_capture(move):
+        captured_square = move.to_square
+        if board.is_en_passant(move):
+            captured_square += -8 if board.turn == chess.WHITE else 8
+        captured = board.piece_at(captured_square)
+        captured_name = chess.piece_name(captured.piece_type) if captured else "piece"
+        return (
+            f"Look again at your {piece_name} on {origin} and the "
+            f"{captured_name} on {destination}."
+        )
+    probe = board.copy(stack=False)
+    probe.push(move)
+    if probe.is_check():
+        return "Look again at every legal check, then test the square where the piece lands."
+    return f"Look again at what moving the {piece_name} on {origin} changes."
+
+
 def _opening_context(
     admission: Mapping[str, Any], best_san: str
 ) -> tuple[str, str]:
@@ -178,6 +214,25 @@ def _specific_context(
             f"The original move left the {piece} on {square} available to be taken; {best_san} avoids that loss.",
             "After choosing a move, scan every piece you own and ask what the opponent can capture.",
         )
+    if concept == "piece_safety.destination_safety_exact":
+        detector_fact = _first_fact(admission, "detector_facts")
+        original_uci = str(admission.get("played_move_uci") or "")
+        original_san = _san(board, original_uci)
+        piece = detector_fact.get("piece") or "piece"
+        square = detector_fact.get("square") or "its destination"
+        reply_san = _reply_san(
+            board,
+            original_uci,
+            detector_fact.get("winning_reply_uci"),
+        )
+        best_effect = _move_effect(board, focus_uci)
+        return (
+            f"The original move {original_san} put the {piece} on {square}, "
+            f"where {reply_san} could take it. {best_effect} It avoids "
+            f"putting the {piece} on that unsafe square.",
+            "Even when a move gives check, look at the square where your piece "
+            "lands and calculate every way the opponent can capture it.",
+        )
     if concept == "piece_safety.trapped_piece":
         piece, square = fact.get("piece"), fact.get("square")
         return (
@@ -262,9 +317,61 @@ def _specific_context(
             "Before any quiet move, examine every legal check and count the king's escape squares.",
         )
     if concept in {"tactic.forced_mate", "tactic.missed_mate", "tactic.mate_in_one"}:
+        mating_piece = fact.get("mating_piece")
+        mating_square = fact.get("mating_square")
+        mating_san = fact.get("mating_move_san")
+        king_square = fact.get("king_square")
+        if (
+            fact.get("claim_strength") == "mate_in_one"
+            and mating_piece
+            and mating_square
+            and king_square
+            and fact.get("terminal_legal_replies") == 0
+        ):
+            # For mate in one the displayed move IS the mating move, so its
+            # SAN already carries the piece, the destination square and the
+            # "#" marker. Restating them is the shape this file forbids ~70
+            # lines above, and it reads worse than the generic _move_effect
+            # sentence it would replace. Say what the move DOES; the
+            # authorized facts still gate whether this branch is reached.
+            return (
+                f"{best_san} gives checkmate: the king on {king_square} "
+                "has no legal reply.",
+                "Before choosing a move, examine every legal check and count "
+                "the king's escape squares.",
+            )
+        # Longer lines: the proof establishes that ONE stored line replays
+        # legally to mate. It never enumerates the opponent's alternatives,
+        # so the caption must not read as "this mate is forced" -- on real
+        # stored rows the opponent has a choice about half the time. Show
+        # the moves, and say plainly that other defences exist.
+        replayed_san = fact.get("replayed_san")
+        line = (
+            " ".join(str(token) for token in replayed_san)
+            if isinstance(replayed_san, (list, tuple)) and replayed_san
+            else ""
+        )
+        if (
+            line
+            and mating_piece
+            and mating_square
+            and king_square
+            and fact.get("terminal_legal_replies") == 0
+        ):
+            # The stored line already opens with best_san, so naming it
+            # again ahead of the line would just repeat it.
+            return (
+                f"One line: {line}. At the end the king on "
+                f"{king_square} has no legal reply. The opponent can "
+                "defend differently, so check their other tries too.",
+                "Before choosing a move, examine every legal check, capture "
+                "and direct threat.",
+            )
         return (
-            f"{best_san} starts a forced line that ends in checkmate.",
-            "Before any quiet move, examine every legal check and count the king's escape squares.",
+            f"{best_san} starts a line that ends in checkmate. The opponent "
+            "can defend differently, so check their other tries too.",
+            "Before choosing a move, examine every legal check, capture and "
+            "direct threat.",
         )
     return (
         _move_effect(board, focus_uci),
@@ -278,6 +385,7 @@ def build_verified_puzzle_feedback(
     *,
     correct: bool,
     primary_uci: Optional[str] = None,
+    revealed: bool = False,
 ) -> Dict[str, str]:
     """Return a concrete WHY plus a reusable habit from frozen evidence."""
     admission = puzzle.get("verified_admission") or {}
@@ -314,7 +422,10 @@ def build_verified_puzzle_feedback(
         why = _move_effect(board, focus)
         remember = "Before you commit, calculate the opponent's strongest legal reply."
 
-    if correct:
+    if revealed:
+        lead = f"Here is the idea: {focus_san}."
+        behavior = "Replay the position once without the arrow and name the opponent's strongest reply before moving."
+    elif correct:
         lead = f"Yes — {played_san}."
         behavior = "Name the board clue you used, then look for the same clue in your next game."
     else:
@@ -328,4 +439,68 @@ def build_verified_puzzle_feedback(
         "remember": remember,
         "behavior": behavior,
         "source": "verified_deterministic",
+    }
+
+
+def build_verified_puzzle_retry_feedback(
+    puzzle: Mapping[str, Any],
+    played_uci: str,
+    *,
+    primary_uci: Optional[str] = None,
+) -> Dict[str, str]:
+    """Coach one unsuccessful try without leaking the frozen answer.
+
+    A concept drill has two independent truths: whether the learner found the
+    stored continuation, and whether their move repeated the named mistake.
+    This function reports the latter and gives a board clue for another try.
+    """
+    admission = puzzle.get("verified_admission") or {}
+    board = chess.Board(str(puzzle.get("fen")))
+    primary = str(primary_uci or puzzle.get("best_move_uci") or "")
+    move = _legal_move(board, played_uci)
+    played_san = board.san(move) if move else str(played_uci or "That move")
+    concept = str(admission.get("concept_id") or "")
+    concept_result = "unmeasured"
+
+    if concept == "piece_safety.destination_safety_exact" and move is not None:
+        from services.destination_safety_detector import (
+            grade_destination_safety_candidate,
+        )
+
+        concept_grade = grade_destination_safety_candidate(board.fen(), move.uci())
+        concept_result = str(concept_grade.get("status") or "unmeasured")
+        piece = str(concept_grade.get("moved_piece") or "piece")
+        destination = str(concept_grade.get("destination") or "its destination")
+        if concept_result == "pass":
+            why = (
+                f"{played_san} keeps your {piece} safe on {destination}, so your "
+                "piece-safety check was sound. There is still a stronger move "
+                "in this position."
+            )
+        elif concept_result == "fail":
+            why = (
+                f"After {played_san}, your {piece} on {destination} can be won. "
+                "That repeats the exact mistake this drill is helping you stop."
+            )
+        else:
+            why = (
+                f"{played_san} does not leave a major piece on a square where it "
+                "can be won, but it is not the continuation this position is "
+                "built to teach."
+            )
+        remember = (
+            f"{_non_answer_hint(board, primary)} Then check whether the piece "
+            "you move can be taken on its new square."
+        )
+    else:
+        why = f"{played_san} is not the verified continuation for this position."
+        remember = _non_answer_hint(board, primary)
+
+    return {
+        "feedback": f"{why} {remember}".strip(),
+        "why": why,
+        "remember": remember,
+        "behavior": "Try the position again before asking to see the answer.",
+        "concept_result": concept_result,
+        "source": "verified_deterministic_retry",
     }

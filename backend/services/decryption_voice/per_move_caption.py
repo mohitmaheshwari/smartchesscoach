@@ -699,7 +699,7 @@ def _interpret_engine_preference(
     # Coach voice: lead with the move, name the lesson plainly.
     if best_is_check:
         return f"{best_san} was sharper — a check that {why}."
-    return f"{best_san} was sharper here — {why}."
+    return f"{best_san} was sharper here — it {why}."
 
 
 # ── Public API ───────────────────────────────────────────────────────

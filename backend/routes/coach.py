@@ -45,6 +45,7 @@ def set_llm(llm_func):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from routes.admin import require_admin
 from db_filters import ACTIVE_GAMES_FILTER
 from services.access_scope import user_scope_filter
 
@@ -160,7 +161,10 @@ class ExplainMistakeRequest(BaseModel):
 
 
 @router.post("/explain-mistake")
-async def explain_mistake_endpoint(request: ExplainMistakeRequest):
+async def explain_mistake_endpoint(
+    request: ExplainMistakeRequest,
+    user: User = Depends(get_current_user),
+):
     """
     Generate a human-readable explanation for why a move was a mistake.
     
@@ -451,8 +455,12 @@ async def get_repeat_mistakes(user: User = Depends(get_current_user)):
 
 
 @router.post("/theory/reload")
-async def reload_theory():
-    """Reload theory database from JSON (after admin edits)."""
+async def reload_theory(user: User = Depends(require_admin)):
+    """Reload theory database from JSON (after admin edits). Admin only.
+
+    Mutates in-process server state and was previously reachable with no
+    authentication at all.
+    """
     from services.chess_theory_service import get_theory_service
     
     service = get_theory_service()
@@ -2164,7 +2172,10 @@ class MoveQuestionRequest(BaseModel):
 
 
 @router.post("/ask-move")
-async def ask_move_question(request: MoveQuestionRequest):
+async def ask_move_question(
+    request: MoveQuestionRequest,
+    user: User = Depends(get_current_user),
+):
     """
     Answer a question about a move, like "why Na5 and not Nf5?"
 

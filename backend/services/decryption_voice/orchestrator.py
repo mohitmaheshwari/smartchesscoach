@@ -23,6 +23,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from .truth_line import generate_truth_line, pick_critical_move, detect_top_moments
+from .game_trajectory import compute_trajectory
 from .player_decryption import build_player_decryption
 from .decryption import generate_decryption
 
@@ -68,6 +69,19 @@ async def generate_post_game_voice(
     except Exception as e:
         logger.warning(f"[orchestrator] game_reason_classifier failed: {e}")
 
+    # 1b. Trajectory — what the position actually did over the game. Computed
+    # once here so Truth and Player Decryption assert the same facts and
+    # neither can contradict the cards it is describing
+    # (docs/review_truth_layer_scope.md).
+    _critical_for_traj = pick_critical_move(decryption_v5_data, user_color=user_color)
+    trajectory = compute_trajectory(
+        decryption_v5_data,
+        critical_move_number=(_critical_for_traj or {}).get("move_number"),
+        termination=termination,
+        game_result=game_result,
+        user_color=user_color,
+    )
+
     # 2. Truth line — loss-framed; skip on wins.
     truth_line = None
     if not user_won:
@@ -77,6 +91,7 @@ async def generate_post_game_voice(
             game_id=game_id,
             user_won=False,
             user_color=user_color,
+            trajectory=trajectory,
         )
 
     # 3. Player Decryption — Story / Pattern / Carry-forward.
@@ -88,6 +103,7 @@ async def generate_post_game_voice(
             game_reason=game_reason,
             game_id=game_id,
             user_color=user_color,
+            trajectory=trajectory,
         )
 
     # 4. Pattern Evidence — board geometry. Loss-only surface.

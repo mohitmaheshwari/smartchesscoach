@@ -348,3 +348,65 @@ def validate_decryption(text: str) -> Tuple[bool, str]:
             )
 
     return True, ""
+
+
+# ── Factual claim gate ───────────────────────────────────────────────
+# Everything above validates STYLE (word budgets, banned engine vocabulary,
+# concreteness). None of it asks whether the sentence is TRUE of this game.
+#
+# Captions have had a per-FEN claim verifier since 2026-06-23; the narrative
+# surfaces never did. That gap shipped this, on a game the player was winning
+# on all 54 moves after the one being blamed and lost on the clock:
+#
+#   "You were winning. Move 16 flipped the game — and it never came back."
+#
+# Same discipline as the caption layer: derive facts from the game, check the
+# rendered sentence against them, and fall back to a variant that is true
+# rather than shipping the violation (feedback_verify_rendered_output_always).
+
+_CLAIM_NEVER_RECOVERED = re.compile(
+    r"never came back|and it never|it never came|"
+    r"flipped the game|gave it away|cost everything|threw it away|"
+    r"broke it\b|did the damage|sent you back out|never recovered",
+    re.IGNORECASE)
+
+_CLAIM_WAS_WINNING = re.compile(
+    r"you were winning|you had it\b|you built a winning|it was yours|"
+    r"you got winning|had a winning position", re.IGNORECASE)
+
+_CLAIM_TIME = re.compile(
+    r"\bran out of time\b|\bthe clock\b|\bon time\b|\bflag fell\b|"
+    r"\btime ran out\b|\bout of time\b", re.IGNORECASE)
+
+
+def validate_narrative_claims(text: str, trajectory: dict) -> list:
+    """Check a rendered narrative line against what the game actually did.
+
+    `trajectory` comes from decryption_voice.game_trajectory.compute_trajectory.
+    Returns a list of violation strings; empty means safe to ship.
+    """
+    if not text or not trajectory:
+        return []
+
+    violations = []
+
+    if _CLAIM_NEVER_RECOVERED.search(text) and trajectory.get(
+            "stayed_winning_after_critical"):
+        violations.append(
+            "claims the game never recovered, but the player was still winning "
+            "on all %s of their moves after move %s"
+            % (trajectory.get("n_user_moves_after_critical"),
+               trajectory.get("critical_move_number")))
+
+    if _CLAIM_WAS_WINNING.search(text) and not trajectory.get(
+            "was_winning_at_some_point"):
+        violations.append(
+            "claims the player was winning, but no move in the game reached a "
+            "winning state")
+
+    if _CLAIM_TIME.search(text) and not trajectory.get("is_timeout"):
+        violations.append(
+            "claims the clock decided the game, but termination is %r"
+            % (trajectory.get("termination"),))
+
+    return violations

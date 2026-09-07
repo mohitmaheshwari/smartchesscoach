@@ -70,6 +70,28 @@ def test_generic_grade_cannot_repeat_an_unverified_legacy_weakness():
     assert result["recovery_weakness"] is None
 
 
+def test_public_miss_payload_keeps_retry_coaching_but_hides_answer():
+    grade = runtime.grade_resolved_puzzle(_resolved(), "d2d4")
+
+    public = runtime.public_grade_payload(grade)
+
+    assert public["correct"] is False
+    assert public["coaching_feedback"]["source"] == "verified_deterministic_retry"
+    assert "best_move_san" not in public
+    assert "best_move_uci" not in public
+    assert "e4" not in public["feedback"]
+
+
+def test_public_correct_payload_keeps_the_verified_answer_and_full_why():
+    grade = runtime.grade_resolved_puzzle(_resolved(), "e2e4")
+
+    public = runtime.public_grade_payload(grade)
+
+    assert public["correct"] is True
+    assert public["best_move_san"] == "e4"
+    assert public["coaching_feedback"]["source"] == "verified_deterministic"
+
+
 def test_broad_grade_uses_only_the_verified_broad_category():
     puzzle = _resolved()
     puzzle["verified_admission"] = _admission(

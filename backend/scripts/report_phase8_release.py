@@ -144,6 +144,7 @@ async def build_release_report(
             "_id": 0,
             "user_id": 1,
             "role": 1,
+            "is_deploy_verifier": 1,
             f"feature_flags.{USER_FEATURE_FLAG}": 1,
         },
     ).to_list(length=None)
@@ -152,6 +153,13 @@ async def build_release_report(
         for user in users
         if str(user.get("role") or "user").strip().lower()
         not in {"admin", "super_admin"}
+        # The deploy gate's non-admin journey fixture is a synthetic account
+        # whose games are CLONED from a real user, so counting it would
+        # double-count one player's improvement as two. It must stay enrolled
+        # -- the gate's Progress step needs a real Phase 8 journey, and
+        # pausing it instead breaks the deploy while still being counted here,
+        # because this query selects on cohort alone.
+        and not user.get("is_deploy_verifier")
     ]
 
     enrollment_times = []

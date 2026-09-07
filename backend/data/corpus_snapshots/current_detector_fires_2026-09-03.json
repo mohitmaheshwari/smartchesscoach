@@ -1,0 +1,1420 @@
+{
+  "_meta": {
+    "database": "chess_coach",
+    "elapsed_seconds": 1788.83,
+    "method": "Full deterministic PGN replay through deployed concept detectors; zero Stockfish and LLM calls",
+    "privacy": "Aggregate counts only; no users, games, moves, FENs or PGNs emitted",
+    "snapshot_id": "current_detector_fires_2026-09-02"
+  },
+  "aggregate_exceptions": {},
+  "authorization": {
+    "coached_development": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:coached_development"
+    },
+    "concept_central_pawn_break": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_central_pawn_break"
+    },
+    "concept_iqp": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_iqp"
+    },
+    "concept_knight_outpost": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_knight_outpost"
+    },
+    "concept_luft": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_luft"
+    },
+    "concept_minority_attack": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_minority_attack"
+    },
+    "concept_prophylactic_king_tuck": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_prophylactic_king_tuck"
+    },
+    "concept_rook_open_file": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_rook_open_file"
+    },
+    "concept_rook_seventh": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:concept_rook_seventh"
+    },
+    "defend_fried_liver": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:defend_fried_liver"
+    },
+    "defend_scholars_mate": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:defend_scholars_mate"
+    },
+    "endgame_active_rook": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_active_rook"
+    },
+    "endgame_create_passed_pawn": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_create_passed_pawn"
+    },
+    "endgame_curriculum__basic_mates__queen_mate": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__basic_mates__queen_mate"
+    },
+    "endgame_curriculum__basic_mates__rook_mate": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__basic_mates__rook_mate"
+    },
+    "endgame_curriculum__bishop_endgames__good_vs_bad_bishop": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__bishop_endgames__good_vs_bad_bishop"
+    },
+    "endgame_curriculum__bishop_endgames__opposite_color_bishops": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__bishop_endgames__opposite_color_bishops"
+    },
+    "endgame_curriculum__king_and_pawn__breakthrough": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__king_and_pawn__breakthrough"
+    },
+    "endgame_curriculum__king_and_pawn__key_squares": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__king_and_pawn__key_squares"
+    },
+    "endgame_curriculum__king_and_pawn__king_centralization": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__king_and_pawn__king_centralization"
+    },
+    "endgame_curriculum__king_and_pawn__opposition": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__king_and_pawn__opposition"
+    },
+    "endgame_curriculum__king_and_pawn__square_rule": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__king_and_pawn__square_rule"
+    },
+    "endgame_curriculum__knight_endgames__knight_blockade": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__knight_endgames__knight_blockade"
+    },
+    "endgame_curriculum__knight_endgames__knight_vs_bishop": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__knight_endgames__knight_vs_bishop"
+    },
+    "endgame_curriculum__practical_endgames__creating_passed_pawn": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__practical_endgames__creating_passed_pawn"
+    },
+    "endgame_curriculum__practical_endgames__outside_passed_pawn": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__practical_endgames__outside_passed_pawn"
+    },
+    "endgame_curriculum__practical_endgames__two_vs_one": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__practical_endgames__two_vs_one"
+    },
+    "endgame_curriculum__practical_endgames__zugzwang": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__practical_endgames__zugzwang"
+    },
+    "endgame_curriculum__queen_vs_pawn__stalemate_tricks": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__queen_vs_pawn__stalemate_tricks"
+    },
+    "endgame_curriculum__queen_vs_pawn__stop_promotion": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__queen_vs_pawn__stop_promotion"
+    },
+    "endgame_curriculum__rook_endgames__active_rook": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__rook_endgames__active_rook"
+    },
+    "endgame_curriculum__rook_endgames__lucena": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__rook_endgames__lucena"
+    },
+    "endgame_curriculum__rook_endgames__philidor": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_curriculum__rook_endgames__philidor"
+    },
+    "endgame_king_centralization": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_king_centralization"
+    },
+    "endgame_lucena": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_lucena"
+    },
+    "endgame_opposition": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_opposition"
+    },
+    "endgame_philidor": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_philidor"
+    },
+    "endgame_rule_of_square": {
+      "grade": "disabled",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_rule_of_square"
+    },
+    "endgame_stop_promotion": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:endgame_stop_promotion"
+    },
+    "mate_kq_vs_k": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:mate_kq_vs_k"
+    },
+    "mate_kr_vs_k": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:mate_kr_vs_k"
+    },
+    "opening_castling": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_castling"
+    },
+    "opening_center": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_center"
+    },
+    "opening_development_with_tempo": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_development_with_tempo"
+    },
+    "opening_plan_play": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_plan_play"
+    },
+    "opening_play": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_play"
+    },
+    "opening_sound_deviation": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:opening_sound_deviation"
+    },
+    "trap_detection": {
+      "grade": "shadow",
+      "mastery_authorized": false,
+      "prompt_authorized": false,
+      "quality_id": "concept:trap_detection"
+    }
+  },
+  "detectors": {
+    "coached_development": {
+      "applied": 16652,
+      "exceptions": 0,
+      "games_with_fire": 10560,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 16646,
+            "26_50": 2,
+            "51_100": 4
+          },
+          "matched": 16652,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 16652
+    },
+    "concept_central_pawn_break": {
+      "applied": 5933,
+      "exceptions": 0,
+      "games_with_fire": 4416,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 5926,
+            "26_50": 5,
+            "51_100": 2
+          },
+          "matched": 5933,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 5933
+    },
+    "concept_iqp": {
+      "applied": 164,
+      "exceptions": 0,
+      "games_with_fire": 157,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 164
+          },
+          "matched": 164,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 164
+    },
+    "concept_knight_outpost": {
+      "applied": 630,
+      "exceptions": 0,
+      "games_with_fire": 589,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 630
+          },
+          "matched": 630,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 630
+    },
+    "concept_luft": {
+      "applied": 779,
+      "exceptions": 0,
+      "games_with_fire": 772,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 779
+          },
+          "matched": 779,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 779
+    },
+    "concept_minority_attack": {
+      "applied": 293,
+      "exceptions": 0,
+      "games_with_fire": 270,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 293
+          },
+          "matched": 293,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 293
+    },
+    "concept_prophylactic_king_tuck": {
+      "applied": 1165,
+      "exceptions": 0,
+      "games_with_fire": 1124,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 1165
+          },
+          "matched": 1165,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 1165
+    },
+    "concept_rook_open_file": {
+      "applied": 5669,
+      "exceptions": 0,
+      "games_with_fire": 4207,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 5663,
+            "26_50": 4,
+            "51_100": 2
+          },
+          "matched": 5669,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 5669
+    },
+    "concept_rook_seventh": {
+      "applied": 2110,
+      "exceptions": 0,
+      "games_with_fire": 1516,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 2108,
+            "101_200": 1,
+            "26_50": 1
+          },
+          "matched": 2110,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 2110
+    },
+    "defend_fried_liver": {
+      "applied": 44,
+      "exceptions": 0,
+      "games_with_fire": 65,
+      "missed": 24,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 36,
+            "101_200": 5,
+            "26_50": 2,
+            "over_200": 1
+          },
+          "matched": 44,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 20
+        },
+        "missed": {
+          "buckets": {
+            "101_200": 4,
+            "26_50": 12,
+            "51_100": 3,
+            "over_200": 5
+          },
+          "matched": 24,
+          "median_cp_loss": 69.5,
+          "missing": 0,
+          "p75_cp_loss": 126
+        }
+      },
+      "total_fires": 68
+    },
+    "defend_scholars_mate": {
+      "applied": 160,
+      "exceptions": 0,
+      "games_with_fire": 134,
+      "missed": 7,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 126,
+            "101_200": 1,
+            "26_50": 8,
+            "51_100": 18,
+            "over_200": 7
+          },
+          "matched": 160,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 8
+        },
+        "missed": {
+          "buckets": {
+            "over_200": 7
+          },
+          "matched": 7,
+          "median_cp_loss": 9952,
+          "missing": 0,
+          "p75_cp_loss": 10028
+        }
+      },
+      "total_fires": 167
+    },
+    "endgame_active_rook": {
+      "applied": 2068,
+      "exceptions": 0,
+      "games_with_fire": 1537,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 2067,
+            "51_100": 1
+          },
+          "matched": 2068,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 2068
+    },
+    "endgame_create_passed_pawn": {
+      "applied": 671,
+      "exceptions": 0,
+      "games_with_fire": 616,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 671
+          },
+          "matched": 671,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 671
+    },
+    "endgame_curriculum__basic_mates__queen_mate": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__basic_mates__rook_mate": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__bishop_endgames__good_vs_bad_bishop": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__bishop_endgames__opposite_color_bishops": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__king_and_pawn__breakthrough": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__king_and_pawn__key_squares": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__king_and_pawn__king_centralization": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__king_and_pawn__opposition": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__king_and_pawn__square_rule": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__knight_endgames__knight_blockade": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__knight_endgames__knight_vs_bishop": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__practical_endgames__creating_passed_pawn": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__practical_endgames__outside_passed_pawn": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__practical_endgames__two_vs_one": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__practical_endgames__zugzwang": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__queen_vs_pawn__stalemate_tricks": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__queen_vs_pawn__stop_promotion": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__rook_endgames__active_rook": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__rook_endgames__lucena": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_curriculum__rook_endgames__philidor": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_king_centralization": {
+      "applied": 4213,
+      "exceptions": 0,
+      "games_with_fire": 2210,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 4213
+          },
+          "matched": 4213,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 4213
+    },
+    "endgame_lucena": {
+      "applied": 0,
+      "exceptions": 0,
+      "games_with_fire": 0,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 0
+    },
+    "endgame_opposition": {
+      "applied": 344,
+      "exceptions": 0,
+      "games_with_fire": 216,
+      "missed": 88,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 344
+          },
+          "matched": 344,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 39,
+            "101_200": 5,
+            "26_50": 7,
+            "51_100": 4,
+            "over_200": 33
+          },
+          "matched": 88,
+          "median_cp_loss": 44,
+          "missing": 0,
+          "p75_cp_loss": 591
+        }
+      },
+      "total_fires": 432
+    },
+    "endgame_philidor": {
+      "applied": 4,
+      "exceptions": 0,
+      "games_with_fire": 1,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 4
+          },
+          "matched": 4,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 4
+    },
+    "endgame_rule_of_square": {
+      "applied": 390,
+      "exceptions": 0,
+      "games_with_fire": 107,
+      "missed": 55,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 350,
+            "101_200": 1,
+            "26_50": 6,
+            "51_100": 4,
+            "over_200": 29
+          },
+          "matched": 390,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 49,
+            "101_200": 1,
+            "over_200": 5
+          },
+          "matched": 55,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        }
+      },
+      "total_fires": 445
+    },
+    "endgame_stop_promotion": {
+      "applied": 1791,
+      "exceptions": 0,
+      "games_with_fire": 805,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 1788,
+            "26_50": 1,
+            "51_100": 2
+          },
+          "matched": 1791,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 1791
+    },
+    "mate_kq_vs_k": {
+      "applied": 190,
+      "exceptions": 0,
+      "games_with_fire": 201,
+      "missed": 94,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 190
+          },
+          "matched": 190,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 79,
+            "101_200": 1,
+            "26_50": 6,
+            "51_100": 7,
+            "over_200": 1
+          },
+          "matched": 94,
+          "median_cp_loss": 10,
+          "missing": 0,
+          "p75_cp_loss": 20
+        }
+      },
+      "total_fires": 284
+    },
+    "mate_kr_vs_k": {
+      "applied": 124,
+      "exceptions": 0,
+      "games_with_fire": 131,
+      "missed": 49,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 124
+          },
+          "matched": 124,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 39,
+            "26_50": 4,
+            "51_100": 6
+          },
+          "matched": 49,
+          "median_cp_loss": 10,
+          "missing": 0,
+          "p75_cp_loss": 20
+        }
+      },
+      "total_fires": 173
+    },
+    "opening_castling": {
+      "applied": 2909,
+      "exceptions": 0,
+      "games_with_fire": 2909,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 2907,
+            "26_50": 2
+          },
+          "matched": 2909,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 2909
+    },
+    "opening_center": {
+      "applied": 12730,
+      "exceptions": 0,
+      "games_with_fire": 10232,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 12718,
+            "26_50": 12
+          },
+          "matched": 12730,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 12730
+    },
+    "opening_development_with_tempo": {
+      "applied": 1288,
+      "exceptions": 0,
+      "games_with_fire": 1206,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 1287,
+            "51_100": 1
+          },
+          "matched": 1288,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 1288
+    },
+    "opening_plan_play": {
+      "applied": 4098,
+      "exceptions": 0,
+      "games_with_fire": 2797,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 4096,
+            "26_50": 2
+          },
+          "matched": 4098,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 4098
+    },
+    "opening_play": {
+      "applied": 3571,
+      "exceptions": 0,
+      "games_with_fire": 3078,
+      "missed": 921,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 3298,
+            "101_200": 3,
+            "26_50": 134,
+            "51_100": 136
+          },
+          "matched": 3571,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 10
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 565,
+            "101_200": 43,
+            "26_50": 161,
+            "51_100": 112,
+            "over_200": 40
+          },
+          "matched": 921,
+          "median_cp_loss": 14,
+          "missing": 0,
+          "p75_cp_loss": 47
+        }
+      },
+      "total_fires": 4492
+    },
+    "opening_sound_deviation": {
+      "applied": 487,
+      "exceptions": 0,
+      "games_with_fire": 487,
+      "missed": 0,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 487
+          },
+          "matched": 487,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {},
+          "matched": 0,
+          "missing": 0
+        }
+      },
+      "total_fires": 487
+    },
+    "trap_detection": {
+      "applied": 169,
+      "exceptions": 0,
+      "games_with_fire": 135,
+      "missed": 29,
+      "stored_cp_loss": {
+        "applied": {
+          "buckets": {
+            "0_25": 169
+          },
+          "matched": 169,
+          "median_cp_loss": 0,
+          "missing": 0,
+          "p75_cp_loss": 0
+        },
+        "missed": {
+          "buckets": {
+            "0_25": 16,
+            "101_200": 3,
+            "26_50": 9,
+            "51_100": 1
+          },
+          "matched": 29,
+          "median_cp_loss": 21,
+          "missing": 0,
+          "p75_cp_loss": 47
+        }
+      },
+      "total_fires": 198
+    }
+  },
+  "opening_recognition": {
+    "distinct_opening_keys": 65,
+    "recognized_games": 10395,
+    "unrecognized_games": 3612
+  },
+  "stored_truth_index": {
+    "games": 14007,
+    "user_move_records_indexed": 446567
+  },
+  "totals": {
+    "games_replayed": 14007,
+    "source_games": 14007,
+    "user_moves_replayed": 446422
+  }
+}
+

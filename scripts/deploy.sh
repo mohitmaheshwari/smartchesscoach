@@ -113,8 +113,31 @@ ok "$HEALTH_URL 200"
 
 # --- 6. prove a non-admin can reach the complete coaching journey ----------
 step "strict deployment and non-admin journey verification"
+
+# The gate's secrets live in .env, which is gitignored and never committed.
+# Read them literally instead of sourcing the file: the fixture value is
+# JSON containing braces and quotes, and `. ./.env` would let the shell
+# brace-expand it and hand the verifier a mangled fixture.
+if [ -f .env ]; then
+  for SECRET_KEY in \
+    DEPLOY_VERIFY_SESSION_TOKEN \
+    DEPLOY_VERIFY_AUTH_TOKEN \
+    DEPLOY_VERIFY_GAME_ID \
+    PHASE8_VERIFICATION_FIXTURE_JSON \
+    DEPLOY_VERIFY_BASE_URL
+  do
+    if [ -z "${!SECRET_KEY:-}" ]; then
+      SECRET_VAL="$(sed -n "s/^${SECRET_KEY}=//p" .env | head -1)"
+      [ -n "$SECRET_VAL" ] && export "$SECRET_KEY=$SECRET_VAL"
+    fi
+  done
+fi
+if [ -z "${DEPLOY_VERIFY_SESSION_TOKEN:-}" ] && [ -n "${DEPLOY_VERIFY_AUTH_TOKEN:-}" ]; then
+  export DEPLOY_VERIFY_SESSION_TOKEN="$DEPLOY_VERIFY_AUTH_TOKEN"
+  printf '    note  using legacy DEPLOY_VERIFY_AUTH_TOKEN value as a session cookie\n'
+fi
 for REQUIRED_SECRET in \
-  DEPLOY_VERIFY_AUTH_TOKEN \
+  DEPLOY_VERIFY_SESSION_TOKEN \
   DEPLOY_VERIFY_GAME_ID \
   PHASE8_VERIFICATION_FIXTURE_JSON
 do
@@ -138,7 +161,8 @@ case "$TARGET" in
 esac
 
 docker exec \
-  -e DEPLOY_VERIFY_AUTH_TOKEN \
+  -e DEPLOY_EXPECT_COMMIT="$HEAD_SHA" \
+  -e DEPLOY_VERIFY_SESSION_TOKEN \
   -e DEPLOY_VERIFY_GAME_ID \
   -e PHASE8_VERIFICATION_FIXTURE_JSON \
   chess-coach-backend \

@@ -159,6 +159,7 @@ def _proof_fields(
                 curriculum.append(endgame)
             forced_mate = build_forced_mate_proof(
                 board,
+                str(played),
                 str(best),
                 _pv_moves(move_evaluation.get("pv_after_best")),
                 move_evaluation.get("cp_loss"),

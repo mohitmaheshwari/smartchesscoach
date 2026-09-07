@@ -1,0 +1,145 @@
+{
+  "schema_version": "hidden_opportunities_phase3a_proof_family_lock.v1",
+  "created_at": "2026-09-03",
+  "source_packet": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_v1_2026-09-02.json",
+  "annotation_packet": "backend/data/corpus_snapshots/hidden_opportunities_chess_gold_annotations_v1_2026-09-03.json",
+  "runtime_comparison": "backend/data/corpus_snapshots/hidden_opportunities_current_runtime_comparison_v1_2026-09-03.json",
+  "privacy": {
+    "anonymized": true,
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_emails": false,
+    "contains_credentials": false
+  },
+  "execution": {
+    "production_reads": 0,
+    "database_writes": 0,
+    "fresh_engine_runs": 0
+  },
+  "measured": {
+    "positions": 100,
+    "hidden_opportunities": 24,
+    "caption_only": 35,
+    "insufficient_evidence": 41,
+    "distinct_hidden_idea_families": 23,
+    "only_repeated_hidden_idea_family": {
+      "idea_family": "zwischenzug",
+      "count": 2
+    },
+    "legacy_analyzer": {
+      "hidden_opportunity_recall_pct": 91.7,
+      "surface_precision_if_every_output_were_shown_pct": 46.8,
+      "usable_as_written_pct_of_non_null": 19.1,
+      "runtime_crashes": 1
+    },
+    "static_geometry": {
+      "hidden_opportunity": {
+        "with_geometry": 21,
+        "total": 24
+      },
+      "not_hidden_opportunity": {
+        "with_geometry": 58,
+        "total": 76
+      }
+    }
+  },
+  "decision": {
+    "architecture": "differential_causal_primitives",
+    "reason": "The gold opportunities are too taxonomically sparse for one-detector-per-label development, geometry alone is non-discriminating, and best-branch-only narration has insufficient precision.",
+    "first_implementation_slice": "branch_event_trace_and_differential",
+    "visible_ranker_during_proof_work": "preserve_existing_ranker",
+    "visible_ranker_reason": "The anonymized packet intentionally contains no source game IDs or within-game importance labels, so it cannot select a new game-level ranking formula.",
+    "surface_grade_rule": {
+      "opportunity": "exact authorized cause plus complete verified setup-constraint-payoff chain plus played-branch difference",
+      "caption": "exact authorized cause without a complete opportunity chain",
+      "insufficient_evidence": "no exact authorized cause within the stored evidence horizon"
+    },
+    "new_cp_loss_threshold": null,
+    "moment_cap": {
+      "value": 2,
+      "source": "existing game_review_planner shadow lock",
+      "change": false
+    },
+    "promotion_thresholds": {
+      "source": "docs/detector_quality_threshold_lock_2026_08_27.md",
+      "change": false,
+      "additional_opportunity_requirements": [
+        "complete deterministic branch-difference proof",
+        "independent final rendered-claim verification",
+        "zero critical false claims"
+      ]
+    }
+  },
+  "proof_family_order": [
+    {
+      "order": 1,
+      "family": "target_and_line_geometry_with_payoff",
+      "gold_positions": 9,
+      "position_ids": [
+        "01c07bb03731985ac806",
+        "025f08cb296a7e4d14d4",
+        "008fc95da4d581f54780",
+        "00d2ea0ceda1a2e6ef83",
+        "00086ddd68c319a674c3",
+        "01b45574328ab7030c22",
+        "00906363fd88603401ce",
+        "001d12f6e8e923e5d08d",
+        "002f0235720da345b731"
+      ]
+    },
+    {
+      "order": 2,
+      "family": "forcing_tempo_and_move_order",
+      "gold_positions": 8,
+      "position_ids": [
+        "03eccd1bf3d294170e7f",
+        "00344c88ece9fe2aa6b7",
+        "00f6d38aa9ae1149a7b0",
+        "00d589c98469de26e2b6",
+        "013ec9c8c4437db0ec47",
+        "05622e8ee664fa64e0f6",
+        "119ce485168615df9842",
+        "039bd832a639d9c2f8ab"
+      ]
+    },
+    {
+      "order": 3,
+      "family": "exact_endgame_and_promotion_geometry",
+      "gold_positions": 4,
+      "position_ids": [
+        "0438c05cad17f5193112",
+        "0046fdd1299037467b31",
+        "00bb6cd1492bc5b6f355",
+        "055d9f8521e114e4d995"
+      ]
+    },
+    {
+      "order": 4,
+      "family": "board_transformations_with_payoff",
+      "gold_positions": 3,
+      "position_ids": [
+        "009165b2ba85628b33b8",
+        "017a76d6a153237ced25",
+        "0092ee3966f8cb299628"
+      ]
+    }
+  ],
+  "rejected_candidates": [
+    {
+      "candidate": "patch_legacy_best_branch_narrator",
+      "reason": "91.7% raw recall hid 46.8% opportunity precision, 19.1% directly usable output, and one runtime crash."
+    },
+    {
+      "candidate": "one_detector_per_gold_idea_label",
+      "reason": "The 24 opportunities contain 23 different idea-family labels; only zwischenzug repeats."
+    },
+    {
+      "candidate": "geometry_presence_selector",
+      "reason": "Geometry was present in 21/24 opportunities but also 58/76 non-opportunities, so presence is not causal evidence."
+    },
+    {
+      "candidate": "new_game_level_ranker_now",
+      "reason": "The privacy-safe packet has no within-game grouping or independent moment-importance labels."
+    }
+  ]
+}

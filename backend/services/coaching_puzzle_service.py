@@ -949,7 +949,26 @@ class CoachingPuzzleService:
             pattern = puzzle.get("pattern_type") or "calculation_depth"
             own_game = puzzle.get("source") == "your_game"
             move_number = puzzle.get("move_number")
-            if pattern == "piece_safety":
+            if (
+                verdict.get("concept_id")
+                == "piece_safety.destination_safety_exact"
+            ):
+                coaching = {
+                    "lesson": "Piece Safety",
+                    "question": (
+                        "Before you play a move, can the opponent take the piece "
+                        "on its new square?"
+                    ),
+                    "what_to_look_for": (
+                        "Check the square where your piece lands, even when your "
+                        "move gives check."
+                    ),
+                    "why_this_matters": (
+                        "This position was selected because the original move "
+                        "placed a piece on a square where it could be won."
+                    ),
+                }
+            elif pattern == "piece_safety":
                 coaching = {
                     "lesson": "Piece Safety",
                     "what_to_look_for": "Scan every one of your pieces: attacked, defended, or able to move.",

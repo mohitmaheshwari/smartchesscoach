@@ -33,6 +33,22 @@ BANNED = [
 ]
 _SNAKE = re.compile(r"\b[a-z]{3,}_[a-z]{3,}\b")
 
+# DANGLING_SUBJECT — a clause introduced by a comma or dash that starts with a
+# bare third-person verb has lost its subject. The why-fragments the caption
+# layer derives are half-sentences ("develops a piece", "takes the center",
+# "attacks the bishop on c5"), so a template that interpolates one straight
+# after a comma or dash renders "Though Be3 was a bit stronger, develops a
+# piece." Two live sites shipped exactly that (caption_fallback_tiers.py:78 and
+# decryption_voice/per_move_caption.py:702) until it was caught by hand on
+# 2026-09-06. The fix is always the same: interpolate "it {why}", not "{why}".
+_DANGLING_VERBS = (
+    "develops|takes|attacks|defends|wins|trades|controls|opens|covers|"
+    "protects|blocks|removes|creates|keeps|gains|stops|hits|guards|"
+    "activates|centralises|centralizes|threatens|forks|pins"
+)
+_DANGLING = re.compile(
+    r"(?:,|—|--)\s+(?:" + _DANGLING_VERBS + r")\b", re.IGNORECASE)
+
 
 def lint_text(text, *, expect_text=False, is_pawn=False):
     if text is None or not str(text).strip():
@@ -58,6 +74,9 @@ def lint_text(text, *, expect_text=False, is_pawn=False):
     if is_pawn and ("piece's position" in lo or "improving the piece" in lo
                     or re.search(r"\bthe piece\b", lo)):
         out.append(("PAWN_CALLED_PIECE", t[:70]))
+    md = _DANGLING.search(t)
+    if md:
+        out.append(("DANGLING_SUBJECT", md.group().strip()))
     return out
 
 

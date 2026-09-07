@@ -1,0 +1,74 @@
+{
+  "schema_version": "mate_branch_truth_stage1_validation.v1",
+  "date": "2026-09-03",
+  "base_commit": "fbe6514c2e222b84c523d63bbcec330387d63d2b",
+  "branch": "codex/hidden-opportunities-chess-gold-v1",
+  "scope": "central deterministic caption truth boundary; no deploy or regeneration",
+  "data_access": {
+    "fresh_engine_runs": 0,
+    "production_reads": 0,
+    "production_writes": 0,
+    "credentials_in_artifact": false
+  },
+  "pre_fix": {
+    "locked_games": 80,
+    "meaningful_decisions": 467,
+    "proven_exact_failures": 2,
+    "failure_family": "missed_mate_misframed_as_allowed_mate",
+    "final_verifier_had_approved_both": true
+  },
+  "post_fix": {
+    "locked_games": 80,
+    "complete_plies": 5931,
+    "meaningful_decisions": 467,
+    "positions_with_caption": 463,
+    "positions_without_caption": 4,
+    "truth_boundary_withheld": 0,
+    "caption_coverage_rate": 0.9914,
+    "machine_falsifiable_exact_claims_checked": 25,
+    "proven_exact_failures": 0,
+    "why_obligations": 364,
+    "why_failures": 18,
+    "why_fail_rate": 0.0495,
+    "render_errors": 0
+  },
+  "repaired_cases": [
+    {
+      "position_key": "862959897dbc:p71",
+      "played": "Kg2",
+      "best": "f5+",
+      "before": "Kg2 allows mate in 2.",
+      "after": "Kg2 misses mate in 2. f5+ was the move. Before moving, check every forcing move: checks, captures, and threats.",
+      "transition": "missed",
+      "lesson_kind": "missed_forced_mate",
+      "final_verified": true
+    },
+    {
+      "position_key": "8ebb4e966e07:p51",
+      "played": "fxg3",
+      "best": "Qxf6+",
+      "before": "fxg3 allows mate in 2.",
+      "after": "fxg3 misses mate in 2. Qxf6+ was the move. Before moving, check every forcing move: checks, captures, and threats.",
+      "transition": "missed",
+      "lesson_kind": "missed_forced_mate",
+      "final_verified": true
+    }
+  ],
+  "tests": {
+    "focused": {"passed": 68, "failed": 0},
+    "new_adversarial": {"passed": 9, "failed": 0},
+    "boundary_feature_tree": {"passed": 79, "failed": 6},
+    "boundary_clean_control": {"passed": 79, "failed": 6},
+    "boundary_regressions": 0,
+    "core_live_http_suite": "inconclusive: no local backend server"
+  },
+  "hidden_opportunities_no_regression": {
+    "positions": 100,
+    "legal_stored_branches": 200,
+    "runtime_drift": 0,
+    "analyzer_non_null": 47,
+    "known_analyzer_crashes": 1,
+    "known_crash_position_id": "00046c5f4d3ea3a62bbd",
+    "interpretation": "Stage 1 did not change the legacy opportunity analyzer; the known crash remains for the differential-reasoning stage."
+  }
+}

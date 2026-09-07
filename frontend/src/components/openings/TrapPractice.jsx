@@ -7,7 +7,7 @@
  * 3. Celebrates when trap is completed
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessground } from "chessground";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +33,8 @@ import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
+const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
@@ -40,14 +42,38 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   
   const [phase, setPhase] = useState("ready"); // ready, setup, trap, complete
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
-  const [fen, setFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [fen, setFen] = useState(INITIAL_FEN);
   const [feedback, setFeedback] = useState(null);
   const [hintCount, setHintCount] = useState(0);
   const [lastMove, setLastMove] = useState(null);
   
-  const setupMoves = trap?.setup_moves || [];
-  const trapLine = trap?.trap_line || [];
+  const setupMoves = useMemo(() => trap?.setup_moves || [], [trap?.setup_moves]);
+  const trapLine = useMemo(() => trap?.trap_line || [], [trap?.trap_line]);
   const trapContentId = `${openingKey || "opening"}:${trap?.key || trap?.id || trap?.slug || "trap"}`;
+  const handleMoveRef = useRef(null);
+  const playOpponentMoveAtRef = useRef(null);
+  const latestFenRef = useRef(fen);
+  latestFenRef.current = fen;
+  const trapIdentityRef = useRef(trapContentId);
+  const asyncLifecycleRef = useRef({ generation: 0, timers: new Set() });
+
+  const invalidateAsyncWork = useCallback(() => {
+    const lifecycle = asyncLifecycleRef.current;
+    lifecycle.generation += 1;
+    lifecycle.timers.forEach((timer) => clearTimeout(timer));
+    lifecycle.timers.clear();
+  }, []);
+
+  const schedule = useCallback((callback, delay) => {
+    const lifecycle = asyncLifecycleRef.current;
+    const generation = lifecycle.generation;
+    const timer = setTimeout(() => {
+      lifecycle.timers.delete(timer);
+      if (generation === lifecycle.generation) callback();
+    }, delay);
+    lifecycle.timers.add(timer);
+    return timer;
+  }, []);
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
@@ -58,6 +84,26 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
       is_recommended: false,
     });
   }, [trapContentId]);
+
+  useEffect(() => {
+    if (trapIdentityRef.current !== trapContentId) {
+      trapIdentityRef.current = trapContentId;
+      invalidateAsyncWork();
+      chessRef.current.reset();
+      setFen(INITIAL_FEN);
+      setPhase("ready");
+      setCurrentMoveIndex(0);
+      setFeedback(null);
+      setHintCount(0);
+      setLastMove(null);
+      groundRef.current?.set({
+        fen: INITIAL_FEN,
+        movable: { free: false, color: undefined },
+        lastMove: undefined,
+      });
+    }
+    return invalidateAsyncWork;
+  }, [trapContentId, invalidateAsyncWork]);
   
   // Use refs to store current state for callbacks
   const currentMoveIndexRef = useRef(currentMoveIndex);
@@ -104,7 +150,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
       groundRef.current = Chessground(boardRef.current, {
-        fen: fen,
+        fen: latestFenRef.current,
         orientation: userColor,
         movable: {
           free: false,
@@ -157,11 +203,11 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
           dests
         },
         events: {
-          move: (orig, dest) => handleMove(orig, dest)
+          move: (orig, dest) => handleMoveRef.current?.(orig, dest)
         }
       });
     }
-  }, [userColor, trapLine, trap]);
+  }, [userColor]);
   
   // Handle user's move
   const handleMove = useCallback((orig, dest) => {
@@ -212,7 +258,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         
         // Check if trap is complete
         if (nextIndex >= trapLine.length) {
-          setTimeout(() => {
+          schedule(() => {
             setPhase("complete");
             setFeedback({
               type: "success",
@@ -223,8 +269,8 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         }
         
         // Play opponent's response
-        setTimeout(() => {
-          playOpponentMoveAt(nextIndex);
+        schedule(() => {
+          playOpponentMoveAtRef.current?.(nextIndex);
         }, 1000);
         
       } else {
@@ -241,7 +287,8 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
       setFeedback({ type: "error", message: "Invalid move" });
       setupUserMoveBoard();
     }
-  }, [trapLine, trap, setupUserMoveBoard, trapContentId]);
+  }, [trapLine, trap, setupUserMoveBoard, trapContentId, schedule]);
+  handleMoveRef.current = handleMove;
   
   // Play opponent's move at given index
   const playOpponentMoveAt = useCallback((index) => {
@@ -266,7 +313,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         });
         
         if (index + 1 >= trapLine.length) {
-          setTimeout(() => {
+          schedule(() => {
             setPhase("complete");
             setFeedback({
               type: "success",
@@ -277,7 +324,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         }
         
         // User's turn - show hint about expected move
-        setTimeout(() => {
+        schedule(() => {
           const nextUserMoveIndex = index + 1;
           const nextMove = trapLine[nextUserMoveIndex];
           if (nextMove) {
@@ -298,7 +345,8 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
     } catch (e) {
       console.error("Invalid opponent move:", moveData.move, e);
     }
-  }, [trapLine, trap, setupUserMoveBoard]);
+  }, [trapLine, trap, setupUserMoveBoard, schedule]);
+  playOpponentMoveAtRef.current = playOpponentMoveAt;
   
   // Play setup moves one by one
   const playSetupMovesFrom = useCallback((index) => {
@@ -316,7 +364,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
           type: "info",
           message: "Watch the opponent fall into the trap..."
         });
-        setTimeout(() => {
+        schedule(() => {
           playOpponentMoveAt(0);
         }, 800);
       } else {
@@ -341,7 +389,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
     
     const move = setupMoves[index];
     
-    setTimeout(() => {
+    schedule(() => {
       try {
         const result = chessRef.current.move(move);
         if (result) {
@@ -353,7 +401,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         console.error("Invalid setup move:", move, e);
       }
     }, 600);
-  }, [setupMoves, userColor, trapLine, playOpponentMoveAt, setupUserMoveBoard]);
+  }, [setupMoves, userColor, trapLine, playOpponentMoveAt, setupUserMoveBoard, schedule]);
   
   // Start the practice
   const startPractice = useCallback(() => {
@@ -401,7 +449,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
     const step = (i) => {
       if (i >= fullSequence.length) {
         // End of demo — reset and invite practice.
-        setTimeout(() => {
+        schedule(() => {
           chessRef.current.reset();
           setFen(chessRef.current.fen());
           setLastMove(null);
@@ -426,12 +474,12 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
       } catch (e) {
         console.warn("demo move failed:", entry.move, e);
       }
-      setTimeout(() => step(i + 1), DEMO_STEP_MS);
+      schedule(() => step(i + 1), DEMO_STEP_MS);
     };
 
     // Slight delay before starting so the opening-message is readable.
-    setTimeout(() => step(0), 600);
-  }, [setupMoves, trapLine]);
+    schedule(() => step(0), 600);
+  }, [setupMoves, trapLine, schedule]);
   
   // Get a hint
   const getHint = useCallback(() => {
@@ -469,6 +517,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   
   // Reset
   const resetPractice = useCallback(() => {
+    invalidateAsyncWork();
     chessRef.current.reset();
     setFen(chessRef.current.fen());
     setPhase("ready");
@@ -479,12 +528,12 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
     
     if (groundRef.current) {
       groundRef.current.set({
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        fen: INITIAL_FEN,
         movable: { free: false, color: undefined },
         lastMove: undefined
       });
     }
-  }, []);
+  }, [invalidateAsyncWork]);
   
   if (!trap) return null;
   

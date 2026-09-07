@@ -1,7 +1,9 @@
 # Product Analytics Source Map
 
-**Status:** Phase A plus Personal Curriculum baseline run-in implemented; live PostHog baseline export pending access  
-**Last audited:** 2026-08-28  
+**Status:** Phase A plus Personal Curriculum baseline run-in implemented; privacy-safe account attribution added; clean-window PostHog export pending
+
+**Last audited:** 2026-09-06
+
 **Canonical frontend registry:** `frontend/src/lib/analytics.js` → `ANALYTICS_EVENTS`
 
 ## Boundary
@@ -14,6 +16,14 @@ settled.
 No raw PGN, move list, private coaching text, email address or payment
 identifier may be sent as an analytics property. Stable internal IDs may be
 used only where needed to join a session/focus journey.
+
+PostHog is configured for explicit events only: DOM autocapture, automatic
+page views, automatic page leave, and session replay are disabled. Authenticated
+accounts are joined with the existing opaque `user_id`; no person properties are
+set. Every explicit event receives `actor_type` and `metrics_eligible`, and only
+`metrics_eligible=true` may enter player activation or retention metrics.
+PostHog's final send hook removes query strings and fragments from its automatic
+URL properties so OAuth/session tokens cannot enter analytics through a URL.
 
 ## Funnel source map
 
@@ -37,13 +47,16 @@ used only where needed to join a session/focus journey.
 1. Event IDs are defined once in `ANALYTICS_EVENTS` and imported by emitters.
 2. `track()` rejects unknown IDs. Development builds warn; production drops
    them so typos cannot create shadow funnels.
-3. Frontend events describe views and actions only.
-4. Completion, retention and return metrics are derived from authoritative
+3. `track()` also rejects every property outside its central primitive-value
+   allowlist. Emitters cannot send game/session IDs, FENs, captions, email, or
+   free text.
+4. Frontend events describe views and actions only.
+5. Completion, retention and return metrics are derived from authoritative
    timestamps where possible; do not emit synthetic “returned” events.
-5. Paid conversion is counted only from the future idempotent verified
+6. Paid conversion is counted only from the future idempotent verified
    subscription event ledger, never from `funnel_payment_success` alone.
-6. Learning outcomes come from PIC/concept-mastery evidence, never PostHog.
-7. Personal Curriculum emitters use `trackCurriculum()`. Its property allowlist
+7. Learning outcomes come from PIC/concept-mastery evidence, never PostHog.
+8. Personal Curriculum emitters use `trackCurriculum()`. Its property allowlist
    drops moves, positions, free text, personal data and non-primitive payloads
    before capture; pages must not call raw PostHog APIs for this funnel.
 
@@ -52,9 +65,9 @@ used only where needed to join a session/focus journey.
 | Journey | Required properties when available |
 |---|---|
 | PIC | `cycle_version`, `focus_kind`, `instruction_id`, `evidence_mode`, rollout cohort |
-| Coach Play | `session_id`, `instruction_id`, carried-forward flag |
+| Coach Play | interaction type, carried-forward flag; no session or game identifier |
 | Home CTA | typed `cta`, conversation-presence flag |
-| Diagnostic | puzzle position; completion carries early-exit flag and puzzle count |
+| Diagnostic | coarse puzzle index; completion carries early-exit flag and puzzle count; no position |
 | Personal Curriculum | `surface`, `content_type`, canonical `content_id`, `origin`, flag state; recommendation events add stable decision source/ID; attempt events add support level, outcome and coarse position index |
 
 Properties must describe the event at emission time. They must not add a

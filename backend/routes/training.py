@@ -849,18 +849,24 @@ async def record_puzzle_attempt_endpoint(
             logging.getLogger(__name__).warning(
                 f"decay refresh after puzzle solve failed (non-fatal): {decay_err}")
 
+    from services.verified_puzzle_runtime import public_grade_payload
+    public_grade = public_grade_payload(
+        server_grade,
+        reveal_answer=correct,
+    )
     return {
         "success": True,
         "correct": correct,
         "quality": quality,
         "recovery_credit_awarded": server_grade.get("recovery_credit_awarded", False),
         "message": "Attempt recorded",
-        # Released only after a real server-graded attempt. No answer or proof
-        # material is present in the pre-attempt puzzle payload.
-        "best_move_san": server_grade.get("best_move_san"),
-        "best_move_uci": server_grade.get("best_move_uci"),
-        "feedback": server_grade.get("feedback"),
-        "coaching_feedback": server_grade.get("coaching_feedback"),
+        # A miss receives a clue, not the answer. The full explanation is
+        # released only by /reveal-puzzle or after a correct answer.
+        "best_move_san": public_grade.get("best_move_san"),
+        "best_move_uci": public_grade.get("best_move_uci"),
+        "feedback": public_grade.get("feedback"),
+        "coaching_feedback": public_grade.get("coaching_feedback"),
+        "concept_result": public_grade.get("concept_result"),
         "pattern_type": server_grade.get("pattern_type"),
     }
 
@@ -882,12 +888,14 @@ async def evaluate_puzzle_move_endpoint(
 
     from services.verified_puzzle_runtime import (
         grade_resolved_puzzle,
+        public_grade_payload,
         resolve_verified_puzzle,
     )
     puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
     if not puzzle:
         raise HTTPException(status_code=404, detail="puzzle is not ready for training")
-    return grade_resolved_puzzle(puzzle, played_uci)
+    grade = grade_resolved_puzzle(puzzle, played_uci)
+    return public_grade_payload(grade, reveal_answer=False)
 
 
 @router.post("/reveal-puzzle")
@@ -917,12 +925,52 @@ async def reveal_puzzle_endpoint(
         san = board.san(move)
     except (TypeError, ValueError):
         raise HTTPException(status_code=409, detail="This puzzle needs evidence repair")
+    source_move_uci = None
+    reply_move_uci = None
+    try:
+        source_move = chess.Move.from_uci(
+            str(verdict.get("played_move_uci") or "")
+        )
+        if source_move in board.legal_moves:
+            source_move_uci = source_move.uci()
+            after_source = board.copy(stack=False)
+            after_source.push(source_move)
+    except (TypeError, ValueError):
+        source_move_uci = None
+    if source_move_uci:
+        try:
+            detector_facts = verdict.get("detector_facts") or ()
+            first_fact = (
+                detector_facts[0]
+                if detector_facts and isinstance(detector_facts[0], dict)
+                else {}
+            )
+            reply_raw = first_fact.get("winning_reply_uci")
+            reply_move = chess.Move.from_uci(str(reply_raw or ""))
+            if reply_move in after_source.legal_moves:
+                reply_move_uci = reply_move.uci()
+        except (TypeError, ValueError):
+            reply_move_uci = None
     await db.puzzle_reveals.insert_one({
         "user_id": user.user_id,
         "puzzle_id": puzzle_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    return {"best_move_uci": primary, "best_move_san": san}
+    from services.verified_puzzle_feedback import build_verified_puzzle_feedback
+    coaching = build_verified_puzzle_feedback(
+        puzzle,
+        primary,
+        correct=False,
+        primary_uci=primary,
+        revealed=True,
+    )
+    return {
+        "best_move_uci": primary,
+        "best_move_san": san,
+        "source_move_uci": source_move_uci,
+        "reply_move_uci": reply_move_uci,
+        "coaching_feedback": coaching,
+    }
 
 
 # ==================== ONE-MOVE BLUNDERS ====================

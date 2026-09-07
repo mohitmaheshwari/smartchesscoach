@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 140  # v140 (2026-09-01): optional pinned Fathom/Syzygy evidence can attach an exact result-change cause for enrolled Quality V2 reviews. Incomplete/unsupported probes abstain; all legacy behavior remains the fallback. v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md.
+V5_COACHING_VERSION = 143  # v143 (2026-09-07): verdict-softening restricted to the hollow TEMPLATE shape. v142 decided "has a consequence" with a keyword list, so prose captions that explain in other words got softened - "Nxf7 is playable - you moved your knight away from defending e4" calls a move fine and then explains why it isn't. Now bounded by length+sentence count taken from the corpus. v142 (2026-09-07): a mistake verdict must be earned. R12 already refused to assert "X is a mistake" on a user move under 250cp with no why-clause; the fallback paths never got that rule, so 362 captions announced a verdict with nothing behind it (70% at cp 100-199). Same threshold, applied at the composition boundary so every path sees it. Real blunders and captions that name a consequence keep the verdict. v141 (2026-09-06): sentence salvage keeps the board-verified clauses of a caption the claim verifier rejected instead of discarding the whole caption for the hollow comparative floor (qBNJQg3g m16: "Qf6 lets Qxc5 win your bishop on c5" was generated, verified true, and thrown away over a complaint about the NEXT sentence). Plus the narrative truth gate: Truth/Player-Decryption claims are now checked against the game's own trajectory, and a clock loss renders time copy instead of blunder copy. docs/review_truth_layer_scope.md. v140 (2026-09-01): optional pinned Fathom/Syzygy evidence can attach an exact result-change cause for enrolled Quality V2 reviews. Incomplete/unsupported probes abstain; all legacy behavior remains the fallback. v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -2973,7 +2973,6 @@ async def generate_game_decryption_v5(
         _v5_opponent_rating = (
             _black_header_rating if user_color == "white" else _white_header_rating
         )
-
         # Resolve the game owner's rating ONCE per render (Q1, 2026-07-14).
         # The pipeline's rating-band caption gate (suppress sub-threshold
         # "is a mistake" critiques for lower-rated players) only fires when
@@ -3088,8 +3087,22 @@ async def generate_game_decryption_v5(
         _review_shadow_observations: Dict[int, Dict] = {}
         _review_shadow_events = []
         _review_shadow_features = {}
+        _review_hidden_opportunity_evaluations = []
+        _review_hidden_consumed_row_ids = set()
+        _review_hidden_rows_by_fen = {}
         _review_shadow_ready = False
         if game_teaching_plan_output is not None and game_id:
+            for _review_row in [
+                *list(move_evaluations or []),
+                *list(_opp_evals or []),
+            ]:
+                _review_row_fen = str(_review_row.get("fen_before") or "")
+                if not _review_row_fen:
+                    continue
+                _review_row_key = " ".join(_review_row_fen.split()[:4])
+                _review_hidden_rows_by_fen.setdefault(
+                    _review_row_key, []
+                ).append(_review_row)
             try:
                 from services.game_review_shadow_runtime import derive_current_review_observations
                 _review_shadow_observations = derive_current_review_observations(
@@ -3375,6 +3388,69 @@ async def generate_game_decryption_v5(
             pv_after_played = eval_data.get("pv_after_played", [])
             pv_after_best = eval_data.get("pv_after_best", [])
             best_move = eval_data.get("best_move")
+
+            # Phase 3A Hidden Opportunities: both sides are evaluated from
+            # their already-stored four-ply branches. The canonical composer
+            # owns chess truth; this loop only supplies actor/move context.
+            # Results live solely inside the internal shadow-plan envelope.
+            if game_teaching_plan_output is not None and game_id:
+                try:
+                    from services.game_review_shadow_runtime import (
+                        evaluate_hidden_opportunity_stored_row,
+                        stored_row_matches_played_move,
+                    )
+                    _hidden_row = next(
+                        (
+                            _candidate_row
+                            for _candidate_row in (
+                                _review_hidden_rows_by_fen.get(fen_key) or []
+                            )
+                            if id(_candidate_row)
+                            not in _review_hidden_consumed_row_ids
+                            and stored_row_matches_played_move(
+                                row=_candidate_row,
+                                fen_before=fen_before,
+                                played_san=move_san,
+                            )
+                        ),
+                        None,
+                    )
+                    if _hidden_row is None:
+                        _hidden_result = {
+                            "status": "missing_stored_evidence",
+                        }
+                    else:
+                        _review_hidden_consumed_row_ids.add(id(_hidden_row))
+                        _review_side_ratings = {
+                            "white": _white_header_rating,
+                            "black": _black_header_rating,
+                        }
+                        _user_side = str(user_color or "").lower()
+                        if (
+                            _user_side in _review_side_ratings
+                            and _review_side_ratings[_user_side] is None
+                        ):
+                            _review_side_ratings[_user_side] = _v5_user_rating
+                        _hidden_result = (
+                            evaluate_hidden_opportunity_stored_row(
+                                game_id=game_id,
+                                user_color=user_color,
+                                side_ratings=_review_side_ratings,
+                                row=_hidden_row,
+                            )
+                        )
+                    _review_hidden_opportunity_evaluations.append(
+                        _hidden_result
+                    )
+                except Exception as _hidden_opportunity_exc:
+                    logger.warning(
+                        "[hidden-opportunity-shadow] evaluation failed "
+                        f"for {game_id} ply {idx + 1}: "
+                        f"{_hidden_opportunity_exc}"
+                    )
+                    _review_hidden_opportunity_evaluations.append({
+                        "status": "invalid_stored_evidence",
+                    })
 
             # v59 (2026-05-22): v58's PV-vs-stored-best reconciliation reverted.
             # The assumption "PV[0] is more reliable than stored best_move"
@@ -4790,7 +4866,7 @@ async def generate_game_decryption_v5(
             except Exception as _flush_exc:
                 logger.warning(f"[pattern_events] flush failed: {_flush_exc}")
 
-        if game_teaching_plan_output is not None and game_id and _review_shadow_ready:
+        if game_teaching_plan_output is not None and game_id:
             try:
                 from services.game_review_shadow_runtime import build_shadow_storage_payload
                 _shadow_generated_at = datetime.now(timezone.utc)
@@ -4802,6 +4878,9 @@ async def generate_game_decryption_v5(
                         features=_review_shadow_features,
                         generated_at=_shadow_generated_at,
                         source_v5_version=V5_COACHING_VERSION,
+                        hidden_opportunity_evaluations=tuple(
+                            _review_hidden_opportunity_evaluations
+                        ),
                     )
                 )
             except Exception as _review_plan_exc:

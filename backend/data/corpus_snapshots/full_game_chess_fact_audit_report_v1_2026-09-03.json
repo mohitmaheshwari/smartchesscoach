@@ -1,0 +1,579 @@
+{
+  "calibration": {
+    "builder_trusted_for_batch": true,
+    "fresh_current_exact": 7,
+    "fresh_current_exact_rate": 0.4375,
+    "hard_builder_exact": 15,
+    "hard_builder_exact_rate": 0.9375,
+    "n": 16,
+    "rows": [
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "endgame_technique",
+        "fresh_current": "endgame_technique",
+        "gold": "endgame_technique",
+        "hard_builder": "endgame_technique",
+        "sample_key": "c6d679a0926e:p88"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": null,
+        "fresh_current": "piece_safety",
+        "gold": "calculation_depth",
+        "hard_builder": null,
+        "sample_key": "f3358cf8f890:p26"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "piece_safety",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "5d74faee1fc9:p22"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "piece_safety",
+        "fresh_current": "piece_safety",
+        "gold": "piece_safety",
+        "hard_builder": "piece_safety",
+        "sample_key": "7a548e3f417c:p38"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "king_safety",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "ffb703c09afb:p94"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "piece_safety",
+        "fresh_current": "piece_safety",
+        "gold": "piece_safety",
+        "hard_builder": "piece_safety",
+        "sample_key": "cb166b34bd90:p33"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "missed_tactic",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "d2a16bf8024b:p9"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "king_safety",
+        "fresh_current": "piece_safety",
+        "gold": "king_safety",
+        "hard_builder": "king_safety",
+        "sample_key": "a1f8f44089c7:p74"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "tactical_oversight",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "862959897dbc:p71"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "piece_safety",
+        "fresh_current": "piece_safety",
+        "gold": "piece_safety",
+        "hard_builder": "piece_safety",
+        "sample_key": "d65a546c6f2c:p33"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "piece_safety",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "2236b5983c8c:p17"
+      },
+      {
+        "builder_correct": false,
+        "current_correct": true,
+        "expected_builder": "piece_safety",
+        "fresh_current": "piece_safety",
+        "gold": "piece_safety",
+        "hard_builder": "king_safety",
+        "sample_key": "9129f91796de:p44"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "endgame_technique",
+        "fresh_current": "tactical_oversight",
+        "gold": "endgame_technique",
+        "hard_builder": "endgame_technique",
+        "sample_key": "bb7d264a79d6:p71"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "piece_safety",
+        "fresh_current": null,
+        "gold": "piece_safety",
+        "hard_builder": "piece_safety",
+        "sample_key": "477b82e80607:p36"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": false,
+        "expected_builder": "piece_safety",
+        "fresh_current": "missed_tactic",
+        "gold": "piece_safety",
+        "hard_builder": "piece_safety",
+        "sample_key": "f9a0a32632f4:p18"
+      },
+      {
+        "builder_correct": true,
+        "current_correct": true,
+        "expected_builder": "missed_tactic",
+        "fresh_current": "missed_tactic",
+        "gold": "missed_tactic",
+        "hard_builder": "missed_tactic",
+        "sample_key": "b31734dcb864:p42"
+      }
+    ]
+  },
+  "captions": {
+    "caption_coverage_rate": 1,
+    "caption_rules": {
+      "R01_mate": 28,
+      "R12_blunder": 265,
+      "R12_blunder→HELD": 40,
+      "R12_blunder→HELD_FLOOR": 14,
+      "R12_blunder→HELD→VERIFY_SOFTENED": 3,
+      "R12_blunder→R_VERIFIER_RECOVERY": 6,
+      "R12_blunder→R_VERIFIER_RECOVERY→HELD": 7,
+      "R12_blunder→VERIFY_SOFTENED": 5,
+      "R12_blunder→VERIFY_SOFTENED→HELD": 3,
+      "R12_blunder→XMOVE_AGAIN": 4,
+      "R16_board_state_fallback→HELD": 6,
+      "R_FALLBACK→HELD_FLOOR": 4,
+      "R_FALLBACK→R_PROMOTED_principle:TAC_CHECKS_CAPTURES_THREATS→HELD": 3,
+      "R_TIER2_activate→R_PROMOTED_basic_mistake→HELD": 2,
+      "R_TIER2_capture→R_PROMOTED_basic_mistake→HELD": 3,
+      "R_TIER2_capture→R_PROMOTED_principle:MID_KEEP_ATTACKERS→HELD": 3,
+      "R_TIER2_develop→R_PROMOTED_basic_mistake": 2,
+      "R_TIER2_pawn→R_PROMOTED_basic_mistake→HELD": 3,
+      "R_TIER2_pawn→R_PROMOTED_basic_mistake→XMOVE_AGAIN": 2,
+      "R_TIER2_pawn→R_PROMOTED_shape:hidden_attack": 3,
+      "R_TIER2_rook_file": 3,
+      "R_TIER2_rook_file→R_PROMOTED_basic_mistake→HELD_FLOOR": 2,
+      "R_TIER3_quiet_slip": 5,
+      "R_TIER3_quiet_slip→R_PROMOTED_basic_mistake→HELD_FLOOR": 3,
+      "R_TIER3_quiet_slip→R_PROMOTED_principle:OP_SAME_PIECE_TWICE→HELD": 2
+    },
+    "exact_claims_tested": 45,
+    "positions_with_caption": 467,
+    "positions_with_proven_exact_failure": 13,
+    "proven_exact_failure_lower_bound_rate": 0.0278,
+    "proven_failures": {
+      "218185673c53:p9": {
+        "best": "Qf3+",
+        "caption": "exd5 hangs your pawn — opponent recaptures on d5. Qf3+ was better — it defends your pawn on e4.",
+        "cp_loss": 136,
+        "played": "exd5",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "2236b5983c8c:p17": {
+        "best": "Nxf7",
+        "caption": "Bxd5 hangs your bishop — opponent recaptures on d5. Nxf7 was better — it sacrifices your knight to break open the pawn shield in front of their king. The attack that follows is worth more than the pawn given up.",
+        "cp_loss": 693,
+        "played": "Bxd5",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "24a069204638:p56": {
+        "best": "Re5",
+        "caption": "cxd5 hangs your pawn — opponent recaptures on d5. Re5 was better — it takes the open file.",
+        "cp_loss": 78,
+        "played": "cxd5",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "7b10c0b83f9a:p78": {
+        "best": "h3",
+        "caption": "gxf3 hangs your pawn — opponent recaptures on f3. h3 was better.",
+        "cp_loss": 91,
+        "played": "gxf3",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "862959897dbc:p71": {
+        "best": "f5+",
+        "caption": "Kg2 allows mate in 2.",
+        "cp_loss": 8986,
+        "played": "Kg2",
+        "reasons": [
+          "missed_mate_misframed_as_allowed_mate"
+        ],
+        "rule_name": "R01_mate"
+      },
+      "8ebb4e966e07:p51": {
+        "best": "Qxf6+",
+        "caption": "fxg3 allows mate in 2.",
+        "cp_loss": 9128,
+        "played": "fxg3",
+        "reasons": [
+          "missed_mate_misframed_as_allowed_mate"
+        ],
+        "rule_name": "R01_mate"
+      },
+      "91d53596ca5e:p35": {
+        "best": "Qe2",
+        "caption": "Bxf6 hangs your bishop — opponent recaptures on f6. Qe2 was better — it attacks the undefended pawn on e6, and your queen can grab it next move. In the endgame, hunt undefended pawns with your active pieces.",
+        "cp_loss": 175,
+        "played": "Bxf6",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "9ef84de4a121:p36": {
+        "best": "Nf5",
+        "caption": "Bxa1 hangs your bishop — opponent recaptures on a1. Nf5 was better — it puts your knight on a strong square the opponent can't challenge: defended by your pawn on g6, safe from any enemy pawn.",
+        "cp_loss": 101,
+        "played": "Bxa1",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "ad6edc3662af:p26": {
+        "best": "Bf6",
+        "caption": "Nxd3 hangs your knight — opponent recaptures on d3. Bf6 was better — it attacks the queen on c3.",
+        "cp_loss": 145,
+        "played": "Nxd3",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "d2a16bf8024b:p51": {
+        "best": "Qd4",
+        "caption": "Nxe7+ hangs your knight — opponent recaptures on e7. Qd4 was better — it attacks the knight on e5. Qd4 holds on longer — but the real fix is earlier.",
+        "cp_loss": 217,
+        "played": "Nxe7+",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "d86b577c6761:p46": {
+        "best": "a4",
+        "caption": "Nxd3 hangs your knight — opponent recaptures on d3. a4 was better.",
+        "cp_loss": 81,
+        "played": "Nxd3",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "f889eaee31fa:p79": {
+        "best": "Qxf7",
+        "caption": "hxg5+ hangs your pawn — opponent recaptures on g5. Qxf7 was better — it attacks the undefended pawn on f6, and your queen can grab it next move. In the endgame, hunt undefended pawns with your active pieces.",
+        "cp_loss": 451,
+        "played": "hxg5+",
+        "reasons": [
+          "equal_or_better_trade_misframed_as_hang"
+        ],
+        "rule_name": "R12_blunder→HELD"
+      },
+      "ffb703c09afb:p94": {
+        "best": "b2",
+        "caption": "You put the rook on the open file — rooks belong on open files.",
+        "cp_loss": 780,
+        "played": "Ra6",
+        "reasons": [
+          "meaningful_error_praised_as_good_move"
+        ],
+        "rule_name": "R_TIER2_rook_file"
+      }
+    },
+    "stored_caption_versions": {
+      "135": 72,
+      "136": 6,
+      "137": 1,
+      "140": 1,
+      "current_code_version": 140
+    },
+    "top_why_fail_shapes": {
+      "You played {M}+; {M} was the stronger move here.": 1,
+      "You played {M}; {M} was the stronger move here.": 21,
+      "{M} allows mate in 2.": 2,
+      "{M} allows mate in 3.": 1,
+      "{M} allows mate next move.": 8,
+      "{M} doesn't change much here. {M} would have made things harder for your opponent.": 3,
+      "{M} misses the defense against mate next move.": 1,
+      "{M}+. Wins by force.": 1
+    },
+    "why_fail_count": 38,
+    "why_fail_rate": 0.1044,
+    "why_obligation_count": 364
+  },
+  "current_v140_central_caption_replay": {
+    "below_threshold_assumption": "Moves absent from the evidence packet are replayed as quiet moves; all 467 audited decisions retain stored engine facts.",
+    "caption_coverage_rate": 0.9914,
+    "caption_rules": {
+      "R01_mate": 29,
+      "R03_aligned_pieces": 3,
+      "R12_blunder": 326,
+      "R12_blunder→FINAL_VERIFY_SOFTENED": 1,
+      "R12_blunder→R_VERIFIER_RECOVERY": 13,
+      "R12_blunder→VERIFY_SOFTENED": 12,
+      "R16_board_state_fallback": 2,
+      "R_TIER2_activate": 1,
+      "R_TIER2_activate→R_PROMOTED_basic_mistake": 7,
+      "R_TIER2_capture": 5,
+      "R_TIER2_capture→R_PROMOTED_basic_mistake": 8,
+      "R_TIER2_castle": 1,
+      "R_TIER2_center→R_PROMOTED_basic_mistake": 2,
+      "R_TIER2_check→R_PROMOTED_basic_mistake": 5,
+      "R_TIER2_develop": 1,
+      "R_TIER2_develop_eyes→R_PROMOTED_basic_mistake": 2,
+      "R_TIER2_develop→R_PROMOTED_basic_mistake": 2,
+      "R_TIER2_outpost": 1,
+      "R_TIER2_outpost→R_PROMOTED_basic_mistake": 2,
+      "R_TIER2_pawn": 7,
+      "R_TIER2_pawn→R_PROMOTED_basic_mistake": 9,
+      "R_TIER2_rook_file": 3,
+      "R_TIER2_rook_file→R_PROMOTED_basic_mistake": 4,
+      "R_TIER3_quiet_slip": 9,
+      "R_TIER3_quiet_slip→R_PROMOTED_basic_mistake": 6
+    },
+    "exact_claims_tested": 29,
+    "method": "Pure central caption pipeline replay with full game state, stored evidence only, and fresh engine verification disabled.",
+    "positions_with_caption": 463,
+    "positions_with_proven_exact_failure": 2,
+    "proven_exact_failure_lower_bound_rate": 0.0043,
+    "proven_failures": {
+      "862959897dbc:p71": {
+        "best": "f5+",
+        "caption": "Kg2 allows mate in 2.",
+        "cp_loss": 8986,
+        "final_verified": true,
+        "played": "Kg2",
+        "reasons": [
+          "missed_mate_misframed_as_allowed_mate"
+        ],
+        "rule_name": "R01_mate"
+      },
+      "8ebb4e966e07:p51": {
+        "best": "Qxf6+",
+        "caption": "fxg3 allows mate in 2.",
+        "cp_loss": 9128,
+        "final_verified": true,
+        "played": "fxg3",
+        "reasons": [
+          "missed_mate_misframed_as_allowed_mate"
+        ],
+        "rule_name": "R01_mate"
+      }
+    },
+    "rating_assumption": "Band midpoint; exact per-account current rating was excluded from the anonymized packet.",
+    "render_errors": {},
+    "stored_caption_text_changed": 231,
+    "top_why_fail_shapes": {
+      "You played {M}; {M} was the stronger move here.": 1,
+      "{M} allows mate in 2.": 2,
+      "{M} allows mate in 3.": 1,
+      "{M} allows mate next move.": 9,
+      "{M} doesn't change much here. {M} would have made things harder for your opponent.": 5,
+      "{M} misses the defense against mate next move.": 1,
+      "{M}+. Wins by force.": 1
+    },
+    "why_fail_count": 20,
+    "why_fail_rate": 0.0549,
+    "why_obligation_count": 364
+  },
+  "fresh_classifier": {
+    "distribution": {
+      "NONE": 187,
+      "endgame_technique": 49,
+      "king_safety": 65,
+      "missed_tactic": 53,
+      "opening_knowledge": 11,
+      "piece_safety": 73,
+      "tactical_oversight": 29
+    },
+    "errors": {},
+    "stored_distribution": {
+      "NONE": 190,
+      "endgame_technique": 49,
+      "king_safety": 65,
+      "missed_tactic": 53,
+      "opening_knowledge": 11,
+      "piece_safety": 73,
+      "tactical_oversight": 26
+    },
+    "stored_vs_fresh_mismatch_rate": 0.0064,
+    "stored_vs_fresh_mismatches": 3,
+    "top_drift": {
+      "NONE->tactical_oversight": 3
+    },
+    "unclassified": 187,
+    "unclassified_rate": 0.4004
+  },
+  "game_review_detector_dispatcher": {
+    "all_patterns": {
+      "missed_attack_on_high_value": 36,
+      "missed_capture": 29,
+      "missed_castle": 4,
+      "missed_check": 40,
+      "pawn_race": 7,
+      "walked_into_capture": 48,
+      "walked_into_mate": 27
+    },
+    "coverage_rate": 0.3597,
+    "dominant_renderable": {
+      "missed_attack_on_high_value": 33,
+      "missed_capture": 27,
+      "missed_castle": 3,
+      "missed_check": 33,
+      "pawn_race": 7,
+      "walked_into_capture": 38,
+      "walked_into_mate": 27
+    },
+    "positions_with_any_detection": 168
+  },
+  "limitations": [
+    "The exact-claim rate is a lower bound: only machine-falsifiable phrasing families are counted.",
+    "The conservative hard builder is scored on 16 manually reasoned positions before any batch category claim.",
+    "Positional mechanism quality still requires human/Codex review when the hard builder abstains.",
+    "The v140 replay excludes account memory, authored overrides, opponent-only engine rows, and exact per-account rating; it is a pure central-pipeline truth audit, not a byte-for-byte API response.",
+    "The 80-game packet cannot estimate positive mastery-detector reach because quiet moves do not carry stored best-move evidence; the separate full-corpus census is authoritative for reach."
+  ],
+  "mastery_detector_registry": {
+    "errors": {},
+    "fires_by_skill": {
+      "defend_scholars_mate": 2,
+      "endgame_rule_of_square": 8,
+      "mate_kq_vs_k": 5,
+      "mate_kr_vs_k": 1
+    },
+    "outcomes": {
+      "applied": 13,
+      "wrong": 3
+    },
+    "positions_with_any_fire": 15,
+    "registered_detectors": 48,
+    "moves_with_stored_best_evidence": 467,
+    "reach_interpretation": "Lower-bound smoke test only: positive-only application detectors require stored best-move evidence, which this privacy-safe packet retains only for meaningful decisions. Use current_detector_fires_2026-09-03.json for corpus reach.",
+    "total_fires": 16,
+    "user_moves_audited": 2966
+  },
+  "schema_version": "full_game_chess_fact_audit_report.v1",
+  "scope": {
+    "complete_plies": 5931,
+    "games": 80,
+    "meaningful_decisions": 467,
+    "stockfish_rerun": false,
+    "user_moves": 2966
+  },
+  "validated_hard_gold_batch": {
+    "by_category": {
+      "endgame_technique": {
+        "caption_why_fail": 9,
+        "decisions": 67,
+        "fresh_classifier_match": 36,
+        "fresh_classifier_silent": 20,
+        "review_detector_any": 13
+      },
+      "king_safety": {
+        "caption_why_fail": 10,
+        "decisions": 26,
+        "fresh_classifier_match": 15,
+        "fresh_classifier_silent": 0,
+        "review_detector_any": 26
+      },
+      "missed_tactic": {
+        "caption_why_fail": 4,
+        "decisions": 113,
+        "fresh_classifier_match": 45,
+        "fresh_classifier_silent": 17,
+        "proven_exact_caption_failure": 6,
+        "review_detector_any": 60
+      },
+      "opening_knowledge": {
+        "decisions": 30,
+        "fresh_classifier_match": 10,
+        "fresh_classifier_silent": 14,
+        "proven_exact_caption_failure": 1,
+        "review_detector_any": 8
+      },
+      "piece_safety": {
+        "caption_why_fail": 2,
+        "decisions": 36,
+        "fresh_classifier_match": 18,
+        "fresh_classifier_silent": 10,
+        "review_detector_any": 13
+      }
+    },
+    "confusion": {
+      "endgame_technique->NONE": 20,
+      "endgame_technique->endgame_technique": 36,
+      "endgame_technique->king_safety": 6,
+      "endgame_technique->tactical_oversight": 5,
+      "king_safety->endgame_technique": 1,
+      "king_safety->king_safety": 15,
+      "king_safety->missed_tactic": 3,
+      "king_safety->piece_safety": 5,
+      "king_safety->tactical_oversight": 2,
+      "missed_tactic->NONE": 17,
+      "missed_tactic->endgame_technique": 4,
+      "missed_tactic->king_safety": 6,
+      "missed_tactic->missed_tactic": 45,
+      "missed_tactic->opening_knowledge": 1,
+      "missed_tactic->piece_safety": 20,
+      "missed_tactic->tactical_oversight": 20,
+      "opening_knowledge->NONE": 14,
+      "opening_knowledge->king_safety": 3,
+      "opening_knowledge->opening_knowledge": 10,
+      "opening_knowledge->piece_safety": 3,
+      "piece_safety->NONE": 10,
+      "piece_safety->king_safety": 3,
+      "piece_safety->missed_tactic": 5,
+      "piece_safety->piece_safety": 18
+    },
+    "coverage_rate": 0.5824,
+    "covered_decisions": 272,
+    "distribution": {
+      "NONE": 195,
+      "endgame_technique": 67,
+      "king_safety": 26,
+      "missed_tactic": 113,
+      "opening_knowledge": 30,
+      "piece_safety": 36
+    },
+    "fresh_current_match_rate": 0.4559,
+    "fresh_current_matches": 124
+  }
+}

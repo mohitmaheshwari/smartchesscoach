@@ -64,6 +64,69 @@ _EXACT_ENDGAME_CURRICULUM = Authorization(
 # registry does not grant it product authority. Promotion is a separate,
 # evidence-reviewed edit here.
 _AUTHORIZATIONS: Mapping[str, Authorization] = {
+    "review:board_transformation_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_board_transformation_validation_v1_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact multi-step board transformations retain every stored-line "
+            "move and require a positive material payoff after legal horizon "
+            "exchange resolution."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "Internal Shadow diagnostics only; no player-facing authority.",
+        ),
+    ),
+    "review:endgame_geometry_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_endgame_geometry_validation_v2_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact endgame and promotion resources are reconstructed from "
+            "both legal stored branches without asserting an unproved WDL."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "No named endgame technique without its canonical exact proof.",
+            "Internal Shadow diagnostics only; no player-facing authority.",
+        ),
+    ),
+    "review:forcing_tempo_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a2_forcing_tempo_validation_v2_2026-09-03.json"
+        ),
+        rationale=(
+            "Exact forcing-tempo chains are reconstructed from both stored "
+            "branches, but the family has not cleared independent Caption "
+            "promotion evidence."
+        ),
+    ),
+    "review:target_line_causal_proof": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "hidden_opportunities_phase3a7_target_line_validation_v6_2026-09-04.json"
+        ),
+        rationale=(
+            "Both stored branches are legally replayed with persistent piece "
+            "identity, and the candidate must contain an exact setup, "
+            "constraint and positive whole-sequence target payoff absent or "
+            "weaker in the played line. The payoff must remain at least a "
+            "minor piece after four legal capture/check/evasion settlement plies."
+        ),
+        limitations=(
+            "Architecture packet only; blind holdout promotion is incomplete.",
+            "Internal Shadow diagnostics only; no caption, prompt, plan or mastery authority.",
+            "Generic target/line facts do not authorize a named tactical motif.",
+        ),
+    ),
     "review:exact_endgame_result_change": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref=(
@@ -204,16 +267,26 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:forced_mate_exact": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_forced_mate_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref=(
+            "backend/data/detector_gold/"
+            "forced_mate_exact_caption_promotion_v1.json"
+        ),
         rationale=(
-            "The stored best line is independently replayed as legal chess to "
-            "an actual checkmate delivered by the player side, with at least "
-            "100cp of stored consequence for the missed move."
+            "Independent legal replay confirmed 25/25 mate-in-one and 25/25 "
+            "longer-line distinct-source claims plus 50/50 stratified "
+            "abstentions. Every candidate independently reproducible from its "
+            "stored puzzle document matched; rows not reproducible from that "
+            "document were excluded from the authorization packet."
         ),
         limitations=(
             "Only the exact stored best move is accepted.",
             "A mate marker without a complete legal replay remains unverified.",
+            "A re-admission must recover any non-persisted consequence from the "
+            "source game analysis and pass the independent zero-violation gate.",
+            "Longer lines describe the verified stored continuation; they do "
+            "not claim every defence loses or display a mate distance.",
+            "Caption only; no prompt, plan, recurrence or mastery claim.",
         ),
     ),
     "curriculum:opening_exact_decision": Authorization(

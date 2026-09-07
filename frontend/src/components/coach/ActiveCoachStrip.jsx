@@ -33,6 +33,10 @@ const ActiveCoachStrip = ({ coaching }) => {
   const [displayData, setDisplayData] = useState(null);
   const fadeTimerRef = useRef(null);
   const isHoveredRef = useRef(false);
+  const coachingText = coaching?.text || "";
+  const coachingLayer = coaching?.layer || "ambient";
+  const coachingGamePhase = coaching?.gamePhase || null;
+  const coachingQuestionPrompt = coaching?.question?.prompt || null;
 
   const startFadeTimer = useCallback((delay) => {
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
@@ -47,16 +51,20 @@ const ActiveCoachStrip = ({ coaching }) => {
   }, []);
 
   useEffect(() => {
-    if (!coaching || !coaching.text) {
+    if (!coachingText) {
       // No new message — let current one fade naturally (timer already running)
       return;
     }
 
     // New message arrived — replace immediately
-    const layer = coaching.layer || "ambient";
-    const config = LAYER_CONFIG[layer] || LAYER_CONFIG.ambient;
+    const config = LAYER_CONFIG[coachingLayer] || LAYER_CONFIG.ambient;
 
-    setDisplayData({ ...coaching, layer });
+    setDisplayData({
+      text: coachingText,
+      layer: coachingLayer,
+      gamePhase: coachingGamePhase,
+      question: coachingQuestionPrompt ? { prompt: coachingQuestionPrompt } : null,
+    });
     setVisible(true);
 
     // Start fade timer
@@ -65,7 +73,13 @@ const ActiveCoachStrip = ({ coaching }) => {
     return () => {
       if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     };
-  }, [coaching?.text, coaching?.layer, startFadeTimer]);
+  }, [
+    coachingGamePhase,
+    coachingLayer,
+    coachingQuestionPrompt,
+    coachingText,
+    startFadeTimer,
+  ]);
 
   const handleMouseEnter = () => {
     isHoveredRef.current = true;

@@ -69,6 +69,9 @@ def test_caption_surface_admits_only_evidence_backed_ids():
         "tactic:fork_with_stored_payoff",
         # Phase 3 exact pin/skewer payoff packet: Caption only, never Prompt/Plan.
         "tactic:aligned_with_stored_payoff",
+        # Phase 3 exact mating-continuation packet: Caption only, never
+        # Prompt/Plan; longer lines deliberately avoid forcedness claims.
+        "tactic:forced_mate_exact",
         "review:verified_single_game_cause",
         "review:exact_endgame_result_change",
     }

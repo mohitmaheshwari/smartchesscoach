@@ -81,17 +81,22 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
   const [guidance, setGuidance] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [lastFetchedFen, setLastFetchedFen] = useState(null);
   const [introDismissed, setIntroDismissed] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [positionRead, setPositionRead] = useState(null);
 
   useEffect(() => {
     if (!sessionId || !fen) return;
-    if (fen === lastFetchedFen) return;
+
+    let superseded = false;
 
     const doFetch = async () => {
       setLoading(true);
+      setGuidance(null);
+      setCandidates([]);
+      setPositionRead(null);
+
+      let nextGuidance = null;
       try {
         // Guidance
         const res = await fetch(`${API}/coach/play/opening-guide`, {
@@ -100,11 +105,14 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
           credentials: "include",
           body: JSON.stringify({ session_id: sessionId, opening_key: openingKey || "" }),
         });
-        if (res.ok) setGuidance(await res.json());
+        if (res.ok) nextGuidance = await res.json();
       } catch {}
 
+      if (superseded) return;
+      setGuidance(nextGuidance);
+
       // Engine candidates when off-book
-      if (!guidance?.is_in_book) {
+      if (!nextGuidance?.is_in_book) {
         try {
           const res = await fetch(`${API}/coach/play/candidates`, {
             method: "POST",
@@ -114,12 +122,12 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
           });
           if (res.ok) {
             const data = await res.json();
-            setCandidates(data.candidates || []);
+            if (!superseded) setCandidates(data.candidates || []);
           }
         } catch {}
-      } else {
-        setCandidates([]);
       }
+
+      if (superseded) return;
 
       // Position reader
       try {
@@ -131,15 +139,19 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         });
         if (posRes.ok) {
           const data = await posRes.json();
-          setPositionRead(data.features?.length > 0 ? data : null);
+          if (!superseded) {
+            setPositionRead(data.features?.length > 0 ? data : null);
+          }
         }
       } catch {}
 
-      setLastFetchedFen(fen);
-      setLoading(false);
+      if (!superseded) setLoading(false);
     };
 
     doFetch();
+    return () => {
+      superseded = true;
+    };
   }, [sessionId, fen, openingKey]);
 
   // Determine the coach's last move — from prop OR from guidance

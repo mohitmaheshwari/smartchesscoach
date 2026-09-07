@@ -1,0 +1,51 @@
+{
+  "authorization_grade": "shadow",
+  "branch_reversal_checks": 6,
+  "branch_reversal_rejections": 6,
+  "canonical_target_line_owned": 2,
+  "canonical_target_line_position_ids": [
+    "039bd832a639d9c2f8ab",
+    "03eccd1bf3d294170e7f"
+  ],
+  "composed_forcing_family_hits": 8,
+  "database_writes": 0,
+  "failures": [],
+  "false_positives": 0,
+  "forcing_family_gold": 8,
+  "fresh_engine_runs": 0,
+  "hidden_opportunities": 24,
+  "mechanism_counts": {
+    "capture_order_compound_payoff": 1,
+    "check_displaces_recapturer": 1,
+    "check_saves_future_target": 1,
+    "forced_exchange_then_escape": 1,
+    "forcing_target_displacement": 1,
+    "profitable_exchange_before_retreat": 1
+  },
+  "new_forcing_family_hits": 6,
+  "new_forcing_proof_fires": 6,
+  "new_forcing_proof_position_ids": [
+    "00344c88ece9fe2aa6b7",
+    "00d589c98469de26e2b6",
+    "00f6d38aa9ae1149a7b0",
+    "013ec9c8c4437db0ec47",
+    "05622e8ee664fa64e0f6",
+    "119ce485168615df9842"
+  ],
+  "non_opportunities": 76,
+  "passed": true,
+  "positions": 100,
+  "precision_pct": 100.0,
+  "production_reads": 0,
+  "promotion_blockers": [
+    "reviewed_positive_count_below_50",
+    "wilson_lower_bound_below_85_pct",
+    "architecture_packet_not_population_holdout"
+  ],
+  "promotion_eligible": false,
+  "protected_surface_authorizations": [],
+  "schema_version": "hidden_opportunities_forcing_tempo_validation.v1",
+  "true_negatives": 76,
+  "true_positives": 6,
+  "wilson_lower_bound_pct": 60.97
+}

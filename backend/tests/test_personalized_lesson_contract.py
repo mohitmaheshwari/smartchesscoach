@@ -6,7 +6,10 @@ from services.curriculum_content_validator import (
 )
 from services.endgame_theory_service import get_all_categories
 from services.opening_curriculum_engine import get_available_openings
-from services.personalized_lesson_adapter import resolve_personalized_lesson
+from services.personalized_lesson_adapter import (
+    personalized_lesson_source_ref,
+    resolve_personalized_lesson,
+)
 from trick_library_service import get_all_traps
 
 
@@ -50,6 +53,9 @@ def test_every_published_canonical_lesson_passes_workspace_contract():
     for descriptor in descriptors:
         result = validate_personalized_lesson_descriptor(descriptor)
         assert result.publishable, result.as_dict()
+        assert personalized_lesson_source_ref(
+            descriptor["kind"], descriptor["id"]
+        ) == descriptor["canonical_source"]
 
 
 def test_every_personalized_trap_family_passes_workspace_contract():
@@ -69,6 +75,9 @@ def test_every_personalized_trap_family_passes_workspace_contract():
         )
         result = validate_personalized_lesson_descriptor(descriptor)
         assert result.publishable, result.as_dict()
+        assert personalized_lesson_source_ref(
+            descriptor["kind"], descriptor["id"]
+        ) == descriptor["canonical_source"]
 
 
 def test_contract_rejects_public_answers_duplicate_positions_and_fake_transfer():

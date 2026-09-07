@@ -8,7 +8,7 @@
  *   - CoachPlaySidebar (right: coaching panels)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
@@ -53,6 +53,30 @@ const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const boardRef = useRef(null);
+  const resumeSessionRef = useRef(null);
+  const checkActiveSessionRef = useRef(null);
+  const startGameRef = useRef(null);
+  const handleStartLessonRef = useRef(null);
+  const pollCoachMessagesRef = useRef(null);
+  const currentSessionIdRef = useRef(null);
+  const resumeRequestRef = useRef(0);
+  const startRequestRef = useRef(0);
+  const sessionLifecycleRequestRef = useRef(0);
+  const executeMoveRef = useRef(null);
+  const pollTimerRef = useRef(null);
+  const pollFnRef = useRef(null);
+  const eventSourceRef = useRef(null);
+  const coachResponsePollGenerationRef = useRef(0);
+  const coachResponsePollAbortRef = useRef(null);
+
+  const invalidateCoachResponsePoll = useCallback(() => {
+    coachResponsePollGenerationRef.current += 1;
+    coachResponsePollAbortRef.current?.abort();
+    coachResponsePollAbortRef.current = null;
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = null;
+    pollFnRef.current = null;
+  }, []);
 
   // Read opening and focus from URL query params
   const openingFromUrl = searchParams.get("opening");
@@ -64,6 +88,20 @@ const CoachPlay = ({ user }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+
+  useLayoutEffect(() => {
+    const sessionId = session?.session_id || null;
+    invalidateCoachResponsePoll();
+    currentSessionIdRef.current = sessionId;
+    // A session replacement invalidates any state request still in flight.
+    resumeRequestRef.current += 1;
+    return () => {
+      if (currentSessionIdRef.current === sessionId) {
+        currentSessionIdRef.current = null;
+        resumeRequestRef.current += 1;
+      }
+    };
+  }, [session?.session_id, invalidateCoachResponsePoll]);
 
   // Board state
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -151,6 +189,10 @@ const CoachPlay = ({ user }) => {
   const [playerIdentity, setPlayerIdentity] = useState(null);
   const [sessionReflection, setSessionReflection] = useState(null);
 
+  useLayoutEffect(() => {
+    setSessionReflection(null);
+  }, [session?.session_id]);
+
   // ─── Resync on tab becoming visible again ────────────────────────────
   // Long-running tabs can have their poll timers throttled or their SSE
   // connection silently die (backgrounded tab, network blip, mobile OS
@@ -163,7 +205,7 @@ const CoachPlay = ({ user }) => {
     if (!sessionId || gameOver) return;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        resumeSession(sessionId);
+        resumeSessionRef.current?.(sessionId);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -188,11 +230,13 @@ const CoachPlay = ({ user }) => {
       if (document.visibilityState !== "visible") return;
       try {
         const res = await fetch(`${API}/coach/play/state/${sessionId}`, { credentials: "include" });
+        if (currentSessionIdRef.current !== sessionId) return;
         if (!res.ok) return;
         const data = await res.json();
+        if (currentSessionIdRef.current !== sessionId) return;
         const realMoveCount = data.session?.move_history?.length;
         if (typeof realMoveCount === "number" && realMoveCount !== localMoveCount) {
-          resumeSession(sessionId);
+          resumeSessionRef.current?.(sessionId);
         }
       } catch { /* best-effort — never break the game */ }
     }, 5000);
@@ -214,9 +258,6 @@ const CoachPlay = ({ user }) => {
   // SSE (push-based coach notifications) — replaces the old 300ms poll.
   // pollTimerRef holds the safety-net setTimeout handle so the SSE handler
   // can cancel it and trigger the next poll tick immediately.
-  const pollTimerRef = useRef(null);
-  const pollFnRef = useRef(null);
-  const eventSourceRef = useRef(null);
   // ?trap= deep-link guards (each step fires once)
   const trapGameStartRef = useRef(false);
   const trapLessonStartRef = useRef(false);
@@ -280,6 +321,14 @@ const CoachPlay = ({ user }) => {
     userRating: session?.user_rating || 1200,
     gameMode,
   });
+  const {
+    setOpeningGuidance: setFlowOpeningGuidance,
+    setTrapWarning: setFlowTrapWarning,
+    handleUserMove: handleFlowUserMove,
+    isInHold: flowIsInHold,
+    cancelPendingMove: cancelFlowPendingMove,
+    pendingMove: flowPendingMove,
+  } = coachFlow;
 
   // Destructure for backwards compatibility with existing code
   const {
@@ -406,7 +455,7 @@ const CoachPlay = ({ user }) => {
     if (idea?.arrow) {
       setCoachArrows([[idea.arrow[0], idea.arrow[1], "green"]]);
       // Update guidance for CommentaryPanel
-      coachFlow.setOpeningGuidance({
+      setFlowOpeningGuidance({
         opening_key: openingIdeas._key || "",
         move_idea: idea.idea,
         expected_move: idea.move,
@@ -416,7 +465,7 @@ const CoachPlay = ({ user }) => {
       });
     } else if (idea && !idea.arrow) {
       // User move exists but has no arrow (shouldn't happen for user moves, but handle it)
-      coachFlow.setOpeningGuidance({
+      setFlowOpeningGuidance({
         move_idea: idea.idea,
         expected_move: idea.move,
         arrow: null,
@@ -427,9 +476,9 @@ const CoachPlay = ({ user }) => {
     } else {
       // Past the teaching line — clear guidance
       setCoachArrows([]);
-      coachFlow.setOpeningGuidance(null);
+      setFlowOpeningGuidance(null);
     }
-  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode]);
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode, setFlowOpeningGuidance]);
 
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
@@ -513,8 +562,8 @@ const CoachPlay = ({ user }) => {
 
       // Get current eval from coachFlow or evaluation state
       const evalScore = evaluation?.score || 0;
-      const evalText = evalScore > 50 ? "You have a slight advantage"
-        : evalScore > 150 ? "You have a clear advantage"
+      const evalText = evalScore > 150 ? "You have a clear advantage"
+        : evalScore > 50 ? "You have a slight advantage"
         : evalScore < -50 ? "Black has a slight edge"
         : "The position is roughly equal";
 
@@ -547,9 +596,23 @@ const CoachPlay = ({ user }) => {
       // Clear teaching data — game continues freely
       setOpeningIdeas([]);
       setCoachArrows([]);
-      coachFlow.setOpeningGuidance(null);
+      setFlowOpeningGuidance(null);
     }
-  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, openingComplete]);
+  }, [
+    gamePly,
+    openingIdeas,
+    isPlayerTurn,
+    gameOver,
+    openingComplete,
+    activeBranch?.key,
+    activeBranch?.name,
+    allBranches,
+    evaluation?.score,
+    guidedMode,
+    selectedOpening,
+    session?.session_id,
+    setFlowOpeningGuidance,
+  ]);
 
   // Opening deviation state — shown when user plays wrong move
   const [openingDeviation, setOpeningDeviation] = useState(null);
@@ -576,7 +639,7 @@ const CoachPlay = ({ user }) => {
         const remaining = setup.length - movesPlayed.length;
         if (remaining >= 0 && remaining <= 2) {
           // We're close to a trap — warn the user
-          coachFlow.setTrapWarning({
+          setFlowTrapWarning({
             trap_name: trap.name,
             warning: trap.explanation,
             refutation: trap.refutation,
@@ -588,8 +651,8 @@ const CoachPlay = ({ user }) => {
       }
     }
     // No trap nearby — clear warning
-    coachFlow.setTrapWarning(null);
-  }, [gamePly, openingTraps, openingIdeas, isPlayerTurn, gameOver]);
+    setFlowTrapWarning(null);
+  }, [gamePly, openingTraps, openingIdeas, isPlayerTurn, gameOver, setFlowTrapWarning]);
 
   // V5 Coaching State - Unified with Lab
   // (v5Coaching itself is declared earlier — useEffect deps need it hoisted)
@@ -667,48 +730,60 @@ const CoachPlay = ({ user }) => {
 
   // Fetch post-game reflection when game ends
   useEffect(() => {
-    if (gameOver && session?.session_id && !summary) {
+    const sessionId = session?.session_id;
+    if (gameOver && sessionId && !summary) {
+      const controller = new AbortController();
       (async () => {
         try {
-          const res = await fetch(`${API}/coach/play/postgame/${session.session_id}`, { credentials: "include" });
-          if (res.ok) {
+          const res = await fetch(`${API}/coach/play/postgame/${sessionId}`, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (res.ok && !controller.signal.aborted) {
             const data = await res.json();
-            setSummary(data);
+            if (!controller.signal.aborted) setSummary(data);
           }
         } catch (e) {
-          console.error("Postgame fetch failed:", e);
+          if (e.name !== "AbortError") console.error("Postgame fetch failed:", e);
         }
       })();
+      return () => controller.abort();
     }
-  }, [gameOver, session?.session_id]);
+    return undefined;
+  }, [gameOver, session?.session_id, summary]);
 
   // Poll for coach messages when game is active (skip during curriculum — curriculum handles coaching)
   useEffect(() => {
-    if (session && gameStarted && !gameOver && !session.curriculum_active && !session.teaching_opening) {
+    const sessionId = session?.session_id;
+    const curriculumActive = Boolean(session?.curriculum_active || session?.teaching_opening);
+    if (sessionId && gameStarted && !gameOver && !curriculumActive) {
       // Start polling for coach messages
-      pollIntervalRef.current = setInterval(pollCoachMessages, 2000);
+      const interval = setInterval(() => pollCoachMessagesRef.current?.(), 2000);
+      pollIntervalRef.current = interval;
       return () => {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-        }
+        clearInterval(interval);
+        if (pollIntervalRef.current === interval) pollIntervalRef.current = null;
       };
     }
-  }, [session?.session_id, gameStarted, gameOver]);
+    return undefined;
+  }, [session?.session_id, session?.curriculum_active, session?.teaching_opening, gameStarted, gameOver]);
 
   // Poll for new coach messages
   const pollCoachMessages = async () => {
-    if (!session?.session_id) return;
+    const sessionId = session?.session_id;
+    if (!sessionId) return;
     
     // Don't poll during active interactive teaching lessons (not regular game teaching)
     if (isInTeachingMode && lessonInstruction) return;
     
     try {
-      const response = await fetch(`${API}/coach/play/messages/${session.session_id}`, {
+      const response = await fetch(`${API}/coach/play/messages/${sessionId}`, {
         credentials: "include"
       });
-      
+      if (currentSessionIdRef.current !== sessionId) return;
       if (response.ok) {
         const data = await response.json();
+        if (currentSessionIdRef.current !== sessionId) return;
         if (data.messages && data.messages.length > 0) {
           // Check for opening teaching offers
           const teachingOffers = data.messages.filter(msg => 
@@ -850,7 +925,9 @@ const CoachPlay = ({ user }) => {
 
   // Check for active session on mount
   useEffect(() => {
-    checkActiveSession();
+    const controller = new AbortController();
+    checkActiveSessionRef.current?.(controller.signal);
+    return () => controller.abort();
   }, []);
 
   // ── Deep-link: arrive with ?trap=<key> from the Lab "Practice the <trap>"
@@ -859,30 +936,35 @@ const CoachPlay = ({ user }) => {
   useEffect(() => {
     if (trapFromUrl && !gameStarted && !loading && !trapGameStartRef.current) {
       trapGameStartRef.current = true;
-      startGame();
+      startGameRef.current?.();
     }
   }, [trapFromUrl, gameStarted, loading]);
 
   useEffect(() => {
-    if (!trapFromUrl || !gameStarted || !session?.session_id) return;
+    const sessionId = session?.session_id;
+    if (!trapFromUrl || !gameStarted || !sessionId) return;
     if (trapLessonStartRef.current) return;
     trapLessonStartRef.current = true;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch(`${API}/coach/play/teaching/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
+          signal: controller.signal,
           body: JSON.stringify({
-            session_id: session.session_id,
+            session_id: sessionId,
             lesson_type: "trap",
             trap_key: trapFromUrl,
           }),
         });
+        if (controller.signal.aborted || currentSessionIdRef.current !== sessionId) return;
         if (res.ok) {
           const data = await res.json();
+          if (controller.signal.aborted || currentSessionIdRef.current !== sessionId) return;
           if (data && !data.error) {
-            handleStartLesson(data);
+            handleStartLessonRef.current?.(data);
           } else {
             toast.info("Couldn't load that trap lesson — playing a normal game instead.");
           }
@@ -891,6 +973,7 @@ const CoachPlay = ({ user }) => {
         // fail-open: stay in the normal game
       }
     })();
+    return () => controller.abort();
   }, [trapFromUrl, gameStarted, session?.session_id]);
 
   // Check for practice mode from Lab alternate timeline
@@ -915,23 +998,27 @@ const CoachPlay = ({ user }) => {
 
   // Compute session reflection when game ends (Phase 1, 2026-07-09)
   useEffect(() => {
-    if (!gameOver || !gameResult || !session) return;
+    const sessionId = session?.session_id;
+    if (!gameOver || !gameResult || !sessionId) return;
 
+    const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch(`${API}/coach/play/session-reflection/${session.session_id}`, {
-          credentials: "include"
+        const response = await fetch(`${API}/coach/play/session-reflection/${sessionId}`, {
+          credentials: "include",
+          signal: controller.signal,
         });
 
-        if (response.ok) {
+        if (response.ok && !controller.signal.aborted) {
           const data = await response.json();
-          setSessionReflection(data.reflection);
+          if (!controller.signal.aborted) setSessionReflection(data.reflection);
         }
       } catch (e) {
-        console.warn("Failed to compute session reflection:", e);
+        if (e.name !== "AbortError") console.warn("Failed to compute session reflection:", e);
         // Reflection is nice-to-have, don't break the game
       }
     })();
+    return () => controller.abort();
   }, [gameOver, gameResult, session?.session_id]);
 
   // Keyboard arrow navigation — browse through move history
@@ -976,45 +1063,58 @@ const CoachPlay = ({ user }) => {
 
   // Reset browse when new moves come in
   useEffect(() => {
-    if (browseIndex !== -1) {
-      setBrowseIndex(-1);
-    }
+    setBrowseIndex((current) => current === -1 ? current : -1);
   }, [session?.move_history?.length]);
 
   // Auto-dismiss opening suggestions once past the opening phase
   useEffect(() => {
-    const moves = session?.move_history || [];
-    if (moves.length >= 14 && (inlineOpening || inlineTrap)) {
+    const moveCount = session?.move_history?.length || 0;
+    if (moveCount >= 14 && (inlineOpening || inlineTrap)) {
       setInlineOpening(null);
       setInlineTrap(null);
     }
   }, [session?.move_history?.length, inlineOpening, inlineTrap, setInlineOpening, setInlineTrap]);
 
-  const checkActiveSession = async () => {
+  const checkActiveSession = async (signal) => {
+    const discoveryRequest = sessionLifecycleRequestRef.current;
     try {
       const response = await fetch(`${API}/coach/play/active`, {
-        credentials: "include"
+        credentials: "include",
+        signal,
       });
+      if (signal?.aborted || discoveryRequest !== sessionLifecycleRequestRef.current) return;
       if (response.ok) {
         const data = await response.json();
+        if (signal?.aborted || discoveryRequest !== sessionLifecycleRequestRef.current) return;
         if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl && !trapFromUrl) {
           // Resume existing session (but NOT if user came with a specific opening to practice)
           const activeSession = data.active_sessions[0];
-          await resumeSession(activeSession.session_id);
+          await resumeSessionRef.current?.(activeSession.session_id);
         }
       }
     } catch (error) {
-      console.error("Error checking active session:", error);
+      if (error.name !== "AbortError") console.error("Error checking active session:", error);
     }
   };
 
   const resumeSession = async (sessionId) => {
+    sessionLifecycleRequestRef.current += 1;
+    const lifecycleRequest = sessionLifecycleRequestRef.current;
+    resumeRequestRef.current += 1;
+    const request = resumeRequestRef.current;
+    startRequestRef.current += 1;
+    const ownsRequest = () => (
+      request === resumeRequestRef.current &&
+      lifecycleRequest === sessionLifecycleRequestRef.current
+    );
     try {
       const response = await fetch(`${API}/coach/play/state/${sessionId}`, {
         credentials: "include"
       });
+      if (!ownsRequest()) return;
       if (response.ok) {
         const data = await response.json();
+        if (!ownsRequest()) return;
         setSession(data.session);
         // Always ensure we have a valid FEN - fall back to starting position
         const validFen = data.current_fen || data.session?.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1039,7 +1139,7 @@ const CoachPlay = ({ user }) => {
           
           // Fetch feedback for the last move on resume
           setTimeout(() => {
-            fetchInteractiveCoaching(sessionId);
+            if (currentSessionIdRef.current === sessionId) fetchInteractiveCoaching(sessionId);
           }, 500);
         }
         
@@ -1049,7 +1149,7 @@ const CoachPlay = ({ user }) => {
           // It's coach's turn - trigger coach to make a move
           // The coach might have been interrupted mid-move
           setTimeout(() => {
-            triggerCoachMove(sessionId);
+            if (currentSessionIdRef.current === sessionId) triggerCoachMove(sessionId);
           }, 500);
         }
         
@@ -1107,13 +1207,13 @@ const CoachPlay = ({ user }) => {
         toast.success("Resumed your game!");
       }
     } catch (error) {
-      console.error("Error resuming session:", error);
+      if (ownsRequest()) console.error("Error resuming session:", error);
     }
   };
 
   useEffect(() => {
     if (!session?.session_id || openingCorrectionCount === 0) return;
-    resumeSession(session.session_id);
+    resumeSessionRef.current?.(session.session_id);
   }, [openingCorrectionCount, session?.session_id]);
   
   // Trigger coach to make a move (used after resume when it's coach's turn)
@@ -1193,7 +1293,27 @@ const CoachPlay = ({ user }) => {
     await actuallyStartGame();
   };
 
+  // Long-lived listeners and timers call only callbacks from the latest
+  // committed render. Publishing here avoids both first-render closures and
+  // functions from a concurrent render React later abandons.
+  useLayoutEffect(() => {
+    resumeSessionRef.current = resumeSession;
+    checkActiveSessionRef.current = checkActiveSession;
+    startGameRef.current = startGame;
+    handleStartLessonRef.current = handleStartLesson;
+    pollCoachMessagesRef.current = pollCoachMessages;
+  });
+
   const actuallyStartGame = async () => {
+    sessionLifecycleRequestRef.current += 1;
+    const lifecycleRequest = sessionLifecycleRequestRef.current;
+    startRequestRef.current += 1;
+    const startRequest = startRequestRef.current;
+    resumeRequestRef.current += 1;
+    const ownsStart = () => (
+      startRequest === startRequestRef.current &&
+      lifecycleRequest === sessionLifecycleRequestRef.current
+    );
     track(ANALYTICS_EVENTS.FUNNEL_PWC_STARTED);
     setShowPreGameStreakPopup(false);
     setLoading(true);
@@ -1204,6 +1324,7 @@ const CoachPlay = ({ user }) => {
     let trainingFocusCognitivGap = null;
     try {
       trainingFocusCognitivGap = await fetchActiveTrainingFocus();
+      if (!ownsStart()) return;
     } catch (e) {
       console.warn("[CoachPlay] Error fetching training focus:", e);
     }
@@ -1215,6 +1336,7 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
       });
       const canonical = canonicalRes.ok ? await canonicalRes.json() : null;
+      if (!ownsStart()) return;
       const context = canonical?.coaching_context;
       const canonicalRule = coachPlayFocusRule(context, gameMode);
       if (context) {
@@ -1237,8 +1359,10 @@ const CoachPlay = ({ user }) => {
         setTimeout(() => setShowFocusBanner(false), 6000);
         } else {
           const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+          if (!ownsStart()) return;
           if (focusRes.ok) {
             const focusData = await focusRes.json();
+            if (!ownsStart()) return;
             const coaching = focusData.coaching;
             if (coaching?.rule && coaching?.diagnosis) {
               setFocusRule({
@@ -1307,6 +1431,7 @@ const CoachPlay = ({ user }) => {
 
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (!ownsStart()) return;
       if (!response.ok) {
         // 402 Payment Required → daily PwC limit reached on Free tier.
         // Surface as upsell modal, not an error toast.
@@ -1347,7 +1472,7 @@ const CoachPlay = ({ user }) => {
       // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
       if (data.openingGuidance) {
-        coachFlow.setOpeningGuidance(data.openingGuidance);
+        setFlowOpeningGuidance(data.openingGuidance);
         // Store full ideas list for client-side guidance (no server dependency)
         if (data.openingGuidance.all_ideas?.length) {
           console.log("[CoachPlay] Loaded", data.openingGuidance.all_ideas.length, "opening move ideas, branch:", data.openingGuidance.branch?.name || "default");
@@ -1401,8 +1526,10 @@ const CoachPlay = ({ user }) => {
         const stateResponse = await fetch(`${API}/coach/play/state/${data.session.session_id}`, {
           credentials: "include"
         });
+        if (!ownsStart()) return;
         if (stateResponse.ok) {
           const stateData = await stateResponse.json();
+          if (!ownsStart()) return;
           if (stateData.opening_teaching) {
             setOpeningGuidance(stateData.opening_teaching);
             
@@ -1447,9 +1574,9 @@ const CoachPlay = ({ user }) => {
         console.error("Error fetching opening guidance:", stateError);
       }
     } catch (error) {
-      toast.error(error.message || "Failed to start game");
+      if (ownsStart()) toast.error(error.message || "Failed to start game");
     } finally {
-      setLoading(false);
+      if (ownsStart()) setLoading(false);
     }
   };
 
@@ -2148,6 +2275,9 @@ const CoachPlay = ({ user }) => {
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    const sessionId = session?.session_id;
+    if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
+    const ownsSession = () => currentSessionIdRef.current === sessionId;
     // IMMEDIATELY clear all coaching state for clean transition
     setV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
@@ -2171,14 +2301,16 @@ const CoachPlay = ({ user }) => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            session_id: session.session_id,
+            session_id: sessionId,
             move: moveSan,
             risk_level: riskType
           })
         });
         
+        if (!ownsSession()) return false;
         if (confirmResponse.ok) {
           const confirmData = await confirmResponse.json();
+          if (!ownsSession()) return false;
           // Update remaining interventions
           if (confirmData.remaining_interventions !== undefined) {
             setRemainingInterventions(confirmData.remaining_interventions);
@@ -2193,7 +2325,7 @@ const CoachPlay = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: sessionId,
           move: moveSan,
           thinking_time_ms: Math.round(timeSpent * 1000)
         })
@@ -2201,6 +2333,7 @@ const CoachPlay = ({ user }) => {
 
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (!ownsSession()) return false;
       if (!response.ok) {
         toast.error(data.detail || "Invalid move");
         return false;
@@ -2265,7 +2398,7 @@ const CoachPlay = ({ user }) => {
         // reply. phase="user_move" returns only the user card (its eval is already
         // computed by evaluate-pending); the coach card still arrives after the coach
         // moves via the existing post-coach fetch. (Mohit 2026-06-27.)
-        fetchInteractiveCoaching(session?.session_id, "user_move");
+        fetchInteractiveCoaching(sessionId, "user_move");
 
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
@@ -2284,7 +2417,7 @@ const CoachPlay = ({ user }) => {
         }]);
         
         // Poll for coach's response
-        pollForCoachResponse();
+        pollForCoachResponse(sessionId);
       } else {
         // No coach response expected - clear loading state
         setLoadingFeedback(false);
@@ -2293,6 +2426,7 @@ const CoachPlay = ({ user }) => {
 
       return true;
     } catch (error) {
+      if (!ownsSession()) return false;
       console.error("Move error:", error);
       toast.error("Connection error. Please try again.");
       setIsPlayerTurn(true);
@@ -2301,20 +2435,68 @@ const CoachPlay = ({ user }) => {
       return false;
     }
   };
+
+  useLayoutEffect(() => {
+    executeMoveRef.current = {
+      sessionId: session?.session_id || null,
+      execute: executeMove,
+    };
+  });
+
+  const executeMoveForSession = useCallback((sessionId, moveSan, timeSpent) => {
+    const current = executeMoveRef.current;
+    if (
+      !sessionId ||
+      currentSessionIdRef.current !== sessionId ||
+      current?.sessionId !== sessionId
+    ) return Promise.resolve(false);
+    return current.execute(moveSan, timeSpent);
+  }, []);
   
   // Poll for coach's move and messages
-  const pollForCoachResponse = async () => {
-    const maxAttempts = 30;  // 30 seconds max
+  const pollForCoachResponse = (expectedSessionId) => {
+    if (!expectedSessionId || currentSessionIdRef.current !== expectedSessionId) return;
+    invalidateCoachResponsePoll();
+    const generation = coachResponsePollGenerationRef.current;
+    const controller = new AbortController();
+    coachResponsePollAbortRef.current = controller;
+    const maxAttempts = 30;
     let attempts = 0;
-    
+    let inFlight = false;
+    const ownsPoll = () => (
+      !controller.signal.aborted &&
+      generation === coachResponsePollGenerationRef.current &&
+      currentSessionIdRef.current === expectedSessionId
+    );
+    const finishPoll = () => {
+      if (generation !== coachResponsePollGenerationRef.current) return;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+      pollFnRef.current = null;
+      if (coachResponsePollAbortRef.current === controller) {
+        coachResponsePollAbortRef.current = null;
+      }
+    };
+    const scheduleNext = (poll) => {
+      if (!ownsPoll()) return;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = setTimeout(poll, 2000);
+    };
+
     const poll = async () => {
-      if (attempts >= maxAttempts) {
-        console.warn("[CoachPlay] Poll timeout after", maxAttempts, "attempts");
-        // Try one last fetch to see if game ended or coach moved
-        try {
-          const lastCheck = await fetch(`${API}/coach/play/state/${session.session_id}`, { credentials: "include" });
+      if (!ownsPoll() || inFlight) return;
+      inFlight = true;
+      try {
+        if (attempts >= maxAttempts) {
+          console.warn("[CoachPlay] Poll timeout after", maxAttempts, "attempts");
+          const lastCheck = await fetch(`${API}/coach/play/state/${expectedSessionId}`, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!ownsPoll()) return;
           if (lastCheck.ok) {
             const lastData = await lastCheck.json();
+            if (!ownsPoll()) return;
             if (lastData.game_over || lastData.session?.status === "completed") {
               setGameOver(true);
               setGameResult(lastData.session?.result || "draw");
@@ -2323,10 +2505,10 @@ const CoachPlay = ({ user }) => {
               setLoadingFeedback(false);
               setSession(lastData.session);
               if (lastData.current_fen) setCurrentFen(lastData.current_fen);
+              finishPoll();
               return;
             }
             if (!lastData.session?.coach_move_pending && lastData.current_fen) {
-              // Coach actually did move, we just missed it
               setSession(lastData.session);
               setCurrentFen(lastData.current_fen);
               setIsPlayerTurn(true);
@@ -2334,94 +2516,63 @@ const CoachPlay = ({ user }) => {
               setIsCoachThinking(false);
               setLoadingFeedback(false);
               setMoveStartTime(Date.now());
+              finishPoll();
               return;
             }
           }
-        } catch (e) {
-          console.error("[CoachPlay] Last check failed:", e);
+          if (!ownsPoll()) return;
+          setCoachThinking(false);
+          setIsCoachThinking(false);
+          setLoadingFeedback(false);
+          setIsPlayerTurn(true);
+          setMoveStartTime(Date.now());
+          toast.error("Coach took too long to respond. Your turn.");
+          finishPoll();
+          return;
         }
-        setCoachThinking(false);
-        setIsCoachThinking(false);
-        setLoadingFeedback(false);
-        setIsPlayerTurn(true);
-        setMoveStartTime(Date.now());
-        toast.error("Coach took too long to respond. Your turn.");
-        return;
-      }
-      
-      attempts++;
-      
-      try {
-        // Get latest session state
-        const response = await fetch(`${API}/coach/play/state/${session.session_id}`, {
-          credentials: "include"
+
+        attempts += 1;
+        const response = await fetch(`${API}/coach/play/state/${expectedSessionId}`, {
+          credentials: "include",
+          signal: controller.signal,
         });
-        
+        if (!ownsPoll()) return;
+
         if (response.ok) {
           const data = await response.json();
+          if (!ownsPoll()) return;
 
-          // ── PREDICT-COACH-MOVE: the coach's move was DEFERRED for a prediction (the server did NOT
-          // apply it). Show the panel — the board stays on YOUR move, so nothing can leak. The guess
-          // triggers the coach move + reveal. Fail-open: if anything's off, the normal flow proceeds.
           if (PREDICT_MOVE_ENABLED && data.session?.pending_prediction && !pendingPrediction) {
-            const _pp = data.session.pending_prediction;
-            if (_pp.options?.length) {
-              setPendingPrediction({ options: _pp.options, prompt: "What do you think I'll play?" });
+            const prediction = data.session.pending_prediction;
+            if (prediction.options?.length) {
+              setPendingPrediction({ options: prediction.options, prompt: "What do you think I'll play?" });
               setCoachThinking(false);
-              if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-              return; // wait for the guess; onComplete triggers the reveal
+              finishPoll();
+              return;
             }
           }
 
-          // Check if coach has moved
-          if (!data.session.coach_move_pending) {
-            // Remove thinking message from chat
+          if (data.session && !data.session.coach_move_pending) {
             setChatMessages(prev => prev.filter(m => m.type !== "thinking"));
-            
-            // Update board - only if we have valid FEN
             setSession(data.session);
-            if (data.current_fen) {
-              setCurrentFen(data.current_fen);
-            }
-            
-            // Update evaluation
-            if (data.evaluation) {
-              setEvaluation(data.evaluation);
-            }
-            
-            // Handle pedagogical opponent state
+            if (data.current_fen) setCurrentFen(data.current_fen);
+            if (data.evaluation) setEvaluation(data.evaluation);
             if (data.pedagogical) {
               const ped = data.pedagogical;
               setHideEvalBar(ped.hide_eval || false);
               setOpportunitiesFound(ped.opportunities_found || 0);
               setOpportunitiesMissed(ped.opportunities_missed || 0);
             }
-            
-            // Update opening guidance
-            if (data.opening_teaching) {
-              setOpeningGuidance(data.opening_teaching);
-            } else {
-              setOpeningGuidance(null);
-            }
-            
-            // Highlight coach's last move
+            setOpeningGuidance(data.opening_teaching || null);
+
             const lastMove = data.session.last_coach_move;
             if (lastMove?.uci) {
               highlightMove(lastMove.uci);
               setCoachLastMoveSquare(lastMove.uci.slice(2, 4));
             }
-            // Track coach move SAN + explanation for display
-            if (lastMove?.move || lastMove?.san) {
-              setLastCoachMoveSan(lastMove.san || lastMove.move);
-            }
-            // Store coach move explanation for display
-            if (lastMove?.explanation) {
-              setCoachMoveExplanation(lastMove.explanation);
-            } else {
-              setCoachMoveExplanation(null);
-            }
-            
-            // Check if game over
+            if (lastMove?.move || lastMove?.san) setLastCoachMoveSan(lastMove.san || lastMove.move);
+            setCoachMoveExplanation(lastMove?.explanation || null);
+
             if (data.game_over || data.session.status === "completed") {
               setGameOver(true);
               setGameResult(data.session.result);
@@ -2431,47 +2582,33 @@ const CoachPlay = ({ user }) => {
                 toast.info("It's a draw.");
               }
             } else {
-              // Trust the server's turn, never assume it. /state computes
-              // is_player_turn from the position; assuming true handed the
-              // player a board whose side-to-move was the opponent, so
-              // Chessground offered only the opponent's moves and no piece
-              // could be picked up -- under a green "Your turn" badge.
               setIsPlayerTurn(data.is_player_turn ?? true);
               setMoveStartTime(Date.now());
-              // Increment ply for coach's response move
               if (openingIdeas.length) setGamePly(prev => prev + 1);
-              // Check for escape squares teaching moment
               checkEscapeSquares();
             }
-            
+
             setCoachThinking(false);
-
-            // Fetch V5 interactive feedback — this runs fundamentals checklist,
-            // Socratic coaching, stores move snapshots, and gets coach move explanation
-            console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
-            // Don't lock here — lock decision happens AFTER we see the coaching response
-            fetchInteractiveCoaching(session?.session_id || sessionId);
-
+            fetchInteractiveCoaching(expectedSessionId);
+            finishPoll();
             return;
           }
         }
-        
-        // Push-based: SSE wakes us when the coach is ready; this setTimeout
-        // is now purely a safety net (2s) in case SSE is broken/blocked.
+
         if (attempts <= 3 || attempts % 30 === 0) {
           console.log("[CoachPlay] Poll attempt", attempts, "- coach still thinking");
         }
-        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = setTimeout(poll, 2000);
-
+        scheduleNext(poll);
       } catch (error) {
-        console.error("[CoachPlay] Poll error:", error);
-        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = setTimeout(poll, 2000);
+        if (error?.name !== "AbortError" && ownsPoll()) {
+          console.error("[CoachPlay] Poll error:", error);
+          scheduleNext(poll);
+        }
+      } finally {
+        inFlight = false;
       }
     };
 
-    // Expose poll fn so the SSE handler can wake it on `coach_turn_ready`.
     pollFnRef.current = poll;
     poll();
   };
@@ -2657,6 +2794,9 @@ const CoachPlay = ({ user }) => {
   // Handle user confirming a risky move
   const confirmRiskyMove = async () => {
     if (!pendingMove) return;
+    const sessionId = session?.session_id;
+    if (!sessionId || currentSessionIdRef.current !== sessionId) return;
+    const ownsSession = () => currentSessionIdRef.current === sessionId;
     
     const { moveSan, timeSpent, riskType, chess, originalFen } = pendingMove;
     
@@ -2683,7 +2823,7 @@ const CoachPlay = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: sessionId,
           move: moveSan,
           time_spent: timeSpent,
           risk_acknowledged: riskType
@@ -2691,6 +2831,7 @@ const CoachPlay = ({ user }) => {
       });
 
       const data = await confirmResponse.json();
+      if (!ownsSession()) return;
       
       if (!confirmResponse.ok) {
         toast.error(data.detail || "Move failed");
@@ -2724,8 +2865,8 @@ const CoachPlay = ({ user }) => {
       if (data.awaiting_coach) {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
-        fetchUserMoveCoaching(session.session_id);
-        pollForCoachResponse();
+        fetchUserMoveCoaching(sessionId);
+        pollForCoachResponse(sessionId);
       } else {
         // PLAY MODE: No coach response expected — immediately ready for next move
         setIsPlayerTurn(true);
@@ -2734,6 +2875,7 @@ const CoachPlay = ({ user }) => {
         setMoveStartTime(Date.now());
       }
     } catch (error) {
+      if (!ownsSession()) return;
       console.error("Confirm move error:", error);
       toast.error("Connection error. Please try again.");
       setCurrentFen(originalFen);
@@ -2750,7 +2892,7 @@ const CoachPlay = ({ user }) => {
     }
 
     // If in hold state, treat as move revision
-    if (coachFlow.isInHold) {
+    if (flowIsInHold) {
       const chess = new Chess(currentFen);
       let moveObj;
       try {
@@ -2763,9 +2905,9 @@ const CoachPlay = ({ user }) => {
       if (!moveObj) return false;
 
       // Cancel current hold and re-evaluate with new move
-      coachFlow.cancelPendingMove();
+      cancelFlowPendingMove();
       // Reset board to pre-pending state
-      const fenBefore = coachFlow.pendingMove?.fenBefore || currentFen;
+      const fenBefore = flowPendingMove?.fenBefore || currentFen;
       setCurrentFen(chess.fen());
       highlightMove(moveObj.from + moveObj.to);
 
@@ -2781,9 +2923,9 @@ const CoachPlay = ({ user }) => {
         moveIndexPreview: (session?.move_history?.length || 0),
       };
 
-      const { autoCommitted } = await coachFlow.handleUserMove(
+      const { autoCommitted } = await handleFlowUserMove(
         moveData,
-        (san, ts) => executeMove(san, ts),
+        (san, ts) => executeMoveForSession(session?.session_id, san, ts),
         timeSpent
       );
 
@@ -2830,7 +2972,7 @@ const CoachPlay = ({ user }) => {
       highlightMove(moveObj.from + moveObj.to);
       setUserLastMoveSquare(moveObj.to);
       setCoachLastMoveSquare(null);
-      await executeMove(moveObj.san, timeSpentPlay);
+      await executeMoveForSession(session?.session_id, moveObj.san, timeSpentPlay);
       setIsPlayerTurn(false);
       return true;
     }
@@ -2883,7 +3025,11 @@ const CoachPlay = ({ user }) => {
               fenBefore: currentFen, fenAfterPreview: chess.fen(),
               moveIndexPreview: (session?.move_history?.length || 0),
             };
-            const { autoCommitted: ac2 } = await coachFlow.handleUserMove(moveData2, (san, ts) => executeMove(san, ts), timeSpent2);
+            const { autoCommitted: ac2 } = await handleFlowUserMove(
+              moveData2,
+              (san, ts) => executeMoveForSession(session?.session_id, san, ts),
+              timeSpent2,
+            );
             if (ac2) setIsPlayerTurn(false);
             return true;
           }
@@ -2896,7 +3042,7 @@ const CoachPlay = ({ user }) => {
         // Immediately stop arrows — prevent the effect from re-setting them during async eval
         setOpeningIdeas([]);
         setCoachArrows([]);
-        coachFlow.setOpeningGuidance(null);
+        setFlowOpeningGuidance(null);
 
         // Show move on board temporarily so user sees what they played
         setCurrentFen(chess.fen());
@@ -3008,9 +3154,9 @@ const CoachPlay = ({ user }) => {
     };
 
     console.log("[V2-FLOW] User move:", moveData.san, "— calling handleUserMove (evaluate-pending)");
-    const { autoCommitted, moveQuality } = await coachFlow.handleUserMove(
+    const { autoCommitted, moveQuality } = await handleFlowUserMove(
       moveData,
-      (san, ts) => executeMove(san, ts),
+      (san, ts) => executeMoveForSession(session?.session_id, san, ts),
       timeSpent
     );
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
@@ -3029,7 +3175,33 @@ const CoachPlay = ({ user }) => {
     // but it's pending. Player can revise or tap clock to commit.
 
     return true;
-  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson, coachFlow, openingIdeas, gamePly, activeBranch, allBranches, branchPoint, selectedOpening]);
+  }, [
+    session,
+    currentFen,
+    isPlayerTurn,
+    gameOver,
+    moveStartTime,
+    isInTeachingMode,
+    activeLesson,
+    openingIdeas,
+    gamePly,
+    activeBranch,
+    allBranches,
+    branchPoint,
+    selectedOpening,
+    gameMode,
+    CLIENT_EVAL_ENABLED,
+    sfEvalMove,
+    handleTeachingMove,
+    flowIsInHold,
+    cancelFlowPendingMove,
+    flowPendingMove,
+    handleFlowUserMove,
+    executeMoveForSession,
+    evaluateMove,
+    setGuardianPending,
+    setFlowOpeningGuidance,
+  ]);
 
   const resignGame = async () => {
     if (!session) return;
@@ -3076,10 +3248,15 @@ const CoachPlay = ({ user }) => {
   };
 
   const newGame = () => {
+    sessionLifecycleRequestRef.current += 1;
+    resumeRequestRef.current += 1;
+    startRequestRef.current += 1;
+    invalidateCoachResponsePoll();
     setSession(null);
     setGameStarted(false);
     setGameOver(false);
     setGameResult(null);
+    setSessionReflection(null);
     setSummary(null);
     setCprResult(null);
     setPlayerIdentity(null);
@@ -3559,7 +3736,7 @@ const CoachPlay = ({ user }) => {
           onClockTap={() => {
             const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
             coachFlow.handleClockTap(
-              (san, ts) => executeMove(san, ts),
+              (san, ts) => executeMoveForSession(session?.session_id, san, ts),
               timeSpent
             ).then(success => {
               if (success) setIsPlayerTurn(false);

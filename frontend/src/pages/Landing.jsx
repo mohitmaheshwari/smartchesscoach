@@ -222,11 +222,7 @@ export default function Landing() {
       const response = await fetch(startUrl, { credentials: "include" });
       const data = await response.json();
       if (data.auth_url) {
-        if (isNative) {
-          await Browser.open({ url: data.auth_url });
-        } else {
-          window.location.href = data.auth_url;
-        }
+        window.location.href = data.auth_url;
         return;
       }
     } catch (_) { /* The normal login page remains the safe fallback. */ }

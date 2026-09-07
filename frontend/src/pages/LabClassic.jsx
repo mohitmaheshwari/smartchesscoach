@@ -8,7 +8,7 @@
  * "I understand exactly where I lost control."
  */
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -141,6 +141,8 @@ const LabClassic = ({ user }) => {
   const [coachCommentary, setCoachCommentary] = useState(null);
   const [reanalyzing, setReanalyzing] = useState(false);
   const [analysisQueueStatus, setAnalysisQueueStatus] = useState(null);
+  const reanalyzeRequestRef = useRef(0);
+  const reanalyzeAbortRef = useRef(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -213,65 +215,61 @@ const LabClassic = ({ user }) => {
   
   // Re-analyze game handler
   const handleReanalyze = async () => {
+    reanalyzeRequestRef.current += 1;
+    const request = reanalyzeRequestRef.current;
+    const targetGameId = gameId;
+    reanalyzeAbortRef.current?.abort();
+    const controller = new AbortController();
+    reanalyzeAbortRef.current = controller;
+    const ownsRequest = () => (
+      request === reanalyzeRequestRef.current &&
+      !controller.signal.aborted
+    );
     setReanalyzing(true);
     try {
-      const response = await fetch(`${API}/games/${gameId}/reanalyze`, {
+      const response = await fetch(`${API}/games/${targetGameId}/reanalyze`, {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        signal: controller.signal,
       });
-      
+      if (!ownsRequest()) return;
       if (!response.ok) {
         const error = await response.json();
+        if (!ownsRequest()) return;
         throw new Error(error.detail || "Failed to queue re-analysis");
       }
-      
+
       const data = await response.json();
+      if (!ownsRequest()) return;
       toast.success(data.message || "Game queued for re-analysis!");
-      
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            setAnalysisQueueStatus(status);
-            if (status.status === "analyzed") {
-              clearInterval(pollInterval);
-              // Refetch analysis
-              const analysisRes = await fetch(`${API}/analysis/${gameId}`, { credentials: "include" });
-              if (analysisRes.ok) {
-                const analysisData = await analysisRes.json();
-                setAnalysis(analysisData);
-                toast.success("Analysis complete!");
-              }
-              // Refetch lab data
-              const labRes = await fetch(`${API}/lab/${gameId}`, { credentials: "include" });
-              if (labRes.ok) {
-                setLabData(await labRes.json());
-              }
-              setReanalyzing(false);
-            } else if (status.status === "failed") {
-              clearInterval(pollInterval);
-              toast.error(status.last_error || "Analysis failed. Please try again.");
-              setReanalyzing(false);
-            }
-          }
-        } catch (err) {
-          console.error("Poll error:", err);
-        }
-      }, 3000); // Poll every 3 seconds
-      
-      // Stop polling after 2 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setReanalyzing(false);
-      }, 120000);
-      
+      // One polling owner only: the state-driven effect below handles completion.
+      const normalizedStatus = ["queued", "already_queued"].includes(data.status)
+        ? "pending"
+        : (data.status || "pending");
+      setAnalysisQueueStatus(previous => ({
+        ...(previous || {}),
+        ...data,
+        status: normalizedStatus,
+      }));
     } catch (error) {
-      toast.error(error.message || "Failed to queue re-analysis");
-      setReanalyzing(false);
+      if (error.name !== "AbortError" && ownsRequest()) {
+        toast.error(error.message || "Failed to queue re-analysis");
+        setReanalyzing(false);
+      }
     }
   };
+
+  useEffect(() => {
+    reanalyzeRequestRef.current += 1;
+    reanalyzeAbortRef.current?.abort();
+    reanalyzeAbortRef.current = null;
+    setReanalyzing(false);
+    return () => {
+      reanalyzeRequestRef.current += 1;
+      reanalyzeAbortRef.current?.abort();
+      reanalyzeAbortRef.current = null;
+    };
+  }, [gameId]);
   
   // Fetch game and analysis data
   useEffect(() => {
@@ -344,44 +342,70 @@ const LabClassic = ({ user }) => {
     fetchData();
   }, [gameId, navigate]);
 
+  const analysisQueueState = analysisQueueStatus?.status;
   useEffect(() => {
-    if (!analysisQueueStatus || !["pending", "processing", "failed"].includes(analysisQueueStatus.status)) {
+    if (!["pending", "processing", "failed"].includes(analysisQueueState)) {
       return undefined;
     }
 
+    const controller = new AbortController();
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
-        if (!response.ok) return;
+        const response = await fetch(`${API}/games/${gameId}/analysis-status`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok || controller.signal.aborted) return;
 
         const status = await response.json();
-        setAnalysisQueueStatus(status);
+        if (controller.signal.aborted) return;
 
         if (status.status === "analyzed") {
           const [analysisResponse, labResponse] = await Promise.all([
-            fetch(`${API}/analysis/${gameId}`, { credentials: "include" }),
-            fetch(`${API}/lab/${gameId}`, { credentials: "include" })
+            fetch(`${API}/analysis/${gameId}`, { credentials: "include", signal: controller.signal }),
+            fetch(`${API}/lab/${gameId}`, { credentials: "include", signal: controller.signal })
           ]);
 
-          if (analysisResponse.ok) {
-            setAnalysis(await analysisResponse.json());
+          if (!analysisResponse.ok || !labResponse.ok) {
+            if (controller.signal.aborted) return;
+            const refreshFailure = {
+              ...status,
+              status: "failed",
+              last_error: "Analysis finished, but the complete review could not be refreshed. Please retry.",
+            };
+            setAnalysisQueueStatus(refreshFailure);
+            setReanalyzing(false);
+            toast.error(refreshFailure.last_error);
+            return;
           }
-          if (labResponse.ok) {
-            setLabData(await labResponse.json());
-          }
+
+          const [nextAnalysis, nextLabData] = await Promise.all([
+            analysisResponse.json(),
+            labResponse.json(),
+          ]);
+          if (controller.signal.aborted) return;
+          setAnalysisQueueStatus(status);
+          setAnalysis(nextAnalysis);
+          setLabData(nextLabData);
 
           toast.success("Analysis complete!");
           setReanalyzing(false);
-        } else if (status.status === "failed") {
-          setReanalyzing(false);
+        } else {
+          setAnalysisQueueStatus(status);
+          if (status.status === "failed") setReanalyzing(false);
         }
       } catch (error) {
-        console.error("Analysis queue poll error:", error);
+        if (error.name !== "AbortError") {
+          console.error("Analysis queue poll error:", error);
+        }
       }
     }, 5000);
 
-    return () => clearInterval(pollInterval);
-  }, [analysisQueueStatus?.status, gameId]);
+    return () => {
+      clearInterval(pollInterval);
+      controller.abort();
+    };
+  }, [analysisQueueState, gameId]);
 
   const analysisStatusCard = (() => {
     if (!analysisQueueStatus || !["pending", "processing", "failed"].includes(analysisQueueStatus.status)) {
@@ -545,25 +569,8 @@ const LabClassic = ({ user }) => {
     setCurrentMoveIndex(-1);
   }, [game?.pgn]);
 
-  // Handle initial move from URL
-  useEffect(() => {
-    if (initialMove && moves.length > 0) {
-      const moveNum = parseInt(initialMove, 10);
-      if (!isNaN(moveNum) && moveNum > 0) {
-        // Convert move number to index (move 1 = index 0 or 1 depending on color)
-        const targetIndex = (moveNum - 1) * 2 + (game?.user_color === "black" ? 1 : 0);
-        goToMove(Math.min(targetIndex, moves.length - 1));
-        
-        // If coming from Journey, switch to milestones tab to show the moment
-        if (sourceContext === 'journey') {
-          setActiveTab('milestones');
-        }
-      }
-    }
-  }, [initialMove, moves.length, game?.user_color, sourceContext]);
-
   // Navigate to a specific move
-  const goToMove = (targetIndex) => {
+  const goToMove = useCallback((targetIndex) => {
     const clampedIndex = Math.max(-1, Math.min(targetIndex, moves.length - 1));
     const posIndex = clampedIndex + 1;
     const fen = allFens[posIndex] || START_FEN;
@@ -588,7 +595,24 @@ const LabClassic = ({ user }) => {
       setLastMoveSquares({});
       setCustomArrows([]);
     }
-  };
+  }, [allFens, moves]);
+
+  // Handle initial move from URL
+  useEffect(() => {
+    if (initialMove && moves.length > 0) {
+      const moveNum = parseInt(initialMove, 10);
+      if (!isNaN(moveNum) && moveNum > 0) {
+        // Convert move number to index (move 1 = index 0 or 1 depending on color)
+        const targetIndex = (moveNum - 1) * 2 + (game?.user_color === "black" ? 1 : 0);
+        goToMove(Math.min(targetIndex, moves.length - 1));
+
+        // If coming from Journey, switch to milestones tab to show the moment
+        if (sourceContext === 'journey') {
+          setActiveTab('milestones');
+        }
+      }
+    }
+  }, [initialMove, moves.length, game?.user_color, sourceContext, goToMove]);
 
   // Navigation helpers
   const goToStart = () => { goToMove(-1); setIsPlaying(false); };
@@ -785,7 +809,7 @@ const LabClassic = ({ user }) => {
     }
     const timer = setTimeout(() => goToMove(currentMoveIndex + 1), 600);
     return () => clearTimeout(timer);
-  }, [isPlaying, currentMoveIndex, moves.length]);
+  }, [isPlaying, currentMoveIndex, moves.length, goToMove]);
 
   // Trigger analysis
   const handleAnalyze = async () => {
@@ -819,7 +843,8 @@ const LabClassic = ({ user }) => {
 
   // Extract data from analysis
   const stockfishData = analysis?.stockfish_analysis || {};
-  const moveEvaluations = stockfishData.move_evaluations || [];
+  const rawMoveEvaluations = stockfishData.move_evaluations;
+  const moveEvaluations = useMemo(() => rawMoveEvaluations || [], [rawMoveEvaluations]);
   const accuracy = stockfishData.accuracy;
   const coreLesson = labData?.core_lesson;
   const strategicAnalysis = labData?.strategic_analysis;
@@ -839,13 +864,13 @@ const LabClassic = ({ user }) => {
   const userColor = game?.user_color || "white";
   
   // Determine if move eval is user's move based on FEN (more accurate)
-  const isUserMoveFromFen = (eval_entry) => {
+  const isUserMoveFromFen = useCallback((eval_entry) => {
     if (eval_entry.is_user_move !== undefined) return eval_entry.is_user_move;
     const fen = eval_entry.fen_before || '';
     const parts = fen.split(' ');
     const turn = parts[1]; // 'w' or 'b'
     return (userColor === 'white' && turn === 'w') || (userColor === 'black' && turn === 'b');
-  };
+  }, [userColor]);
   
   // COACHING PHILOSOPHY:
   // Coach Mode: Only show human-improvable errors
@@ -919,7 +944,7 @@ const LabClassic = ({ user }) => {
       else if (cpLoss >= 50) enginePrefs++;
     });
     return { blunders, mistakes, inaccuracies, enginePrefs };
-  }, [moveEvaluations, userColor]);
+  }, [moveEvaluations, isUserMoveFromFen]);
 
   // Group milestones - brilliant moves, good moves, and learning moments
   // Now respects Coach Mode vs Engine Mode
@@ -1102,7 +1127,7 @@ const LabClassic = ({ user }) => {
     }
     
     return result;
-  }, [moveEvaluations, userColor, game?.result]);
+  }, [moveEvaluations, isUserMoveFromFen, game?.result, userColor]);
   
   // Filter milestones based on mode
   const displayedMilestones = useMemo(() => {
@@ -1136,7 +1161,7 @@ const LabClassic = ({ user }) => {
       const cpLoss = Math.abs(m.cp_loss || 0);
       return cpLoss >= 150; // 1.5 pawns - matches new threshold
     });
-  }, [moveEvaluations, userColor]);
+  }, [moveEvaluations, isUserMoveFromFen]);
 
   // Get biggest eval swing
   const biggestEvalSwing = useMemo(() => {
@@ -1149,7 +1174,7 @@ const LabClassic = ({ user }) => {
       }
     });
     return maxSwing;
-  }, [moveEvaluations, userColor]);
+  }, [moveEvaluations, isUserMoveFromFen]);
 
   // Move list for the board panel
   const movePairs = useMemo(() => {

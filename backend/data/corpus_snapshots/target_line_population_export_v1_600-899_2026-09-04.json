@@ -1,0 +1,8003 @@
+{
+  "distinct_source_games": 375,
+  "eligible_phase_source_games": {
+    "endgame": 244,
+    "middlegame": 977,
+    "opening": 940
+  },
+  "excluded_position_matches": 113,
+  "excluded_position_signatures_supplied": 664,
+  "generated_on": "2026-09-04",
+  "positions": [
+    {
+      "best_move_san": "d4",
+      "cp_loss": 270,
+      "fen_before": "rnb1kb1r/pppq1pp1/3p1n1p/4p3/2B1P3/1QP2N2/PP1P1PPP/RNB1K2R w KQkq - 3 6",
+      "phase": "opening",
+      "played_san": "g4",
+      "pv_after_best": [
+        "Nxe4",
+        "O-O",
+        "Nc6",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Qxg4",
+        "Be2",
+        "Qxe4",
+        "d4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bc2",
+      "cp_loss": 211,
+      "fen_before": "r1bqkb1r/2p3pp/p2p4/n2P1p2/4n3/1B3N2/PP2QPPP/RNB1K2R w KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "Ng5",
+      "pv_after_best": [
+        "Be7",
+        "Nbd2",
+        "O-O",
+        "Nxe4"
+      ],
+      "pv_after_played": [
+        "Nxb3",
+        "Nxe4",
+        "Qe7",
+        "Nxd6+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 179,
+      "fen_before": "rnbqkbnr/ppp2ppp/8/3pP3/8/2N5/PPP1PPPP/R1BQKBNR b KQkq - 0 3",
+      "phase": "opening",
+      "played_san": "f6",
+      "pv_after_best": [
+        "Nb5",
+        "c5",
+        "Na3",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "Qxd5",
+        "Nd7",
+        "Bf4",
+        "Ne7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxg4",
+      "cp_loss": 200,
+      "fen_before": "r3kb1r/ppp3pp/2n5/3p1b1n/6N1/2NP4/PPP1qPPP/R1B2RK1 b kq - 1 10",
+      "phase": "opening",
+      "played_san": "Qxc2",
+      "pv_after_best": [
+        "Re1+",
+        "Kd7",
+        "Nxd5",
+        "Re8"
+      ],
+      "pv_after_played": [
+        "Re1+",
+        "Kd7",
+        "Ne3",
+        "Qxc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "a4",
+      "cp_loss": 150,
+      "fen_before": "r1b2rk1/2p1qpbp/p1np2p1/1p2p3/4P3/P1NP1N1P/BPP2PP1/R2Q1RK1 w - - 0 12",
+      "phase": "opening",
+      "played_san": "d4",
+      "pv_after_best": [
+        "b4",
+        "Nd5",
+        "Qd8",
+        "a5"
+      ],
+      "pv_after_played": [
+        "Nxd4",
+        "Nd5",
+        "Qd8",
+        "Nb4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d3",
+      "cp_loss": 758,
+      "fen_before": "r1bq1r1k/ppp2Bp1/2n4p/2b1p1NQ/4P3/8/PPPP1PPP/R1B1K2R w KQ - 0 10",
+      "phase": "opening",
+      "played_san": "Qg6",
+      "pv_after_best": [
+        "Nd4",
+        "O-O",
+        "Be7",
+        "c3"
+      ],
+      "pv_after_played": [
+        "Qxg5",
+        "Qxg5",
+        "hxg5",
+        "h4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nf6",
+      "cp_loss": 9934,
+      "fen_before": "r2qkbnr/ppp2ppp/2np4/4p3/2B1P3/2N2Q1P/PPPP1PP1/R1B1K2R b KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "Nd4",
+      "pv_after_best": [
+        "Ne2",
+        "Na5",
+        "Bb3",
+        "Nxb3"
+      ],
+      "pv_after_played": [
+        "Qxf7#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxg1",
+      "cp_loss": 299,
+      "fen_before": "r1b1k1nr/pppp1ppp/8/2b5/2B1P3/2P5/PP1KN1qP/R1BQ2R1 b kq - 1 10",
+      "phase": "opening",
+      "played_san": "Qxe4",
+      "pv_after_best": [
+        "Qxg1",
+        "Qxg1",
+        "Nxg1",
+        "d6"
+      ],
+      "pv_after_played": [
+        "Nd4",
+        "Qh4",
+        "Qf3",
+        "Qf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f3",
+      "cp_loss": 315,
+      "fen_before": "rn2kbnr/ppp2ppp/8/3q4/8/4p2P/PPPP1P1P/RNBQKB1R w KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Rg1",
+      "pv_after_best": [
+        "Be7",
+        "Bd3",
+        "Bh4+",
+        "Kf1"
+      ],
+      "pv_after_played": [
+        "exf2+",
+        "Kxf2",
+        "Bc5+",
+        "d4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "a6",
+      "cp_loss": 216,
+      "fen_before": "rnbqkb1r/pppp2pp/5n2/1B6/4P3/8/PPP2PPP/RNBQK1NR b KQ - 3 7",
+      "phase": "opening",
+      "played_san": "Nxe4",
+      "pv_after_best": [
+        "Ba4",
+        "c6",
+        "Nf3",
+        "Nxe4"
+      ],
+      "pv_after_played": [
+        "Qh5+",
+        "g6",
+        "Qe5+",
+        "Qe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Na6",
+      "cp_loss": 315,
+      "fen_before": "r1bqkbnr/pppp1ppp/8/3Pp3/1nP5/P7/1P2PPPP/RNBQKBNR b KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "c6",
+      "pv_after_best": [
+        "Nc3",
+        "Nf6",
+        "b4",
+        "Nb8"
+      ],
+      "pv_after_played": [
+        "axb4",
+        "cxd5",
+        "cxd5",
+        "Qb6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc6",
+      "cp_loss": 166,
+      "fen_before": "rn1qk2r/pppbbppp/5n2/8/8/2N2Q2/PPP2PPP/R1B1KB1R b KQkq - 0 9",
+      "phase": "opening",
+      "played_san": "Bg4",
+      "pv_after_best": [
+        "Qg3",
+        "O-O",
+        "Bh6",
+        "Nh5"
+      ],
+      "pv_after_played": [
+        "Qxb7",
+        "Nbd7",
+        "h3",
+        "Be6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 350,
+      "fen_before": "rnbqkb1r/pp1p2p1/2p2pnp/4p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w kq - 1 7",
+      "phase": "opening",
+      "played_san": "b3",
+      "pv_after_best": [
+        "d6",
+        "Be3",
+        "Na6",
+        "Nd2"
+      ],
+      "pv_after_played": [
+        "b5",
+        "Nxb5",
+        "cxb5",
+        "Bxb5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qh5+",
+      "cp_loss": 346,
+      "fen_before": "r3kb1r/ppp1q1p1/3p3p/3n4/3pP3/8/PPPP1PPP/R1BQK2R w KQkq - 0 12",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Qf7",
+        "Qxd5",
+        "Qxd5",
+        "exd5"
+      ],
+      "pv_after_played": [
+        "Nf6",
+        "d3",
+        "Qe6",
+        "f4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "O-O-O",
+      "cp_loss": 247,
+      "fen_before": "r3kb1r/pp2pppp/2n1qn2/2p5/8/5Q1P/PPPPBPP1/RNB2RK1 b kq - 4 9",
+      "phase": "opening",
+      "played_san": "Ne5",
+      "pv_after_best": [
+        "Qe3",
+        "Qf5",
+        "d3",
+        "h5"
+      ],
+      "pv_after_played": [
+        "Qxb7",
+        "Qc8",
+        "Bb5+",
+        "Ned7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bg3",
+      "cp_loss": 612,
+      "fen_before": "r1bqk2r/2pp1p2/p4p2/1pb1p3/3nP2B/1B1P1N2/PPP2PPP/R2Q1RK1 w kq - 0 12",
+      "phase": "opening",
+      "played_san": "Bxf6",
+      "pv_after_best": [
+        "Nxb3",
+        "axb3",
+        "d6",
+        "Nh4"
+      ],
+      "pv_after_played": [
+        "Qxf6",
+        "Nxd4",
+        "Bxd4",
+        "c3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "dxc2",
+      "cp_loss": 246,
+      "fen_before": "rn2kb1r/pp2qppp/2p2n2/8/2Q3b1/3pB3/PPP2PPP/RN2KBNR b KQkq - 1 9",
+      "phase": "opening",
+      "played_san": "Qb4+",
+      "pv_after_best": [
+        "Nc3",
+        "Nbd7",
+        "Be2",
+        "Be6"
+      ],
+      "pv_after_played": [
+        "Qxb4",
+        "Bxb4+",
+        "c3",
+        "Bd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bb5+",
+      "cp_loss": 226,
+      "fen_before": "rn1qkbnr/pp3ppp/4p3/2ppPb2/3P1P2/2N5/PPP3PP/R1BQKBNR w KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "g4",
+      "pv_after_best": [
+        "Nc6",
+        "Nge2",
+        "h5",
+        "Be3"
+      ],
+      "pv_after_played": [
+        "Qh4+",
+        "Kd2",
+        "Bxg4",
+        "Be2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f4+",
+      "cp_loss": 338,
+      "fen_before": "r1bq1b1r/pppp1Qp1/5n1p/4k3/2BpP3/8/PPP2PPP/RN2K2R w KQ - 0 11",
+      "phase": "opening",
+      "played_san": "Qg6",
+      "pv_after_best": [
+        "Kd6",
+        "e5+",
+        "Kc6",
+        "exf6"
+      ],
+      "pv_after_played": [
+        "d5",
+        "exd5",
+        "Kd6",
+        "O-O"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f4",
+      "cp_loss": 164,
+      "fen_before": "rnb2rk1/pp3ppp/2p1p3/3pP1q1/N7/P2BP3/1PPQ1PPP/R3K2R w KQ - 1 12",
+      "phase": "opening",
+      "played_san": "O-O-O",
+      "pv_after_best": [
+        "Qh4+",
+        "g3",
+        "Qd8",
+        "h4"
+      ],
+      "pv_after_played": [
+        "Qxe5",
+        "e4",
+        "Nd7",
+        "exd5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 215,
+      "fen_before": "rnb1kbnr/p1q2pp1/2pp3p/1p2p3/4P2B/2NP1N2/PPPQ1P1P/2KR1BR1 w kq - 0 12",
+      "phase": "opening",
+      "played_san": "a3",
+      "pv_after_best": [
+        "Nd7",
+        "Bxb5",
+        "cxb5",
+        "dxe5"
+      ],
+      "pv_after_played": [
+        "g5",
+        "Bg3",
+        "h5",
+        "d4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nf3",
+      "cp_loss": 336,
+      "fen_before": "r1b1qrk1/pppp1pp1/2n4p/3B2NQ/1b1pP3/8/PPP2PPP/R1BK3R w - - 0 11",
+      "phase": "opening",
+      "played_san": "Qh4",
+      "pv_after_best": [
+        "Ne7",
+        "Bxh6",
+        "gxh6",
+        "Qxh6"
+      ],
+      "pv_after_played": [
+        "hxg5",
+        "Qg3",
+        "Bd6",
+        "Qg4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nge7",
+      "cp_loss": 196,
+      "fen_before": "r2qk1nr/ppp4p/2n2p2/2bpp1pb/8/P1NPPNBP/1PP2PP1/R2QKB1R b KQkq - 1 9",
+      "phase": "opening",
+      "played_san": "Qe7",
+      "pv_after_best": [
+        "Be2",
+        "Bg6",
+        "d4",
+        "exd4"
+      ],
+      "pv_after_played": [
+        "Nxd5",
+        "Qg7",
+        "d4",
+        "Bd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nh6",
+      "cp_loss": 536,
+      "fen_before": "r1bqk1nr/1ppp1ppp/p1n5/2b1p1N1/2B1P3/3P4/PPP2PPP/RNBQK2R b KQkq - 2 5",
+      "phase": "opening",
+      "played_san": "Be7",
+      "pv_after_best": [
+        "Nf3",
+        "Ng8",
+        "Nc3",
+        "Nf6"
+      ],
+      "pv_after_played": [
+        "Nxf7",
+        "Bb4+",
+        "c3",
+        "Qe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "axb5",
+      "cp_loss": 169,
+      "fen_before": "r1bq1rk1/1pp2pp1/pbnp4/1P2p1Np/2B1P1n1/N1PP4/P4PPP/R1BQ1RK1 b - - 0 12",
+      "phase": "opening",
+      "played_san": "Na5",
+      "pv_after_best": [
+        "Nxb5",
+        "Na5",
+        "Bb3",
+        "d5"
+      ],
+      "pv_after_played": [
+        "bxa6",
+        "Nxc4",
+        "Nxc4",
+        "Nxf2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc3",
+      "cp_loss": 219,
+      "fen_before": "rnb1kbnr/ppp1pppp/8/3q4/8/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3",
+      "phase": "opening",
+      "played_san": "Be2",
+      "pv_after_best": [
+        "Qd8",
+        "Nf3",
+        "Nf6",
+        "d4"
+      ],
+      "pv_after_played": [
+        "Qxg2",
+        "Bf3",
+        "Qg6",
+        "Nc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne7",
+      "cp_loss": 175,
+      "fen_before": "r2qkb1r/ppp2ppp/2n2p2/3p4/3P4/2N1PP2/PPP2P1P/R2QKB1R b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Bd6",
+      "pv_after_best": [
+        "Nb1",
+        "f5",
+        "f4",
+        "Ng6"
+      ],
+      "pv_after_played": [
+        "Nxd5",
+        "Ne7",
+        "Nc3",
+        "c6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxc3",
+      "cp_loss": 192,
+      "fen_before": "r1bqk2r/pppp1ppp/2n1pn2/8/1b1PP3/P1N5/1PPB1PPP/R2QKBNR b KQkq - 0 5",
+      "phase": "opening",
+      "played_san": "Ba5",
+      "pv_after_best": [
+        "bxc3",
+        "Nxe4",
+        "Qg4",
+        "Nxd2"
+      ],
+      "pv_after_played": [
+        "e5",
+        "Nd5",
+        "Qg4",
+        "Kf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "c4",
+      "cp_loss": 190,
+      "fen_before": "2kr1b1r/ppp2ppp/2np1nq1/3Np1N1/4P3/3P4/PPP2PPP/R1BQ1RK1 w - - 3 10",
+      "phase": "opening",
+      "played_san": "Nxf6",
+      "pv_after_best": [
+        "Nd4",
+        "Be3",
+        "c6",
+        "Nxf6"
+      ],
+      "pv_after_played": [
+        "gxf6",
+        "Nf3",
+        "Qh5",
+        "g3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "h4",
+      "cp_loss": 505,
+      "fen_before": "r1bqk1nr/pppn1pbp/3pp1p1/8/3PP3/2N2Q2/PPP1NPPP/R1B1KB1R w KQkq - 1 6",
+      "phase": "opening",
+      "played_san": "Bg5",
+      "pv_after_best": [
+        "e5",
+        "dxe5",
+        "Nxe5",
+        "Qg3"
+      ],
+      "pv_after_played": [
+        "Qxg5",
+        "h4",
+        "Qf6",
+        "Qg3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qa4+",
+      "cp_loss": 199,
+      "fen_before": "r3kbnr/ppp2ppp/4p3/4P3/3n1P2/3P4/PP3PqP/RNBQK2R w KQkq - 0 10",
+      "phase": "opening",
+      "played_san": "Be3",
+      "pv_after_best": [
+        "Qc6",
+        "Qxc6+",
+        "Nxc6",
+        "Be3"
+      ],
+      "pv_after_played": [
+        "Qxh1+",
+        "Kd2",
+        "Bb4+",
+        "Nc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "c3",
+      "cp_loss": 404,
+      "fen_before": "rnbqkb1r/ppp1pppp/8/8/3pn3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 5",
+      "phase": "opening",
+      "played_san": "Nxd4",
+      "pv_after_best": [
+        "c5",
+        "cxd4",
+        "cxd4",
+        "Bb5+"
+      ],
+      "pv_after_played": [
+        "Qxd4",
+        "Qe2",
+        "Nd6",
+        "c3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nd5",
+      "cp_loss": 392,
+      "fen_before": "r1b1k2r/pppq1ppp/5n2/8/2QpP3/2NB4/PP3PPP/R3K1NR w KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "Nf3",
+      "pv_after_best": [
+        "Nxd5",
+        "exd5",
+        "O-O",
+        "Ne2"
+      ],
+      "pv_after_played": [
+        "dxc3",
+        "Qxc3",
+        "Qe7",
+        "O-O"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Re1",
+      "cp_loss": 171,
+      "fen_before": "r1bqr1k1/ppp2pp1/2pb3p/8/3NP3/2N5/PPP2PPP/R2Q1RK1 w - - 1 12",
+      "phase": "opening",
+      "played_san": "Nce2",
+      "pv_after_best": [
+        "Qf6",
+        "Nf3",
+        "Bg4",
+        "h3"
+      ],
+      "pv_after_played": [
+        "Rxe4",
+        "Qd3",
+        "Re8",
+        "Rfe1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nf5",
+      "cp_loss": 210,
+      "fen_before": "rnb1kbnr/pp1pqp1p/8/2p3p1/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "Nf3",
+      "pv_after_best": [
+        "Qf6",
+        "Nd5",
+        "Qg6",
+        "h4"
+      ],
+      "pv_after_played": [
+        "g4",
+        "Nd2",
+        "Nf6",
+        "Be2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rc8",
+      "cp_loss": 255,
+      "fen_before": "r3kb1r/ppBbqp2/2n1pn1p/1B1p2p1/3P4/2N1P3/PPP1NPPP/R2QK2R b KQkq - 0 9",
+      "phase": "opening",
+      "played_san": "e5",
+      "pv_after_best": [
+        "Bg3",
+        "Nh5",
+        "a3",
+        "a6"
+      ],
+      "pv_after_played": [
+        "dxe5",
+        "Nxe5",
+        "Nxd5",
+        "Nxd5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 206,
+      "fen_before": "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4",
+      "phase": "opening",
+      "played_san": "Nd4",
+      "pv_after_best": [
+        "exd5",
+        "Na5",
+        "Bb5+",
+        "c6"
+      ],
+      "pv_after_played": [
+        "Nxf7",
+        "Qe7",
+        "Nxh8",
+        "d5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nd5",
+      "cp_loss": 418,
+      "fen_before": "rnb1kbnr/pppp4/8/4pN1p/1qB1P1p1/2NPB3/PPP2PPP/R2Q1RK1 w kq - 3 10",
+      "phase": "opening",
+      "played_san": "b3",
+      "pv_after_best": [
+        "Qa5",
+        "Bd2",
+        "Qc5",
+        "b4"
+      ],
+      "pv_after_played": [
+        "Qxc3",
+        "Bd2",
+        "Qb2",
+        "Qe1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxf4",
+      "cp_loss": 9592,
+      "fen_before": "r1b1kb1r/ppp2ppp/8/4p1q1/3P1n2/1P6/1PP2PPP/RNBQ1RK1 w kq - 1 10",
+      "phase": "opening",
+      "played_san": "dxe5",
+      "pv_after_best": [
+        "Qxf4",
+        "Nc3",
+        "Qxd4",
+        "Nb5"
+      ],
+      "pv_after_played": [
+        "Qxg2#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "e5",
+      "cp_loss": 448,
+      "fen_before": "rnb1k1nr/pppp1p2/3bp3/7p/2B1P1p1/3N2Pq/PPPP1P1P/RNBQ1RK1 w kq - 1 8",
+      "phase": "opening",
+      "played_san": "f3",
+      "pv_after_best": [
+        "Bxe5",
+        "Nxe5",
+        "Nc6",
+        "Nd3"
+      ],
+      "pv_after_played": [
+        "Bxg3",
+        "hxg3",
+        "Qxg3+",
+        "Kh1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 229,
+      "fen_before": "r2qkb1r/ppp1pppp/2n1bn2/8/2pPP3/2N2N2/PP3PPP/R1BQKB1R w KQkq - 3 6",
+      "phase": "opening",
+      "played_san": "Qa4",
+      "pv_after_best": [
+        "Nxe4",
+        "Bxc4",
+        "Nxc3",
+        "bxc3"
+      ],
+      "pv_after_played": [
+        "Bd7",
+        "Bxc4",
+        "a6",
+        "Qc2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nc6",
+      "cp_loss": 151,
+      "fen_before": "rnbqk1nr/pppp1ppp/8/2b1p3/6P1/4P3/PPPP1PBP/RNBQK1NR b KQkq - 0 3",
+      "phase": "opening",
+      "played_san": "Nf6",
+      "pv_after_best": [
+        "Ne2",
+        "d5",
+        "d4",
+        "Bb6"
+      ],
+      "pv_after_played": [
+        "d4",
+        "exd4",
+        "exd4",
+        "Bb4+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 441,
+      "fen_before": "rnbqkb1r/ppp2ppp/3p4/4p3/2B1n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
+      "phase": "opening",
+      "played_san": "Ng5",
+      "pv_after_best": [
+        "d5",
+        "Nxe5",
+        "dxc4",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Nxg5",
+        "Nc3",
+        "Be6",
+        "Be2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxd1+",
+      "cp_loss": 163,
+      "fen_before": "r1b4r/p2pkppp/3q1N2/1pp5/2P5/2B1P3/P1P2PPP/R2QKBNR b KQ - 0 12",
+      "phase": "opening",
+      "played_san": "bxc4",
+      "pv_after_best": [
+        "Rxd1",
+        "gxf6",
+        "cxb5",
+        "a6"
+      ],
+      "pv_after_played": [
+        "Qxd6+",
+        "Kxd6",
+        "Rd1+",
+        "Ke7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc3",
+      "cp_loss": 174,
+      "fen_before": "rnbqkb1r/ppp1pp1p/3p1np1/8/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "Bf4",
+      "pv_after_best": [
+        "Bg7",
+        "Be3",
+        "O-O",
+        "Qd2"
+      ],
+      "pv_after_played": [
+        "Nxe4",
+        "Bd3",
+        "Nf6",
+        "c4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxd5+",
+      "cp_loss": 245,
+      "fen_before": "rn1q1rk1/ppp2ppp/3pb3/3P2b1/2Q1Pn1P/2N2N2/PPP3P1/2KR1B1R b - - 0 12",
+      "phase": "opening",
+      "played_san": "Bf6",
+      "pv_after_best": [
+        "Nxg5",
+        "Nxc3",
+        "Nxe6",
+        "fxe6"
+      ],
+      "pv_after_played": [
+        "dxe6",
+        "Nxe6",
+        "e5",
+        "Be7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nb4",
+      "cp_loss": 280,
+      "fen_before": "r1bqk2r/pp3ppp/2n1p2n/2b1P1NQ/2Pp1P2/8/PP4PP/RNB1KB1R b KQkq - 3 9",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Na3",
+        "Qa5",
+        "Bd2",
+        "Bd7"
+      ],
+      "pv_after_played": [
+        "Bd3",
+        "f5",
+        "exf6",
+        "Rxf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 155,
+      "fen_before": "r1b2rk1/ppppqpbp/2n2np1/4p1B1/4P3/2NP1N2/PPP1BPPP/R2Q1RK1 w - - 8 8",
+      "phase": "opening",
+      "played_san": "Bxf6",
+      "pv_after_best": [
+        "d6",
+        "Nd5",
+        "Qd8",
+        "dxe5"
+      ],
+      "pv_after_played": [
+        "Qxf6",
+        "a4",
+        "d6",
+        "a5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f6",
+      "cp_loss": 9398,
+      "fen_before": "r1b1kb1r/1pp2ppp/p1n5/4p1B1/2B5/2nP1Q2/PPP2PPP/R3K2R b KQkq - 1 9",
+      "phase": "opening",
+      "played_san": "Nd4",
+      "pv_after_best": [
+        "Bxf6",
+        "Na4",
+        "Bxg7",
+        "Bxg7"
+      ],
+      "pv_after_played": [
+        "Qxf7#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "c6",
+      "cp_loss": 161,
+      "fen_before": "rn1qkb1r/ppp2ppp/4pn2/3p4/3P1P2/2N5/PPP1PPBP/R1BQK2R b KQkq - 1 6",
+      "phase": "opening",
+      "played_san": "Ng4",
+      "pv_after_best": [
+        "e3",
+        "Nbd7",
+        "Ne2",
+        "Nb6"
+      ],
+      "pv_after_played": [
+        "e4",
+        "Qh4",
+        "Qe2",
+        "Nc6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc5+",
+      "cp_loss": 8940,
+      "fen_before": "8/pQ3pk1/3p4/3K1P2/8/3P3r/PP3q2/8 b - - 0 34",
+      "phase": "middlegame",
+      "played_san": "Qf3+",
+      "pv_after_best": [
+        "Ke4",
+        "Qe5#"
+      ],
+      "pv_after_played": [
+        "Kxd6",
+        "Qxb7",
+        "Kc5",
+        "Qxb2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ra3",
+      "cp_loss": 251,
+      "fen_before": "r4rk1/p3pp1p/2qp1bp1/3n4/2p3P1/1R3N1P/P1P2P2/3QR1K1 w - - 0 21",
+      "phase": "middlegame",
+      "played_san": "Rc3",
+      "pv_after_best": [
+        "Nf4",
+        "h4",
+        "e5",
+        "g5"
+      ],
+      "pv_after_played": [
+        "Nxc3",
+        "Qd2",
+        "Qxf3",
+        "g5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxf2+",
+      "cp_loss": 9020,
+      "fen_before": "r2q2k1/p1p3pp/2p2n2/2bp2B1/6b1/3Q4/PPP1rPPP/RN3K1R b - - 1 13",
+      "phase": "middlegame",
+      "played_san": "Qe8",
+      "pv_after_best": [
+        "Ke1",
+        "Qe7+",
+        "Be3",
+        "Bxe3"
+      ],
+      "pv_after_played": [
+        "Be3",
+        "Bxe3",
+        "Qxe2",
+        "Bxe2+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ne7",
+      "cp_loss": 8888,
+      "fen_before": "6N1/1k6/1p6/pQp5/5P2/7p/PP5P/7K w - - 0 35",
+      "phase": "middlegame",
+      "played_san": "Kg1",
+      "pv_after_best": [
+        "a4",
+        "Qc6+",
+        "Ka7",
+        "Nd5"
+      ],
+      "pv_after_played": [
+        "a4",
+        "Kf2",
+        "a3",
+        "bxa3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe1",
+      "cp_loss": 313,
+      "fen_before": "r5r1/2p2p1k/p2p4/3n1q2/2Np4/1P3P1p/P2P3P/1R1Q1R1K w - - 0 29",
+      "phase": "middlegame",
+      "played_san": "d3",
+      "pv_after_best": [
+        "Qg5",
+        "Rg1",
+        "Qxg1+",
+        "Qxg1"
+      ],
+      "pv_after_played": [
+        "Rae8",
+        "Nd2",
+        "Nc3",
+        "Qc2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxe5#",
+      "cp_loss": 9151,
+      "fen_before": "3r4/ppQ1p1bp/5kp1/4n1N1/3r4/8/PPPP1PPP/R1B1R1K1 w - - 3 16",
+      "phase": "middlegame",
+      "played_san": "Nxh7+",
+      "pv_after_best": [],
+      "pv_after_played": [
+        "Kf7",
+        "Ng5+",
+        "Ke8",
+        "Ne6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne6",
+      "cp_loss": 572,
+      "fen_before": "3rr3/ppp1kp1N/6p1/2n2n2/7P/3P4/PPPK1P2/4R2R b - - 2 25",
+      "phase": "middlegame",
+      "played_san": "Ne4+",
+      "pv_after_best": [
+        "h5",
+        "Rh8",
+        "hxg6",
+        "fxg6"
+      ],
+      "pv_after_played": [
+        "Rxe4+",
+        "Kd6",
+        "Ra4",
+        "Re7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "a5",
+      "cp_loss": 436,
+      "fen_before": "1rq5/5pk1/3pp2p/1Qp3p1/P1P1R3/7P/2P2PP1/R5K1 w - - 1 31",
+      "phase": "middlegame",
+      "played_san": "Qb3",
+      "pv_after_best": [
+        "f5",
+        "Ree1",
+        "g4",
+        "Qa4"
+      ],
+      "pv_after_played": [
+        "Rxb3",
+        "cxb3",
+        "Qa8",
+        "Ree1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ng4",
+      "cp_loss": 379,
+      "fen_before": "r4r2/ppp3pk/3pB2N/4p3/4P3/2NK4/PP1P2PP/n1B5 w - - 1 17",
+      "phase": "middlegame",
+      "played_san": "Bf5+",
+      "pv_after_best": [
+        "Rf1",
+        "Ne2",
+        "Re1",
+        "b4"
+      ],
+      "pv_after_played": [
+        "Kxh6",
+        "Nd1",
+        "a5",
+        "Kc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe8",
+      "cp_loss": 9068,
+      "fen_before": "8/8/8/3K4/q7/8/8/1k6 b - - 2 103",
+      "phase": "middlegame",
+      "played_san": "Kc2",
+      "pv_after_best": [
+        "Kd6",
+        "Kc2",
+        "Kd5",
+        "Kb3"
+      ],
+      "pv_after_played": [
+        "Ke5",
+        "Qa1+",
+        "Kf5",
+        "Qg7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re7",
+      "cp_loss": 423,
+      "fen_before": "r2qr1k1/pp3pbp/2n2np1/4p1N1/2B5/3P1P2/PP4PP/R1BQ1RK1 b - - 2 15",
+      "phase": "middlegame",
+      "played_san": "h6",
+      "pv_after_best": [
+        "Kh1",
+        "Nd4",
+        "a4",
+        "a6"
+      ],
+      "pv_after_played": [
+        "Bxf7+",
+        "Kh8",
+        "Bxe8",
+        "Qxe8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc3",
+      "cp_loss": 296,
+      "fen_before": "rn1qk2r/pppb3p/6p1/6N1/1bBPp3/5Q2/PPP3PP/RNB1K2R w KQkq - 2 13",
+      "phase": "middlegame",
+      "played_san": "Bd2",
+      "pv_after_best": [
+        "Bxc3+",
+        "Nxc3",
+        "Rf8",
+        "Be3"
+      ],
+      "pv_after_played": [
+        "exf3",
+        "O-O",
+        "Bxd2",
+        "Bf7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qd7",
+      "cp_loss": 353,
+      "fen_before": "r2qk2r/pp2nppp/2p1b3/3p2N1/3P4/Q2B4/P4PPP/R3R1K1 b kq - 3 16",
+      "phase": "middlegame",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Bxh7",
+        "g6",
+        "Re5",
+        "O-O-O"
+      ],
+      "pv_after_played": [
+        "Bxh7+",
+        "Kh8",
+        "Rxe6",
+        "fxe6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kh7",
+      "cp_loss": 214,
+      "fen_before": "r1b2rk1/pp6/3p3p/4bpq1/3N3n/1QPR3P/PP1N2B1/R5K1 b - - 3 23",
+      "phase": "middlegame",
+      "played_san": "Kg7",
+      "pv_after_best": [
+        "Qd5",
+        "Rg8",
+        "Kf1",
+        "Qxg2+"
+      ],
+      "pv_after_played": [
+        "Qd5",
+        "Bxd4+",
+        "Rxd4",
+        "Be6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ra7",
+      "cp_loss": 9583,
+      "fen_before": "r1r2bk1/5p2/7p/4Npp1/p2P4/2B1P1Pq/QP3P1P/3RR1K1 b - - 1 34",
+      "phase": "middlegame",
+      "played_san": "f4",
+      "pv_after_best": [
+        "Qd5",
+        "a3",
+        "Ra1",
+        "Kg7"
+      ],
+      "pv_after_played": [
+        "Qxf7+",
+        "Kh8",
+        "Ng6#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "c2",
+      "cp_loss": 8530,
+      "fen_before": "8/5P1R/1k2r3/4PR2/5K2/2p5/8/4q3 b - - 2 57",
+      "phase": "middlegame",
+      "played_san": "Qf1+",
+      "pv_after_best": [
+        "Rf6",
+        "c1=Q+",
+        "Kg4",
+        "Qe4+"
+      ],
+      "pv_after_played": [
+        "Ke3",
+        "Qxf5",
+        "Rh4",
+        "Qxe5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "fxe3",
+      "cp_loss": 193,
+      "fen_before": "r1b2rk1/ppQ2ppp/3p4/3Bp3/4P3/4b3/PP3PqP/R3KR2 w Q - 0 13",
+      "phase": "middlegame",
+      "played_san": "Qxd6",
+      "pv_after_best": [
+        "Bg4",
+        "Qc4",
+        "Qxb2",
+        "Qd3"
+      ],
+      "pv_after_played": [
+        "Bh3",
+        "Ke2",
+        "Bf4",
+        "Qa3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne6",
+      "cp_loss": 389,
+      "fen_before": "r2q1rk1/5ppp/2pb4/1p4n1/6Q1/1P5P/P3BPP1/R1B2RK1 b - - 1 19",
+      "phase": "middlegame",
+      "played_san": "Qf6",
+      "pv_after_best": [
+        "Bb2",
+        "Bc5",
+        "a4",
+        "Qd2"
+      ],
+      "pv_after_played": [
+        "Bxg5",
+        "Qe5",
+        "f4",
+        "Qb2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nb3",
+      "cp_loss": 323,
+      "fen_before": "r2qk2r/2p1bp2/p7/2ppP1p1/3P2b1/2P2NP1/PP1N2P1/R2Q1RK1 w kq - 0 17",
+      "phase": "middlegame",
+      "played_san": "dxc5",
+      "pv_after_best": [
+        "cxd4",
+        "Nbxd4",
+        "Rh6",
+        "b4"
+      ],
+      "pv_after_played": [
+        "Bxc5+",
+        "Rf2",
+        "Qb8",
+        "Nb3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "O-O",
+      "cp_loss": 183,
+      "fen_before": "r1bq2k1/pp3ppp/2p2b2/3P4/4B3/4Q3/P1P2PPP/1R2K2R w K - 0 15",
+      "phase": "middlegame",
+      "played_san": "dxc6",
+      "pv_after_best": [
+        "c5",
+        "d6",
+        "Rb8",
+        "Qxc5"
+      ],
+      "pv_after_played": [
+        "Qa5+",
+        "Kf1",
+        "bxc6",
+        "Bxc6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "h4",
+      "cp_loss": 312,
+      "fen_before": "8/8/2q3PK/pp6/2k5/2p5/7P/1Q6 w - - 4 62",
+      "phase": "middlegame",
+      "played_san": "Qa2+",
+      "pv_after_best": [
+        "Qf6",
+        "h5",
+        "Qh8+",
+        "Kg5"
+      ],
+      "pv_after_played": [
+        "Kd3",
+        "Qxa5",
+        "c2",
+        "Qa3+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f3",
+      "cp_loss": 371,
+      "fen_before": "4rb2/ppp3kp/6p1/n4b2/5R2/2N5/PPPP1PPP/R1B3K1 w - - 1 22",
+      "phase": "middlegame",
+      "played_san": "h3",
+      "pv_after_best": [
+        "Nc6",
+        "d3",
+        "Bc5+",
+        "Kf1"
+      ],
+      "pv_after_played": [
+        "Bd6",
+        "g3",
+        "Bxf4",
+        "gxf4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kg6",
+      "cp_loss": 8870,
+      "fen_before": "7Q/p5r1/1p5k/2p5/P7/2P3P1/3r3P/5RK1 b - - 1 34",
+      "phase": "middlegame",
+      "played_san": "Rh7",
+      "pv_after_best": [
+        "g4",
+        "Rxh2",
+        "Qe8+",
+        "Kh7"
+      ],
+      "pv_after_played": [
+        "Qf6+",
+        "Kh5",
+        "Qh4+",
+        "Kg6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb6",
+      "cp_loss": 183,
+      "fen_before": "r7/ppkbbQ2/6p1/2q5/2p2B2/2N5/PPP3PP/R4R1K b - - 5 21",
+      "phase": "middlegame",
+      "played_san": "Bd6",
+      "pv_after_best": [
+        "Be3",
+        "Kc7",
+        "Bxc5",
+        "Bxc5"
+      ],
+      "pv_after_played": [
+        "Bxd6+",
+        "Qxd6",
+        "Nb5+",
+        "Kd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qe5",
+      "cp_loss": 554,
+      "fen_before": "r1b2rk1/p4pp1/2pRp3/2q4p/5P2/2P3P1/PP2Q2P/2K2B1R w - - 0 18",
+      "phase": "middlegame",
+      "played_san": "Bg2",
+      "pv_after_best": [
+        "Qb6",
+        "Bg2",
+        "Bb7",
+        "Rhd1"
+      ],
+      "pv_after_played": [
+        "Qxd6",
+        "Rd1",
+        "Qe7",
+        "Qxh5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxh4",
+      "cp_loss": 160,
+      "fen_before": "1k4r1/1pp2p2/3b1p2/6qp/4P2P/3P1QP1/PP3P2/5RK1 b - - 0 24",
+      "phase": "middlegame",
+      "played_san": "Qg4",
+      "pv_after_best": [
+        "Kg2",
+        "Qg5",
+        "Kh3",
+        "h4"
+      ],
+      "pv_after_played": [
+        "Qxg4",
+        "Rxg4",
+        "Kg2",
+        "Kc8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rb1",
+      "cp_loss": 424,
+      "fen_before": "2kr3r/ppp4p/2n2p2/4p1p1/1bB1P3/4BP2/PqP1Q2P/2R2RK1 w - - 2 16",
+      "phase": "middlegame",
+      "played_san": "Bd2",
+      "pv_after_best": [
+        "Qc3",
+        "Rb3",
+        "Nd4",
+        "Bxd4"
+      ],
+      "pv_after_played": [
+        "Rxd2",
+        "Qe3",
+        "Kb8",
+        "Kh1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxb4",
+      "cp_loss": 194,
+      "fen_before": "2k4r/ppr2p2/7p/2N1p2R/PP1P1pP1/3P1P2/2n2KP1/7R b - - 0 32",
+      "phase": "middlegame",
+      "played_san": "Nxd4",
+      "pv_after_best": [
+        "Rb1",
+        "Nc2",
+        "Rxe5",
+        "Rd8"
+      ],
+      "pv_after_played": [
+        "Rxe5",
+        "b6",
+        "Rxh6",
+        "Rd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qe2",
+      "cp_loss": 288,
+      "fen_before": "r4rk1/p5bp/bqnP2p1/6B1/2p3n1/2N2N2/PPP2PPP/R2QR1K1 w - - 7 19",
+      "phase": "middlegame",
+      "played_san": "Be3",
+      "pv_after_best": [
+        "Nge5",
+        "Nxe5",
+        "Nxe5",
+        "Qd2"
+      ],
+      "pv_after_played": [
+        "Nxe3",
+        "Rxe3",
+        "Nd4",
+        "Nd5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rh1",
+      "cp_loss": 220,
+      "fen_before": "r3k2r/ppp2pp1/3p1n1p/2bPp3/2P5/P2P2B1/1P2QPq1/2K1RR2 w kq - 1 18",
+      "phase": "middlegame",
+      "played_san": "Bxe5",
+      "pv_after_best": [
+        "Nxd5",
+        "Rh2",
+        "Nf4",
+        "Bxf4"
+      ],
+      "pv_after_played": [
+        "dxe5",
+        "Qxe5+",
+        "Kd8",
+        "Qc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nc3",
+      "cp_loss": 222,
+      "fen_before": "r1b1k1nr/ppp3pp/3p1p2/5P1q/2BQP3/8/PP4PP/RN3RK1 w kq - 0 14",
+      "phase": "middlegame",
+      "played_san": "Qd5",
+      "pv_after_best": [
+        "Ne7",
+        "Nb5",
+        "Nc6",
+        "Qd5"
+      ],
+      "pv_after_played": [
+        "Ne7",
+        "Qa5",
+        "Qg5",
+        "Qxc7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d3",
+      "cp_loss": 218,
+      "fen_before": "2r2b2/ppp2n1p/3p1N2/2kB4/4P3/2P4b/PP1P1P1q/R1B1KR2 w Q - 12 23",
+      "phase": "middlegame",
+      "played_san": "Nd7+",
+      "pv_after_best": [
+        "Kb6",
+        "Be3+",
+        "c5",
+        "Rb1"
+      ],
+      "pv_after_played": [
+        "Bxd7",
+        "Bxf7",
+        "Kb6",
+        "a4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kd8",
+      "cp_loss": 165,
+      "fen_before": "r3kr2/ppp1q2p/3p2b1/8/2B1n1Q1/4R3/PP3PPP/R5K1 b q - 9 19",
+      "phase": "middlegame",
+      "played_san": "Bf5",
+      "pv_after_best": [
+        "Be6",
+        "c6",
+        "Rae1",
+        "Nxf2"
+      ],
+      "pv_after_played": [
+        "Qe2",
+        "O-O-O",
+        "Bd5",
+        "Rde8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "O-O-O",
+      "cp_loss": 172,
+      "fen_before": "r4rk1/2p1n1p1/pp3p1p/7Q/2q5/P3B3/2P2P1P/R3KR2 w Q - 0 21",
+      "phase": "middlegame",
+      "played_san": "Rc1",
+      "pv_after_best": [
+        "Qa2",
+        "Bd4",
+        "Rad8",
+        "Bb2"
+      ],
+      "pv_after_played": [
+        "Qe6",
+        "Rd1",
+        "Nf5",
+        "Qg4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d6",
+      "cp_loss": 160,
+      "fen_before": "N4b1r/p1R1n1p1/1p3pk1/3P4/P2pPBp1/7P/1P3P2/6K1 w - - 0 25",
+      "phase": "middlegame",
+      "played_san": "hxg4",
+      "pv_after_best": [
+        "gxh3",
+        "dxe7",
+        "Bxe7",
+        "Rxe7"
+      ],
+      "pv_after_played": [
+        "Kh7",
+        "Bg3",
+        "Ng6",
+        "Rc1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qf4",
+      "cp_loss": 472,
+      "fen_before": "1Q3r2/3bqk1p/6p1/5p2/4p3/1P6/P1r2PPP/R3R1K1 w - - 2 23",
+      "phase": "middlegame",
+      "played_san": "Qb5",
+      "pv_after_best": [
+        "g5",
+        "Qe3",
+        "Rfc8",
+        "Rad1"
+      ],
+      "pv_after_played": [
+        "Bxb5",
+        "Kh1",
+        "Qc5",
+        "Re3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rab1",
+      "cp_loss": 225,
+      "fen_before": "r3k2r/8/1bpp1n2/4p3/2B1P3/2P4p/P2N1P1K/R4R2 w kq - 0 29",
+      "phase": "middlegame",
+      "played_san": "Nf3",
+      "pv_after_best": [
+        "Bc5",
+        "Rg1",
+        "Rh4",
+        "Rg7"
+      ],
+      "pv_after_played": [
+        "Nxe4",
+        "Rae1",
+        "Nxc3",
+        "Ng5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "b4",
+      "cp_loss": 179,
+      "fen_before": "2kr1b1r/1pp2p2/p2p1q1p/3P2p1/Q2Pp3/4B3/PPP2PPP/R4RK1 w - - 0 16",
+      "phase": "middlegame",
+      "played_san": "c3",
+      "pv_after_best": [
+        "Qe7",
+        "b5",
+        "Qe8",
+        "Rfb1"
+      ],
+      "pv_after_played": [
+        "Qf5",
+        "Qc4",
+        "Qd7",
+        "b4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "h6",
+      "cp_loss": 503,
+      "fen_before": "7k/pp4pp/2p5/3p4/8/2NP3Q/PPPq2PP/R5K1 b - - 2 22",
+      "phase": "middlegame",
+      "played_san": "Qe3+",
+      "pv_after_best": [
+        "Rf1",
+        "Kg8",
+        "Qe6+",
+        "Kh7"
+      ],
+      "pv_after_played": [
+        "Qxe3",
+        "g6",
+        "Qe8+",
+        "Kg7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qa8+",
+      "cp_loss": 369,
+      "fen_before": "6k1/p1p2pp1/3br2p/8/3q4/2N4P/PPP2PQ1/R5K1 w - - 3 24",
+      "phase": "middlegame",
+      "played_san": "Qg4",
+      "pv_after_best": [
+        "Kh7",
+        "Qf3",
+        "Qe5",
+        "Kf1"
+      ],
+      "pv_after_played": [
+        "Rg6",
+        "Qxg6",
+        "fxg6",
+        "Re1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qc5",
+      "cp_loss": 277,
+      "fen_before": "3n1rk1/3p1ppp/Q1q1pn2/8/2B5/5N2/P4PPP/1N1K3R b - - 0 23",
+      "phase": "middlegame",
+      "played_san": "Nd5",
+      "pv_after_best": [
+        "Rf1",
+        "d5",
+        "Bb3",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "Qxc6",
+        "Nxc6",
+        "Bxd5",
+        "exd5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qh1+",
+      "cp_loss": 9372,
+      "fen_before": "4r1k1/2Q5/1p5p/p5p1/3R2P1/5KBP/5R2/1q6 b - - 0 43",
+      "phase": "middlegame",
+      "played_san": "Qb2",
+      "pv_after_best": [
+        "Rg2",
+        "Qf1+",
+        "Bf2",
+        "h5"
+      ],
+      "pv_after_played": [
+        "Rxb2",
+        "Rf8+",
+        "Kg2",
+        "h5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kc3",
+      "cp_loss": 8417,
+      "fen_before": "3Q4/8/8/8/8/3P2N1/P2k2KP/8 b - - 2 46",
+      "phase": "middlegame",
+      "played_san": "Kc2",
+      "pv_after_best": [
+        "Kf3",
+        "Kb4",
+        "Ne4",
+        "Kb5"
+      ],
+      "pv_after_played": [
+        "Ne4",
+        "Kb1",
+        "Kf3",
+        "Kb2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rh6",
+      "cp_loss": 9331,
+      "fen_before": "7r/8/2k1pQ2/p2pP3/8/1R5P/2P3PK/q7 b - - 1 35",
+      "phase": "middlegame",
+      "played_san": "Rg8",
+      "pv_after_best": [
+        "Qxh6",
+        "Qxe5+",
+        "Rg3",
+        "d4"
+      ],
+      "pv_after_played": [
+        "Qxe6+",
+        "Kc5",
+        "Qd6+",
+        "Kc4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxe3+",
+      "cp_loss": 473,
+      "fen_before": "r4rk1/ppp2p1p/4p1p1/4P1q1/8/1P2PPP1/PB6/R2Q1BK1 b - - 0 17",
+      "phase": "middlegame",
+      "played_san": "Qxg3+",
+      "pv_after_best": [
+        "Kh1",
+        "Rfd8",
+        "Qe2",
+        "Qxe2"
+      ],
+      "pv_after_played": [
+        "Bg2",
+        "Rfd8",
+        "Qe2",
+        "Rd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f4",
+      "cp_loss": 9057,
+      "fen_before": "3q2k1/p1p5/b5p1/8/8/2P3P1/P1P2P2/6KR w - - 1 28",
+      "phase": "middlegame",
+      "played_san": "Kg2",
+      "pv_after_best": [
+        "Qd1+",
+        "Kh2",
+        "Qe2+",
+        "Kh3"
+      ],
+      "pv_after_played": [
+        "Bb7+",
+        "Kh3",
+        "Bxh1",
+        "f4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kd7",
+      "cp_loss": 359,
+      "fen_before": "r3k2r/p1N2ppp/2n5/2p1pbN1/2P5/P2P4/1P3nPP/2KR1B1R b kq - 0 16",
+      "phase": "middlegame",
+      "played_san": "Kf8",
+      "pv_after_best": [
+        "Nxa8",
+        "Nxh1",
+        "Nh3",
+        "Bxh3"
+      ],
+      "pv_after_played": [
+        "Nxa8",
+        "Nxh1",
+        "Nc7",
+        "Nf2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re6+",
+      "cp_loss": 250,
+      "fen_before": "8/4R3/Nr1k2p1/5p2/P1B5/4P2P/2P2PPK/3r4 w - - 6 29",
+      "phase": "middlegame",
+      "played_san": "Re8",
+      "pv_after_best": [
+        "Kd7",
+        "Rxb6",
+        "g5",
+        "Nc5+"
+      ],
+      "pv_after_played": [
+        "Kd7",
+        "Ra8",
+        "Rb2",
+        "Nc5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f4",
+      "cp_loss": 9358,
+      "fen_before": "1r2r1k1/b1p2p2/7B/5p2/6P1/2P3Q1/5PP1/3R2K1 b - - 0 26",
+      "phase": "middlegame",
+      "played_san": "fxg4",
+      "pv_after_best": [
+        "Qxf4",
+        "Re6",
+        "g3",
+        "Rf8"
+      ],
+      "pv_after_played": [
+        "Qxg4+",
+        "Kh7",
+        "Qg7#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rc8",
+      "cp_loss": 228,
+      "fen_before": "4rrk1/p4pp1/p1b1pq1p/3pN3/3P3P/P1P3P1/2P2P2/R2QR1K1 b - - 2 17",
+      "phase": "middlegame",
+      "played_san": "Ba8",
+      "pv_after_best": [
+        "Re3",
+        "Bb5",
+        "a4",
+        "Be8"
+      ],
+      "pv_after_played": [
+        "Nd7",
+        "Qd8",
+        "Nxf8",
+        "Rxf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kf8",
+      "cp_loss": 546,
+      "fen_before": "4k1r1/p6R/2n5/5p2/P7/4R2P/5rPK/8 b - - 1 38",
+      "phase": "endgame",
+      "played_san": "Ne7",
+      "pv_after_best": [
+        "Rg3",
+        "Rc2",
+        "Rc7",
+        "Rxg3"
+      ],
+      "pv_after_played": [
+        "Rexe7+",
+        "Kd8",
+        "Reg7",
+        "Rxg7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb2",
+      "cp_loss": 327,
+      "fen_before": "8/p5p1/6kp/8/P7/rP3R1P/2K3P1/8 w - - 3 36",
+      "phase": "endgame",
+      "played_san": "g4",
+      "pv_after_best": [
+        "Ra1",
+        "Kxa1",
+        "Kg5",
+        "Rf7"
+      ],
+      "pv_after_played": [
+        "Ra1",
+        "Kc3",
+        "Re1",
+        "Kc4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kd5",
+      "cp_loss": 839,
+      "fen_before": "8/2p3pp/p4p2/1kP1p3/1P2K3/2P2P2/2P2P1P/8 w - - 2 29",
+      "phase": "endgame",
+      "played_san": "Kd3",
+      "pv_after_best": [
+        "g6",
+        "Ke6",
+        "Kc6",
+        "c4"
+      ],
+      "pv_after_played": [
+        "c6",
+        "f4",
+        "exf4",
+        "f3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "g3",
+      "cp_loss": 9327,
+      "fen_before": "2k2r2/pp5R/2p5/8/3n1N2/3P4/r5PP/3K4 w - - 5 30",
+      "phase": "endgame",
+      "played_san": "Ng6",
+      "pv_after_best": [
+        "Re8",
+        "Rh6",
+        "Kd7",
+        "Rh7+"
+      ],
+      "pv_after_played": [
+        "Rf1#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rb1",
+      "cp_loss": 302,
+      "fen_before": "8/8/8/1P6/8/2Pk4/6P1/r1B1R1K1 b - - 4 44",
+      "phase": "endgame",
+      "played_san": "Kxc3",
+      "pv_after_best": [
+        "g4",
+        "Rxb5",
+        "g5",
+        "Kxc3"
+      ],
+      "pv_after_played": [
+        "Bb2+",
+        "Kxb2",
+        "Rxa1",
+        "Kc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re7",
+      "cp_loss": 224,
+      "fen_before": "4k3/pp1r2pp/2n5/8/4pK2/2P5/7P/8 b - - 0 32",
+      "phase": "endgame",
+      "played_san": "Rf7+",
+      "pv_after_best": [
+        "Ke3",
+        "Kd8",
+        "Kd2",
+        "e3+"
+      ],
+      "pv_after_played": [
+        "Kxe4",
+        "Ke7",
+        "c4",
+        "Kd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ba4",
+      "cp_loss": 177,
+      "fen_before": "1r4k1/p5pp/4p3/1Np1P3/3p4/7P/PPb2KP1/2R5 b - - 3 21",
+      "phase": "endgame",
+      "played_san": "Rxb5",
+      "pv_after_best": [
+        "Nxd4",
+        "cxd4",
+        "b3",
+        "Bb5"
+      ],
+      "pv_after_played": [
+        "Rxc2",
+        "d3",
+        "Rc3",
+        "Rxb2+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rg6",
+      "cp_loss": 247,
+      "fen_before": "8/8/1p5K/p5R1/8/P1p2kp1/2r5/8 w - - 2 50",
+      "phase": "endgame",
+      "played_san": "Kh5",
+      "pv_after_best": [
+        "g2",
+        "Rf6+",
+        "Ke4",
+        "Re6+"
+      ],
+      "pv_after_played": [
+        "Rh2+",
+        "Kg6",
+        "Kf4",
+        "Rf5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rf4",
+      "cp_loss": 209,
+      "fen_before": "8/6k1/2r1pR2/R5n1/1p1P4/bP2P2P/7K/8 w - - 2 40",
+      "phase": "endgame",
+      "played_san": "Rf2",
+      "pv_after_best": [
+        "e5",
+        "Rxe5",
+        "Ne6",
+        "Rf2"
+      ],
+      "pv_after_played": [
+        "Ne4",
+        "Rg2+",
+        "Kf7",
+        "Re5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bd7",
+      "cp_loss": 210,
+      "fen_before": "8/5p2/8/8/b2kp1P1/3n2KP/5P2/R7 b - - 15 49",
+      "phase": "endgame",
+      "played_san": "Bb5",
+      "pv_after_best": [
+        "Ra5",
+        "Ne5",
+        "g5",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "h4",
+        "Nc5",
+        "h5",
+        "e3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rd8",
+      "cp_loss": 152,
+      "fen_before": "2r5/PR4p1/5pkp/8/3p4/5PK1/8/R7 b - - 0 39",
+      "phase": "endgame",
+      "played_san": "d3",
+      "pv_after_best": [
+        "Rb8",
+        "Rd5",
+        "a8=Q",
+        "Rg5+"
+      ],
+      "pv_after_played": [
+        "Rb8",
+        "Rc4",
+        "a8=Q",
+        "d2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb3",
+      "cp_loss": 175,
+      "fen_before": "4k3/5pp1/8/6p1/2K3P1/5P2/5r2/8 w - - 2 43",
+      "phase": "endgame",
+      "played_san": "Kd3",
+      "pv_after_best": [
+        "Rxf3+",
+        "Kb2",
+        "Rf4",
+        "Ka3"
+      ],
+      "pv_after_played": [
+        "Rxf3+",
+        "Ke2",
+        "Rf4",
+        "Ke1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxf3#",
+      "cp_loss": 9542,
+      "fen_before": "8/ppB5/8/5k2/3b4/2r2P2/P1r5/4RK1R b - - 3 37",
+      "phase": "endgame",
+      "played_san": "Rc1",
+      "pv_after_best": [],
+      "pv_after_played": [
+        "Rh5+",
+        "Kg6",
+        "Rd5",
+        "Rxf3+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rc1",
+      "cp_loss": 221,
+      "fen_before": "8/2Bk2pp/2R2p2/1p1r4/3p4/P2P4/1P1N1PPP/6K1 w - - 1 26",
+      "phase": "endgame",
+      "played_san": "Ra6",
+      "pv_after_best": [
+        "g5",
+        "Nb3",
+        "Ke7",
+        "Bb6"
+      ],
+      "pv_after_played": [
+        "Kxc7",
+        "Kf1",
+        "Rh5",
+        "Nf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kg7",
+      "cp_loss": 405,
+      "fen_before": "8/8/R5pk/1p3p1p/7P/6PK/1r6/8 b - - 2 49",
+      "phase": "endgame",
+      "played_san": "b4",
+      "pv_after_best": [
+        "Ra7+",
+        "Kf6",
+        "Ra6+",
+        "Ke5"
+      ],
+      "pv_after_played": [
+        "Ra7",
+        "Rb3",
+        "Kg2",
+        "Rc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kf7",
+      "cp_loss": 591,
+      "fen_before": "8/6k1/8/5KP1/8/8/8/8 b - - 4 64",
+      "phase": "endgame",
+      "played_san": "Kh7",
+      "pv_after_best": [
+        "g6+",
+        "Kg8",
+        "Kg5",
+        "Kg7"
+      ],
+      "pv_after_played": [
+        "Kf6",
+        "Kg8",
+        "Kg6",
+        "Kf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ne5+",
+      "cp_loss": 453,
+      "fen_before": "8/5N2/6kp/8/1r4PP/5K2/8/8 w - - 0 44",
+      "phase": "endgame",
+      "played_san": "Nxh6",
+      "pv_after_best": [
+        "Kf6",
+        "Nd3",
+        "Rd4",
+        "Nf2"
+      ],
+      "pv_after_played": [
+        "Kxh6",
+        "Kg3",
+        "Kg6",
+        "h5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kd2",
+      "cp_loss": 770,
+      "fen_before": "8/8/2k3p1/p1p4p/2p2P1P/P1P5/2K5/8 w - - 7 43",
+      "phase": "endgame",
+      "played_san": "Kb2",
+      "pv_after_best": [
+        "a4",
+        "Ke2",
+        "Kd5",
+        "Kf3"
+      ],
+      "pv_after_played": [
+        "Kd5",
+        "Kc2",
+        "a4",
+        "Kd2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rf4",
+      "cp_loss": 641,
+      "fen_before": "6k1/8/8/5Npp/6r1/7K/8/8 b - - 3 50",
+      "phase": "endgame",
+      "played_san": "Kf7",
+      "pv_after_best": [
+        "Nd6",
+        "Kg7",
+        "Nb7",
+        "Kf6"
+      ],
+      "pv_after_played": [
+        "Nh6+",
+        "Ke6",
+        "Nxg4",
+        "Kf5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f7",
+      "cp_loss": 439,
+      "fen_before": "6rk/pb6/4pP2/1p2P3/7n/P1P5/2B2K2/6R1 w - - 1 38",
+      "phase": "endgame",
+      "played_san": "Rb1",
+      "pv_after_best": [
+        "Rf8",
+        "Kg3",
+        "Rxf7",
+        "Kxh4"
+      ],
+      "pv_after_played": [
+        "Rg2+",
+        "Ke3",
+        "Rxc2",
+        "Rxb5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bf7",
+      "cp_loss": 9102,
+      "fen_before": "8/8/4bP1p/8/4k3/6K1/6PP/5R2 b - - 9 53",
+      "phase": "endgame",
+      "played_san": "Ke3",
+      "pv_after_best": [
+        "Kh4",
+        "Ke5",
+        "g4",
+        "Ke6"
+      ],
+      "pv_after_played": [
+        "Re1+",
+        "Kd3",
+        "Rxe6",
+        "Kc4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rh8",
+      "cp_loss": 8983,
+      "fen_before": "4R3/p1rp1kp1/1p4p1/8/8/1P1b4/1P3r2/K7 w - - 2 37",
+      "phase": "endgame",
+      "played_san": "Ra8",
+      "pv_after_best": [
+        "Rc5",
+        "Rh4",
+        "Rff5",
+        "Ra4"
+      ],
+      "pv_after_played": [
+        "Rf5",
+        "Rf8+",
+        "Kxf8",
+        "b4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxf3",
+      "cp_loss": 233,
+      "fen_before": "8/4p2p/5kp1/p1bB4/2P5/P4rP1/3K3P/4R3 w - - 3 33",
+      "phase": "endgame",
+      "played_san": "Re6+",
+      "pv_after_best": [
+        "Bxa3",
+        "Kd3",
+        "Bd6",
+        "Rc1"
+      ],
+      "pv_after_played": [
+        "Kf5",
+        "g4+",
+        "Kxg4",
+        "Bxf3+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxc4",
+      "cp_loss": 501,
+      "fen_before": "8/7p/8/N7/1Pnk1K2/P7/8/8 w - - 1 41",
+      "phase": "endgame",
+      "played_san": "a4",
+      "pv_after_best": [
+        "Kxc4",
+        "Kg5",
+        "Kb5",
+        "Kh6"
+      ],
+      "pv_after_played": [
+        "Nb6",
+        "Nc6+",
+        "Kc4",
+        "a5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kh5",
+      "cp_loss": 550,
+      "fen_before": "8/8/7p/1kp3p1/4N1K1/8/7P/8 w - - 0 41",
+      "phase": "endgame",
+      "played_san": "Nxc5",
+      "pv_after_best": [
+        "c4",
+        "Kxh6",
+        "Kb4",
+        "Kxg5"
+      ],
+      "pv_after_played": [
+        "Kxc5",
+        "Kh5",
+        "Kd6",
+        "Kxh6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ke1",
+      "cp_loss": 321,
+      "fen_before": "8/8/p7/1p1nk2p/5b2/7n/P3K3/5R2 w - - 6 48",
+      "phase": "endgame",
+      "played_san": "Rc1",
+      "pv_after_best": [
+        "Bg3+",
+        "Kd2",
+        "Bf4+",
+        "Ke1"
+      ],
+      "pv_after_played": [
+        "Bxc1",
+        "Kf3",
+        "Nhf4",
+        "Kg3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kg2",
+      "cp_loss": 508,
+      "fen_before": "1k6/p1p2r2/1p4p1/3N4/3n2P1/7P/PP3P2/2R3K1 w - - 2 32",
+      "phase": "endgame",
+      "played_san": "Re1",
+      "pv_after_best": [
+        "Rd7",
+        "Nc3",
+        "c5",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Nf3+",
+        "Kf1",
+        "Nxe1",
+        "Kxe1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Re2",
+      "cp_loss": 170,
+      "fen_before": "8/4R3/5pk1/6pp/p4r2/3r4/6PK/8 w - - 2 47",
+      "phase": "endgame",
+      "played_san": "Re8",
+      "pv_after_best": [
+        "Rh4+",
+        "Kg1",
+        "a3",
+        "Ra2"
+      ],
+      "pv_after_played": [
+        "Rh4+",
+        "Kg1",
+        "a3",
+        "Re2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ke4",
+      "cp_loss": 267,
+      "fen_before": "8/R4pkp/4p1p1/6P1/7P/4PK2/p7/r7 w - - 0 34",
+      "phase": "endgame",
+      "played_san": "Kf4",
+      "pv_after_best": [
+        "Rh1",
+        "Rxa2",
+        "Rxh4+",
+        "Kf3"
+      ],
+      "pv_after_played": [
+        "Rf1+",
+        "Kg3",
+        "a1=Q",
+        "Rxa1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxa6",
+      "cp_loss": 923,
+      "fen_before": "2b4r/6pp/R4p2/2R5/kp6/P7/1P3PPP/6K1 b - - 3 31",
+      "phase": "endgame",
+      "played_san": "Kb3",
+      "pv_after_best": [
+        "h4",
+        "b3",
+        "h5",
+        "Rc8"
+      ],
+      "pv_after_played": [
+        "Rb6",
+        "Rd8",
+        "Rxb4+",
+        "Ka2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Be6+",
+      "cp_loss": 157,
+      "fen_before": "k1B2R2/2p3p1/2p4p/p1r5/2P5/7P/6PK/8 w - - 0 32",
+      "phase": "endgame",
+      "played_san": "g4",
+      "pv_after_best": [
+        "Kb7",
+        "Rf3",
+        "Re5",
+        "Bg4"
+      ],
+      "pv_after_played": [
+        "a4",
+        "Kg3",
+        "g5",
+        "Be6+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "dxc4",
+      "cp_loss": 192,
+      "fen_before": "4r3/pk6/1pp3p1/3p1n1p/2P5/1P5K/P2R1P1P/3R4 b - - 0 27",
+      "phase": "endgame",
+      "played_san": "g5",
+      "pv_after_best": [
+        "bxc4",
+        "Re4",
+        "Rc1",
+        "Ka6"
+      ],
+      "pv_after_played": [
+        "cxd5",
+        "c5",
+        "b4",
+        "Nd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb6",
+      "cp_loss": 8452,
+      "fen_before": "8/5ppk/2K1p2p/4P3/6r1/8/8/8 w - - 0 40",
+      "phase": "endgame",
+      "played_san": "Kd6",
+      "pv_after_best": [
+        "h5",
+        "Kb7",
+        "Ra4",
+        "Kc7"
+      ],
+      "pv_after_played": [
+        "h5",
+        "Kd7",
+        "Kg6",
+        "Ke7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rb4",
+      "cp_loss": 182,
+      "fen_before": "4r3/2p5/k4r1p/5p2/p1PP4/3KP2P/2P5/1R3R2 w - - 0 34",
+      "phase": "endgame",
+      "played_san": "Rb5",
+      "pv_after_best": [
+        "Rfe6",
+        "Rxa4+",
+        "Kb7",
+        "Rb1+"
+      ],
+      "pv_after_played": [
+        "Rfe6",
+        "Re1",
+        "f4",
+        "e4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxa5",
+      "cp_loss": 1051,
+      "fen_before": "8/1R6/5k2/P6r/2KN1p2/8/8/8 b - - 1 57",
+      "phase": "endgame",
+      "played_san": "Ke5",
+      "pv_after_best": [
+        "Rb8",
+        "f3",
+        "Nxf3",
+        "Kf5"
+      ],
+      "pv_after_played": [
+        "Rb5+",
+        "Kd6",
+        "Rxh5",
+        "Ke7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Be1",
+      "cp_loss": 8992,
+      "fen_before": "1R6/8/R7/8/1P3k2/P5b1/2P3K1/8 b - - 2 49",
+      "phase": "endgame",
+      "played_san": "Kg4",
+      "pv_after_best": [
+        "Re6",
+        "Kf5",
+        "Rxe1",
+        "Kg6"
+      ],
+      "pv_after_played": [
+        "Rg8+",
+        "Kf4",
+        "Rxg3",
+        "Ke4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rd5+",
+      "cp_loss": 305,
+      "fen_before": "8/6p1/1p6/5k1P/P2R1P2/6K1/1r6/8 w - - 1 37",
+      "phase": "endgame",
+      "played_san": "Kh4",
+      "pv_after_best": [
+        "Kf6",
+        "Rb5",
+        "Ra2",
+        "Rxb6+"
+      ],
+      "pv_after_played": [
+        "Rb1",
+        "Rd7",
+        "Rg1",
+        "Rf7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ra3",
+      "cp_loss": 491,
+      "fen_before": "8/p5kp/1p6/1R3K2/6PP/2r5/P7/8 b - - 0 34",
+      "phase": "endgame",
+      "played_san": "Rc5+",
+      "pv_after_best": [
+        "Rd5",
+        "Rxa2",
+        "Rd7+",
+        "Kg8"
+      ],
+      "pv_after_played": [
+        "Rxc5",
+        "bxc5",
+        "Ke5",
+        "c4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rh8",
+      "cp_loss": 8564,
+      "fen_before": "8/8/8/1p6/2rnp1k1/6p1/4p1K1/7R w - - 2 46",
+      "phase": "endgame",
+      "played_san": "Rb1",
+      "pv_after_best": [
+        "e1=Q",
+        "Rg8+",
+        "Kf4",
+        "Rf8+"
+      ],
+      "pv_after_played": [
+        "e1=Q",
+        "Rxe1",
+        "Rc2+",
+        "Re2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rc6+",
+      "cp_loss": 537,
+      "fen_before": "8/6p1/1K1k3p/2R5/6PP/4r3/8/8 w - - 0 36",
+      "phase": "endgame",
+      "played_san": "g5",
+      "pv_after_best": [
+        "Kd5",
+        "Rc5+",
+        "Ke6",
+        "Rc6+"
+      ],
+      "pv_after_played": [
+        "Rb3+",
+        "Rb5",
+        "Rxb5+",
+        "Kxb5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nh7",
+      "cp_loss": 174,
+      "fen_before": "8/3R1Pk1/5N2/pb4p1/7p/7P/6P1/6K1 w - - 7 56",
+      "phase": "endgame",
+      "played_san": "Nh5+",
+      "pv_after_best": [
+        "Bxd7",
+        "f8=Q+",
+        "Kxh7",
+        "Qf7+"
+      ],
+      "pv_after_played": [
+        "Kf8",
+        "Rd5",
+        "Bc4",
+        "Rxg5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rh7+",
+      "cp_loss": 395,
+      "fen_before": "8/5k2/3p1N2/6PR/2PKP2P/r2B4/8/8 w - - 1 52",
+      "phase": "endgame",
+      "played_san": "Nd5",
+      "pv_after_best": [
+        "Kg6",
+        "Rb7",
+        "d5",
+        "exd5+"
+      ],
+      "pv_after_played": [
+        "Kg7",
+        "Nf6",
+        "d5",
+        "Rh7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "g5",
+      "cp_loss": 9404,
+      "fen_before": "6k1/5ppp/1p1p4/3Nr3/4B2P/R4P2/3K2P1/8 b - - 2 34",
+      "phase": "endgame",
+      "played_san": "b5",
+      "pv_after_best": [
+        "hxg5",
+        "Kg7",
+        "Ra6",
+        "Rxg5"
+      ],
+      "pv_after_played": [
+        "Ra8+",
+        "Re8",
+        "Rxe8#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb2",
+      "cp_loss": 8585,
+      "fen_before": "8/6p1/6P1/p4B2/P1p2N1p/2k2K2/8/3R4 b - - 3 50",
+      "phase": "endgame",
+      "played_san": "Kb4",
+      "pv_after_best": [
+        "Nh5",
+        "c3",
+        "Rb1+",
+        "Ka3"
+      ],
+      "pv_after_played": [
+        "Nh5",
+        "Kxa4",
+        "Nxg7",
+        "Kb3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kb2",
+      "cp_loss": 215,
+      "fen_before": "3r1r2/ppp2p2/5k2/3P2pR/4Pp2/2PB4/P1P3P1/1K6 w - - 4 24",
+      "phase": "endgame",
+      "played_san": "Rh3",
+      "pv_after_best": [
+        "Kg6",
+        "Rh1",
+        "Rh8",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Rh8",
+        "Rf3",
+        "Rh2",
+        "Rf2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rc4",
+      "cp_loss": 8871,
+      "fen_before": "8/8/8/1p4kp/1r1pK3/7P/8/8 b - - 5 48",
+      "phase": "endgame",
+      "played_san": "Kh4",
+      "pv_after_best": [
+        "h4+",
+        "Kf6",
+        "Kf4",
+        "Rb4"
+      ],
+      "pv_after_played": [
+        "Kd5",
+        "d3",
+        "Kc5",
+        "Kxh3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nb7",
+      "cp_loss": 174,
+      "fen_before": "6k1/6p1/p4p1p/N2n4/4p3/6K1/2r3PP/R7 w - - 0 32",
+      "phase": "endgame",
+      "played_san": "Nc4",
+      "pv_after_best": [
+        "f5",
+        "Nd8",
+        "f4+",
+        "Kh3"
+      ],
+      "pv_after_played": [
+        "Rxc4",
+        "Rxa6",
+        "Kh7",
+        "Ra5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ba6",
+      "cp_loss": 369,
+      "fen_before": "1k6/8/1n1n4/2p2p2/p7/K7/4B3/8 w - - 0 59",
+      "phase": "endgame",
+      "played_san": "Bb5",
+      "pv_after_best": [
+        "f4",
+        "Be2",
+        "Ndc4+",
+        "Ka2"
+      ],
+      "pv_after_played": [
+        "Nxb5+",
+        "Kb2",
+        "Kc7",
+        "Kc1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kf2",
+      "cp_loss": 236,
+      "fen_before": "3r4/1b3pp1/pp2pk1p/8/2B3P1/4RP2/PPP4P/6K1 w - - 0 23",
+      "phase": "endgame",
+      "played_san": "b4",
+      "pv_after_best": [
+        "Rd2+",
+        "Re2",
+        "Rd1",
+        "Bd3"
+      ],
+      "pv_after_played": [
+        "Rd4",
+        "Be2",
+        "Rxb4",
+        "a3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d3",
+      "cp_loss": 172,
+      "fen_before": "3rk3/ppR5/8/4P3/3pNP2/4n1P1/PP6/4K3 b - - 3 29",
+      "phase": "endgame",
+      "played_san": "Ng2+",
+      "pv_after_best": [
+        "Nd6+",
+        "Kf8",
+        "Kd2",
+        "Nf1+"
+      ],
+      "pv_after_played": [
+        "Kd2",
+        "Rc8",
+        "Nf6+",
+        "Kf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kg8",
+      "cp_loss": 177,
+      "fen_before": "r6r/3R1kbp/6p1/2B1p3/2q5/2N5/PPP2PPP/5RK1 b - - 1 22",
+      "phase": "middlegame",
+      "played_san": "Kf6",
+      "pv_after_best": [
+        "Be3",
+        "h5",
+        "Nd5",
+        "Qb5"
+      ],
+      "pv_after_played": [
+        "Rfd1",
+        "Kf5",
+        "Rxg7",
+        "Rhd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bb7",
+      "cp_loss": 271,
+      "fen_before": "r1bq2k1/p1r3pp/4p1n1/P4pP1/1Pn2P1P/4P3/6Q1/R1B1K1NR b KQ - 2 23",
+      "phase": "middlegame",
+      "played_san": "Qf8",
+      "pv_after_best": [
+        "Qh2",
+        "Bxh1",
+        "Qxh1",
+        "Rac8"
+      ],
+      "pv_after_played": [
+        "Qxa8",
+        "Qxb4+",
+        "Kf2",
+        "Nd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxe4+",
+      "cp_loss": 391,
+      "fen_before": "2r2rk1/pp3ppp/3pq3/2pN3b/Qn2PP2/4B3/PP4PP/1K1R3R b - - 3 21",
+      "phase": "middlegame",
+      "played_san": "Nxd5",
+      "pv_after_best": [
+        "Ka1",
+        "Bxd1",
+        "Qxd1",
+        "Qxd5"
+      ],
+      "pv_after_played": [
+        "Rxd5",
+        "f5",
+        "Qc2",
+        "Rfe8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bd2",
+      "cp_loss": 155,
+      "fen_before": "rnb1k1nr/4bppp/pp1q4/B1p5/3pP3/R4N2/P1P2PPP/3QKB1R w Kkq - 0 15",
+      "phase": "middlegame",
+      "played_san": "Bxb6",
+      "pv_after_best": [
+        "c4",
+        "Bxc4",
+        "Qxa3",
+        "Ne5"
+      ],
+      "pv_after_played": [
+        "Qxb6",
+        "Rb3",
+        "Qa5+",
+        "Qd2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxf7+",
+      "cp_loss": 215,
+      "fen_before": "r1b2rk1/pp3pp1/1q5p/4P3/2Bp4/5Q1P/PPP3P1/3R1R1K w - - 0 18",
+      "phase": "middlegame",
+      "played_san": "b3",
+      "pv_after_best": [
+        "Kh8",
+        "Qd5",
+        "Rd8",
+        "Qb3"
+      ],
+      "pv_after_played": [
+        "Be6",
+        "Bd3",
+        "Qc6",
+        "Qg3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nf4",
+      "cp_loss": 372,
+      "fen_before": "2krq1r1/1p5p/2p2p2/2bp1N1n/8/1B1P3Q/PP3PPP/2R2RK1 b - - 3 24",
+      "phase": "middlegame",
+      "played_san": "Kb8",
+      "pv_after_best": [
+        "Qf3",
+        "Ne2+",
+        "Kh1",
+        "Nxc1"
+      ],
+      "pv_after_played": [
+        "Qf3",
+        "Bb4",
+        "g3",
+        "Ba5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nd6",
+      "cp_loss": 262,
+      "fen_before": "3q2k1/1p4p1/4p2p/1NPpnr2/P7/6P1/3Q2PP/4R1K1 w - - 0 28",
+      "phase": "middlegame",
+      "played_san": "a5",
+      "pv_after_best": [
+        "Rg5",
+        "Qc3",
+        "Nd7",
+        "Rxe6"
+      ],
+      "pv_after_played": [
+        "Nc4",
+        "Qc3",
+        "Rf6",
+        "h4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qb7#",
+      "cp_loss": 9843,
+      "fen_before": "k5rr/p3Q2p/B1R5/4p3/4q3/8/P4PPP/5RK1 w - - 1 33",
+      "phase": "middlegame",
+      "played_san": "g3",
+      "pv_after_best": [],
+      "pv_after_played": [
+        "Qxc6",
+        "Qa3",
+        "Rg6",
+        "Bd3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rd5",
+      "cp_loss": 420,
+      "fen_before": "3rk2r/ppp2ppp/1bp5/4Pb2/PP6/2P2P2/3B2PP/RN2K2R b KQk - 0 13",
+      "phase": "middlegame",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Bf4",
+        "g5",
+        "Bxg5",
+        "Rg8"
+      ],
+      "pv_after_played": [
+        "a5",
+        "Rxd2",
+        "Nxd2",
+        "Be3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxe3+",
+      "cp_loss": 305,
+      "fen_before": "2krr3/ppp2ppp/2nq1n2/3p4/PP1P2P1/3QPP1N/7P/R3KB1R b KQ - 2 13",
+      "phase": "middlegame",
+      "played_san": "Qxb4+",
+      "pv_after_best": [
+        "Qxe3",
+        "Re8",
+        "Qxe8+",
+        "Nxe8"
+      ],
+      "pv_after_played": [
+        "Kf2",
+        "Rd6",
+        "Rb1",
+        "Qxa4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rf6",
+      "cp_loss": 208,
+      "fen_before": "Q2n4/p1p1k1pp/8/8/2Bp3P/8/PP3rP1/3K4 b - - 1 21",
+      "phase": "middlegame",
+      "played_san": "Rxg2",
+      "pv_after_best": [
+        "Qe4+",
+        "Kd7",
+        "Qxh7",
+        "Ne6"
+      ],
+      "pv_after_played": [
+        "Qxg2",
+        "c6",
+        "Qxg7+",
+        "Kd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bb7",
+      "cp_loss": 191,
+      "fen_before": "r1b2rk1/p3bppp/4pn2/1B6/1P1P1B2/2P1P1N1/5PPP/3R1RK1 b - - 0 17",
+      "phase": "middlegame",
+      "played_san": "a6",
+      "pv_after_best": [
+        "Ra1",
+        "Nd5",
+        "Ne2",
+        "g5"
+      ],
+      "pv_after_played": [
+        "Bc6",
+        "Ra7",
+        "Bb8",
+        "Rd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h6",
+      "cp_loss": 352,
+      "fen_before": "r2qkb1r/1pp1pppp/p1n2nb1/3p4/3P1BPP/2N1PP2/PPP5/R2QKBNR b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Nd7",
+      "pv_after_best": [
+        "Bd3",
+        "Bxd3",
+        "Qxd3",
+        "e6"
+      ],
+      "pv_after_played": [
+        "h5",
+        "e5",
+        "dxe5",
+        "Bb4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kg2",
+      "cp_loss": 10050,
+      "fen_before": "r3r1k1/p1p2p1p/1p1b2p1/3p1q2/3P4/2QP3P/PP3P2/RNB2R1K w - - 3 19",
+      "phase": "middlegame",
+      "played_san": "Bh6",
+      "pv_after_best": [
+        "g5",
+        "Qd2",
+        "Re6",
+        "Nc3"
+      ],
+      "pv_after_played": [
+        "Qxh3+",
+        "Kg1",
+        "Qh2#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f5",
+      "cp_loss": 179,
+      "fen_before": "r4r1k/pp3pp1/1qpp3p/2b1p3/4PPbB/1B1P4/PPPQ1P2/R3R1K1 b - - 1 17",
+      "phase": "middlegame",
+      "played_san": "Be6",
+      "pv_after_best": [
+        "d4",
+        "Bxd4",
+        "c3",
+        "Bc5"
+      ],
+      "pv_after_played": [
+        "f5",
+        "Bxb3",
+        "axb3",
+        "f6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nxf3+",
+      "cp_loss": 234,
+      "fen_before": "r1b1kb1r/pppp2pp/8/5n2/2Bnq3/5N1P/PPP2PP1/RNBQR1K1 b kq - 1 11",
+      "phase": "opening",
+      "played_san": "Bb4",
+      "pv_after_best": [
+        "gxf3",
+        "Qxe1+",
+        "Qxe1+",
+        "Be7"
+      ],
+      "pv_after_played": [
+        "Rxe4+",
+        "Ne6",
+        "Bf4",
+        "Bd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bb5",
+      "cp_loss": 322,
+      "fen_before": "r3kbnr/ppp3pp/n1q1bp2/4p3/2B5/2N2N2/PPPPQPPP/R1B2RK1 w kq - 8 10",
+      "phase": "opening",
+      "played_san": "Bxe6",
+      "pv_after_best": [
+        "Ne7",
+        "Bxc6+",
+        "Nxc6",
+        "d4"
+      ],
+      "pv_after_played": [
+        "Qxe6",
+        "d4",
+        "O-O-O",
+        "dxe5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bg5",
+      "cp_loss": 173,
+      "fen_before": "3r3r/1pkbbp2/p1np3p/3P4/BP2q3/5pP1/P4P1P/2RQ1RK1 b - - 0 18",
+      "phase": "middlegame",
+      "played_san": "Qg4",
+      "pv_after_best": [
+        "dxc6",
+        "bxc6",
+        "Bc2",
+        "Qxb4"
+      ],
+      "pv_after_played": [
+        "dxc6",
+        "Bxc6",
+        "Qd3",
+        "Kd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h5",
+      "cp_loss": 9491,
+      "fen_before": "2r1r1k1/ppp1np1p/6p1/1P1p1bN1/P2P3Q/2P2B2/3N3P/R4K2 b - - 2 23",
+      "phase": "middlegame",
+      "played_san": "b6",
+      "pv_after_best": [
+        "Kg1",
+        "c6",
+        "Re1",
+        "Bd7"
+      ],
+      "pv_after_played": [
+        "Qxh7+",
+        "Kf8",
+        "Qxf7#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rf7",
+      "cp_loss": 179,
+      "fen_before": "N7/p5k1/5rp1/6Qp/4P3/8/PP3PPP/5RK1 b - - 0 29",
+      "phase": "middlegame",
+      "played_san": "Rf8",
+      "pv_after_best": [
+        "Qe5+",
+        "Kg8",
+        "f3",
+        "g5"
+      ],
+      "pv_after_played": [
+        "f3",
+        "Rxa8",
+        "Rc1",
+        "Kf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qh4",
+      "cp_loss": 8954,
+      "fen_before": "2k4r/6pp/p2r4/Kp1B4/2pQ1p2/2N3qP/PPP5/R1B1R3 b - - 1 28",
+      "phase": "middlegame",
+      "played_san": "Rhd8",
+      "pv_after_best": [
+        "Be6+",
+        "Rxe6",
+        "Qc5+",
+        "Kb8"
+      ],
+      "pv_after_played": [
+        "Qc5+",
+        "Kb8",
+        "Re7",
+        "Qxc3+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxc4",
+      "cp_loss": 264,
+      "fen_before": "r2qk2r/ppp2ppp/1b1pbn2/1N6/2BpP3/3P1N2/PPP1QPPP/R2K3R b kq - 1 10",
+      "phase": "opening",
+      "played_san": "c5",
+      "pv_after_best": [
+        "dxc4",
+        "O-O",
+        "Qd3",
+        "Ng4"
+      ],
+      "pv_after_played": [
+        "e5",
+        "d5",
+        "exf6",
+        "dxc4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Kf7",
+      "cp_loss": 8601,
+      "fen_before": "3rkb1r/2p3pp/p3R3/1p6/3Q4/P7/1PP2PPP/R1B3K1 b k - 0 17",
+      "phase": "middlegame",
+      "played_san": "Be7",
+      "pv_after_best": [
+        "Qxd8",
+        "Kxe6",
+        "Bg5",
+        "Bb4"
+      ],
+      "pv_after_played": [
+        "Rxe7+",
+        "Kxe7",
+        "Qxg7+",
+        "Ke6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rd8+",
+      "cp_loss": 8881,
+      "fen_before": "1R3b1r/p1pkpp1p/2b3p1/8/P7/2NP4/P1PK4/2B3q1 w - - 2 26",
+      "phase": "middlegame",
+      "played_san": "Bb2",
+      "pv_after_best": [
+        "Kxd8",
+        "Ne2",
+        "Bh6+",
+        "Kc3"
+      ],
+      "pv_after_played": [
+        "Bh6+",
+        "Ke2",
+        "Qg2+",
+        "Ke1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rhg1",
+      "cp_loss": 9200,
+      "fen_before": "r5k1/5ppp/1p6/p7/7q/1P5P/P3r1PK/R6R w - - 0 24",
+      "phase": "middlegame",
+      "played_san": "Rac1",
+      "pv_after_best": [
+        "h5",
+        "Raf1",
+        "Qe4",
+        "Kh1"
+      ],
+      "pv_after_played": [
+        "Qf4+",
+        "Kg1",
+        "Qf2+",
+        "Kh2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxb2",
+      "cp_loss": 534,
+      "fen_before": "1r1q1rk1/5ppp/8/8/2Qp4/P6P/1P3PP1/3R1RK1 b - - 0 24",
+      "phase": "middlegame",
+      "played_san": "Rb3",
+      "pv_after_best": [
+        "a4",
+        "h6",
+        "Rxd4",
+        "Qc8"
+      ],
+      "pv_after_played": [
+        "Qxb3",
+        "Qd6",
+        "Qd3",
+        "Rd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qe2",
+      "cp_loss": 379,
+      "fen_before": "r2qkbnr/pp2p1pp/2p2p2/3pP3/1n1P4/2NQ1N2/PPP2PPP/R1B1K2R w KQkq - 1 8",
+      "phase": "opening",
+      "played_san": "Qf5",
+      "pv_after_best": [
+        "Qd7",
+        "O-O",
+        "e6",
+        "exf6"
+      ],
+      "pv_after_played": [
+        "g6",
+        "Qe6",
+        "Nxc2+",
+        "Kd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "e4",
+      "cp_loss": 297,
+      "fen_before": "1r1q3r/3bkppp/p2Npn2/3p4/3P4/P3P3/1P1N1PPP/2RQ1RK1 w - - 11 20",
+      "phase": "middlegame",
+      "played_san": "N6c4",
+      "pv_after_best": [
+        "Kxd6",
+        "e5+",
+        "Ke7",
+        "exf6+"
+      ],
+      "pv_after_played": [
+        "dxc4",
+        "e4",
+        "Kf8",
+        "Qf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxb7+",
+      "cp_loss": 564,
+      "fen_before": "1Bk4q/pb1nn3/Q7/8/8/2P5/P4PPP/1R2K1NR w K - 3 21",
+      "phase": "middlegame",
+      "played_san": "Qc4+",
+      "pv_after_best": [
+        "Kd8",
+        "Bc7+",
+        "Ke8",
+        "Qa8+"
+      ],
+      "pv_after_played": [
+        "Kxb8",
+        "Rxb7+",
+        "Kxb7",
+        "Nf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ba7",
+      "cp_loss": 353,
+      "fen_before": "r7/3N3p/p5b1/1pbk4/1P1p4/P3p2P/2P3P1/2K2R1R b - - 0 28",
+      "phase": "middlegame",
+      "played_san": "Bd6",
+      "pv_after_best": [
+        "Nf8",
+        "Bxc2",
+        "Kxc2",
+        "Rc8+"
+      ],
+      "pv_after_played": [
+        "Nb6+",
+        "Ke5",
+        "Nxa8",
+        "a5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 290,
+      "fen_before": "r1bqkb1Q/pppp1p1p/6p1/4P3/2P2n2/2NnK3/PP1P1PPP/R1B3NR b q - 1 11",
+      "phase": "opening",
+      "played_san": "Qe7",
+      "pv_after_best": [
+        "cxd5",
+        "Bf5",
+        "Nf3",
+        "Nxg2+"
+      ],
+      "pv_after_played": [
+        "Ne4",
+        "d5",
+        "exd6",
+        "cxd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rh5",
+      "cp_loss": 252,
+      "fen_before": "rn2k3/p3p2p/2p1N2b/6r1/7N/3P4/PP1P1PPP/R1Bb1K1R b q - 0 20",
+      "phase": "middlegame",
+      "played_san": "Nd7",
+      "pv_after_best": [
+        "Nc7+",
+        "Kd7",
+        "Nxa8",
+        "Rxh4"
+      ],
+      "pv_after_played": [
+        "Nxg5",
+        "Bxg5",
+        "Nf3",
+        "Bf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nce4",
+      "cp_loss": 319,
+      "fen_before": "rnb2rk1/ppp2ppp/5n2/q3p1N1/1bB5/2N5/PPPP1PPP/R1BQ1RK1 w - - 6 8",
+      "phase": "opening",
+      "played_san": "Nd5",
+      "pv_after_best": [
+        "Nxe4",
+        "Nxe4",
+        "Be7",
+        "d3"
+      ],
+      "pv_after_played": [
+        "Nxd5",
+        "d4",
+        "h6",
+        "c3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kb8",
+      "cp_loss": 346,
+      "fen_before": "7r/ppk5/1q3p2/n4Q1B/2P5/4P3/P4PPP/3RR1K1 b - - 0 29",
+      "phase": "middlegame",
+      "played_san": "Qd6",
+      "pv_after_best": [
+        "c5",
+        "Qb2",
+        "Rb1",
+        "Qxa2"
+      ],
+      "pv_after_played": [
+        "Rxd6",
+        "Nc6",
+        "Rxf6",
+        "a6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxe7+",
+      "cp_loss": 612,
+      "fen_before": "r7/pppkqQpr/3pp2B/2b1p3/3nP3/2NP4/PPP2PPP/R4RK1 w - - 2 14",
+      "phase": "middlegame",
+      "played_san": "Qg6",
+      "pv_after_best": [
+        "Kxe7",
+        "Bg5+",
+        "Kd7",
+        "Rac1"
+      ],
+      "pv_after_played": [
+        "Rxh6",
+        "Qg4",
+        "Rh4",
+        "Qg3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "exd4",
+      "cp_loss": 199,
+      "fen_before": "rnbqkbnr/pppp1ppp/8/4p3/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+      "phase": "opening",
+      "played_san": "f5",
+      "pv_after_best": [
+        "Nf3",
+        "Bb4+",
+        "Nbd2",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "exf5",
+        "Qe7",
+        "Be2",
+        "d6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "e6",
+      "cp_loss": 249,
+      "fen_before": "rnbqkbnr/pp2pppp/8/2pp4/2PP4/4PN2/PP3PPP/RNBQKB1R b KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "Nc6",
+      "pv_after_best": [
+        "cxd5",
+        "exd5",
+        "Bb5+",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "cxd5",
+        "Qxd5",
+        "Nc3",
+        "Qd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc5+",
+      "cp_loss": 9104,
+      "fen_before": "6R1/kq6/8/1p6/2Q5/2N4P/Pr4PK/8 w - - 0 39",
+      "phase": "middlegame",
+      "played_san": "Qd4+",
+      "pv_after_best": [
+        "Qb6",
+        "Qa3+",
+        "Qa6",
+        "Rg7+"
+      ],
+      "pv_after_played": [
+        "Qb6",
+        "Qxb6+",
+        "Kxb6",
+        "Nxb5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 162,
+      "fen_before": "rnb1kbnr/pp3ppp/2pp2q1/4p3/4P3/2NP1N2/PPP1BPPP/R1BQK2R w KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "h3",
+      "pv_after_best": [
+        "h5",
+        "Be3",
+        "Nf6",
+        "dxe5"
+      ],
+      "pv_after_played": [
+        "Qxg2",
+        "Rh2",
+        "Qg6",
+        "Be3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bg4",
+      "cp_loss": 225,
+      "fen_before": "r1b3k1/p1P2p1p/6p1/8/4rB2/8/P3N1PP/RN1K3R b - - 0 19",
+      "phase": "middlegame",
+      "played_san": "Rxe2",
+      "pv_after_best": [
+        "Kc1",
+        "Rxe2",
+        "Nc3",
+        "Rxg2"
+      ],
+      "pv_after_played": [
+        "Kxe2",
+        "f6",
+        "Kd2",
+        "g5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qd8+",
+      "cp_loss": 1081,
+      "fen_before": "6k1/5pp1/2N4p/p7/4p3/q3P2P/3Q2PK/8 w - - 0 34",
+      "phase": "middlegame",
+      "played_san": "Qxa5",
+      "pv_after_best": [
+        "Kh7",
+        "Ne7",
+        "Qxe7",
+        "Qxe7"
+      ],
+      "pv_after_played": [
+        "Qd6+",
+        "Ne5",
+        "f6",
+        "Qa8+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f3",
+      "cp_loss": 150,
+      "fen_before": "r1b2rk1/pppp1ppp/1b2p3/8/2NPP3/2PB4/PP3P1n/R1B1K1N1 w - - 2 16",
+      "phase": "middlegame",
+      "played_san": "Bf4",
+      "pv_after_best": [
+        "e5",
+        "Kf2",
+        "f5",
+        "Nxb6"
+      ],
+      "pv_after_played": [
+        "Ng4",
+        "f3",
+        "Nh6",
+        "Ne2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxd5",
+      "cp_loss": 227,
+      "fen_before": "rn1qkb1r/p1p1pppp/1p3n2/3B4/8/3P1Q2/PPP2PPP/RNB1K1NR b KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "Nxd5",
+      "pv_after_best": [
+        "Nc3",
+        "Qxf3",
+        "Nxf3",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "c4",
+        "Nb4",
+        "Qxa8",
+        "c6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "dxe4",
+      "cp_loss": 163,
+      "fen_before": "rnbqkbnr/ppp1pppp/8/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+      "phase": "opening",
+      "played_san": "Be6",
+      "pv_after_best": [
+        "Ng5",
+        "e5",
+        "Nxe4",
+        "Be6"
+      ],
+      "pv_after_played": [
+        "exd5",
+        "Bxd5",
+        "d4",
+        "e6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "exf3",
+      "cp_loss": 403,
+      "fen_before": "r2q1rk1/ppp1ppbp/2n3p1/2P5/3Pp1b1/4PN1P/PP2BPP1/R1BQ1RK1 b - - 0 10",
+      "phase": "opening",
+      "played_san": "Bxf3",
+      "pv_after_best": [
+        "Bxf3",
+        "Bxf3",
+        "Qxf3",
+        "a5"
+      ],
+      "pv_after_played": [
+        "gxf3",
+        "e5",
+        "d5",
+        "Qg5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qd1",
+      "cp_loss": 172,
+      "fen_before": "r3k1nr/p4ppp/bpp5/2b4Q/3nP3/8/PPP2PPP/R1B1K1NR w KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "Be3",
+      "pv_after_best": [
+        "Rd8",
+        "Be3",
+        "Ne7",
+        "Nf3"
+      ],
+      "pv_after_played": [
+        "Nxc2+",
+        "Kd2",
+        "Nxe3",
+        "Qe5+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe6",
+      "cp_loss": 279,
+      "fen_before": "r5k1/3Q1ppp/3B4/8/p7/8/q4PPP/5BK1 b - - 4 33",
+      "phase": "middlegame",
+      "played_san": "Qb1",
+      "pv_after_best": [
+        "Qb7",
+        "Rd8",
+        "Bc5",
+        "h5"
+      ],
+      "pv_after_played": [
+        "Qc6",
+        "Rd8",
+        "Bc7",
+        "Rc8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bb4+",
+      "cp_loss": 253,
+      "fen_before": "r1bqkb1r/ppp2ppp/8/3Bn3/5P2/4P3/PP4PP/R1BQK1NR b KQkq - 0 10",
+      "phase": "opening",
+      "played_san": "Ng6",
+      "pv_after_best": [
+        "Ke2",
+        "Ng4",
+        "Qa4+",
+        "c6"
+      ],
+      "pv_after_played": [
+        "Bxf7+",
+        "Kxf7",
+        "Qxd8",
+        "Bb4+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc6",
+      "cp_loss": 394,
+      "fen_before": "rnb1kb1r/pp1p1ppp/1q1Pp3/4B2n/8/2N5/PP2PPPP/R2QKBNR b KQkq - 4 8",
+      "phase": "opening",
+      "played_san": "f6",
+      "pv_after_best": [
+        "Nf3",
+        "Nxe5",
+        "Nxe5",
+        "Qxd6"
+      ],
+      "pv_after_played": [
+        "Bd4",
+        "Qxd6",
+        "e3",
+        "g6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nf3",
+      "cp_loss": 209,
+      "fen_before": "r1b1kbnr/p2q2pp/n1p5/1p2pp2/4P3/2NP2PP/PP3PB1/R1BQK1NR w KQkq - 0 9",
+      "phase": "opening",
+      "played_san": "Nge2",
+      "pv_after_best": [
+        "b4",
+        "Nxe5",
+        "Qc7",
+        "O-O"
+      ],
+      "pv_after_played": [
+        "b4",
+        "Na4",
+        "fxe4",
+        "Be3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bb2",
+      "cp_loss": 185,
+      "fen_before": "7r/2k3pp/p1p5/1rN1R3/3n1P2/1P6/P2P2PP/1RB3K1 w - - 1 25",
+      "phase": "middlegame",
+      "played_san": "Nxa6+",
+      "pv_after_best": [
+        "Ne2+",
+        "Rxe2",
+        "Rxc5",
+        "Bxg7"
+      ],
+      "pv_after_played": [
+        "Kb6",
+        "Bb2",
+        "Rd8",
+        "Rc1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg6",
+      "cp_loss": 209,
+      "fen_before": "r4k2/p1p4Q/2npqn2/2b1p1B1/4P3/2P5/PPP2PPP/R4RK1 w - - 4 18",
+      "phase": "middlegame",
+      "played_san": "Bxf6",
+      "pv_after_best": [
+        "Ke7",
+        "Qg7+",
+        "Ke8",
+        "Bxf6"
+      ],
+      "pv_after_played": [
+        "Qxf6",
+        "Qxc7",
+        "Nd8",
+        "Rad1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxe5",
+      "cp_loss": 159,
+      "fen_before": "2n1r1k1/r1q2pPp/1pn2R2/p2pP3/3P1N2/2PQ4/P2N2PP/5RK1 b - - 3 25",
+      "phase": "middlegame",
+      "played_san": "Qe7",
+      "pv_after_best": [
+        "dxe5",
+        "Qxe5",
+        "Rf5",
+        "Qe3+"
+      ],
+      "pv_after_played": [
+        "Rxc6",
+        "Kxg7",
+        "Nxd5",
+        "Qd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rc1",
+      "cp_loss": 853,
+      "fen_before": "2r5/p4k1p/5p2/4pPP1/2r5/6BP/P5K1/Q7 b - - 4 42",
+      "phase": "middlegame",
+      "played_san": "Rc2+",
+      "pv_after_best": [
+        "Qxc1",
+        "Rxc1",
+        "h4",
+        "Rc4"
+      ],
+      "pv_after_played": [
+        "Bf2",
+        "Ke7",
+        "Qd1",
+        "fxg5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxf4",
+      "cp_loss": 158,
+      "fen_before": "r1b2rk1/ppqn1ppp/2p1pn2/3p4/3P1P2/2PB1N2/PP1N1PPP/R2QR1K1 b - - 4 10",
+      "phase": "opening",
+      "played_san": "Re8",
+      "pv_after_best": [
+        "a4",
+        "a5",
+        "Ne5",
+        "Nxe5"
+      ],
+      "pv_after_played": [
+        "Ne5",
+        "Nf8",
+        "g4",
+        "N6d7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "bxc6",
+      "cp_loss": 302,
+      "fen_before": "r2qk1nr/1ppb2pp/2Bb1p2/p2p4/QP2P3/B1P2N2/P2P1PPP/RN2K2R b KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "Bxc6",
+      "pv_after_best": [
+        "bxa5",
+        "c5",
+        "Qc2",
+        "dxe4"
+      ],
+      "pv_after_played": [
+        "b5",
+        "Bd7",
+        "Bxd6",
+        "cxd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxe5",
+      "cp_loss": 716,
+      "fen_before": "r2qr1k1/5pbp/5np1/1B2B3/6b1/1P3P2/P5PP/RN1Q1RK1 b - - 0 19",
+      "phase": "middlegame",
+      "played_san": "Bf5",
+      "pv_after_best": [
+        "Qxd8+",
+        "Rxd8",
+        "Na3",
+        "Be6"
+      ],
+      "pv_after_played": [
+        "Bxe8",
+        "Qxe8",
+        "Re1",
+        "Rd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re7",
+      "cp_loss": 336,
+      "fen_before": "6k1/pp3rpp/1qbp2n1/5p2/2P2P2/1PQ3P1/PB4RP/5R1K b - - 3 24",
+      "phase": "middlegame",
+      "played_san": "Nxf4",
+      "pv_after_best": [
+        "h4",
+        "Nf8",
+        "Kh2",
+        "Bxg2"
+      ],
+      "pv_after_played": [
+        "Rxf4",
+        "Re7",
+        "h4",
+        "h6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxh1",
+      "cp_loss": 274,
+      "fen_before": "8/p1pR4/2B1pkp1/5b2/5P2/P1b3K1/1rP5/7r w - - 1 29",
+      "phase": "middlegame",
+      "played_san": "Rd8",
+      "pv_after_best": [
+        "Rxc2",
+        "Kf3",
+        "Bd2",
+        "Rd4"
+      ],
+      "pv_after_played": [
+        "Rh3+",
+        "Kg2",
+        "Rxc2+",
+        "Kg1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe4+",
+      "cp_loss": 10438,
+      "fen_before": "Q7/8/8/8/2p5/2P5/3K4/qk6 w - - 4 50",
+      "phase": "middlegame",
+      "played_san": "Qxa1+",
+      "pv_after_best": [
+        "Ka2",
+        "Qxc4+",
+        "Kb1",
+        "Qe4+"
+      ],
+      "pv_after_played": [
+        "Kxa1",
+        "Ke3",
+        "Ka2",
+        "Kd4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qf3",
+      "cp_loss": 153,
+      "fen_before": "5b1r/1kp2ppp/qpN2n2/3Q4/8/4B3/PPP2PPP/5RK1 w - - 6 20",
+      "phase": "middlegame",
+      "played_san": "Nd8+",
+      "pv_after_best": [
+        "Kc8",
+        "Qf5+",
+        "Kb7",
+        "Nd8+"
+      ],
+      "pv_after_played": [
+        "Kc8",
+        "Qxf7",
+        "Kxd8",
+        "Rd1+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rd1",
+      "cp_loss": 8690,
+      "fen_before": "r3k2r/1pp4p/p3pnp1/4p3/1P1n4/2N3PP/1P1qNK2/4R2b w kq - 0 24",
+      "phase": "middlegame",
+      "played_san": "Rxh1",
+      "pv_after_best": [
+        "Ng4+",
+        "hxg4",
+        "Rf8+",
+        "Kg1"
+      ],
+      "pv_after_played": [
+        "Ne4+",
+        "Kg2",
+        "Nxe2",
+        "Rd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nd4",
+      "cp_loss": 212,
+      "fen_before": "r3kb1r/pp3ppp/2n1p3/2p1q3/4P3/P4P1P/1PP1Q1P1/RNB2RK1 b kq - 0 12",
+      "phase": "opening",
+      "played_san": "c4",
+      "pv_after_best": [
+        "Qd3",
+        "O-O-O",
+        "Nd2",
+        "Qg3"
+      ],
+      "pv_after_played": [
+        "Nc3",
+        "Be7",
+        "f4",
+        "Qa5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qh6+",
+      "cp_loss": 342,
+      "fen_before": "r1b2rk1/1pp1nppp/3q4/p7/2PpP3/2P2Q2/PP3PPP/2KR3R b - - 0 15",
+      "phase": "middlegame",
+      "played_san": "dxc3",
+      "pv_after_best": [
+        "Kb1",
+        "f5",
+        "e5",
+        "f4"
+      ],
+      "pv_after_played": [
+        "Rxd6",
+        "cxb2+",
+        "Kxb2",
+        "cxd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re5",
+      "cp_loss": 364,
+      "fen_before": "rn3rk1/ppp2ppp/7B/8/3q4/3p2QP/PPP2PP1/R3R1K1 w - - 4 16",
+      "phase": "middlegame",
+      "played_san": "c3",
+      "pv_after_best": [
+        "g6",
+        "c3",
+        "Qd6",
+        "Bxf8"
+      ],
+      "pv_after_played": [
+        "Qf6",
+        "Bf4",
+        "Na6",
+        "Rad1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "c4",
+      "cp_loss": 221,
+      "fen_before": "r4rk1/2p3p1/p3pn1p/1pp5/3qP3/NP1P4/P1P2PPP/R2Q1RK1 b - - 1 15",
+      "phase": "middlegame",
+      "played_san": "b4",
+      "pv_after_best": [
+        "c3",
+        "Qxc3",
+        "dxc4",
+        "Rad8"
+      ],
+      "pv_after_played": [
+        "Nc4",
+        "Nd7",
+        "g3",
+        "Ne5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "axb4",
+      "cp_loss": 168,
+      "fen_before": "r2qk1nr/1pp3pp/2nbbp2/pB1p4/QP2P3/B1P2N2/P2P1PPP/RN2K2R b KQkq - 1 10",
+      "phase": "opening",
+      "played_san": "Bd7",
+      "pv_after_best": [
+        "Qb3",
+        "Qe7",
+        "e5",
+        "fxe5"
+      ],
+      "pv_after_played": [
+        "exd5",
+        "axb4",
+        "Qc2",
+        "Qe7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rh8",
+      "cp_loss": 212,
+      "fen_before": "r7/p3k1pB/2p1p3/1pnp4/5P2/6P1/P1PKR2P/6R1 b - - 1 31",
+      "phase": "middlegame",
+      "played_san": "Ne4+",
+      "pv_after_best": [
+        "Bg6",
+        "Kd6",
+        "Rge1",
+        "b4"
+      ],
+      "pv_after_played": [
+        "Bxe4",
+        "dxe4",
+        "Rxe4",
+        "Kf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxb7",
+      "cp_loss": 529,
+      "fen_before": "rn2kbnr/ppp2p1p/6p1/4P3/4B1b1/5N2/PPP2PPP/RNBK3R w kq - 2 8",
+      "phase": "opening",
+      "played_san": "Bh6",
+      "pv_after_best": [
+        "Bg7",
+        "Bxa8",
+        "c6",
+        "h3"
+      ],
+      "pv_after_played": [
+        "Nd7",
+        "Bxf8",
+        "Kxf8",
+        "Re1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg5+",
+      "cp_loss": 239,
+      "fen_before": "r4rk1/ppp2ppp/8/4P2n/5q2/1QN2P1P/P4P2/3RR1K1 b - - 2 18",
+      "phase": "middlegame",
+      "played_san": "Qxf3",
+      "pv_after_best": [
+        "Kh1",
+        "Nf4",
+        "Rg1",
+        "Qh5"
+      ],
+      "pv_after_played": [
+        "Nd5",
+        "Qxb3",
+        "axb3",
+        "Rad8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxe1",
+      "cp_loss": 173,
+      "fen_before": "r1b3k1/pp3ppp/8/1Qnp4/3N1q2/5B1P/P1P3P1/R3rK2 w - - 0 21",
+      "phase": "middlegame",
+      "played_san": "Kxe1",
+      "pv_after_best": [
+        "Ne6",
+        "Qe8+",
+        "Nf8",
+        "c3"
+      ],
+      "pv_after_played": [
+        "Qd6",
+        "Qe8+",
+        "Qf8",
+        "Qxf8+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxe5",
+      "cp_loss": 288,
+      "fen_before": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+      "phase": "opening",
+      "played_san": "h3",
+      "pv_after_best": [
+        "O-O",
+        "d4",
+        "Bb6",
+        "Nxf7"
+      ],
+      "pv_after_played": [
+        "Nxe4",
+        "O-O",
+        "Bxf2+",
+        "Rxf2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rf6",
+      "cp_loss": 191,
+      "fen_before": "6k1/ppp3pp/4p2r/3qN3/3Pp3/2P1B3/PP1Q2PP/R5K1 b - - 5 22",
+      "phase": "middlegame",
+      "played_san": "Qd8",
+      "pv_after_best": [
+        "c4",
+        "Qd6",
+        "Qc2",
+        "a5"
+      ],
+      "pv_after_played": [
+        "Bxh6",
+        "gxh6",
+        "Qxh6",
+        "Qe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "O-O",
+      "cp_loss": 314,
+      "fen_before": "r1bqk2r/ppp2ppp/8/3P1n2/2BpN1Q1/3P4/PP3PPP/RNB2RK1 b kq - 1 11",
+      "phase": "opening",
+      "played_san": "Ne3",
+      "pv_after_best": [
+        "Qd1",
+        "Kh8",
+        "a4",
+        "f6"
+      ],
+      "pv_after_played": [
+        "Qxg7",
+        "Ng4",
+        "Qxh8+",
+        "Kd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d4",
+      "cp_loss": 263,
+      "fen_before": "r6r/pp4bp/3kP3/2qp1Q2/4P3/2P5/6PP/3RR2K b - - 2 24",
+      "phase": "middlegame",
+      "played_san": "Rhf8",
+      "pv_after_best": [
+        "e5+",
+        "Kc7",
+        "Qf7+",
+        "Kb8"
+      ],
+      "pv_after_played": [
+        "Rxd5+",
+        "Qxd5",
+        "Qxd5+",
+        "Ke7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rfe1",
+      "cp_loss": 8796,
+      "fen_before": "6r1/8/2Nkpp2/2p3p1/p1B5/3P1Q2/PbP2PPP/1R3RK1 w - - 0 23",
+      "phase": "middlegame",
+      "played_san": "Bb5",
+      "pv_after_best": [
+        "a3",
+        "Rxe6+",
+        "Kc7",
+        "Re7+"
+      ],
+      "pv_after_played": [
+        "a3",
+        "Rfe1",
+        "f5",
+        "Na5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxd4",
+      "cp_loss": 413,
+      "fen_before": "rn2kb1r/pppqpppp/5n2/8/3N4/2N4P/PPPPQPP1/R1B1K2R b KQkq - 0 8",
+      "phase": "opening",
+      "played_san": "Nc6",
+      "pv_after_best": [
+        "Qb5+",
+        "Nbd7",
+        "Qxb7",
+        "Qe5+"
+      ],
+      "pv_after_played": [
+        "Nxc6",
+        "Qxc6",
+        "O-O",
+        "e6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nb8",
+      "cp_loss": 237,
+      "fen_before": "2r4r/2p1k2p/p1n3p1/4p3/R7/N1P5/1P3PPP/R5K1 b - - 0 23",
+      "phase": "middlegame",
+      "played_san": "Ke6",
+      "pv_after_best": [
+        "Nc4",
+        "Kf6",
+        "Kf1",
+        "Rhe8"
+      ],
+      "pv_after_played": [
+        "Rxa6",
+        "Rhf8",
+        "Rxc6+",
+        "Kf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf5",
+      "cp_loss": 377,
+      "fen_before": "r1b1k2r/pppp1ppp/5n2/4p1N1/4q3/N7/PP1PBPPP/2RQ1K1R b kq - 2 10",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "h4",
+        "h6",
+        "g4",
+        "Qg6"
+      ],
+      "pv_after_played": [
+        "Nxe4",
+        "Nxe4",
+        "f3",
+        "Ng5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc3",
+      "cp_loss": 264,
+      "fen_before": "r1bqk2r/2pp1ppp/1pn4n/p1b3N1/2Q1P3/8/PPP1BPPP/RNB1K2R w KQkq - 4 8",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Nd4",
+        "Qd5",
+        "Nxe2",
+        "Nxe2"
+      ],
+      "pv_after_played": [
+        "Ba6",
+        "Qc3",
+        "Bxe2",
+        "Qxg7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Re8",
+      "cp_loss": 162,
+      "fen_before": "r1b2rk1/ppp3pp/2n5/2p2p2/2P5/P2B1P2/P1R1N1PP/2K4R b - - 1 18",
+      "phase": "middlegame",
+      "played_san": "Nd4",
+      "pv_after_best": [
+        "Nf4",
+        "Bd7",
+        "Nd5",
+        "Rac8"
+      ],
+      "pv_after_played": [
+        "Nxd4",
+        "cxd4",
+        "c5",
+        "Kf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxh3",
+      "cp_loss": 181,
+      "fen_before": "rnb2rk1/ppp2ppp/8/2b4q/2B1PB2/3P3P/PPP3P1/RN1n1R1K b - - 1 13",
+      "phase": "middlegame",
+      "played_san": "Qe2",
+      "pv_after_best": [
+        "Nd2",
+        "Ne3",
+        "Bxe3",
+        "Be6+"
+      ],
+      "pv_after_played": [
+        "Nd2",
+        "Nf2+",
+        "Rxf2",
+        "Qxf2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rf8",
+      "cp_loss": 528,
+      "fen_before": "3rr3/pp4pp/8/1Np1k1b1/4p1P1/P1P4P/1P6/1K2RR2 b - - 0 24",
+      "phase": "middlegame",
+      "played_san": "Bh4",
+      "pv_after_best": [
+        "Rh1",
+        "Rf2",
+        "Ref1",
+        "Rxf1+"
+      ],
+      "pv_after_played": [
+        "Rf5+",
+        "Ke6",
+        "Rxe4+",
+        "Kd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxa3",
+      "cp_loss": 298,
+      "fen_before": "rn2kbnr/ppqb1ppp/8/1B1pp2Q/P7/R7/1PPP1PPP/1NB1K1NR b Kkq - 3 7",
+      "phase": "opening",
+      "played_san": "Qxc2",
+      "pv_after_best": [
+        "Nxa3",
+        "Nf6",
+        "Bxd7+",
+        "Nbxd7"
+      ],
+      "pv_after_played": [
+        "Qxe5+",
+        "Ne7",
+        "Rc3",
+        "Qe4+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc3",
+      "cp_loss": 245,
+      "fen_before": "r2qkb1r/2p4p/p4p1p/3p4/3Pp1Q1/P7/1PP2PPP/RN2K2R w KQkq - 0 12",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Qd7",
+        "Qh5+",
+        "Kd8",
+        "Qxd5"
+      ],
+      "pv_after_played": [
+        "Qd7",
+        "Qh5+",
+        "Qf7",
+        "Qxf7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxc6",
+      "cp_loss": 339,
+      "fen_before": "r1bq1rk1/ppp2ppp/2n2n2/6N1/3pB3/8/PPPQ1PPP/RN3RK1 w - - 1 10",
+      "phase": "opening",
+      "played_san": "Bxh7+",
+      "pv_after_best": [
+        "bxc6",
+        "Nf3",
+        "c5",
+        "Qa5"
+      ],
+      "pv_after_played": [
+        "Nxh7",
+        "Nxh7",
+        "Kxh7",
+        "f4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ng5",
+      "cp_loss": 468,
+      "fen_before": "rnbqkb1r/ppp3pp/3p1n2/4p3/2B1P3/5N2/PPP2PPP/RNBQK2R w KQkq - 2 6",
+      "phase": "opening",
+      "played_san": "Nxe5",
+      "pv_after_best": [
+        "Qe7",
+        "Bf7+",
+        "Kd8",
+        "Bb3"
+      ],
+      "pv_after_played": [
+        "dxe5",
+        "Qe2",
+        "Nc6",
+        "Be3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxe2",
+      "cp_loss": 178,
+      "fen_before": "2kr2nr/ppp2ppp/8/2N5/3n4/3PqP1P/PPP1B1P1/R2QK2R b KQ - 1 12",
+      "phase": "opening",
+      "played_san": "Nf6",
+      "pv_after_best": [
+        "Qxe2",
+        "Qxc5",
+        "O-O-O",
+        "Nf6"
+      ],
+      "pv_after_played": [
+        "Nb3",
+        "Rhe8",
+        "Nxd4",
+        "Qxd4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxb8",
+      "cp_loss": 164,
+      "fen_before": "1r3r2/p3b1p1/6k1/3p4/3P1Bp1/2P3P1/PP3PK1/2R4R w - - 5 27",
+      "phase": "middlegame",
+      "played_san": "b4",
+      "pv_after_best": [
+        "Rxb8",
+        "Rhe1",
+        "Bf6",
+        "Re2"
+      ],
+      "pv_after_played": [
+        "Rb6",
+        "Rhe1",
+        "Bf6",
+        "a4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxd7",
+      "cp_loss": 9019,
+      "fen_before": "r3kb1r/p2bppp1/7p/2q5/2PR4/5B2/nPPK1P2/5R2 w kq - 0 21",
+      "phase": "middlegame",
+      "played_san": "Re1",
+      "pv_after_best": [
+        "Kxd7",
+        "Bxa8",
+        "e6",
+        "Be4"
+      ],
+      "pv_after_played": [
+        "Qxd4+",
+        "Ke2",
+        "Qxc4+",
+        "Ke3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "f5",
+      "cp_loss": 227,
+      "fen_before": "r1bqkbnr/pp1p1ppp/8/3Pp3/3pP2P/8/PP3PP1/RNBQKBNR b KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "g5",
+      "pv_after_best": [
+        "Nd2",
+        "Nf6",
+        "exf5",
+        "e4"
+      ],
+      "pv_after_played": [
+        "hxg5",
+        "d6",
+        "Na3",
+        "h6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ng8",
+      "cp_loss": 361,
+      "fen_before": "r2qk2r/ppp2ppp/5n2/3bP3/4p3/1PP1P3/P5PP/RNBQ1RK1 b kq - 0 12",
+      "phase": "opening",
+      "played_san": "Ng4",
+      "pv_after_best": [
+        "c4",
+        "Be6",
+        "Nc3",
+        "Qxd1"
+      ],
+      "pv_after_played": [
+        "Qxg4",
+        "Qe7",
+        "Qf4",
+        "O-O-O"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f4",
+      "cp_loss": 233,
+      "fen_before": "r1bqnrk1/p2p1ppp/1p1b4/4p1P1/4P3/2NP4/PP3PBP/R1BQ1RK1 w - - 1 12",
+      "phase": "opening",
+      "played_san": "g6",
+      "pv_after_best": [
+        "Bc5+",
+        "Kh1",
+        "exf4",
+        "Bxf4"
+      ],
+      "pv_after_played": [
+        "hxg6",
+        "f4",
+        "Qh4",
+        "Bd2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "O-O",
+      "cp_loss": 154,
+      "fen_before": "r1bqk2r/ppp2ppp/5n2/2b1p3/3nP3/1BN5/PPP2PPP/R1BQK1NR b KQkq - 0 8",
+      "phase": "opening",
+      "played_san": "Nxb3",
+      "pv_after_best": [
+        "Bg5",
+        "c6",
+        "h3",
+        "Qe7"
+      ],
+      "pv_after_played": [
+        "Qxd8+",
+        "Kxd8",
+        "axb3",
+        "Bb4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc3+",
+      "cp_loss": 8757,
+      "fen_before": "r1b4Q/pppp3p/6p1/2kp4/5B2/8/PPP2PPP/R3R1K1 w - - 5 20",
+      "phase": "middlegame",
+      "played_san": "Rad1",
+      "pv_after_best": [
+        "Kb6",
+        "Bxc7+",
+        "Kb5",
+        "a4+"
+      ],
+      "pv_after_played": [
+        "Kb5",
+        "Qd4",
+        "c6",
+        "Bc7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "g3",
+      "cp_loss": 363,
+      "fen_before": "r1b1k2r/1ppp1ppp/2n5/p2N4/2B4q/P3P3/1PP2KPP/R1BQ2N1 w kq - 1 12",
+      "phase": "opening",
+      "played_san": "Kf1",
+      "pv_after_best": [
+        "Qxh2+",
+        "Kf1",
+        "O-O",
+        "Bd3"
+      ],
+      "pv_after_played": [
+        "Qxc4+",
+        "Ne2",
+        "Ne7",
+        "Nxe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxd5",
+      "cp_loss": 9351,
+      "fen_before": "5rk1/5ppp/3b4/1p1q3R/1P2p1R1/p6P/5PP1/6K1 w - - 0 30",
+      "phase": "middlegame",
+      "played_san": "Rgh4",
+      "pv_after_best": [
+        "a2",
+        "Rd1",
+        "f5",
+        "Rg3"
+      ],
+      "pv_after_played": [
+        "Qd1#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bb5+",
+      "cp_loss": 350,
+      "fen_before": "r2qkbnr/pb3ppp/8/3pp2Q/2B5/8/PPP2PPP/RNB1K2R w KQkq - 0 9",
+      "phase": "opening",
+      "played_san": "Qxe5+",
+      "pv_after_best": [
+        "Qd7",
+        "Qxe5+",
+        "Be7",
+        "Bxd7+"
+      ],
+      "pv_after_played": [
+        "Qe7",
+        "Bb5+",
+        "Kd8",
+        "Qxe7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxg5",
+      "cp_loss": 161,
+      "fen_before": "rnb1k1nr/pp3p1p/1bpp1q2/6p1/3PP3/2N2N1P/PPP2PP1/R1BQKB1R w KQkq - 1 8",
+      "phase": "opening",
+      "played_san": "Bd3",
+      "pv_after_best": [
+        "Qg7",
+        "Qd2",
+        "Ba5",
+        "O-O-O"
+      ],
+      "pv_after_played": [
+        "g4",
+        "e5",
+        "Qe7",
+        "Ne4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxc7",
+      "cp_loss": 150,
+      "fen_before": "5k1r/p1p5/3p2Q1/7P/8/8/PP6/2R4K w - - 7 41",
+      "phase": "middlegame",
+      "played_san": "Rf1+",
+      "pv_after_best": [
+        "Rh7",
+        "Qxh7",
+        "a6",
+        "Qf7#"
+      ],
+      "pv_after_played": [
+        "Ke7",
+        "Qg7+",
+        "Ke6",
+        "Qxh8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne7",
+      "cp_loss": 317,
+      "fen_before": "r1bq1rk1/2pp1pb1/2n1pnpp/1B6/3P1B2/4PN2/PP1N1PPP/R2Q1RK1 b - - 0 11",
+      "phase": "opening",
+      "played_san": "Ne4",
+      "pv_after_best": [
+        "h3",
+        "d6",
+        "Bh2",
+        "Ra7"
+      ],
+      "pv_after_played": [
+        "Nxe4",
+        "Nb4",
+        "Nc3",
+        "g5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxg2+",
+      "cp_loss": 9070,
+      "fen_before": "8/pp4pp/8/3N1k2/6n1/8/PP1r1rPP/4R1K1 b - - 7 32",
+      "phase": "middlegame",
+      "played_san": "Rxd5",
+      "pv_after_best": [
+        "Kh1",
+        "Rxh2+",
+        "Kg1",
+        "Rxd5"
+      ],
+      "pv_after_played": [
+        "h3",
+        "Rdd2",
+        "hxg4+",
+        "Kxg4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nxd8",
+      "cp_loss": 249,
+      "fen_before": "3r2k1/pNp2pp1/5np1/4p3/2B1P1b1/8/1P3PPP/2n3K1 w - - 0 23",
+      "phase": "middlegame",
+      "played_san": "h3",
+      "pv_after_best": [
+        "Ne2+",
+        "Kf1",
+        "Nd4",
+        "f3"
+      ],
+      "pv_after_played": [
+        "Rb8",
+        "Ba6",
+        "Be2",
+        "Nc5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg7+",
+      "cp_loss": 9382,
+      "fen_before": "r4nQ1/pp2k3/2P4B/4p3/B5NP/2P5/4KP2/7q w - - 0 32",
+      "phase": "middlegame",
+      "played_san": "Bg5+",
+      "pv_after_best": [
+        "Ke6",
+        "Qxe5+",
+        "Kf7",
+        "Qf6+"
+      ],
+      "pv_after_played": [
+        "Kd6",
+        "cxb7",
+        "Qe4+",
+        "Ne3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qd2",
+      "cp_loss": 512,
+      "fen_before": "2b1q1kr/1p1p2p1/2p3B1/5P2/2PQ1P1p/2N5/P1n4P/R5K1 w - - 0 25",
+      "phase": "middlegame",
+      "played_san": "Bxe8",
+      "pv_after_best": [
+        "Qe7",
+        "Qxc2",
+        "d5",
+        "Qe2"
+      ],
+      "pv_after_played": [
+        "Nxd4",
+        "Bg6",
+        "d6",
+        "Ne4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe6",
+      "cp_loss": 202,
+      "fen_before": "r1b1k2r/ppp1b1pp/5p1n/3q4/8/P4N2/1PPBQ1PP/2KR1B1R b kq - 3 15",
+      "phase": "middlegame",
+      "played_san": "Qa2",
+      "pv_after_best": [
+        "Qd3",
+        "Nf5",
+        "Re1",
+        "Qa2"
+      ],
+      "pv_after_played": [
+        "Bxh6",
+        "Qa1+",
+        "Kd2",
+        "Qxb2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h6",
+      "cp_loss": 409,
+      "fen_before": "r1bqkb1r/ppp2ppp/8/3Pp1N1/2Bn2n1/2NP4/PPP2PPP/R1BQK2R b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Qxg5",
+      "pv_after_best": [
+        "Nf3",
+        "Bd6",
+        "h3",
+        "Nf6"
+      ],
+      "pv_after_played": [
+        "Bxg5",
+        "h6",
+        "Bc1",
+        "Nf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxa5",
+      "cp_loss": 257,
+      "fen_before": "2k1r3/1p3p2/2p1q3/p6Q/8/8/5PP1/5RK1 w - - 0 29",
+      "phase": "middlegame",
+      "played_san": "Ra1",
+      "pv_after_best": [
+        "Qe5",
+        "Qa7",
+        "Rh8",
+        "f4"
+      ],
+      "pv_after_played": [
+        "b6",
+        "Qf3",
+        "Kc7",
+        "Rd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxd5",
+      "cp_loss": 342,
+      "fen_before": "r1b1kb1r/pp5p/4pq2/3n1p2/8/1Q1P1NN1/2P2P1P/R3R1K1 w kq - 4 22",
+      "phase": "middlegame",
+      "played_san": "Nh5",
+      "pv_after_best": [
+        "Be7",
+        "Qb5+",
+        "Kf8",
+        "Kf1"
+      ],
+      "pv_after_played": [
+        "Qg6+",
+        "Kh1",
+        "Be7",
+        "Ng3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bf3+",
+      "cp_loss": 9482,
+      "fen_before": "r1b3r1/p4R1p/npk5/2b4B/3p4/8/PqPBQ1P1/2R4K w - - 0 27",
+      "phase": "middlegame",
+      "played_san": "Qf3+",
+      "pv_after_best": [
+        "Kd6",
+        "Bf4#"
+      ],
+      "pv_after_played": [
+        "Kb5",
+        "Qxa8",
+        "Bb4",
+        "Bf4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rd8",
+      "cp_loss": 493,
+      "fen_before": "4r3/5kpp/8/NP6/3q4/3P1PPP/1P1K4/R1B4R b - - 2 30",
+      "phase": "middlegame",
+      "played_san": "Qe3+",
+      "pv_after_best": [
+        "Ra3",
+        "Qf2+",
+        "Kc3",
+        "Qxf3"
+      ],
+      "pv_after_played": [
+        "Kc2",
+        "Qc5+",
+        "Nc4",
+        "Kg8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qh4",
+      "cp_loss": 459,
+      "fen_before": "3r1rk1/1p1b1ppp/p3q3/3NPp2/5Q2/8/PPP3PP/2KR3R w - - 2 18",
+      "phase": "middlegame",
+      "played_san": "Nc7",
+      "pv_after_best": [
+        "h6",
+        "Rd2",
+        "g5",
+        "Qd4"
+      ],
+      "pv_after_played": [
+        "Qxa2",
+        "Nd5",
+        "Be6",
+        "Ne7+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qh5+",
+      "cp_loss": 849,
+      "fen_before": "rnb1k2r/ppppq1pp/4n3/4N3/8/8/PPP1Q1PP/R1B2RK1 w kq - 1 14",
+      "phase": "middlegame",
+      "played_san": "Re1",
+      "pv_after_best": [
+        "g6",
+        "Nxg6",
+        "Qc5+",
+        "Qxc5"
+      ],
+      "pv_after_played": [
+        "O-O",
+        "b4",
+        "Qxb4",
+        "Ng4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe3",
+      "cp_loss": 173,
+      "fen_before": "r3r1k1/1p3p1p/1pnp1qp1/4pb2/2B1Q3/5N1P/PPP2PP1/R3R1K1 w - - 2 23",
+      "phase": "middlegame",
+      "played_san": "Qd5",
+      "pv_after_best": [
+        "Nb4",
+        "Bb3",
+        "Nxc2",
+        "Bxc2"
+      ],
+      "pv_after_played": [
+        "Nb4",
+        "Qxb7",
+        "Reb8",
+        "Qc7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxg5",
+      "cp_loss": 237,
+      "fen_before": "rn2k1nr/3p1p1p/pqb1p3/b1p1P1p1/5N2/2P2N2/1P1P1PPP/R1BQKB1R w Kkq - 0 12",
+      "phase": "opening",
+      "played_san": "Nd3",
+      "pv_after_best": [
+        "Ne7",
+        "Qh5",
+        "Ng6",
+        "Nxg6"
+      ],
+      "pv_after_played": [
+        "h6",
+        "b3",
+        "Qc7",
+        "Ba3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxe7+",
+      "cp_loss": 222,
+      "fen_before": "1n3k2/r3q3/pp2QpBn/6p1/7r/2N1B3/PPP3PP/3R1RK1 w - - 0 25",
+      "phase": "middlegame",
+      "played_san": "Qc8+",
+      "pv_after_best": [
+        "Kxe7",
+        "Nd5+",
+        "Kf8",
+        "Bxg5"
+      ],
+      "pv_after_played": [
+        "Kg7",
+        "Bf2",
+        "Rc7",
+        "Qxb8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxd6",
+      "cp_loss": 644,
+      "fen_before": "r1bqkb1r/ppp2ppp/3P1n2/4p1N1/2Bn4/8/PPPP1PPP/RNBQK2R b KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "Qe7",
+      "pv_after_best": [
+        "d3",
+        "Bg4",
+        "Bxf7+",
+        "Ke7"
+      ],
+      "pv_after_played": [
+        "dxe7",
+        "Bxe7",
+        "c3",
+        "Ng4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxf5",
+      "cp_loss": 286,
+      "fen_before": "r2qkb1r/ppp1np1p/6p1/1N3bN1/2Bp4/8/PP2Q1PP/n1B2RK1 w kq - 0 13",
+      "phase": "middlegame",
+      "played_san": "Nxf7",
+      "pv_after_best": [
+        "Kd7",
+        "Nxf7",
+        "h5",
+        "Qe6+"
+      ],
+      "pv_after_played": [
+        "Qd7",
+        "Qe5",
+        "Rc8",
+        "Qxh8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bc3",
+      "cp_loss": 258,
+      "fen_before": "3rk2r/p1p2ppp/4p3/8/1P2n3/4P3/1PPBNPbq/R2QK1R1 w Qk - 3 15",
+      "phase": "middlegame",
+      "played_san": "Rxa7",
+      "pv_after_best": [
+        "Rxd1+",
+        "Kxd1",
+        "Bf3",
+        "Rf1"
+      ],
+      "pv_after_played": [
+        "Bh3",
+        "Qc1",
+        "Qxf2+",
+        "Kd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxf7",
+      "cp_loss": 289,
+      "fen_before": "r1bqkb1r/ppp2pp1/2n4p/3np1N1/2B5/3P4/PPP2PPP/RNBQK2R w KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Bxd5",
+      "pv_after_best": [
+        "Kxf7",
+        "Qf3+",
+        "Ke6",
+        "Nc3"
+      ],
+      "pv_after_played": [
+        "Qxd5",
+        "Nf3",
+        "Bg4",
+        "h3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg7+",
+      "cp_loss": 8562,
+      "fen_before": "8/Q7/8/6k1/P7/5p1P/6P1/6K1 w - - 0 47",
+      "phase": "middlegame",
+      "played_san": "g3",
+      "pv_after_best": [
+        "Kf4",
+        "Qf7+",
+        "Ke3",
+        "Qxf3+"
+      ],
+      "pv_after_played": [
+        "f2+",
+        "Kxf2",
+        "Kg6",
+        "Qb7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg3",
+      "cp_loss": 238,
+      "fen_before": "4R3/pp1k1pp1/2p5/3p3q/3b3n/2N4P/PP3PQ1/6K1 w - - 2 27",
+      "phase": "middlegame",
+      "played_san": "Re1",
+      "pv_after_best": [
+        "Kxe8",
+        "Qb8+",
+        "Ke7",
+        "Qxb7+"
+      ],
+      "pv_after_played": [
+        "Nxg2",
+        "Kxg2",
+        "Qg5+",
+        "Kf1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kg8",
+      "cp_loss": 9083,
+      "fen_before": "5N2/1p4bk/3p3p/2p2pBP/p7/3P1K1Q/2q2P2/5B1R b - - 0 27",
+      "phase": "middlegame",
+      "played_san": "Bxf8",
+      "pv_after_best": [
+        "Qxf5",
+        "b6",
+        "Qe6+",
+        "Kh8"
+      ],
+      "pv_after_played": [
+        "Qxf5+",
+        "Kg8",
+        "Qe6+",
+        "Kh8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 256,
+      "fen_before": "r1bqk2r/pppp1ppp/2n5/8/2BP4/B1b2N2/P4PPP/R2Q1RK1 b kq - 1 10",
+      "phase": "opening",
+      "played_san": "Bxa1",
+      "pv_after_best": [
+        "Bb5",
+        "Bxa1",
+        "Re1+",
+        "Be6"
+      ],
+      "pv_after_played": [
+        "Re1+",
+        "Ne7",
+        "Rxe7+",
+        "Qxe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f3",
+      "cp_loss": 9482,
+      "fen_before": "3r4/Q3bkpp/8/2p2p2/3Bq3/2P5/PPR2P2/1K6 w - - 0 26",
+      "phase": "middlegame",
+      "played_san": "Bxc5",
+      "pv_after_best": [
+        "Qxf3",
+        "Qc7",
+        "cxd4",
+        "cxd4"
+      ],
+      "pv_after_played": [
+        "Rd1#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rad8",
+      "cp_loss": 241,
+      "fen_before": "r3r1k1/ppp2ppp/8/3b4/3Qp1Pq/2P4P/PP2B3/R1BK4 b - - 0 19",
+      "phase": "middlegame",
+      "played_san": "c6",
+      "pv_after_best": [
+        "Be3",
+        "c5",
+        "Qd2",
+        "Be6"
+      ],
+      "pv_after_played": [
+        "Qe3",
+        "b5",
+        "b3",
+        "Qe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "a3",
+      "cp_loss": 422,
+      "fen_before": "rnbqkbnr/5ppp/2pp4/pp2p3/4P3/1BN2N2/PPPP1PPP/R1BQK2R w KQkq - 0 6",
+      "phase": "opening",
+      "played_san": "Ng5",
+      "pv_after_best": [
+        "Be7",
+        "d4",
+        "exd4",
+        "Nxd4"
+      ],
+      "pv_after_played": [
+        "Qxg5",
+        "O-O",
+        "Qg4",
+        "f3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qf6",
+      "cp_loss": 9253,
+      "fen_before": "6k1/7p/p3N1p1/1b1rp1Q1/8/2P4P/1P3PP1/6K1 w - - 0 27",
+      "phase": "middlegame",
+      "played_san": "Qh6",
+      "pv_after_best": [
+        "Rd1+",
+        "Kh2",
+        "Rh1+",
+        "Kxh1"
+      ],
+      "pv_after_played": [
+        "Kf7",
+        "Ng5+",
+        "Kf6",
+        "Kh2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bh5",
+      "cp_loss": 346,
+      "fen_before": "rn1b1rk1/1p3ppn/p5qp/P7/2PNPB2/2N2BPb/1P5P/R2Q1RK1 w - - 3 18",
+      "phase": "middlegame",
+      "played_san": "Bg2",
+      "pv_after_best": [
+        "Nc6",
+        "Bxg6",
+        "fxg6",
+        "Nf3"
+      ],
+      "pv_after_played": [
+        "Bxg2",
+        "Kxg2",
+        "Nc6",
+        "Nxc6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxf2",
+      "cp_loss": 479,
+      "fen_before": "r6k/ppp2p1n/3p3Q/2b1p3/2B1P3/3P1n2/PPP1KPqP/R2N4 b - - 9 22",
+      "phase": "middlegame",
+      "played_san": "Nd4+",
+      "pv_after_best": [
+        "Qf8+",
+        "Rxf8",
+        "Nxf2",
+        "Nd4+"
+      ],
+      "pv_after_played": [
+        "Kd2",
+        "Qf3",
+        "Kc3",
+        "a5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf3",
+      "cp_loss": 200,
+      "fen_before": "1k5r/p5b1/1pb2p2/q3p1pP/4P3/8/P2N1P2/1RB1K2Q w - - 4 27",
+      "phase": "middlegame",
+      "played_san": "Ra1",
+      "pv_after_best": [
+        "Qxa2",
+        "Qd3",
+        "Qe6",
+        "Nc4"
+      ],
+      "pv_after_played": [
+        "Qc3",
+        "Rb1",
+        "Bh6",
+        "Qf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nb5",
+      "cp_loss": 154,
+      "fen_before": "k2r1q2/ppn5/7p/6p1/1p1p4/3P1NPP/P4P2/1R1Q2K1 b - - 1 27",
+      "phase": "middlegame",
+      "played_san": "Nd5",
+      "pv_after_best": [
+        "Nd2",
+        "Nc3",
+        "Qf1",
+        "Nxb1"
+      ],
+      "pv_after_played": [
+        "Nxd4",
+        "Nc3",
+        "Ne6",
+        "Nxd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qg5",
+      "cp_loss": 215,
+      "fen_before": "r1bqkb1r/2p3pp/p1p1n2P/3pBp2/8/1P1PP3/P1P2PP1/RN1QK1NR b KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "g6",
+      "pv_after_best": [
+        "Nf3",
+        "Qg6",
+        "Nc3",
+        "Bb7"
+      ],
+      "pv_after_played": [
+        "Bxh8",
+        "Bd6",
+        "Qd2",
+        "f4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxh3",
+      "cp_loss": 201,
+      "fen_before": "r1bqkbnr/p1p2ppp/3p4/3Pp3/2pPP3/7N/PP3PPP/RNBQK2R b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "c5",
+      "pv_after_best": [
+        "gxh3",
+        "Nf6",
+        "Na3",
+        "Nxe4"
+      ],
+      "pv_after_played": [
+        "dxe5",
+        "dxe5",
+        "Na3",
+        "Bxh3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "a3",
+      "cp_loss": 211,
+      "fen_before": "r3r1k1/pppb1pb1/2n3pp/q3N3/2PP4/6B1/PP2QPPP/2KR1B1R w - - 1 14",
+      "phase": "middlegame",
+      "played_san": "Qd2",
+      "pv_after_best": [
+        "Rad8",
+        "f4",
+        "Bf5",
+        "d5"
+      ],
+      "pv_after_played": [
+        "Qxa2",
+        "Qc3",
+        "Nxd4",
+        "Qxd4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "c5",
+      "cp_loss": 363,
+      "fen_before": "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2",
+      "phase": "opening",
+      "played_san": "Nf6",
+      "pv_after_best": [
+        "c3",
+        "a6",
+        "Be2",
+        "Nc6"
+      ],
+      "pv_after_played": [
+        "exf6",
+        "gxf6",
+        "d4",
+        "e5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h3",
+      "cp_loss": 205,
+      "fen_before": "r1bq1rk1/ppp1ppbp/2n2np1/3p4/3P1B2/2NBPN2/PPP2PPP/R2QK2R w KQ - 2 7",
+      "phase": "opening",
+      "played_san": "e4",
+      "pv_after_best": [
+        "b6",
+        "O-O",
+        "Bb7",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "dxe4",
+        "Nxe4",
+        "Nxd4",
+        "Nxd4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "O-O",
+      "cp_loss": 158,
+      "fen_before": "rnbq1rk1/p3pp2/2pp2p1/6Bp/B6P/5Q2/PbP2PP1/RN2K2R w KQ - 0 12",
+      "phase": "opening",
+      "played_san": "Bxc6",
+      "pv_after_best": [
+        "Bxa1",
+        "Nc3",
+        "Bg4",
+        "Qg3"
+      ],
+      "pv_after_played": [
+        "Nxc6",
+        "Qxc6",
+        "Rb8",
+        "O-O"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Re2",
+      "cp_loss": 763,
+      "fen_before": "1k1r2r1/pp5p/2p3qp/2P3P1/1PP5/2b2P1Q/P2p2RP/3R2K1 w - - 1 30",
+      "phase": "middlegame",
+      "played_san": "gxh6",
+      "pv_after_best": [
+        "Qc2",
+        "Qf1",
+        "Bxb4",
+        "f4"
+      ],
+      "pv_after_played": [
+        "Qc2",
+        "Qg3+",
+        "Rxg3",
+        "Rxg3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kd3",
+      "cp_loss": 152,
+      "fen_before": "6Q1/1R6/6p1/2p3P1/p1k1bP2/2P5/1K6/8 b - - 2 48",
+      "phase": "middlegame",
+      "played_san": "Bd5",
+      "pv_after_best": [
+        "Rd7+",
+        "Ke3",
+        "Qc4",
+        "a3+"
+      ],
+      "pv_after_played": [
+        "Qa8",
+        "a3+",
+        "Qxa3",
+        "Kd3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxe1+",
+      "cp_loss": 243,
+      "fen_before": "4r3/5Q2/5p1k/8/P1Bn4/3P2P1/2P2P1P/2q1BK2 b - - 2 33",
+      "phase": "middlegame",
+      "played_san": "Qxe1+",
+      "pv_after_best": [
+        "Kg2",
+        "Rg1+",
+        "Kh3",
+        "Qf1+"
+      ],
+      "pv_after_played": [
+        "Kg2",
+        "Qe7",
+        "c3",
+        "Qxf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "c6",
+      "cp_loss": 475,
+      "fen_before": "3r2k1/pQp2rpp/5q2/1Np5/4p3/5P2/P1P3PP/R4RK1 b - - 1 20",
+      "phase": "middlegame",
+      "played_san": "exf3",
+      "pv_after_best": [
+        "Nc7",
+        "exf3",
+        "gxf3",
+        "h6"
+      ],
+      "pv_after_played": [
+        "Qxf3",
+        "Qxf3",
+        "Rxf3",
+        "Rxf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc6+",
+      "cp_loss": 212,
+      "fen_before": "r2qkbnr/p1p2ppp/1p1p4/8/2Q1P3/8/PPP2PPP/RNB1K2R w KQkq - 0 9",
+      "phase": "opening",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Ke7",
+        "Nc3",
+        "Rc8",
+        "Nd5+"
+      ],
+      "pv_after_played": [
+        "Be7",
+        "Nc3",
+        "Nf6",
+        "Qc6+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qd7",
+      "cp_loss": 359,
+      "fen_before": "r2qkb1r/ppp2ppp/2np3n/4p3/2B1P1b1/2PP2Q1/PP3PPP/RNB1K1NR b KQkq - 4 8",
+      "phase": "opening",
+      "played_san": "Qe7",
+      "pv_after_best": [
+        "Bxh6",
+        "gxh6",
+        "Nd2",
+        "f5"
+      ],
+      "pv_after_played": [
+        "Bxh6",
+        "f5",
+        "f3",
+        "Bh5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qb2",
+      "cp_loss": 230,
+      "fen_before": "4r1k1/5ppp/1p1p4/8/1n1N4/8/q1PKBPPP/7R b - - 5 22",
+      "phase": "middlegame",
+      "played_san": "Qa5",
+      "pv_after_best": [
+        "Re1",
+        "Qxd4+",
+        "Bd3",
+        "Rc8"
+      ],
+      "pv_after_played": [
+        "Nb5",
+        "Na2+",
+        "Kd1",
+        "Nc3+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qe8",
+      "cp_loss": 8958,
+      "fen_before": "7Q/8/6p1/5p1p/8/5P2/PPP3kn/1K1R4 w - - 0 32",
+      "phase": "middlegame",
+      "played_san": "Rd2+",
+      "pv_after_best": [
+        "h4",
+        "Qe2+",
+        "Kg3",
+        "Rg1+"
+      ],
+      "pv_after_played": [
+        "Kh3",
+        "f4",
+        "Kg4",
+        "Rxh2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxe5",
+      "cp_loss": 198,
+      "fen_before": "r2qkbnr/pbpp1ppp/1p6/4p3/1nB1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 3 6",
+      "phase": "opening",
+      "played_san": "a3",
+      "pv_after_best": [
+        "Qe7",
+        "Bxf7+",
+        "Kd8",
+        "Bxg8"
+      ],
+      "pv_after_played": [
+        "Nc6",
+        "Ng5",
+        "Nh6",
+        "Nc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bd4+",
+      "cp_loss": 9208,
+      "fen_before": "8/1p4pk/7p/4Q3/1n2P3/7r/2q2bK1/2N2R2 b - - 1 33",
+      "phase": "middlegame",
+      "played_san": "Rg3+",
+      "pv_after_best": [
+        "Kxh3",
+        "Bxe5",
+        "Rf4",
+        "Bxf4"
+      ],
+      "pv_after_played": [
+        "Qxg3",
+        "Bxg3+",
+        "Kxg3",
+        "Nc6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxe8+",
+      "cp_loss": 153,
+      "fen_before": "r2qr2k/pp1n2pp/2p1Qp2/3P4/8/7P/PPP2PP1/3RR1K1 w - - 1 19",
+      "phase": "middlegame",
+      "played_san": "Qf7",
+      "pv_after_best": [
+        "Qxe8",
+        "Rxe8+",
+        "Rxe8",
+        "dxc6"
+      ],
+      "pv_after_played": [
+        "Ne5",
+        "Qxb7",
+        "cxd5",
+        "Kh1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nf3",
+      "cp_loss": 9270,
+      "fen_before": "3r1rk1/pp3ppp/4p3/6PP/3q4/8/PP1N2P1/R3K2R w KQ - 1 22",
+      "phase": "middlegame",
+      "played_san": "g6",
+      "pv_after_best": [
+        "Qb6",
+        "Kf1",
+        "Qxb2",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Qxd2+",
+        "Kf1",
+        "fxg6+",
+        "Kg1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bxg7",
+      "cp_loss": 563,
+      "fen_before": "6nr/5pQp/8/5k2/5p2/3P4/P1P2PPP/b1B1KB1R b K - 1 22",
+      "phase": "middlegame",
+      "played_san": "f6",
+      "pv_after_best": [
+        "g4+",
+        "Kg6",
+        "Bxf4",
+        "Nf6"
+      ],
+      "pv_after_played": [
+        "Qxh8",
+        "Ne7",
+        "d4",
+        "f3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h5",
+      "cp_loss": 533,
+      "fen_before": "1k1r1b1r/1pp2ppp/1p1p2q1/3Pp3/Q2nP3/3PB3/P4PPP/R4RK1 b - - 0 16",
+      "phase": "middlegame",
+      "played_san": "c6",
+      "pv_after_best": [
+        "Bxd4",
+        "exd4",
+        "Rfb1",
+        "f5"
+      ],
+      "pv_after_played": [
+        "Bxd4",
+        "exd4",
+        "Rfb1",
+        "Kc7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf6",
+      "cp_loss": 292,
+      "fen_before": "2kr1b1r/ppp4p/3p2p1/3N4/4PB1Q/3P3N/P1n2KPP/7q w - - 0 19",
+      "phase": "middlegame",
+      "played_san": "Ne7+",
+      "pv_after_best": [
+        "Qe1+",
+        "Kf3",
+        "Qa1",
+        "Qxa1"
+      ],
+      "pv_after_played": [
+        "Bxe7",
+        "Qxe7",
+        "Qe1+",
+        "Kf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rf3+",
+      "cp_loss": 298,
+      "fen_before": "1r3q2/p1p4k/1p1p1rpp/8/P1P5/1P4K1/2P1RP1P/Q7 b - - 2 24",
+      "phase": "middlegame",
+      "played_san": "Re8",
+      "pv_after_best": [
+        "Kg2",
+        "Rf7",
+        "Qe1",
+        "Qg7"
+      ],
+      "pv_after_played": [
+        "Rxe8",
+        "Rf3+",
+        "Kg2",
+        "Rxf2+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "exd4",
+      "cp_loss": 284,
+      "fen_before": "rnbqk1nr/ppp2pbp/3p2p1/4p3/2BPP3/2N2N2/PPP2PPP/R1BQK2R b KQkq - 0 5",
+      "phase": "opening",
+      "played_san": "Nf6",
+      "pv_after_best": [
+        "Bg5",
+        "Nf6",
+        "Qxd4",
+        "h6"
+      ],
+      "pv_after_played": [
+        "dxe5",
+        "Ng4",
+        "Bg5",
+        "f6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bd6",
+      "cp_loss": 223,
+      "fen_before": "rnb1kb1r/pp3ppp/1q3n2/2pPN3/2B5/3P4/PPPB1PPP/RN1QK2R b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Qxb2",
+      "pv_after_best": [
+        "O-O",
+        "O-O",
+        "f4",
+        "Nbd7"
+      ],
+      "pv_after_played": [
+        "Nc3",
+        "Nbd7",
+        "Rb1",
+        "Qxb1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nxh3",
+      "cp_loss": 238,
+      "fen_before": "r4rk1/p1p2ppp/2p2n2/2b1p1Nb/2B5/2NPBPPq/PPP1Q2P/R3K2R w KQ - 1 13",
+      "phase": "middlegame",
+      "played_san": "O-O-O",
+      "pv_after_best": [
+        "Bd4",
+        "g4",
+        "Nd5",
+        "Bxd5"
+      ],
+      "pv_after_played": [
+        "Bxe3+",
+        "Qxe3",
+        "Qd7",
+        "g4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "c4",
+      "cp_loss": 375,
+      "fen_before": "r2q1rk1/pp2bppp/3p1n2/3Pp3/7P/5N2/PPP2PP1/R1BQK2R w KQ - 1 12",
+      "phase": "opening",
+      "played_san": "Qd3",
+      "pv_after_best": [
+        "b5",
+        "Nd2",
+        "Qb6",
+        "Qe2"
+      ],
+      "pv_after_played": [
+        "e4",
+        "Qe2",
+        "exf3",
+        "Qxf3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qe6+",
+      "cp_loss": 898,
+      "fen_before": "2k4r/pp2n1pp/2n2p2/3Qp3/8/4P3/PPP2PPP/R3K2R w KQ - 1 16",
+      "phase": "middlegame",
+      "played_san": "O-O",
+      "pv_after_best": [
+        "Kb8",
+        "O-O",
+        "Rc8",
+        "Kh1"
+      ],
+      "pv_after_played": [
+        "Nxd5",
+        "Rfd1",
+        "Nb6",
+        "b3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qf8",
+      "cp_loss": 177,
+      "fen_before": "rnb1k2r/p6p/2pq2pQ/1p2Np2/3Pn2P/1BP5/P4PP1/R1B1K2R b KQkq - 1 14",
+      "phase": "middlegame",
+      "played_san": "Nxc3",
+      "pv_after_best": [
+        "h5",
+        "Qxh6",
+        "Bxh6",
+        "Nd7"
+      ],
+      "pv_after_played": [
+        "Qg7",
+        "Rf8",
+        "Bg5",
+        "Be6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "exf6",
+      "cp_loss": 173,
+      "fen_before": "r3k2r/ppp1q1pp/3bpn2/1b1pPp2/8/2N1P1B1/PPP2PPP/R2QK2R w KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "Nxb5",
+      "pv_after_best": [
+        "gxf6",
+        "Nxb5",
+        "Bxg3",
+        "Qh5+"
+      ],
+      "pv_after_played": [
+        "Bb4+",
+        "c3",
+        "Ne4",
+        "cxb4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qd6",
+      "cp_loss": 299,
+      "fen_before": "r1bq1rk1/ppp2ppp/2n5/3np3/8/3PBN2/PPPQBPPP/R3K2R b KQ - 1 10",
+      "phase": "opening",
+      "played_san": "Ncb4",
+      "pv_after_best": [
+        "O-O",
+        "Bg4",
+        "h3",
+        "Bh5"
+      ],
+      "pv_after_played": [
+        "Bc5",
+        "Nc6",
+        "Bxf8",
+        "Kxf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qg4",
+      "cp_loss": 443,
+      "fen_before": "r3k2r/1b2b2p/p2pp1p1/1p2p1Q1/3Pn2N/4B3/PPP2PPP/R4RK1 w - - 0 19",
+      "phase": "middlegame",
+      "played_san": "Qh6",
+      "pv_after_best": [
+        "Kd7",
+        "dxe5",
+        "Rag8",
+        "exd6"
+      ],
+      "pv_after_played": [
+        "Bf8",
+        "dxe5",
+        "Bxh6",
+        "Bxh6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "dxe5",
+      "cp_loss": 172,
+      "fen_before": "rnbqkbnr/ppp2ppp/8/3pp3/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3",
+      "phase": "opening",
+      "played_san": "Nc3",
+      "pv_after_best": [
+        "Ne7",
+        "Nc3",
+        "d4",
+        "Nb5"
+      ],
+      "pv_after_played": [
+        "dxe4",
+        "Nge2",
+        "Nc6",
+        "Be3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nb6",
+      "cp_loss": 240,
+      "fen_before": "r3k3/3Nn1pp/3p4/1p1n4/p3p3/8/PP3PPP/3RR1K1 w - - 2 25",
+      "phase": "middlegame",
+      "played_san": "Rxe4",
+      "pv_after_best": [
+        "Nxb6",
+        "Rxd6",
+        "Nc4",
+        "Re6"
+      ],
+      "pv_after_played": [
+        "Kxd7",
+        "Red4",
+        "a3",
+        "b4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kf8",
+      "cp_loss": 543,
+      "fen_before": "3qk1r1/p4pbp/2P3p1/2P5/8/6PP/5N2/1Q3BK1 b - - 0 27",
+      "phase": "middlegame",
+      "played_san": "Qd4",
+      "pv_after_best": [
+        "Kh2",
+        "h5",
+        "Qc1",
+        "g5"
+      ],
+      "pv_after_played": [
+        "c7",
+        "Ke7",
+        "Qb7",
+        "Kf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Re8",
+      "cp_loss": 208,
+      "fen_before": "r5k1/1p3r1p/4N1pP/p5B1/3pPp2/6nN/8/3RK1R1 b - - 0 33",
+      "phase": "middlegame",
+      "played_san": "f3",
+      "pv_after_best": [
+        "Nc5",
+        "b6",
+        "Bxf4",
+        "bxc5"
+      ],
+      "pv_after_played": [
+        "Rxg3",
+        "b5",
+        "Nxd4",
+        "a4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "c3",
+      "cp_loss": 564,
+      "fen_before": "r3k2r/pp3p2/4n1p1/3Nb2p/4P3/7P/PPP2PP1/R1B2RK1 w - - 0 20",
+      "phase": "middlegame",
+      "played_san": "Bg5",
+      "pv_after_best": [
+        "Rd8",
+        "Be3",
+        "f5",
+        "Bxa7"
+      ],
+      "pv_after_played": [
+        "Nxg5",
+        "f4",
+        "Bxb2",
+        "Rab1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bb6",
+      "cp_loss": 183,
+      "fen_before": "4k2r/p2b1p1p/6p1/2bR4/4p3/2P5/P1P2PPP/R1B3K1 b k - 0 17",
+      "phase": "middlegame",
+      "played_san": "Be6",
+      "pv_after_best": [
+        "Re5+",
+        "Be6",
+        "Rxe4",
+        "Kd7"
+      ],
+      "pv_after_played": [
+        "Rxc5",
+        "Kd7",
+        "Bg5",
+        "Kd6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxd8",
+      "cp_loss": 542,
+      "fen_before": "rnbqk2r/1ppn1pbp/p3p1p1/3B2B1/8/2PP1N2/PP3PPP/RN1Q1RK1 w kq - 0 10",
+      "phase": "opening",
+      "played_san": "Bb3",
+      "pv_after_best": [
+        "exd5",
+        "Bxc7",
+        "O-O",
+        "Re1"
+      ],
+      "pv_after_played": [
+        "Nf6",
+        "Ne5",
+        "Qd6",
+        "Re1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qc1",
+      "cp_loss": 215,
+      "fen_before": "r1b1k1nr/1ppp1pp1/p1n1p3/1q2P2p/3P4/P1P2BP1/1BP2P1P/R2QR1K1 w kq - 4 15",
+      "phase": "middlegame",
+      "played_san": "Qe2",
+      "pv_after_best": [
+        "d5",
+        "a4",
+        "Qa5",
+        "Qg5"
+      ],
+      "pv_after_played": [
+        "Qxb2",
+        "Qd2",
+        "Qb6",
+        "Reb1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne2+",
+      "cp_loss": 152,
+      "fen_before": "r5r1/ppp1k2p/3p1n2/4p3/3nPP2/P2P1N2/P1P3PP/R1B2RK1 b - - 2 17",
+      "phase": "middlegame",
+      "played_san": "Nxf3+",
+      "pv_after_best": [
+        "Kh1",
+        "Nxf4",
+        "Rb1",
+        "b6"
+      ],
+      "pv_after_played": [
+        "Rxf3",
+        "Rg6",
+        "g3",
+        "Rag8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxd7+",
+      "cp_loss": 362,
+      "fen_before": "2r2rn1/p2p2kp/1p2p1p1/2p1P2P/2q2PP1/8/PP1QN2K/4R1R1 w - - 0 25",
+      "phase": "middlegame",
+      "played_san": "b3",
+      "pv_after_best": [
+        "Rf7",
+        "Qxc8",
+        "h6",
+        "Kh3"
+      ],
+      "pv_after_played": [
+        "Qd5",
+        "Qe3",
+        "Nh6",
+        "hxg6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rc5",
+      "cp_loss": 8698,
+      "fen_before": "8/8/2Q2N1r/5b2/7k/4P3/PP3P2/2R1K3 w - - 9 46",
+      "phase": "middlegame",
+      "played_san": "Qc4+",
+      "pv_after_best": [
+        "Rxf6",
+        "Qxf6+",
+        "Kh3",
+        "Qxf5+"
+      ],
+      "pv_after_played": [
+        "Kg5",
+        "Ne4+",
+        "Bxe4",
+        "Qxe4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qh4",
+      "cp_loss": 412,
+      "fen_before": "r1b1kb1r/ppppqppp/2n2n2/4p3/2B1P1Q1/5N2/PPPP1PPP/RNB1K2R w KQkq - 6 5",
+      "phase": "opening",
+      "played_san": "Qf5",
+      "pv_after_best": [
+        "d5",
+        "exd5",
+        "g5",
+        "Nxg5"
+      ],
+      "pv_after_played": [
+        "d5",
+        "exd5",
+        "Bxf5",
+        "dxc6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxc3",
+      "cp_loss": 158,
+      "fen_before": "2r1qrk1/pp1b2pp/1b3p2/3P2n1/1P5B/P1PP2P1/4B2P/R2QK1NR b KQ - 0 20",
+      "phase": "middlegame",
+      "played_san": "Bb5",
+      "pv_after_best": [
+        "a4",
+        "Qe5",
+        "g4",
+        "Qxd5"
+      ],
+      "pv_after_played": [
+        "c4",
+        "Ba4",
+        "Qc1",
+        "Bd4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxe4",
+      "cp_loss": 754,
+      "fen_before": "7r/ppp2pp1/3k1q2/1B1p4/1b2b1Q1/8/PPP2PPP/3R2K1 w - - 8 21",
+      "phase": "middlegame",
+      "played_san": "Qd7+",
+      "pv_after_best": [
+        "Qe5",
+        "Qxb4+",
+        "c5",
+        "Qg4"
+      ],
+      "pv_after_played": [
+        "Ke5",
+        "Bd3",
+        "Qe7",
+        "Qg4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "e3+",
+      "cp_loss": 10319,
+      "fen_before": "rnb3k1/pp2n1pp/2p5/3p2q1/3Pp3/5P2/PPPNBK1P/RN1Q1R2 b - - 2 16",
+      "phase": "middlegame",
+      "played_san": "exf3",
+      "pv_after_best": [
+        "Ke1",
+        "Qh4+",
+        "Rf2",
+        "Qxf2#"
+      ],
+      "pv_after_played": [
+        "Nxf3",
+        "Qf6",
+        "Qd2",
+        "Bh3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ncxe4",
+      "cp_loss": 192,
+      "fen_before": "r2qk1nr/1b1p2bp/p5p1/1p2p3/4p3/1PN2PN1/PBP3PP/R2QR1K1 w kq - 0 15",
+      "phase": "middlegame",
+      "played_san": "Ngxe4",
+      "pv_after_best": [
+        "Bxe4",
+        "Nxe4",
+        "d5",
+        "Nc5"
+      ],
+      "pv_after_played": [
+        "d5",
+        "Nc5",
+        "Ne7",
+        "b4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bc4",
+      "cp_loss": 295,
+      "fen_before": "r1bqkbnr/ppp2ppp/2np4/6N1/3pP3/8/PPP2PPP/RNBQKB1R w KQkq - 0 5",
+      "phase": "opening",
+      "played_san": "Nxf7",
+      "pv_after_best": [
+        "Nh6",
+        "Nf3",
+        "Ng4",
+        "Bb5"
+      ],
+      "pv_after_played": [
+        "Kxf7",
+        "Bc4+",
+        "Ke8",
+        "O-O"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qh4",
+      "cp_loss": 224,
+      "fen_before": "6k1/1p5p/3B2p1/1q1P1p2/1p6/PP3PQP/2r3PK/8 w - - 0 34",
+      "phase": "middlegame",
+      "played_san": "axb4",
+      "pv_after_best": [
+        "Qe8",
+        "axb4",
+        "Rd2",
+        "f4"
+      ],
+      "pv_after_played": [
+        "Qxd5",
+        "Bc5",
+        "Qd8",
+        "Qf4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rxe5",
+      "cp_loss": 212,
+      "fen_before": "r4rk1/p3bppp/2p5/3Rp3/8/7P/PPP2PPB/2K4R w - - 0 17",
+      "phase": "middlegame",
+      "played_san": "Rd7",
+      "pv_after_best": [
+        "Bf6",
+        "Re2",
+        "Bg5+",
+        "f4"
+      ],
+      "pv_after_played": [
+        "Bg5+",
+        "Kb1",
+        "e4",
+        "Be5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qg3+",
+      "cp_loss": 8946,
+      "fen_before": "4nk2/p4pbp/6p1/2p3P1/5P1P/1q6/8/4R1K1 b - - 0 34",
+      "phase": "middlegame",
+      "played_san": "c4",
+      "pv_after_best": [
+        "Kf1",
+        "Qf3+",
+        "Kg1",
+        "Bd4+"
+      ],
+      "pv_after_played": [
+        "Rxe8+",
+        "Kxe8",
+        "Kh2",
+        "c3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxd6",
+      "cp_loss": 960,
+      "fen_before": "8/pkp5/1p1r3p/2b1Qp2/4n3/2P5/P3K1PP/3R4 w - - 1 32",
+      "phase": "middlegame",
+      "played_san": "Qxf5",
+      "pv_after_best": [
+        "Nxd6",
+        "Kd3",
+        "a5",
+        "h4"
+      ],
+      "pv_after_played": [
+        "Nxc3+",
+        "Kf3",
+        "Rxd1",
+        "Qh7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nc6",
+      "cp_loss": 462,
+      "fen_before": "rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
+      "phase": "opening",
+      "played_san": "g6",
+      "pv_after_best": [
+        "Bc4",
+        "g6",
+        "Qd1",
+        "Bg7"
+      ],
+      "pv_after_played": [
+        "Qxe5+",
+        "Qe7",
+        "Qxh8",
+        "d5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "h5",
+      "cp_loss": 276,
+      "fen_before": "r1bqkb1r/ppp2ppp/4p3/3pP3/6Q1/2N1P3/PPP2PPP/R1B1KB1R b KQkq - 0 7",
+      "phase": "opening",
+      "played_san": "Bb4",
+      "pv_after_best": [
+        "Qd1",
+        "a6",
+        "Be2",
+        "c5"
+      ],
+      "pv_after_played": [
+        "Qxb4",
+        "a5",
+        "Qa3",
+        "Bd7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "a3",
+      "cp_loss": 424,
+      "fen_before": "r1b2rk1/pppq1ppp/5n2/2PPp1B1/1nB4P/2N5/PPP2PP1/R2QK2R w KQ - 3 11",
+      "phase": "opening",
+      "played_san": "Qf3",
+      "pv_after_best": [
+        "Na6",
+        "Bxf6",
+        "gxf6",
+        "Bxa6"
+      ],
+      "pv_after_played": [
+        "Nxc2+",
+        "Kd2",
+        "Nxa1",
+        "Bxf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nd4+",
+      "cp_loss": 356,
+      "fen_before": "r1b2rk1/ppp2ppp/2n2b1P/8/2q1p3/2P5/PPKBB1P1/R2Q3R b - - 1 18",
+      "phase": "middlegame",
+      "played_san": "Qe6",
+      "pv_after_best": [
+        "Kb1",
+        "Nxe2",
+        "g4",
+        "Bxg4"
+      ],
+      "pv_after_played": [
+        "Be3",
+        "Qe7",
+        "hxg7",
+        "Rd8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nc6+",
+      "cp_loss": 357,
+      "fen_before": "1k1r1b1r/Npp2pp1/3ppn2/3P3p/4P3/5P1q/PPP1QP1P/R1B2R1K w - - 1 14",
+      "phase": "middlegame",
+      "played_san": "Be3",
+      "pv_after_best": [
+        "Kc8",
+        "Nxd8",
+        "Kxd8",
+        "Rg1"
+      ],
+      "pv_after_played": [
+        "exd5",
+        "Rg1",
+        "h4",
+        "Qb5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Be3",
+      "cp_loss": 152,
+      "fen_before": "2kr1b1r/ppp2pp1/2n4p/4p3/8/3P1P1P/PPP2P2/RNB1R1K1 w - - 1 12",
+      "phase": "opening",
+      "played_san": "Nc3",
+      "pv_after_best": [
+        "f5",
+        "Rc1",
+        "Be7",
+        "Kf1"
+      ],
+      "pv_after_played": [
+        "Nd4",
+        "Rd1",
+        "Nxc2",
+        "Rb1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qd7",
+      "cp_loss": 197,
+      "fen_before": "r2qkb1r/pp2p1pp/2nppn2/2p3N1/4P3/5Q2/PPPP1PPP/RNB2RK1 b kq - 3 7",
+      "phase": "opening",
+      "played_san": "Ne5",
+      "pv_after_best": [
+        "e5",
+        "Nxe5",
+        "Qb3",
+        "c4"
+      ],
+      "pv_after_played": [
+        "Qb3",
+        "Qd7",
+        "Nxe6",
+        "c4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ke8",
+      "cp_loss": 213,
+      "fen_before": "5bnr/2B2kpp/p7/8/2p5/2N1PK2/PPn2PPP/r4B1R b - - 1 16",
+      "phase": "middlegame",
+      "played_san": "Nf6",
+      "pv_after_best": [
+        "Ke2",
+        "Nb4",
+        "g4",
+        "Ne7"
+      ],
+      "pv_after_played": [
+        "Bxc4+",
+        "Ke7",
+        "Rxa1",
+        "Nxa1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qc6+",
+      "cp_loss": 170,
+      "fen_before": "r2qkbnr/pQp3pp/1n3p2/3Bp3/8/2N4P/PPPP1PP1/R1B1K2R w KQkq - 3 10",
+      "phase": "opening",
+      "played_san": "Bc6+",
+      "pv_after_best": [
+        "Qd7",
+        "Qxd7+",
+        "Kxd7",
+        "Bxa8"
+      ],
+      "pv_after_played": [
+        "Kf7",
+        "Qa6",
+        "Rb8",
+        "a4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nbd2",
+      "cp_loss": 159,
+      "fen_before": "r1b2rk1/pp3p1p/2n1p1p1/8/2P5/4BN2/Pb3PPP/RN1R2K1 w - - 0 16",
+      "phase": "middlegame",
+      "played_san": "Bh6",
+      "pv_after_best": [
+        "Bxa1",
+        "Rxa1",
+        "f6",
+        "Bh6"
+      ],
+      "pv_after_played": [
+        "Bxa1",
+        "Bxf8",
+        "Kxf8",
+        "Na3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nd4",
+      "cp_loss": 171,
+      "fen_before": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/1P3Q2/P1PP1PPP/RNB1K1NR b KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "Be7",
+      "pv_after_best": [
+        "Qd1",
+        "Nxe4",
+        "Nf3",
+        "Bc5"
+      ],
+      "pv_after_played": [
+        "c3",
+        "O-O",
+        "Ne2",
+        "Na5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nce7",
+      "cp_loss": 311,
+      "fen_before": "r1bqkbnr/pppp1ppp/2n5/3Pp3/4P3/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+      "phase": "opening",
+      "played_san": "Nd4",
+      "pv_after_best": [
+        "Nf3",
+        "Ng6",
+        "h4",
+        "h5"
+      ],
+      "pv_after_played": [
+        "c3",
+        "Nc6",
+        "dxc6",
+        "Nf6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxc7",
+      "cp_loss": 454,
+      "fen_before": "7r/2qk2pp/p2B4/Q2n1b2/8/P4P2/P3NK1P/3R4 w - - 0 28",
+      "phase": "middlegame",
+      "played_san": "Qxc7+",
+      "pv_after_best": [
+        "Be4",
+        "fxe4",
+        "Rf8+",
+        "Kg1"
+      ],
+      "pv_after_played": [
+        "Nxc7",
+        "Be5+",
+        "Ke7",
+        "Bxc7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Be2",
+      "cp_loss": 186,
+      "fen_before": "r2qkb1r/1bpnpp2/pp1p2p1/7p/1PP1P3/2N2Q2/P2P1PPP/R1B1KB1R w KQkq - 0 11",
+      "phase": "opening",
+      "played_san": "c5",
+      "pv_after_best": [
+        "Bg7",
+        "Bb2",
+        "Bd4",
+        "Qd3"
+      ],
+      "pv_after_played": [
+        "dxc5",
+        "bxc5",
+        "Nxc5",
+        "Be2"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Nxe5",
+      "cp_loss": 487,
+      "fen_before": "r1bq1rk1/pppp1ppp/2n2n2/2b1N3/2B1P3/2NP4/PPP2PPP/R1BQK2R b KQ - 0 6",
+      "phase": "opening",
+      "played_san": "d6",
+      "pv_after_best": [
+        "d4",
+        "Nxc4",
+        "dxc5",
+        "d5"
+      ],
+      "pv_after_played": [
+        "Nxc6",
+        "bxc6",
+        "O-O",
+        "d5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bxc7",
+      "cp_loss": 290,
+      "fen_before": "r3kb1r/p1n2p2/bqp1pn1p/3p2p1/R2P4/1BP1PNB1/1P3PPP/1N1Q1RK1 w kq - 5 14",
+      "phase": "middlegame",
+      "played_san": "Re1",
+      "pv_after_best": [
+        "Qb7",
+        "Rxa6",
+        "Qxa6",
+        "Nbd2"
+      ],
+      "pv_after_played": [
+        "Bb5",
+        "Ra1",
+        "Ne4",
+        "Be5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "a5",
+      "cp_loss": 166,
+      "fen_before": "r2q1rk1/pbppnppp/1p1b1n2/8/1P2P3/N1P2P1N/PBQ1P1PP/2KR1B1R b - - 0 10",
+      "phase": "opening",
+      "played_san": "c5",
+      "pv_after_best": [
+        "b5",
+        "Ng6",
+        "Kb1",
+        "Qe7"
+      ],
+      "pv_after_played": [
+        "Rxd6",
+        "cxb4",
+        "Nb1",
+        "b5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nb8",
+      "cp_loss": 326,
+      "fen_before": "r1bqkbnr/ppp2ppp/2np4/3Pp3/4P3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "Na5",
+      "pv_after_best": [
+        "Be3",
+        "Nf6",
+        "Bd3",
+        "g6"
+      ],
+      "pv_after_played": [
+        "b4",
+        "Nf6",
+        "Bd3",
+        "Nxe4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 263,
+      "fen_before": "r1bq1rk1/pppp1ppp/2n2n2/2b3N1/2B1Pp2/2NP4/PPP3PP/R1BQK2R b KQ - 0 7",
+      "phase": "opening",
+      "played_san": "d6",
+      "pv_after_best": [
+        "exd5",
+        "Bg4",
+        "Qd2",
+        "Be3"
+      ],
+      "pv_after_played": [
+        "Bxf4",
+        "h6",
+        "Nf3",
+        "Re8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 173,
+      "fen_before": "r1bqkb1r/pppp1ppp/2n5/4p3/2B1n3/5N2/PPPP1PPP/RNBQR1K1 b kq - 1 5",
+      "phase": "opening",
+      "played_san": "Nd6",
+      "pv_after_best": [
+        "Bb5",
+        "Bc5",
+        "d4",
+        "exd4"
+      ],
+      "pv_after_played": [
+        "Bb3",
+        "Be7",
+        "Nxe5",
+        "Nxe5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Bh4",
+      "cp_loss": 280,
+      "fen_before": "r1bq1rk1/1p1p1pp1/p1n1pn1p/4P1B1/2BP4/8/PP3PPP/RN1Q1RK1 w - - 0 12",
+      "phase": "opening",
+      "played_san": "Bxf6",
+      "pv_after_best": [
+        "b5",
+        "Bb3",
+        "g5",
+        "exf6"
+      ],
+      "pv_after_played": [
+        "gxf6",
+        "Re1",
+        "fxe5",
+        "dxe5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Ne2",
+      "cp_loss": 172,
+      "fen_before": "r1b1r1k1/pp3ppp/1b6/2pp4/3P4/2PBN3/PP3P1B/R3K1N1 w - - 0 20",
+      "phase": "middlegame",
+      "played_san": "Kd2",
+      "pv_after_best": [
+        "cxd4",
+        "Nxd4",
+        "Bg4",
+        "Kd2"
+      ],
+      "pv_after_played": [
+        "cxd4",
+        "Nxd5",
+        "dxc3+",
+        "bxc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "d6",
+      "cp_loss": 384,
+      "fen_before": "1r1q2k1/pb1pp2p/n1p3p1/1p2N1P1/4P2P/3P4/PQ1K4/R6R b - - 0 21",
+      "phase": "middlegame",
+      "played_san": "c5",
+      "pv_after_best": [
+        "Ng4",
+        "Kf7",
+        "h5",
+        "Ke6"
+      ],
+      "pv_after_played": [
+        "Ng4",
+        "Qf8",
+        "Nh6+",
+        "Qxh6"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Nd2",
+      "cp_loss": 619,
+      "fen_before": "1k1r3r/1pp3Qp/p2p4/3qp2P/8/2B5/PPP1B3/RN2K3 w Q - 0 21",
+      "phase": "middlegame",
+      "played_san": "Na3",
+      "pv_after_best": [
+        "Qh1+",
+        "Nf1",
+        "Rhg8",
+        "Qxh7"
+      ],
+      "pv_after_played": [
+        "Rhg8",
+        "Rd1",
+        "Qxd1+",
+        "Kxd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Rfd1",
+      "cp_loss": 349,
+      "fen_before": "r6r/ppp3pp/8/2k5/8/NPBq4/1P3PPP/R4RK1 w - - 0 23",
+      "phase": "middlegame",
+      "played_san": "Nc4",
+      "pv_after_best": [
+        "Qe2",
+        "Ba5",
+        "Qxb2",
+        "Rac1+"
+      ],
+      "pv_after_played": [
+        "a5",
+        "Rad1",
+        "Qf5",
+        "Bxa5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Kf1",
+      "cp_loss": 8874,
+      "fen_before": "r3kb1r/pQp2ppp/5n2/1P1bq3/3p4/8/P1PP1PPP/RNB3K1 w kq - 0 13",
+      "phase": "middlegame",
+      "played_san": "Qxc7",
+      "pv_after_best": [
+        "Bxb7",
+        "d3",
+        "Qxh2",
+        "Ke2"
+      ],
+      "pv_after_played": [
+        "Qe1#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Qxe7",
+      "cp_loss": 1031,
+      "fen_before": "r1b2bk1/pp2B2p/3q2p1/3p2P1/7Q/2P2P2/PPN2K2/7R b - - 0 34",
+      "phase": "middlegame",
+      "played_san": "Bxe7",
+      "pv_after_best": [
+        "Nb4",
+        "Be6",
+        "Re1",
+        "Qf7"
+      ],
+      "pv_after_played": [
+        "Qxh7+",
+        "Kf8",
+        "Qh8+",
+        "Kf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Rxd5",
+      "cp_loss": 325,
+      "fen_before": "2kr1b1r/1pp1qppp/p1p5/3NP3/5p1P/3P1P2/PPP1Q3/R1B1K2R b KQ - 0 12",
+      "phase": "opening",
+      "played_san": "cxd5",
+      "pv_after_best": [
+        "d4",
+        "Rxd4",
+        "c3",
+        "Rd5"
+      ],
+      "pv_after_played": [
+        "d4",
+        "f6",
+        "Bxf4",
+        "Qb4+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d5",
+      "cp_loss": 463,
+      "fen_before": "r1bq1rk1/pppp1ppp/2n2n2/8/3PP3/2N2N2/PPPQ2PP/2KR1B1R b - - 0 10",
+      "phase": "opening",
+      "played_san": "Nxd4",
+      "pv_after_best": [
+        "Bd3",
+        "Nxe4",
+        "Nxe4",
+        "dxe4"
+      ],
+      "pv_after_played": [
+        "Qxd4",
+        "d5",
+        "Nxd5",
+        "Nxd5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf6+",
+      "cp_loss": 182,
+      "fen_before": "rn2kb1r/ppp2pp1/6b1/3pp3/6nq/1PN4N/PBPPP1BP/R2Q1K1R b kq - 3 11",
+      "phase": "opening",
+      "played_san": "Bc5",
+      "pv_after_best": [
+        "Bf3",
+        "Rxh3",
+        "Nxd5",
+        "Qh4"
+      ],
+      "pv_after_played": [
+        "e3",
+        "c6",
+        "Qe1",
+        "Qf6+"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d6",
+      "cp_loss": 163,
+      "fen_before": "rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/2N2N1P/PPPP1PP1/R1BQKB1R b KQkq - 0 4",
+      "phase": "opening",
+      "played_san": "b6",
+      "pv_after_best": [
+        "Bc4",
+        "a5",
+        "d3",
+        "O-O"
+      ],
+      "pv_after_played": [
+        "Nxe5",
+        "Bb7",
+        "d4",
+        "Bb4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "d6",
+      "cp_loss": 156,
+      "fen_before": "r1b2rk1/pppp3p/5n2/3Pp3/4P3/2Q3P1/PPP5/RNqBK2R b KQ - 6 14",
+      "phase": "middlegame",
+      "played_san": "Nxe4",
+      "pv_after_best": [
+        "g4",
+        "Bxg4",
+        "Qd2",
+        "Qxd1+"
+      ],
+      "pv_after_played": [
+        "Qd3",
+        "d6",
+        "Qxe4",
+        "Bf5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf8",
+      "cp_loss": 9281,
+      "fen_before": "r5k1/1Q5p/p1pR1qpB/1p2pp2/4pP2/2P1b2P/PP4P1/7K b - - 1 29",
+      "phase": "middlegame",
+      "played_san": "Qf7",
+      "pv_after_best": [
+        "Bxf8",
+        "Rxf8",
+        "Qe7",
+        "Rf7"
+      ],
+      "pv_after_played": [
+        "Qxa8+",
+        "Qf8",
+        "Qxf8#"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qf8",
+      "cp_loss": 237,
+      "fen_before": "2q3k1/1r1n3R/1r4p1/3P2P1/2PP4/1pKQ4/1P6/3R4 b - - 0 32",
+      "phase": "middlegame",
+      "played_san": "Kxh7",
+      "pv_after_best": [
+        "Qh3",
+        "Qb4+",
+        "Kd3",
+        "Ne5+"
+      ],
+      "pv_after_played": [
+        "Qh3+",
+        "Kg7",
+        "Qh6+",
+        "Kf7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Qxb8+",
+      "cp_loss": 718,
+      "fen_before": "1r4k1/QBr3bp/3qp1p1/4np2/3p4/8/PP1N1PPP/R1BR2K1 w - - 5 20",
+      "phase": "middlegame",
+      "played_san": "Qa3",
+      "pv_after_best": [
+        "Bf8",
+        "Nf1",
+        "Ng4",
+        "Bf3"
+      ],
+      "pv_after_played": [
+        "Qxa3",
+        "bxa3",
+        "Rbxb7",
+        "a4"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "dxe5",
+      "cp_loss": 578,
+      "fen_before": "3r1rk1/p1p3pp/bpBp4/2b1Pp2/8/2N5/PPP2PPP/R3R1K1 b - - 0 17",
+      "phase": "middlegame",
+      "played_san": "Rf7",
+      "pv_after_best": [
+        "Rad1",
+        "e4",
+        "a3",
+        "g6"
+      ],
+      "pv_after_played": [
+        "e6",
+        "Re7",
+        "Nd5",
+        "Kf8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "f6",
+      "cp_loss": 184,
+      "fen_before": "r3kr2/p1p2pQp/2p1b3/3q2B1/8/8/PPP1NPPP/R3K2R b KQq - 4 16",
+      "phase": "middlegame",
+      "played_san": "Rd8",
+      "pv_after_best": [
+        "Bxf6",
+        "Rf7",
+        "Qg5",
+        "Qf5"
+      ],
+      "pv_after_played": [
+        "Bxd8",
+        "Qxd8",
+        "O-O",
+        "Qe7"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Red8",
+      "cp_loss": 187,
+      "fen_before": "2r1r1k1/p2Q1ppp/5b2/q3p3/P3P3/N1P2P1P/5P2/R4RK1 b - - 2 22",
+      "phase": "middlegame",
+      "played_san": "Qxc3",
+      "pv_after_best": [
+        "Qb7",
+        "Qxc3",
+        "Nb5",
+        "Qc2"
+      ],
+      "pv_after_played": [
+        "Rac1",
+        "Qxc1",
+        "Qxe8+",
+        "Rxe8"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    },
+    {
+      "best_move_san": "Ne4",
+      "cp_loss": 278,
+      "fen_before": "rn1qr1k1/pp3ppp/2p2b2/8/5R2/2N1QN2/PPbP1PPP/R1B3K1 w - - 2 14",
+      "phase": "middlegame",
+      "played_san": "Qc5",
+      "pv_after_best": [
+        "Kh8",
+        "d4",
+        "Na6",
+        "Bd2"
+      ],
+      "pv_after_played": [
+        "Bd3",
+        "Qa3",
+        "Nd7",
+        "Nd1"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Bd3",
+      "cp_loss": 173,
+      "fen_before": "r1bqk2r/1ppp1ppp/p7/1Bb1P3/4n3/8/PPP2PPP/RNBQ1RK1 w kq - 0 8",
+      "phase": "opening",
+      "played_san": "Qg4",
+      "pv_after_best": [
+        "d5",
+        "exd6",
+        "Nf6",
+        "dxc7"
+      ],
+      "pv_after_played": [
+        "axb5",
+        "Qxe4",
+        "O-O",
+        "Nc3"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "white"
+    },
+    {
+      "best_move_san": "Re7",
+      "cp_loss": 176,
+      "fen_before": "r3r1k1/ppQ3pp/2p2n2/6N1/4P3/q1Pn3P/P4PP1/R2N1K1R b - - 8 22",
+      "phase": "middlegame",
+      "played_san": "Qa6",
+      "pv_after_best": [
+        "Qg3",
+        "Rd8",
+        "Kg1",
+        "h6"
+      ],
+      "pv_after_played": [
+        "Qf7+",
+        "Kh8",
+        "Kg1",
+        "Ne5"
+      ],
+      "rating_band": "600-899",
+      "side_to_move": "black"
+    }
+  ],
+  "privacy": "No source ids, user ids, names, usernames, emails, dates, URLs, PGN headers, credentials, captions, cognitive labels, or detector outputs.",
+  "rating_band": "600-899",
+  "rejected_incomplete_or_illegal": 157,
+  "rejection_reasons": {
+    "IllegalMoveError: illegal san: 'Ba6' in r1b2rk1/p4pp1/1p2p3/3pR2Q/8/P7/5PPP/3q1NK1 w - - 0 22": 1,
+    "IllegalMoveError: illegal san: 'Bb5' in r1bqkbnr/pp3ppp/2n1p3/2pP4/3P4/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 0 5": 1,
+    "IllegalMoveError: illegal san: 'Bb6+' in 1n4nr/1bkp4/B4p1p/p3p2p/P3PP2/1R1PB3/1PP3PP/5RK1 b - - 0 20": 1,
+    "IllegalMoveError: illegal san: 'Bc7' in 1k1rq2r/1p3ppp/2pb1n2/5N2/4p3/1B1P1Q2/PP3PPP/2R2RK1 w - - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Bd3' in rnb2rk1/p1p1qppp/4B3/1P6/8/8/3BNPPP/Q3K2R b K - 4 14": 1,
+    "IllegalMoveError: illegal san: 'Bd5' in 5rk1/r4pp1/2Bb3p/p3p3/1pPpP3/3Q1qP1/1P1Bb2P/RN2R1K1 b - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'Bd7' in r1b1kb1r/pp3ppp/1q1p4/8/2BnP1n1/2N2N2/PPP3PP/R1BQK2R w KQkq - 0 9": 1,
+    "IllegalMoveError: illegal san: 'Be2' in r2R4/1pk2pp1/p3p2p/P1p1P2P/Rb2bPP1/4B3/8/5BK1 b - - 0 23": 1,
+    "IllegalMoveError: illegal san: 'Be6' in r1bq1rk1/pp3ppp/2n1p3/2bn2B1/2B5/2N2N2/PPP2PPP/R2Q1RK1 w - - 0 10": 1,
+    "IllegalMoveError: illegal san: 'Bg3' in r2qkbnr/pp4pp/2pp1p2/4P3/1n3B2/2NPPN2/PP3PPP/R2Q1RK1 b kq - 0 9": 1,
+    "IllegalMoveError: illegal san: 'Bg4' in r1b1k2r/ppp2ppp/2n2n2/8/2B5/bP1P1N2/P1P2PPP/R1B1K2R w KQkq - 0 12": 2,
+    "IllegalMoveError: illegal san: 'Bg4+' in 6k1/p4p1p/5Qp1/1p2pb1P/8/3r4/PP2KPP1/2r4R w - - 0 28": 1,
+    "IllegalMoveError: illegal san: 'Bg5' in rnbqk2r/pp3ppp/3p4/2b5/4P1n1/2N2N2/PPP1BPPP/R1BQ1RK1 b kq - 1 9": 1,
+    "IllegalMoveError: illegal san: 'Bxa1' in r4qk1/pp2p1bp/2p1p1p1/3p4/8/NP1PP2Q/P2P1rPP/R4RK1 w - - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Bxb1' in 3r1k2/1p3ppp/2n2n2/p3pb2/P2P4/2P2N2/4BPPP/1q1Q1RK1 w - - 0 20": 1,
+    "IllegalMoveError: illegal san: 'Bxc5' in r1b1kb1r/ppp3pp/8/2qNp3/5Pn1/8/PPP3PP/R3KB1R w KQkq - 0 13": 1,
+    "IllegalMoveError: illegal san: 'Bxd3' in r6k/1pp3pp/2n2p2/5b2/8/PQNB1N2/1P3PPP/4rRK1 w - - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Bxd5' in r1b3k1/p2n1ppp/1p6/3Qq3/8/5B1P/P1P1N1P1/3RK3 b - - 0 24": 1,
+    "IllegalMoveError: illegal san: 'Bxe4' in r2qk2r/p1pp1ppp/1pb5/2b5/4n3/2P3N1/PP3PPP/R1BQKB1R w KQkq - 0 11": 1,
+    "IllegalMoveError: illegal san: 'Bxe5' in rnb2rk1/ppp2pbp/6p1/4N3/4n3/2N1B3/PPP1BPPP/3RK2R w K - 0 10": 1,
+    "IllegalMoveError: illegal san: 'Bxf4' in 8/1p4k1/p4p1p/6b1/4rqQP/1P6/PP2pBP1/2R1R1K1 w - - 0 30": 1,
+    "IllegalMoveError: illegal san: 'Bxf5' in r3r1k1/1p3ppp/1pnp1q2/4pQ2/8/3B1N1P/PPP2PP1/R3R1K1 b - - 0 20": 1,
+    "IllegalMoveError: illegal san: 'Bxf7+' in 4Rrk1/ppp2pp1/7p/q7/2Bp2Q1/P2P4/1PP3PP/5RK1 b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Bxg4' in r1b2rk1/ppp1bppp/2n5/3qp3/6P1/1P3Q2/PBPP1P1P/RN2K1NR w KQ - 0 9": 1,
+    "IllegalMoveError: illegal san: 'Kb8' in 2kr3r/ppp4p/2n2q1p/4p3/2P1P3/2P2Q2/P4P2/RN2KBNR w KQ - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Kc1' in r5k1/1p3pp1/p1n3bp/8/4R3/P1P3B1/1KP4P/6NR b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Ke2' in 8/R7/2p1kp2/4p3/4N3/1P1P4/r7/4RK2 b - - 0 33": 1,
+    "IllegalMoveError: illegal san: 'Ke5' in 1r4k1/p4p1p/4p1p1/8/4KP2/1R6/7P/5q2 b - - 0 41": 1,
+    "IllegalMoveError: illegal san: 'Ke7' in 5k2/5P2/r7/3B4/6K1/8/2p5/R7 w - - 0 52": 1,
+    "IllegalMoveError: illegal san: 'Kf1' in r3R3/1pp3p1/p5kp/8/3p4/3P4/PPP2PPP/R5K1 b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Kf6' in 2r5/ppprp1kp/2n3p1/1B5n/8/2P1B3/P1P2PPP/2KR4 w - - 0 18": 1,
+    "IllegalMoveError: illegal san: 'Kf8' in r1b3k1/pp1p1pp1/5q2/2p3p1/8/P4B2/1P1Q1PPP/4rRK1 w - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'Kg2' in r2qkb1r/p4p1p/2pBp1p1/3p4/6P1/2NQ3P/PPP2P2/4RRK1 b kq - 0 15": 1,
+    "IllegalMoveError: illegal san: 'Kh1' in r2qr1k1/1pp2p2/2n5/p3p1Qn/2B1P2p/2P5/PBP2P2/R3R1K1 b - - 0 18": 1,
+    "IllegalMoveError: illegal san: 'Kh1' in r4r2/p1p2pk1/3p4/1Npnpq2/3b2p1/1P5P/PBPP1P1P/1R1Q1RK1 b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Kh7' in 6k1/2b1rpp1/p6p/3Qq3/1p6/6P1/PP3P1P/2R2RK1 w - - 0 26": 1,
+    "IllegalMoveError: illegal san: 'Kxe6' in r2q1bB1/ppp3p1/2nkbnQ1/4p2p/8/8/PPPP1PPP/RNB1K2R w KQ - 0 12": 1,
+    "IllegalMoveError: illegal san: 'Nb1' in rnb1k1nr/4bpp1/2pp2q1/p3p3/1P2P2p/2NPBN1P/1PPQ1PP1/2KR1BR1 b kq - 0 13": 1,
+    "IllegalMoveError: illegal san: 'Nc6' in rnb1k2r/ppp3pp/8/3qp3/8/2b5/PPPBQPPP/R3KB1R w KQkq - 0 10": 1,
+    "IllegalMoveError: illegal san: 'Nc6' in rnbqkbnr/pp3ppp/4p3/3p4/3pP3/2P2P2/PP1N2PP/R1BQKBNR w KQkq - 0 6": 1,
+    "IllegalMoveError: illegal san: 'Nd2' in 2kr3N/ppp3pp/2q5/2b1p3/8/5QP1/PPP2P1P/RNB2RK1 b - - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Nd4' in r1bq1rk1/pppp1ppp/2n2n2/2b1p1N1/2B1P3/2N5/PPPP1PPP/R1BQK2R w KQ - 8 6": 1,
+    "IllegalMoveError: illegal san: 'Nd5' in 2b3k1/rp1p1p1p/p3NPpB/2p5/3n4/1P1B2P1/P1P2PKP/R3r3 b - - 1 22": 1,
+    "IllegalMoveError: illegal san: 'Nd8' in 5rk1/ppp2p1p/2n2Qp1/6N1/6P1/P6P/1PP2P2/2KRr3 w - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Nde7' in r5k1/1pp2pb1/2np4/p2n2Q1/3P2qB/2P1PN2/PP3P1P/2K4R w - - 0 24": 1,
+    "IllegalMoveError: illegal san: 'Ne2' in r1bq1rk1/ppp2p2/2np1n2/4p2p/2BNP1p1/1PN5/PBPP1PPP/R2Q1RK1 b - - 0 12": 1,
+    "IllegalMoveError: illegal san: 'Ne4' in 5r1k/5p1p/2p1pNpP/1q6/8/6P1/2PK4/5Q2 b - - 0 33": 1,
+    "IllegalMoveError: illegal san: 'Ne4' in r3kb1r/pppbqppp/2n2n2/1B2p3/3P4/5N2/PP3PPP/RNBQ1RK1 w kq - 0 9": 1,
+    "IllegalMoveError: illegal san: 'Ne4' in r4r2/6k1/2pQ1qp1/p2n2Nb/Pp5p/7P/1PP3P1/R1B1R1K1 b - - 0 34": 1,
+    "IllegalMoveError: illegal san: 'Ne6' in r1bqk2r/pp2b1pp/2p2p2/3n4/2BN4/P7/1PPPQPPP/R1B2RK1 b kq - 3 11": 1,
+    "IllegalMoveError: illegal san: 'Nf8' in r1b3k1/3n1rpp/p3q3/2p5/2P5/6P1/PP2QP1P/3RR1K1 w - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'Nh6' in rn2kbnr/ppq3pp/2p1p3/3pp3/N2P1P2/3BQ3/P1PB2PP/1R3RK1 w kq - 0 14": 1,
+    "IllegalMoveError: illegal san: 'Nxc4' in r2q1rk1/ppp1pp1p/3p2pb/3Pn3/2P1P3/2N2b2/PP2BPPP/R2Q1RK1 w - - 0 11": 1,
+    "IllegalMoveError: illegal san: 'Nxc5' in 2kr3r/Bpqn1ppp/2p1pn2/2b5/8/4Q1PB/PP3P1P/3RK1NR w K - 0 17": 1,
+    "IllegalMoveError: illegal san: 'Nxc7' in 2r3k1/p1R1p3/5prp/1N1R4/B5P1/1P5q/P7/K7 b - - 0 30": 1,
+    "IllegalMoveError: illegal san: 'Nxd5' in r3kb2/1p3pp1/p4np1/3N4/2Q1pq2/P7/1PP3P1/1K1R3r w q - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Nxe4' in r1bqk2r/pppp1ppp/2n1pn2/8/3PP3/P1b2N2/1PPB1PPP/R2QKB1R w KQkq - 0 7": 1,
+    "IllegalMoveError: illegal san: 'Nxe4' in r1bqk2r/pppp1ppp/5n2/2b5/2BnP3/5N2/PP3PPP/RNBQK2R w KQkq - 0 7": 1,
+    "IllegalMoveError: illegal san: 'Nxe5' in 2kr3r/pb4pp/1pn1p3/1B2q1Q1/1P2p3/2P5/P4PPP/R4RK1 w - - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Nxe5' in r1b1k2r/ppp2p2/3q1n1p/2b1Q1p1/8/2NB1N2/PPP2PPP/R3K2R b KQkq - 0 12": 2,
+    "IllegalMoveError: illegal san: 'Nxe5' in r3kbnr/pp3ppp/2n1b3/4q3/4Q3/2N1P3/PP3PPP/R3KBNR w KQkq - 0 10": 1,
+    "IllegalMoveError: illegal san: 'O-O' in r1b1kbr1/ppp2N1p/2np1q1n/4p2Q/2B1P3/3P3P/PPP2PP1/RNB1K2R b KQq - 0 8": 1,
+    "IllegalMoveError: illegal san: 'Qb4' in r1bqk2r/ppppbppp/5B2/8/3QP3/8/PPP2PPP/RN2KB1R b KQkq - 0 7": 1,
+    "IllegalMoveError: illegal san: 'Qb6+' in 4nk2/p5bp/6p1/5P1p/8/1qp5/8/4R1K1 w - - 0 38": 1,
+    "IllegalMoveError: illegal san: 'Qc7' in rnb1k1nr/pp3ppp/1qp1p3/3pP3/3P4/P1b2N2/1PPB1PPP/R2QKB1R w KQkq - 0 8": 1,
+    "IllegalMoveError: illegal san: 'Qd2' in 3r4/1bk2p2/p2Rp1p1/4B2p/5P2/7P/P3Q1P1/6K1 b - - 0 30": 1,
+    "IllegalMoveError: illegal san: 'Qd5' in r1bqkb1r/1pp2ppp/p1p5/4N3/4n3/2N5/PPPP1PPP/R1BQK2R w KQkq - 0 7": 1,
+    "IllegalMoveError: illegal san: 'Qe1' in r1b1k2r/pp3ppp/2p4n/4N3/4P3/2B5/PPP2PPP/R2Q1RK1 b kq - 2 12": 1,
+    "IllegalMoveError: illegal san: 'Qe2' in 3r2k1/ppp2ppp/4bn2/2q1p3/8/2NR4/PP1B1PPP/3QR1K1 b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Qe2' in r2qk2r/ppp1bp2/4pBp1/5b1p/3P4/P1N2B1P/1PP2PP1/R2Q1RK1 b kq - 0 14": 1,
+    "IllegalMoveError: illegal san: 'Qe3' in r2qk2r/pp1n1ppp/3bpn2/5b2/3PN3/1P5P/PB1Q1PP1/R3KBNR b KQkq - 0 10": 1,
+    "IllegalMoveError: illegal san: 'Qe3' in rn1q1rk1/p3ppbp/2N3p1/1p1b4/3P4/1P3QB1/P1P2PPP/RN2K2R b KQ - 0 12": 1,
+    "IllegalMoveError: illegal san: 'Qe5' in 1k1r1b1r/1p2qppp/2p2n2/5N2/4p3/1B1P1Q2/PP3PPP/2R2RK1 w - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'Qe7' in r1bqk2r/ppp2ppp/2n2n2/4p3/2B1p3/2NPPN2/PPP3PP/R2QK2R w KQkq - 0 8": 1,
+    "IllegalMoveError: illegal san: 'Qe7+' in r1b1k1nr/pp3ppp/2n1p3/2bq2N1/8/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 8": 1,
+    "IllegalMoveError: illegal san: 'Qf3' in r2q1rk1/pp3pbp/2np1Bp1/2p1p3/2B1P3/3P2Q1/PPP1NPPP/R4RK1 b - - 0 11": 1,
+    "IllegalMoveError: illegal san: 'Qg3' in rn1qkb1r/p1p1pppp/4b3/1p1B4/8/3P1Q2/PPP2PPP/RNB1K1NR b KQkq - 0 6": 1,
+    "IllegalMoveError: illegal san: 'Qh5+' in r1bqkb1r/1pppn1p1/p1n2p1p/3NN3/2B1P3/8/PPPP1PPP/R1BQ1RK1 b kq - 0 7": 1,
+    "IllegalMoveError: illegal san: 'Qxd4' in r1bqk1nr/pp2pp2/2p1B2p/4b1p1/3n4/2N3B1/PPP2PPP/R2QK2R b KQkq - 1 11": 1,
+    "IllegalMoveError: illegal san: 'Qxd4' in r2qk3/ppp1b1p1/2n1Bnp1/1r6/3P1B1P/8/P1P2P2/1R1QK2R w Kq - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Qxd8' in r1bq1rk1/pp3pbp/4pBp1/2p3N1/2P5/2N5/PPP2PPP/R2Q1RK1 b - - 0 12": 1,
+    "IllegalMoveError: illegal san: 'Qxe6' in 1k1rr3/1pp3p1/p1qbRn1p/3p4/8/P1N4Q/1PPP1PPP/R1B3K1 b - - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Qxf4' in 4rk2/pp4pp/4P2n/1PP2n1Q/3p1b2/8/P1KB3P/RN3q2 w - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'Qxg5' in 2rq1rk1/pb3ppp/1p6/1Pbn2P1/5N2/2BQ1P2/P2RP2P/1K3R2 w - - 0 24": 1,
+    "IllegalMoveError: illegal san: 'Qxg5' in r2qk2r/ppp2ppp/2n1p3/6bb/2BPP3/1QP2P2/P5PP/R1B2RK1 w kq - 0 13": 1,
+    "IllegalMoveError: illegal san: 'Rab8' in r3r1k1/1Q3ppp/8/q7/4b3/6P1/PP3PBP/R1B2RK1 w - - 0 23": 1,
+    "IllegalMoveError: illegal san: 'Rad1' in r1bq1rk1/p3bp2/1p2pBn1/3p4/2B4P/2N2Q2/PPP2PP1/R3R1K1 b - - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Rae1' in r4rk1/3q1pp1/2p3np/p3p3/1p2P3/1BPQP2P/PP4P1/R4RK1 b - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Rb4' in 1r2r1k1/8/2Q2qpp/5p2/P1P5/1P4PB/4p2P/1R4K1 w - - 0 33": 1,
+    "IllegalMoveError: illegal san: 'Rb5' in 5r1k/p1p5/1p6/3q2Q1/1Rp5/P1P1p2P/2P3PK/8 b - - 0 29": 1,
+    "IllegalMoveError: illegal san: 'Rc4' in 2r1r1k1/1b3pp1/p2pp3/1p6/8/P1Pq3Q/1P3PPP/R4RK1 w - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'Rc5' in 8/r3R3/6k1/1B6/6KP/1P4P1/1R6/2r5 w - - 0 45": 1,
+    "IllegalMoveError: illegal san: 'Rc8' in r2q1rk1/pb1p1ppp/1p3n2/nP6/4P3/b4P1N/PBQ1P1PP/2KR1B1R w - - 0 15": 1,
+    "IllegalMoveError: illegal san: 'Rce6' in 6k1/ppp2ppp/2r5/7P/6P1/PP1brq2/1KPQ4/R4BR1 w - - 0 24": 1,
+    "IllegalMoveError: illegal san: 'Rd1' in 8/r6R/2k5/7P/2B3K1/1P4P1/2R5/7r w - - 0 54": 1,
+    "IllegalMoveError: illegal san: 'Rd1' in r1bq1rk1/pp1p1p1p/2P3p1/4p1P1/4P2Q/P2PP3/1P4P1/RN3RK1 b - - 0 16": 1,
+    "IllegalMoveError: illegal san: 'Rd1+' in rn1k1b1r/p1q1p1p1/2b5/1p2p2p/4B3/1Q6/PP3PPP/RNB2RK1 b - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'Rd3' in 5rk1/p1pq3p/3p4/8/3QPR2/2P5/Pr5P/3R2K1 b - - 0 29": 1,
+    "IllegalMoveError: illegal san: 'Rd4' in 1r4k1/Q4pp1/4p3/8/4bP2/2P1q1P1/PP5P/K2R4 b - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'Re1' in 8/R3rk2/8/3nn2r/8/3b4/P5PP/2R4K b - - 0 30": 2,
+    "IllegalMoveError: illegal san: 'Re6' in 2kr3r/1ppb3p/3p1b2/1B3p2/3P1B2/2P2N2/6PP/2K1R2R b - - 0 19": 1,
+    "IllegalMoveError: illegal san: 'Re6' in 8/8/8/1P6/6k1/3P2p1/P3rPKP/1Q6 w - - 0 38": 1,
+    "IllegalMoveError: illegal san: 'Rfe1' in 4r3/2pk4/8/Q3p3/8/1P6/P1Pq1PPP/R4RK1 b - - 0 33": 1,
+    "IllegalMoveError: illegal san: 'Rh1' in 5r2/1pk5/p2p2pb/2p1p1B1/2B1P1P1/3P1PK1/PPP5/5R2 b - - 0 31": 2,
+    "IllegalMoveError: illegal san: 'Rxc4' in 8/7p/1p2B1p1/p1p3k1/2bp4/2r2R1R/P2K4/8 w - - 0 41": 1,
+    "IllegalMoveError: illegal san: 'Rxc5' in 2r2rk1/1b2n3/1p5p/pPqpP1p1/R3ppP1/2Q4P/3B1P1K/1NR5 w - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'Rxc7' in 2rq1rk1/ppNb1ppp/5n2/2b5/4P3/2PP2B1/PP2n1PP/R2QK1NR w KQ - 0 15": 1,
+    "IllegalMoveError: illegal san: 'Rxd4' in 3r1b1r/2p2p2/5ppk/1B6/3qQ3/8/PP5P/1K3RR1 w - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'Rxd5' in 6k1/p3rpp1/1pr1p2p/2pPP3/6PP/P2RP3/2P5/1R4K1 b - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'Rxe4' in 3r4/pp3pk1/2p1r2p/6PR/4b3/3BP3/1PP5/2K4R w - - 0 26": 1,
+    "IllegalMoveError: illegal san: 'Rxe4' in 4r1k1/p1p1qppp/1p6/2b5/1P1rn3/P7/2PNQPPP/3R1R1K w - - 0 21": 1,
+    "IllegalMoveError: illegal san: 'Rxe4' in 4r2k/pqp1N2p/5pp1/8/4Q3/6P1/P4P1P/4R1K1 b - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'Rxe5' in r4rk1/p1q2ppp/bp6/3nQ3/8/2P2N2/PP3PPP/R1B1R1K1 b - - 0 18": 1,
+    "IllegalMoveError: illegal san: 'Rxe5+' in r3k2r/1p1q1p2/p1n4p/3pN3/1b6/1PNP4/P1Q2PPP/R3R1K1 b kq - 0 17": 1,
+    "IllegalMoveError: illegal san: 'Rxe8' in 3kr3/3Pbp2/n1p2B2/1q5p/6pP/6P1/2BQ3N/rNKRR3 w - - 1 30": 1,
+    "IllegalMoveError: illegal san: 'a4' in 6k1/5p2/p2Q1qp1/1p5p/1P1br3/2p5/P4PPP/3R1RK1 b - - 0 27": 1,
+    "IllegalMoveError: illegal san: 'a6' in 4q3/pp3Qpk/3p2r1/5p1p/2P2P2/1P6/PB5P/5K2 w - - 0 36": 1,
+    "IllegalMoveError: illegal san: 'c3' in r1bq4/pppp1kpp/5n2/2b5/3BP3/3P4/PPP2PPP/RN1QK2R b KQ - 0 9": 1,
+    "IllegalMoveError: illegal san: 'c4' in 1r2r2k/pP4pp/5p2/4R3/8/7P/PPP2PP1/3R2K1 b - - 0 23": 1,
+    "IllegalMoveError: illegal san: 'c4' in rnbqk2r/p3ppbp/2pp2p1/8/B3n3/5N2/PPP2PPP/RNBQ1RK1 b kq - 3 8": 1,
+    "IllegalMoveError: illegal san: 'd4' in r1bqk2r/ppp2ppp/2n2n2/2bNp1N1/2B1P3/8/PPPP1PPP/R1BQK2R b KQkq - 0 6": 1,
+    "IllegalMoveError: illegal san: 'd4' in r1bqkb1r/pppp1ppp/2n2n2/4N3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 4": 1,
+    "IllegalMoveError: illegal san: 'd5' in r1bqk2r/ppppppbp/8/4P1B1/3n2n1/2N5/PPP1NPPP/R2QKB1R w KQkq - 0 7": 2,
+    "IllegalMoveError: illegal san: 'd5' in r1bqkb1r/pppp1ppp/2n5/4p3/2B1n3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 5": 1,
+    "IllegalMoveError: illegal san: 'd5' in rnbqkb1r/pppp1ppp/8/4p3/4n3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 0 4": 2,
+    "IllegalMoveError: illegal san: 'd6' in r1bq1rk1/pppp1p2/2n4p/3np3/2BNP1p1/1PN5/PBPP1PPP/R2Q1RK1 w - - 1 11": 1,
+    "IllegalMoveError: illegal san: 'd7' in 1r3k1r/pR3pbp/1p1P2p1/2p5/5Bn1/2N5/PPPQ1PPP/2KR4 b - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'dxc5' in rnbqkbnr/pp3ppp/4p3/2pP4/3P4/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 0 5": 1,
+    "IllegalMoveError: illegal san: 'exd5' in 2kr3r/pp3ppp/4p3/2bn1b2/5B2/1BN2P2/PP4PP/R4R1K w - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'exd5' in rnbqk1nr/pp4pp/2p2p2/3Pp3/1b1PP3/2N2N2/PP3PPP/R1BQKB1R b KQkq - 0 6": 1,
+    "IllegalMoveError: illegal san: 'f3' in r2q1rk1/pp3ppp/2p2n2/8/2P2BN1/2Q5/PPP2PPP/R3R1K1 b - - 0 15": 1,
+    "IllegalMoveError: illegal san: 'f3' in r2qkb1r/ppp1p1pp/5p1n/8/4P3/2PQ4/PP1P1PPP/RNB1K2R b KQkq - 0 10": 1,
+    "IllegalMoveError: illegal san: 'f5' in 1r2r1k1/2p2p2/5p1B/4n3/8/2P1b2P/5PP1/3R2K1 w - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'fxe5' in 2bq1rk1/1pp3pp/1b2pp2/1P2Pn2/2BP4/2P2N2/1BQ2PPP/r4RK1 w - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'fxg6' in 8/3k1pp1/1pn1p1p1/p2pP2P/6PK/8/R7/8 w - - 0 42": 1,
+    "IllegalMoveError: illegal san: 'gxf4' in r1b1qrk1/1ppp1p2/p4n2/6p1/B2nPb1p/P1NP3P/1PP3PB/R2Q1RK1 w - - 0 15": 1,
+    "IllegalMoveError: illegal san: 'gxf6' in r4rk1/p1p2ppp/1p1p1q2/1Bb5/4P1b1/5Q2/PPP2PPP/RN3RK1 w - - 0 13": 1,
+    "IllegalMoveError: illegal san: 'gxh5' in 2b5/2r1k2p/p5p1/1p5r/4P3/1BP2N2/PP3KP1/3R3R w - - 0 25": 1,
+    "IllegalMoveError: illegal san: 'h4' in 3R3r/p1p1kppp/2b5/4P3/8/2P1b3/PP4PP/RN5K b - - 0 17": 1,
+    "IllegalMoveError: illegal san: 'h4' in 8/6p1/5k1p/8/4p1P1/1K5P/2R5/2r5 b - - 0 45": 1,
+    "IllegalMoveError: illegal san: 'h4' in rnbqk2r/pppp1Nbp/6pn/4p3/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 5": 1,
+    "IllegalMoveError: illegal san: 'h5+' in 6k1/pp3pp1/7p/8/6K1/7P/PP5P/R1r2q2 w - - 0 29": 1,
+    "IllegalMoveError: illegal san: 'h6' in 5rk1/ppp2p1p/6p1/6N1/3Q2P1/P6P/1PP2P2/2KRr3 w - - 0 22": 1,
+    "IllegalMoveError: illegal san: 'hxg4' in 6k1/pp4pp/8/3N4/2P1p1Qq/7P/PPP3P1/R1B3K1 b - - 0 19": 1,
+    "ValueError: stored continuation ends before four plies": 7
+  },
+  "requested_positions": 375,
+  "schema_version": "target_line_population_export.v1",
+  "selected_phase_counts": {
+    "endgame": 50,
+    "middlegame": 192,
+    "opening": 133
+  },
+  "selected_positions": 375,
+  "selection": "Detector-label-blind chess-content hash; one position per source game; at least 50 positions per phase; all supplied prior-evidence signatures excluded before selection.",
+  "selection_fingerprint_sha256": "df096497948a837d4d7d88c586f5516e1c14d86d53078d472eacb942f1dac572",
+  "source": "read-only production export of stored Stockfish evidence"
+}

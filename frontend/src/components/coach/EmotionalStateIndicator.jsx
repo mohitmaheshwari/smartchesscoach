@@ -90,42 +90,50 @@ const EmotionalStateIndicator = ({
   const [state, setState] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const recentResultsKey = JSON.stringify(recentResults || []);
 
   useEffect(() => {
-    detectState();
-  }, [blundersThisGame, recentResults?.length]);
+    let superseded = false;
+    const currentResults = JSON.parse(recentResultsKey);
 
-  const detectState = async () => {
-    // Only detect if we have some game context
-    if (blundersThisGame === 0 && recentResults.length === 0) {
-      setState(null);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${API}/coach/human-coach/emotional-state`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          recent_results: recentResults,
-          avg_move_time: avgMoveTime,
-          blunders_this_game: blundersThisGame
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setState(data);
-        setDismissed(false);
+    const detectState = async () => {
+      // Only detect if we have some game context
+      if (blundersThisGame === 0 && currentResults.length === 0) {
+        setState(null);
+        return;
       }
-    } catch (error) {
-      console.error("Error detecting emotional state:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setLoading(true);
+      try {
+        const response = await fetch(`${API}/coach/human-coach/emotional-state`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            recent_results: currentResults,
+            avg_move_time: avgMoveTime,
+            blunders_this_game: blundersThisGame
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (superseded) return;
+          setState(data);
+          setDismissed(false);
+        }
+      } catch (error) {
+        if (!superseded) console.error("Error detecting emotional state:", error);
+      } finally {
+        if (!superseded) setLoading(false);
+      }
+    };
+
+    detectState();
+    return () => {
+      superseded = true;
+    };
+  }, [avgMoveTime, blundersThisGame, recentResultsKey]);
 
   // Don't show for neutral state or if dismissed
   if (!state || state.emotional_state === "neutral" || dismissed) {

@@ -12,10 +12,19 @@ Handles:
 """
 
 from fastapi import APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlencode, urlsplit
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import os
+import secrets
+import time
 import uuid
 import httpx
 import logging
@@ -72,6 +81,10 @@ class User(BaseModel):
     # ALL users (not just their own). Used for content-quality auditors
     # like Parth Gilda, who flag bugs against any user's coaching output.
     is_reviewer: bool = False
+    # Explicit provenance for analytics and test isolation. These fields are
+    # returned to the authenticated client, but never contain identity data.
+    is_demo: bool = False
+    analytics_excluded: bool = False
     # Self-declared "why are you here" (compete/improve/learn/fun). Exposed so
     # the Home backfill prompt knows whether the user has answered yet.
     player_motivation: Optional[str] = None
@@ -91,6 +104,8 @@ class User(BaseModel):
             "lichess_username": self.lichess_username,
             "role": self.role or "user",
             "is_reviewer": self.is_reviewer,
+            "is_demo": self.is_demo,
+            "analytics_excluded": self.analytics_excluded,
             "player_motivation": self.player_motivation,
         }
 
@@ -247,29 +262,36 @@ def _web_auth_payload(user_doc: dict) -> dict:
 
 # Helper for current user
 async def get_current_user(request: Request) -> Optional[User]:
-    """Get current user from session token (cookie or header) or dev mode"""
+    """Authenticate web cookies or explicitly mobile bearer sessions."""
     global db
     session_token = request.cookies.get("session_token")
-    
-    # Also check Authorization header
+    credential_source = "cookie" if session_token else None
+
+    # Bearer auth is reserved for native sessions. A browser cookie always wins.
     auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        session_token = auth_header.replace("Bearer ", "")
+    if not session_token and auth_header and auth_header.startswith("Bearer "):
+        session_token = auth_header.split(" ", 1)[1].strip()
+        credential_source = "bearer"
     
     if session_token and db is not None:
         session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
         if session:
+            if credential_source == "bearer" and session.get("is_mobile") is not True:
+                raise HTTPException(status_code=401, detail="Not authenticated")
             # Check expiry
             expires_at = session.get("expires_at")
             if expires_at:
                 if isinstance(expires_at, str):
                     expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
                 if expires_at < datetime.now(timezone.utc):
-                    return None
+                    raise HTTPException(status_code=401, detail="Not authenticated")
             
             user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
             if user_doc:
                 return User(**user_doc)
+
+    if credential_source is not None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     
     # Dev mode fallback
     if DEV_MODE and db is not None:
@@ -293,6 +315,7 @@ async def get_current_user(request: Request) -> Optional[User]:
 # ==================== GOOGLE OAUTH ====================
 
 def _get_google_config():
+    load_dotenv(Path(__file__).parent.parent / '.env', override=True)
     client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
     client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
     redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', '').strip()
@@ -300,7 +323,13 @@ def _get_google_config():
     return client_id, client_secret, redirect_uri, frontend_url
 
 @router.get("/google/login")
-async def google_login(request: Request, platform: Optional[str] = None, redirect_to: Optional[str] = None):
+async def google_login(
+    request: Request,
+    response: Response,
+    platform: Optional[str] = None,
+    redirect_to: Optional[str] = None,
+    flow: Optional[str] = None,
+):
     """
     Redirect user to Google OAuth consent screen.
     Frontend should redirect to this endpoint to start login flow.
@@ -441,7 +470,8 @@ async def google_callback(code: str, response: Response, request: Request, state
             "user_id": user_id,
             "session_token": session_token,
             "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_mobile": oauth_platform == "mobile",
         }
         await db.user_sessions.insert_one(session_doc)
 
@@ -534,15 +564,11 @@ async def google_callback(code: str, response: Response, request: Request, state
 
         if not frontend_url:
             frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000').strip()
-        redirect_to = "/home"
-        if "___" in state_val:
-            redirect_to = state_val.split("___")[1]
-
-        redirect_url = f"{frontend_url}{redirect_to}?auth=success&token={session_token}"
+        redirect_url = f"{frontend_url.rstrip('/')}{redirect_to}?auth=success"
 
         is_localhost = "localhost" in frontend_url or "127.0.0.1" in frontend_url
-        from fastapi.responses import RedirectResponse
         redirect_response = RedirectResponse(url=redirect_url)
+        _delete_oauth_state_cookie(redirect_response)
         redirect_response.set_cookie(
             key="session_token",
             value=session_token,
@@ -680,7 +706,7 @@ async def dev_login(response: Response):
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=False,  # Allow HTTP for localhost
+        secure=_web_session_cookie_secure(),
         samesite="lax",
         path="/",
         max_age=COOKIE_MAX_AGE_SECONDS
@@ -692,13 +718,24 @@ async def dev_login(response: Response):
 
 # ==================== EMAIL + PASSWORD AUTH ====================
 
+def _web_session_cookie_secure() -> bool:
+    """Keep production cookies Secure without breaking plain-http local QA."""
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if frontend_url:
+        parsed = urlsplit(frontend_url)
+        if parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}:
+            return False
+        return True
+    return not DEV_MODE
+
+
 def _issue_session_cookie(response: Response, session_token: str) -> None:
     """Apply the standard session cookie used by every auth path here."""
     response.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=True,
+        secure=_web_session_cookie_secure(),
         samesite="lax",
         path="/",
         max_age=COOKIE_MAX_AGE_SECONDS,
@@ -761,7 +798,7 @@ async def register(req: RegisterRequest, response: Response):
 
     user_doc.pop("_id", None)
     user_doc.pop("password_hash", None)
-    return {"user": user_doc, "session_token": session_token}
+    return _web_auth_payload(user_doc)
 
 
 @router.post("/login")
@@ -783,7 +820,7 @@ async def login(req: LoginRequest, response: Response):
 
     user.pop("_id", None)
     user.pop("password_hash", None)
-    return {"user": user, "session_token": session_token}
+    return _web_auth_payload(user)
 
 
 @router.get("/status")
@@ -804,8 +841,15 @@ async def logout(request: Request, response: Response):
     global db
     
     session_token = request.cookies.get("session_token")
-    if session_token:
-        await db.user_sessions.delete_many({"session_token": session_token})
+    session_query = {"session_token": session_token} if session_token else None
+    if not session_query:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            mobile_token = auth_header.split(" ", 1)[1].strip()
+            if mobile_token:
+                session_query = {"session_token": mobile_token, "is_mobile": True}
+    if session_query:
+        await db.user_sessions.delete_many(session_query)
     
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out successfully"}
@@ -953,17 +997,23 @@ async def demo_login(request: DemoLoginRequest):
     Creates or logs in a user with the provided email.
     """
     global db
+
+    if not DEV_MODE:
+        raise HTTPException(status_code=403, detail="Demo login only available in DEV_MODE")
     
     email = request.email.strip().lower()
     
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Valid email required")
     
-    user_id = f"demo_{email.replace('@', '_').replace('.', '_')}"
+    # A demo identity must never alias a real account, even when a tester enters
+    # the email address of an existing user. The stable hash also prevents the
+    # analytics-safe user_id field from containing an email address.
+    user_id = f"demo_{hashlib.sha256(email.encode('utf-8')).hexdigest()[:16]}"
     session_token = f"demo_session_{uuid.uuid4().hex}"
     name = email.split("@")[0].title()
     
-    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    existing_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     
     if existing_user:
         user_id = existing_user["user_id"]
@@ -991,7 +1041,8 @@ async def demo_login(request: DemoLoginRequest):
         "session_token": session_token,
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "is_demo": True
+        "is_demo": True,
+        "is_mobile": True,
     }
     await db.user_sessions.insert_one(session_doc)
     

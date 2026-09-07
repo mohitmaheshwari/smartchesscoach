@@ -656,3 +656,133 @@ def generate_quick_tags(
         include_honest_escapes=include_honest_escapes,
         reflection_context=reflection_context,
     )
+
+
+# ============================================
+# ACCEPTED-CAUSE VOCABULARY
+# ============================================
+# Maps what the PLAYER selected onto the chess fundamental the coach tracks.
+#
+# The join runs through `predicates`, not through the tag id and not through
+# the dotted reflection concept_id. A predicate is the board fact that
+# licensed the option being offered, so it is tied to the answer the player
+# actually gave, and it resolves for every row. (The concept_id prefix looks
+# like a fundamental for `piece_safety.simple_hang` but not for
+# `calculation.*`, so it is a hint, not a spine.)
+#
+# Targets are the topics the picker can WRITE, i.e. the keys of
+# primary_weakness_picker.IMPACT_TABLE_BY_BAND plus "time_management", which
+# that module appends as a candidate outside the band table. Not imported here
+# to avoid a cycle; test_accepted_cause_vocabulary.py asserts the containment.
+
+ACCEPTED_CAUSE_VERSION = "accepted_cause_vocabulary.v1"
+
+# 6 of the 9 predicates resolve to a fundamental. The other three are absent
+# ON PURPOSE and must stay absent -- see UNMAPPED_PREDICATES below.
+PREDICATE_TO_FUNDAMENTAL: Dict[str, str] = {
+    "user_piece_left_hanging":       "piece_safety",
+    "time_pressure_detected":        "time_management",
+    "simple_tactic_missed":          "missed_tactic",
+    "opponent_has_winning_capture":  "threat_awareness",
+    "user_ignored_forcing_reply":    "threat_awareness",
+    # "I didn't see the check" is a failure to notice a forcing move, not a
+    # structurally weak king, so this is threat_awareness rather than
+    # king_safety.
+    "opponent_has_immediate_check":  "threat_awareness",
+}
+
+# Excluded rather than guessed. Assigning any of these a nearest-fit
+# fundamental would attribute a cause the player did not describe, which is
+# the specific harm this vocabulary exists to prevent.
+UNMAPPED_PREDICATES: Mapping[str, str] = {
+    "user_attacked_instead_of_defending": (
+        "The player says they SAW the threat and attacked anyway. That is a "
+        "priority failure, not an awareness one; filing it under "
+        "threat_awareness would assert they missed what they just told us "
+        "they noticed."
+    ),
+    "user_defended_phantom_threat": (
+        "Seeing a threat that is not there. No tracked fundamental covers "
+        "false-positive threat detection."
+    ),
+    "is_opening_phase": (
+        "A phase marker, not a weakness."
+    ),
+}
+
+# Answering honestly that you do not know is not a cause. Sourced from the
+# reflection service so there is exactly one definition of the escape pair.
+def _escape_ids() -> frozenset:
+    try:
+        from services.review_reflection_service import REQUIRED_ESCAPE_IDS
+        return frozenset(REQUIRED_ESCAPE_IDS)
+    except Exception:  # pragma: no cover - import-order safety only
+        return frozenset({"not_sure", "none_of_these"})
+
+
+# Self-reported states: real answers with no board fact behind them, so they
+# are recorded and shown but never measured. NOTE: this is NOT "every tag
+# with no predicate" -- the two escape ids also have no predicate, and
+# treating predicate-absence as the test would file a refusal as a cause.
+SELF_REPORTED_STATE_TAGS: frozenset = frozenset({
+    "thought_winning",
+    "felt_danger",
+    "wanted_to_finish",
+    "rushed_conversion",
+    "played_fast",
+})
+
+TIER_BOARD_ANCHORED = "board_anchored"
+TIER_SELF_REPORTED = "self_reported_state"
+TIER_NON_ANSWER = "non_answer"
+
+
+def resolve_accepted_cause(option_id: Any) -> Optional[Dict[str, Any]]:
+    """What the player's selected option says about their chess fundamentals.
+
+    Returns None when the option carries no usable cause -- an unknown id, a
+    non-answer, or a predicate deliberately left unmapped. None means "store
+    nothing", never "guess something".
+    """
+    tag_id = str(option_id or "").strip()
+    if not tag_id:
+        return None
+    if tag_id in _escape_ids():
+        # Recorded by the reflection itself; never a cause.
+        return {
+            "tier": TIER_NON_ANSWER,
+            "option_id": tag_id,
+            "fundamental": None,
+            "predicate": None,
+            "version": ACCEPTED_CAUSE_VERSION,
+        }
+    if tag_id in SELF_REPORTED_STATE_TAGS:
+        return {
+            "tier": TIER_SELF_REPORTED,
+            "option_id": tag_id,
+            "fundamental": None,
+            "predicate": None,
+            "version": ACCEPTED_CAUSE_VERSION,
+        }
+
+    # selected_option_id is validated only for membership in the shown list,
+    # never as a real QuickTagId, so an unknown id must miss rather than raise.
+    definition = None
+    for member, config in TAG_DEFINITIONS.items():
+        if getattr(member, "value", str(member)) == tag_id:
+            definition = config
+            break
+    if not definition:
+        return None
+
+    for predicate in (definition.get("predicates") or []):
+        fundamental = PREDICATE_TO_FUNDAMENTAL.get(str(predicate))
+        if fundamental:
+            return {
+                "tier": TIER_BOARD_ANCHORED,
+                "option_id": tag_id,
+                "fundamental": fundamental,
+                "predicate": str(predicate),
+                "version": ACCEPTED_CAUSE_VERSION,
+            }
+    return None

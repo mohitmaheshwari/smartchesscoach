@@ -3822,6 +3822,130 @@ _CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
 ) not in ("0", "false", "False", "")
 
 
+_SALVAGE_SPLIT_RE = _re_pb.compile(r"(?<=[.!?])\s+")
+
+# "X was better — <Capitalised sentence>" is a broken join. The em-dash slot
+# promises a reason for the move just named and expects a lower-case verb
+# phrase ("it defends the pawn on f2"); some why-variants are standalone
+# sentences, which renders:
+#
+#   "Bc7 was better — This spot got hard a few moves ago, around move 12."
+#
+# The dash promises a why and delivers a topic change. 23 of 1127 flagged
+# mistakes in one user's corpus shipped this shape. A SAN after the dash is
+# fine and common ("— Kh2 lets Qh5+ come in with check"), so SAN tokens are
+# excluded. 2026-09-06.
+_DASH_BEFORE_SENTENCE_RE = _re_pb.compile(
+    r"\s+[—–]\s+(?=(?!(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8])\b)[A-Z][a-z]{2,})")
+
+
+def _repair_dash_before_sentence(text: str) -> str:
+    """Turn a dash that introduces a full sentence into a full stop."""
+    if not text:
+        return text
+    return _DASH_BEFORE_SENTENCE_RE.sub(". ", text)
+
+
+# Verdict without evidence. R12 already refuses to assert on this exact shape —
+# its trigger note: "User-side low-cp moves stay silent via suppression
+# (mover_is_user:true + why_clause:absent + cp_loss<250)". The fallback paths
+# (R_PROMOTED_basic_mistake, R16_board_state_fallback, HELD_FLOOR) never got
+# that rule, so 362 captions in one user's corpus still announced "X is a
+# mistake" with no reason attached — 70% of them at cp 100-199. Telling a
+# 1000-1300 player they blundered and then going quiet is worse than not
+# calling it a blunder.
+#
+# Same threshold as R12 on purpose (feedback_single_source_of_truth): this is
+# not a new judgement about what counts as a mistake, it is the existing one
+# applied where it was missing. Above the bar the verdict stays — a real
+# blunder must be named even when we cannot explain it.
+_VERDICT_NO_EVIDENCE_CP = 250
+_VERDICT_RE = _re_pb.compile(
+    r"\bis (?:a|an) (?:major blunder|serious mistake|mistake|inaccuracy)\b",
+    _re_pb.IGNORECASE)
+
+
+# Only the hollow TEMPLATE shape may be softened. The consequence check below
+# is a keyword list, and prose captions explain in words it does not contain -
+# "Nxf7 is a mistake — you moved your knight away from defending e4" earns its
+# verdict without matching a single keyword. Softening that produced "Nxf7 is
+# playable — you moved your knight away from defending e4", which calls the
+# move fine and then explains why it isn't. Shipped 2026-09-07, caught the same
+# day by reading the softened output.
+#
+# So the rule is inverted: soften only when the caption is demonstrably the
+# hollow shape (verdict + "X was better" + optional principle), never merely
+# when no keyword matched. Cut taken from the corpus - softened template
+# captions ran 46-160 chars (median 133) while every wrongly-softened prose
+# caption ran 217-402.
+_VERDICT_SOFTEN_MAX_CHARS = 180
+_VERDICT_SOFTEN_MAX_SENTENCES = 3
+
+
+def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
+                                     cp_loss: int) -> str:
+    """Drop the mistake verdict when nothing in the caption justifies it."""
+    if not text or not mover_is_user:
+        return text
+    if abs(int(cp_loss or 0)) >= _VERDICT_NO_EVIDENCE_CP:
+        return text
+    if not _VERDICT_RE.search(text):
+        return text
+    # A caption that names a consequence HAS justified its verdict.
+    if _SALVAGE_CONTENT_RE.search(text):
+        return text
+    # Anything longer or more elaborate than the hollow template is presumed to
+    # be explaining itself in prose the keyword list cannot see. Leave it alone:
+    # a verdict wrongly kept is a smaller harm than a verdict wrongly removed
+    # from a caption that goes on to justify it.
+    if len(text) > _VERDICT_SOFTEN_MAX_CHARS:
+        return text
+    if len([s for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]) > \
+            _VERDICT_SOFTEN_MAX_SENTENCES:
+        return text
+    return _VERDICT_RE.sub("is playable", text)
+
+# A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
+# or a bare principle carries no board content, so it is not worth keeping over
+# the deterministic floor — the floor at least names the stronger move.
+_SALVAGE_CONTENT_RE = _re_pb.compile(
+    r"\b(lets|loses to|drops|hangs|leaves|allows|walks into|wins|attacks|"
+    r"defends|traps|captures|forks|pins|threatens|recaptures|undefended)\b",
+    _re_pb.IGNORECASE)
+
+
+def _salvage_verified_sentences(text: str, verify_fn) -> str:
+    """Keep the sentences of `text` that pass `verify_fn`; drop the rest.
+
+    Returns "" when nothing worth shipping survives, in which case the caller
+    falls through to the deterministic floor as before.
+
+    This exists because the claim verifier is a whole-caption gate: a single
+    false clause discards the true ones with it. Salvage is strictly
+    truth-preserving — every surviving sentence individually passed the same
+    verifier, and the rejoined text is verified again before it is returned.
+    """
+    if not text or not text.strip():
+        return ""
+    sentences = [s.strip() for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]
+    if len(sentences) < 2:
+        return ""  # nothing to salvage from a single failing sentence
+
+    kept = [s for s in sentences if not verify_fn(s)]
+    if not kept or len(kept) == len(sentences):
+        # len(kept) == len(sentences) means every sentence passes alone but the
+        # whole fails — a cross-sentence contradiction. Do not ship that.
+        return ""
+
+    if not any(_SALVAGE_CONTENT_RE.search(s) for s in kept):
+        return ""
+
+    joined = " ".join(kept)
+    if verify_fn(joined):
+        return ""
+    return joined
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -4686,45 +4810,13 @@ def build_move_teaching_decision(
     except Exception as _wb_exc:
         logger.warning(f"[why_better] append failed m{inputs.full_move_number}: {_wb_exc!r}")
 
-    # ─── 11d. VERIFY-THEN-SHIP (the door's final gate) ───────────
-    # Teachable-caption framework Step 2 (docs/teachable_caption_framework_scope.md):
-    # the per-FEN claim verifier runs INSIDE the central layer so EVERY caller
-    # (V5, PWC, puzzle, any future surface) is auto-protected — a caption that
-    # fails verification is replaced by the verified deterministic floor, never
-    # shipped. Previously this lived only in the V5 service, so other callers
-    # bypassed it. V5's own post-call check becomes a redundant no-op (idempotent).
-    # feedback_verify_rendered_output_always. 2026-06-23.
-    try:
-        _vcap = (caption_payload.get("caption") or "").strip()
-        if _vcap:
-            from services.narrator_claim_verifier import verify_caption as _vc
-            from services.caption_fallback_tiers import tier23_caption as _t23
-            _vfacts = {
-                "move_san": inputs.played_san,
-                "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
-                "fen_after": caption_facts.get("fen_after"),
-                "is_user_move": bool(inputs.mover_is_user),
-                "cp_loss": abs(int(inputs.cp_loss or 0)),
-                "best_move_san": inputs.best_move_san,
-                "pv_after_played": list(inputs.pv_after_played or []),
-                "pv_after_best": list(inputs.pv_after_best or []),
-            }
-            if _vc(_vcap, _vfacts):  # truthy = violations found
-                _safe, _ = _t23(caption_facts, flagged_mistake=True)
-                if _safe and not _vc(_safe, _vfacts):
-                    caption_payload["caption"] = _safe
-                    caption_payload["rule_name"] = (
-                        (caption_payload.get("rule_name") or "") + "→VERIFY_SOFTENED")
-    except Exception as _vexc:
-        logger.warning(f"[verify_then_ship] m{inputs.full_move_number}: {_vexc!r}")
-
-    # ─── 11e. PIN CONTEXT — the crux the caption kept missing ──────
+    # ─── 11d. PIN CONTEXT — the crux the caption kept missing ──────
     # When the user's mistake happens with one of their pieces ABSOLUTELY pinned to
     # their king, that pin is usually THE point (why the piece is fragile, why the move
-    # fails). Prepend it. Runs AFTER verify-then-ship on purpose: the pin is board-
-    # verified by construction (detect_relevant_king_pin uses is_pinned + the pin ray),
-    # so it needs no claim-verifier — and this way it survives even when the primary
-    # caption fell to the verified floor (which discards it). Mohit 2026-07-01 (m9: the
+    # fails). Prepend it before the single final truth boundary. The pin is first
+    # derived with detect_relevant_king_pin (is_pinned + the pin ray), then the complete
+    # rendered sentence is independently checked with every other chess claim. Mohit
+    # 2026-07-01 (m9: the
     # e5 knight was pinned to the king; caption said only "d6 defends it").
     # docs/reasoning_correctness_scope.md
     try:
@@ -4988,16 +5080,34 @@ def build_move_teaching_decision(
             "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
             "fen_after": caption_facts.get("fen_after"),
             "is_user_move": bool(inputs.mover_is_user),
+            "moving_piece_color": caption_facts.get("moving_piece_color"),
+            "is_checkmate": bool(caption_facts.get("is_checkmate")),
             "cp_loss": abs(int(inputs.cp_loss or 0)),
+            "eval_before_cp": inputs.eval_before_cp,
+            "eval_after_cp": inputs.eval_after_cp,
             "best_move_san": inputs.best_move_san,
             "pv_after_played": list(inputs.pv_after_played or []),
             "pv_after_best": list(inputs.pv_after_best or []),
+            "mate_threat_evidence": caption_facts.get("mate_threat_evidence"),
         }
+        def _verify_final(text: str):
+            return _stage4_verify(text, _stage4_facts, strict_v2=True)
+
+        # Repair a dash that introduces a whole sentence before anything is
+        # verified or shipped, so every downstream path sees the fixed text.
+        _repaired = _repair_dash_before_sentence(
+            (caption_payload.get("caption") or "").strip())
+        _repaired = _soften_verdict_without_evidence(
+            _repaired, mover_is_user=bool(inputs.mover_is_user),
+            cp_loss=inputs.cp_loss or 0)
+        if _repaired != (caption_payload.get("caption") or "").strip():
+            caption_payload["caption"] = _repaired
+
         _candidate = (caption_payload.get("caption") or "").strip()
-        _violations = _stage4_verify(_candidate, _stage4_facts) if _candidate else []
+        _violations = _verify_final(_candidate) if _candidate else []
         if _violations:
             _base_violations = (
-                _stage4_verify(_board_explanation, _stage4_facts)
+                _verify_final(_board_explanation)
                 if _board_explanation else ["missing board explanation"]
             )
             if not _base_violations:
@@ -5007,27 +5117,61 @@ def build_move_teaching_decision(
                 )
                 _rendered_personalization = False
             else:
-                _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
-                if _safe and not _stage4_verify(_safe, _stage4_facts):
-                    caption_payload["caption"] = _safe
+                # SENTENCE SALVAGE — before falling to the floor.
+                #
+                # The verifier is a whole-caption gate: one false clause
+                # anywhere discards every true clause with it, and the floor it
+                # falls to is the hollow comparative ("You played X; Y was
+                # stronger — it trades his bishop"). On lichess qBNJQg3g move 16
+                # the pipeline had already produced the caption the game needed —
+                #
+                #   "Qf6 lets Qxc5 win your bishop on c5. Nxd3+ was better — it
+                #    attacks the undefended pawn on f2, and your knight ..."
+                #
+                # — and threw ALL of it away over a `free_when_defended`
+                # complaint about the SECOND sentence. The player was left with
+                # no idea why their move lost a bishop.
+                #
+                # Keep the sentences that verify, drop the ones that don't. This
+                # can only ever retain board-verified text; it never invents a
+                # claim, so it cannot lower truthfulness — every surviving
+                # sentence passed the same check the floor passes, and the join
+                # is re-verified before shipping.
+                # docs/review_truth_layer_scope.md, feedback_coverage_is_first_class
+                _salvaged = _salvage_verified_sentences(_candidate, _verify_final)
+                if _salvaged:
+                    caption_payload["caption"] = _salvaged
                     caption_payload["rule_name"] = (
-                        (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
+                        (caption_payload.get("rule_name") or "") + "→SENTENCE_SALVAGED"
                     )
-                    _board_explanation = _safe
+                    _board_explanation = _salvaged
                     _rendered_personalization = False
+                else:
+                    _safe, _ = _stage4_floor(caption_facts, flagged_mistake=True)
+                    if _safe and not _verify_final(_safe):
+                        caption_payload["caption"] = _safe
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SOFTENED"
+                        )
+                        _board_explanation = _safe
+                        _rendered_personalization = False
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
-            _final_text and not _stage4_verify(_final_text, _stage4_facts)
+            _final_text and not _verify_final(_final_text)
         )
     except Exception as _stage4_exc:
         logger.warning(
             f"[stage4_final_verify] m{inputs.full_move_number}: {_stage4_exc!r}"
         )
-        # Fail closed for the new renderer: an unverified personal enrichment
-        # never becomes visible merely because the verifier was unavailable.
-        if _CAUSAL_PERSONAL_CAPTIONS_ENABLED and _rendered_personalization:
-            caption_payload["caption"] = _board_explanation
-            _rendered_personalization = False
+        # The truth boundary is unavailable, so no chess claim may ship.  Empty
+        # text is intentional: callers can render their non-claim UI state, but
+        # they cannot mistake an unchecked sentence for verified coaching.
+        caption_payload["caption"] = ""
+        caption_payload["rule_name"] = (
+            (caption_payload.get("rule_name") or "") + "→FINAL_VERIFY_SILENT"
+        )
+        _board_explanation = ""
+        _rendered_personalization = False
 
     # Caption classification must describe the final text, not the pre-
     # personalization template selected earlier.

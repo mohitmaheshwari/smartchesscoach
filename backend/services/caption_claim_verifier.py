@@ -207,6 +207,46 @@ def _verify_blunder(facts: Dict[str, Any]) -> Tuple[bool, str]:
     return (True, "blunder_pv_verified")
 
 
+def _verify_mate_transition(facts: Dict[str, Any]) -> Tuple[bool, str]:
+    evidence = facts.get("mate_threat_evidence")
+    if not isinstance(evidence, dict):
+        return (False, "mate_unconfirmed")
+    transition = evidence.get("transition")
+    if transition not in {
+        "delivered", "preserved", "missed", "allowed", "already_lost"
+    }:
+        return (False, "mate_transition_missing")
+    played = evidence.get("played_branch")
+    best = evidence.get("best_branch")
+    if not isinstance(played, dict) or not isinstance(best, dict):
+        return (False, "mate_branch_missing")
+    if played.get("evidence_conflict") or best.get("evidence_conflict"):
+        return (False, "mate_branch_conflict")
+
+    mover = evidence.get("mover_color") or facts.get("moving_piece_color")
+    if mover not in {"white", "black"}:
+        return (False, "mate_mover_missing")
+    opponent = "black" if mover == "white" else "white"
+
+    def proves(branch: Dict[str, Any], side: str) -> bool:
+        return bool(
+            branch.get("has_forced_mate")
+            and branch.get("side_delivering_mate") == side
+        )
+
+    if transition == "delivered":
+        ok = bool(facts.get("is_checkmate")) and proves(played, mover)
+    elif transition == "preserved":
+        ok = proves(played, mover)
+    elif transition == "missed":
+        ok = proves(best, mover) and not played.get("has_forced_mate")
+    elif transition == "allowed":
+        ok = proves(played, opponent) and not proves(best, opponent)
+    else:  # already_lost
+        ok = proves(best, opponent)
+    return (ok, f"mate_{transition}" if ok else f"mate_{transition}_invalid")
+
+
 def verify(facts: Dict[str, Any],
            primary_reason: Optional[Dict[str, Any]]) -> Tuple[bool, str]:
     if not facts or not primary_reason:
@@ -215,8 +255,7 @@ def verify(facts: Dict[str, Any],
     ref = primary_reason.get("ref_field")
     try:
         if cat == "mate":
-            ok = bool(facts.get("mate_info") or facts.get("mate_threat_evidence"))
-            return (ok, "mate" if ok else "mate_unconfirmed")
+            return _verify_mate_transition(facts)
         if cat == "check_plain":
             return (_board_after(facts).is_check(), "check")
         if cat == "check_extra":

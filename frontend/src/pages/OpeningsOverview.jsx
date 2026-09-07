@@ -77,14 +77,60 @@ const OpeningsOverview = ({ user }) => {
   const [openingProfile, setOpeningProfile] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      setRepertoire(null);
+      setProgress([]);
+      setOpeningProfile(null);
+      try {
+        const [repRes, progRes, profRes] = await Promise.all([
+          fetch(`${API}/openings/repertoire`, { credentials: "include" }),
+          fetch(`${API}/training/opening-progress`, { credentials: "include" }),
+          fetch(`${API}/openings/profile`, { credentials: "include" }),
+        ]);
+        if (repRes.ok) {
+          const data = await repRes.json();
+          if (!cancelled) setRepertoire(data);
+        }
+        if (progRes.ok) {
+          const data = await progRes.json();
+          if (!cancelled) setProgress(data.progress || []);
+        }
+        if (profRes.ok) {
+          const data = await profRes.json();
+          if (!cancelled) setOpeningProfile(data);
+        }
+      } catch (e) {
+        if (!cancelled) console.error("Failed to load openings:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user?.user_id]);
 
   useEffect(() => {
-    if (activeTab === "endgames" && endgameCategories.length === 0) {
-      fetchEndgames();
-    }
-  }, [activeTab]);
+    if (activeTab !== "endgames" || endgameCategories.length > 0) return;
+    let cancelled = false;
+    const fetchEndgames = async () => {
+      setEndgameLoading(true);
+      try {
+        const res = await fetch(`${API}/endgames/categories`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setEndgameCategories(data.categories || []);
+        }
+      } catch (e) {
+        if (!cancelled) console.error("Failed to load endgames:", e);
+      } finally {
+        if (!cancelled) setEndgameLoading(false);
+      }
+    };
+    fetchEndgames();
+    return () => { cancelled = true; };
+  }, [activeTab, endgameCategories.length]);
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.EXPLORE_OPENED, {
@@ -101,43 +147,6 @@ const OpeningsOverview = ({ user }) => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchParams(tab === "openings" ? {} : { tab });
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Phase-3 Component 4 added /openings/profile to the parallel fetch.
-      const [repRes, progRes, profRes] = await Promise.all([
-        fetch(`${API}/openings/repertoire`, { credentials: "include" }),
-        fetch(`${API}/training/opening-progress`, { credentials: "include" }),
-        fetch(`${API}/openings/profile`, { credentials: "include" }),
-      ]);
-      if (repRes.ok) setRepertoire(await repRes.json());
-      if (progRes.ok) {
-        const data = await progRes.json();
-        setProgress(data.progress || []);
-      }
-      if (profRes.ok) setOpeningProfile(await profRes.json());
-    } catch (e) {
-      console.error("Failed to load openings:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEndgames = async () => {
-    setEndgameLoading(true);
-    try {
-      const res = await fetch(`${API}/endgames/categories`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setEndgameCategories(data.categories || []);
-      }
-    } catch (e) {
-      console.error("Failed to load endgames:", e);
-    } finally {
-      setEndgameLoading(false);
-    }
   };
 
   const focusOpening = useMemo(() => {
@@ -211,15 +220,15 @@ const OpeningsOverview = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="experience-page experience-study-page mx-auto max-w-6xl space-y-7 px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="openings-overview">
+      <div className="experience-page experience-study-page mx-auto max-w-6xl space-y-6 px-3 py-4 sm:space-y-7 sm:px-6 sm:py-8 lg:px-8" data-testid="openings-overview">
         {/* Header + Tabs */}
-        <div className="experience-surface rounded-2xl border border-border/70 bg-card/75 p-5 shadow-sm sm:flex sm:items-end sm:justify-between sm:p-6">
+        <div className="experience-surface rounded-2xl border border-border/70 bg-card/75 p-4 shadow-sm sm:flex sm:items-end sm:justify-between sm:p-6">
           <div>
             <p className="experience-eyebrow mb-2 text-[10.5px] font-semibold uppercase">Your learning library</p>
-            <h1 className="experience-coach-copy text-3xl font-semibold tracking-tight md:text-4xl">
+            <h1 className="experience-coach-copy text-2xl font-semibold tracking-tight sm:text-4xl">
               {activeTab === "openings" ? "Opening repertoire" : "Endgame library"}
             </h1>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
               {activeTab === "openings"
                 ? "Study the positions you actually reach and turn familiar starts into confident plans."
                 : "Build reliable technique from essential positions, one lesson at a time."}
@@ -395,16 +404,16 @@ const EndgamesTab = ({ categories, loading, openLesson }) => {
                 key={lesson.key}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="cursor-pointer rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                className="cursor-pointer rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md sm:hover:-translate-y-0.5"
                 onClick={() => openLesson(cat.key, lesson.key)}
                 data-testid={`endgame-lesson-${lesson.key}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-medium">{lesson.name}</h3>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{lesson.description}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <div className="flex shrink-0 items-center gap-2 sm:ml-3">
                     <Badge variant="outline" className="border-border bg-muted/50 text-xs text-muted-foreground">
                       {lesson.position_count} positions
                     </Badge>
@@ -433,8 +442,8 @@ const FocusCard = ({ opening, allWhite, allBlack, onStudy }) => {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <Card className="experience-surface overflow-hidden border-primary/25 bg-primary/5 shadow-sm" data-testid="focus-opening">
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between mb-3">
+        <CardContent className="p-4 sm:p-5">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
               <div>
@@ -443,7 +452,7 @@ const FocusCard = ({ opening, allWhite, allBlack, onStudy }) => {
               </div>
             </div>
             {libraryKey && (
-              <Button size="sm" onClick={() => onStudy(libraryKey)} data-testid="study-focus-btn">
+              <Button size="sm" className="w-full sm:w-auto" onClick={() => onStudy(libraryKey)} data-testid="study-focus-btn">
                 Study <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             )}
@@ -521,11 +530,11 @@ const OpeningRow = ({ opening, isExpanded, onToggleExpand, onStudy }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className={`rounded-xl border border-border/70 bg-card/65 p-4 shadow-sm ${
-          hasLibrary ? "cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md" : "opacity-75"
+          hasLibrary ? "cursor-pointer transition-all hover:border-primary/40 hover:shadow-md sm:hover:-translate-y-0.5" : "opacity-75"
         } ${isExpanded ? "border-primary/40 bg-primary/5 shadow-md" : ""}`}
         onClick={hasLibrary ? onToggleExpand : undefined}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium truncate">{opening.name}</h3>
@@ -540,7 +549,7 @@ const OpeningRow = ({ opening, isExpanded, onToggleExpand, onStudy }) => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:gap-3">
             <div className="flex items-center gap-1">
               {winRate >= 50 ? (
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -655,7 +664,7 @@ const InlineBoardPreview = ({ openingKey, onStudy }) => {
   const currentMoveData = moveIndex >= 0 ? mainLine[moveIndex] : null;
 
   return (
-    <div className="experience-surface mt-2 rounded-xl border border-border/70 bg-card/75 p-4" data-testid="inline-board-preview">
+    <div className="experience-surface mt-2 rounded-xl border border-border/70 bg-card/75 p-3 sm:p-4" data-testid="inline-board-preview">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Board */}
         <div className="experience-board-stage mx-auto aspect-square w-full max-w-[280px] overflow-hidden rounded-lg p-1.5" data-testid="preview-board">
@@ -773,28 +782,28 @@ const CoachProgress = ({ items, navigate }) => (
       {items.map((item) => (
         <div
           key={item.opening_name}
-          className="flex items-center justify-between p-3 rounded-lg border border-border/50"
+          className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/60 p-3 sm:flex-row sm:items-center sm:justify-between"
           data-testid={`coach-item-${item.opening_name}`}
         >
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium">{item.opening_name}</p>
-            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>{item.times_practiced}x practiced</span>
               {item.times_applied_in_games > 0 && (
-                <span className="text-emerald-400">
+                <span className="text-emerald-700 dark:text-emerald-300">
                   Applied {item.correct_applications || item.times_applied_in_games}x in games
                 </span>
               )}
               {item.real_games > 0 ? (
-                <span className={item.real_win_rate >= 50 ? "text-emerald-400" : "text-red-400"}>
+                <span className={item.real_win_rate >= 50 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}>
                   {item.real_win_rate.toFixed(0)}% win in {item.real_games} game{item.real_games !== 1 ? "s" : ""}
                 </span>
               ) : (
-                <span className="text-amber-400">Not tested in a game yet</span>
+                <span className="text-amber-700 dark:text-amber-300">Not tested in a game yet</span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <Badge
               variant="outline"
               className={`text-xs ${masteryColors[item.mastery_level] || masteryColors.unknown}`}
@@ -828,9 +837,9 @@ const YourRepertoireCard = ({ profile, navigate }) => {
   return (
     <Card className="mb-4 border-emerald-300/40 bg-emerald-50/40 dark:bg-emerald-950/20" data-testid="your-repertoire-card">
       <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-emerald-700" />
-          <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+        <div className="flex min-w-0 items-start gap-2 sm:items-center">
+          <BookOpen className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-700 sm:mt-0" />
+          <h2 className="min-w-0 text-base font-semibold leading-snug text-emerald-900 dark:text-emerald-100 sm:text-lg">
             Your Repertoire ({profile.total_analyzed_games} games)
           </h2>
         </div>
@@ -861,7 +870,7 @@ const YourRepertoireCard = ({ profile, navigate }) => {
           {/* BLACK */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Shield className="w-4 h-4 text-zinc-500" />
+              <Shield className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">As Black ({profile.black?.total_games || 0})</span>
             </div>
             <div className="space-y-1">

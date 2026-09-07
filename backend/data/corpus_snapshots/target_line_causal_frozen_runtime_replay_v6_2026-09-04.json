@@ -1,0 +1,30 @@
+{
+  "schema_version": "target_line_causal.frozen_runtime_replay.v1",
+  "generated_on": "2026-09-04",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "maia_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "proof_version": "target_line_causal_proof.v6",
+  "candidate_cases": 97,
+  "retained_candidates": 59,
+  "reviewer_true_positives": 59,
+  "reviewer_false_positives": 0,
+  "reviewer_negative_case_ids": [],
+  "reviewer_critical_false_claims": 0,
+  "reviewer_critical_case_ids": [],
+  "semantic_precision_pct": 100.0,
+  "wilson_lower_bound_pct": 93.89,
+  "c1d5_retained": false,
+  "gates": {
+    "retained_at_least_50": true,
+    "semantic_precision_at_least_95_pct": true,
+    "wilson_lower_bound_at_least_85_pct": true,
+    "zero_reviewer_negative_survivors": true,
+    "zero_critical_false_claims": true,
+    "c1d5_quiet_check_refutation_rejected": true
+  },
+  "passed": true
+}

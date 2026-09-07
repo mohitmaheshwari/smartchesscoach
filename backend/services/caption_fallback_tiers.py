@@ -62,7 +62,7 @@ def _eval_suffix(facts: Dict[str, Any]) -> str:
 
 def _better_suffix(facts: Dict[str, Any]) -> str:
     """For a decent-but-suboptimal USER move, surface the engine's better move with its
-    PRINCIPLE as the why ("Though e4 was a bit stronger, taking the center.") — the
+    PRINCIPLE as the why ("Though e4 was a bit stronger, it takes the center.") — the
     'decent, but Y was better' structure gold uses. Gated on a principle (teaching, not
     engine-worship: Bc5 cp35 names e4; the d5-Scandinavian is protected by opening-naming
     firing first) + a meaningful cp band (below this = style; at/above _MISTAKE_CP the
@@ -75,7 +75,7 @@ def _better_suffix(facts: Dict[str, Any]) -> str:
     why = facts.get("best_move_why")
     cp = int(facts.get("cp_loss") or 0)
     if best and played and best != played and why and 25 <= cp < _MISTAKE_CP:
-        return f" Though {best} was a bit stronger, {why}."
+        return f" Though {best} was a bit stronger, it {why}."
     return ""
 
 

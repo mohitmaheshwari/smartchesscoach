@@ -1,0 +1,343 @@
+{
+  "blinding": {
+    "cp_loss_hidden": true,
+    "critical_flags_hidden": true,
+    "formula_ids_hidden": true,
+    "formula_scores_hidden": true,
+    "mechanism_name_hidden": true,
+    "proof_family_hidden": true
+  },
+  "composer_version": "hidden_opportunity_composer.v1",
+  "coverage": {
+    "candidate_fires": 14,
+    "candidates_in_comparable_games": 2,
+    "comparable_games": 1,
+    "complete_branch_evidence": 467,
+    "games_scanned": 80,
+    "games_with_candidate": 13,
+    "games_with_two_or_more_positive_edges": 52,
+    "player_decisions_scanned": 467,
+    "positive_material_edge_decisions": 184
+  },
+  "database_reads": 0,
+  "database_writes": 0,
+  "generated_on": "2026-09-04",
+  "groups": [
+    {
+      "candidates": [
+        {
+          "better_branch": {
+            "line_san": [
+              "Ne4+",
+              "Rg3",
+              "Nxg3",
+              "Qf3",
+              "Ne4+"
+            ],
+            "move_san": "Ne4+"
+          },
+          "candidate_id": "32cbe0912d33a5ca9fbe",
+          "causal_chain": [
+            {
+              "actor": "initiator",
+              "branch": "best",
+              "destination": "e4",
+              "fact_kind": "establishes_persistent_attack",
+              "move_san": "Ne4+",
+              "moving_piece": "knight",
+              "origin": "g3",
+              "ply": 1,
+              "role": "setup",
+              "target_piece": "rook",
+              "target_square": "g3"
+            },
+            {
+              "actor": "opponent",
+              "branch": "best",
+              "destination": "g3",
+              "fact_kind": "target_enters_controlled_square",
+              "move_san": "Rg3",
+              "moving_piece": "rook",
+              "origin": "g1",
+              "ply": 2,
+              "role": "constraint",
+              "target_piece": "knight",
+              "target_square": "e4"
+            },
+            {
+              "actor": "initiator",
+              "branch": "best",
+              "destination": "g3",
+              "fact_kind": "same_piece_captures_target",
+              "move_san": "Nxg3",
+              "moving_piece": "knight",
+              "origin": "e4",
+              "ply": 3,
+              "role": "payoff",
+              "target_piece": "rook",
+              "target_square": "g3"
+            }
+          ],
+          "move_number": 9,
+          "phase": "opening",
+          "played_branch": {
+            "line_san": [
+              "Qe4+",
+              "Kf2",
+              "Nh1+",
+              "Rxh1",
+              "O-O"
+            ],
+            "move_san": "Qe4+"
+          },
+          "ply": 18,
+          "position": {
+            "fen": "r1b1k2r/pppp1Npp/2n5/4p3/2B4q/6n1/PPPP3P/RNBQK1R1 b kq - 1 9",
+            "side_to_move": "black"
+          }
+        },
+        {
+          "better_branch": {
+            "line_san": [
+              "Rxg3",
+              "Kb2",
+              "Rg2+",
+              "Kc1",
+              "Kd3"
+            ],
+            "move_san": "Rxg3"
+          },
+          "candidate_id": "f8ca2c07fb027ffb8420",
+          "causal_chain": [
+            {
+              "actor": "initiator",
+              "branch": "best",
+              "destination": "g3",
+              "fact_kind": "loose_target_is_capturable",
+              "move_san": "Rxg3",
+              "moving_piece": "rook",
+              "origin": "b3",
+              "ply": 1,
+              "role": "setup",
+              "target_piece": "bishop",
+              "target_square": "g3"
+            },
+            {
+              "actor": "initiator",
+              "branch": "best",
+              "destination": "g3",
+              "fact_kind": "no_legal_immediate_recapture",
+              "move_san": "Rxg3",
+              "moving_piece": "rook",
+              "origin": "b3",
+              "ply": 1,
+              "role": "constraint",
+              "target_piece": "bishop",
+              "target_square": "g3"
+            },
+            {
+              "actor": "initiator",
+              "branch": "best",
+              "destination": "g3",
+              "fact_kind": "captures_loose_target",
+              "move_san": "Rxg3",
+              "moving_piece": "rook",
+              "origin": "b3",
+              "ply": 1,
+              "role": "payoff",
+              "target_piece": "bishop",
+              "target_square": "g3"
+            }
+          ],
+          "move_number": 46,
+          "phase": "endgame",
+          "played_branch": {
+            "line_san": [
+              "d4",
+              "Bf2",
+              "Re3",
+              "Kb1",
+              "Rf3"
+            ],
+            "move_san": "d4"
+          },
+          "ply": 92,
+          "position": {
+            "fen": "8/p7/1p4p1/3p4/1Pk4P/Pr4B1/K7/8 b - - 0 46",
+            "side_to_move": "black"
+          }
+        }
+      ],
+      "game_context": {
+        "moves_san": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "Bc5",
+          "Nxf7",
+          "Bxf2+",
+          "Kxf2",
+          "Nxe4+",
+          "Ke1",
+          "Qh4+",
+          "g3",
+          "Nxg3",
+          "Rg1",
+          "Qe4+",
+          "Be2",
+          "Nxe2",
+          "Nd6+",
+          "cxd6",
+          "Qxe2",
+          "Qxc2",
+          "Qh5+",
+          "g6",
+          "Qd1",
+          "Qe4+",
+          "Qe2",
+          "Qxe2+",
+          "Kxe2",
+          "Nd4+",
+          "Kd1",
+          "Rf8",
+          "Nc3",
+          "b6",
+          "Nd5",
+          "Kd8",
+          "d3",
+          "Ba6",
+          "Bg5+",
+          "Kc8",
+          "Ne7+",
+          "Kb7",
+          "Kd2",
+          "Nf3+",
+          "Kc3",
+          "Nxg1",
+          "Rxg1",
+          "Rf3",
+          "Rd1",
+          "Raf8",
+          "Nd5",
+          "e4",
+          "Nb4",
+          "Bxd3",
+          "Nxd3",
+          "exd3",
+          "Be7",
+          "R8f5",
+          "Bxd6",
+          "Rd5",
+          "Bg3",
+          "d2+",
+          "Kc2",
+          "h5",
+          "Rxd2",
+          "Rxd2+",
+          "Kxd2",
+          "h4",
+          "Bxh4",
+          "Rh3",
+          "Bg3",
+          "Kc6",
+          "Kd3",
+          "Kd5",
+          "Ke3",
+          "Rh5",
+          "Kd3",
+          "d6",
+          "Kc3",
+          "Rf5",
+          "b4",
+          "Rf3+",
+          "Kb2",
+          "Kc4",
+          "a3",
+          "Rb3+",
+          "Ka2",
+          "d5",
+          "h4",
+          "d4",
+          "Be5",
+          "d3",
+          "Bf4",
+          "a5",
+          "bxa5",
+          "bxa5",
+          "Bg5",
+          "a4",
+          "Bf4",
+          "Kc3",
+          "Be5+",
+          "Kc2",
+          "Bf4",
+          "d2",
+          "Bxd2",
+          "Kxd2",
+          "h5",
+          "gxh5",
+          "Ka1",
+          "Rxa3+",
+          "Kb2",
+          "Rg3",
+          "Ka2",
+          "h4",
+          "Ka1",
+          "h3",
+          "Kb2",
+          "h2",
+          "Ka2",
+          "h1=Q",
+          "Kb2",
+          "Rb3+",
+          "Ka2",
+          "Qb1#"
+        ],
+        "opening": "Italian Game Traxler Knight Sacrifice Line 5...Bxf2 6.Kxf2 Nxe4",
+        "player_color": "black",
+        "rating_band": "900-1199",
+        "result": "0-1"
+      },
+      "review_group_id": "d19f16781554bdefd5f8",
+      "reviewer_response": {
+        "notes": "",
+        "ranked_candidate_ids": [],
+        "rejected_candidate_ids": [],
+        "show_any": null,
+        "top_choice_reason": null
+      }
+    }
+  ],
+  "limitations": [
+    "The source packet contains meaningful player decisions only; it cannot validate opponent-opportunity selection.",
+    "The source packet has no stable anonymized player-history key, so recurrence, novelty, and demonstrated knowledge cannot yet be compared.",
+    "The source packet is an 80-game stratified audit, not a production-incidence estimate."
+  ],
+  "llm_calls": 0,
+  "read_only": true,
+  "review_instructions": {
+    "dimensions": [
+      "chess_truth",
+      "importance_to_this_game",
+      "teaching_value",
+      "memorability",
+      "clarity_within_stored_horizon"
+    ],
+    "do_not_infer": [
+      "durable_player_weakness",
+      "mastery",
+      "mental_state"
+    ],
+    "task": "Within each game, rank only the moments a coach should stop on and teach to a 600-1500 player. Reject any moment whose stored line does not prove the claimed causal chain."
+  },
+  "schema_version": "hidden_opportunities.moment_ranking_review.v1",
+  "source": {
+    "path": "backend/data/corpus_snapshots/full_game_chess_fact_audit_v1_2026-09-03.json",
+    "sha256": "63991272bc16330c85989eff35cb47dbd4e7c4eab056737341b0d0808a72c572"
+  },
+  "stockfish_runs": 0
+}

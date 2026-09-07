@@ -603,6 +603,19 @@ async def submit_game_review_event_reflection(
             "[review-learning-shadow] reflection adaptation failed: %s",
             _learning_exc,
         )
+    try:
+        # The player just told us WHY. Turn that into durable,
+        # provenance-carrying evidence instead of only counting the document.
+        # Best-effort: a failure here must never cost the player their
+        # answer, which is already stored above.
+        from services.accepted_cause_service import record_accepted_cause
+
+        await record_accepted_cause(db, stored, user_id=user.user_id)
+    except Exception as _accepted_cause_exc:
+        logger.warning(
+            "[accepted-cause] recording failed: %s",
+            _accepted_cause_exc,
+        )
     return public_reflection_receipt(stored)
 
 

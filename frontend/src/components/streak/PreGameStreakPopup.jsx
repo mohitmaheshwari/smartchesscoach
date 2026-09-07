@@ -33,28 +33,28 @@ const PreGameStreakPopup = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isOpen && userId) {
-      fetchStreakStatus();
-    }
-  }, [isOpen, userId]);
+    if (!isOpen || !userId) return;
 
-  const fetchStreakStatus = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API}/streak/status?user_id=${userId}`, {
-        credentials: "include"
-      });
-      
-      if (!res.ok) throw new Error("Failed to fetch streak");
-      
-      const data = await res.json();
-      setStreakData(data);
-    } catch (err) {
-      console.error("Error fetching streak:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchStreakStatus = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API}/streak/status?user_id=${userId}`, {
+          credentials: "include"
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch streak");
+
+        const data = await res.json();
+        setStreakData(data);
+      } catch (err) {
+        console.error("Error fetching streak:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStreakStatus();
+  }, [isOpen, userId]);
 
   const handleStartGame = () => {
     if (onStartGame) {

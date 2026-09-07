@@ -14,7 +14,7 @@
  * 5. Habits to Improve - Homework
  */
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
@@ -708,19 +708,23 @@ const LabV2 = ({ user }) => {
   };
 
   // Keyboard arrow navigation
+  const reviewNavigationRef = useRef({});
+  useLayoutEffect(() => {
+    reviewNavigationRef.current = { goToNext, goToPrev, goToStart, goToEnd };
+  });
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
       switch (e.key) {
-        case 'ArrowRight': e.preventDefault(); goToNext(); break;
-        case 'ArrowLeft': e.preventDefault(); goToPrev(); break;
-        case 'ArrowUp': e.preventDefault(); goToStart(); break;
-        case 'ArrowDown': e.preventDefault(); goToEnd(); break;
+        case 'ArrowRight': e.preventDefault(); reviewNavigationRef.current.goToNext?.(); break;
+        case 'ArrowLeft': e.preventDefault(); reviewNavigationRef.current.goToPrev?.(); break;
+        case 'ArrowUp': e.preventDefault(); reviewNavigationRef.current.goToStart?.(); break;
+        case 'ArrowDown': e.preventDefault(); reviewNavigationRef.current.goToEnd?.(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentMoveIndex, moves.length]);
+  }, []);
 
   
   // Navigate to a specific move number (from critical moments) with optional arrows
