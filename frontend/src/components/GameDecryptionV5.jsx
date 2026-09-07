@@ -9,7 +9,7 @@
  * - Simple, 1200-friendly language
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -191,12 +191,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   
   const boardRef = useRef(null);
   const containerRef = useRef(null);
-  const decryptionLoadRef = useRef({ generation: 0, retryTimer: null });
+  const decryptionLoadRef = useRef({ generation: 0, retryTimer: null, gameId: null });
+  const gameActionOwnerRef = useRef({ generation: 0, gameId: null });
   const fetchDecryptionDataRef = useRef(null);
   const fetchUserThoughtsRef = useRef(null);
   const reviewNavigationRef = useRef({});
   const posCommentaryRef = useRef(posCommentary);
-  posCommentaryRef.current = posCommentary;
+  const captureGameOwner = () => ({ ...gameActionOwnerRef.current });
+  const ownsGame = (owner) => (
+    owner.gameId === gameActionOwnerRef.current.gameId
+    && owner.generation === gameActionOwnerRef.current.generation
+  );
 
   // v78.3 (2026-05-24) — "Play this line" state. Mohit caught the
   // button was missing on the Lab page. Track which move's playback
@@ -211,8 +216,23 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [goldMap, setGoldMap] = useState({});
   const [prefMap, setPrefMap] = useState({});   // {"{n}:{san}": "system"|"gold"|"neither"} — tester preference
 
+  useLayoutEffect(() => {
+    const owner = gameActionOwnerRef.current;
+    owner.generation += 1;
+    owner.gameId = gameId;
+    const generation = owner.generation;
+    return () => {
+      if (owner.gameId === gameId && owner.generation === generation) {
+        owner.generation += 1;
+        owner.gameId = null;
+      }
+    };
+  }, [gameId]);
+
   useEffect(() => {
     const load = decryptionLoadRef.current;
+    const gameChanged = load.gameId !== gameId;
+    load.gameId = gameId;
     load.generation += 1;
     const generation = load.generation;
     if (load.retryTimer) {
@@ -236,30 +256,35 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setReviewValidation(null);
     setHabitsReport(null);
     setFactsByMove({});
-    setUserThoughts({});
     setPosCommentary({});
     setCurrentMoveIndex(-1);
     setBoardFen(START_FEN);
-    setFeedbackOpen(false);
-    setFeedbackText("");
-    setFeedbackRuleName(null);
-    setSubmittingFeedback(false);
     setAcknowledgedConcepts(new Set());
     setShowingFutureMoves(false);
     setFutureMoveIndex(0);
     setHighlights([]);
     setArrows([]);
-    setThoughtInputOpen({});
-    setSavingThought(null);
-    setPlanMode(false);
-    setPlanMoves([]);
-    setPlanBoard(null);
-    setPlanReasoning("");
-    setAnalyzingPlan(false);
-    setPlanAnalysis(null);
     setCoachLinePlaybackIdx(-1);
     setCoachLineStepIndex(-1);
     setInitialMoveHandled(false);
+
+    // Drafts and user-action state belong to the game, not to a validation
+    // variant of that same game. Preserve them across A/B mode changes.
+    if (gameChanged) {
+      setUserThoughts({});
+      setThoughtInputOpen({});
+      setSavingThought(null);
+      setFeedbackOpen(false);
+      setFeedbackText("");
+      setFeedbackRuleName(null);
+      setSubmittingFeedback(false);
+      setPlanMode(false);
+      setPlanMoves([]);
+      setPlanBoard(null);
+      setPlanReasoning("");
+      setAnalyzingPlan(false);
+      setPlanAnalysis(null);
+    }
     fetchDecryptionDataRef.current?.(false, generation);
 
     return () => {
@@ -545,9 +570,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             setFactsByMove(byKey);
           }
         } catch (e) {
-          console.warn("Facts fetch failed (show_facts mode):", e);
+          if (ownsRequest()) console.warn("Facts fetch failed (show_facts mode):", e);
         }
       }
+      if (!ownsRequest()) return;
 
       // Store habits report if available
       if (data.habits_report) {
@@ -605,8 +631,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       if (ownsRequest() && !keepLoadingForRetry) setLoading(false);
     }
   };
-  fetchDecryptionDataRef.current = fetchDecryptionData;
-  
   // Fetch existing thoughts
   const fetchUserThoughts = async (
     targetGameId = gameId,
@@ -618,19 +642,25 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         const data = await res.json();
         if (generation !== decryptionLoadRef.current.generation) return;
         if (data.thoughts?.length > 0) {
-          const thoughts = {};
-          data.thoughts.forEach(t => {
-            thoughts[t.move_number] = { text: t.thought_text, saved: true };
+          setUserThoughts((previous) => {
+            const thoughts = { ...previous };
+            data.thoughts.forEach((thought) => {
+              const draft = previous[thought.move_number];
+              if (!draft || draft.saved) {
+                thoughts[thought.move_number] = {
+                  text: thought.thought_text,
+                  saved: true,
+                };
+              }
+            });
+            return thoughts;
           });
-          setUserThoughts(thoughts);
         }
       }
     } catch (e) {
       console.log("Could not fetch existing thoughts");
     }
   };
-  fetchUserThoughtsRef.current = fetchUserThoughts;
-  
   // Save user thought for a move
   const saveThought = async (moveNumber, fen, category) => {
     const thoughtText = userThoughts[moveNumber]?.text?.trim();
@@ -640,9 +670,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       return;
     }
 
+    const owner = captureGameOwner();
+    const targetGameId = gameId;
     setSavingThought(moveNumber);
     try {
-      const res = await fetch(`${API}/games/${gameId}/thought`, {
+      const res = await fetch(`${API}/games/${targetGameId}/thought`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -653,9 +685,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           weakness_category: thoughtCategory,
         })
       });
-      
+      if (!ownsGame(owner)) return;
       if (!res.ok) throw new Error("Failed to save");
-      
+
       setUserThoughts(prev => ({
         ...prev,
         [moveNumber]: { text: thoughtText, saved: true }
@@ -663,9 +695,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       setThoughtInputOpen(prev => ({ ...prev, [moveNumber]: false }));
       toast.success("Thanks! This helps improve coaching.");
     } catch (e) {
-      toast.error("Could not save thought");
+      if (ownsGame(owner)) toast.error("Could not save thought");
     } finally {
-      setSavingThought(null);
+      if (ownsGame(owner)) setSavingThought(null);
     }
   };
 
@@ -727,6 +759,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       return;
     }
     
+    const owner = captureGameOwner();
     setAnalyzingPlan(true);
     
     try {
@@ -741,11 +774,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           plan_reasoning: planReasoning
         })
       });
-      
+      if (!ownsGame(owner)) return;
       if (!res.ok) throw new Error("Analysis failed");
-      
+
       const data = await res.json();
-      
+      if (!ownsGame(owner)) return;
       if (data.success && data.analysis) {
         setPlanAnalysis(data.analysis);
         setPlanMode(false);
@@ -762,9 +795,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         toast.error(data.error || "Could not analyze plan");
       }
     } catch (e) {
-      toast.error("Failed to analyze plan");
+      if (ownsGame(owner)) toast.error("Failed to analyze plan");
     } finally {
-      setAnalyzingPlan(false);
+      if (ownsGame(owner)) setAnalyzingPlan(false);
     }
   };
 
@@ -807,8 +840,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[i].fen_after);
     setHighlights([]);
   }, [decryptionData]);
-  reviewNavigationRef.current = { goForward, goBackward, goToStart, goToEnd };
-
   const goToMove = useCallback((i) => {
     if (!decryptionData || i < -1 || i >= decryptionData.length) return;
     resetFutureView();
@@ -899,8 +930,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setArrows([]);
   }, [decryptionData, currentMoveIndex]);
 
+  // Publish only functions/state from a committed render. Assigning these
+  // refs during render can leak abandoned concurrent-render values into the
+  // stable keyboard and request callbacks.
+  useLayoutEffect(() => {
+    fetchDecryptionDataRef.current = fetchDecryptionData;
+    fetchUserThoughtsRef.current = fetchUserThoughts;
+    reviewNavigationRef.current = { goForward, goBackward, goToStart, goToEnd };
+    posCommentaryRef.current = posCommentary;
+  });
+
   // Acknowledge a concept
   const acknowledgeConceptHandler = async (conceptId) => {
+    const owner = captureGameOwner();
     try {
       const res = await fetch(`${API}/coach/decryption/acknowledge`, {
         method: "POST",
@@ -908,19 +950,21 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         credentials: "include",
         body: JSON.stringify({ concept_id: conceptId })
       });
-      
+      if (!ownsGame(owner)) return;
       if (res.ok) {
         setAcknowledgedConcepts(prev => new Set([...prev, conceptId]));
         toast.success("Got it! I'll remember you understand this.");
       }
     } catch (err) {
-      toast.error("Failed to save acknowledgment");
+      if (ownsGame(owner)) toast.error("Failed to save acknowledgment");
     }
   };
 
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim() || currentMoveIndex < 0) return;
     const m = decryptionData[currentMoveIndex];
+    const owner = captureGameOwner();
+    const targetGameId = gameId;
     try {
       setSubmittingFeedback(true);
       // Post to /feedback/flag (writes to move_feedback) so the admin queue
@@ -933,7 +977,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         credentials: "include",
         body: JSON.stringify({
           source: "lab",
-          game_id: gameId,
+          game_id: targetGameId,
           move_number: m.move_number,
           fen: m.fen_before || "",
           move_san: m.move_san || null,
@@ -957,6 +1001,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           inaccuracy_reason: feedbackText.trim(),
         })
       });
+      if (!ownsGame(owner)) return;
       if (res.ok) {
         toast.success("Flagged — thanks for the report.");
         setFeedbackOpen(false);
@@ -964,9 +1009,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         setFeedbackRuleName(null);
       }
     } catch (err) {
-      toast.error("Failed to send feedback");
+      if (ownsGame(owner)) toast.error("Failed to send feedback");
     } finally {
-      setSubmittingFeedback(false);
+      if (ownsGame(owner)) setSubmittingFeedback(false);
     }
   };
 
@@ -1408,15 +1453,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           // Bundle exporter — fetches /api/lab/export/{gameId} and saves
           // the response as chessguru-session-{gameId}-{date}.json.
           const handleExport = async () => {
+            const owner = captureGameOwner();
+            const targetGameId = gameId;
             try {
-              const res = await fetch(`${API}/lab/export/${gameId}`, {
+              const res = await fetch(`${API}/lab/export/${targetGameId}`, {
                 credentials: "include",
               });
+              if (!ownsGame(owner)) return;
               if (!res.ok) {
                 console.warn(`Export failed: ${res.status}`);
                 return;
               }
               const data = await res.json();
+              if (!ownsGame(owner)) return;
               const blob = new Blob([JSON.stringify(data, null, 2)], {
                 type: "application/json",
               });
@@ -1424,13 +1473,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               const a = document.createElement("a");
               const date = new Date().toISOString().slice(0, 10);
               a.href = url;
-              a.download = `chessguru-session-${gameId}-${date}.json`;
+              a.download = `chessguru-session-${targetGameId}-${date}.json`;
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
             } catch (e) {
-              console.warn("Export error:", e);
+              if (ownsGame(owner)) console.warn("Export error:", e);
             }
           };
 

@@ -14,7 +14,7 @@
  * 5. Habits to Improve - Homework
  */
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
@@ -709,7 +709,9 @@ const LabV2 = ({ user }) => {
 
   // Keyboard arrow navigation
   const reviewNavigationRef = useRef({});
-  reviewNavigationRef.current = { goToNext, goToPrev, goToStart, goToEnd };
+  useLayoutEffect(() => {
+    reviewNavigationRef.current = { goToNext, goToPrev, goToStart, goToEnd };
+  });
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
