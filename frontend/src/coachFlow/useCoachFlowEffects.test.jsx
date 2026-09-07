@@ -20,6 +20,13 @@ const Harness = ({ session, gameMode, expose }) => {
   return null;
 };
 
+const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+};
+
 describe("useCoachFlow current mode ownership", () => {
   let container;
   let root;
@@ -59,5 +66,38 @@ describe("useCoachFlow current mode ownership", () => {
     expect(result).toEqual({ autoCommitted: true });
     expect(commit).toHaveBeenCalledWith("e4", 2.5);
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test("an evaluation from a replaced session cannot commit its move", async () => {
+    const oldEvaluation = deferred();
+    let flow;
+    const expose = (value) => { flow = value; };
+    global.fetch = jest.fn(() => oldEvaluation.promise);
+
+    await act(async () => root.render(
+      <Harness session={{ session_id: "session-old" }} gameMode="coach" expose={expose} />
+    ));
+
+    const commit = jest.fn().mockResolvedValue(true);
+    let pendingResult;
+    await act(async () => {
+      pendingResult = flow.handleUserMove(MOVE, commit, 2.5);
+      await Promise.resolve();
+    });
+
+    await act(async () => root.render(
+      <Harness session={{ session_id: "session-new" }} gameMode="coach" expose={expose} />
+    ));
+
+    oldEvaluation.resolve(response({
+      coachingDecision: { layer: "silent" },
+      shouldAutoCommit: true,
+    }));
+
+    let result;
+    await act(async () => { result = await pendingResult; });
+
+    expect(result).toEqual({ autoCommitted: false, cancelled: true });
+    expect(commit).not.toHaveBeenCalled();
   });
 });

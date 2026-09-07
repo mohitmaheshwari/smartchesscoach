@@ -55,7 +55,11 @@ const PGN = "1. e4 e5 2. Nf3 Nc6";
 const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
 const AFTER_NF3 = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
 
-const response = (body) => ({ ok: true, status: 200, json: () => Promise.resolve(body) });
+const response = (body, options = {}) => ({
+  ok: options.ok ?? true,
+  status: options.status ?? 200,
+  json: () => Promise.resolve(body),
+});
 const deferred = () => {
   let resolve;
   const promise = new Promise((done) => { resolve = done; });
@@ -185,5 +189,80 @@ describe("LabClassic committed navigation and polling ownership", () => {
     expect(toast.success).not.toHaveBeenCalledWith("Analysis complete!");
     expect(global.fetch.mock.calls.filter(([url]) => url.endsWith("/analysis/game-one"))).toHaveLength(1);
     expect(container.textContent).toContain("vs Opponent");
+  });
+
+  test("a reanalyze request cannot start polling after its game is replaced", async () => {
+    const oldReanalyze = deferred();
+    global.fetch = jest.fn((url, options = {}) => {
+      const id = url.includes("game-two") ? "game-two" : "game-one";
+      if (url.endsWith("/games/game-one/reanalyze") && options.method === "POST") {
+        return oldReanalyze.promise;
+      }
+      if (url.endsWith(`/games/${id}`)) return Promise.resolve(response(gamePayload()));
+      if (url.endsWith(`/analysis/${id}`)) {
+        return Promise.resolve(response({ stockfish_analysis: { move_evaluations: [], accuracy: 91 } }));
+      }
+      if (url.includes("/coach/commentary/")) return Promise.resolve(response({}));
+      if (url.endsWith(`/games/${id}/analysis-status`)) return Promise.resolve(response({ status: "analyzed" }));
+      if (url.endsWith(`/lab/${id}`)) return Promise.resolve(response({}));
+      if (url.endsWith("/cognitive/training-priority")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/focus-lock")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/home-intelligence")) return Promise.resolve(response({}));
+      if (url.includes("/coach/module/")) return Promise.resolve(response({}));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await renderLab();
+    const reanalyzeButton = container.querySelector("[data-testid='reanalyze-header-btn']");
+    expect(reanalyzeButton).not.toBeNull();
+    act(() => reanalyzeButton.click());
+    await flush();
+
+    mockGameId = "game-two";
+    await renderLab();
+    oldReanalyze.resolve(response({ message: "Old game queued", status: "pending" }));
+    await flush();
+
+    expect(toast.success).not.toHaveBeenCalledWith("Old game queued");
+    expect(container.textContent).toContain("vs Opponent");
+  });
+
+  test("an analyzed status is not published until both review payloads refresh", async () => {
+    jest.useFakeTimers();
+    let statusCalls = 0;
+    let analysisCalls = 0;
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/games/game-one")) return Promise.resolve(response(gamePayload()));
+      if (url.endsWith("/analysis/game-one")) {
+        analysisCalls += 1;
+        return analysisCalls === 1
+          ? Promise.resolve(response({ stockfish_analysis: { move_evaluations: [], accuracy: 91 } }))
+          : Promise.resolve(response({ detail: "refresh failed" }, { ok: false, status: 503 }));
+      }
+      if (url.includes("/coach/commentary/")) return Promise.resolve(response({}));
+      if (url.endsWith("/games/game-one/analysis-status")) {
+        statusCalls += 1;
+        return Promise.resolve(response(statusCalls === 1
+          ? { status: "processing" }
+          : { status: "analyzed" }));
+      }
+      if (url.endsWith("/lab/game-one")) return Promise.resolve(response({ refreshed: true }));
+      if (url.endsWith("/cognitive/training-priority")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/focus-lock")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/home-intelligence")) return Promise.resolve(response({}));
+      if (url.includes("/coach/module/")) return Promise.resolve(response({}));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await renderLab();
+    act(() => jest.advanceTimersByTime(5000));
+    await flush();
+
+    expect(toast.success).not.toHaveBeenCalledWith("Analysis complete!");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Analysis finished, but the complete review could not be refreshed. Please retry."
+    );
+    expect(container.querySelector("[data-testid='lab-analysis-queue-status-inline']")?.textContent)
+      .toContain("Analysis failed");
   });
 });

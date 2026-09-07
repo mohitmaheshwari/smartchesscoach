@@ -33,6 +33,8 @@ jest.mock("@/components/coach/CoachPlayBoard", () => {
     <div>
       <span data-testid="board-session">{props.session?.session_id || "none"}</span>
       <span data-testid="board-fen">{props.currentFen}</span>
+      <button data-testid="make-e4" onClick={() => props.makeMove("e2", "e4", "wP")}>Play e4</button>
+      <button data-testid="resign-game" onClick={props.resignGame}>Resign</button>
       <button data-testid="new-game" onClick={props.newGame}>New game</button>
     </div>
   ));
@@ -51,7 +53,9 @@ jest.mock("@/components/coach/CoachTimelinePanel", () => () => null, { virtual: 
 jest.mock("@/components/coach/CommentaryPanel", () => () => null, { virtual: true });
 jest.mock("@/components/coach/PredictMovePanel", () => () => null, { virtual: true });
 jest.mock("@/components/coach/RateMovePanel", () => () => null, { virtual: true });
-jest.mock("@/components/coach/SessionReflectionCard", () => () => null, { virtual: true });
+jest.mock("@/components/coach/SessionReflectionCard", () => ({ sessionId, reflection }) => (
+  <div data-testid="reflection-card">{sessionId}:{reflection?.title || "reflection"}</div>
+), { virtual: true });
 jest.mock("framer-motion", () => ({
   motion: new Proxy({}, { get: () => ({ children, ...props }) => <div {...props}>{children}</div> }),
 }));
@@ -354,5 +358,127 @@ describe("CoachPlay lifecycle ownership", () => {
     });
     expect(mockHandleStartLesson).toHaveBeenCalledTimes(1);
     expect(container.querySelector("[data-testid='board-session']").textContent).toBe("trap-session");
+  });
+
+  test("manual start wins over a late active-session discovery", async () => {
+    const activeDiscovery = deferred();
+    const newFen = "8/8/8/8/8/8/3K4/6k1 w - - 0 1";
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) return activeDiscovery.promise;
+      if (url.endsWith("/coaching/current-prescriptions")) {
+        return Promise.resolve(response({ prescriptions: [] }));
+      }
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({ personal_improvement_cycle: { eligible: false } }));
+      }
+      if (url.endsWith("/lab-coach-pick")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({
+          session: session("session-new"), current_fen: newFen, is_player_turn: true,
+        }));
+      }
+      if (url.endsWith("/coach/play/state/session-new")) {
+        return Promise.resolve(response(state("session-new", newFen)));
+      }
+      if (url.endsWith("/coach/play/state/session-old")) {
+        throw new Error("late discovery must not resume the old session");
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-new");
+
+    activeDiscovery.resolve(response({ active_sessions: [{ session_id: "session-old" }] }));
+    await flush();
+
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-new");
+    expect(global.fetch.mock.calls.some(([url]) => url.endsWith("/coach/play/state/session-old"))).toBe(false);
+  });
+
+  test("a late coach response cannot overwrite a replacement session", async () => {
+    const oldCoachPoll = deferred();
+    const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const newFen = "8/8/8/8/8/8/3K4/6k1 w - - 0 1";
+    let oldStateCalls = 0;
+    const currentFlow = flowState();
+    currentFlow.handleUserMove = jest.fn(async (moveData, commit, timeSpent) => ({
+      autoCommitted: await commit(moveData.san, timeSpent),
+    }));
+    useCoachFlow.mockReturnValue(currentFlow);
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "session-old" }] }));
+      }
+      if (url.endsWith("/coach/play/state/session-old")) {
+        oldStateCalls += 1;
+        return oldStateCalls === 1
+          ? Promise.resolve(response(state("session-old", startFen)))
+          : oldCoachPoll.promise;
+      }
+      if (url.endsWith("/coach/play/move")) {
+        return Promise.resolve(response({ current_fen: startFen, awaiting_coach: true }));
+      }
+      if (url.endsWith("/coaching/current-prescriptions")) return Promise.resolve(response({ prescriptions: [] }));
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({ personal_improvement_cycle: { eligible: false } }));
+      }
+      if (url.endsWith("/lab-coach-pick")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({ session: session("session-new"), current_fen: newFen, is_player_turn: true }));
+      }
+      if (url.endsWith("/coach/play/state/session-new")) return Promise.resolve(response(state("session-new", newFen)));
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='make-e4']").click());
+    await flush();
+    expect(oldStateCalls).toBe(2);
+
+    act(() => container.querySelector("[data-testid='new-game']").click());
+    await flush();
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+
+    oldCoachPoll.resolve(response({
+      ...state("session-old", startFen),
+      session: { ...session("session-old"), coach_move_pending: false },
+    }));
+    await flush();
+
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-new");
+    expect(container.querySelector("[data-testid='board-fen']").textContent).toBe(newFen);
+  });
+
+  test("new game removes the completed session reflection", async () => {
+    const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "session-1" }] }));
+      }
+      if (url.endsWith("/coach/play/state/session-1")) return Promise.resolve(response(state("session-1", fen)));
+      if (url.endsWith("/coach/play/end")) {
+        return Promise.resolve(response({ summary: {}, cpr: {}, identity: {} }));
+      }
+      if (url.endsWith("/coach/play/session-reflection/session-1")) {
+        return Promise.resolve(response({ reflection: { title: "Old lesson" } }));
+      }
+      if (url.endsWith("/coach/play/improvement-proof")) return Promise.resolve(response({ show_proof: false }));
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='resign-game']").click());
+    await flush();
+    expect(container.querySelector("[data-testid='reflection-card']")?.textContent).toContain("Old lesson");
+
+    act(() => container.querySelector("[data-testid='new-game']").click());
+    await flush();
+    expect(container.querySelector("[data-testid='reflection-card']")).toBeNull();
   });
 });

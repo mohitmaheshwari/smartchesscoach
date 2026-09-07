@@ -61,7 +61,22 @@ const CoachPlay = ({ user }) => {
   const currentSessionIdRef = useRef(null);
   const resumeRequestRef = useRef(0);
   const startRequestRef = useRef(0);
+  const sessionLifecycleRequestRef = useRef(0);
   const executeMoveRef = useRef(null);
+  const pollTimerRef = useRef(null);
+  const pollFnRef = useRef(null);
+  const eventSourceRef = useRef(null);
+  const coachResponsePollGenerationRef = useRef(0);
+  const coachResponsePollAbortRef = useRef(null);
+
+  const invalidateCoachResponsePoll = useCallback(() => {
+    coachResponsePollGenerationRef.current += 1;
+    coachResponsePollAbortRef.current?.abort();
+    coachResponsePollAbortRef.current = null;
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = null;
+    pollFnRef.current = null;
+  }, []);
 
   // Read opening and focus from URL query params
   const openingFromUrl = searchParams.get("opening");
@@ -76,6 +91,7 @@ const CoachPlay = ({ user }) => {
 
   useLayoutEffect(() => {
     const sessionId = session?.session_id || null;
+    invalidateCoachResponsePoll();
     currentSessionIdRef.current = sessionId;
     // A session replacement invalidates any state request still in flight.
     resumeRequestRef.current += 1;
@@ -85,7 +101,7 @@ const CoachPlay = ({ user }) => {
         resumeRequestRef.current += 1;
       }
     };
-  }, [session?.session_id]);
+  }, [session?.session_id, invalidateCoachResponsePoll]);
 
   // Board state
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -173,6 +189,10 @@ const CoachPlay = ({ user }) => {
   const [playerIdentity, setPlayerIdentity] = useState(null);
   const [sessionReflection, setSessionReflection] = useState(null);
 
+  useLayoutEffect(() => {
+    setSessionReflection(null);
+  }, [session?.session_id]);
+
   // ─── Resync on tab becoming visible again ────────────────────────────
   // Long-running tabs can have their poll timers throttled or their SSE
   // connection silently die (backgrounded tab, network blip, mobile OS
@@ -238,9 +258,6 @@ const CoachPlay = ({ user }) => {
   // SSE (push-based coach notifications) — replaces the old 300ms poll.
   // pollTimerRef holds the safety-net setTimeout handle so the SSE handler
   // can cancel it and trigger the next poll tick immediately.
-  const pollTimerRef = useRef(null);
-  const pollFnRef = useRef(null);
-  const eventSourceRef = useRef(null);
   // ?trap= deep-link guards (each step fires once)
   const trapGameStartRef = useRef(false);
   const trapLessonStartRef = useRef(false);
@@ -1059,15 +1076,16 @@ const CoachPlay = ({ user }) => {
   }, [session?.move_history?.length, inlineOpening, inlineTrap, setInlineOpening, setInlineTrap]);
 
   const checkActiveSession = async (signal) => {
+    const discoveryRequest = sessionLifecycleRequestRef.current;
     try {
       const response = await fetch(`${API}/coach/play/active`, {
         credentials: "include",
         signal,
       });
-      if (signal?.aborted) return;
+      if (signal?.aborted || discoveryRequest !== sessionLifecycleRequestRef.current) return;
       if (response.ok) {
         const data = await response.json();
-        if (signal?.aborted) return;
+        if (signal?.aborted || discoveryRequest !== sessionLifecycleRequestRef.current) return;
         if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl && !trapFromUrl) {
           // Resume existing session (but NOT if user came with a specific opening to practice)
           const activeSession = data.active_sessions[0];
@@ -1080,9 +1098,15 @@ const CoachPlay = ({ user }) => {
   };
 
   const resumeSession = async (sessionId) => {
+    sessionLifecycleRequestRef.current += 1;
+    const lifecycleRequest = sessionLifecycleRequestRef.current;
     resumeRequestRef.current += 1;
     const request = resumeRequestRef.current;
-    const ownsRequest = () => request === resumeRequestRef.current;
+    startRequestRef.current += 1;
+    const ownsRequest = () => (
+      request === resumeRequestRef.current &&
+      lifecycleRequest === sessionLifecycleRequestRef.current
+    );
     try {
       const response = await fetch(`${API}/coach/play/state/${sessionId}`, {
         credentials: "include"
@@ -1281,9 +1305,15 @@ const CoachPlay = ({ user }) => {
   });
 
   const actuallyStartGame = async () => {
+    sessionLifecycleRequestRef.current += 1;
+    const lifecycleRequest = sessionLifecycleRequestRef.current;
     startRequestRef.current += 1;
     const startRequest = startRequestRef.current;
-    const ownsStart = () => startRequest === startRequestRef.current;
+    resumeRequestRef.current += 1;
+    const ownsStart = () => (
+      startRequest === startRequestRef.current &&
+      lifecycleRequest === sessionLifecycleRequestRef.current
+    );
     track(ANALYTICS_EVENTS.FUNNEL_PWC_STARTED);
     setShowPreGameStreakPopup(false);
     setLoading(true);
@@ -2245,6 +2275,9 @@ const CoachPlay = ({ user }) => {
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    const sessionId = session?.session_id;
+    if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
+    const ownsSession = () => currentSessionIdRef.current === sessionId;
     // IMMEDIATELY clear all coaching state for clean transition
     setV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
@@ -2268,14 +2301,16 @@ const CoachPlay = ({ user }) => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            session_id: session.session_id,
+            session_id: sessionId,
             move: moveSan,
             risk_level: riskType
           })
         });
         
+        if (!ownsSession()) return false;
         if (confirmResponse.ok) {
           const confirmData = await confirmResponse.json();
+          if (!ownsSession()) return false;
           // Update remaining interventions
           if (confirmData.remaining_interventions !== undefined) {
             setRemainingInterventions(confirmData.remaining_interventions);
@@ -2290,7 +2325,7 @@ const CoachPlay = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: sessionId,
           move: moveSan,
           thinking_time_ms: Math.round(timeSpent * 1000)
         })
@@ -2298,6 +2333,7 @@ const CoachPlay = ({ user }) => {
 
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (!ownsSession()) return false;
       if (!response.ok) {
         toast.error(data.detail || "Invalid move");
         return false;
@@ -2362,7 +2398,7 @@ const CoachPlay = ({ user }) => {
         // reply. phase="user_move" returns only the user card (its eval is already
         // computed by evaluate-pending); the coach card still arrives after the coach
         // moves via the existing post-coach fetch. (Mohit 2026-06-27.)
-        fetchInteractiveCoaching(session?.session_id, "user_move");
+        fetchInteractiveCoaching(sessionId, "user_move");
 
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
@@ -2381,7 +2417,7 @@ const CoachPlay = ({ user }) => {
         }]);
         
         // Poll for coach's response
-        pollForCoachResponse();
+        pollForCoachResponse(sessionId);
       } else {
         // No coach response expected - clear loading state
         setLoadingFeedback(false);
@@ -2390,6 +2426,7 @@ const CoachPlay = ({ user }) => {
 
       return true;
     } catch (error) {
+      if (!ownsSession()) return false;
       console.error("Move error:", error);
       toast.error("Connection error. Please try again.");
       setIsPlayerTurn(true);
@@ -2400,22 +2437,66 @@ const CoachPlay = ({ user }) => {
   };
 
   useLayoutEffect(() => {
-    executeMoveRef.current = executeMove;
+    executeMoveRef.current = {
+      sessionId: session?.session_id || null,
+      execute: executeMove,
+    };
   });
+
+  const executeMoveForSession = useCallback((sessionId, moveSan, timeSpent) => {
+    const current = executeMoveRef.current;
+    if (
+      !sessionId ||
+      currentSessionIdRef.current !== sessionId ||
+      current?.sessionId !== sessionId
+    ) return Promise.resolve(false);
+    return current.execute(moveSan, timeSpent);
+  }, []);
   
   // Poll for coach's move and messages
-  const pollForCoachResponse = async () => {
-    const maxAttempts = 30;  // 30 seconds max
+  const pollForCoachResponse = (expectedSessionId) => {
+    if (!expectedSessionId || currentSessionIdRef.current !== expectedSessionId) return;
+    invalidateCoachResponsePoll();
+    const generation = coachResponsePollGenerationRef.current;
+    const controller = new AbortController();
+    coachResponsePollAbortRef.current = controller;
+    const maxAttempts = 30;
     let attempts = 0;
-    
+    let inFlight = false;
+    const ownsPoll = () => (
+      !controller.signal.aborted &&
+      generation === coachResponsePollGenerationRef.current &&
+      currentSessionIdRef.current === expectedSessionId
+    );
+    const finishPoll = () => {
+      if (generation !== coachResponsePollGenerationRef.current) return;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+      pollFnRef.current = null;
+      if (coachResponsePollAbortRef.current === controller) {
+        coachResponsePollAbortRef.current = null;
+      }
+    };
+    const scheduleNext = (poll) => {
+      if (!ownsPoll()) return;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = setTimeout(poll, 2000);
+    };
+
     const poll = async () => {
-      if (attempts >= maxAttempts) {
-        console.warn("[CoachPlay] Poll timeout after", maxAttempts, "attempts");
-        // Try one last fetch to see if game ended or coach moved
-        try {
-          const lastCheck = await fetch(`${API}/coach/play/state/${session.session_id}`, { credentials: "include" });
+      if (!ownsPoll() || inFlight) return;
+      inFlight = true;
+      try {
+        if (attempts >= maxAttempts) {
+          console.warn("[CoachPlay] Poll timeout after", maxAttempts, "attempts");
+          const lastCheck = await fetch(`${API}/coach/play/state/${expectedSessionId}`, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!ownsPoll()) return;
           if (lastCheck.ok) {
             const lastData = await lastCheck.json();
+            if (!ownsPoll()) return;
             if (lastData.game_over || lastData.session?.status === "completed") {
               setGameOver(true);
               setGameResult(lastData.session?.result || "draw");
@@ -2424,10 +2505,10 @@ const CoachPlay = ({ user }) => {
               setLoadingFeedback(false);
               setSession(lastData.session);
               if (lastData.current_fen) setCurrentFen(lastData.current_fen);
+              finishPoll();
               return;
             }
             if (!lastData.session?.coach_move_pending && lastData.current_fen) {
-              // Coach actually did move, we just missed it
               setSession(lastData.session);
               setCurrentFen(lastData.current_fen);
               setIsPlayerTurn(true);
@@ -2435,94 +2516,63 @@ const CoachPlay = ({ user }) => {
               setIsCoachThinking(false);
               setLoadingFeedback(false);
               setMoveStartTime(Date.now());
+              finishPoll();
               return;
             }
           }
-        } catch (e) {
-          console.error("[CoachPlay] Last check failed:", e);
+          if (!ownsPoll()) return;
+          setCoachThinking(false);
+          setIsCoachThinking(false);
+          setLoadingFeedback(false);
+          setIsPlayerTurn(true);
+          setMoveStartTime(Date.now());
+          toast.error("Coach took too long to respond. Your turn.");
+          finishPoll();
+          return;
         }
-        setCoachThinking(false);
-        setIsCoachThinking(false);
-        setLoadingFeedback(false);
-        setIsPlayerTurn(true);
-        setMoveStartTime(Date.now());
-        toast.error("Coach took too long to respond. Your turn.");
-        return;
-      }
-      
-      attempts++;
-      
-      try {
-        // Get latest session state
-        const response = await fetch(`${API}/coach/play/state/${session.session_id}`, {
-          credentials: "include"
+
+        attempts += 1;
+        const response = await fetch(`${API}/coach/play/state/${expectedSessionId}`, {
+          credentials: "include",
+          signal: controller.signal,
         });
-        
+        if (!ownsPoll()) return;
+
         if (response.ok) {
           const data = await response.json();
+          if (!ownsPoll()) return;
 
-          // ── PREDICT-COACH-MOVE: the coach's move was DEFERRED for a prediction (the server did NOT
-          // apply it). Show the panel — the board stays on YOUR move, so nothing can leak. The guess
-          // triggers the coach move + reveal. Fail-open: if anything's off, the normal flow proceeds.
           if (PREDICT_MOVE_ENABLED && data.session?.pending_prediction && !pendingPrediction) {
-            const _pp = data.session.pending_prediction;
-            if (_pp.options?.length) {
-              setPendingPrediction({ options: _pp.options, prompt: "What do you think I'll play?" });
+            const prediction = data.session.pending_prediction;
+            if (prediction.options?.length) {
+              setPendingPrediction({ options: prediction.options, prompt: "What do you think I'll play?" });
               setCoachThinking(false);
-              if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-              return; // wait for the guess; onComplete triggers the reveal
+              finishPoll();
+              return;
             }
           }
 
-          // Check if coach has moved
-          if (!data.session.coach_move_pending) {
-            // Remove thinking message from chat
+          if (data.session && !data.session.coach_move_pending) {
             setChatMessages(prev => prev.filter(m => m.type !== "thinking"));
-            
-            // Update board - only if we have valid FEN
             setSession(data.session);
-            if (data.current_fen) {
-              setCurrentFen(data.current_fen);
-            }
-            
-            // Update evaluation
-            if (data.evaluation) {
-              setEvaluation(data.evaluation);
-            }
-            
-            // Handle pedagogical opponent state
+            if (data.current_fen) setCurrentFen(data.current_fen);
+            if (data.evaluation) setEvaluation(data.evaluation);
             if (data.pedagogical) {
               const ped = data.pedagogical;
               setHideEvalBar(ped.hide_eval || false);
               setOpportunitiesFound(ped.opportunities_found || 0);
               setOpportunitiesMissed(ped.opportunities_missed || 0);
             }
-            
-            // Update opening guidance
-            if (data.opening_teaching) {
-              setOpeningGuidance(data.opening_teaching);
-            } else {
-              setOpeningGuidance(null);
-            }
-            
-            // Highlight coach's last move
+            setOpeningGuidance(data.opening_teaching || null);
+
             const lastMove = data.session.last_coach_move;
             if (lastMove?.uci) {
               highlightMove(lastMove.uci);
               setCoachLastMoveSquare(lastMove.uci.slice(2, 4));
             }
-            // Track coach move SAN + explanation for display
-            if (lastMove?.move || lastMove?.san) {
-              setLastCoachMoveSan(lastMove.san || lastMove.move);
-            }
-            // Store coach move explanation for display
-            if (lastMove?.explanation) {
-              setCoachMoveExplanation(lastMove.explanation);
-            } else {
-              setCoachMoveExplanation(null);
-            }
-            
-            // Check if game over
+            if (lastMove?.move || lastMove?.san) setLastCoachMoveSan(lastMove.san || lastMove.move);
+            setCoachMoveExplanation(lastMove?.explanation || null);
+
             if (data.game_over || data.session.status === "completed") {
               setGameOver(true);
               setGameResult(data.session.result);
@@ -2532,47 +2582,33 @@ const CoachPlay = ({ user }) => {
                 toast.info("It's a draw.");
               }
             } else {
-              // Trust the server's turn, never assume it. /state computes
-              // is_player_turn from the position; assuming true handed the
-              // player a board whose side-to-move was the opponent, so
-              // Chessground offered only the opponent's moves and no piece
-              // could be picked up -- under a green "Your turn" badge.
               setIsPlayerTurn(data.is_player_turn ?? true);
               setMoveStartTime(Date.now());
-              // Increment ply for coach's response move
               if (openingIdeas.length) setGamePly(prev => prev + 1);
-              // Check for escape squares teaching moment
               checkEscapeSquares();
             }
-            
+
             setCoachThinking(false);
-
-            // Fetch V5 interactive feedback — this runs fundamentals checklist,
-            // Socratic coaching, stores move snapshots, and gets coach move explanation
-            console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
-            // Don't lock here — lock decision happens AFTER we see the coaching response
-            fetchInteractiveCoaching(session?.session_id || sessionId);
-
+            fetchInteractiveCoaching(expectedSessionId);
+            finishPoll();
             return;
           }
         }
-        
-        // Push-based: SSE wakes us when the coach is ready; this setTimeout
-        // is now purely a safety net (2s) in case SSE is broken/blocked.
+
         if (attempts <= 3 || attempts % 30 === 0) {
           console.log("[CoachPlay] Poll attempt", attempts, "- coach still thinking");
         }
-        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = setTimeout(poll, 2000);
-
+        scheduleNext(poll);
       } catch (error) {
-        console.error("[CoachPlay] Poll error:", error);
-        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = setTimeout(poll, 2000);
+        if (error?.name !== "AbortError" && ownsPoll()) {
+          console.error("[CoachPlay] Poll error:", error);
+          scheduleNext(poll);
+        }
+      } finally {
+        inFlight = false;
       }
     };
 
-    // Expose poll fn so the SSE handler can wake it on `coach_turn_ready`.
     pollFnRef.current = poll;
     poll();
   };
@@ -2758,6 +2794,9 @@ const CoachPlay = ({ user }) => {
   // Handle user confirming a risky move
   const confirmRiskyMove = async () => {
     if (!pendingMove) return;
+    const sessionId = session?.session_id;
+    if (!sessionId || currentSessionIdRef.current !== sessionId) return;
+    const ownsSession = () => currentSessionIdRef.current === sessionId;
     
     const { moveSan, timeSpent, riskType, chess, originalFen } = pendingMove;
     
@@ -2784,7 +2823,7 @@ const CoachPlay = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: sessionId,
           move: moveSan,
           time_spent: timeSpent,
           risk_acknowledged: riskType
@@ -2792,6 +2831,7 @@ const CoachPlay = ({ user }) => {
       });
 
       const data = await confirmResponse.json();
+      if (!ownsSession()) return;
       
       if (!confirmResponse.ok) {
         toast.error(data.detail || "Move failed");
@@ -2825,8 +2865,8 @@ const CoachPlay = ({ user }) => {
       if (data.awaiting_coach) {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
-        fetchUserMoveCoaching(session.session_id);
-        pollForCoachResponse();
+        fetchUserMoveCoaching(sessionId);
+        pollForCoachResponse(sessionId);
       } else {
         // PLAY MODE: No coach response expected — immediately ready for next move
         setIsPlayerTurn(true);
@@ -2835,6 +2875,7 @@ const CoachPlay = ({ user }) => {
         setMoveStartTime(Date.now());
       }
     } catch (error) {
+      if (!ownsSession()) return;
       console.error("Confirm move error:", error);
       toast.error("Connection error. Please try again.");
       setCurrentFen(originalFen);
@@ -2884,7 +2925,7 @@ const CoachPlay = ({ user }) => {
 
       const { autoCommitted } = await handleFlowUserMove(
         moveData,
-        (san, ts) => executeMoveRef.current?.(san, ts),
+        (san, ts) => executeMoveForSession(session?.session_id, san, ts),
         timeSpent
       );
 
@@ -2931,7 +2972,7 @@ const CoachPlay = ({ user }) => {
       highlightMove(moveObj.from + moveObj.to);
       setUserLastMoveSquare(moveObj.to);
       setCoachLastMoveSquare(null);
-      await executeMoveRef.current?.(moveObj.san, timeSpentPlay);
+      await executeMoveForSession(session?.session_id, moveObj.san, timeSpentPlay);
       setIsPlayerTurn(false);
       return true;
     }
@@ -2986,7 +3027,7 @@ const CoachPlay = ({ user }) => {
             };
             const { autoCommitted: ac2 } = await handleFlowUserMove(
               moveData2,
-              (san, ts) => executeMoveRef.current?.(san, ts),
+              (san, ts) => executeMoveForSession(session?.session_id, san, ts),
               timeSpent2,
             );
             if (ac2) setIsPlayerTurn(false);
@@ -3115,7 +3156,7 @@ const CoachPlay = ({ user }) => {
     console.log("[V2-FLOW] User move:", moveData.san, "— calling handleUserMove (evaluate-pending)");
     const { autoCommitted, moveQuality } = await handleFlowUserMove(
       moveData,
-      (san, ts) => executeMoveRef.current?.(san, ts),
+      (san, ts) => executeMoveForSession(session?.session_id, san, ts),
       timeSpent
     );
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
@@ -3156,6 +3197,7 @@ const CoachPlay = ({ user }) => {
     cancelFlowPendingMove,
     flowPendingMove,
     handleFlowUserMove,
+    executeMoveForSession,
     evaluateMove,
     setGuardianPending,
     setFlowOpeningGuidance,
@@ -3206,11 +3248,15 @@ const CoachPlay = ({ user }) => {
   };
 
   const newGame = () => {
+    sessionLifecycleRequestRef.current += 1;
+    resumeRequestRef.current += 1;
     startRequestRef.current += 1;
+    invalidateCoachResponsePoll();
     setSession(null);
     setGameStarted(false);
     setGameOver(false);
     setGameResult(null);
+    setSessionReflection(null);
     setSummary(null);
     setCprResult(null);
     setPlayerIdentity(null);
@@ -3690,7 +3736,7 @@ const CoachPlay = ({ user }) => {
           onClockTap={() => {
             const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
             coachFlow.handleClockTap(
-              (san, ts) => executeMoveRef.current?.(san, ts),
+              (san, ts) => executeMoveForSession(session?.session_id, san, ts),
               timeSpent
             ).then(success => {
               if (success) setIsPlayerTurn(false);

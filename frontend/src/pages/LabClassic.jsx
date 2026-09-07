@@ -141,6 +141,8 @@ const LabClassic = ({ user }) => {
   const [coachCommentary, setCoachCommentary] = useState(null);
   const [reanalyzing, setReanalyzing] = useState(false);
   const [analysisQueueStatus, setAnalysisQueueStatus] = useState(null);
+  const reanalyzeRequestRef = useRef(0);
+  const reanalyzeAbortRef = useRef(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -213,65 +215,58 @@ const LabClassic = ({ user }) => {
   
   // Re-analyze game handler
   const handleReanalyze = async () => {
+    reanalyzeRequestRef.current += 1;
+    const request = reanalyzeRequestRef.current;
+    const targetGameId = gameId;
+    reanalyzeAbortRef.current?.abort();
+    const controller = new AbortController();
+    reanalyzeAbortRef.current = controller;
+    const ownsRequest = () => (
+      request === reanalyzeRequestRef.current &&
+      !controller.signal.aborted
+    );
     setReanalyzing(true);
     try {
-      const response = await fetch(`${API}/games/${gameId}/reanalyze`, {
+      const response = await fetch(`${API}/games/${targetGameId}/reanalyze`, {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        signal: controller.signal,
       });
-      
+      if (!ownsRequest()) return;
       if (!response.ok) {
         const error = await response.json();
+        if (!ownsRequest()) return;
         throw new Error(error.detail || "Failed to queue re-analysis");
       }
-      
+
       const data = await response.json();
+      if (!ownsRequest()) return;
       toast.success(data.message || "Game queued for re-analysis!");
-      
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            setAnalysisQueueStatus(status);
-            if (status.status === "analyzed") {
-              clearInterval(pollInterval);
-              // Refetch analysis
-              const analysisRes = await fetch(`${API}/analysis/${gameId}`, { credentials: "include" });
-              if (analysisRes.ok) {
-                const analysisData = await analysisRes.json();
-                setAnalysis(analysisData);
-                toast.success("Analysis complete!");
-              }
-              // Refetch lab data
-              const labRes = await fetch(`${API}/lab/${gameId}`, { credentials: "include" });
-              if (labRes.ok) {
-                setLabData(await labRes.json());
-              }
-              setReanalyzing(false);
-            } else if (status.status === "failed") {
-              clearInterval(pollInterval);
-              toast.error(status.last_error || "Analysis failed. Please try again.");
-              setReanalyzing(false);
-            }
-          }
-        } catch (err) {
-          console.error("Poll error:", err);
-        }
-      }, 3000); // Poll every 3 seconds
-      
-      // Stop polling after 2 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setReanalyzing(false);
-      }, 120000);
-      
+      // One polling owner only: the state-driven effect below handles completion.
+      setAnalysisQueueStatus(previous => ({
+        ...(previous || {}),
+        ...data,
+        status: data.status || "pending",
+      }));
     } catch (error) {
-      toast.error(error.message || "Failed to queue re-analysis");
-      setReanalyzing(false);
+      if (error.name !== "AbortError" && ownsRequest()) {
+        toast.error(error.message || "Failed to queue re-analysis");
+        setReanalyzing(false);
+      }
     }
   };
+
+  useEffect(() => {
+    reanalyzeRequestRef.current += 1;
+    reanalyzeAbortRef.current?.abort();
+    reanalyzeAbortRef.current = null;
+    setReanalyzing(false);
+    return () => {
+      reanalyzeRequestRef.current += 1;
+      reanalyzeAbortRef.current?.abort();
+      reanalyzeAbortRef.current = null;
+    };
+  }, [gameId]);
   
   // Fetch game and analysis data
   useEffect(() => {
@@ -368,16 +363,27 @@ const LabClassic = ({ user }) => {
             fetch(`${API}/lab/${gameId}`, { credentials: "include", signal: controller.signal })
           ]);
 
-          const nextAnalysis = analysisResponse.ok ? await analysisResponse.json() : null;
-          const nextLabData = labResponse.ok ? await labResponse.json() : null;
+          if (!analysisResponse.ok || !labResponse.ok) {
+            if (controller.signal.aborted) return;
+            const refreshFailure = {
+              ...status,
+              status: "failed",
+              last_error: "Analysis finished, but the complete review could not be refreshed. Please retry.",
+            };
+            setAnalysisQueueStatus(refreshFailure);
+            setReanalyzing(false);
+            toast.error(refreshFailure.last_error);
+            return;
+          }
+
+          const [nextAnalysis, nextLabData] = await Promise.all([
+            analysisResponse.json(),
+            labResponse.json(),
+          ]);
           if (controller.signal.aborted) return;
           setAnalysisQueueStatus(status);
-          if (analysisResponse.ok) {
-            setAnalysis(nextAnalysis);
-          }
-          if (labResponse.ok) {
-            setLabData(nextLabData);
-          }
+          setAnalysis(nextAnalysis);
+          setLabData(nextLabData);
 
           toast.success("Analysis complete!");
           setReanalyzing(false);

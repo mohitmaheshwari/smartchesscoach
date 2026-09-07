@@ -11,7 +11,7 @@
  *   - Analytics logging
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useLayoutEffect } from "react";
 import { API } from "@/App";
 import {
   INTERACTION_STATES,
@@ -40,6 +40,8 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
   // ─── Internal Refs ──────────────────────────────────────────
   const holdTimerRef = useRef(null);
   const evalAbortRef = useRef(null);
+  const flowGenerationRef = useRef(0);
+  const currentSessionIdRef = useRef(session?.session_id || null);
   const sessionBehavior = useRef({
     repeatedConceptCounts: {},
     recentCriticalMoveIndices: [],
@@ -53,6 +55,25 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       holdTimerRef.current = null;
     }
   }, []);
+
+  const _invalidatePendingWork = useCallback(() => {
+    flowGenerationRef.current += 1;
+    evalAbortRef.current?.abort();
+    evalAbortRef.current = null;
+    _clearHoldTimer();
+  }, [_clearHoldTimer]);
+
+  useLayoutEffect(() => {
+    const sessionId = session?.session_id || null;
+    currentSessionIdRef.current = sessionId;
+    _invalidatePendingWork();
+    return () => {
+      if (currentSessionIdRef.current === sessionId) {
+        currentSessionIdRef.current = null;
+        _invalidatePendingWork();
+      }
+    };
+  }, [session?.session_id, _invalidatePendingWork]);
 
   const _clearState = useCallback(() => {
     _clearHoldTimer();
@@ -74,6 +95,13 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
    * @returns {{ autoCommitted: boolean }} — if true, caller should proceed normally
    */
   const handleUserMove = useCallback(async (moveData, commitFn, timeSpent) => {
+    _invalidatePendingWork();
+    const generation = flowGenerationRef.current;
+    const sessionId = session?.session_id || null;
+    const ownsPendingWork = () => (
+      flowGenerationRef.current === generation &&
+      currentSessionIdRef.current === sessionId
+    );
     const pending = createPendingMove(moveData);
     setPendingMove(pending);
     setInteractionState(INTERACTION_STATES.PENDING_USER_MOVE);
@@ -81,7 +109,6 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
     _clearHoldTimer();
 
     // Async eval — race with 400ms window
-    const sessionId = session?.session_id;
     // PLAY MODE: "pure chess, no coaching" — never enter a hold state here,
     // no matter which of this hook's callers invoked handleUserMove (there
     // are several: the main move path, the move-revision/isInHold path, the
@@ -92,6 +119,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
     // fallback above.
     if (!sessionId || gameMode === "play") {
       await commitFn(pending.san, timeSpent);
+      if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
       setInteractionState(INTERACTION_STATES.COACH_TURN);
       setPendingMove(null);
       return { autoCommitted: true };
@@ -124,6 +152,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       );
 
       const raceResult = await Promise.race([evalPromise, timeoutPromise]);
+      if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
       const timedOut = raceResult === "__timeout__";
       const result = timedOut ? null : raceResult;
       console.log("[CoachFlow] evaluate-pending result:", timedOut ? "timeout" : "received", result);
@@ -132,7 +161,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       if (timedOut) {
         // Fire-and-forget: when eval eventually resolves, apply guidance/checklist
         evalPromise.then(lateResult => {
-          if (lateResult) {
+          if (lateResult && ownsPendingWork()) {
             console.log("[CoachFlow] Late eval arrived, applying guidance:", Object.keys(lateResult));
             if (lateResult.checklist) setLiveChecklist(lateResult.checklist);
             if (lateResult.weaknesses) setPlayerWeaknessList(lateResult.weaknesses);
@@ -144,7 +173,9 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
           }
         }).catch(() => {});
 
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         await commitFn(pending.san, timeSpent);
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         setInteractionState(INTERACTION_STATES.COACH_TURN);
         setPendingMove(null);
         setClockState(CLOCK_STATES.DISABLED);
@@ -153,7 +184,9 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
 
       // Eval failed
       if (!result) {
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         await commitFn(pending.san, timeSpent);
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         setInteractionState(INTERACTION_STATES.COACH_TURN);
         setPendingMove(null);
         setClockState(CLOCK_STATES.DISABLED);
@@ -211,7 +244,9 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
             })]);
           }
         }
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         await commitFn(pending.san, timeSpent);
+        if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
         setInteractionState(INTERACTION_STATES.COACH_TURN);
         setPendingMove(null);
         setClockState(CLOCK_STATES.DISABLED);
@@ -255,6 +290,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
 
       // Start hold timer
       holdTimerRef.current = setTimeout(() => {
+        if (!ownsPendingWork()) return;
         setInteractionState(INTERACTION_STATES.AWAITING_CLOCK_COMMIT);
         setClockState(CLOCK_STATES.HOLD_READY);
       }, holdMs);
@@ -262,14 +298,18 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       return { autoCommitted: false };
 
     } catch (err) {
+      if (err?.name === "AbortError" || !ownsPendingWork()) {
+        return { autoCommitted: false, cancelled: true };
+      }
       // Eval failed — auto-commit silently
       console.warn("Coach eval failed, auto-committing:", err);
       await commitFn(pending.san, timeSpent);
+      if (!ownsPendingWork()) return { autoCommitted: false, cancelled: true };
       setInteractionState(INTERACTION_STATES.COACH_TURN);
       setPendingMove(null);
       return { autoCommitted: true };
     }
-  }, [session, userRating, gameMode, _clearHoldTimer]);
+  }, [session?.session_id, userRating, gameMode, _clearHoldTimer, _invalidatePendingWork]);
 
   // ─── Clock Tap (Commit) ─────────────────────────────────────
   const handleClockTap = useCallback(async (commitFn, timeSpent) => {
@@ -302,8 +342,15 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       })]);
     }
 
+    const generation = flowGenerationRef.current;
+    const sessionId = currentSessionIdRef.current;
+
     // Commit the move
     const success = await commitFn(pendingMove.san, timeSpent);
+    if (
+      flowGenerationRef.current !== generation ||
+      currentSessionIdRef.current !== sessionId
+    ) return false;
 
     // Clear state
     _clearState();
@@ -337,9 +384,10 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
 
   // ─── Cancel Pending Move ────────────────────────────────────
   const cancelPendingMove = useCallback(() => {
+    _invalidatePendingWork();
     _clearState();
     setInteractionState(INTERACTION_STATES.IDLE);
-  }, [_clearState]);
+  }, [_clearState, _invalidatePendingWork]);
 
   // ─── Game State Transitions ─────────────────────────────────
   const setCoachTurn = useCallback(() => {
@@ -353,12 +401,14 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
   }, []);
 
   const setGameOver = useCallback(() => {
+    _invalidatePendingWork();
     _clearState();
     setInteractionState(INTERACTION_STATES.GAME_OVER);
     setClockState(CLOCK_STATES.DISABLED);
-  }, [_clearState]);
+  }, [_clearState, _invalidatePendingWork]);
 
   const resetFlow = useCallback(() => {
+    _invalidatePendingWork();
     _clearState();
     setInteractionState(INTERACTION_STATES.IDLE);
     setLiveChecklist(null);
@@ -374,7 +424,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       recentCriticalMoveIndices: [],
       fastCommitStreak: 0,
     };
-  }, [_clearState]);
+  }, [_clearState, _invalidatePendingWork]);
 
   // ─── Derived State ──────────────────────────────────────────
   const isInHold = [
