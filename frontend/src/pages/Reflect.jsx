@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
@@ -174,6 +174,9 @@ const Reflect = ({ user }) => {
   const boardRef = useRef(null);
   const momentDataGenerationRef = useRef(0);
   const gameMomentsGenerationRef = useRef(0);
+  const currentPositionOwnerRef = useRef({ gameId: null, moveNumber: null });
+  const reflectionActionGenerationRef = useRef(0);
+  const reflectionActionControllerRef = useRef(null);
   
   // State
   const [loading, setLoading] = useState(true);
@@ -181,6 +184,7 @@ const Reflect = ({ user }) => {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [currentMomentIndex, setCurrentMomentIndex] = useState(0);
   const [moments, setMoments] = useState([]);
+  const [momentsOwnerGameId, setMomentsOwnerGameId] = useState(null);
   const [loadingMoments, setLoadingMoments] = useState(false);
   
   // Reflection state
@@ -256,6 +260,47 @@ const Reflect = ({ user }) => {
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
+  const currentGameId = currentGame?.game_id || null;
+  const currentMoveNumber = currentMoment?.move_number || null;
+
+  // Publish the rendered position before a user can interact with it. Any
+  // submit/analyse request from the previous position is cancelled here, so a
+  // late response can never write into the next game's reflection.
+  useLayoutEffect(() => {
+    currentPositionOwnerRef.current = {
+      gameId: currentGameId,
+      moveNumber: currentMoveNumber,
+    };
+    reflectionActionGenerationRef.current += 1;
+    reflectionActionControllerRef.current?.abort();
+    reflectionActionControllerRef.current = null;
+
+    return () => {
+      reflectionActionGenerationRef.current += 1;
+      reflectionActionControllerRef.current?.abort();
+      reflectionActionControllerRef.current = null;
+    };
+  }, [currentGameId, currentMoveNumber]);
+
+  const beginReflectionAction = (gameId, moveNumber) => {
+    reflectionActionControllerRef.current?.abort();
+    const controller = new AbortController();
+    const generation = reflectionActionGenerationRef.current + 1;
+    reflectionActionGenerationRef.current = generation;
+    reflectionActionControllerRef.current = controller;
+
+    const ownsPosition = () => {
+      const owner = currentPositionOwnerRef.current;
+      return (
+        !controller.signal.aborted &&
+        generation === reflectionActionGenerationRef.current &&
+        owner.gameId === gameId &&
+        owner.moveNumber === moveNumber
+      );
+    };
+
+    return { controller, generation, gameId, moveNumber, ownsPosition };
+  };
   
   // V1 Engine: Fetch adaptive profile on mount
   useEffect(() => {
@@ -275,9 +320,16 @@ const Reflect = ({ user }) => {
   };
   
   // Fetch cognitive gap analysis - the core "why did I make this mistake?" answer
-  const fetchCognitiveGapAnalysis = async (gameId, moveNumber, userPlan, userConfidence) => {
+  const fetchCognitiveGapAnalysis = async (
+    gameId,
+    moveNumber,
+    userPlan,
+    userConfidence,
+    userHypothesis,
+    action,
+  ) => {
     if (!gameId || !moveNumber) return null;
-    setLoadingCognitiveGap(true);
+    if (action.ownsPosition()) setLoadingCognitiveGap(true);
     
     try {
       const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/analyze-gap`, {
@@ -286,19 +338,23 @@ const Reflect = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           user_stated_plan: userPlan || null,
-          user_hypothesis_category: selectedIntent || null,
+          user_hypothesis_category: userHypothesis || null,
           user_confidence: userConfidence || null,
-        })
+        }),
+        signal: action.controller.signal,
       });
       if (res.ok) {
         const data = await res.json();
+        if (!action.ownsPosition()) return null;
         setCognitiveGapAnalysis(data);
         return data;
       }
     } catch (err) {
-      console.error("Error fetching cognitive gap analysis:", err);
+      if (err.name !== "AbortError" && action.ownsPosition()) {
+        console.error("Error fetching cognitive gap analysis:", err);
+      }
     } finally {
-      setLoadingCognitiveGap(false);
+      if (action.ownsPosition()) setLoadingCognitiveGap(false);
     }
     return null;
   };
@@ -310,6 +366,16 @@ const Reflect = ({ user }) => {
       return;
     }
     
+    const game = currentGame;
+    const moment = currentMoment;
+    if (!game || !moment) return;
+    const action = beginReflectionAction(game.game_id, moment.move_number);
+    const intent = selectedIntent;
+    const confidence = selectedConfidence;
+    const thought = userThought || intentHypotheses[selectedHypothesis]?.description;
+    const tags = [...selectedTags];
+    const quickTagIds = v1QuickTags.map((tag) => tag.id);
+
     // Calculate completion time
     const completionTimeMs = reflectionStartTime ? Date.now() - reflectionStartTime : 0;
     const completionTimeSec = Math.round(completionTimeMs / 1000);
@@ -318,11 +384,14 @@ const Reflect = ({ user }) => {
     try {
       // Step 1: Fetch cognitive gap analysis FIRST (the "why" behind the mistake)
       const gapAnalysis = await fetchCognitiveGapAnalysis(
-        currentGame.game_id,
-        currentMoment.move_number,
-        userThought || intentHypotheses[selectedHypothesis]?.description,
-        selectedConfidence
+        game.game_id,
+        moment.move_number,
+        thought,
+        confidence,
+        intent,
+        action,
       );
+      if (!action.ownsPosition()) return;
       
       // Step 2: Submit the reflection
       const res = await fetch(`${API}/reflect/v1/submit`, {
@@ -330,26 +399,28 @@ const Reflect = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          game_id: currentGame.game_id,
+          game_id: game.game_id,
           move_index: currentMomentIndex,
-          fen: currentMoment.fen,
-          user_move: currentMoment.user_move,
-          best_move: currentMoment.best_move,
-          mistake_category: currentMoment.mistake_category || "critical_moment_drift",
-          intent: selectedIntent,
-          intent_confidence: selectedConfidence,
-          selected_quick_tags: selectedTags,
-          auto_tag_candidates_shown: v1QuickTags.map(t => t.id),
-          free_text: userThought || "",
-          cp_loss: Math.abs(currentMoment.eval_change || 0) * 100,
-          move_number: currentMoment.move_number || 0,
+          fen: moment.fen,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          mistake_category: moment.mistake_category || "critical_moment_drift",
+          intent,
+          intent_confidence: confidence,
+          selected_quick_tags: tags,
+          auto_tag_candidates_shown: quickTagIds,
+          free_text: thought || "",
+          cp_loss: Math.abs(moment.eval_change || 0) * 100,
+          move_number: moment.move_number || 0,
           completed_in_seconds: completionTimeSec,
-          game_ended_at: currentGame.played_at || currentGame.created_at,
+          game_ended_at: game.played_at || game.created_at,
           cognitive_gap: gapAnalysis?.gap_analysis || null,
-        })
+        }),
+        signal: action.controller.signal,
       });
       
       const data = await res.json();
+      if (!action.ownsPosition()) return;
       
       // Step 3: Show the cognitive gap analysis if we have it
       if (gapAnalysis?.gap_analysis) {
@@ -369,9 +440,11 @@ const Reflect = ({ user }) => {
         moveToNextMoment();
       }
     } catch (err) {
-      toast.error("Failed to save reflection");
+      if (err.name !== "AbortError" && action.ownsPosition()) {
+        toast.error("Failed to save reflection");
+      }
     } finally {
-      setSubmitting(false);
+      if (action.ownsPosition()) setSubmitting(false);
     }
   };
   
@@ -418,8 +491,8 @@ const Reflect = ({ user }) => {
     const ownsMoment = () => (
       generation === momentDataGenerationRef.current && !controller.signal.aborted
     );
-    const gameId = currentGame?.game_id;
-    const moment = currentMoment;
+    const gameId = currentGameId;
+    const moment = momentsOwnerGameId === gameId ? currentMoment : null;
 
     setCoachExplanation(null);
     setContextualTags([]);
@@ -436,6 +509,8 @@ const Reflect = ({ user }) => {
     setCoachReward(null);
     setReflectionStartTime(Date.now());
     setCognitiveGapAnalysis(null);
+    setSubmitting(false);
+    setLoadingCognitiveGap(false);
     setLoadingExplanation(Boolean(moment));
     setLoadingTags(Boolean(moment));
     setLoadingTimeContext(Boolean(moment && gameId && moment.move_number));
@@ -560,7 +635,7 @@ const Reflect = ({ user }) => {
     }
 
     return () => controller.abort();
-  }, [currentGame?.game_id, currentMoment]);
+  }, [currentGameId, currentMoment, momentsOwnerGameId]);
   
   // Fetch games needing reflection
   useEffect(() => {
@@ -572,17 +647,20 @@ const Reflect = ({ user }) => {
     gameMomentsGenerationRef.current += 1;
     momentDataGenerationRef.current += 1;
     const generation = gameMomentsGenerationRef.current;
+    const controller = new AbortController();
     setMoments([]);
+    setMomentsOwnerGameId(null);
     setCurrentMomentIndex(0);
-    if (currentGame) {
-      fetchGameMoments(currentGame.game_id, generation);
+    if (currentGameId) {
+      fetchGameMoments(currentGameId, generation, controller.signal);
     }
     return () => {
+      controller.abort();
       if (gameMomentsGenerationRef.current === generation) {
         gameMomentsGenerationRef.current += 1;
       }
     };
-  }, [currentGame]);
+  }, [currentGameId]);
   
   const fetchGamesNeedingReflection = async () => {
     try {
@@ -598,19 +676,24 @@ const Reflect = ({ user }) => {
     }
   };
   
-  const fetchGameMoments = async (
-    gameId,
-    generation = gameMomentsGenerationRef.current,
-  ) => {
-    const ownsGame = () => generation === gameMomentsGenerationRef.current;
+  const fetchGameMoments = async (gameId, generation, signal) => {
+    const ownsGame = () => (
+      generation === gameMomentsGenerationRef.current &&
+      currentPositionOwnerRef.current.gameId === gameId &&
+      !signal?.aborted
+    );
     if (ownsGame()) setLoadingMoments(true);
     try {
-      const res = await fetch(`${API}/reflect/game/${gameId}/moments`, { credentials: "include" });
+      const res = await fetch(`${API}/reflect/game/${gameId}/moments`, {
+        credentials: "include",
+        signal,
+      });
       if (res.ok) {
         const data = await res.json();
         if (!ownsGame()) return [];
         const newMoments = data.moments || [];
         setMoments(newMoments);
+        setMomentsOwnerGameId(gameId);
         setCurrentMomentIndex(0);
         setUserThought("");
         setAwarenessGap(null);
@@ -619,7 +702,9 @@ const Reflect = ({ user }) => {
       }
       return [];
     } catch (err) {
-      if (ownsGame()) console.error("Failed to fetch moments:", err);
+      if (err.name !== "AbortError" && ownsGame()) {
+        console.error("Failed to fetch moments:", err);
+      }
       return [];
     } finally {
       if (ownsGame()) setLoadingMoments(false);
@@ -705,6 +790,13 @@ const Reflect = ({ user }) => {
       return;
     }
     
+    const game = currentGame;
+    const moment = currentMoment;
+    if (!game || !moment) return;
+    const action = beginReflectionAction(game.game_id, moment.move_number);
+    const thought = userThought;
+    const momentIndex = currentMomentIndex;
+
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/reflect/submit`, {
@@ -712,63 +804,87 @@ const Reflect = ({ user }) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          game_id: currentGame.game_id,
-          moment_index: currentMomentIndex,
-          moment_fen: currentMoment?.fen,
-          user_thought: userThought,
-          user_move: currentMoment?.user_move,
-          best_move: currentMoment?.best_move,
-          eval_change: currentMoment?.eval_change,
-          move_number: currentMoment?.move_number,  // Track which move was reflected
+          game_id: game.game_id,
+          moment_index: momentIndex,
+          moment_fen: moment.fen,
+          user_thought: thought,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          eval_change: moment.eval_change,
+          move_number: moment.move_number,  // Track which move was reflected
         }),
+        signal: action.controller.signal,
       });
       
       const data = await res.json();
-      
-      // Refetch moments to get updated list (filters out the just-reflected moment)
-      const updatedMoments = await fetchGameMoments(currentGame.game_id);
+      if (!action.ownsPosition()) return;
       
       if (data.awareness_gap) {
+        // Keep the submitted position on screen while its diagnosis is shown.
+        // The acknowledgement action performs the owned refetch afterward.
         setAwarenessGap(data.awareness_gap);
         setShowingGap(true);
         // Show encouragement for completing reflection
         setCoachReward(getEncouragement('reflection_submitted'));
-      } else if (updatedMoments.length === 0) {
-        // No more moments - game complete - show celebration!
-        if (currentGameIndex < gamesNeedingReflection.length - 1) {
-          setCelebrationMessage("Game Review Complete!");
-          setShowCelebration(true);
-          setTimeout(() => {
-            setShowCelebration(false);
-            setCurrentGameIndex(prev => prev + 1);
-          }, 2500);
-        } else {
-          setCelebrationMessage("All Reflections Done!");
-          setShowCelebration(true);
-          setTimeout(() => {
-            setShowCelebration(false);
-            fetchGamesNeedingReflection();
-          }, 3000);
-        }
       } else {
-        // Show encouragement for this reflection
-        setCoachReward(getEncouragement('reflection_submitted'));
+        // No diagnosis to acknowledge, so advance the same game now.
+        const updatedMoments = await fetchGameMoments(
+          game.game_id,
+          gameMomentsGenerationRef.current,
+          action.controller.signal,
+        );
+        if (!action.ownsPosition()) return;
+
+        if (updatedMoments.length === 0) {
+        // No more moments - game complete - show celebration!
+          if (currentGameIndex < gamesNeedingReflection.length - 1) {
+            setCelebrationMessage("Game Review Complete!");
+            setShowCelebration(true);
+            setTimeout(() => {
+              if (!action.ownsPosition()) return;
+              setShowCelebration(false);
+              setCurrentGameIndex(prev => prev + 1);
+            }, 2500);
+          } else {
+            setCelebrationMessage("All Reflections Done!");
+            setShowCelebration(true);
+            setTimeout(() => {
+              if (!action.ownsPosition()) return;
+              setShowCelebration(false);
+              fetchGamesNeedingReflection();
+            }, 3000);
+          }
+        } else {
+          // Show encouragement for this reflection
+          setCoachReward(getEncouragement('reflection_submitted'));
+        }
       }
       // If there are still moments, fetchGameMoments already set them with index 0
       
     } catch (err) {
-      toast.error("Failed to save reflection");
+      if (err.name !== "AbortError" && action.ownsPosition()) {
+        toast.error("Failed to save reflection");
+      }
     } finally {
-      setSubmitting(false);
+      if (action.ownsPosition()) setSubmitting(false);
     }
   };
   
   const acknowledgeGap = async () => {
+    const game = currentGame;
+    const moment = currentMoment;
+    if (!game || !moment) return;
+    const action = beginReflectionAction(game.game_id, moment.move_number);
     setShowingGap(false);
     setAwarenessGap(null);
     
     // Refetch moments to get updated list
-    const updatedMoments = await fetchGameMoments(currentGame.game_id);
+    const updatedMoments = await fetchGameMoments(
+      game.game_id,
+      gameMomentsGenerationRef.current,
+      action.controller.signal,
+    );
+    if (!action.ownsPosition()) return;
     
     if (updatedMoments.length === 0) {
       // No more moments - game complete - show celebration!
@@ -776,6 +892,7 @@ const Reflect = ({ user }) => {
         setCelebrationMessage("Game Review Complete!");
         setShowCelebration(true);
         setTimeout(() => {
+          if (!action.ownsPosition()) return;
           setShowCelebration(false);
           setCurrentGameIndex(prev => prev + 1);
         }, 2500);
@@ -783,6 +900,7 @@ const Reflect = ({ user }) => {
         setCelebrationMessage("All Reflections Done!");
         setShowCelebration(true);
         setTimeout(() => {
+          if (!action.ownsPosition()) return;
           setShowCelebration(false);
           fetchGamesNeedingReflection();
         }, 3000);
@@ -799,9 +917,18 @@ const Reflect = ({ user }) => {
       // More moments in this game
       setCurrentMomentIndex(prev => prev + 1);
     } else {
+      const game = currentGame;
+      const moment = currentMoment;
+      if (!game || !moment) return;
+      const action = beginReflectionAction(game.game_id, moment.move_number);
       // All moments done for this game - refetch to confirm
       // (the backend now filters out already-reflected moments)
-      const remainingMoments = await fetchGameMoments(currentGame.game_id);
+      const remainingMoments = await fetchGameMoments(
+        game.game_id,
+        gameMomentsGenerationRef.current,
+        action.controller.signal,
+      );
+      if (!action.ownsPosition()) return;
       
       // If no more moments after refetch, move to next game
       if (remainingMoments.length === 0) {
@@ -809,6 +936,7 @@ const Reflect = ({ user }) => {
           setCelebrationMessage("Game Review Complete!");
           setShowCelebration(true);
           setTimeout(() => {
+            if (!action.ownsPosition()) return;
             setShowCelebration(false);
             setCurrentGameIndex(prev => prev + 1);
             setCurrentMomentIndex(0);
@@ -818,6 +946,7 @@ const Reflect = ({ user }) => {
           setCelebrationMessage("All Reflections Done!");
           setShowCelebration(true);
           setTimeout(() => {
+            if (!action.ownsPosition()) return;
             setShowCelebration(false);
             fetchGamesNeedingReflection();
           }, 3000);
