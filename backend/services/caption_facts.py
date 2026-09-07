@@ -1233,6 +1233,45 @@ def legal_exchange_gain(
     return immediate - best_gain(after, 1)
 
 
+def _capture_is_refuted_elsewhere(
+    board: chess.Board,
+    capture: chess.Move,
+    captured_gain_cp: int,
+    owner: chess.Color,
+) -> bool:
+    """True when taking the piece costs the capturer more than it wins.
+
+    legal_exchange_gain only reasons about the target square, so it proves
+    "capturing on e4 wins a knight" while staying silent about what the
+    capture leaves behind. A knight holding a diagonal in front of its own
+    queen is the everyday case: taking is legal, wins a knight on that
+    square, and drops the queen on the next move.
+
+    One ply is enough for the family that matters -- the capturer moves a
+    piece that was doing a job, and the owner collects immediately somewhere
+    else. Anything deeper is left to the engine gate above this.
+    """
+    try:
+        after = board.copy(stack=False)
+        after.push(capture)
+        best_counter_cp = 0
+        for reply in after.legal_moves:
+            if not after.is_capture(reply):
+                continue
+            if reply.to_square == capture.to_square:
+                # Recaptures on the contested square are already inside
+                # legal_exchange_gain; only gains elsewhere are new news.
+                continue
+            gain = legal_exchange_gain(
+                after, reply.to_square, owner, first_move=reply
+            )
+            if gain > best_counter_cp:
+                best_counter_cp = gain
+        return best_counter_cp > captured_gain_cp
+    except Exception:
+        return False
+
+
 def legally_hanging_pieces(
     board: chess.Board,
     owner: chess.Color,
@@ -1271,6 +1310,14 @@ def legally_hanging_pieces(
             if forced_gain > winning_gain:
                 winning_gain = forced_gain
                 winning_move = move
+
+        # A piece is only hanging if taking it is actually good. Without
+        # this, any attacked piece was reported as lost material even when
+        # the capture hands back more than it wins.
+        if winning_move is not None and _capture_is_refuted_elsewhere(
+            board, winning_move, winning_gain, owner
+        ):
+            continue
 
         facts.append({
             "square": chess.square_name(target_sq),
