@@ -11,7 +11,7 @@
  * - Position-aware context from our coaching engine
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -80,9 +80,13 @@ const GuidedOpeningLesson = ({
   const [showIntro, setShowIntro] = useState(true);
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
-  const mainLine = opening?.main_line || [];
+  const mainLine = useMemo(() => opening?.main_line || [], [opening?.main_line]);
   const keyIdeas = opening?.key_ideas || [];
   const userColor = opening?.color || "white";
+  const introMessage = useMemo(() => {
+    const messages = COACH_INTROS[userColor] || COACH_INTROS.white;
+    return messages[Math.floor(Math.random() * messages.length)];
+  }, [userColor]);
   
   // Update board position
   const updateBoard = useCallback((moveIndex) => {
@@ -244,8 +248,6 @@ const GuidedOpeningLesson = ({
   };
   
   const isComplete = currentMoveIndex === mainLine.length - 1;
-  const introMessage = COACH_INTROS[userColor][Math.floor(Math.random() * 3)];
-  
   return (
     <div className="guided-opening-lesson grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
       <div className="min-w-0 space-y-3">

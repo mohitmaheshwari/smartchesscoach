@@ -90,6 +90,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   const hintVisibleRef = useRef(false);
   const hintCountRef = useRef(0);
   const moveNumberRef = useRef(1);
+  const handleUserMoveRef = useRef(null);
   
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -103,6 +104,8 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   const [lastMove, setLastMove] = useState(null);
   const [moveIndicator, setMoveIndicator] = useState(null);
   const [boardSize, setBoardSize] = useState(400);
+  const boardInitializationRef = useRef({ fen, userColor });
+  boardInitializationRef.current = { fen, userColor };
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -135,9 +138,10 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   // Initialize board
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
+      const initial = boardInitializationRef.current;
       groundRef.current = Chessground(boardRef.current, {
-        fen: fen,
-        orientation: userColor || "white",
+        fen: initial.fen,
+        orientation: initial.userColor || "white",
         movable: {
           free: false,
           color: undefined
@@ -153,6 +157,12 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       }
     };
   }, []);
+
+  // Orientation is a live control. Opening identity can change without this
+  // component being remounted, so keep the existing board instance current.
+  useEffect(() => {
+    groundRef.current?.set({ orientation: userColor || "white" });
+  }, [userColor]);
   
   // Update board when FEN changes
   useEffect(() => {
@@ -196,7 +206,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         dests
       },
       events: {
-        move: (orig, dest) => handleUserMove(orig, dest)
+        move: (orig, dest) => handleUserMoveRef.current?.(orig, dest)
       }
     });
   }, []);
@@ -366,6 +376,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       toast.error("Failed to make move");
     }
   };
+  handleUserMoveRef.current = handleUserMove;
   
   // Start practice session
   const startSession = useCallback(async () => {

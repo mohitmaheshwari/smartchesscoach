@@ -7,7 +7,7 @@
  * 3. Celebrates when trap is completed
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessground } from "chessground";
 import { motion, AnimatePresence } from "framer-motion";
@@ -45,9 +45,13 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   const [hintCount, setHintCount] = useState(0);
   const [lastMove, setLastMove] = useState(null);
   
-  const setupMoves = trap?.setup_moves || [];
-  const trapLine = trap?.trap_line || [];
+  const setupMoves = useMemo(() => trap?.setup_moves || [], [trap?.setup_moves]);
+  const trapLine = useMemo(() => trap?.trap_line || [], [trap?.trap_line]);
   const trapContentId = `${openingKey || "opening"}:${trap?.key || trap?.id || trap?.slug || "trap"}`;
+  const handleMoveRef = useRef(null);
+  const playOpponentMoveAtRef = useRef(null);
+  const latestFenRef = useRef(fen);
+  latestFenRef.current = fen;
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.LESSON_STARTED, {
@@ -104,7 +108,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
       groundRef.current = Chessground(boardRef.current, {
-        fen: fen,
+        fen: latestFenRef.current,
         orientation: userColor,
         movable: {
           free: false,
@@ -157,11 +161,11 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
           dests
         },
         events: {
-          move: (orig, dest) => handleMove(orig, dest)
+          move: (orig, dest) => handleMoveRef.current?.(orig, dest)
         }
       });
     }
-  }, [userColor, trapLine, trap]);
+  }, [userColor]);
   
   // Handle user's move
   const handleMove = useCallback((orig, dest) => {
@@ -224,7 +228,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
         
         // Play opponent's response
         setTimeout(() => {
-          playOpponentMoveAt(nextIndex);
+          playOpponentMoveAtRef.current?.(nextIndex);
         }, 1000);
         
       } else {
@@ -242,6 +246,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
       setupUserMoveBoard();
     }
   }, [trapLine, trap, setupUserMoveBoard, trapContentId]);
+  handleMoveRef.current = handleMove;
   
   // Play opponent's move at given index
   const playOpponentMoveAt = useCallback((index) => {
@@ -299,6 +304,7 @@ const TrapPractice = ({ trap, openingKey, onClose, onComplete }) => {
       console.error("Invalid opponent move:", moveData.move, e);
     }
   }, [trapLine, trap, setupUserMoveBoard]);
+  playOpponentMoveAtRef.current = playOpponentMoveAt;
   
   // Play setup moves one by one
   const playSetupMovesFrom = useCallback((index) => {
