@@ -76,6 +76,43 @@ describe("ActiveLessonPanel teaching-move bridge", () => {
     });
   });
 
+  test("an in-flight same-session result transfers to the latest handlers", async () => {
+    const pendingRequest = deferred();
+    const firstHandler = jest.fn();
+    const currentHandler = jest.fn();
+    global.fetch = jest.fn(() => pendingRequest.promise);
+
+    await renderPanel({
+      sessionId: "session-1",
+      onMoveValidated: firstHandler,
+      onLessonComplete: jest.fn(),
+    });
+
+    let pendingValidation;
+    await act(async () => {
+      pendingValidation = window.validateTeachingMove("Bb5");
+      await Promise.resolve();
+    });
+
+    await renderPanel({
+      sessionId: "session-1",
+      onMoveValidated: currentHandler,
+      onLessonComplete: jest.fn(),
+    });
+
+    pendingRequest.resolve(response({
+      correct: true,
+      complete: false,
+      message: "Transferred response.",
+    }));
+    await act(async () => pendingValidation);
+
+    expect(firstHandler).not.toHaveBeenCalled();
+    expect(currentHandler).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("Transferred response.");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   test("an old session response cannot update or call back into the new lesson", async () => {
     const oldRequest = deferred();
     const oldHandler = jest.fn();

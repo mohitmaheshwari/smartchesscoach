@@ -209,13 +209,13 @@ export const ActiveLessonPanel = ({
   onExitLesson
 }) => {
   const [feedback, setFeedback] = useState(null);
-  const [loading, setLoading] = useState(false);
   const validationVersionRef = useRef(0);
+  const handlersRef = useRef({ onLessonComplete, onMoveValidated });
+  handlersRef.current = { onLessonComplete, onMoveValidated };
 
   // Handle when user makes a move during lesson
   const validateMove = useCallback(async (move) => {
     const validationVersion = ++validationVersionRef.current;
-    setLoading(true);
     setFeedback(null);
     
     try {
@@ -234,10 +234,10 @@ export const ActiveLessonPanel = ({
         if (validationVersion !== validationVersionRef.current) return;
         
         if (data.complete) {
-          onLessonComplete(data);
+          handlersRef.current.onLessonComplete(data);
         } else if (data.correct) {
           setFeedback({ type: "correct", message: data.message });
-          onMoveValidated(data);
+          handlersRef.current.onMoveValidated(data);
         } else {
           setFeedback({ 
             type: "incorrect", 
@@ -251,12 +251,8 @@ export const ActiveLessonPanel = ({
       if (validationVersion === validationVersionRef.current) {
         console.error("Error validating move:", error);
       }
-    } finally {
-      if (validationVersion === validationVersionRef.current) {
-        setLoading(false);
-      }
     }
-  }, [onLessonComplete, onMoveValidated, sessionId]);
+  }, [sessionId]);
 
   // Expose validateMove to parent
   useEffect(() => {
