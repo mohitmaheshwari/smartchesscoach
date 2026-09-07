@@ -28,7 +28,7 @@ import {
   BookOpen,
   Flag
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { API } from "@/App";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
 import { resetAnalyticsContext } from "@/lib/analytics";
@@ -46,7 +46,7 @@ const Layout = ({ children, user }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+  const prevUnreadCountRef = useRef(0);
   const [coachPulse, setCoachPulse] = useState(null);
   const [lossStreak, setLossStreak] = useState({ show: false, count: 0 });
   const [personalCurriculumEnabled, setPersonalCurriculumEnabled] = useState(false);
@@ -105,40 +105,45 @@ const Layout = ({ children, user }) => {
     if ("Notification" in window && Notification.permission === "default") {}
   }, []);
 
-  const showBrowserNotification = (notif) => {
-    if (Notification.permission === "granted") {
-      const notification = new Notification(notif.title || "ChessGuru", { body: notif.message, icon: "/logo192.png", tag: "chessguru-" + (notif.id || Date.now()) });
+  const showBrowserNotification = useCallback((notif) => {
+    if ("Notification" in window && window.Notification.permission === "granted") {
+      const notification = new window.Notification(notif.title || "ChessGuru", { body: notif.message, icon: "/logo192.png", tag: "chessguru-" + (notif.id || Date.now()) });
       notification.onclick = () => { window.focus(); if (notif.action_url) navigate(notif.action_url); notification.close(); };
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchNotifications = async () => {
       try {
         const res = await fetch(`${API}/notifications?limit=10`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
+          if (cancelled) return;
           const newNotifications = data.notifications || [];
           const newUnread = data.unread_count || 0;
-          if (newUnread > prevUnreadCount && newNotifications.length > 0) {
+          if (newUnread > prevUnreadCountRef.current && newNotifications.length > 0) {
             const newest = newNotifications.find(n => !n.read);
             if (newest) showBrowserNotification(newest);
           }
           setNotifications(newNotifications);
           setUnreadCount(newUnread);
-          setPrevUnreadCount(newUnread);
+          prevUnreadCountRef.current = newUnread;
         }
       } catch (e) {}
     };
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [prevUnreadCount]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [showBrowserNotification]);
 
   const markAllRead = async () => {
     try {
       await fetch(`${API}/notifications/read`, { method: 'POST', credentials: 'include' });
-      setUnreadCount(0); setPrevUnreadCount(0);
+      setUnreadCount(0); prevUnreadCountRef.current = 0;
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (e) {}
   };
