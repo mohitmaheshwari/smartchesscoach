@@ -77,14 +77,57 @@ const OpeningsOverview = ({ user }) => {
   const [openingProfile, setOpeningProfile] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [repRes, progRes, profRes] = await Promise.all([
+          fetch(`${API}/openings/repertoire`, { credentials: "include" }),
+          fetch(`${API}/training/opening-progress`, { credentials: "include" }),
+          fetch(`${API}/openings/profile`, { credentials: "include" }),
+        ]);
+        if (repRes.ok) {
+          const data = await repRes.json();
+          if (!cancelled) setRepertoire(data);
+        }
+        if (progRes.ok) {
+          const data = await progRes.json();
+          if (!cancelled) setProgress(data.progress || []);
+        }
+        if (profRes.ok) {
+          const data = await profRes.json();
+          if (!cancelled) setOpeningProfile(data);
+        }
+      } catch (e) {
+        if (!cancelled) console.error("Failed to load openings:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user?.user_id]);
 
   useEffect(() => {
-    if (activeTab === "endgames" && endgameCategories.length === 0) {
-      fetchEndgames();
-    }
-  }, [activeTab]);
+    if (activeTab !== "endgames" || endgameCategories.length > 0) return;
+    let cancelled = false;
+    const fetchEndgames = async () => {
+      setEndgameLoading(true);
+      try {
+        const res = await fetch(`${API}/endgames/categories`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setEndgameCategories(data.categories || []);
+        }
+      } catch (e) {
+        if (!cancelled) console.error("Failed to load endgames:", e);
+      } finally {
+        if (!cancelled) setEndgameLoading(false);
+      }
+    };
+    fetchEndgames();
+    return () => { cancelled = true; };
+  }, [activeTab, endgameCategories.length]);
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.EXPLORE_OPENED, {
@@ -101,43 +144,6 @@ const OpeningsOverview = ({ user }) => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchParams(tab === "openings" ? {} : { tab });
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Phase-3 Component 4 added /openings/profile to the parallel fetch.
-      const [repRes, progRes, profRes] = await Promise.all([
-        fetch(`${API}/openings/repertoire`, { credentials: "include" }),
-        fetch(`${API}/training/opening-progress`, { credentials: "include" }),
-        fetch(`${API}/openings/profile`, { credentials: "include" }),
-      ]);
-      if (repRes.ok) setRepertoire(await repRes.json());
-      if (progRes.ok) {
-        const data = await progRes.json();
-        setProgress(data.progress || []);
-      }
-      if (profRes.ok) setOpeningProfile(await profRes.json());
-    } catch (e) {
-      console.error("Failed to load openings:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEndgames = async () => {
-    setEndgameLoading(true);
-    try {
-      const res = await fetch(`${API}/endgames/categories`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setEndgameCategories(data.categories || []);
-      }
-    } catch (e) {
-      console.error("Failed to load endgames:", e);
-    } finally {
-      setEndgameLoading(false);
-    }
   };
 
   const focusOpening = useMemo(() => {
