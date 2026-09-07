@@ -265,4 +265,54 @@ describe("LabClassic committed navigation and polling ownership", () => {
     expect(container.querySelector("[data-testid='lab-analysis-queue-status-inline']")?.textContent)
       .toContain("Analysis failed");
   });
+
+  test("the backend queued contract starts the single poll and publishes a complete refresh", async () => {
+    jest.useFakeTimers();
+    let statusCalls = 0;
+    let analysisCalls = 0;
+    let labCalls = 0;
+    global.fetch = jest.fn((url, options = {}) => {
+      if (url.endsWith("/games/game-one/reanalyze") && options.method === "POST") {
+        return Promise.resolve(response({ status: "queued", message: "Game queued" }));
+      }
+      if (url.endsWith("/games/game-one")) return Promise.resolve(response(gamePayload()));
+      if (url.endsWith("/analysis/game-one")) {
+        analysisCalls += 1;
+        return Promise.resolve(response({
+          stockfish_analysis: { move_evaluations: [], accuracy: analysisCalls === 1 ? 91 : 96 },
+        }));
+      }
+      if (url.includes("/coach/commentary/")) return Promise.resolve(response({}));
+      if (url.endsWith("/games/game-one/analysis-status")) {
+        statusCalls += 1;
+        return Promise.resolve(response({ status: "analyzed" }));
+      }
+      if (url.endsWith("/lab/game-one")) {
+        labCalls += 1;
+        return Promise.resolve(response({ refresh_version: labCalls }));
+      }
+      if (url.endsWith("/cognitive/training-priority")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/focus-lock")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/home-intelligence")) return Promise.resolve(response({}));
+      if (url.includes("/coach/module/")) return Promise.resolve(response({}));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await renderLab();
+    const reanalyzeButton = container.querySelector("[data-testid='reanalyze-header-btn']");
+    expect(reanalyzeButton).not.toBeNull();
+    act(() => reanalyzeButton.click());
+    await flush();
+    expect(reanalyzeButton.textContent).toContain("Re-analyzing");
+
+    act(() => jest.advanceTimersByTime(5000));
+    await flush();
+
+    expect(statusCalls).toBe(2);
+    expect(analysisCalls).toBe(2);
+    expect(labCalls).toBe(2);
+    expect(toast.success).toHaveBeenCalledWith("Analysis complete!");
+    expect(container.querySelector("[data-testid='reanalyze-header-btn']")?.textContent)
+      .toContain("Re-analyze");
+  });
 });

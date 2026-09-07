@@ -243,10 +243,13 @@ const LabClassic = ({ user }) => {
       if (!ownsRequest()) return;
       toast.success(data.message || "Game queued for re-analysis!");
       // One polling owner only: the state-driven effect below handles completion.
+      const normalizedStatus = ["queued", "already_queued"].includes(data.status)
+        ? "pending"
+        : (data.status || "pending");
       setAnalysisQueueStatus(previous => ({
         ...(previous || {}),
         ...data,
-        status: data.status || "pending",
+        status: normalizedStatus,
       }));
     } catch (error) {
       if (error.name !== "AbortError" && ownsRequest()) {
