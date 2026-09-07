@@ -1412,6 +1412,34 @@ async def _append_personalized_shadow_event(
         return False
 
 
+def _belief_lead(lesson_kind: str, reason_choice: Optional[str]) -> str:
+    """Open a wrong-move correction with what the player believed.
+
+    The reason is submitted with the move, so by grading time we know
+    whether someone was confidently wrong or admitting a guess -- and those
+    are different failures needing different coaching. Until now the wrong
+    answer path discarded reason_choice entirely and said the same thing to
+    both.
+
+    Returns "" when we have no reason worth naming, so the position fact
+    stands alone rather than being padded.
+    """
+    if not reason_choice:
+        return ""
+    leads = {
+        "concept": {
+            # Believed the move was safe. The move is the symptom; the
+            # belief is the thing to correct.
+            "keeps_piece_safe": "You chose this because it keeps your pieces safe, so that is the part to fix.",
+            # Knew it was loose and played it anyway.
+            "looks_active": "Activity was the right instinct, but it costs material here.",
+            # Said outright they were guessing -- do not lecture, aim them.
+            "not_sure": "You were not sure, which is worth saying.",
+        },
+    }
+    return leads.get(str(lesson_kind), {}).get(str(reason_choice), "")
+
+
 def _reason_correction(
     lesson_kind: str,
     reason_choice: Optional[str],
@@ -1783,7 +1811,15 @@ async def process_personalized_move(
             "trap": "threat_not_identified",
             "endgame": "endgame_rule_not_applied",
         }.get(lesson_kind, "board_relationship_missed")
-        correction = str(grade.get("feedback") or "")
+        # Lead with the belief that produced the move, then the board fact.
+        # The misconception label is deliberately unchanged: this improves
+        # what the player is told, not what the evidence model records.
+        lead = _belief_lead(lesson_kind, reason_choice)
+        position_fact = str(grade.get("feedback") or "")
+        correction = (
+            "%s %s" % (lead, position_fact) if lead and position_fact
+            else (lead or position_fact)
+        )
     elif reasoning_consistent is False:
         misconception, correction = _reason_correction(
             lesson_kind,
