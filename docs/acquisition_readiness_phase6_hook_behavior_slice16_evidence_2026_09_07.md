@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07
 **Scope:** `docs/acquisition_readiness_phase6_hook_behavior_precode_audit_2026_09_06.md`
-**Status:** CORRECTED AFTER INDEPENDENT REVIEW - re-review pending
+**Status:** INDEPENDENTLY APPROVED
 
 ## Bounded change
 
@@ -57,11 +57,12 @@ No dependency was added and no hook warning was suppressed.
 
 The first independent review withheld approval on four concrete lifecycle
 gaps: the non-OK facts path, user-action response ownership, variant-draft
-loss, and render-time ref mutation. The correction above addresses all four;
-approval is not claimed until the reviewer rechecks the correction.
+loss, and render-time ref mutation. The exact correction commit `82239628`
+closed all four and was independently approved. The reviewer also confirmed
+that the focused tests fail when transplanted to the pre-correction parent.
 
 ```text
-focused Game Review + Lab: 3 suites / 8 tests passed, clean output
+focused Game Review + Lab: 2 suites / 6 tests passed, clean output
 full frontend:             49 suites / 211 tests passed
 ordinary build:            exit 0
 strict build:              exit 1, exactly 23 exhaustive-deps findings
