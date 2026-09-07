@@ -172,6 +172,8 @@ const CelebrationOverlay = ({ show, message, onComplete }) => {
 const Reflect = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
+  const momentDataGenerationRef = useRef(0);
+  const gameMomentsGenerationRef = useRef(0);
   
   // State
   const [loading, setLoading] = useState(true);
@@ -269,86 +271,6 @@ const Reflect = ({ user }) => {
       }
     } catch (err) {
       console.error("Failed to fetch reflect profile:", err);
-    }
-  };
-  
-  // V1 Engine: Fetch quick tags when moment changes
-  const fetchV1QuickTags = async (moment) => {
-    if (!moment) return;
-    setLoadingTags(true);
-    setV1QuickTags([]);
-    
-    try {
-      const res = await fetch(`${API}/reflect/v1/quick-tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          fen: moment.fen,
-          user_move: moment.user_move,
-          best_move: moment.best_move,
-          mistake_category: moment.mistake_category || "critical_moment_drift",
-          cp_loss: Math.abs(moment.eval_change || 0) * 100,
-          move_number: moment.move_number || 0,
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setV1QuickTags(data.tags || []);
-        // Also update profile if returned
-        if (data.intent_options && reflectProfile) {
-          setReflectProfile(prev => ({
-            ...prev,
-            intent_options: data.intent_options,
-            confidence_options: data.confidence_options,
-          }));
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching V1 quick tags:", err);
-    } finally {
-      setLoadingTags(false);
-    }
-  };
-  
-  // Fetch time context for the current move
-  const fetchTimeContext = async (gameId, moveNumber) => {
-    if (!gameId || !moveNumber) return;
-    setLoadingTimeContext(true);
-    
-    try {
-      const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/time-context`, {
-        credentials: "include"
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTimeContext(data);
-      }
-    } catch (err) {
-      console.error("Error fetching time context:", err);
-    } finally {
-      setLoadingTimeContext(false);
-    }
-  };
-  
-  // Fetch position-specific intent hypotheses
-  const fetchIntentHypotheses = async (gameId, moveNumber) => {
-    if (!gameId || !moveNumber) return;
-    setLoadingHypotheses(true);
-    setIntentHypotheses([]);
-    
-    try {
-      const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/intent-hypotheses`, {
-        credentials: "include"
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIntentHypotheses(data.hypotheses || []);
-      }
-    } catch (err) {
-      console.error("Error fetching intent hypotheses:", err);
-    } finally {
-      setLoadingHypotheses(false);
     }
   };
   
@@ -453,18 +375,6 @@ const Reflect = ({ user }) => {
     }
   };
   
-  // Reset V1 state when moment changes
-  const resetV1State = () => {
-    setReflectStep(0);
-    setSelectedIntent(null);
-    setSelectedConfidence(null);
-    setSelectedTags([]);
-    setV1QuickTags([]);
-    setCoachReward(null);
-    setReflectionStartTime(Date.now());
-    setCognitiveGapAnalysis(null);
-  };
-  
   // Helper to convert SAN move to arrow coordinates
   const sanToArrow = (san, fen, color = "red") => {
     if (!san || !fen) return null;
@@ -496,101 +406,161 @@ const Reflect = ({ user }) => {
     }
     
     return result;
-  }, [currentMoment?.user_move, currentMoment?.best_move, currentMoment?.fen, viewMode]);
-  
-  // Fetch coach explanation for the moment
-  const fetchCoachExplanation = async (moment) => {
-    if (!moment) return;
-    setLoadingExplanation(true);
-    try {
-      const res = await fetch(`${API}/reflect/explain-moment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
+  }, [currentMoment, viewMode]);
+
+  // Every explanation, tag, clock, and intent response belongs to exactly one
+  // game position. Abort and invalidate that bundle before another moment can
+  // write into the coaching UI.
+  useEffect(() => {
+    momentDataGenerationRef.current += 1;
+    const generation = momentDataGenerationRef.current;
+    const controller = new AbortController();
+    const ownsMoment = () => (
+      generation === momentDataGenerationRef.current && !controller.signal.aborted
+    );
+    const gameId = currentGame?.game_id;
+    const moment = currentMoment;
+
+    setCoachExplanation(null);
+    setContextualTags([]);
+    setCouldNotInferIntent(false);
+    setTimeContext(null);
+    setIntentHypotheses([]);
+    setSelectedHypothesis(null);
+    setViewMode("your_move");
+    setReflectStep(0);
+    setSelectedIntent(null);
+    setSelectedConfidence(null);
+    setSelectedTags([]);
+    setV1QuickTags([]);
+    setCoachReward(null);
+    setReflectionStartTime(Date.now());
+    setCognitiveGapAnalysis(null);
+    setLoadingExplanation(Boolean(moment));
+    setLoadingTags(Boolean(moment));
+    setLoadingTimeContext(Boolean(moment && gameId && moment.move_number));
+    setLoadingHypotheses(Boolean(moment && gameId && moment.move_number));
+
+    if (!moment) {
+      return () => controller.abort();
+    }
+
+    const postMoment = (path, body) => fetch(`${API}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: controller.signal,
+      body: JSON.stringify(body),
+    });
+
+    void (async () => {
+      try {
+        const res = await postMoment("/reflect/explain-moment", {
           fen: moment.fen,
           user_move: moment.user_move,
           best_move: moment.best_move,
           eval_change: moment.eval_change,
-          type: moment.type
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCoachExplanation(data);
+          type: moment.type,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (ownsMoment()) setCoachExplanation(data);
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") console.error("Error fetching explanation:", err);
+      } finally {
+        if (ownsMoment()) setLoadingExplanation(false);
       }
-    } catch (err) {
-      console.error("Error fetching explanation:", err);
-    } finally {
-      setLoadingExplanation(false);
-    }
-  };
-  
-  // Fetch contextual tags for the moment
-  const fetchContextualTags = async (moment) => {
-    if (!moment) return;
-    setLoadingTags(true);
-    setContextualTags([]);
-    setCouldNotInferIntent(false);
-    
-    try {
-      const res = await fetch(`${API}/reflect/moment/contextual-tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
+    })();
+
+    void (async () => {
+      try {
+        const res = await postMoment("/reflect/moment/contextual-tags", {
           fen: moment.fen,
           user_move: moment.user_move,
           best_move: moment.best_move,
-          eval_change: moment.eval_change
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setContextualTags(data.tags || []);
-        setCouldNotInferIntent(data.could_not_infer || false);
+          eval_change: moment.eval_change,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (ownsMoment()) {
+            setContextualTags(data.tags || []);
+            setCouldNotInferIntent(data.could_not_infer || false);
+          }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") console.error("Error fetching contextual tags:", err);
       }
-    } catch (err) {
-      console.error("Error fetching contextual tags:", err);
-    } finally {
-      setLoadingTags(false);
+    })();
+
+    void (async () => {
+      try {
+        const res = await postMoment("/reflect/v1/quick-tags", {
+          fen: moment.fen,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          mistake_category: moment.mistake_category || "critical_moment_drift",
+          cp_loss: Math.abs(moment.eval_change || 0) * 100,
+          move_number: moment.move_number || 0,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (ownsMoment()) {
+            setV1QuickTags(data.tags || []);
+            if (data.intent_options) {
+              setReflectProfile((previous) => previous ? ({
+                ...previous,
+                intent_options: data.intent_options,
+                confidence_options: data.confidence_options,
+              }) : previous);
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") console.error("Error fetching V1 quick tags:", err);
+      } finally {
+        if (ownsMoment()) setLoadingTags(false);
+      }
+    })();
+
+    if (gameId && moment.move_number) {
+      void (async () => {
+        try {
+          const res = await fetch(
+            `${API}/games/${gameId}/move/${moment.move_number}/time-context`,
+            { credentials: "include", signal: controller.signal },
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (ownsMoment()) setTimeContext(data);
+          }
+        } catch (err) {
+          if (err.name !== "AbortError") console.error("Error fetching time context:", err);
+        } finally {
+          if (ownsMoment()) setLoadingTimeContext(false);
+        }
+      })();
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `${API}/games/${gameId}/move/${moment.move_number}/intent-hypotheses`,
+            { credentials: "include", signal: controller.signal },
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (ownsMoment()) setIntentHypotheses(data.hypotheses || []);
+          }
+        } catch (err) {
+          if (err.name !== "AbortError") console.error("Error fetching intent hypotheses:", err);
+        } finally {
+          if (ownsMoment()) setLoadingHypotheses(false);
+        }
+      })();
     }
-  };
-  
-  // Fetch explanation and tags when moment changes
-  useEffect(() => {
-    if (currentMoment && !coachExplanation) {
-      fetchCoachExplanation(currentMoment);
-    }
-    if (currentMoment) {
-      fetchContextualTags(currentMoment);
-    }
-    // Fetch time context for this move
-    if (currentGame && currentMoment?.move_number) {
-      fetchTimeContext(currentGame.game_id, currentMoment.move_number);
-      // Fetch position-specific intent hypotheses
-      fetchIntentHypotheses(currentGame.game_id, currentMoment.move_number);
-    }
-    // Reset hypothesis selection when moment changes
-    setSelectedHypothesis(null);
-  }, [currentMoment, currentGame]);
-  
-  // Reset explanation and tags when moment changes
-  useEffect(() => {
-    setCoachExplanation(null);
-    setContextualTags([]);
-    setCouldNotInferIntent(false);
-    setViewMode("your_move");
-    // V1: Reset progressive flow state
-    resetV1State();
-  }, [currentMomentIndex, currentGameIndex]);
-  
-  // V1: Fetch tags when moment is available
-  useEffect(() => {
-    if (currentMoment) {
-      fetchV1QuickTags(currentMoment);
-    }
-  }, [currentMoment?.fen]);
+
+    return () => controller.abort();
+  }, [currentGame?.game_id, currentMoment]);
   
   // Fetch games needing reflection
   useEffect(() => {
@@ -599,10 +569,20 @@ const Reflect = ({ user }) => {
   
   // Fetch moments when game changes
   useEffect(() => {
+    gameMomentsGenerationRef.current += 1;
+    momentDataGenerationRef.current += 1;
+    const generation = gameMomentsGenerationRef.current;
+    setMoments([]);
+    setCurrentMomentIndex(0);
     if (currentGame) {
-      fetchGameMoments(currentGame.game_id);
+      fetchGameMoments(currentGame.game_id, generation);
     }
-  }, [currentGame?.game_id]);
+    return () => {
+      if (gameMomentsGenerationRef.current === generation) {
+        gameMomentsGenerationRef.current += 1;
+      }
+    };
+  }, [currentGame]);
   
   const fetchGamesNeedingReflection = async () => {
     try {
@@ -618,12 +598,17 @@ const Reflect = ({ user }) => {
     }
   };
   
-  const fetchGameMoments = async (gameId) => {
-    setLoadingMoments(true);
+  const fetchGameMoments = async (
+    gameId,
+    generation = gameMomentsGenerationRef.current,
+  ) => {
+    const ownsGame = () => generation === gameMomentsGenerationRef.current;
+    if (ownsGame()) setLoadingMoments(true);
     try {
       const res = await fetch(`${API}/reflect/game/${gameId}/moments`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
+        if (!ownsGame()) return [];
         const newMoments = data.moments || [];
         setMoments(newMoments);
         setCurrentMomentIndex(0);
@@ -634,10 +619,10 @@ const Reflect = ({ user }) => {
       }
       return [];
     } catch (err) {
-      console.error("Failed to fetch moments:", err);
+      if (ownsGame()) console.error("Failed to fetch moments:", err);
       return [];
     } finally {
-      setLoadingMoments(false);
+      if (ownsGame()) setLoadingMoments(false);
     }
   };
   
