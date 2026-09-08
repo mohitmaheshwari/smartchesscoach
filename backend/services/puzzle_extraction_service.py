@@ -609,6 +609,14 @@ async def get_pattern_training_puzzles(
                 {"pattern_type": t, "source_user_id": user_id}
             ).sort("created_at", -1).limit(limit)
             async for p in own_pwc:
+                # A reviewer rejecting a position is a human quality decision,
+                # and grading refuses those outright. Serving one anyway means
+                # the student thinks about the board, answers, and is told we
+                # could not verify it -- the worst possible moment to find out.
+                # The community_puzzles path already filters approved:True; this
+                # pool never did.
+                if p.get("approved") is False:
+                    continue
                 if not verdict_serves_pattern(p, pattern):
                     continue
                 sh = _shape_pwc(p, "own_coach_game")
@@ -624,6 +632,8 @@ async def get_pattern_training_puzzles(
                         break
                     if p.get("source_user_id") == user_id:
                         continue  # own — already added above
+                    if p.get("approved") is False:
+                        continue  # rejected by a reviewer; grading will refuse it
                     if not verdict_serves_pattern(p, pattern):
                         continue
                     sh = _shape_pwc(p, "coach_game")

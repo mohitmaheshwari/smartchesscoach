@@ -406,7 +406,13 @@ export default function PrescribedTraining({ user = null }) {
     setEvaluationError("");
 
     let result = null;
-    try {
+    // Grading is a pure evaluation with no side effects, so a failure that is
+    // clearly the server being briefly unreachable is worth one quiet retry.
+    // A deploy restarts the backend for a couple of seconds, and without this
+    // that window reaches whoever is mid-puzzle as "I couldn't verify that
+    // move" -- which reads as though we doubt their move rather than that we
+    // were not listening.
+    const gradeOnce = async () => {
       const res = await fetch(`${API}/training/evaluate-puzzle-move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -416,11 +422,30 @@ export default function PrescribedTraining({ user = null }) {
           played_uci: userMoveUci,
         }),
       });
-      if (res.ok) {
-        result = await res.json();
+      if (res.ok) return { ok: true, data: await res.json() };
+      // 502/503/504 mean nothing was listening. A 4xx is a real answer about
+      // this puzzle and must never be retried into a different verdict.
+      return { ok: false, retryable: res.status >= 500 };
+    };
+
+    try {
+      let attempt = await gradeOnce();
+      if (!attempt.ok && attempt.retryable) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        attempt = await gradeOnce();
+      }
+      if (attempt.ok) {
+        result = attempt.data;
       }
     } catch (_e) {
-      result = null;
+      // A dropped connection is the same situation, so give it the one retry.
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const attempt = await gradeOnce();
+        result = attempt.ok ? attempt.data : null;
+      } catch (_again) {
+        result = null;
+      }
     }
 
     // If the evaluator returned something usable, route by quality.
