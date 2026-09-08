@@ -1260,6 +1260,32 @@ def _item_help_events(
     ]
 
 
+def _square_of_the_pawn_help(fen: str) -> Optional[Dict[str, Any]]:
+    """Board help for a pawn ending: paint the square, name in or out.
+
+    Returns None whenever the rule does not apply, so every other lesson is
+    untouched. Fail-safe by construction -- any error here degrades to the
+    normal help rather than breaking the lesson.
+    """
+    if not fen or not str(fen).strip():
+        return None
+    try:
+        import chess
+
+        from services.board_concepts import square_of_the_pawn
+
+        concept = square_of_the_pawn(chess.Board(str(fen)))
+    except Exception:
+        return None
+    if not concept or not concept.get("square_squares"):
+        return None
+    return {
+        "message": concept["explanation"],
+        "highlight_squares": list(concept["square_squares"]),
+        "board_concept": concept,
+    }
+
+
 def _unsafe_destination_squares(fen: str) -> list:
     """Squares this player can move to where the piece would be takeable.
 
@@ -1353,6 +1379,14 @@ async def request_personalized_help(
     if index >= len(items):
         return {"error": "Lesson is complete"}
     item = items[index]
+
+    # In a pawn ending where the rule of the square applies, the box IS the
+    # lesson. A verdict ("the king catches it") teaches nothing to a player
+    # who does not already know the rule; seeing which side of the square the
+    # king stands on does. Painted first, because it explains the position
+    # rather than just revealing the move.
+    square_help = _square_of_the_pawn_help(str(item.get("fen") or ""))
+
     if help_action == HelpAction.SHOW_ON_BOARD:
         # The strongest help tier: draw the move. It used to paint squares
         # and tell the player to trace attacks themselves, under a button
@@ -1362,16 +1396,24 @@ async def request_personalized_help(
             result = {
                 "action": help_action.value,
                 "message": (
-                    "The move is %s. Play it and see why the square it lands "
-                    "on is safe." % answer_san
-                    if answer_san
-                    else "Here is the move. Play it and see why its square is safe."
+                    square_help["message"]
+                    if square_help
+                    else (
+                        "The move is %s. Play it and see why the square it lands "
+                        "on is safe." % answer_san
+                        if answer_san
+                        else "Here is the move. Play it and see why its square is safe."
+                    )
                 ),
                 "arrows": [[answer_uci[:2], answer_uci[2:4], "green"]],
                 "answer_san": answer_san,
                 "answer_uci": answer_uci,
-                "highlight_squares": [],
+                "highlight_squares": (
+                    square_help["highlight_squares"] if square_help else []
+                ),
             }
+            if square_help:
+                result["board_concept"] = square_help["board_concept"]
         else:
             # No verified answer to show. Fall back to marking the squares
             # that punish a move rather than pretending to reveal one.
@@ -1388,19 +1430,33 @@ async def request_personalized_help(
                 "highlight_squares": unsafe,
             }
     elif help_action == HelpAction.ASK_ONE_QUESTION:
-        unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
-        result = {
-            "action": help_action.value,
-            "message": (
-                "The marked squares are covered by your opponent. Which of "
-                "your moves stays off them?"
-                if unsafe
-                else "After your move, what is the opponent's strongest "
-                "capture, check, or direct threat?"
-            ),
-            "arrows": [],
-            "highlight_squares": unsafe,
-        }
+        if square_help:
+            # Ask about the box rather than reveal the verdict.
+            result = {
+                "action": help_action.value,
+                "message": (
+                    "The marked squares are the square of the %s pawn. Is the "
+                    "king inside it or outside it?"
+                    % square_help["board_concept"]["pawn_color"]
+                ),
+                "arrows": [],
+                "highlight_squares": square_help["highlight_squares"],
+                "board_concept": square_help["board_concept"],
+            }
+        else:
+            unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
+            result = {
+                "action": help_action.value,
+                "message": (
+                    "The marked squares are covered by your opponent. Which of "
+                    "your moves stays off them?"
+                    if unsafe
+                    else "After your move, what is the opponent's strongest "
+                    "capture, check, or direct threat?"
+                ),
+                "arrows": [],
+                "highlight_squares": unsafe,
+            }
     else:
         result = {
             "action": help_action.value,
