@@ -1412,6 +1412,12 @@ def build_legal_material_loss_cause(
 
     owner = before.turn
     opponent = not owner
+    if best == played:
+        # The engine's move IS the move played, so there is no better line to
+        # offer and nothing was given away by choosing it. Without this the
+        # card recommended the move back to the player -- "Nxe4 was the safer
+        # move" printed under a card about playing Nxe4.
+        return None
     if played.promotion is not None:
         # Promotion exchanges need dedicated wording for the material created
         # by promotion; the simple piece-for-piece contract cannot say this
