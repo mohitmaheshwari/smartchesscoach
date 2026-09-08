@@ -22,47 +22,47 @@ const interactionId = (prefix) =>
 
 const RESULT_COPY = {
   controlled_transfer: {
-    eyebrow: "You carried it across",
-    title: "That idea is available to you now.",
-    body: "You handled the same decision in two different positions without coaching. That proves recognition here—not improvement in your games yet.",
-    follow: "I’m moving this into watching mode. The next honest answer comes from what you do when the decision appears naturally in a game.",
+    eyebrow: "You've got it",
+    title: "You've got it.",
+    body: "You solved this idea twice, on two different boards, with no help.",
+    follow: "Now let's see if it shows up in a real game. I'll keep watching.",
     cta: "Play while I watch",
   },
   familiar_position_only: {
-    eyebrow: "It did not travel yet",
-    title: "You saw it once, but not in the new shape.",
-    body: "That tells me the first position felt familiar. You do not yet spot the same danger when the pieces look different.",
-    follow: "Next I’ll teach you to check the piece you move, the square it lands on and what your opponent can capture next—not ask you to memorize a move.",
+    eyebrow: "You knew that one, not the new one",
+    title: "You knew that one, not the new one.",
+    body: "You solved the first position because you'd seen it before. On a new board, you missed the same danger.",
+    follow: "Next: before every move, check three things — the piece you're moving, the square it lands on, and what your opponent could capture there.",
     cta: "Teach me the signal",
   },
   prompted_recognition: {
-    eyebrow: "The idea appeared with a prompt",
-    title: "You can find it when I slow the moment down.",
-    body: "That is useful evidence. The chess idea is beginning to make sense, but you do not yet remember to check it before moving.",
-    follow: "Next we’ll turn the hint into one small question you can ask yourself over the board.",
+    eyebrow: "You get it once I point it out",
+    title: "You get it once I point it out.",
+    body: "Good sign — you understand the idea. You just don't check for it yet before you move.",
+    follow: "Next: one simple question to ask yourself before every move.",
     cta: "Build my trigger",
   },
   current_learning_need: {
-    eyebrow: "Now I know where to begin",
-    title: "This way of checking a move is still new.",
-    body: "That is not a score and it is not a label. It tells me explanation comes before repetition here.",
-    follow: "I’ll show you what changes after the move, then let you rebuild the idea in another position.",
+    eyebrow: "This one is new to you",
+    title: "This way of checking a move is still new to you.",
+    body: "That's fine — it just means we explain it first, before drilling it.",
+    follow: "I'll show you what changes after the move, then let you try the idea on another position.",
     cta: "Teach it from the board",
   },
   no_conclusion: {
-    eyebrow: "I’m not going to guess",
-    title: "I could not verify this fairly.",
-    body: "One of the chess checks was incomplete, so I am keeping your coaching plan unchanged.",
-    follow: "We can return when two fully verified positions are ready.",
+    eyebrow: "I couldn't test this properly",
+    title: "I couldn't test this properly.",
+    body: "Something was missing in this check, so I'm not changing your plan yet.",
+    follow: "We'll come back once I have two positions I can test cleanly.",
     cta: "Continue my plan",
   },
 };
 
 const LATER_MISS_COPY = {
-  eyebrow: "I saw the decision again",
-  title: "It returned in a real game, so we stay with it.",
-  body: "You recognized the idea in practice, but later you again moved a piece to a square where it could be won. That is stronger evidence than a puzzle score.",
-  follow: "We are not starting over. I’ll reconnect the real-game moment to the board question you already understood, then test it again without help.",
+  eyebrow: "You made the same choice again",
+  title: "It happened again in a real game, so we're not done yet.",
+  body: "You got it right in practice. But in this game, you moved a piece to a square where it could be captured. A real game matters more than a puzzle — so we go again.",
+  follow: "We're not starting over. I'll show you this exact moment from your game next to the puzzle you already solved, then test you again — no help this time.",
   cta: "Return to the board",
 };
 
@@ -328,7 +328,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
             <div className="mt-6 max-w-[620px] rounded-2xl border border-emerald-700/15 bg-emerald-500/[0.06] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800">Why I chose this for you</p>
               <p className="mt-2 text-[13px] leading-relaxed text-foreground/75">
-                I rebuilt one moment from your games to check the chess idea—not whether you remember the old game.
+                I rebuilt one moment from your games. I want to see if you understand the idea — not if you remember the old game.
               </p>
             </div>
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -369,7 +369,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
         <div className="pointer-events-none absolute -left-20 -top-24 h-60 w-60 rounded-full bg-emerald-300/25 blur-3xl" />
         <p className="cg-eyebrow mb-3">{summary.eyebrow || "Position understood"}</p>
         <h2 className="max-w-[680px] font-heading text-[29px] leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[42px]">
-          {summary.title || "Here is the connection your move tested."}
+          {summary.title || "Here's what your move shows."}
         </h2>
         {summary.move_san && (
           <p className="mt-3 text-[13px] text-muted-foreground">You played {summary.move_san}.</p>
@@ -440,7 +440,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
         )}
         {result?.separate_soundness_issue && (
           <p className="mt-4 max-w-[650px] text-[13px] leading-relaxed text-amber-700">
-            You handled the idea I tested, but one move had a different chess problem. I kept those two findings separate.
+            You got this idea right. That other move had a different problem — we'll deal with it separately.
           </p>
         )}
         <button type="button" onClick={startNextAction} className="cg-primary-action mt-7">
@@ -499,7 +499,7 @@ export default function HomeReplayDiagnostic({ diagnostic, onNavigate }) {
             <>
               <p className="text-[15px] font-medium text-foreground">{current.prompt}</p>
               <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-                Choose your move first. I’m checking what relationships you see—not whether you remember an answer.
+                Choose your move first. I want to see how you think — not whether you remember the answer.
               </p>
               <div className="mt-6 flex flex-col gap-2">
                 <button type="button" onClick={() => requestHelp("show_on_board")} disabled={busy} className="cg-secondary-action justify-start"><Eye className="h-4 w-4" /> Show me where to look</button>

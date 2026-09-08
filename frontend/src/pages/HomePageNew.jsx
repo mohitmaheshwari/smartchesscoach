@@ -247,7 +247,7 @@ export default function HomePageNew({ user }) {
 
   // ─── Pretty name ───────────────────────────────────────────────────
   const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
-  const firstName = rawName.split(/[._-]/).filter(Boolean)[0] || "";
+  const firstName = rawName.split(/[\s._-]/).filter(Boolean)[0] || "";
   const displayName =
     firstName.length <= 12
       ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()

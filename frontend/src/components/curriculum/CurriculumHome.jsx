@@ -20,7 +20,7 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
             {curriculumHeadline(outcome)}
           </h1>
           <p className="cg-lede">
-            I’ve chosen one clear step for today. We’ll stay with it until it begins to feel different in a real game.
+            Here's today's one thing. We'll keep working on it until it shows up differently in a real game.
           </p>
         </header>
         <div className="cg-panel p-5 sm:p-7">

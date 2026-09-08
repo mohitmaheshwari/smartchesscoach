@@ -268,8 +268,9 @@ describe("HomeReplayDiagnostic", () => {
       <HomeReplayDiagnostic diagnostic={diagnostic} onNavigate={jest.fn()} />
     ));
 
-    expect(container.textContent).toContain("not improvement in your games yet");
-    expect(container.textContent).toContain("watching mode");
+    expect(container.textContent).toContain("with no help");
+    expect(container.textContent).toContain("I'll keep watching");
+    expect(container.textContent).not.toContain("you improved");
     expect(container.textContent).toContain("Threat recognized");
     expect(container.textContent).toContain("Landing square checked");
   });
@@ -290,8 +291,8 @@ describe("HomeReplayDiagnostic", () => {
       <HomeReplayDiagnostic diagnostic={diagnostic} onNavigate={jest.fn()} />
     ));
 
-    expect(container.textContent).toContain("It returned in a real game");
-    expect(container.textContent).toContain("stronger evidence than a puzzle score");
+    expect(container.textContent).toContain("It happened again in a real game");
+    expect(container.textContent).toContain("A real game matters more than a puzzle");
     expect(container.textContent).not.toContain("you improved");
   });
 });
