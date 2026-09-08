@@ -67,6 +67,7 @@ account. It must never use a real learner account.
 
 from __future__ import annotations
 
+import time
 import argparse
 import asyncio
 import hashlib
@@ -111,6 +112,12 @@ CHECK_KEYS = {
     "7": "failures",
     "8": "journey",
 }
+
+
+# A cold review regenerates from stored analysis; measured at ~17s on
+# production, so allow generous headroom and poll rather than guess.
+REVIEW_READY_TIMEOUT_S = 90
+REVIEW_POLL_INTERVAL_S = 3
 
 
 def _check_key(name: str) -> str | None:
@@ -609,12 +616,32 @@ def check_complete_coaching_journey(
             base_url.rstrip("/")
             + f"/api/coach/decryption/v5/{fixture['game_id']}"
         )
-        review = requests.get(
-            review_url, headers=headers, cookies=cookies, timeout=timeout
-        )
-        review_body = review.json()
-        if review.status_code != 200 or review_body.get("status") != "complete":
-            raise ValueError("Game Review did not return a complete routed contract")
+        # Requesting a review is what triggers its generation when the stored
+        # copy is stale, so asserting on the first response failed this check
+        # every time V5_COACHING_VERSION moved -- the gate invalidated the
+        # cache and then failed on the regeneration it had just started.
+        # Passing on the second run was not luck, it was a warm cache, and a
+        # gate that goes green on a retry teaches people to retry.
+        review_deadline = time.monotonic() + REVIEW_READY_TIMEOUT_S
+        while True:
+            review = requests.get(
+                review_url, headers=headers, cookies=cookies, timeout=timeout
+            )
+            review_body = review.json()
+            status = str(review_body.get("status") or "")
+            if review.status_code == 200 and status == "complete":
+                break
+            still_working = review.status_code == 200 and status == "generating"
+            if not still_working or time.monotonic() >= review_deadline:
+                raise ValueError(
+                    "Game Review did not return a complete routed contract"
+                    + (
+                        f" within {REVIEW_READY_TIMEOUT_S}s (still generating)"
+                        if still_working
+                        else ""
+                    )
+                )
+            time.sleep(REVIEW_POLL_INTERVAL_S)
         events = review_body.get("teachable_events") or []
         if (
             not events
