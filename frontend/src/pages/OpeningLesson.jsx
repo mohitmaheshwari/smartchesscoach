@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Chess } from "chess.js";
 import { Chessground } from "chessground";
 import { 
@@ -18,12 +17,9 @@ import {
   ExternalLink,
   MessageCircle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ChessLoader from "@/components/ChessLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 import "chessground/assets/chessground.base.css";
@@ -51,14 +47,14 @@ const OpeningLesson = () => {
   
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("learn");
+  const [practiceOpen, setPracticeOpen] = useState(false);
   
   // Learning state
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   // Trap practice state
   const [selectedTrap, setSelectedTrap] = useState(null);
   const [trapPracticeMode, setTrapPracticeMode] = useState(false);
-  const [selectedVariation, setSelectedVariation] = useState(null);
+  const [plan, setPlan] = useState(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -68,8 +64,7 @@ const OpeningLesson = () => {
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const variationParam = selectedVariation ? `?variation=${selectedVariation}` : "";
-        const res = await fetch(`${API}/openings/${openingKey}${variationParam}`, {
+        const res = await fetch(`${API}/openings/${openingKey}`, {
           credentials: "include"
         });
         if (res.ok) {
@@ -100,7 +95,29 @@ const OpeningLesson = () => {
       }
     };
     fetchLesson();
-  }, [openingKey, navigate, selectedVariation]);
+  }, [openingKey, navigate]);
+
+  // The order the coach teaches in. Fetched alongside the opening so the
+  // page never has to decide what comes first.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/openings/${openingKey}/lesson-plan`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setPlan(data);
+      } catch {
+        // The lesson still works without it; the thread falls back to the
+        // main line rather than showing the student nothing.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openingKey]);
 
   // Ping Engine 2 once per page visit to register "seen" on the matching
   // opening skill (if the tree has one). Fire-and-forget — don't block UI.
@@ -240,7 +257,7 @@ const OpeningLesson = () => {
   const startTrapPractice = useCallback((trap) => {
     setSelectedTrap(trap);
     setTrapPracticeMode(true);
-    setActiveTab("traps");
+    setPracticeOpen(true);
   }, []);
   
   const closeTrapPractice = useCallback(() => {
@@ -256,8 +273,10 @@ const OpeningLesson = () => {
     toast.success(`Mastered: ${selectedTrap?.name}!`);
   }, [selectedTrap]);
 
+  // Finishing the thread hands the student straight to practice instead of
+  // leaving them to find a tab.
   const onGuidedComplete = useCallback(() => {
-    console.log("Lesson completed");
+    setPracticeOpen(true);
   }, []);
 
   const startGuidedPractice = useCallback(() => {
@@ -268,7 +287,7 @@ const OpeningLesson = () => {
       origin: "lesson_route",
       is_recommended: false,
     });
-    setActiveTab("practice");
+    setPracticeOpen(true);
   }, [openingKey]);
   
   if (loading) {
@@ -339,364 +358,32 @@ const OpeningLesson = () => {
       
       {/* Main Content */}
       <div className="opening-lesson-main mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-        {/* Variation Selector */}
-        {opening.variations?.length > 1 && (
-          <div className="experience-surface mb-4 rounded-xl border border-border/70 bg-card/70 p-3 sm:mb-5 sm:p-4" data-testid="variation-selector">
-            <p className="experience-eyebrow mb-2 text-[10px] font-bold uppercase">Variation</p>
-            <div className="flex flex-wrap gap-2">
-              {opening.variations.map((v) => (
-                <button
-                  key={v.key}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    (selectedVariation || opening.active_variation) === v.key
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background/60 text-muted-foreground hover:border-primary/45 hover:text-foreground"
-                  }`}
-                  onClick={() => setSelectedVariation(v.key)}
-                  data-testid={`variation-btn-${v.key}`}
-                >
-                  {v.name}
-                  <span className="ml-1 opacity-60">({v.total_moves})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* One coach-led thread. No variation chips and no tabs: deciding
+            what someone should study next is the coaching, and a student who
+            could pick between the Bishop's Line and the Frankenstein-Dracula
+            would not need us. The traps and the student's own mistakes used
+            to be tabs three and four, which is where the most useful thing on
+            the page went to be ignored; they are chapters now. */}
+        <div className="mx-auto max-w-6xl space-y-6">
+          <GuidedOpeningLesson
+            openingKey={openingKey}
+            opening={opening}
+            plan={plan}
+            onComplete={onGuidedComplete}
+            onStartPractice={startGuidedPractice}
+          />
 
-        {/* Tab Navigation - Full Width */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="opening-lesson-tabs mb-5 grid h-auto w-full grid-cols-4 rounded-xl border border-border/70 bg-card/70 p-1 sm:mb-6 sm:flex sm:w-fit">
-            <TabsTrigger value="learn" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">Learn</TabsTrigger>
-            <TabsTrigger value="practice" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">
-              <MessageCircle className="mr-1 hidden h-3 w-3 sm:block" />
-              Practice
-            </TabsTrigger>
-            <TabsTrigger value="traps" className="px-1.5 text-[11px] sm:px-3 sm:text-sm">
-              Traps
-              {opening.traps?.length > 0 && (
-                <Badge variant="secondary" className="ml-1 hidden h-5 sm:inline-flex">
-                  {opening.traps.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="mistakes" className="px-1 text-[11px] sm:px-3 sm:text-sm">
-              <span className="sm:hidden">Mistakes</span>
-              <span className="hidden sm:inline">Your Mistakes</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          {/* Learn Tab - Full width guided experience */}
-          <TabsContent value="learn" className="mt-0 space-y-5">
-            <div className="mx-auto max-w-6xl">
-              {/* Guided Interactive Lesson - This is the main experience */}
-              <GuidedOpeningLesson
+          {/* Practice is where the thread ends, not somewhere to go looking. */}
+          {practiceOpen && (
+            <div data-testid="lesson-practice">
+              <InteractivePractice
                 openingKey={openingKey}
-                opening={opening}
-                onComplete={onGuidedComplete}
-                onStartPractice={startGuidedPractice}
+                openingName={opening.name}
+                userColor={opening.color}
               />
-              
-              {/* Key Ideas - Collapsed reference */}
-              <Card className="experience-surface mt-4 border-border/70 bg-card/75 shadow-none sm:mt-5">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-sm text-foreground">
-                    <Brain className="h-4 w-4 text-primary" />
-                    Key Ideas Reference
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <ul className="space-y-2">
-                    {opening.key_ideas?.map((idea, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary/75" />
-                        {idea}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
             </div>
-          </TabsContent>
-          
-          {/* Other Tabs - 2 column layout with board */}
-          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.82fr)]"}>
-            {/* Board */}
-            <div>
-              <Card>
-                <CardContent className="p-4">
-                  <div
-                    ref={boardRef} 
-                    className="experience-board-stage w-full aspect-square rounded-xl overflow-hidden"
-                    style={{ maxWidth: "500px", margin: "0 auto" }}
-                  />
-                  
-                  {/* Navigation */}
-                  {activeTab !== "practice" && (
-                    <div className="flex items-center justify-center gap-2 mt-4">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => goToMove(-1)}
-                        disabled={currentMoveIndex < 0}
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => goToMove(Math.max(-1, currentMoveIndex - 1))}
-                        disabled={currentMoveIndex < 0}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm px-3 min-w-[80px] text-center">
-                        {currentMoveIndex < 0 ? "Start" : `Move ${currentMoveIndex + 1}`}
-                      </span>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => goToMove(currentMoveIndex + 1)}
-                        disabled={currentMoveIndex >= opening.main_line.length - 1}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                  
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Lesson Content for other tabs */}
-            <div>
-              
-              <TabsContent value="practice" className="space-y-4">
-                <InteractivePractice
-                  openingKey={openingKey}
-                  openingName={opening.name}
-                  userColor={opening.color}
-                />
-              </TabsContent>
-              
-              <TabsContent value="traps" className="space-y-4">
-                {opening.traps?.length > 0 ? (
-                  <>
-                    {/* Active Trap Practice Mode */}
-                    {selectedTrap && trapPracticeMode ? (
-                      <TrapPractice
-                        trap={selectedTrap}
-                        openingKey={openingKey}
-                        onClose={closeTrapPractice}
-                        onComplete={onTrapComplete}
-                      />
-                    ) : (
-                      /* Trap List */
-                      <>
-                        <div className="text-sm text-muted-foreground mb-2">
-                          Click a trap to practice executing it against the coach.
-                        </div>
-                        {opening.traps.map((trap, i) => (
-                          <Card 
-                            key={i} 
-                            className="cursor-pointer hover:border-amber-500/50 transition-colors"
-                            onClick={() => startTrapPractice(trap)}
-                            data-testid={`trap-card-${i}`}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-lg bg-amber-500/20">
-                                  <Target className="w-4 h-4 text-amber-400" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="font-semibold text-sm">{trap.name}</h3>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`text-xs ${
-                                        trap.difficulty === "beginner" 
-                                          ? "border-green-500/30 text-green-400" 
-                                          : trap.difficulty === "advanced"
-                                          ? "border-red-500/30 text-red-400"
-                                          : "border-amber-500/30 text-amber-400"
-                                      }`}
-                                    >
-                                      {trap.difficulty}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {trap.description}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {trap.result_type?.replace(/_/g, " ")}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {trap.trap_line?.length || 0} moves
-                                    </span>
-                                  </div>
-                                </div>
-                                <Play className="w-4 h-4 text-amber-400" />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <Card className="border-dashed">
-                    <CardContent className="p-8 text-center">
-                      <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">
-                        No traps available for this opening yet.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="mistakes" className="space-y-4">
-                {/* Current game mistake from Lab page */}
-                {currentGameMistake && (
-                  <Card className="border-amber-500/30 bg-amber-500/5">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-400" />
-                        From Your Recent Game
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-start gap-3">
-                        <div>
-                          <p className="text-sm">
-                            <span className="font-semibold">Move {currentGameMistake.mistake.move_number}:</span>{" "}
-                            You played <span className="text-red-400">{currentGameMistake.mistake.your_move}</span>
-                          </p>
-                          {currentGameMistake.mistake.best_move && (
-                            <p className="text-sm mt-1">
-                              Better was <span className="text-green-400">{currentGameMistake.mistake.best_move}</span>
-                            </p>
-                          )}
-                          {currentGameMistake.gameId && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="px-0 mt-2 text-xs"
-                              onClick={() => navigate(`/game/${currentGameMistake.gameId}`)}
-                            >
-                              <ExternalLink className="w-3 h-3 mr-1" />
-                              View in game
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {/* Historical mistakes from analyzed games */}
-                {user_mistakes?.length > 0 ? (
-                  user_mistakes.map((mistake, i) => (
-                    <Card key={i} className="border-red-500/30 bg-red-500/5">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                          <div className="flex-1">
-                            {/* Lead-in: the moves that produced this position,
-                                so the user can recognize the Italian line. */}
-                            {mistake.moves_before?.length > 0 && (
-                              <p className="text-xs font-mono text-muted-foreground mb-2">
-                                {(() => {
-                                  const seq = mistake.moves_before;
-                                  const parts = [];
-                                  for (let k = 0; k < seq.length; k += 2) {
-                                    const num = Math.floor(k / 2) + 1;
-                                    const w = seq[k] || "";
-                                    const b = seq[k + 1] || "";
-                                    parts.push(`${num}.${w}${b ? " " + b : ""}`);
-                                  }
-                                  return parts.join(" ");
-                                })()}
-                              </p>
-                            )}
-                            <p className="text-sm">
-                              <span className="font-semibold">Move {mistake.move_number}:</span>{" "}
-                              You played <span className="text-red-400">{mistake.your_move}</span>
-                              {mistake.book_move && (
-                                <>
-                                  {" "}— book was{" "}
-                                  <span className="text-green-400">{mistake.book_move}</span>
-                                </>
-                              )}
-                            </p>
-                            {mistake.coach?.book_line && (
-                              <p className="text-sm text-foreground/90 mt-2 leading-relaxed">
-                                {mistake.coach.book_line}
-                              </p>
-                            )}
-                            {mistake.coach?.principle && (
-                              <p className="text-xs text-amber-300/90 mt-1 italic">
-                                Principle: {mistake.coach.principle}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Loss: {Math.abs(mistake.cp_loss)} cp
-                              {mistake.cognitive_gap && (
-                                <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-foreground/70 uppercase tracking-wide text-[10px]">
-                                  {String(mistake.cognitive_gap).replace(/_/g, " ")}
-                                </span>
-                              )}
-                            </p>
-                            {mistake.fen_before && (
-                              <div className="flex gap-2 mt-3">
-                                {mistake.your_move_uci && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-red-500/40 text-red-300 hover:bg-red-500/10"
-                                    onClick={() =>
-                                      playMistakeMove(mistake.fen_before, mistake.your_move_uci, "red")
-                                    }
-                                  >
-                                    Play your move
-                                  </Button>
-                                )}
-                                {mistake.best_move_uci && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-green-500/40 text-green-300 hover:bg-green-500/10"
-                                    onClick={() =>
-                                      playMistakeMove(mistake.fen_before, mistake.best_move_uci, "green")
-                                    }
-                                  >
-                                    Play best move
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : !currentGameMistake ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-8 text-center">
-                      <Sparkles className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <p className="text-muted-foreground">
-                        No recorded mistakes in this opening yet!
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Play more games with this opening to see your patterns.
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </TabsContent>
-            </div>
-          </div>
-        </Tabs>
+          )}
+        </div>
       </div>
     </div>
   );

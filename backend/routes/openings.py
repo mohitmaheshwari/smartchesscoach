@@ -318,6 +318,25 @@ async def get_opening_lesson(
     }
 
 
+@router.get("/openings/{opening_key}/lesson-plan")
+async def get_opening_lesson_plan(
+    opening_key: str,
+    user: User = Depends(get_current_user),
+):
+    """One ordered thread for this student, with nothing to choose first.
+
+    The old page handed over three variation chips and four tabs before it
+    taught anything. Deciding what someone should study next is the
+    coaching, so the ordering happens here and the page just follows it.
+    """
+    from services.opening_lesson_plan import build_lesson_plan
+
+    plan = await build_lesson_plan(db, user.user_id, opening_key)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No lesson for this opening")
+    return plan
+
+
 async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict]:
     """Authoritative opening-mistake finder.
 

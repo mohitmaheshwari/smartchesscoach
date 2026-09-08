@@ -59,11 +59,12 @@ const COACH_TRANSITIONS = [
   "The reason for this move..."
 ];
 
-const GuidedOpeningLesson = ({ 
-  openingKey, 
-  opening, 
+const GuidedOpeningLesson = ({
+  openingKey,
+  opening,
+  plan,
   onComplete,
-  onStartPractice 
+  onStartPractice
 }) => {
   const boardRef = useRef(null);
   const chessRef = useRef(new Chess());
@@ -83,7 +84,36 @@ const GuidedOpeningLesson = ({
   const [showIntro, setShowIntro] = useState(true);
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
-  const mainLine = useMemo(() => opening?.main_line || [], [opening?.main_line]);
+  // The coach's running order. Each chapter carries a move list that starts
+  // from the initial position, because a trap or a variation begins part-way
+  // down a branch and the board replays from move zero.
+  const [chapterIndex, setChapterIndex] = useState(0);
+  const chapters = useMemo(() => plan?.chapters || [], [plan]);
+  const chapter = chapters.length ? chapters[Math.min(chapterIndex, chapters.length - 1)] : null;
+
+  const mainLine = useMemo(() => {
+    if (chapter) {
+      return (chapter.play || []).map((m) => ({
+        move: m.move,
+        explanation: m.say || "",
+        ask: m.ask || null,
+        ifWrong: m.if_wrong || null,
+      }));
+    }
+    // No plan yet, or an opening without one: fall back to the plain line
+    // rather than show an empty board.
+    return opening?.main_line || [];
+  }, [chapter, opening?.main_line]);
+
+  const isLastChapter = !chapters.length || chapterIndex >= chapters.length - 1;
+
+  const goToChapter = useCallback((index) => {
+    const next = Math.max(0, Math.min(index, Math.max(chapters.length - 1, 0)));
+    setChapterIndex(next);
+    setCurrentMoveIndex(-1);
+    setShowIntro(true);
+    setIsPlaying(false);
+  }, [chapters.length]);
   const keyIdeas = opening?.key_ideas || [];
   const userColor = opening?.color || "white";
   const introMessage = useMemo(() => {
@@ -135,15 +165,19 @@ const GuidedOpeningLesson = ({
     setShowIntro(newIndex === -1);
     updateBoard(newIndex);
     
-    // Check if completed
-    if (newIndex === mainLine.length - 1 && onCompleteRef.current) {
+    // Reaching the end of a chapter is not the end of the lesson. Only the
+    // last one finishes; the rest hand over to the next.
+    if (newIndex === mainLine.length - 1 && mainLine.length > 0) {
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       completionTimerRef.current = setTimeout(() => {
         setIsPlaying(false);
         completionTimerRef.current = null;
+        if (isLastChapter && onCompleteRef.current) {
+          onCompleteRef.current();
+        }
       }, 1000);
     }
-  }, [mainLine.length, updateBoard]);
+  }, [mainLine.length, updateBoard, isLastChapter]);
   
   // Auto-play logic
   useEffect(() => {
@@ -258,7 +292,50 @@ const GuidedOpeningLesson = ({
   
   const isComplete = currentMoveIndex === mainLine.length - 1;
   return (
-    <div className="guided-opening-lesson grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
+    <div className="guided-opening-lesson space-y-4">
+      {/* The spine. It shows where the student is and what is coming, and it
+          is deliberately not a menu: a chapter only becomes clickable once it
+          has been reached, so you can go back over something but you are
+          never asked to choose between lines you have not seen yet. */}
+      {chapters.length > 1 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-testid="lesson-spine">
+          {chapters.map((c, i) => {
+            const reached = i <= chapterIndex;
+            const current = i === chapterIndex;
+            return (
+              <button
+                key={c.key || i}
+                type="button"
+                disabled={!reached}
+                onClick={() => reached && goToChapter(i)}
+                data-testid={`lesson-chapter-${i}`}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] transition-colors sm:text-xs ${
+                  current
+                    ? "border-primary bg-primary/10 text-primary"
+                    : reached
+                    ? "border-border bg-background/60 text-foreground hover:border-primary/45"
+                    : "border-border/50 bg-background/30 text-muted-foreground/50 cursor-default"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    reached ? "bg-primary" : "bg-muted-foreground/40"
+                  }`}
+                />
+                {c.title}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {chapter?.coach_intro && (
+        <p className="text-sm text-muted-foreground" data-testid="chapter-intro">
+          {chapter.coach_intro}
+        </p>
+      )}
+
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
       <div className="min-w-0 space-y-3">
         {/* Board */}
         <Card className="experience-board-stage max-w-full overflow-hidden border-border/70 bg-card p-1.5 shadow-[0_24px_64px_hsl(var(--experience-shadow)/0.18)] sm:p-3">
@@ -549,6 +626,7 @@ const GuidedOpeningLesson = ({
         </div>
       )}
       </div>
+    </div>
     </div>
   );
 };

@@ -327,6 +327,48 @@ def _personal_chapter(mistakes: List[Dict[str, Any]]) -> Optional[Dict[str, Any]
     }
 
 
+def _playable(chapter: Dict[str, Any], main_line: List[str]) -> List[Dict[str, Any]]:
+    """Every chapter as one move list starting from the initial position.
+
+    The board replays from move zero each time it moves, and a trap or a
+    variation begins part-way down a different branch, so each chapter has
+    to carry the whole path rather than a fragment. Doing it here keeps the
+    board component dumb and this testable without a browser.
+    """
+    kind = chapter.get("kind")
+    if kind == "walkthrough":
+        return [
+            {
+                "move": step["move"],
+                "say": step.get("say") or "",
+                "ask": step.get("ask"),
+                "if_wrong": step.get("if_wrong"),
+            }
+            for step in chapter.get("steps") or []
+        ]
+    if kind == "trap":
+        moves = [
+            {"move": san, "say": ""}
+            for san in chapter.get("setup_moves") or []
+        ]
+        if chapter.get("their_move"):
+            moves.append({
+                "move": chapter["their_move"],
+                "say": chapter.get("coach_intro") or "",
+            })
+        if chapter.get("answer"):
+            moves.append({
+                "move": chapter["answer"],
+                "say": chapter.get("say") or "",
+                "ask": chapter.get("ask"),
+            })
+        return moves
+    if kind == "variation":
+        path = list(chapter.get("main_line") or main_line) + list(chapter.get("moves") or [])
+        return [{"move": san, "say": ""} for san in path]
+    return []
+
+
 async def build_lesson_plan(db, user_id: str, opening_key: str) -> Optional[Dict[str, Any]]:
     """One ordered thread for this student, with no choices to make first."""
     resolved = resolve_opening_key(opening_key) or opening_key
@@ -387,6 +429,10 @@ async def build_lesson_plan(db, user_id: str, opening_key: str) -> Optional[Dict
             "coach_intro": "Three things worth keeping.",
             "remember": remember[:3],
         })
+
+    main_line = [str(m) for m in (opening.get("main_line") or [])]
+    for chapter in chapters:
+        chapter["play"] = _playable(chapter, main_line)
 
     return {
         "opening_key": resolved,
