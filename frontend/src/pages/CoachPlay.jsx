@@ -235,6 +235,35 @@ const CoachPlay = ({ user }) => {
         const data = await res.json();
         if (currentSessionIdRef.current !== sessionId) return;
         const realMoveCount = data.session?.move_history?.length;
+        // Self-heal the turn/position flags on every tick, not only when the
+        // move count diverges.
+        //
+        // This poll already holds the server's authoritative is_player_turn,
+        // current_fen and game_over -- and used to throw all three away,
+        // acting only on a move-count difference. On a fresh game both counts
+        // are 0, so nothing ever fired, and if the client had loaded with a
+        // stale/false isPlayerTurn the board stayed permanently unresponsive:
+        // every click hit the silent `return false` in makeMove, no request
+        // was ever sent, and the user saw a dead board with no error.
+        // Observed live 2026-09-08 on a 0-move session (HAR: 23 requests in
+        // 23s, zero POST /move, while /state kept returning
+        // is_player_turn: true).
+        //
+        // Applying what we already fetched costs nothing and makes the board
+        // recover within one tick from ANY cause of a stale flag.
+        if (typeof data.is_player_turn === "boolean") {
+          setIsPlayerTurn((prev) => (
+            prev === data.is_player_turn ? prev : data.is_player_turn
+          ));
+        }
+        if (typeof data.game_over === "boolean") {
+          setGameOver((prev) => (prev === data.game_over ? prev : data.game_over));
+        }
+        const serverFen = data.current_fen || data.session?.current_fen;
+        if (serverFen) {
+          setCurrentFen((prev) => (prev ? prev : serverFen));
+        }
+
         if (typeof realMoveCount === "number" && realMoveCount !== localMoveCount) {
           resumeSessionRef.current?.(sessionId);
         }
@@ -2935,7 +2964,24 @@ const CoachPlay = ({ user }) => {
       return true;
     }
 
-    if (!session || !isPlayerTurn || gameOver || !currentFen) return false;
+    // Never swallow a move silently. This guard returning false is invisible
+    // to the player -- the piece simply does not move, with no error, no
+    // toast and no request -- which is how a dead board can persist for a
+    // whole session without producing a single bug report. Say why.
+    if (!session || !isPlayerTurn || gameOver || !currentFen) {
+      console.warn(
+        "[CoachPlay] move blocked before any request was sent:",
+        {
+          hasSession: Boolean(session),
+          isPlayerTurn,
+          gameOver,
+          hasFen: Boolean(currentFen),
+          from: sourceSquare,
+          to: targetSquare,
+        }
+      );
+      return false;
+    }
 
     // Clear coaching state for new move
     setCoachArrows([]);
