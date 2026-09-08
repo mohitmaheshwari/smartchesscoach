@@ -955,7 +955,19 @@ export default function PrescribedTraining({ user = null }) {
 
           {/* Coaching panel */}
           <div className="pt-2 flex flex-col min-h-[480px]">
-            {(puzzleState === "thinking" || puzzleState === "evaluating") ? (
+            {!currentPuzzle ? (
+              // The framing text and Socratic question below both fall back to
+              // static per-weakness copy ("Which of your pieces has no
+              // defender?") when there's no real puzzle to draw from — that
+              // fallback exists for a puzzle whose fields are sparse, not for
+              // an EMPTY pool. Rendered unconditionally, it asked a confident,
+              // specific-sounding question next to a board that said "No
+              // puzzle available" — coaching content with nothing behind it.
+              // The banner above already explains why the pool is empty.
+              <div className="flex items-center justify-center h-full text-muted-foreground text-[13.5px]">
+                Nothing to solve here right now.
+              </div>
+            ) : (puzzleState === "thinking" || puzzleState === "evaluating") ? (
               <PuzzlePrompt
                 framing={
                   [
