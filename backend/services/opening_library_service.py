@@ -334,6 +334,59 @@ async def get_opening_name(fen: str) -> str:
     return opening.name if opening else ""
 
 
+# A coach recommends from what the player actually plays and loses, not from
+# what they have never seen. Below this many games a win rate is noise.
+_MIN_GAMES_FOR_OPENING_ADVICE = 4
+# Above this the moves are not the problem, so the lesson is about the plan.
+_ACCURATE_ENOUGH_PCT = 75.0
+
+
+def _opening_teaching_reason(entry: dict) -> str:
+    """Say why THIS opening is worth this player's time, from their record.
+
+    Every card used to read "A verified lesson you can practise move by
+    move", which is true of every lesson in the library and therefore says
+    nothing about the player. The numbers behind this were already computed
+    in the same function and thrown away.
+    """
+    games = int(entry.get("games_played") or 0)
+    wins = int(entry.get("wins") or 0)
+    win_rate = float(entry.get("win_rate") or 0.0)
+    accuracy = float(entry.get("avg_accuracy") or 0.0)
+    if games < _MIN_GAMES_FOR_OPENING_ADVICE:
+        return ""
+
+    played = "You have played this %d times and won %d." % (games, wins)
+    if accuracy >= _ACCURATE_ENOUGH_PCT and win_rate < 40.0:
+        return (
+            "%s Your moves score %.0f%% accuracy here, so the moves are not "
+            "what is costing you - the plan after the opening is."
+            % (played, accuracy)
+        )
+    if win_rate < 40.0:
+        return (
+            "%s Accuracy is %.0f%%, so both the moves and the plan are "
+            "losing you ground here." % (played, accuracy)
+        )
+    return (
+        "%s This one is working for you - worth making it more reliable."
+        % played
+    )
+
+
+def _opening_teaching_priority(entry: dict) -> tuple:
+    """Rank by how much a lesson would be worth, not by library order.
+
+    Most-played and least-won first: a bad result you keep repeating costs
+    far more than an opening you have never opened.
+    """
+    games = int(entry.get("games_played") or 0)
+    win_rate = float(entry.get("win_rate") or 0.0)
+    if games < _MIN_GAMES_FOR_OPENING_ADVICE:
+        return (2, 0, 0)
+    return (0, -(games * (100.0 - win_rate)), -games)
+
+
 async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
     from opening_trainer_service import get_user_opening_stats
 
@@ -361,30 +414,76 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "games_played": stat.get("games_played", 0),
             "win_rate": stat.get("win_rate", 0),
             "avg_accuracy": stat.get("avg_accuracy", 0),
+            # Carried through so the coaching reason can count real wins
+            # rather than infer them; without these it printed "won 0"
+            # above a 16.7% win rate.
+            "wins": stat.get("wins", 0),
+            "as_white": stat.get("as_white", 0),
+            "as_black": stat.get("as_black", 0),
+            "losses": stat.get("losses", 0),
+            "draws": stat.get("draws", 0),
             "in_library": opening_key is not None,
             "library_key": opening_key,
             "learning_progress": progress.get("main_line_progress", 0),
             "traps_learned": progress.get("traps_learned", []),
         }
-        color = OPENING_DATABASE.get(opening_key, {}).get("color")
+        as_white = int(entry.get("as_white") or 0)
+        as_black = int(entry.get("as_black") or 0)
+        if as_white or as_black:
+            color = "black" if as_black > as_white else "white"
+        else:
+            color = OPENING_DATABASE.get(opening_key, {}).get("color")
         if color == "black":
             black_openings.append(entry)
         else:
             white_openings.append(entry)
 
+    # Recommend from the player's own record first. Openings they have never
+    # touched only fill the remaining slots, and only when there is nothing
+    # measured to work on.
     recommended_white = []
     recommended_black = []
+    for entry in sorted(
+        white_openings + black_openings, key=_opening_teaching_priority
+    ):
+        reason = _opening_teaching_reason(entry)
+        if not reason:
+            continue
+        key = entry.get("library_key")
+        data = OPENING_DATABASE.get(key, {}) if key else {}
+        recommendation = {
+            "key": key,
+            "name": entry.get("name"),
+            "description": data.get("description", ""),
+            "reason": reason,
+            "games_played": entry.get("games_played"),
+            "win_rate": entry.get("win_rate"),
+            "avg_accuracy": entry.get("avg_accuracy"),
+            "from_your_games": True,
+        }
+        rec_as_white = int(entry.get("as_white") or 0)
+        rec_as_black = int(entry.get("as_black") or 0)
+        if rec_as_white or rec_as_black:
+            rec_is_black = rec_as_black > rec_as_white
+        else:
+            rec_is_black = data.get("color") == "black"
+        target = recommended_black if rec_is_black else recommended_white
+        if len(target) < 3:
+            target.append(recommendation)
+
     for key, data in OPENING_DATABASE.items():
         if key in played_keys:
             continue
-        recommendation = {
+        target = recommended_black if data["color"] == "black" else recommended_white
+        if len(target) >= 3:
+            continue
+        target.append({
             "key": key,
             "name": data["name"],
             "description": data["description"],
-            "reason": "A verified lesson you can practise move by move.",
-        }
-        target = recommended_black if data["color"] == "black" else recommended_white
-        target.append(recommendation)
+            "reason": "New ground. A verified lesson you can practise move by move.",
+            "from_your_games": False,
+        })
 
     return {
         "white_repertoire": sorted(white_openings, key=lambda item: -item["games_played"]),
