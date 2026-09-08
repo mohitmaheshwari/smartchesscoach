@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Engine-check every trap in the opening curriculum before it can ship.
+"""Engine-check the opening curriculum before it can ship.
 
 The structural rules (is this a legal line, does the tree replay, is the
 colour right) already live in ``services.curriculum_content_validator`` and
@@ -25,8 +25,13 @@ capture on a square with no piece on it:
               essentially one move that survives. That is what makes it
               dangerous at club level, and it is checkable: count them.
 
+It also checks the teaching lines themselves. A tree node's `next` is the
+move we put in front of a student as the right answer, so it has to be a
+move the engine can live with -- not merely a legal one.
+
 Usage:
-    python backend/scripts/verify_opening_traps.py [opening_key ...]
+    python backend/scripts/verify_opening_content.py [opening_key ...]
+    LINE_REPORT=1 python backend/scripts/verify_opening_content.py
 """
 from __future__ import annotations
 
@@ -54,6 +59,14 @@ REPLY_MAX_CP_LOSS = 40
 # against a centipawn window somebody picked to make a sentence come true.
 
 VALID_TYPES = {"punish", "avoid", "bait", "only_move", "common_line"}
+
+# Measured over all 183 taught moves in the curriculum: p50 3, p90 19, p99 47,
+# max 76. Repeat analyses of the same position disagree by 20-30cp, so a small
+# figure here is search noise, not a bad recommendation. The genuinely large
+# ones are the defining move of a gambit, which is a choice rather than an
+# error, so the gate only fires when we recommend a move the engine dislikes
+# AND it is not the move that defines the opening.
+TAUGHT_MOVE_MAX_CP_LOSS = 60
 
 
 def _score(info, pov) -> int:
@@ -212,11 +225,72 @@ def _count_replies(board):
     return total, mated
 
 
+def walk_lines(responses, board, path, engine, rows, opening, preview_next=False):
+    """Score every move the tree teaches, so no lesson recommends a bad move."""
+    for san, child in (responses or {}).items():
+        if not isinstance(child, dict):
+            continue
+        after = board.copy()
+        try:
+            after.push_san(san)
+        except ValueError:
+            rows.append((999, opening, " ".join(path + [san]), san, "ILLEGAL"))
+            continue
+        here = path + [san]
+        nxt = str(child.get("next") or "")
+        nxt_board = after
+        if nxt and not preview_next:
+            mover = after.turn
+            info = engine.analyse(after, chess.engine.Limit(depth=DEPTH))
+            best_cp = _score(info, mover)
+            best_san = after.san(info["pv"][0])
+            probe = after.copy()
+            try:
+                probe.push_san(nxt)
+            except ValueError:
+                rows.append((999, opening, " ".join(here), nxt, "ILLEGAL", ""))
+                continue
+            cp = _score(engine.analyse(probe, chess.engine.Limit(depth=DEPTH)), mover)
+            rows.append((best_cp - cp, opening, " ".join(here), nxt, best_san,
+                         str(child.get("deliberate_choice") or "")))
+            nxt_board = probe
+            here = here + [nxt]
+        walk_lines(child.get("responses"), nxt_board, here, engine, rows, opening)
+
+
+def line_report(data, engine):
+    rows = []
+    for key, entry in data.items():
+        if not isinstance(entry, dict) or not entry.get("tree"):
+            continue
+        plays_white = str(entry.get("color") or "white").lower() != "black"
+        walk_lines(entry["tree"], chess.Board(), [], engine, rows, key,
+                   preview_next=plays_white)
+    rows.sort(key=lambda r: -r[0])
+    losses = [r[0] for r in rows if r[0] < 999]
+    print(f"  taught moves scored: {len(rows)}")
+    if losses:
+        losses_sorted = sorted(losses)
+        def pct(p):
+            return losses_sorted[min(len(losses_sorted) - 1, int(len(losses_sorted) * p))]
+        print(f"  cp given up vs engine best -- p50 {pct(.5)}  p75 {pct(.75)}  "
+              f"p90 {pct(.9)}  p99 {pct(.99)}  max {max(losses)}")
+    print("  worst 20:")
+    for loss, opening, path, mv, best, _why in rows[:20]:
+        print(f"    {loss:5} {opening:26} after {path[:52]:52} teaches {mv:7} best {best}")
+    return rows
+
+
 def main() -> int:
     data = json.loads(CURRICULUM.read_text(encoding="utf-8"))
+    if os.environ.get("LINE_REPORT"):
+        with chess.engine.SimpleEngine.popen_uci(STOCKFISH) as engine:
+            line_report(data, engine)
+        return 0
     wanted = set(sys.argv[1:])
     errors: list[str] = []
     checked = 0
+    lines = 0
     with chess.engine.SimpleEngine.popen_uci(STOCKFISH) as engine:
         for key, entry in data.items():
             if not isinstance(entry, dict):
@@ -226,7 +300,27 @@ def main() -> int:
             for trap in entry.get("traps") or []:
                 checked += 1
                 verify_trap(trap, engine, errors, key)
+            if entry.get("tree"):
+                rows = []
+                plays_white = str(entry.get("color") or "white").lower() != "black"
+                walk_lines(entry["tree"], chess.Board(), [], engine, rows, key,
+                           preview_next=plays_white)
+                lines += len(rows)
+                for loss, opening, path, mv, best, why in rows:
+                    if best == "ILLEGAL":
+                        errors.append(f"{opening}: taught move {mv!r} is illegal after {path}")
+                    elif loss > TAUGHT_MOVE_MAX_CP_LOSS and mv != best and len(path.split()) > 2:
+                        # A move the engine dislikes may still be the right thing
+                        # to teach, but only if the reason is written down where
+                        # the next person can read it.
+                        if not why:
+                            errors.append(
+                                f"{opening}: after {path} we teach {mv}, which gives up "
+                                f"{loss}cp against {best}. If that is deliberate, say why "
+                                f"in the node's deliberate_choice field."
+                            )
     print(f"  traps checked : {checked}")
+    print(f"  taught moves  : {lines}")
     print(f"  problems      : {len(errors)}")
     for err in errors:
         print(f"    - {err}")
