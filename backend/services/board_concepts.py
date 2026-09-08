@@ -413,3 +413,145 @@ def detect_all(board: chess.Board) -> Dict[str, Any]:
     except Exception as exc:  # a detector must never break analysis
         logger.warning("board_concepts.detect_all failed: %s", exc)
     return found
+
+
+# ---------------------------------------------------------------------------
+# The square, drawn.
+# ---------------------------------------------------------------------------
+# `rule_of_the_square` above answers "does the king catch it?" with arithmetic.
+# That is the right answer and the wrong lesson: a player who does not already
+# know the rule learns nothing from a verdict. The thing that teaches is seeing
+# the box on the board and noticing which side of it the king is on.
+#
+# This returns the box itself so a lesson can paint it, plus the verdict, so
+# the two can never drift apart in the UI.
+
+def square_of_the_pawn(
+    board: chess.Board,
+    pawn_square: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """The 'square' the defending king must reach to catch a passed pawn.
+
+    Side length is the number of moves the pawn needs to promote, counting the
+    initial double step. The box runs from the pawn's rank to the promotion
+    rank, extended across the files toward the defending king (clamped at the
+    edge of the board, which is why an a- or h-pawn's box can be narrower).
+
+    Returns None when there is no passed pawn with a clear path -- a blocked
+    pawn is a different lesson and the rule does not apply to it.
+
+    Unlike `rule_of_the_square`, this fires whether or not the king catches
+    the pawn, because "the king IS inside the square" is exactly as
+    instructive as "it isn't".
+    """
+    target = None
+    if pawn_square:
+        try:
+            target = chess.parse_square(str(pawn_square).strip().lower())
+        except (ValueError, AttributeError):
+            return None
+
+    for color in (chess.WHITE, chess.BLACK):
+        defender = not color
+        king_sq = board.king(defender)
+        if king_sq is None:
+            continue
+        for pawn_sq in _passed_pawns(board, color):
+            if target is not None and pawn_sq != target:
+                continue
+            if not _path_clear(board, pawn_sq, color):
+                continue
+
+            steps = _steps_to_promote(pawn_sq, color)
+            if steps <= 0:
+                continue
+            pawn_file = chess.square_file(pawn_sq)
+            pawn_rank = chess.square_rank(pawn_sq)
+            promo_rank = 7 if color == chess.WHITE else 0
+            promo_sq = chess.square(pawn_file, promo_rank)
+
+            # Extend across the files toward the defending king. On the same
+            # file, extend toward whichever side has room -- the box is
+            # symmetric there and the king is already on the pawn's file.
+            king_file = chess.square_file(king_sq)
+            toward_right = (
+                king_file > pawn_file
+                if king_file != pawn_file
+                else (pawn_file <= 3)
+            )
+            far_file = pawn_file + steps if toward_right else pawn_file - steps
+            far_file = max(0, min(7, far_file))
+
+            lo_file, hi_file = sorted((pawn_file, far_file))
+            lo_rank, hi_rank = sorted((pawn_rank, promo_rank))
+
+            squares = [
+                chess.square_name(chess.square(f, r))
+                for r in range(lo_rank, hi_rank + 1)
+                for f in range(lo_file, hi_file + 1)
+            ]
+
+            king_rank = chess.square_rank(king_sq)
+            king_inside = (
+                lo_file <= king_file <= hi_file
+                and lo_rank <= king_rank <= hi_rank
+            )
+
+            # The verdict stays arithmetic and matches `rule_of_the_square`:
+            # chebyshev distance to the promotion square, plus a tempo when the
+            # defender moves first. The box is the explanation, not the proof.
+            king_dist = chess.square_distance(king_sq, promo_sq)
+            tempo = 1 if board.turn == defender else 0
+            king_catches = king_dist <= steps + tempo
+
+            # The interesting case for teaching: the king is OUTSIDE the box
+            # yet still catches the pawn, because it moves first and steps in.
+            # Showing the box alone would look like it contradicts the verdict;
+            # naming this is the whole lesson for a player who thinks the rule
+            # is "just look at the box".
+            enters_on_tempo = (not king_inside) and king_catches
+
+            if king_inside:
+                explanation = (
+                    f"The king on {chess.square_name(king_sq)} is inside the square "
+                    f"{chess.square_name(chess.square(lo_file, lo_rank))}"
+                    f"-{chess.square_name(chess.square(hi_file, hi_rank))}, "
+                    "so it can reach the pawn in time."
+                )
+            elif enters_on_tempo:
+                explanation = (
+                    f"The king on {chess.square_name(king_sq)} is just outside the "
+                    "square, but it moves first: one step in, and it catches the "
+                    "pawn after all."
+                )
+            else:
+                explanation = (
+                    f"The king on {chess.square_name(king_sq)} is outside the square "
+                    f"{chess.square_name(chess.square(lo_file, lo_rank))}"
+                    f"-{chess.square_name(chess.square(hi_file, hi_rank))}, and the "
+                    f"pawn moves first. It promotes on {chess.square_name(promo_sq)}."
+                )
+
+            return {
+                "concept": "square_of_the_pawn",
+                "enters_on_tempo": enters_on_tempo,
+                "explanation": explanation,
+                "pawn_square": chess.square_name(pawn_sq),
+                "pawn_color": "white" if color == chess.WHITE else "black",
+                "promotion_square": chess.square_name(promo_sq),
+                "defending_king": chess.square_name(king_sq),
+                "pawn_steps": steps,
+                "king_distance": king_dist,
+                "defender_to_move": board.turn == defender,
+                "square_squares": squares,
+                "square_corners": [
+                    chess.square_name(chess.square(lo_file, lo_rank)),
+                    chess.square_name(chess.square(hi_file, lo_rank)),
+                    chess.square_name(chess.square(lo_file, hi_rank)),
+                    chess.square_name(chess.square(hi_file, hi_rank)),
+                ],
+                "king_inside_square": king_inside,
+                "king_catches": king_catches,
+                "verdict": "king_catches" if king_catches else "pawn_promotes",
+            }
+    return None
