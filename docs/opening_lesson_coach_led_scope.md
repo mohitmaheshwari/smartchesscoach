@@ -119,8 +119,38 @@ and whether the mistake taught in chapter 1 falls faster than the student's
 untaught mistakes afterwards, which
 `backend/scripts/measure_coaching_contribution.py` already measures.
 
-## Open question for Mohit
+## Chapter 1: measured, and it changed the design
 
-Chapter 1 is personal, and for a brand-new user there is no chapter 1. Should
-a first-timer get the main line cold, or a short honest "you have not played
-this yet, so here is what it is for" opener? I lean to the second.
+I had this backwards. The draft treated the personal opener as the normal case
+and a generic one as the edge case. Counting how our 125 users would actually
+land on the Vienna:
+
+| case | users | share |
+| --- | --- | --- |
+| played the Vienna -> open with their own mistake in it | 33 | 26% |
+| played chess but not the Vienna -> tie it to their weakness | 36 | 29% |
+| no games at all -> generic opener | 56 | 45% |
+
+The generic case is the **plurality**, not the exception. Designing the page
+around the personal opener would have tuned it for a quarter of users.
+
+Worse, the middle tier is a mirage. Of the 53 users with a weakness topic on
+file, **49 are `piece_safety`** — so "your weakness is piece safety" is the same
+sentence for 92% of them. It reads as personal and carries no information,
+which is the failure mode we already have a name for: it looks like coaching
+and is not.
+
+**Decision:**
+
+- The **generic opener is the default path** and gets the real writing effort.
+  Every user gets a lesson that stands up on its own.
+- The **personal opener is an upgrade that has to earn its place.** It fires
+  only when we can name a specific position and move — "you lost the e4 pawn
+  this way four times" — not a category. 33 users clear that bar today for the
+  Vienna, and that number grows on its own as people play.
+- **Tier 2 as drafted is dropped.** A weakness category shared by 92% of users
+  is not personalisation. If it ever becomes specific enough to name a pattern
+  rather than a bucket, it can come back.
+
+This also means the lesson is never blocked on personal data, which matters
+because [[ChessGuru is not live]] and most accounts have no games yet.
