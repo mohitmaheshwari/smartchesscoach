@@ -15,6 +15,24 @@ import ChessLoader from "@/components/ChessLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API } from "@/App";
 
+const KNOWLEDGE_BANDS = [
+  {
+    id: "learn",
+    title: "You don’t know these yet",
+    blurb: "You lose the most ground here in the first twelve moves. Best place to start.",
+  },
+  {
+    id: "drill",
+    title: "Drill these",
+    blurb: "You half know them. A little work makes them reliable.",
+  },
+  {
+    id: "know",
+    title: "You know these",
+    blurb: "You handle the opening well. If you still lose these games, the problem is after the opening — not in it.",
+  },
+];
+
 function OpeningCard({ opening, onClick }) {
   return (
     <motion.button
@@ -179,11 +197,45 @@ export default function OpeningRepertoire({ user }) {
                 <h2 className="font-heading text-2xl font-semibold tracking-tight">Openings I’ve seen in your games</h2>
                 <p className="mt-2 text-sm text-muted-foreground">Choose one and we’ll work on the idea that matters most.</p>
                 {current.played.length > 0 ? (
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {current.played.map((opening, index) => (
-                      <OpeningCard key={opening.key || index} opening={opening} onClick={() => openLesson(opening)} />
-                    ))}
-                  </div>
+                  <>
+                    {/* Grouped by how well the player handles the OPENING itself,
+                        not the whole game. An opening played accurately and then
+                        lost later is not an opening problem, and putting it in the
+                        same list as one they cannot navigate hides that. */}
+                    {KNOWLEDGE_BANDS.map(({ id, title, blurb }) => {
+                      const group = current.played.filter(
+                        (opening) => opening.knowledge_band === id
+                      );
+                      if (group.length === 0) return null;
+                      return (
+                        <div key={id} className="mt-7">
+                          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                          <p className="mt-1 text-xs text-muted-foreground">{blurb}</p>
+                          <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {group.map((opening, index) => (
+                              <OpeningCard key={opening.key || `${id}-${index}`} opening={opening} onClick={() => openLesson(opening)} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Fewer than four games is not enough to judge either way. */}
+                    {current.played.some((opening) => !opening.knowledge_band) && (
+                      <div className="mt-7">
+                        <h3 className="text-sm font-semibold text-foreground">Not enough games yet</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          I need a few more games in these before I can tell you anything useful.
+                        </p>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {current.played
+                            .filter((opening) => !opening.knowledge_band)
+                            .map((opening, index) => (
+                              <OpeningCard key={opening.key || `none-${index}`} opening={opening} onClick={() => openLesson(opening)} />
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="cg-coach-card mt-5 text-sm leading-relaxed text-muted-foreground">{current.empty}</div>
                 )}
