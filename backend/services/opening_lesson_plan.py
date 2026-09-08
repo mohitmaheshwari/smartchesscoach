@@ -222,11 +222,12 @@ def _trap_chapters(opening: Dict[str, Any]) -> List[Dict[str, Any]]:
             "coach_intro": intro,
             "setup_moves": moves,
             "their_move": trigger,
-            "ask": authored_ask or (
-                "Their move looks natural. What did it stop defending?"
-                if kind in {"punish", "only_move"}
-                else "Before you play the tempting move, what does it give them?"
-            ),
+            # Only reached when the trap sits outside the tree and no hint was
+            # authored for it. It deliberately asserts nothing about the
+            # position: "what did it stop defending?" reads like a clue but is
+            # a chess claim nothing here has verified, and it is wrong whenever
+            # the punishment is a fork or a mate rather than a loose piece.
+            "ask": authored_ask or "What is your strongest reply here?",
             "answer": reply or None,
             "say": str(trap.get("trap_idea") or "").strip(),
             "takeaway": str(trap.get("simple_lesson") or "").strip() or None,
@@ -314,7 +315,7 @@ def _personal_chapter(mistakes: List[Dict[str, Any]]) -> Optional[Dict[str, Any]
     if times > 1:
         opener = f"You have gone wrong here more than once, most recently with {played}."
     else:
-        opener = f"Last time you reached this position you played {played}."
+        opener = f"Last time you reached this position you played {played}."  # allow-noncentral-caption
     return {
         "key": "your_game",
         "title": "The move that cost you",
