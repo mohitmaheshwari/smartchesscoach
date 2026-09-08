@@ -731,9 +731,19 @@ export default function PrescribedTraining({ user = null }) {
     <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
       <div className="cg-page cg-page--wide">
 
-        {/* Back nav — subtle */}
+        {/* Back nav — subtle. navigate(-1) is a no-op when this page was
+            reached with no prior in-app history (direct link, refresh, or
+            the first page loaded in the tab) — several pages link here, so
+            that's a common landing state. Fall back to /home when there's
+            nothing to pop. */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (window.history.state?.idx > 0) {
+              navigate(-1);
+            } else {
+              navigate("/home");
+            }
+          }}
           className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5 mb-8"
         >
           <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
