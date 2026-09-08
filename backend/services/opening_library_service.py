@@ -344,53 +344,139 @@ _ACCURATE_ENOUGH_PCT = 75.0
 def _opening_teaching_reason(entry: dict) -> str:
     """Say why THIS opening is worth this player's time, from their record.
 
-    Every card used to read "A verified lesson you can practise move by
-    move", which is true of every lesson in the library and therefore says
-    nothing about the player. The numbers behind this were already computed
-    in the same function and thrown away.
+    Ranked on opening-phase accuracy, not the whole game. A player who
+    scores 87% across a Ruy Lopez and never wins it does not have an
+    opening problem, and sending them to an opening lesson wastes the one
+    thing they already own.
     """
     games = int(entry.get("games_played") or 0)
     wins = int(entry.get("wins") or 0)
     win_rate = float(entry.get("win_rate") or 0.0)
-    accuracy = float(entry.get("avg_accuracy") or 0.0)
-    if games < _MIN_GAMES_FOR_OPENING_ADVICE:
+    band = entry.get("knowledge_band")
+    cp = entry.get("opening_cp_per_move")
+    if games < _MIN_GAMES_FOR_OPENING_ADVICE or not band or cp is None:
         return ""
 
     played = "You have played this %d times and won %d." % (games, wins)
-    if accuracy >= _ACCURATE_ENOUGH_PCT and win_rate < 40.0:
+    opening_quality = "You lose about %d centipawns a move over the first %d moves." % (
+        round(cp), OPENING_PHASE_PLIES
+    )
+
+    if band in ("learn", "drill") and win_rate >= 50.0:
+        # Winning anyway. Say the true thing -- they are starting each game
+        # behind and recovering -- rather than calling a winning opening a
+        # weakness.
         return (
-            "%s Your moves score %.0f%% accuracy here, so the moves are not "
-            "what is costing you - the plan after the opening is."
-            % (played, accuracy)
+            "%s %s You win these anyway, so drilling it would stop you "
+            "climbing out of a hole first." % (played, opening_quality)
         )
+    if band == "learn":
+        return "%s %s That is where the games are going wrong." % (played, opening_quality)
+    if band == "drill":
+        return "%s %s You half know this one - drilling it will hold it together." % (
+            played, opening_quality
+        )
+    # band == "know"
     if win_rate < 40.0:
         return (
-            "%s Accuracy is %.0f%%, so both the moves and the plan are "
-            "losing you ground here." % (played, accuracy)
+            "%s You play the opening well, so the opening is not what is "
+            "costing you - what happens after it is." % played
         )
-    return (
-        "%s This one is working for you - worth making it more reliable."
-        % played
-    )
+    return "%s You know this one and it is working." % played
 
 
 def _opening_teaching_priority(entry: dict) -> tuple:
-    """Rank by how much a lesson would be worth, not by library order.
+    """Worst-known openings first; ones the player already knows go last.
 
-    Most-played and least-won first: a bad result you keep repeating costs
-    far more than an opening you have never opened.
+    Previously ranked by games played weighted by losses, which put the
+    Italian Game -- 15cp a move over the opening -- at the top of "what
+    I'd teach next" for a player who plainly knows it.
     """
+    band = entry.get("knowledge_band")
     games = int(entry.get("games_played") or 0)
-    win_rate = float(entry.get("win_rate") or 0.0)
-    if games < _MIN_GAMES_FOR_OPENING_ADVICE:
-        return (2, 0, 0)
-    return (0, -(games * (100.0 - win_rate)), -games)
+    cp = float(entry.get("opening_cp_per_move") or 0.0)
+    if games < _MIN_GAMES_FOR_OPENING_ADVICE or not band:
+        return (3, 0, 0)
+    rank = {"learn": 0, "drill": 1, "know": 2}.get(band, 3)
+    return (rank, -cp, -games)
+
+
+# Opening-phase cp/move tertiles, taken from 13,909 analysed games rather
+# than chosen: p33 = 23, p66 = 48. Below the first a player knows the
+# opening; above the second they do not.
+OPENING_PHASE_PLIES = 12
+_KNOWS_OPENING_CP = 23.0
+_LEARNING_OPENING_CP = 48.0
+
+
+async def get_opening_phase_accuracy(db, user_id: str) -> dict:
+    """Mean cp lost per move over the first moves, per opening.
+
+    Whole-game accuracy cannot answer "do I know this opening". A player
+    can score 87% across a Ruy Lopez and still lose it, which is evidence
+    the opening is NOT the problem. Only the opening phase separates the
+    two, so the reduction happens in Mongo -- a game_analyses document
+    averages ~190KB and there is no reason to pull them.
+    """
+    game_openings = {}
+    async for game in db.games.find(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "opening": 1, "opening_name": 1},
+    ):
+        name = game.get("opening_name")
+        opening = game.get("opening")
+        if isinstance(opening, dict):
+            name = opening.get("name") or name
+        elif isinstance(opening, str):
+            name = name or opening
+        if name and game.get("game_id"):
+            game_openings[game["game_id"]] = name
+    if not game_openings:
+        return {}
+
+    rows = await db.game_analyses.aggregate([
+        {"$match": {"game_id": {"$in": list(game_openings)}}},
+        {"$project": {"game_id": 1, "m": "$stockfish_analysis.move_evaluations"}},
+        {"$unwind": "$m"},
+        {"$match": {
+            "m.is_opponent_move": {"$ne": True},
+            "m.move_number": {"$lte": OPENING_PHASE_PLIES},
+        }},
+        {"$group": {
+            "_id": "$game_id",
+            "cp": {"$avg": "$m.cp_loss"},
+            "moves": {"$sum": 1},
+        }},
+        {"$match": {"moves": {"$gte": 6}}},
+    ]).to_list(length=5000)
+
+    per_opening: dict = {}
+    for row in rows:
+        name = game_openings.get(row.get("_id"))
+        if not name:
+            continue
+        per_opening.setdefault(name, []).append(float(row.get("cp") or 0.0))
+    return {
+        name: {"cp_per_move": sum(v) / len(v), "games": len(v)}
+        for name, v in per_opening.items()
+        if v
+    }
+
+
+def opening_knowledge_band(cp_per_move: float) -> str:
+    """know / drill / learn, from the corpus tertiles above."""
+    if cp_per_move < _KNOWS_OPENING_CP:
+        return "know"
+    if cp_per_move < _LEARNING_OPENING_CP:
+        return "drill"
+    return "learn"
 
 
 async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
     from opening_trainer_service import get_user_opening_stats
 
     user_stats = await get_user_opening_stats(db, user_id)
+    opening_phase = await get_opening_phase_accuracy(db, user_id)
     progress_records = await db.opening_learning_progress.find(
         {"user_id": user_id}
     ).to_list(100)
@@ -419,6 +505,16 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             # above a 16.7% win rate.
             "wins": stat.get("wins", 0),
             "as_white": stat.get("as_white", 0),
+            "opening_cp_per_move": (
+                opening_phase.get(opening_name, {}).get("cp_per_move")
+            ),
+            "knowledge_band": (
+                opening_knowledge_band(
+                    opening_phase[opening_name]["cp_per_move"]
+                )
+                if opening_name in opening_phase
+                else None
+            ),
             "as_black": stat.get("as_black", 0),
             "losses": stat.get("losses", 0),
             "draws": stat.get("draws", 0),
@@ -459,6 +555,8 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "games_played": entry.get("games_played"),
             "win_rate": entry.get("win_rate"),
             "avg_accuracy": entry.get("avg_accuracy"),
+            "opening_cp_per_move": entry.get("opening_cp_per_move"),
+            "knowledge_band": entry.get("knowledge_band"),
             "from_your_games": True,
         }
         rec_as_white = int(entry.get("as_white") or 0)
