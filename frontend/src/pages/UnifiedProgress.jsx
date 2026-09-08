@@ -744,7 +744,7 @@ const UnifiedProgress = ({ user }) => {
                       Mohit 2026-07-09: Focus / weaknesses must link to their OWN
                       training, not a generic page. */}
                   <button
-                    onClick={() => navigate(`/training/pattern/${derived.active.trained_pattern}`)}
+                    onClick={() => navigate(`/training/pattern/${derived.active.pattern}`)}
                     className="cg-primary-action"
                   >
                     <Target className="h-3.5 w-3.5" strokeWidth={2} />
