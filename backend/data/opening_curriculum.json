@@ -27,9 +27,12 @@
         "trigger_after": [
           "d4"
         ],
-        "description": "They play 1...e5 trying to trick you. Take the pawn and win.",
-        "trap_idea": "They try to take your b2 pawn with their queen. Let them — then trap the queen.",
-        "how_to_avoid": "Just play normal development. Their queen gets stuck."
+        "description": "Black throws the e-pawn at you on move one. Just take it.",
+        "trap_idea": "After dxe5 Black has no real way to win the pawn back. They usually try to hunt your b2 pawn with the queen, and the queen ends up short of squares.",
+        "how_to_avoid": "As Black, do not play 1...e5 against d4. You give away a pawn for nothing.",
+        "trap_type": "punish",
+        "our_reply": "dxe5",
+        "simple_lesson": "A gambit you have never seen is still just a free pawn until it is proved otherwise. Take it and develop."
       },
       {
         "name": "Bg4 Pin Trick",
@@ -41,9 +44,12 @@
           "Nf6",
           "e3"
         ],
-        "description": "They pin your knight spot with Bg4. You have a strong response.",
+        "description": "Black pins nothing yet but pressures your knight's future home. This is a normal line, not a mistake, and Nf3 is a perfectly good answer.",
         "trap_idea": "Push h3 then g4 to kick their bishop, then jump Ne5.",
-        "how_to_avoid": "Don't panic when they play Bg4. h3 then g4 is strong."
+        "how_to_avoid": "Don't panic when they play Bg4. h3 then g4 is strong.",
+        "trap_type": "common_line",
+        "our_reply": "Nf3",
+        "simple_lesson": "Not every annoying-looking move is a threat. Check what it actually attacks before you react."
       },
       {
         "name": "Queen Trap after c5",
@@ -55,9 +61,12 @@
           "c5",
           "e3"
         ],
-        "description": "They take b2 with their queen. Nb5 and Rb1 traps it.",
+        "description": "Black hits b2 with the queen. It is slightly loose rather than losing, and Nc3 develops while covering the squares the queen wants.",
         "trap_idea": "Let them take b2. Their queen has no escape.",
-        "how_to_avoid": "Make sure you have Nb5 before allowing Qxb2."
+        "how_to_avoid": "Make sure you have Nb5 before allowing Qxb2.",
+        "trap_type": "common_line",
+        "our_reply": "Nc3",
+        "simple_lesson": "An early queen raid usually costs the raider time. Develop toward it instead of defending passively."
       }
     ],
     "tree": {
@@ -439,18 +448,24 @@
     "traps": [
       {
         "name": "Fried Liver Attack",
-        "trigger_move": "Ng5",
+        "trigger_move": "Nxd5",
         "trigger_after": [
           "e4",
           "e5",
           "Nf3",
           "Nc6",
           "Bc4",
-          "Nf6"
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5"
         ],
-        "description": "Knight goes to g5 attacking f7. If they take, you sacrifice the knight for a devastating attack.",
-        "trap_idea": "After Nxf7, their king is dragged out. The attack is crushing.",
-        "how_to_avoid": "Black should play d5 instead of allowing Ng5."
+        "description": "Black recaptures on d5 with the knight. That is the mistake, and now the knight sacrifice on f7 is real.",
+        "trap_idea": "Nxf7 drags the king out into the open with Kxf7, and Qf3+ follows. The king has to walk to e6 and Black spends the rest of the game defending.",
+        "how_to_avoid": "As Black, do not recapture with Nxd5. Play Na5 to chase the bishop first.",
+        "trap_type": "punish",
+        "our_reply": "Nxf7",
+        "simple_lesson": "Before you recapture, check whether the square you are moving to is defended by more of their pieces than yours."
       },
       {
         "name": "Legal's Mate",
@@ -465,9 +480,13 @@
           "Nc3",
           "Bg4"
         ],
-        "description": "Sacrifice the queen to deliver checkmate with minor pieces.",
-        "trap_idea": "If they take your queen with Bxd1, you play Bxf7+ Ke7 Nd5#. Checkmate!",
-        "how_to_avoid": "Don't take the queen if you see Bxf7+ coming."
+        "description": "You offer your queen. This only wins if Black takes it, so play it knowing what happens when they do not.",
+        "trap_idea": "If Black grabs the queen with Bxd1, then Bxf7+ Ke7 Nd5 is checkmate with three minor pieces. The queen was worth it.",
+        "how_to_avoid": "As Black, do not take the queen. Take the knight on e5 instead and you are winning.",
+        "trap_type": "bait",
+        "our_reply": "Bxf7+",
+        "if_declined": "If Black declines and simply plays Nxe5, they are a clean piece up and you are worse. This is a gamble on your opponent's greed, not a sound move.",
+        "simple_lesson": "When a queen is suddenly free, ask why before you take it. Count the pieces aiming at your king first."
       },
       {
         "name": "Blackburne Shilling Gambit",
@@ -479,9 +498,12 @@
           "Nc6",
           "Bc4"
         ],
-        "description": "Black plays Nd4 hoping you take f7. Don't — just take the knight.",
-        "trap_idea": "Bxf7+ looks tempting but wastes your bishop. Nxd4 wins a piece.",
-        "how_to_avoid": "Don't be greedy. Nxd4 is simple and strong."
+        "description": "Black offers the e5 pawn with Nd4, hoping you grab it. The greedy capture loses; the simple one is good for you.",
+        "trap_idea": "Just take the knight with Nxd4. Black has given up a real pawn for a trick that only works if you play Nxe5 and walk into Qg5.",
+        "how_to_avoid": "As White, do not play Nxe5 here. Take the knight on d4 and stay a pawn up.",
+        "trap_type": "punish",
+        "our_reply": "Nxd4",
+        "simple_lesson": "When a move hangs material for no clear reason, look for the trick before you take."
       }
     ],
     "tree": {
@@ -1222,42 +1244,31 @@
     "traps": [
       {
         "name": "Siberian Trap",
-        "trigger_move": "Qa5",
+        "trigger_move": "h3",
         "trigger_after": [
           "e4",
           "c5",
+          "d4",
+          "cxd4",
+          "c3",
+          "dxc3",
+          "Nxc3",
+          "Nc6",
           "Nf3",
           "e6",
-          "d4",
-          "cxd4",
-          "Nxd4",
+          "Bc4",
+          "Qc7",
+          "O-O",
           "Nf6",
-          "Nc3",
-          "Bb4"
+          "Qe2",
+          "Ng4"
         ],
-        "description": "Black plays Qa5 pinning the knight and threatening Bxc3+.",
-        "trap_idea": "White's knight on c3 is pinned. If they don't see it, you win material.",
-        "how_to_avoid": "White should play Bd2 or Nb3 to break the pin."
-      },
-      {
-        "name": "Magnus Smith Trap",
-        "trigger_move": "Nd5",
-        "trigger_after": [
-          "e4",
-          "c5",
-          "Nf3",
-          "d6",
-          "d4",
-          "cxd4",
-          "Nxd4",
-          "Nf6",
-          "Nc3",
-          "g6",
-          "Bc4"
-        ],
-        "description": "White plays Bc4 and after Bg7, Nd5! forks everything.",
-        "trap_idea": "The knight on d5 attacks multiple pieces. Black's in trouble.",
-        "how_to_avoid": "Black should delay Bg7 and play a6 or e6 first."
+        "description": "Your knight lands on g4 threatening mate on h2. If White shoos it away with h3, that loses on the spot.",
+        "trap_idea": "After h3 comes Nd4, hitting the queen. White cannot both save the queen and stop Qh2 mate, so Black comes out a piece ahead.",
+        "how_to_avoid": "As White, do not play h3 here. Deal with the mate threat first.",
+        "trap_type": "punish",
+        "our_reply": "Nd4",
+        "simple_lesson": "Before you kick an annoying piece away, check whether it is holding a mate threat you have not answered."
       }
     ],
     "tree": {
@@ -1664,7 +1675,7 @@
     "traps": [
       {
         "name": "Caro-Kann Smothered Mate",
-        "trigger_move": "Nd6",
+        "trigger_move": "Ngf6",
         "trigger_after": [
           "e4",
           "c6",
@@ -1674,12 +1685,14 @@
           "dxe4",
           "Nxe4",
           "Nd7",
-          "Qe2",
-          "Ngf6"
+          "Qe2"
         ],
-        "description": "White plays Nd6# — smothered mate! Black's pieces block all escape squares.",
-        "trap_idea": "The knight on d6 delivers checkmate because Black's own pieces block the king.",
-        "how_to_avoid": "Black should not play Nd7 and Ngf6 without checking for Nd6."
+        "description": "Black develops the last knight to f6. It is the natural move and it is checkmate in one.",
+        "trap_idea": "Nd6 is mate. Black's own pieces cover every escape square, so the knight landing next to the king ends the game immediately.",
+        "how_to_avoid": "As Black, play Ndf6 with the other knight, or deal with Qe2 first.",
+        "trap_type": "punish",
+        "our_reply": "Nd6",
+        "simple_lesson": "When your own pieces crowd your king, a single enemy knight can be mate. Give the king air."
       }
     ],
     "tree": {
@@ -2239,7 +2252,7 @@
     "traps": [
       {
         "name": "French Winawer Poisoned Pawn",
-        "trigger_move": "Qg4",
+        "trigger_move": "Qc7",
         "trigger_after": [
           "e4",
           "e6",
@@ -2251,11 +2264,16 @@
           "c5",
           "a3",
           "Bxc3+",
-          "bxc3"
+          "bxc3",
+          "Ne7",
+          "Qg4"
         ],
-        "description": "Black takes the g2 pawn with Qg4. Risky but powerful if White doesn't know the theory.",
-        "trap_idea": "The g2 pawn is free and White's kingside is weak.",
-        "how_to_avoid": "White should protect g2 or play Qg4 prevention lines."
+        "description": "White's queen attacks g7. Instead of defending, Black lets both kingside pawns go and plays on the other wing.",
+        "trap_idea": "After Qc7 White can take on g7 and h7, but Black gets the c-file, the doubled c-pawns to attack, and a lead in the race. This is a real grandmaster line, not a swindle.",
+        "how_to_avoid": "As White, know this line before entering it. Grabbing both pawns costs a lot of time.",
+        "trap_type": "bait",
+        "if_declined": "If White does not take and plays quietly instead, Black has simply developed and still has the c-file pressure. Nothing is lost either way.",
+        "simple_lesson": "Pawns near your king are worth giving up only when you get something faster in return. Count the tempi, not just the pawns."
       }
     ],
     "tree": {
@@ -2842,7 +2860,7 @@
     "traps": [
       {
         "name": "Elephant Trap",
-        "trigger_move": "Nxe4",
+        "trigger_move": "Nxd5",
         "trigger_after": [
           "d4",
           "d5",
@@ -2853,12 +2871,14 @@
           "Bg5",
           "Nbd7",
           "cxd5",
-          "exd5",
-          "Nxd5"
+          "exd5"
         ],
-        "description": "White takes d5 thinking it wins a pawn. But Nxe4! wins the bishop because of the pin.",
-        "trap_idea": "After Nxe4, White's bishop on g5 is attacked by the queen, and the knight on e4 forks.",
-        "how_to_avoid": "White should NOT play Nxd5 in this position."
+        "description": "Taking on d5 looks like it wins a pawn, because the knight on f6 seems pinned against the queen. It loses a piece.",
+        "trap_idea": "Black answers Nxd5 anyway. If you take the queen with Bxd8, then Bb4+ comes with check, and after the king recaptures Black is a whole piece up.",
+        "how_to_avoid": "As White, do not take on d5 here. Play e3 and finish developing.",
+        "trap_type": "avoid",
+        "our_reply": "Nxd5",
+        "simple_lesson": "A pin is only real if the piece behind it cannot come with check. Look for the in-between check before you trust a pin."
       }
     ],
     "tree": {
@@ -3412,11 +3432,14 @@
           "e4",
           "d5",
           "exd5",
-          "Nf6"
+          "Nf6",
+          "d4"
         ],
-        "description": "Instead of taking back the pawn, play Nf6 then Bg4, creating tactical pressure.",
-        "trap_idea": "Bg4 pins the queen to the king. If White plays Be2, Nxd5 wins the pawn back with activity.",
-        "how_to_avoid": "White should be careful about the pin and not play passively."
+        "description": "Instead of regaining the pawn straight away, Black develops the bishop and plays for activity. A sound gambit line, not a trick.",
+        "trap_idea": "Black accepts being a pawn down for a while in exchange for fast piece play. White's best is simply to develop and hold the extra pawn.",
+        "how_to_avoid": "As White, do not panic. Develop normally and you keep a small edge.",
+        "trap_type": "common_line",
+        "simple_lesson": "Being a pawn down is fine if your pieces come out faster. Count development, not just material."
       }
     ],
     "tree": {
@@ -3625,7 +3648,7 @@
     "traps": [
       {
         "name": "Noah's Ark Trap",
-        "trigger_move": "c4",
+        "trigger_move": "Qxd4",
         "trigger_after": [
           "e4",
           "e5",
@@ -3634,15 +3657,20 @@
           "Bb5",
           "a6",
           "Ba4",
-          "Nf6",
-          "O-O",
+          "d6",
+          "d4",
           "b5",
           "Bb3",
-          "d6"
+          "Nxd4",
+          "Nxd4",
+          "exd4"
         ],
-        "description": "Black traps White's bishop on b3 with a5-a4. The bishop has nowhere to go.",
-        "trap_idea": "After a5, a4, the bishop is trapped by its own pawns.",
-        "how_to_avoid": "White should retreat the bishop to d5 or c2 early."
+        "description": "Recapturing the pawn with the queen looks obvious. It walks the bishop into a cage it never gets out of.",
+        "trap_idea": "Black plays c5 hitting the queen, and then c4. The pawns on a6, b5 and c4 close every diagonal, and the bishop on b3 is trapped and lost.",
+        "how_to_avoid": "As White, do not grab the d4 pawn with the queen. Play a4 and challenge the pawn chain first.",
+        "trap_type": "avoid",
+        "our_reply": "c5",
+        "simple_lesson": "A bishop behind enemy pawns can be trapped by pawns alone. Before you park one there, ask which pawns can advance to lock it in."
       }
     ],
     "tree": {
@@ -5011,7 +5039,7 @@
             "name": "KID setup begins",
             "idea_opponent": "White claims the big center.",
             "next": "g6",
-        "hint": "Prepare g6 followed by Bg7 — the King's Indian setup.",
+            "hint": "Prepare g6 followed by Bg7 — the King's Indian setup.",
             "right_feedback": "g6 — prepare to place the bishop on g7, where it will pressure the center.",
             "wrong_feedback": "This lesson uses g6 so the bishop can go to g7 and pressure the center. Playing e6 leads to a different defense with a different plan.",
             "responses": {
@@ -5057,11 +5085,11 @@
                     "responses": {}
                   },
                   "g3": {
-                "name": "King's Indian — g3 and Bg2 setup",
-                "idea_opponent": "White also prepares a bishop on g2. Expect a quieter, long-term game.",
+                    "name": "King's Indian — g3 and Bg2 setup",
+                    "idea_opponent": "White also prepares a bishop on g2. Expect a quieter, long-term game.",
                     "next": "O-O",
-                "right_feedback": "O-O — castle before you expand. The pawn pushes come later.",
-                "wrong_feedback": "Against White's g3 and Bg2 setup, castle first. Then prepare c6, Nbd7, and e5. Do not rush e5 while your king is still in the center.",
+                    "right_feedback": "O-O — castle before you expand. The pawn pushes come later.",
+                    "wrong_feedback": "Against White's g3 and Bg2 setup, castle first. Then prepare c6, Nbd7, and e5. Do not rush e5 while your king is still in the center.",
                     "responses": {}
                   }
                 }
@@ -5896,7 +5924,7 @@
             "right_feedback": "Right — d4 gives you the big center.",
             "responses": {
               "Bg7": {
-            "name": "g6 and Bg7 bishop setup",
+                "name": "g6 and Bg7 bishop setup",
                 "idea_opponent": "Bishop aims at your d4-e5 chain.",
                 "next": "Bc4",
                 "hint": "Italian-style bishop — aim at f7.",
@@ -6023,7 +6051,7 @@
                     "idea_opponent": "Black trades to relieve pressure.",
                     "next": "Nxd4",
                     "right_feedback": "Nxd4 — strong central knight, more space than Black.",
-                  "wrong_feedback": "In the Philidor, Nxd4 is right. Qxd4 lets Nc6 attack your queen, so you must spend another move on it.",
+                    "wrong_feedback": "In the Philidor, Nxd4 is right. Qxd4 lets Nc6 attack your queen, so you must spend another move on it.",
                     "responses": {
                       "Nf6": {
                         "name": "Philidor — Classical",
@@ -6416,7 +6444,7 @@
   "vienna_game": {
     "name": "Vienna Game",
     "color": "white",
-    "summary": "After 1.e4 e5, develop the queen's knight with Nc3. Then choose f4 for an early attack, Bc4 for steady development, or g3 followed by Bg2 for pressure through the center. The game may later resemble an Italian Game or King's Gambit.",
+    "summary": "You play 1.e4 and, after 1...e5, you bring the queen's knight out first with 2.Nc3. That one small change is the whole opening. Nc3 guards your e4 pawn, so you are never in a hurry to defend it, and you keep both plans open: a calm Italian-style game with Bc4, or the sharp Vienna Gambit with f4.",
     "difficulty": "intermediate",
     "setup_order": [
       "e4",
@@ -6427,40 +6455,223 @@
       "O-O"
     ],
     "golden_rules": [
-      "Nc3 first, then commit: f4 (Vienna Gambit, sharp) or Bc4 (Italian-style, quiet).",
-      "The Vienna Gambit (3.f4) is sharp — only play it if you've studied the lines.",
-      "Bc4 + d3 + Nf3 + O-O is the calm path, transposes to Italian.",
-      "Don't play Bg5 too early — Black can chase the bishop with h6."
+      "Queen's knight first. Nc3 before Nf3 is the whole point of the Vienna.",
+      "Because Nc3 guards e4, you are never forced to defend that pawn in a rush.",
+      "Bc4 points at f7. That is the square Black's king has to worry about all game.",
+      "If Black ever grabs your e4 pawn, look hard at Qh5 before anything else.",
+      "f4 is the sharp Vienna Gambit. Only play it if you know what to do after d5."
     ],
-    "traps": [],
+    "traps": [
+      {
+        "name": "The Frankenstein-Dracula Trap",
+        "trap_type": "only_move",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nc3",
+          "Nf6",
+          "Bc4"
+        ],
+        "trigger_move": "Nxe4",
+        "our_reply": "Qh5",
+        "description": "Black grabs the e4 pawn. It is not a blunder, but after Qh5 almost every natural reply is checkmate on the spot.",
+        "trap_idea": "Qh5 attacks the knight on e4 and threatens Qxf7 mate at the same time. Black has 32 legal moves here and 24 of them are checkmate in one. Only Nd6 really holds, and the two moves club players reach for first, Nf6 and Nxc3, are both mate.",
+        "how_to_avoid": "As Black, leave the e4 pawn alone unless you know the Nd6 line by heart. Bc5 is the safe move.",
+        "simple_lesson": "When you win a pawn, check whether one enemy move can attack two things at once.",
+        "total_reply_count": 32,
+        "mate_reply_count": 24,
+        "safest_reply": "Nd6"
+      },
+      {
+        "name": "Vienna Gambit Accepted",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nc3",
+          "Nf6",
+          "f4"
+        ],
+        "trigger_move": "exf4",
+        "our_reply": "e5",
+        "description": "Black takes the gambit pawn. Now e5 kicks the knight, and it has nowhere good to go.",
+        "trap_idea": "After e5 every knight jump loses ground. Nd5, Ne4 and Ng4 are all worse, so the knight has to crawl back to g8 and Black has wasted the whole opening.",
+        "how_to_avoid": "As Black, meet the Vienna Gambit with d5, not exf4. Hit back in the middle.",
+        "simple_lesson": "After you win a pawn on the side, check whether a centre pawn can march up and kick your best piece."
+      },
+      {
+        "name": "The g7 Grab",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nc3",
+          "Nc6",
+          "Bc4",
+          "Bc5",
+          "Qg4"
+        ],
+        "trigger_move": "Nf6",
+        "our_reply": "Qxg7",
+        "description": "After Qg4 attacks g7, Black develops with Nf6 and attacks the queen. It loses a pawn.",
+        "trap_idea": "Playing Bc5 took the bishop off f8, and f8 was the only thing defending g7. Nf6 attacks the queen but does not defend, so Qxg7 wins the pawn and forces the rook to move.",
+        "how_to_avoid": "As Black, answer Qg4 with g6 or Kf8. Deal with the threat before developing.",
+        "simple_lesson": "When a queen attacks a pawn next to your king, defending comes first. A developing move that ignores the threat just loses it."
+      }
+    ],
     "tree": {
       "e4": {
-        "idea": "Take the center.",
+        "idea": "Claim the middle of the board.",
         "next": "Nc3",
         "responses": {
           "e5": {
             "name": "Open Game",
-            "idea_opponent": "Black mirrors.",
+            "idea_opponent": "They meet you head on in the middle.",
             "next": "Nc3",
-            "hint": "Develop the queen's knight first — the Vienna Game.",
-            "right_feedback": "Nc3 — Vienna Game. Develops the queen's knight before the king's knight.",
-            "wrong_feedback": "In the Vienna Game, Nc3 is the defining move — queen's knight first. Nf3 transposes to Italian/Ruy/Scotch (all fine, just different openings). Bc4 leads to Bishop's Opening. For the Vienna, Nc3 first.",
+            "hint": "Develop the knight that guards your e-pawn. It is not the one most people play.",
+            "right_feedback": "Nc3. That is the Vienna. The knight develops and guards e4 at the same time, so your e-pawn is never loose.",
+            "wrong_feedback": "Nf3 is a good move, but it leads to the Italian or the Ruy Lopez, not the Vienna. The Vienna move is Nc3: it develops and guards e4, which keeps both Bc4 and f4 available to you.",
             "responses": {
               "Nf6": {
-                "name": "Vienna — Main",
-                "idea_opponent": "Black develops, attacks e4.",
+                "name": "Vienna, Main Line",
+                "idea_opponent": "They develop and attack your e-pawn. It is already defended, so nothing is hanging.",
                 "next": "Bc4",
-                "hint": "Italian-style: aim the bishop at f7. Or play f4 (Vienna Gambit) for sharp attack.",
-                "right_feedback": "Bc4 — quiet Vienna. Now plan d3 + Nf3 + O-O. (f4 is the Vienna Gambit — sharper alternative.)",
-                "wrong_feedback": "Against 2...Nf6, choose Bc4 for steady development, f4 for a sharp attack that needs study, or g3 followed by Bg2. For 1200–1500 players, Bc4 is the safer choice.",
-                "responses": {}
+                "hint": "Your e-pawn is safe. Develop the bishop to the square that stares at Black's weakest point.",
+                "right_feedback": "Bc4. The bishop looks straight at f7, and you are ready to castle. If Black now takes on e4, you have a very strong answer.",
+                "wrong_feedback": "f4 here is the Vienna Gambit, which is sharp and needs homework. Bc4 is the calm, strong choice: develop, aim at f7, castle.",
+                "responses": {
+                  "Nxe4": {
+                    "name": "The e4 Pawn Grab",
+                    "idea_opponent": "They take your e-pawn. It looks free, because if you take back they simply trade knights.",
+                    "next": "Qh5",
+                    "hint": "Their knight is out on its own, and f7 is thin. One move hits both.",
+                    "right_feedback": "Qh5. The queen attacks the knight on e4 and threatens Qxf7 mate at the same time. Black has 32 legal moves here, and 24 of them are checkmate in one.",
+                    "wrong_feedback": "Taking back with Nxe4 lets Black off with an even game. Qh5 is far stronger: it hits the knight and threatens mate on f7 in one move, and only one Black reply holds.",
+                    "responses": {
+                      "Nd6": {
+                        "name": "The Only Move",
+                        "idea_opponent": "The knight comes back to cover f7. This is the single move that does not lose on the spot.",
+                        "next": "Qxe5+",
+                        "hint": "f7 is covered now, so the mate is gone. But something else of theirs is sitting there undefended.",
+                        "right_feedback": "Qxe5+. You win the e5 pawn with check, so Black has to answer you instead of catching up on development.",
+                        "wrong_feedback": "Black has just defended f7, so stop looking for mate. Take what is actually loose: Qxe5+ wins a pawn with check.",
+                        "responses": {
+                          "Qe7": {
+                            "name": "Offering the Trade",
+                            "idea_opponent": "They block the check and offer to swap queens.",
+                            "next": "Qxe7+",
+                            "hint": "Take the trade. Count what you have gained before you go looking for more.",
+                            "right_feedback": "Qxe7+. Queens come off, you are a clean pawn up, and Black has to recapture with the king, so it never gets to castle.",
+                            "wrong_feedback": "Avoiding the trade lets Black catch up. Qxe7+ keeps it simple: a pawn ahead, and their king stuck in the middle.",
+                            "responses": {}
+                          }
+                        }
+                      },
+                      "Nf6": {
+                        "name": "Checkmate in One",
+                        "idea_opponent": "The natural retreat. It looks like it defends and develops. It does neither in time.",
+                        "next": "Qxf7#",
+                        "hint": "Do not chase the knight. Look at f7 and count the defenders.",
+                        "right_feedback": "Qxf7 is checkmate. Your bishop on c4 protects the queen, and the king has no square to run to. This is why grabbing on e4 is so risky.",
+                        "wrong_feedback": "There is a checkmate on the board right now. The queen and the bishop both hit f7 and the king cannot move: Qxf7 is mate.",
+                        "responses": {}
+                      },
+                      "Nxc3": {
+                        "name": "Winning a Knight, Losing the Game",
+                        "idea_opponent": "They grab a second piece, counting material instead of looking at their king.",
+                        "next": "Qxf7#",
+                        "hint": "Ignore the knight completely. Look at f7.",
+                        "right_feedback": "Qxf7 is checkmate. Black won a knight and lost the game with the same move, because your bishop on c4 guards your queen.",
+                        "wrong_feedback": "Do not take the knight back. There is mate in one: Qxf7, protected by the bishop on c4.",
+                        "responses": {}
+                      }
+                    }
+                  },
+                  "Bc5": {
+                    "name": "Black's Best Answer",
+                    "idea_opponent": "The strongest reply. They develop and leave the e4 pawn alone.",
+                    "next": "Nf3",
+                    "hint": "Nothing to punish here. Just develop and put a question to their e-pawn.",
+                    "right_feedback": "Nf3. Solid. You attack e5, prepare to castle, and the game is healthy and balanced. Not every opening ends in a trap.",
+                    "wrong_feedback": "There is no trick here, because Black played the best move. Nf3 is right: develop, hit e5, castle next.",
+                    "responses": {
+                      "d6": {
+                        "name": "Propping Up the Pawn",
+                        "idea_opponent": "They defend e5 and open a path for their light bishop.",
+                        "next": "Nd5",
+                        "hint": "Is there a square in the middle where your knight would sit right in their face?",
+                        "right_feedback": "Nd5. The knight jumps into the middle where it eyes c7 and f6, and Black has to decide whether to trade it off or live with it.",
+                        "wrong_feedback": "Castling is perfectly fine here. Nd5 is the move with more bite: the knight lands in the middle and asks Black an awkward question.",
+                        "responses": {}
+                      }
+                    }
+                  },
+                  "Nc6": {
+                    "name": "Quiet Development",
+                    "idea_opponent": "They defend e5 with the knight and keep everything solid.",
+                    "next": "d3",
+                    "hint": "Nothing is loose. Support your e-pawn and give your other bishop a way out.",
+                    "right_feedback": "d3. Calm and strong: e4 is now doubly protected, your dark bishop has a path, and you can castle next.",
+                    "wrong_feedback": "d3 is the move here. It holds e4, opens your dark bishop, and gets you ready to castle before anything sharp starts.",
+                    "responses": {}
+                  }
+                }
               },
               "Nc6": {
-                "name": "Vienna — Knight Defense",
-                "idea_opponent": "Black develops naturally.",
+                "name": "Vienna with Nc6",
+                "idea_opponent": "They defend e5 with the knight instead of developing to f6.",
                 "next": "Bc4",
-                "right_feedback": "Bc4 — Italian-style setup, transposes nicely.",
-                "responses": {}
+                "hint": "Same plan as always in this opening. Point the bishop at their weakest square.",
+                "right_feedback": "Bc4. The bishop eyes f7 again. Now watch carefully if Black copies you with Bc5.",
+                "wrong_feedback": "Bc4 is the move: it develops, aims at f7, and sets a real trap if Black mirrors you with Bc5.",
+                "responses": {
+                  "Bc5": {
+                    "name": "The g7 Trap",
+                    "idea_opponent": "They mirror your bishop. It looks natural and symmetrical, but it quietly abandons g7.",
+                    "next": "Qg4",
+                    "hint": "The bishop that used to sit on f8 has left. Which pawn near their king is now undefended?",
+                    "right_feedback": "Qg4. The bishop left f8, so nothing guards g7 any more. Black must now weaken the kingside or give up castling.",
+                    "wrong_feedback": "Qg4 is the shot. Once the bishop goes to c5, g7 has no defender at all, so the queen raid is real and not just hopeful.",
+                    "responses": {
+                      "Nf6": {
+                        "name": "The Natural Mistake",
+                        "idea_opponent": "They develop and attack your queen. It is the move almost everyone plays here.",
+                        "next": "Qxg7",
+                        "hint": "Their move attacked your queen, but ask what it did about the pawn you were attacking.",
+                        "right_feedback": "Qxg7. Nf6 attacked the queen but never defended g7, so you win the pawn and hit the rook. Black has to move it and give up castling.",
+                        "wrong_feedback": "Do not retreat. Nf6 did nothing about g7, so just take it: Qxg7 wins a pawn and attacks the rook in the corner.",
+                        "responses": {}
+                      },
+                      "g6": {
+                        "name": "Blocking with the Pawn",
+                        "idea_opponent": "They defend g7 and kick your queen. A sensible answer.",
+                        "next": "Qg3",
+                        "hint": "Your queen is being chased. Step back to a square where it still looks at something.",
+                        "right_feedback": "Qg3. The queen keeps its eye on the e5 pawn, and Black has loosened the dark squares around the king to do it.",
+                        "wrong_feedback": "Retreat, but retreat with a purpose. Qg3 keeps the queen pointed at e5 instead of drifting to the edge of the board.",
+                        "responses": {}
+                      },
+                      "Kf8": {
+                        "name": "Giving Up Castling",
+                        "idea_opponent": "They defend g7 with the king. Solid, but that king will never castle now.",
+                        "next": "Qf3",
+                        "hint": "You have already won something that does not look like material. Just develop and keep it.",
+                        "right_feedback": "Qf3. You did not win a pawn, but Black's king is stuck in the middle for the rest of the game. That is worth more.",
+                        "wrong_feedback": "There is nothing to force here. Qf3 is right: Black has already lost the right to castle, so develop calmly and keep aiming at f7.",
+                        "responses": {}
+                      }
+                    }
+                  },
+                  "Nf6": {
+                    "name": "Back to the Main Line",
+                    "idea_opponent": "They develop and hit e4, bringing the game back to normal Vienna paths.",
+                    "next": "d3",
+                    "hint": "Support your e-pawn quietly and free your other bishop.",
+                    "right_feedback": "d3. Simple and solid: e4 is doubly protected and your dark bishop has somewhere to go.",
+                    "wrong_feedback": "d3 is the calm move. It props up e4, frees the dark bishop, and prepares castling.",
+                    "responses": {}
+                  }
+                }
               }
             }
           }
@@ -6506,10 +6717,11 @@
     "main_line": [
       "e4",
       "e5",
-      "Nc3"
+      "Nc3",
+      "Nf6"
     ],
-    "white_plan": "Prepare f4 (Vienna Gambit) or Bc4 for attacking play, delay Nf3 for flexibility",
-    "black_plan": "Develop naturally with Nf6, be ready for f4 gambit, maintain central presence",
+    "white_plan": "Play Nc3 and Bc4, then d3, Nf3 and castle. Keep the bishop pointed at f7 and watch for the moment Black's king gets stuck in the middle.",
+    "black_plan": "Develop with Nf6 and Bc5 and leave the e4 pawn alone. Against the Vienna Gambit, hit back with d5 instead of taking on f4.",
     "demands": {
       "name": "Vienna Game",
       "color": "white",
@@ -6522,10 +6734,24 @@
       "theory_burden": 0.4
     },
     "variations": {
+      "italian_style": {
+        "name": "Vienna, Bishop's Line",
+        "moves_from_parent": [
+          "Bc4"
+        ],
+        "continuation": [
+          "Bc5",
+          "Nf3",
+          "d6",
+          "Nd5"
+        ],
+        "white_plan": "Develop with Bc4 and d3, castle, and use the d5 square for a knight.",
+        "black_plan": "Mirror with Bc5 and hold e5 with d6.",
+        "when_to_play": "The safe choice. Play this if you want a normal game where you understand every move."
+      },
       "vienna_gambit": {
         "name": "Vienna Gambit",
         "moves_from_parent": [
-          "Nf6",
           "f4"
         ],
         "continuation": [
@@ -6533,75 +6759,31 @@
           "fxe5",
           "Nxe4",
           "Nf3",
-          "Bg4",
-          "Qe2",
-          "Nc6",
-          "d3",
-          "Nxc3",
-          "bxc3",
-          "Be7",
-          "d4",
-          "O-O"
+          "Bc5",
+          "d4"
         ],
-        "white_plan": "Gambit f4 for open lines, develop quickly, attack the kingside",
-        "black_plan": "Accept with d5! Counter in the center, develop actively, castle quickly",
-        "critical_positions": {
-          "after_f4": {
-            "key_decision": "The gambit! Black must respond precisely",
-            "best_moves": {
-              "d5": {
-                "idea": "Counter in the center - the strongest response!",
-                "why_good": "Opens the position while Black is better developed"
-              }
-            },
-            "mistake_moves": {
-              "exf4": {
-                "why_bad": "Accepting passively gives White a strong center",
-                "consequence": "After e5, White has a powerful center and open f-file",
-                "learning": "Against gambits, counter in the CENTER (d5) rather than just taking pawns"
-              }
-            }
-          }
-        }
+        "white_plan": "Offer the f-pawn to open the f-file at Black's king, then play Nf3, d4 and castle fast.",
+        "black_plan": "Answer with d5, not exf4. Hitting back in the middle is the only good reply.",
+        "when_to_play": "Play this when you want a sharp fight and you have studied the d5 answer.",
+        "key_warning": "Most club players take with exf4. That is the mistake: e5 then kicks the knight all the way home to g8."
       },
-      "vienna_bc4": {
-        "name": "Vienna Game - Bc4 System",
+      "frankenstein_dracula": {
+        "name": "Frankenstein-Dracula Variation",
         "moves_from_parent": [
-          "Nf6",
           "Bc4"
         ],
         "continuation": [
+          "Nxe4",
+          "Qh5",
+          "Nd6",
+          "Bb3",
           "Nc6",
-          "d3",
-          "Bc5",
-          "f4",
-          "d6",
-          "Nf3",
-          "Bg4",
-          "Na4",
-          "O-O",
-          "Nxc5",
-          "dxc5",
-          "c3",
-          "Qd6"
+          "Nb5"
         ],
-        "white_plan": "Develop Bc4 and f4, combine Italian-style play with Vienna flexibility",
-        "black_plan": "Develop Nc6, Bc5, counter with d6 and Bg4 pin, castle early",
-        "critical_positions": {
-          "after_Bc4": {
-            "key_decision": "White combines Bc4 with Nc3 - more flexible than the Italian",
-            "best_moves": {
-              "Nc6": {
-                "idea": "Develop and support e5",
-                "why_good": "Prepares Bc5 and keeps options open"
-              },
-              "Nxe4": {
-                "idea": "Take the pawn!",
-                "why_good": "Tactical shot - after Nxe4, Qh5! forks"
-              }
-            }
-          }
-        }
+        "white_plan": "Punish the pawn grab with Qh5, keep the bishop alive with Bb3, then jump in with Nb5 against c7.",
+        "black_plan": "Only Nd6 survives Qh5. After that Black has to defend accurately for a long time.",
+        "when_to_play": "Study this so you know what to do the moment someone takes your e4 pawn.",
+        "key_warning": "After Qh5, both Nf6 and Nxc3 lose to Qxf7 checkmate."
       }
     },
     "critical_positions": {
@@ -6621,11 +6803,32 @@
       }
     },
     "common_learnings": [
-      "The Vienna delays Nf3 to keep f4 options open",
-      "Against f4, counter with d5 in the center - don't just take the pawn",
-      "Bc4 systems combine Italian themes with Vienna flexibility",
-      "White aims for quick piece activity; Black should counter-punch in the center"
-    ]
+      "A knight that develops and defends at the same time is worth more than one that only develops.",
+      "Before you grab a free pawn, ask what your opponent gets in return.",
+      "When one enemy move attacks two things at once, you usually cannot save both."
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Claim the middle of the board. This also frees your queen and your light bishop.",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "They claim their share of the middle and stop your pawn going further."
+      },
+      "Nc3": {
+        "idea": "Develop and guard your e-pawn in one move. This is the move that makes it the Vienna.",
+        "arrow": [
+          "b1",
+          "c3"
+        ]
+      },
+      "Nf6": {
+        "idea": "They develop and attack your e-pawn. It is already guarded, so nothing is hanging."
+      }
+    }
   },
   "englund_gambit_response": {
     "name": "Englund Gambit Response",
@@ -7855,16 +8058,36 @@
       "g6"
     ],
     "move_ideas": {
-      "e4": {"idea": "Take a share of the center and open paths for the queen and bishop."},
-      "c5": {"idea": "Fight for the center from the side and open the c-file after the center is exchanged."},
-      "Nf3": {"idea": "Develop the knight and prepare to open the center with d4."},
-      "d6": {"idea": "Support e5 and keep the c8 bishop ready to move."},
-      "d4": {"idea": "Open the center before Black can settle into a comfortable setup."},
-      "cxd4": {"idea": "Exchange the c-pawn for White's central d-pawn and open the c-file."},
-      "Nxd4": {"idea": "Recapture with a developed knight in the center."},
-      "Nf6": {"idea": "Develop with an attack on the e4 pawn."},
-      "Nc3": {"idea": "Defend e4 and bring the last queenside knight into play."},
-      "g6": {"idea": "Prepare Bg7, where the bishop will look through the center toward b2."}
+      "e4": {
+        "idea": "Take a share of the center and open paths for the queen and bishop."
+      },
+      "c5": {
+        "idea": "Fight for the center from the side and open the c-file after the center is exchanged."
+      },
+      "Nf3": {
+        "idea": "Develop the knight and prepare to open the center with d4."
+      },
+      "d6": {
+        "idea": "Support e5 and keep the c8 bishop ready to move."
+      },
+      "d4": {
+        "idea": "Open the center before Black can settle into a comfortable setup."
+      },
+      "cxd4": {
+        "idea": "Exchange the c-pawn for White's central d-pawn and open the c-file."
+      },
+      "Nxd4": {
+        "idea": "Recapture with a developed knight in the center."
+      },
+      "Nf6": {
+        "idea": "Develop with an attack on the e4 pawn."
+      },
+      "Nc3": {
+        "idea": "Defend e4 and bring the last queenside knight into play."
+      },
+      "g6": {
+        "idea": "Prepare Bg7, where the bishop will look through the center toward b2."
+      }
     },
     "white_plan": "Yugoslav Attack: castle queenside, launch h4-h5 pawn storm",
     "black_plan": "Play g6 and Bg7, use the open c-file, and create threats against White's king",
@@ -8189,16 +8412,36 @@
       "a6"
     ],
     "move_ideas": {
-      "e4": {"idea": "Take a share of the center and open paths for the queen and bishop."},
-      "c5": {"idea": "Fight for the center from the side and prepare an open c-file."},
-      "Nf3": {"idea": "Develop the knight and prepare d4."},
-      "d6": {"idea": "Support e5 and keep Black's central choices flexible."},
-      "d4": {"idea": "Open the center while White is ahead in development."},
-      "cxd4": {"idea": "Trade the c-pawn for White's central pawn and open the c-file."},
-      "Nxd4": {"idea": "Recapture with the knight so it controls central squares."},
-      "Nf6": {"idea": "Develop with an attack on e4."},
-      "Nc3": {"idea": "Defend e4 and bring another piece into the center."},
-      "a6": {"idea": "Stop a knight jump to b5 and prepare b5 to gain room on the queenside."}
+      "e4": {
+        "idea": "Take a share of the center and open paths for the queen and bishop."
+      },
+      "c5": {
+        "idea": "Fight for the center from the side and prepare an open c-file."
+      },
+      "Nf3": {
+        "idea": "Develop the knight and prepare d4."
+      },
+      "d6": {
+        "idea": "Support e5 and keep Black's central choices flexible."
+      },
+      "d4": {
+        "idea": "Open the center while White is ahead in development."
+      },
+      "cxd4": {
+        "idea": "Trade the c-pawn for White's central pawn and open the c-file."
+      },
+      "Nxd4": {
+        "idea": "Recapture with the knight so it controls central squares."
+      },
+      "Nf6": {
+        "idea": "Develop with an attack on e4."
+      },
+      "Nc3": {
+        "idea": "Defend e4 and bring another piece into the center."
+      },
+      "a6": {
+        "idea": "Stop a knight jump to b5 and prepare b5 to gain room on the queenside."
+      }
     },
     "white_plan": "Attack! Choose between Be2 (English Attack), Bg5 (main line), f3 (English Attack), or Bc4",
     "black_plan": "Create threats with e5, b5, or Bb7. Black must play actively before White's attack arrives.",
@@ -8519,12 +8762,24 @@
       "d5"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open the c1 bishop."},
-      "Nf6": {"idea": "Develop a knight and watch e4 without placing a pawn in the center yet."},
-      "c4": {"idea": "Gain more central room and control d5."},
-      "g6": {"idea": "Prepare Bg7 so the bishop can attack the center from the long diagonal."},
-      "Nc3": {"idea": "Develop and add another defender to d5 and e4."},
-      "d5": {"idea": "Challenge White's center immediately before it becomes stable."}
+      "d4": {
+        "idea": "Claim the center and open the c1 bishop."
+      },
+      "Nf6": {
+        "idea": "Develop a knight and watch e4 without placing a pawn in the center yet."
+      },
+      "c4": {
+        "idea": "Gain more central room and control d5."
+      },
+      "g6": {
+        "idea": "Prepare Bg7 so the bishop can attack the center from the long diagonal."
+      },
+      "Nc3": {
+        "idea": "Develop and add another defender to d5 and e4."
+      },
+      "d5": {
+        "idea": "Challenge White's center immediately before it becomes stable."
+      }
     },
     "white_plan": "Build a large pawn center with e4 so White's pieces have more room",
     "black_plan": "LET White build the center, then DESTROY it with c5, Bg7 pressure, and Nc6",
@@ -8878,12 +9133,24 @@
       "Bb4"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
-      "Nf6": {"idea": "Develop and stop White from playing e4 without preparation."},
-      "c4": {"idea": "Control d5 and ask Black how the center will be challenged."},
-      "e6": {"idea": "Open the f8 bishop and prepare either Bb4 or d5."},
-      "Nc3": {"idea": "Develop and support e4, but allow Black to pin this knight."},
-      "Bb4": {"idea": "Pin the knight that supports e4 and make White decide whether to accept doubled c-pawns."}
+      "d4": {
+        "idea": "Claim the center and open a path for the c1 bishop."
+      },
+      "Nf6": {
+        "idea": "Develop and stop White from playing e4 without preparation."
+      },
+      "c4": {
+        "idea": "Control d5 and ask Black how the center will be challenged."
+      },
+      "e6": {
+        "idea": "Open the f8 bishop and prepare either Bb4 or d5."
+      },
+      "Nc3": {
+        "idea": "Develop and support e4, but allow Black to pin this knight."
+      },
+      "Bb4": {
+        "idea": "Pin the knight that supports e4 and make White decide whether to accept doubled c-pawns."
+      }
     },
     "white_plan": "Unpin with various systems (e3, Qc2, a3), develop and use the bishop pair",
     "black_plan": "Pin the Nc3, control e4, create doubled c-pawns after Bxc3, play for dark square control",
@@ -9234,12 +9501,24 @@
       "b6"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
-      "Nf6": {"idea": "Develop and watch e4 before White can build a full pawn center."},
-      "c4": {"idea": "Control d5 and gain room on the queenside."},
-      "e6": {"idea": "Open the f8 bishop and keep both d5 and Bb4 available."},
-      "Nf3": {"idea": "Develop without allowing the Bb4 pin on the other knight."},
-      "b6": {"idea": "Prepare Bb7, where the bishop will watch e4 and the long diagonal."}
+      "d4": {
+        "idea": "Claim the center and open a path for the c1 bishop."
+      },
+      "Nf6": {
+        "idea": "Develop and watch e4 before White can build a full pawn center."
+      },
+      "c4": {
+        "idea": "Control d5 and gain room on the queenside."
+      },
+      "e6": {
+        "idea": "Open the f8 bishop and keep both d5 and Bb4 available."
+      },
+      "Nf3": {
+        "idea": "Develop without allowing the Bb4 pin on the other knight."
+      },
+      "b6": {
+        "idea": "Prepare Bb7, where the bishop will watch e4 and the long diagonal."
+      }
     },
     "white_plan": "Control the center, develop with g3 or Nc3, and use the extra room behind the pawns",
     "black_plan": "Play b6 and Bb7, watch e4 from the long diagonal, and choose d5 or d6 when the center is clear",
@@ -9522,10 +9801,18 @@
       "e6"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
-      "d5": {"idea": "Meet White in the center and stop an easy e4 pawn push."},
-      "c4": {"idea": "Attack the d5 pawn and try to pull Black's center apart."},
-      "e6": {"idea": "Support d5 with a pawn and open the f8 bishop, while accepting that the c8 bishop needs a later route."}
+      "d4": {
+        "idea": "Claim the center and open a path for the c1 bishop."
+      },
+      "d5": {
+        "idea": "Meet White in the center and stop an easy e4 pawn push."
+      },
+      "c4": {
+        "idea": "Attack the d5 pawn and try to pull Black's center apart."
+      },
+      "e6": {
+        "idea": "Support d5 with a pawn and open the f8 bishop, while accepting that the c8 bishop needs a later route."
+      }
     },
     "white_plan": "Build central control, develop with Nc3-Bg5-e3, aim for the b4-b5 queenside break or a central break",
     "black_plan": "Solidly defend d5, develop with Nf6-Be7-O-O, solve the light bishop problem, break with c5",
@@ -9776,11 +10063,21 @@
       "d5"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open the c1 bishop."},
-      "Nf6": {"idea": "Develop and watch e4 without fixing a central pawn yet."},
-      "c4": {"idea": "Take more central room and control d5."},
-      "c5": {"idea": "Attack d4 from the side and invite White to advance."},
-      "d5": {"idea": "Gain room and close the center, but give Black clear targets for e6 and b5."}
+      "d4": {
+        "idea": "Claim the center and open the c1 bishop."
+      },
+      "Nf6": {
+        "idea": "Develop and watch e4 without fixing a central pawn yet."
+      },
+      "c4": {
+        "idea": "Take more central room and control d5."
+      },
+      "c5": {
+        "idea": "Attack d4 from the side and invite White to advance."
+      },
+      "d5": {
+        "idea": "Gain room and close the center, but give Black clear targets for e6 and b5."
+      }
     },
     "white_plan": "Use the extra room from d5, press on the queenside with a4 and Nd2-c4, and control e4",
     "black_plan": "Counter with e6 (Modern Benoni) or e5 (Czech), kingside attack, use the dark squares",
@@ -10118,10 +10415,18 @@
       "e5"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open the c1 bishop."},
-      "Nf6": {"idea": "Develop and watch e4 before committing a central pawn."},
-      "c4": {"idea": "Take more central room and control d5."},
-      "e5": {"idea": "Offer the e-pawn so Black can develop quickly and attack White's advanced pawn."}
+      "d4": {
+        "idea": "Claim the center and open the c1 bishop."
+      },
+      "Nf6": {
+        "idea": "Develop and watch e4 before committing a central pawn."
+      },
+      "c4": {
+        "idea": "Take more central room and control d5."
+      },
+      "e5": {
+        "idea": "Offer the e-pawn so Black can develop quickly and attack White's advanced pawn."
+      }
     },
     "white_plan": "Accept the gambit with dxe5, hold the extra pawn, develop solidly",
     "black_plan": "Sacrifice the e5 pawn for rapid development and piece activity, harass White's center",
@@ -10350,8 +10655,12 @@
       "f5"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open a path for the c1 bishop."},
-      "f5": {"idea": "Control e4 and prepare a kingside attack, while weakening the diagonal from e8 to h5."}
+      "d4": {
+        "idea": "Claim the center and open a path for the c1 bishop."
+      },
+      "f5": {
+        "idea": "Control e4 and prepare a kingside attack, while weakening the diagonal from e8 to h5."
+      }
     },
     "white_plan": "Control the center, develop naturally, exploit the weakened kingside (e1-h5 diagonal)",
     "black_plan": "Control e4 with f5, choose between Stonewall (d5), Leningrad (g6), or Classical (e6+Be7)",
@@ -10583,10 +10892,18 @@
       "e5"
     ],
     "move_ideas": {
-      "d4": {"idea": "Claim the center and open the c1 bishop."},
-      "d5": {"idea": "Meet White in the center and stop an easy e4 pawn push."},
-      "c4": {"idea": "Attack d5 and offer the c-pawn to pull Black's center apart."},
-      "e5": {"idea": "Counter in the center at once. If White captures, Black plans to push d4 and gain room for the pieces."}
+      "d4": {
+        "idea": "Claim the center and open the c1 bishop."
+      },
+      "d5": {
+        "idea": "Meet White in the center and stop an easy e4 pawn push."
+      },
+      "c4": {
+        "idea": "Attack d5 and offer the c-pawn to pull Black's center apart."
+      },
+      "e5": {
+        "idea": "Counter in the center at once. If White captures, Black plans to push d4 and gain room for the pieces."
+      }
     },
     "white_plan": "Accept the gambit, hold the center",
     "black_plan": "Push d4, create complications",
