@@ -1363,7 +1363,8 @@
                 "hint": "Develop and hit e4 instead of getting greedy.",
                 "right_feedback": "Nf6 — decline cleanly. Develop and put a question to e4 rather than taking dxc3, which hands White exactly the fast, open game the gambit wants.",
                 "wrong_feedback": "Taking the second pawn with dxc3 is greedy and walks straight into the Smith-Morra: open c- and d-files, quick development, a real attack. Nf6 declines and keeps you solid.",
-                "responses": {}
+                "responses": {},
+                "deliberate_choice": "The engine prefers dxc3, taking the second pawn, and is right by about two thirds of a pawn. We teach Nf6 anyway: accepting the Smith-Morra walks a club player into the one position their opponent has actually prepared, and the whole point of the gambit is that the attack is easier to play than the defence. Declining keeps the game normal."
               }
             }
           },
@@ -1693,6 +1694,20 @@
         "trap_type": "punish",
         "our_reply": "Nd6",
         "simple_lesson": "When your own pieces crowd your king, a single enemy knight can be mate. Give the king air."
+      },
+      {
+        "name": "The Bishop Before the Centre",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "c6"
+        ],
+        "trigger_move": "Bc4",
+        "our_reply": "d5",
+        "description": "White develops the bishop at f7 before fighting for the middle. Played against us 114 times.",
+        "trap_idea": "The bishop on c4 does not defend e4 and does not stop d5. Black takes the middle and hits the bishop in the same move.",
+        "how_to_avoid": "As White, play d4 or Nc3 first. Aim at f7 only once the middle is settled.",
+        "simple_lesson": "A piece pointed at the enemy king is not doing anything if it ignores the middle of the board."
       }
     ],
     "tree": {
@@ -1773,6 +1788,43 @@
                 "next": "cxd5",
                 "right_feedback": "cxd5 — recapture with the c-pawn, leaving a symmetric structure.",
                 "wrong_feedback": "In the Caro-Kann Exchange, cxd5 is correct — recapture with the pawn that has the better square afterward. Qxd5 lets Nc3 attack your queen and makes you move it again.",
+                "responses": {}
+              }
+            }
+          },
+          "Bc4": {
+            "name": "The Early Bishop",
+            "idea_opponent": "They aim at f7 before touching the middle. Played against us 114 times, more than any other second move.",
+            "next": "d5",
+            "hint": "Their bishop is not defending the middle. Take it over.",
+            "right_feedback": "d5. The bishop on c4 does nothing about your pawn, so you get the middle for free and hit the bishop as well.",
+            "wrong_feedback": "d5 is the whole point of the Caro-Kann and it is even better here. The bishop cannot stop it and now has to move again.",
+            "responses": {}
+          },
+          "Qh5": {
+            "name": "The Early Queen",
+            "idea_opponent": "They bring the queen out to attack. There is nothing to attack yet.",
+            "next": "Nf6",
+            "hint": "Develop a piece that kicks the queen at the same time.",
+            "right_feedback": "Nf6. The knight develops and chases the queen, so every move you make gains you time while they retreat.",
+            "wrong_feedback": "Nf6 both develops and attacks the queen. Do not defend passively against an early queen, develop at it.",
+            "responses": {}
+          },
+          "Nf3": {
+            "name": "Knight First",
+            "idea_opponent": "They develop and keep options open.",
+            "next": "d5",
+            "hint": "Play the move this opening is built around.",
+            "right_feedback": "d5. Same plan as always: challenge the middle at once.",
+            "wrong_feedback": "d5. The Caro-Kann plan does not change because they played a knight first.",
+            "responses": {
+              "d4": {
+                "name": "Building Too Late",
+                "idea_opponent": "They add the second centre pawn, but the knight is already committed. Seven of our players have met this.",
+                "next": "dxe4",
+                "hint": "Their knight on f3 blocks the natural recapture. Take.",
+                "right_feedback": "dxe4. The knight has to go chasing the pawn instead of developing, and you are comfortable.",
+                "wrong_feedback": "Take the pawn: dxe4. With the knight already on f3 they cannot rebuild the centre easily.",
                 "responses": {}
               }
             }
@@ -2295,7 +2347,7 @@
                 "next": "Nf6",
                 "hint": "Develop, attack e4. (Or Bb4 — Winawer.)",
                 "right_feedback": "Nf6 — Classical French. Pressures e4, develops naturally.",
-                "wrong_feedback": "After 3.Nc3, Nf6 is the Classical French (most-played, solid). Bb4 is the sharp Winawer (gives up bishop pair for activity and pawn structure damage). dxe4 is the Rubinstein (passive but sound). All defensible; Nf6 is the main line.",
+                "wrong_feedback": "c5 is the move eighteen of our players have chosen here, and it is a move too early: White answers exd5 and then Bb5+, and the pawn on d5 falls with check. Develop first with Nf6. The c5 break is right, but only once the middle is settled.",
                 "responses": {
                   "e5": {
                     "name": "French — Steinitz Variation",
@@ -2337,9 +2389,19 @@
                 "idea_opponent": "White trades and aims for a quiet game.",
                 "next": "exd5",
                 "right_feedback": "exd5 — symmetric structure. The Exchange is dry but not equal.",
-                "responses": {}
+                "responses": {},
+                "wrong_feedback": "Take back with the pawn: exd5. Nf6 lets White push dxe6, and after Bxe6 you have lost the pawn and the tidy structure the French is built on."
               }
             }
+          },
+          "Nf3": {
+            "name": "Knight First",
+            "idea_opponent": "They develop before committing the middle.",
+            "next": "d5",
+            "hint": "Nothing changes. Strike at the middle.",
+            "right_feedback": "d5. The French plan is the same whatever they develop first.",
+            "wrong_feedback": "Qf6 is what six of our players played here, and it costs over a pawn: Nc3 comes with the queen in the way of your own pieces and you lose moves retreating her. Play d5.",
+            "responses": {}
           }
         }
       }
@@ -3407,7 +3469,7 @@
   "scandinavian_defense": {
     "name": "Scandinavian Defense",
     "color": "black",
-    "summary": "Immediately challenge e4 with d5. Simple, direct, and gets your queen active early.",
+    "summary": "You answer 1.e4 with d5 straight away. It looks like you are just giving a pawn, and the surprise is how often White does not take it. In our own games White declined with Nc3, Nf3, d4 or d3 more than a hundred and fifty times, and every one of those is a small gift to you.",
     "difficulty": "beginner",
     "setup_order": [
       "d5",
@@ -3419,10 +3481,10 @@
       "c6"
     ],
     "golden_rules": [
-      "Take the pawn back with your queen — Qd5 or Qd6.",
-      "Get your bishop out before e6 — same as London.",
-      "Qa5 is the safest queen square.",
-      "Develop quickly — your queen is already out."
+      "Play d5 on move one and ask the question straight away.",
+      "If they take, take back and accept that your queen comes out early. That is the deal.",
+      "If they do not take, you get a free hand in the middle. Take on e4 or push past.",
+      "After Qxd5 Nc3, go to a5 or d6 and do not lose time with the queen again."
     ],
     "traps": [
       {
@@ -3444,30 +3506,68 @@
     ],
     "tree": {
       "e4": {
-        "idea_opponent": "White takes the center.",
+        "idea": "White takes the middle.",
         "next": "d5",
-        "hint": "What move challenges the e-pawn immediately?",
-        "right_feedback": "d5 — challenge White's center pawn immediately, even though your queen may need to move twice.",
         "responses": {
           "exd5": {
-            "name": "Scandinavian — Main",
-            "idea_opponent": "White takes the pawn.",
+            "name": "Accepted",
+            "idea_opponent": "They take, which is correct.",
             "next": "Qxd5",
-            "hint": "Recapture immediately with the queen (main line).",
-            "right_feedback": "Qxd5 — take back the pawn, knowing the queen will move again after Nc3.",
+            "hint": "Take it back. Yes, the queen comes out. That is the deal you signed up for.",
+            "right_feedback": "Qxd5. Your queen is out early and will be chased, but you have no weaknesses and an equal share of the middle. Go to a5 or d6 when she is attacked, and do not move her twice.",
+            "wrong_feedback": "Nf6 is playable, but the main move is Qxd5. Take the pawn back and accept that White gets one free move for chasing your queen.",
             "responses": {
               "Nc3": {
-                "name": "Scandinavian — Nc3 attacking the queen",
-                "idea_opponent": "White develops while gaining time, attacking your queen.",
+                "name": "Chasing the Queen",
+                "idea_opponent": "They develop and hit the queen. Exactly what they should do.",
                 "next": "Qa5",
-                "hint": "Where does the queen go — safely active, not blocking your own pieces?",
-                "right_feedback": "Qa5 — keeps the queen active, doesn't block the d-file for your rook.",
-                "wrong_feedback": "After Nc3 attacks the queen, Qa5 keeps it active and safe. Qd8 gives up the activity you gained, while Qd6 blocks the rook's path on the d-file.",
+                "hint": "Move the queen once, to a square where she is safe and useful, and never move her again.",
+                "right_feedback": "Qa5. Safe, on a good diagonal, and she is not in the way of your own pieces. You have paid for the pawn with one move, and now you simply develop.",
+                "wrong_feedback": "Qa5 is the main square. Qd8 also works but undoes your own move. What matters is choosing once and then developing everything else.",
                 "responses": {}
               }
             }
+          },
+          "Nc3": {
+            "name": "Declining With the Knight",
+            "idea_opponent": "They develop instead of taking. Seventy-eight of our players have met this.",
+            "next": "d4",
+            "hint": "Their knight is on c3 and your pawn can reach d4. Push past it.",
+            "right_feedback": "d4. The pawn drives the knight backwards and you own the middle. Declining the pawn cost them the whole point of playing e4.",
+            "wrong_feedback": "Taking on e4 is fine, but d4 is stronger: pushing past the knight makes them retreat and leaves you with the bigger centre.",
+            "responses": {}
+          },
+          "Nf3": {
+            "name": "Declining With the King's Knight",
+            "idea_opponent": "They develop and leave the pawn. Sixty-six of our players have met this.",
+            "next": "dxe4",
+            "hint": "They did not take. So you take.",
+            "right_feedback": "dxe4. Now their knight has to chase the pawn instead of developing the rest of their army, and you are comfortable.",
+            "wrong_feedback": "Just take: dxe4. If your opponent ignores a pawn in the middle, accepting it is almost always right.",
+            "responses": {}
+          },
+          "d4": {
+            "name": "Building Instead of Taking",
+            "idea_opponent": "They add a second pawn to the middle. Fourteen of our players have met this.",
+            "next": "dxe4",
+            "hint": "Two pawns in the middle only work if both survive. Take one.",
+            "right_feedback": "dxe4. Their big centre is now one pawn, and that pawn on d4 has no friend next to it.",
+            "wrong_feedback": "dxe4 is the move. Take one of the two centre pawns before they get support.",
+            "responses": {}
+          },
+          "d3": {
+            "name": "The Quiet Decline",
+            "idea_opponent": "They prop the pawn up instead of taking. Twelve of our players have met this.",
+            "next": "dxe4",
+            "hint": "Take, and be happy to trade queens.",
+            "right_feedback": "dxe4. After dxe4 Qxd1+ Kxd1 the queens come off and their king has lost the right to castle. That is a real, permanent gain.",
+            "wrong_feedback": "dxe4 first. The point is that the queens come off and their king is stuck in the middle for the rest of the game.",
+            "responses": {}
           }
-        }
+        },
+        "right_feedback": "d5. You challenge the middle on move one, before White has any pieces out. Either they take, and you take back, or they leave the pawn and you have already won the argument in the middle.",
+        "hint": "Do not wait. Hit the middle straight away with a pawn.",
+        "wrong_feedback": "The Scandinavian move is d5, played immediately. Other replies to e4 are fine openings, but they are not this one."
       }
     },
     "middlegame_plans": {
@@ -3508,8 +3608,8 @@
       "e4",
       "d5"
     ],
-    "white_plan": "Capture on d5, develop while gaining time against the Black queen, build a central advantage",
-    "black_plan": "Challenge e4 immediately, develop the queen early or recapture with Nf6, solid but slightly behind",
+    "white_plan": "Take on d5, then develop by attacking the black queen and gaining free moves.",
+    "black_plan": "Trade off the middle, develop quickly, and use the half-open d-file.",
     "demands": {
       "name": "Scandinavian Defense",
       "color": "black",
@@ -3618,12 +3718,21 @@
       }
     },
     "common_learnings": [
-      "The Scandinavian immediately challenges e4 - direct and honest",
-      "After Qxd5 Nc3, move the queen to safety; moving it twice is the cost of this opening",
-      "Qa5 is the modern main line - safe and active",
-      "The Nf6 variation avoids queen moves but gives White a bigger center",
-      "Bf5 should come out BEFORE e6 (same idea as the Caro-Kann and Slav)"
-    ]
+      "A pawn offered in the middle is not a gambit if taking it costs your opponent time.",
+      "When your opponent ignores your move, ask what your move made possible."
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "They take the middle."
+      },
+      "d5": {
+        "idea": "Challenge the middle immediately, before they can build a big centre.",
+        "arrow": [
+          "d7",
+          "d5"
+        ]
+      }
+    }
   },
   "ruy_lopez": {
     "name": "Ruy Lopez",
@@ -3735,6 +3844,62 @@
                         "next": "d4",
                         "right_feedback": "d4 — open the position. The Berlin endgame is balanced but White has dynamic chances.",
                         "wrong_feedback": "In the Open Berlin, d4 is the best-known response — open the center to exploit the knight excursion. Re1 is also fine; both lead to the Berlin endgame after the queen trade. Anything passive lets Black consolidate the extra pawn.",
+                        "responses": {}
+                      },
+                      "a6": {
+                        "name": "Chasing Too Late",
+                        "idea_opponent": "They kick the bishop after you have castled. Now it costs a pawn.",
+                        "next": "Bxc6",
+                        "hint": "You do not have to retreat. Look at what taking does to their pawns.",
+                        "right_feedback": "Bxc6. After dxc6 their pawns are doubled and Nxe5 picks up the pawn, because the knight that was defending it has gone.",
+                        "wrong_feedback": "Ba4 is normal a move earlier, but here Bxc6 is stronger: it wrecks their pawns and wins the e5 pawn.",
+                        "responses": {}
+                      },
+                      "Bd6": {
+                        "name": "The Passive Bishop",
+                        "idea_opponent": "They develop the bishop in front of their own d-pawn, blocking everything behind it.",
+                        "next": "d4",
+                        "hint": "Their bishop just locked in their own queenside. Open the middle before they untangle.",
+                        "right_feedback": "d4. The bishop on d6 blocks their d-pawn, so their queenside pieces have no way out. Opening the middle now is at its most effective.",
+                        "wrong_feedback": "d4 is the punishment. Their last move blocked their own development, so open lines immediately.",
+                        "responses": {}
+                      },
+                      "Bc5": {
+                        "name": "Active but Loose",
+                        "idea_opponent": "They develop actively.",
+                        "next": "c3",
+                        "hint": "Prepare the big centre push before anything else.",
+                        "right_feedback": "c3. Quietly getting ready for d4, which is the move that hurts the bishop on c5.",
+                        "wrong_feedback": "c3 first. It supports d4, and d4 is the move that makes their bishop uncomfortable.",
+                        "responses": {
+                          "d6": {
+                            "name": "The Losing Move",
+                            "idea_opponent": "They prop up e5. Nine of our players have reached this position and lost all nine games.",
+                            "next": "d4",
+                            "hint": "Push. Their bishop and their knight cannot both stay where they are.",
+                            "right_feedback": "d4. The pawn hits the bishop and the middle at once, and after Bb6 d5 the knight is trapped out of squares. In our own games this position has scored nine losses and no wins for Black.",
+                            "wrong_feedback": "d4 is the move, and it is close to winning. Their d6 did nothing about the coming pawn push.",
+                            "responses": {}
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "d6": {
+                    "name": "Steinitz Defence",
+                    "idea_opponent": "They defend the pawn solidly but shut in their own bishop.",
+                    "next": "d4",
+                    "hint": "Open the middle while their pieces are still behind pawns.",
+                    "right_feedback": "d4. Solid for them, but passive, and you get the freer game by opening lines now.",
+                    "wrong_feedback": "d4 is right. Against a passive setup, open the position where you have more pieces ready.",
+                    "responses": {
+                      "a6": {
+                        "name": "Kicking at the Wrong Moment",
+                        "idea_opponent": "They chase the bishop with the middle still unresolved.",
+                        "next": "Bxc6+",
+                        "hint": "Take with check, then take the pawn.",
+                        "right_feedback": "Bxc6+. After bxc6 dxe5 you win a pawn, because their knight is no longer defending e5.",
+                        "wrong_feedback": "Bxc6+ first. The check means they must recapture, and then dxe5 wins the pawn.",
                         "responses": {}
                       }
                     }
@@ -4116,7 +4281,7 @@
   "scotch_game": {
     "name": "Scotch Game",
     "color": "white",
-    "summary": "Open the center on move three. Sharper than the Italian. Trade in the middle and push the d-pawn.",
+    "summary": "You play d4 on move three and open the middle straight away. Trades happen early, the position is clear, and there is very little to memorise. The one thing to get right is which piece takes back on d4.",
     "difficulty": "intermediate",
     "setup_order": [
       "e4",
@@ -4127,49 +4292,97 @@
       "Be3"
     ],
     "golden_rules": [
-      "d4 on move three — fight for the center immediately.",
-      "Trade in the centre, develop, then push.",
-      "Don't fear early queen trades — your pieces are more active.",
-      "Watch for c-file pressure and the Nf5 jump."
+      "After exd4, take back with the knight. Nxd4 is the whole point of the opening.",
+      "Ng5 looks like an attack on f7. It is the most common mistake in this opening and it loses time.",
+      "Trade in the middle, develop, castle. The Scotch is meant to be simple.",
+      "Do not chase f7 with pieces that can be pushed away."
     ],
-    "traps": [],
+    "traps": [
+      {
+        "name": "The Ng5 Lunge",
+        "trap_type": "avoid",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "d4",
+          "exd4"
+        ],
+        "trigger_move": "Ng5",
+        "our_reply": "Be7",
+        "description": "The most common mistake in the Scotch, played 149 times by our own users. It aims at f7 and achieves nothing.",
+        "trap_idea": "One knight attacking f7 is not an attack, because the king already defends it. Be7 kicks the knight and Black is simply better developed and a pawn up.",
+        "how_to_avoid": "Take back with Nxd4. That is the move the whole opening is built around.",
+        "simple_lesson": "Before you attack a square, count the defenders. One attacker against one defender is not a threat, it is a lost move."
+      }
+    ],
     "tree": {
       "e4": {
-        "idea": "Take the center.",
+        "idea": "Claim the middle.",
         "next": "Nf3",
         "responses": {
           "e5": {
+            "name": "Open Game",
+            "idea_opponent": "They meet you in the middle.",
             "next": "Nf3",
-            "right_feedback": "Nf3 — develops, attacks e5.",
+            "hint": "Develop and attack their pawn.",
+            "right_feedback": "Nf3. Develops and hits e5, so Black has to respond.",
+            "wrong_feedback": "Nf3 first. It develops a piece and attacks something at the same time.",
             "responses": {
               "Nc6": {
+                "name": "Defending the Pawn",
+                "idea_opponent": "They defend and develop.",
                 "next": "d4",
-                "hint": "Open the center with a pawn break.",
-                "right_feedback": "d4 — the Scotch Game. Strikes the center immediately.",
-                "wrong_feedback": "In the Scotch Game, d4 is the defining move — open the center before Black gets organized. Bc4 leads to the Italian, Bb5 to the Ruy Lopez. Choose d4 for the Scotch.",
+                "hint": "Open the middle now, while your pieces are ready and theirs are not.",
+                "right_feedback": "d4. This is the Scotch. You break the middle open immediately instead of manoeuvring behind pawns.",
+                "wrong_feedback": "d4 is the Scotch move. Bc4 and Bb5 are good openings too, but they are the Italian and the Ruy Lopez, not this one.",
                 "responses": {
                   "exd4": {
-                    "name": "Scotch — Main Line",
+                    "name": "Taking the Pawn",
+                    "idea_opponent": "They take, which is correct and expected.",
                     "next": "Nxd4",
-                    "right_feedback": "Nxd4 — strong central knight.",
-                    "wrong_feedback": "In the Scotch, Nxd4 is the right recapture because the knight belongs in the center. Qxd4 lets Nc6 attack your queen and makes you move it again.",
+                    "hint": "Take back with the piece that lands in the middle, not with the queen and not with a lunge.",
+                    "right_feedback": "Nxd4. The knight sits in the middle, everything is defended, and you are ready to develop the rest and castle.",
+                    "wrong_feedback": "Ng5 is the single most common mistake in this opening. One hundred and forty-nine of our players have played it, and it gives away most of your advantage. f7 is defended by the king, so one knight is not an attack, and Be7 simply kicks it away. Take back with Nxd4.",
                     "responses": {
                       "Nf6": {
-                        "name": "Scotch — Nf6 Main",
-                        "idea_opponent": "Black attacks e4.",
+                        "name": "Developing With a Hit",
+                        "idea_opponent": "They develop and attack your e-pawn.",
                         "next": "Nc3",
-                        "right_feedback": "Nc3 — defends e4, develops.",
+                        "hint": "Defend the pawn by developing a piece.",
+                        "right_feedback": "Nc3. The pawn is defended and another piece is out. Now castle.",
+                        "wrong_feedback": "Nc3 defends e4 and develops in one move, which is exactly what you want.",
                         "responses": {}
                       },
                       "Bc5": {
-                        "name": "Scotch Classical",
-                        "idea_opponent": "Black eyes the knight and f2.",
+                        "name": "Hitting the Knight",
+                        "idea_opponent": "They develop the bishop straight at your knight.",
                         "next": "Be3",
-                        "right_feedback": "Be3 — defends the knight, blocks Black's bishop.",
-                        "wrong_feedback": "In the Scotch Classical, Be3 is the right defensive idea — supports d4 and blocks Black's bishop diagonal. Nxc6 just damages your own structure unnecessarily.",
+                        "hint": "Defend the knight with a piece that also develops.",
+                        "right_feedback": "Be3. The knight is backed up, the bishop is out, and Black has not gained anything from the pin.",
+                        "wrong_feedback": "Be3 is the tidy answer: it supports the knight and develops at the same time.",
                         "responses": {}
                       }
                     }
+                  },
+                  "Nf6": {
+                    "name": "Ignoring the Middle",
+                    "idea_opponent": "They develop instead of taking. Thirty-one of our players have met this.",
+                    "next": "d5",
+                    "hint": "They left the pawn. Push past their knight and gain space.",
+                    "right_feedback": "d5. The pawn drives the knight away and you have a big, safe centre for free.",
+                    "wrong_feedback": "d5 is the move. When your opponent does not resolve the tension in the middle, push past and take the space.",
+                    "responses": {}
+                  },
+                  "d5": {
+                    "name": "Counter in the Middle",
+                    "idea_opponent": "They hit back rather than taking. Twenty-eight of our players have met this.",
+                    "next": "Nxe5",
+                    "hint": "Before you deal with their pawn, check what is now hanging.",
+                    "right_feedback": "Nxe5. Pushing d5 stopped defending e5, so you simply win the pawn and stay a pawn up.",
+                    "wrong_feedback": "Take the pawn: Nxe5. Their d5 push looked active but it abandoned e5.",
+                    "responses": {}
                   }
                 }
               }
@@ -4456,10 +4669,8 @@
       }
     },
     "common_learnings": [
-      "The Scotch opens the center early - piece activity matters more than pawn structure",
-      "After d4 exd4 Nxd4, White has a lead in development",
-      "Black should develop actively with Bc5 or Qf6 and make a threat of their own",
-      "The Scotch Gambit (Bc4 instead of Nxd4) offers sharp tactical play"
+      "An attack with one piece is not an attack. Count how many defenders the square already has.",
+      "The move that looks aggressive and the move that is good are often not the same move."
     ],
     "move_ideas": {
       "e4": {
@@ -6016,20 +6227,60 @@
       "Bc4"
     ],
     "golden_rules": [
-      "Open the center with 3.d4 while Black's pieces are still boxed in.",
-      "After 3...exd4, recapture with the knight (4.Nxd4), keeping pieces active.",
-      "Bc4 aims at f7 — even more effective here since Black's king has less support.",
-      "Keep enough pieces on the board to use your lead in development."
+      "They have defended with d6, so their bishop is stuck behind it. Open the middle fast.",
+      "After exd4, take back with the knight. Not c3, and definitely not Ng5.",
+      "Bc4 and O-O, then use the space you have.",
+      "Their position is solid but cramped. Do not let them untangle for free."
     ],
     "move_ideas": {
       "e4": {
-        "idea": "Put a pawn in the center and open paths for your queen and bishop."
+        "idea": "Claim the middle.",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
       },
       "e5": {
-        "idea": "Black takes a share of the center and opens paths for the queen and bishop."
+        "idea": "They meet you in the middle."
+      },
+      "Nf3": {
+        "idea": "Develop and attack their pawn at once.",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "d6": {
+        "idea": "They defend with a pawn. Solid, but it shuts in their dark bishop."
+      },
+      "d4": {
+        "idea": "Open the middle while their pieces are still at home.",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
       }
     },
-    "traps": [],
+    "traps": [
+      {
+        "name": "The c3 Offer",
+        "trap_type": "avoid",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "d6",
+          "d4",
+          "exd4"
+        ],
+        "trigger_move": "c3",
+        "our_reply": "dxc3",
+        "description": "Offering a second pawn to open lines. Fourteen of our players have played it and it does not work here.",
+        "trap_idea": "Black just takes with dxc3. Unlike a real gambit there is no attack to follow, because Black's position is solid and nothing is loose.",
+        "how_to_avoid": "Take back with Nxd4 and play a normal, comfortable position with more space.",
+        "simple_lesson": "A pawn sacrifice needs a target. If the opponent has nothing loose and no exposed king, you have just given away a pawn."
+      }
+    ],
     "tree": {
       "e4": {
         "next": "Nf3",
@@ -6051,7 +6302,7 @@
                     "idea_opponent": "Black trades to relieve pressure.",
                     "next": "Nxd4",
                     "right_feedback": "Nxd4 — strong central knight, more space than Black.",
-                    "wrong_feedback": "In the Philidor, Nxd4 is right. Qxd4 lets Nc6 attack your queen, so you must spend another move on it.",
+                    "wrong_feedback": "Two mistakes are common here and both are ours. c3, played by fourteen of our players, offers a pawn for nothing: they simply take with dxc3 and you are down material. Ng5 attacks f7, but f7 is defended by the king and Be7 kicks the knight straight back. Take with Nxd4.",
                     "responses": {
                       "Nf6": {
                         "name": "Philidor — Classical",
@@ -6068,6 +6319,15 @@
                     "next": "Nc3",
                     "right_feedback": "Nc3 — develops, supports e4. Plan Bc4 + O-O next.",
                     "wrong_feedback": "In the Philidor Hanham, Nc3 is natural development. Don't push d5 yet — closing the center helps Black who has less space. Develop first.",
+                    "responses": {}
+                  },
+                  "f6": {
+                    "name": "The Wrong Defender",
+                    "idea_opponent": "They hold the pawn with the f-pawn, which is the one pawn that should stay put.",
+                    "next": "Bc4",
+                    "hint": "They have weakened the diagonal into their own king. Point something at it.",
+                    "right_feedback": "Bc4. The bishop rakes towards f7 and g8, and their f6 pawn has taken away the square their own knight wanted.",
+                    "wrong_feedback": "Bc4. Their f6 move opened the line to their king and blocked their knight, so develop straight at it.",
                     "responses": {}
                   }
                 }
@@ -6357,7 +6617,7 @@
     "name": "Bishops Opening",
     "color": "white",
     "difficulty": "intermediate",
-    "summary": "An old, healthy opening: the bishop goes to c4 before the knight comes to f3, keeping your f-pawn free and eyeing f7 from move two.",
+    "summary": "You play Bc4 on move two, before the knight. The bishop points at f7 straight away and you keep the option of a quiet game with d3 or a sharp one with Ng5 later. It often turns into an Italian anyway.",
     "from_games": true,
     "game_count": 38,
     "setup_order": [
@@ -6375,10 +6635,10 @@
       "d3"
     ],
     "golden_rules": [
-      "Bishop to c4 BEFORE knight to f3 — that's the whole point. Your f-pawn stays free to push later.",
-      "After ...Nf6, play d3 to protect e4. Quiet, solid, no tricks needed.",
-      "Don't rush Qh5 — against good defence it just loses time.",
-      "If Black plays ...Bc5, you can steer back into Italian waters with Nf3."
+      "The bishop goes to c4 first, aiming at f7 from move two.",
+      "d3 holds e4 and keeps everything solid. There is no rush.",
+      "If they play Nc6 and Nf6, Ng5 becomes a real attack on f7.",
+      "Never take a knight sacrifice on f7 seriously unless you have counted the defenders."
     ],
     "tree": {
       "e4": {
@@ -6433,13 +6693,118 @@
                 "name": "Knight development",
                 "next": "Nf3",
                 "right_feedback": "Nf3 — transposes to the Italian Game. Same ideas: c3, d4, castle short.",
-                "wrong_feedback": "Nf3 keeps it simple and turns this into an Italian Game you already know."
+                "wrong_feedback": "Nf3 keeps it simple and turns this into an Italian Game you already know.",
+                "responses": {
+                  "Nf6": {
+                    "name": "Two Knights",
+                    "idea_opponent": "They develop and attack your e-pawn.",
+                    "next": "Ng5",
+                    "hint": "Both of your pieces already look at f7. Add a third attacker.",
+                    "right_feedback": "Ng5. The knight and the bishop both hit f7 now, and only the king defends it. Black has one good answer, d5.",
+                    "wrong_feedback": "d3 is safe and fine. Ng5 is the sharp move and it is sound here: two attackers against one defender on f7.",
+                    "responses": {
+                      "d5": {
+                        "name": "The Right Answer",
+                        "idea_opponent": "They block the bishop's diagonal. The only good move.",
+                        "next": "exd5",
+                        "hint": "Take, and see whether they recapture correctly.",
+                        "right_feedback": "exd5. Now everything depends on how Black takes back. Nxd5 walks into the knight sacrifice; Na5 is correct.",
+                        "wrong_feedback": "exd5 is right. The whole point is what Black does next.",
+                        "responses": {
+                          "Nxd5": {
+                            "name": "The Fried Liver",
+                            "idea_opponent": "They take with the knight. Forty of our players have done this and it is the mistake.",
+                            "next": "Nxf7",
+                            "hint": "Count the attackers and defenders on f7 one more time, then take.",
+                            "right_feedback": "Nxf7. After Kxf7 Qf3+ the king is dragged into the open and cannot get home. Black is a piece up and losing.",
+                            "wrong_feedback": "Take: Nxf7. The knight on d5 no longer guards f7 and the king has to walk out into the middle of the board.",
+                            "responses": {}
+                          }
+                        }
+                      },
+                      "Bc5": {
+                        "name": "Ignoring the Threat",
+                        "idea_opponent": "They develop instead of dealing with f7. Twenty of our players have done this.",
+                        "next": "Nxf7",
+                        "hint": "They did not defend f7. Take it.",
+                        "right_feedback": "Nxf7. The rook in the corner falls next, and Black has nothing for it.",
+                        "wrong_feedback": "Nxf7 wins material outright. Bc5 was a developing move that ignored a real threat.",
+                        "responses": {}
+                      },
+                      "Nxe4": {
+                        "name": "Grabbing the Pawn",
+                        "idea_opponent": "They take the pawn instead of defending. Fifteen of our players have done this.",
+                        "next": "Bxf7+",
+                        "hint": "Check first, and see where the king has to go.",
+                        "right_feedback": "Bxf7+. The king must step to e7, and then you pick the knight back up with a much better position.",
+                        "wrong_feedback": "Bxf7+ is the move. Check first, dislodge the king, and win the knight back afterwards.",
+                        "responses": {}
+                      }
+                    }
+                  }
+                }
               }
             }
           }
         }
       }
-    }
+    },
+    "move_ideas": {
+      "e4": {
+        "idea": "Claim the middle and open lines for the queen and bishop.",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "They claim their share."
+      },
+      "Bc4": {
+        "idea": "Point the bishop at f7 before anything else.",
+        "arrow": [
+          "f1",
+          "c4"
+        ]
+      },
+      "Nf6": {
+        "idea": "They develop and hit your e-pawn."
+      },
+      "d3": {
+        "idea": "Hold the pawn quietly and free your other bishop.",
+        "arrow": [
+          "d2",
+          "d3"
+        ]
+      }
+    },
+    "common_learnings": [
+      "f7 is the weakest square in the enemy camp because only the king guards it.",
+      "Recapturing on a square your opponent controls more heavily is how good positions collapse."
+    ],
+    "traps": [
+      {
+        "name": "Fried Liver Attack",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Bc4",
+          "Nc6",
+          "Nf3",
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5"
+        ],
+        "trigger_move": "Nxd5",
+        "our_reply": "Nxf7",
+        "description": "Black recaptures on d5 with the knight. Forty of our players have played this exact move.",
+        "trap_idea": "Nxf7 drags the king out with Kxf7 and Qf3+ follows. The king ends up on e6 in the middle of the board and cannot get back.",
+        "how_to_avoid": "As Black, play Na5 instead. Chase the bishop and give the f7 square back its defender.",
+        "simple_lesson": "Before recapturing, count how many enemy pieces are aimed at the square you are moving to."
+      }
+    ]
   },
   "vienna_game": {
     "name": "Vienna Game",
@@ -7426,10 +7791,10 @@
     "game_count": 54
   },
   "kings_pawn_opening": {
-    "name": "Kings Pawn Opening",
+    "name": "King's Pawn Opening",
     "color": "white",
-    "difficulty": "intermediate",
-    "summary": "Build a sound open-game position: claim the center, develop with purpose, and make your king safe before starting an attack.",
+    "difficulty": "beginner",
+    "summary": "The most common way a game starts: 1.e4 e5. Both sides grab the middle, and whoever develops faster and keeps their pawns defended usually comes out on top. The moves here are simple. The mistakes are the interesting part.",
     "from_games": true,
     "game_count": 54,
     "main_line": [
@@ -7446,40 +7811,198 @@
     ],
     "move_ideas": {
       "e4": {
-        "idea": "Claim the center and open paths for the queen and light-square bishop."
+        "idea": "Claim the middle and open lines for your queen and light bishop.",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
       },
       "e5": {
-        "idea": "Meet White in the center and keep both bishops free."
+        "idea": "They claim their share and block your pawn from going further."
       },
       "Nf3": {
-        "idea": "Develop a knight, control d4 and e5, and prepare to castle."
+        "idea": "Develop and attack their e-pawn at the same time. Knights before bishops.",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
       },
       "Nc6": {
-        "idea": "Defend e5 while developing a knight toward the center."
+        "idea": "They defend the pawn and develop. The natural answer."
       },
       "Bc4": {
-        "idea": "Develop the bishop toward f7, the pawn protected only by Black's king."
+        "idea": "Aim at f7, the one square their king defends on its own.",
+        "arrow": [
+          "f1",
+          "c4"
+        ]
       },
       "Nf6": {
-        "idea": "Develop, attack e4, and move closer to castling."
+        "idea": "They develop and hit your e-pawn."
       },
       "d3": {
-        "idea": "Protect e4 and open the c1 bishop without closing the position."
+        "idea": "Quietly hold e4 and free your dark bishop. Solid beats clever here.",
+        "arrow": [
+          "d2",
+          "d3"
+        ]
       },
       "Bc5": {
-        "idea": "Develop the bishop toward f2 and prepare to castle."
+        "idea": "They mirror you and eye f2."
       },
       "O-O": {
-        "idea": "Move the king away from the center and connect a rook to the game."
+        "idea": "Tuck the king away and connect the rooks."
       }
     },
-    "white_plan": "Finish development, use c3 and d4 to challenge the center, and check what Black attacks before choosing an aggressive move.",
-    "black_plan": "Finish development, keep e5 defended, and answer White's d4 break without leaving a piece loose.",
+    "white_plan": "Nf3 and Bc4, then d3 and castle. Keep e4 defended and watch f7.",
+    "black_plan": "Nc6 and Nf6, then Bc5 or Be7 and castle. Keep e5 defended.",
     "common_learnings": [
-      "Develop pieces while doing a second job: attack a pawn, defend a pawn, or prepare castling.",
-      "An early attack is not urgent; a safe king and completed development make the attack stronger.",
-      "Before every forcing move, check captures and attacks against all of your pieces."
-    ]
+      "A piece your opponent can chase away with a pawn or a smaller piece is a piece that loses you time.",
+      "Defending a pawn with a piece that also develops is worth two ordinary moves.",
+      "The f7 and f2 squares are the weak spots at the start, because only the king guards them."
+    ],
+    "setup_order": [
+      "e4",
+      "Nf3",
+      "Bc4",
+      "d3",
+      "O-O"
+    ],
+    "golden_rules": [
+      "Knights before bishops, and both before the queen.",
+      "Bringing the queen out early feels like an attack. It just gives your opponent free moves.",
+      "Every move should develop a piece, take the middle, or make your king safer.",
+      "Before you move a piece, check what it was defending.",
+      "Castle by move ten unless there is a very good reason not to."
+    ],
+    "tree": {
+      "e4": {
+        "idea": "Claim the middle of the board.",
+        "next": "Nf3",
+        "responses": {
+          "e5": {
+            "name": "Open Game",
+            "idea_opponent": "They meet you in the middle.",
+            "next": "Nf3",
+            "hint": "Develop a piece that attacks something. Not the queen.",
+            "right_feedback": "Nf3. It develops and attacks the e5 pawn, so Black has to answer you. That is what a good developing move does.",
+            "wrong_feedback": "Qh5 is the most popular move our players try here, and it is the one that costs the most. The queen attacks e5 and f7, but Nc6 defends and then Bc4 g6 chases her away, and Black develops for free while you retreat. Qf3 has the same problem. Play Nf3: develop first, attack with the small pieces, bring the queen out late.",
+            "responses": {
+              "Nc6": {
+                "name": "The Main Line",
+                "idea_opponent": "They defend the pawn and develop. Best.",
+                "next": "Bc4",
+                "hint": "Develop the bishop to the diagonal that points at their weakest square.",
+                "right_feedback": "Bc4. The bishop stares at f7, which only the king guards, and you are one move from castling.",
+                "wrong_feedback": "Bc4 is the natural move: it develops, it aims at f7, and it clears the way to castle.",
+                "responses": {
+                  "Nf6": {
+                    "name": "Two Knights",
+                    "idea_opponent": "They develop and attack your e-pawn.",
+                    "next": "d3",
+                    "hint": "Your e-pawn is attacked. Defend it with a move that also helps another piece.",
+                    "right_feedback": "d3. The pawn holds e4 and opens a path for your dark bishop. Quiet, but everything is defended and you can castle next.",
+                    "wrong_feedback": "Ng5 attacks f7 and does win games at club level, but Black has d5 and you have to know the follow-up. d3 is the move that is always good: it defends e4 and frees your last bishop.",
+                    "responses": {}
+                  },
+                  "f5": {
+                    "name": "Pushing Too Early",
+                    "idea_opponent": "They attack your pawn with a pawn. Nineteen of our players have met this. It opens the line straight at their own king.",
+                    "next": "d4",
+                    "hint": "They opened lines while their king is still in the middle. Open one more.",
+                    "right_feedback": "d4. Hitting the middle while their king is stuck there is much stronger than grabbing on f5. Their position falls apart faster than yours.",
+                    "wrong_feedback": "Taking on f5 is tempting but slow. d4 opens the middle while their king is still sitting in it, which matters more than one pawn.",
+                    "responses": {}
+                  }
+                }
+              },
+              "Bc5": {
+                "name": "Forgetting the Pawn",
+                "idea_opponent": "They develop the bishop, but nothing is defending e5 now. Eighty-one of our players have played this.",
+                "next": "Nxe5",
+                "hint": "They developed a piece. Ask what that piece was supposed to be defending.",
+                "right_feedback": "Nxe5. The pawn was hanging. Bc5 is a fine developing move, but it does not defend e5, and Nc6 does.",
+                "wrong_feedback": "There is a free pawn here. Bc5 developed a piece but left e5 undefended, so Nxe5 simply wins it.",
+                "responses": {}
+              },
+              "f6": {
+                "name": "Defending With the Wrong Thing",
+                "idea_opponent": "They prop the pawn up with another pawn. Forty-nine of our players have done it. It opens the line to their own king.",
+                "next": "Nxe5",
+                "hint": "The pawn defending e5 is standing right in front of their king. Take anyway.",
+                "right_feedback": "Nxe5. If they take back with fxe5, the f-file is open onto their king and Qh5+ follows. Defending with a pawn in front of your king is how you get mated.",
+                "wrong_feedback": "Take it: Nxe5. The point is that fxe5 rips open the line to their own king, so the pawn is not really defended at all.",
+                "responses": {}
+              },
+              "Qf6": {
+                "name": "The Early Queen",
+                "idea_opponent": "They defend the pawn with the queen. Eighty-three of our players have tried it. The queen is now a target.",
+                "next": "Nc3",
+                "hint": "Do not attack the queen yet. Just develop, and let her be in the way.",
+                "right_feedback": "Nc3. Every piece you develop gains time later, because the queen on f6 is standing on her own knight's best square. Develop and let her be awkward.",
+                "wrong_feedback": "Nc3 is the calm reply. The queen on f6 blocks their own knight, so simply developing leaves them tangled.",
+                "responses": {}
+              },
+              "f5": {
+                "name": "The Latvian",
+                "idea_opponent": "They throw the f-pawn forward. Sixteen of our players have faced it.",
+                "next": "Nxe5",
+                "hint": "Take the pawn that just lost its defender.",
+                "right_feedback": "Nxe5. The knight lands in the middle and Black's king is already draughty. Take the material and develop.",
+                "wrong_feedback": "Nxe5 is right. Pushing f5 gave up a pawn and opened their own king, so take it and finish developing.",
+                "responses": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "traps": [
+      {
+        "name": "The e5 Pawn Grab",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3"
+        ],
+        "trigger_move": "Bc5",
+        "our_reply": "Nxe5",
+        "description": "Black develops the bishop and forgets that Nf3 is attacking e5.",
+        "trap_idea": "Bc5 is a good square for the bishop, but it does not defend the e5 pawn. Nc6 would. Nxe5 just wins it.",
+        "how_to_avoid": "As Black, answer Nf3 with Nc6. Defend the pawn first, develop the bishop next.",
+        "simple_lesson": "When a piece of yours is attacked, a developing move only helps if it also defends."
+      },
+      {
+        "name": "Damiano's Defence",
+        "trap_type": "punish",
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3"
+        ],
+        "trigger_move": "f6",
+        "our_reply": "Nxe5",
+        "description": "Black defends e5 with the f-pawn, which is the one pawn that should not move.",
+        "trap_idea": "Nxe5 anyway. Taking back with fxe5 opens the f-file straight onto Black's own king and Qh5+ is crushing.",
+        "how_to_avoid": "As Black, defend with Nc6 or d6. Never use the f-pawn to defend while your king is still in the middle.",
+        "simple_lesson": "The pawn in front of your king is a wall, not a defender. Moving it lets the attack in."
+      }
+    ],
+    "variations": {
+      "quiet_italian": {
+        "name": "Quiet Italian",
+        "moves_from_parent": [],
+        "continuation": [
+          "Nc3",
+          "d6",
+          "Be3"
+        ],
+        "white_plan": "Everything defended, castle, then decide on a plan. Nothing can go wrong quickly.",
+        "black_plan": "Mirror the setup and castle.",
+        "when_to_play": "When you want a game where you understand every move."
+      }
+    }
   },
   "caro_kann_defense_2_nf3_d5_3_e": {
     "name": "Caro Kann Defense 2.Nf3 d5 3.exd5 cxd5",
