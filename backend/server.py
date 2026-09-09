@@ -482,6 +482,10 @@ app.include_router(streak_routes.router, prefix="/api")
 app.include_router(voice_routes.router, prefix="/api")
 app.include_router(gamification_routes.router, prefix="/api")
 app.include_router(admin_routes.router, prefix="/api")
+# Coach-reason capture for positional predicate authoring. Admin-only; the
+# reasons are authoring input and are never shown to players.
+from routes import admin_positional_reasons as admin_positional_reason_routes  # noqa: E402
+app.include_router(admin_positional_reason_routes.router, prefix="/api")
 caption_authoring_routes.set_db(db)
 app.include_router(caption_authoring_routes.router, prefix="/api")
 app.include_router(thinking_routes.router, prefix="/api")

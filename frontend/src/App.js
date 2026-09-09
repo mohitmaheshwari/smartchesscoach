@@ -47,6 +47,7 @@ import AdminOpenings from "@/pages/AdminOpenings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminAuthoring from "@/pages/AdminAuthoring";
 import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
+import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
@@ -465,6 +466,11 @@ function AppRouter() {
       <Route path="/admin/captions" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminCaptionAuthoring user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/positional-reasons" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminPositionalReasons user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/captions/drafts" element={
