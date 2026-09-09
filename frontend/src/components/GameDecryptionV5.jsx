@@ -1963,7 +1963,7 @@ const MoveCoachingCardV5 = ({
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30"
                   data-testid="play-this-line-btn"
                 >
-                  ▶ Play this line
+                  ▶ Show me on the board
                 </button>
               )}
               {isCoachLinePlaying && (
@@ -1971,7 +1971,7 @@ const MoveCoachingCardV5 = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wide text-amber-500 font-medium">
                       {lineKind === "trap" ? "Trap line"
-                        : lineKind === "punishment" ? "Punishment line"
+                        : lineKind === "punishment" ? "Why it works"
                         : "Engine line"}
                     </span>
                     <button

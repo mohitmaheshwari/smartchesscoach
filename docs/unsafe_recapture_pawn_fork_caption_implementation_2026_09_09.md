@@ -9,9 +9,12 @@ The central opponent-caption path no longer stops at the immediate capture in
 the reported `Re1` position. It now explains the legally stored continuation:
 
 > Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 attacks their rook
-> at e4 and bishop at c4 together. After Bxd5 Qxd5, your knight and their
-> bishop both come off the board. Before recapturing, check whether a pawn
-> push can attack two pieces.
+> and bishop together.
+
+The six-move proof is now progressive disclosure rather than paragraph text:
+**Show me on the board** replays `Re1 Nxe4 Rxe4 d5 Bxd5 Qxd5`, while the
+existing teaching-cue surface says, **When a piece recaptures, check whether a
+pawn can attack two pieces at once.**
 
 The rule is position-general. There is no game id, FEN, move sequence, or
 caption string embedded in the detector.
@@ -124,6 +127,16 @@ Local results on the isolated branch:
 - mandatory `test_all_flows.py`: inconclusive locally because it is a live-HTTP
   script and no backend is listening on port 8001; it failed before its first
   assertion with `httpx.ConnectError`.
+
+After rebasing onto `origin/working-code` at `12c50da0`, the exact feature plus
+new upstream caption/pattern suites pass 48/48; the wider selected caption suite
+passes 200 tests with seven failures. A clean detached `12c50da0` run of the two
+affected legacy suites passes 82 tests and produces the exact same seven
+failures, proving zero new failures. The rebased frontend production build exits
+0 and emits only the existing source-map and bundle-size warnings.
+The final integration base advanced once more to `3f23a213` with unrelated
+puzzle-delivery changes; the rebase was clean and the feature, no-LLM, and new
+upstream puzzle suites pass 44/44 afterward.
 
 The caption JSON parses, every changed Python module compiles, the complete
 human-readable probe renders both real examples, and `git diff --check`

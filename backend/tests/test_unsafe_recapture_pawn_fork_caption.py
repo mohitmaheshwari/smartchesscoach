@@ -178,10 +178,7 @@ def test_re1_central_caption_replaces_immediate_capture_fallback():
     )
     assert caption == (
         "Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 "
-        "attacks their rook at e4 and bishop at c4 together. After "
-        "Bxd5 Qxd5, your knight and their bishop both come off the "
-        "board. Before recapturing, check whether a pawn push can "
-        "attack two pieces."
+        "attacks their rook and bishop together."
     )
     assert "trades his pawn" not in caption
     assert verify_caption(
@@ -241,11 +238,13 @@ def test_re1_full_decision_carries_caption_and_interactive_six_move_line():
     assert decision.should_skip is False
     assert decision.text.caption == (
         "Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 "
-        "attacks their rook at e4 and bishop at c4 together. After "
-        "Bxd5 Qxd5, your knight and their bishop both come off the "
-        "board. Before recapturing, check whether a pawn push can "
-        "attack two pieces."
+        "attacks their rook and bishop together."
     )
+    assert decision.teaching_meta.principle_cue == (
+        "When a piece recaptures, check whether a pawn can attack two "
+        "pieces at once."
+    )
+    assert decision.teaching_meta.principle_id_used == "TAC_FORK_PATTERN"
     assert decision.coach_line_moves == [
         "Re1",
         "Nxe4",
@@ -313,14 +312,8 @@ def test_second_resolution_renders_the_concrete_pawn_payoff():
     caption = render_rule("R12_blunder", facts)
 
     assert caption is not None
-    assert (
-        "If Qxc4, d5 attacks their queen at c4 and pawn at e4 together."
-        in caption
-    )
-    assert "After Qe2 dxe4, you also take their pawn." in caption
-    assert caption.endswith(
-        "Before recapturing, check whether a pawn push can attack two pieces."
-    )
+    assert "If Qxc4, d5 attacks their queen and pawn together." in caption
+    assert "After Qe2 dxe4" not in caption
 
 
 def test_atomic_slots_without_typed_proof_cannot_select_the_new_caption():

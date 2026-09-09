@@ -4633,6 +4633,19 @@ def build_move_teaching_decision(
                 if _why_text:
                     principle_cue = _why_text
                 principle_id_used = _top_pid
+    # This exact proof family has a longer six-move resolution. Keep the
+    # diagnosis readable and carry the reusable lesson in Review's existing
+    # teaching-cue surface; the full proof remains available as board replay.
+    if (
+        caption_facts.get("opp_user_reply_unsafe_recapture_pawn_fork")
+        and caption_facts.get("opp_unsafe_recapture_pawn_fork_proof")
+    ):
+        principle_cue = (
+            "When a piece recaptures, check whether a pawn can attack two "
+            "pieces at once."
+        )
+        principle_id_used = "TAC_FORK_PATTERN"
+
     if principle_cue:
         caption_facts["principle_cue"] = principle_cue
     if principle_id_used:

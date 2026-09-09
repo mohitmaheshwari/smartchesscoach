@@ -20,11 +20,15 @@ When the strongest move looks impossible because the opponent can immediately ta
 
 For the reported position:
 
-> Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 attacks their rook at e4 and bishop at c4 together. After Bxd5 Qxd5, your knight and their bishop both come off the board. Before recapturing, check whether a pawn push can attack two pieces.
+> Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 attacks their rook and bishop together.
+
+The caption is followed by **Show me on the board**, which replays `Re1 Nxe4 Rxe4 d5 Bxd5 Qxd5`, and a separate coaching cue: **When a piece recaptures, check whether a pawn can attack two pieces at once.**
 
 For the second real stored example:
 
-> Opponent's Nf6 is a major mistake. Play Nxc4. If Qxc4, d5 attacks their queen at c4 and pawn at e4 together. After Qe2 dxe4, you also take their pawn. Before recapturing, check whether a pawn push can attack two pieces.
+> Opponent's Nf6 is a major mistake. Play Nxc4. If Qxc4, d5 attacks their queen and pawn together.
+
+The caption is followed by the same board-replay action and separate reusable coaching cue.
 
 If the stored line does not legally prove every named move, piece, square, and payoff, the player sees the existing safe fallback instead. There is no guessed explanation.
 

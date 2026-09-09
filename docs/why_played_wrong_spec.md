@@ -50,9 +50,10 @@ typed legal-replay proof establishes every move, piece identity, square, and
 payoff. The first proof family is capture -> recapture -> pawn fork:
 
 > Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 attacks their rook
-> at e4 and bishop at c4 together. After Bxd5 Qxd5, your knight and their
-> bishop both come off the board. Before recapturing, check whether a pawn
-> push can attack two pieces.
+> and bishop together.
+
+The remaining moves are shown through **Show me on the board**, and the
+transferable rule is rendered separately beneath the diagnosis.
 
 The proof must include the resolution after the fork. A line ending at `d5`,
 or one in which the named payoff is illegal or unresolved, keeps the existing
