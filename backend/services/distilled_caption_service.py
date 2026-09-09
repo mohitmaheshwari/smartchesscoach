@@ -132,6 +132,76 @@ def _best_purpose(fb, best, mover, hung_sq):
     return "", None
 
 
+# Matches REVIEW_LEGAL_LOSS_FLOOR_CP in caption_pipeline: a claim that you
+# "lost" a piece has to be worth at least this much after the exchange plays
+# out. Imported by value rather than by name to avoid a circular import.
+_LOSS_FLOOR_CP = 150
+
+
+def _capture_really_wins_the_piece(board_before, capture_move, mover) -> bool:
+    """Is the opponent's capture actually a win of material, or just a trade?
+
+    This module had its own VAL table and decided "was the piece really lost?"
+    from cp_loss -- an eval proxy for a board question. cp_loss measures the
+    whole move, so a move that loses 200cp by MISSING something elsewhere reads
+    as proof that an unrelated piece was captured.
+
+    Flagged live 2026-09-09 on move 7 of 46edaf7e ("h4 runs into Nxb3, losing
+    your bishop on b3"): b3 was defended twice, by a2 and c2. The stored line
+    was ["d6", "Bg5", "Nxb3", "axb3"] -- the recapture is in the very PV this
+    function walks -- pv_after_best contained the same Nxb3 axb3 trade, and the
+    200cp came from missing Nxe5, a free pawn. Three stored facts falsified the
+    claim; the code consulted none of them.
+
+    legally_hanging_pieces is the established exchange-truth authority (v137
+    made it board-mutating, v144 required the capture to be good for the
+    taker). Ask it instead of guessing.
+    """
+    try:
+        from services.caption_facts import legally_hanging_pieces
+
+        square = chess.square_name(capture_move.to_square)
+        winnable = {
+            str(item.get("square") or "")
+            for item in legally_hanging_pieces(board_before, mover, _LOSS_FLOOR_CP)
+        }
+        return square in winnable
+    except Exception:
+        # Never assert a loss we could not verify.
+        return False
+
+
+def _line_costs_material(board_after_played, pv, mover) -> bool:
+    """Did the mover actually end up down material in the stored line?
+
+    The walked_into_tactic template ends with "whereas {played_san} hands
+    material away", so every use of it asserts a material loss. Neither branch
+    checked that. The generic branch in particular said "{played_san} runs into
+    {pv[0]}, and the line costs you material" where pv[0] is simply the
+    opponent's next move -- on the flagged game that rendered "h4 runs into d6",
+    naming a quiet pawn push as the refutation of a move that lost nothing.
+    """
+    try:
+        board = board_after_played.copy(stack=False)
+        net = 0
+        for san in pv[:8]:
+            move = board.parse_san(san)
+            victim = board.piece_at(move.to_square)
+            if board.is_en_passant(move):
+                victim_value = VAL[chess.PAWN]
+            elif victim is not None:
+                victim_value = VAL.get(victim.piece_type, 0)
+            else:
+                victim_value = 0
+            if victim_value:
+                net += -victim_value if victim.color == mover else victim_value
+            board.push(move)
+        return net <= -_LOSS_FLOOR_CP
+    except Exception:
+        # Never assert a loss we could not verify.
+        return False
+
+
 def _mistake_caption(inp, lab):
     """Build + verify a mistake caption. Returns caption or None (abstain on verify-fail)."""
     fb = inp.fen_before; best = inp.best_move_san; mover = chess.WHITE if inp.mover_is_white else chess.BLACK
@@ -145,21 +215,40 @@ def _mistake_caption(inp, lab):
             mv = b2.parse_san(pvp[0]); cap = b2.piece_at(mv.to_square)
             if not (cap and cap.color == mover):
                 return None
+            # This template says the piece is left "undefended" and is lost
+            # "for nothing". It only ever checked that the opponent's first PV
+            # move captures something of ours, so a defended piece in an even
+            # trade could be announced as a free loss.
+            if not _capture_really_wins_the_piece(b2, mv, mover):
+                return None
             slots["hung_piece"] = P[cap.piece_type]; slots["hung_square"] = chess.square_name(mv.to_square); slots["opp_reply_san"] = pvp[0]
             bp, _ = _best_purpose(fb, best, mover, mv.to_square); slots["best_purpose"] = bp
         elif lab == "walked_into_tactic":
             b2 = chess.Board(fb); b2.push_san(inp.played_san); lost = None
             cpl = inp.cp_loss or 0
+            # Every rendering of this template ends "whereas {played_san} hands
+            # material away", so the label itself is a material-loss claim. If
+            # the stored line does not actually cost material, this is the
+            # wrong template for the move -- abstain rather than invent a
+            # refutation. (The flagged move was a MISSED win, not a tactic
+            # walked into: its own cognitive_gap said "missed_tactic".)
+            if not _line_costs_material(b2, pvp, mover):
+                return None
             for san in pvp[:6]:
                 try:
                     mv = b2.parse_san(san)
                 except Exception:
                     break
                 c = b2.piece_at(mv.to_square)
-                # only a CLEAN loss: opp captures our >=minor piece AND cp_loss is consistent with
-                # actually losing it (>= ~half its value) — filters out recaptured trades.
+                # only a CLEAN loss: opp captures our >=minor piece AND the
+                # exchange on that square actually wins it. The cp_loss test
+                # this replaced could not tell "the bishop was captured and
+                # kept" from "the move lost 200cp for an unrelated reason and
+                # the bishop was traded off" -- see
+                # _capture_really_wins_the_piece.
                 if (c and c.color == mover and b2.turn != mover and VAL[c.piece_type] >= 300
-                        and cpl >= VAL[c.piece_type] * 0.5 and (not lost or VAL[c.piece_type] > VAL[lost[1]])):
+                        and _capture_really_wins_the_piece(b2, mv, mover)
+                        and (not lost or VAL[c.piece_type] > VAL[lost[1]])):
                     lost = (san, c.piece_type, mv.to_square)
                 b2.push(mv)
             if lost:
