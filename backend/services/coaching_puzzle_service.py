@@ -173,13 +173,11 @@ WEAKNESS_TO_PATTERN_TYPES = {
     "opening_knowledge":  ["positional"],
     "endgame_technique":  ["positional"],
     "time_pressure":      ["tactical_miss", "hanging_piece"],
-    # "time_collapse" is the problem_lifecycle/Progress-narrative name for
-    # the same pattern "time_pressure" names here — two taxonomies for one
-    # concept. Without this alias, a Progress-page "active" focus of
-    # time_collapse (very plausible: it's ranked by raw count, and this is
-    # a common, high-count pattern) resolved to zero pattern_types and the
-    # Practise button loaded no puzzles at all.
-    "time_collapse":      ["tactical_miss", "hanging_piece"],
+    # "time_collapse" intentionally has NO puzzle mapping. Losing on the
+    # clock is not trained by solving positions; it is trained by the time
+    # profile and a clock budget. An earlier alias to tactical_miss/
+    # hanging_piece here made the page load unrelated puzzles under a
+    # time-discipline banner. See docs/time_management_practice_scope.md.
 }
 
 

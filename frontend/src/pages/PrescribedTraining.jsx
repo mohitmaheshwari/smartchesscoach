@@ -19,6 +19,7 @@ import DifficultySelector from "@/components/training/DifficultySelector";
 import CanonicalTrainingAssignment from "@/components/training/CanonicalTrainingAssignment";
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import PersonalizedLessonWorkspace from "@/components/training/PersonalizedLessonWorkspace";
+import TimeProfilePanel from "@/components/training/TimeProfilePanel";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
@@ -60,6 +61,10 @@ const PUZZLE_ENCOURAGEMENTS = {
     "Session done! Come back tomorrow to keep the momentum.",
   ]
 };
+
+// Focus keys that describe clock use rather than a board pattern. They are
+// trained by a time budget, never by puzzles.
+const CLOCK_FOCUSES = new Set(["time_collapse", "time_pressure", "time_management"]);
 
 const getEncouragement = (type, streak = 0) => {
   if (streak >= 3 && type === "correct") {
@@ -615,6 +620,14 @@ export default function PrescribedTraining({ user = null }) {
     }
   };
   
+  // A clock focus has no puzzle pool. This route used to render an empty board
+  // ("No puzzle available") under a coach heading while Progress called time
+  // discipline the player's top focus. Show their own clock instead --
+  // docs/time_management_practice_scope.md.
+  if (CLOCK_FOCUSES.has(weakness)) {
+    return <TimeProfilePanel />;
+  }
+
   if (personalizedLesson) {
     return (
       <PersonalizedLessonWorkspace

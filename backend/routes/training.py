@@ -230,6 +230,21 @@ async def start_pic_training_session(
     return _raise_pic_lesson_error(result)
 
 
+@router.get("/time-profile")
+async def get_time_profile_endpoint(user: User = Depends(get_current_user)):
+    """The player's own clock behaviour, for the time-management surface.
+
+    A clock focus has no puzzle pool -- the training page used to render an
+    empty board for it. This serves what is actually true instead: sums over
+    the [%clk] stamps the player's own games already carry. `eligible` is False
+    when there is too little clock data to say anything, and the page must stay
+    silent in that case. See docs/time_management_practice_scope.md.
+    """
+    from services.time_management_service import get_time_profile
+
+    return await get_time_profile(db, user.user_id)
+
+
 @router.get("/pic/session")
 async def get_pic_training_session(user: User = Depends(get_current_user)):
     """Return the user's current PIC lesson without exposing another user."""

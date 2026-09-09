@@ -47,7 +47,13 @@ CATEGORY_TO_GAP = {
     "tactical_miss":     "tactical_oversight",
     "one_move_blunder":  "piece_safety",
     "calculation_error": "calculation_depth",
-    "time_collapse":     "calculation_depth",
+    # "time_collapse" is deliberately absent, so it resolves to itself rather
+    # than to a cognitive gap. Losing on the clock is not a calculation
+    # weakness, and mapping it to calculation_depth made the training page
+    # serve calculation puzzles titled "Let's Practise Calculate The Reply" to
+    # a player whose actual problem was 144 losses on time. Its intervention is
+    # the time profile, not a puzzle pool --
+    # see docs/time_management_practice_scope.md.
     "opening_disaster":  "opening_knowledge",
     "endgame_collapse":  "endgame_technique",
     "positional":        "piece_activity",
