@@ -102,3 +102,67 @@ def test_the_true_lesson_is_still_available():
     caption = dcs._mistake_caption(_Inp(), "missed_free_material")
     assert caption is not None
     assert "e5" in caption
+
+
+class _TradeInp:
+    """Real row: O-O-O puts the rook on d1 where it is defended three times,
+    and the line Bxd1 Nxd1 pays for it with a bishop."""
+
+    fen_before = "r1bqk2r/ppp1ppbp/2n2np1/8/2BP4/2N1BQ2/PPP2PPP/R3K1NR w KQkq - 5 8"
+    played_san = "O-O-O"
+    best_move_san = "Nge2"
+    mover_is_white = True
+    cp_loss = 267
+    pv_after_played = ["Bg4", "Qf4", "Bxd1", "Nxd1"]
+    pv_after_best = ["Bg4", "Qf4", "Nb4", "O-O-O"]
+    eval_before_cp = 50
+    eval_after_cp = -217
+    user_color = "white"
+
+
+class _CleanLossInp:
+    """Real row: the knight on h5 is taken by gxh5 and nothing comes back."""
+
+    fen_before = "r1bqkb1r/pp1p1ppp/4pn2/4P3/3Q4/2N5/PPP2PPP/R1B1KB1R b KQkq - 0 7"
+    played_san = "Nh5"
+    best_move_san = "Ng8"
+    mover_is_white = False
+    cp_loss = 283
+    pv_after_played = ["g4", "b5", "gxh5", "Bb7"]
+    pv_after_best = ["Bf4", "a6", "Ne4", "b5"]
+    eval_before_cp = -100
+    eval_after_cp = -383
+    user_color = "black"
+
+
+def test_a_paid_for_piece_is_called_a_trade_not_a_loss():
+    caption = dcs._mistake_caption(_TradeInp(), "walked_into_tactic")
+    assert caption is not None
+    assert "trading your rook on d1 for a bishop" in caption
+    assert "losing your rook" not in caption
+
+
+def test_one_move_blunder_abstains_when_the_piece_is_paid_for():
+    # Its wording is fixed ("you simply lose it for nothing"), so it cannot
+    # describe a trade honestly and must stay silent instead.
+    assert dcs._mistake_caption(_TradeInp(), "one_move_blunder") is None
+
+
+def test_an_unpaid_loss_is_still_called_a_loss():
+    caption = dcs._mistake_caption(_CleanLossInp(), "walked_into_tactic")
+    assert caption is not None
+    assert "losing your knight on h5" in caption
+
+
+def test_an_empty_purpose_clause_leaves_no_broken_punctuation():
+    for inp in (_TradeInp(), _CleanLossInp()):
+        for lab in ("walked_into_tactic", "one_move_blunder", "missed_free_material"):
+            caption = dcs._mistake_caption(inp, lab)
+            if not caption:
+                continue
+            assert ",." not in caption, caption
+            assert " ," not in caption, caption
+            assert "  " not in caption, caption
+            assert not __import__("re").search(
+                r"\b(?:because|since)\s*[,.;]", caption), caption
+            assert "stronger whereas" not in caption, caption

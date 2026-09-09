@@ -157,18 +157,29 @@ def _capture_really_wins_the_piece(board_before, capture_move, mover) -> bool:
     made it board-mutating, v144 required the capture to be good for the
     taker). Ask it instead of guessing.
     """
+    return _capture_material_gain_cp(board_before, capture_move, mover) > 0
+
+
+def _capture_material_gain_cp(board_before, capture_move, mover) -> int:
+    """How much material the opponent actually nets by capturing on that square.
+
+    0 when the exchange does not win anything worth claiming. Callers use the
+    size to tell an outright loss from a trade: winning a rook and giving back
+    a bishop nets ~170cp, which is real but is NOT "losing your rook", and
+    saying so about a piece defended three times is how a caption loses the
+    player's trust.
+    """
     try:
         from services.caption_facts import legally_hanging_pieces
 
         square = chess.square_name(capture_move.to_square)
-        winnable = {
-            str(item.get("square") or "")
-            for item in legally_hanging_pieces(board_before, mover, _LOSS_FLOOR_CP)
-        }
-        return square in winnable
+        for item in legally_hanging_pieces(board_before, mover, _LOSS_FLOOR_CP):
+            if str(item.get("square") or "") == square:
+                return int(item.get("material_loss_cp") or 0)
+        return 0
     except Exception:
         # Never assert a loss we could not verify.
-        return False
+        return 0
 
 
 def _line_costs_material(board_after_played, pv, mover) -> bool:
@@ -218,8 +229,11 @@ def _mistake_caption(inp, lab):
             # This template says the piece is left "undefended" and is lost
             # "for nothing". It only ever checked that the opponent's first PV
             # move captures something of ours, so a defended piece in an even
-            # trade could be announced as a free loss.
-            if not _capture_really_wins_the_piece(b2, mv, mover):
+            # trade could be announced as a free loss. Its wording is fixed, so
+            # it cannot describe a trade honestly -- require the piece to be
+            # lost outright and abstain otherwise.
+            gain = _capture_material_gain_cp(b2, mv, mover)
+            if gain < VAL.get(cap.piece_type, 0) * 0.8:
                 return None
             slots["hung_piece"] = P[cap.piece_type]; slots["hung_square"] = chess.square_name(mv.to_square); slots["opp_reply_san"] = pvp[0]
             bp, _ = _best_purpose(fb, best, mover, mv.to_square); slots["best_purpose"] = bp
@@ -246,14 +260,38 @@ def _mistake_caption(inp, lab):
                 # kept" from "the move lost 200cp for an unrelated reason and
                 # the bishop was traded off" -- see
                 # _capture_really_wins_the_piece.
-                if (c and c.color == mover and b2.turn != mover and VAL[c.piece_type] >= 300
-                        and _capture_really_wins_the_piece(b2, mv, mover)
-                        and (not lost or VAL[c.piece_type] > VAL[lost[1]])):
-                    lost = (san, c.piece_type, mv.to_square)
+                gain = (
+                    _capture_material_gain_cp(b2, mv, mover)
+                    if (c and c.color == mover and b2.turn != mover
+                        and VAL.get(c.piece_type, 0) >= 300)
+                    else 0
+                )
+                if gain > 0 and (not lost or VAL[c.piece_type] > VAL[lost[1]]):
+                    attacker = b2.piece_at(mv.from_square)
+                    lost = (san, c.piece_type, mv.to_square,
+                            attacker.piece_type if attacker else None, gain)
                 b2.push(mv)
             if lost:
-                slots["front"] = f"{inp.played_san} runs into {lost[0]}, losing your {P[lost[1]]} on {chess.square_name(lost[2])}"
-                bp, _ = _best_purpose(fb, best, mover, lost[2]); slots["best_purpose"] = bp
+                san_l, ptype, tsq, atk_type, gain = lost
+                square_l = chess.square_name(tsq)
+                # An outright loss and a trade are different claims. Only say
+                # "losing your rook" when the rook is not paid for; when
+                # material comes back, name the trade instead. Flagged live:
+                # "O-O-O runs into Bxd1, losing your rook on d1" -- d1 was
+                # defended three times and the line was Bxd1 Nxd1, i.e. rook
+                # for bishop.
+                clean_loss = gain >= VAL.get(ptype, 0) * 0.8
+                if clean_loss or atk_type is None:
+                    slots["front"] = (
+                        f"{inp.played_san} runs into {san_l}, "
+                        f"losing your {P[ptype]} on {square_l}"
+                    )
+                else:
+                    slots["front"] = (
+                        f"{inp.played_san} runs into {san_l}, trading your "
+                        f"{P[ptype]} on {square_l} for a {P[atk_type]}"
+                    )
+                bp, _ = _best_purpose(fb, best, mover, tsq); slots["best_purpose"] = bp
             elif pvp:
                 # net material is lost (classify confirmed) but no single clean piece-drop -> generic, true
                 slots["front"] = f"{inp.played_san} runs into {pvp[0]}, and the line costs you material"
@@ -304,9 +342,16 @@ def _mistake_caption(inp, lab):
     except Exception:
         return None
     import re
-    # drop a dangling connector when its clause (best_purpose) came out empty
-    cap = re.sub(r"\b(?:because|since)\s*,?\s*(?=whereas|,|\.|$)", "", cap, flags=re.I)
+    # Drop a dangling connector when its clause (best_purpose) came out empty.
+    # Removing the connector alone left the punctuation stranded, which shipped
+    # to players as "better was Qg6,." and "instead Kg1 was stronger whereas
+    # Ke1 hands material away" (no comma, no reason). Keep the separator the
+    # sentence still needs, then clear the orphans.
+    cap = re.sub(r"\s*\b(?:because|since)\s*,?\s*(?=whereas\b)", ", ", cap, flags=re.I)
+    cap = re.sub(r",?\s*\b(?:since|because|which)\s*(?=[.;])", "", cap, flags=re.I)
     cap = re.sub(r",?\s*(?:since|because|which)\s*\.", ".", cap)
+    cap = re.sub(r"\s*,\s*(?=[.;])", "", cap)          # orphaned comma before a stop
+    cap = re.sub(r"\s*,\s*,+", ",", cap)                # doubled commas
     cap = re.sub(r"\s{2,}", " ", cap).replace(" .", ".").replace(" ,", ",").strip()
     return cap or None
 
