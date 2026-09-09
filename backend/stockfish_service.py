@@ -444,6 +444,27 @@ class StockfishEngine:
             return False
 
 
+# Evaluations are clamped before they are ever subtracted.
+#
+# Past +/-1000 the game is decided and further "advantage" is not something a
+# player can lose: going from winning by ten pawns to winning by twenty is not
+# a ten-pawn mistake. evaluate_position also turns a forced mate into a
+# sentinel near +/-10000, so without a clamp a lost-either-way position scores
+# thousands of centipawns of phantom loss. Measured on real rows before this
+# clamp existed: 4064cp reported where the true loss was 1, 3453 where it was
+# 8, 4501 where it was 415.
+#
+# Clamping rather than special-casing mate is deliberate. Mate detection is
+# depth-dependent -- the same position gives a mate at depth 18 and an ordinary
+# evaluation at depth 20 -- so any rule that branches on "is it mate" inherits
+# that instability. A clamp treats both the same way and degrades smoothly.
+EVAL_CLAMP_CP = 1000
+
+
+def _clamp_eval(cp):
+    return max(-EVAL_CLAMP_CP, min(EVAL_CLAMP_CP, int(cp)))
+
+
 def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) -> float:
     """
     Calculate Chess.com CAPS2-style accuracy score (0-100).
@@ -583,26 +604,27 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 # Evaluate position after the move
                 current_eval, current_mate = engine.evaluate_position(board, depth)
                 
-                # CRITICAL FIX: If the played move IS the best move, cp_loss = 0
-                # This handles checkmate moves and other cases where move == best_move
-                if move == best_move:
-                    cp_loss = 0
-                # If the move delivers checkmate, it's always the best - no loss
-                elif is_checkmate:
+                # Centipawn loss, measured against the BEST move and with both
+                # evaluations clamped first. best_eval was previously computed
+                # and then never used: the loss was taken against the position's
+                # standing eval, which drifts.
+                best_for_mover = best_eval if is_white_move else -best_eval
+                after_for_mover = current_eval if is_white_move else -current_eval
+
+                if move == best_move or is_checkmate:
                     cp_loss = 0
                 else:
-                    # Calculate centipawn loss normally
-                    # For white: loss = prev_eval - current_eval (if white moved)
-                    # For black: loss = current_eval - prev_eval (if black moved)
+                    cp_loss = max(
+                        0,
+                        _clamp_eval(best_for_mover) - _clamp_eval(after_for_mover),
+                    )
+
+                if cp_loss > 0:
                     if is_white_move:
-                        cp_loss = max(0, prev_eval - current_eval)
-                        if cp_loss > 0:
-                            white_cp_losses.append(cp_loss)
+                        white_cp_losses.append(cp_loss)
                     else:
-                        cp_loss = max(0, current_eval - prev_eval)
-                        if cp_loss > 0:
-                            black_cp_losses.append(cp_loss)
-                
+                        black_cp_losses.append(cp_loss)
+
                 # Check for missed mate - but NOT if the player just delivered mate
                 missed_mate = False
                 if not is_checkmate:

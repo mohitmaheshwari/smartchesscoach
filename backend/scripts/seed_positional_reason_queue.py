@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import chess
+import chess.engine
 from pymongo import MongoClient
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "coach_play"))
@@ -38,6 +39,11 @@ MAX_MEN = int(os.environ.get("MAX_MEN", "24"))
 # Mate scores arrive as five-figure cp_loss. A missed mate is a tactic and
 # asking a coach why mate is good wastes the only scarce resource here.
 MATE_CP = 5000
+# Stored cp_loss is unreliable: re-verified, 29% of these are not mistakes and
+# 28% are moves in games already won or lost. Both were reaching the top of the
+# queue, because sorting by stored cp_loss sorts by exactly the wrong number.
+DECIDED_CP = 600
+VERIFY_DEPTH = int(os.environ.get("VERIFY_DEPTH", "18"))
 PER_BUCKET = int(os.environ.get("PER_BUCKET", "60"))
 
 
@@ -227,11 +233,50 @@ def main() -> int:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
 
+    # Verify every candidate before it can reach a coach. A position that was
+    # already decided has no honest answer to "why is the good move good" --
+    # the honest answer is "nothing was decided here" -- and a move that is not
+    # a mistake has no question at all.
+    print("  verifying candidates before queueing ...", flush=True)
+    kept_buckets = defaultdict(list)
+    dropped = Counter()
+    with chess.engine.SimpleEngine.popen_uci("/usr/games/stockfish") as eng:
+        for bucket, items in buckets.items():
+            for row in items:
+                if len(kept_buckets[bucket]) >= PER_BUCKET:
+                    break
+                board = chess.Board(row["fen"])
+                mover = board.turn
+                try:
+                    mv = chess.Move.from_uci(row["played_uci"])
+                except ValueError:
+                    continue
+                before = eng.analyse(board, chess.engine.Limit(depth=VERIFY_DEPTH))[
+                    "score"].pov(mover).score(mate_score=10000)
+                after_board = board.copy()
+                after_board.push(mv)
+                after = eng.analyse(after_board, chess.engine.Limit(depth=VERIFY_DEPTH))[
+                    "score"].pov(mover).score(mate_score=10000)
+                real = before - after
+                if real < MIN_CP:
+                    dropped["not a mistake on fresh analysis"] += 1
+                    continue
+                if before <= -DECIDED_CP or after >= DECIDED_CP:
+                    dropped["game already decided either way"] += 1
+                    continue
+                row["fresh_cp_loss"] = int(real)
+                row["eval_before"] = int(before)
+                row["eval_after"] = int(after)
+                kept_buckets[bucket].append(row)
+    for reason, n in dropped.most_common():
+        print(f"     dropped {n}: {reason}")
+    buckets = kept_buckets
+
     rows = []
     for bucket, items in buckets.items():
-        items.sort(key=lambda r: (r["priority"], -r["cp_loss"]))
+        items.sort(key=lambda r: (r["priority"], -r.get("fresh_cp_loss", 0)))
         rows.extend(items[:PER_BUCKET])
-    rows.sort(key=lambda r: (r["priority"], -r["cp_loss"]))
+    rows.sort(key=lambda r: (r["priority"], -r.get("fresh_cp_loss", 0)))
     rows = rows[:LIMIT]
 
     if rows:
