@@ -23,7 +23,7 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
-import { Loader2, SkipForward, Check, RefreshCw } from "lucide-react";
+import { Loader2, SkipForward, Check, RefreshCw, Copy } from "lucide-react";
 
 // Resolve SAN on a FEN into an arrow tuple the board understands.
 const sanToArrow = (fen, san, color) => {
@@ -46,6 +46,31 @@ export default function AdminPositionalReasons() {
   const [label, setLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [copied, setCopied] = useState("");
+
+  // Reasons get measured the same way whoever supplies them, so pasting the
+  // position into another model is a legitimate way to work. Copying a
+  // ready-made question is more useful than the bare FEN.
+  const copy = async (what) => {
+    if (!position) return;
+    const text =
+      what === "fen"
+        ? position.fen
+        : [
+            `FEN: ${position.fen}`,
+            `${position.side_to_move} to move.`,
+            `The engine plays ${position.best_san}. The player played ${position.played_san}, which loses about ${Math.round(position.cp_loss / 100)} pawns.`,
+            ``,
+            `In plain English for a 900-1500 player: what does ${position.best_san} keep or achieve that ${position.played_san} gives up? Name what changes on the board, not how large the advantage is. If the reason is tactical rather than positional, say so.`,
+          ].join(String.fromCharCode(10));
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(""), 1500);
+    } catch {
+      setCopied("");
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,6 +218,21 @@ export default function AdminPositionalReasons() {
                   </div>
                 )}
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => copy("fen")}>
+                  <Copy className="mr-1 h-3 w-3" />
+                  {copied === "fen" ? "Copied" : "Copy FEN"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => copy("prompt")}>
+                  <Copy className="mr-1 h-3 w-3" />
+                  {copied === "prompt" ? "Copied" : "Copy question for AI"}
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Every reason is measured against all 46,655 mistakes before it
+                ships, so it does not matter whether it came from you, a book or
+                another model. The gate is downstream.
+              </p>
             </div>
 
             <div className="space-y-4">
