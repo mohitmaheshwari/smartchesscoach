@@ -48,6 +48,17 @@ def test_explicit_line_exception_is_narrow_and_visible(tmp_path):
     assert guard.scan_file(source, tmp_path) == []
 
 
+def test_scan_source_matches_file_scan(tmp_path):
+    source = tmp_path / "backend/new_caption_path.py"
+    source.parent.mkdir()
+    text = 'import chess\nmessage = "Qh5 was better"\n'
+    source.write_text(text, encoding="utf-8")
+
+    assert guard.scan_source("backend/new_caption_path.py", text) == (
+        guard.scan_file(source, tmp_path)
+    )
+
+
 def test_strict_mode_returns_failure_when_a_target_has_a_finding(monkeypatch):
     monkeypatch.setattr(
         guard,
@@ -165,6 +176,86 @@ def test_empty_tree_base_scans_and_blocks_a_one_commit_lineage(tmp_path):
     assert changed_gate.run_strict_guard(repo, paths) == 1
 
 
+def _commit(repo: Path, message: str) -> str:
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Caption Gate Test",
+            "-c",
+            "user.email=caption-gate@example.invalid",
+            "commit",
+            "-qm",
+            message,
+        ],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_changed_gate_ignores_unchanged_legacy_finding(tmp_path):
+    repo = tmp_path / "legacy-change"
+    script_dir = repo / "backend/scripts"
+    script_dir.mkdir(parents=True)
+    source = repo / "backend/legacy.py"
+    source.write_text(
+        'import chess\nmessage = "Qh5 was better"\n', encoding="utf-8"
+    )
+    (script_dir / "check_caption_sources.py").write_text(
+        SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    base = _commit(repo, "legacy")
+    source.write_text(
+        'import chess\nmessage = "Qh5 was better"\n# safe maintenance\n',
+        encoding="utf-8",
+    )
+    head = _commit(repo, "safe maintenance")
+
+    assert changed_gate.run_strict_guard(
+        repo,
+        ["backend/legacy.py"],
+        base=base,
+        head=head,
+    ) == 0
+
+
+def test_changed_gate_blocks_new_finding_in_legacy_file(tmp_path):
+    repo = tmp_path / "legacy-new-caption"
+    script_dir = repo / "backend/scripts"
+    script_dir.mkdir(parents=True)
+    source = repo / "backend/legacy.py"
+    source.write_text(
+        'import chess\nmessage = "Qh5 was better"\n', encoding="utf-8"
+    )
+    (script_dir / "check_caption_sources.py").write_text(
+        SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    base = _commit(repo, "legacy")
+    source.write_text(
+        'import chess\nmessage = "Qh5 was better"\n'
+        'new_message = "Nf3 was stronger"\n',
+        encoding="utf-8",
+    )
+    head = _commit(repo, "new bypass")
+
+    assert changed_gate.run_strict_guard(
+        repo,
+        ["backend/legacy.py"],
+        base=base,
+        head=head,
+    ) == 1
+
+
 def test_changed_gate_propagates_strict_guard_status(monkeypatch):
     monkeypatch.setattr(changed_gate, "require_head", lambda *_args: "b" * 40)
     monkeypatch.setattr(changed_gate, "resolve_base", lambda *_args: "a" * 40)
@@ -175,14 +266,19 @@ def test_changed_gate_propagates_strict_guard_status(monkeypatch):
     )
     seen = []
 
-    def fake_run(_root, paths):
-        seen.append(paths)
+    def fake_run(_root, paths, **kwargs):
+        seen.append((paths, kwargs))
         return 1
 
     monkeypatch.setattr(changed_gate, "run_strict_guard", fake_run)
 
     assert changed_gate.main(["--base", "bad", "--head", "bad"]) == 1
-    assert seen == [["backend/new_path.py"]]
+    assert seen == [
+        (
+            ["backend/new_path.py"],
+            {"base": "a" * 40, "head": "b" * 40},
+        )
+    ]
 
 
 def test_ci_runs_contract_and_changed_gate_without_discarding_status():

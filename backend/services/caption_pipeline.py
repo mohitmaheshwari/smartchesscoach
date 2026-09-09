@@ -547,6 +547,12 @@ class MoveTeachingDecision:
     # ONLY when MoveInputs.coach_move_context is set; None otherwise.
     # See CoachExtras docstring for field semantics.
     coach_extras: Optional[CoachExtras] = None
+    # Explicit SAN sequence for the existing Game Review "Play this line"
+    # interaction. Opponent-side alternatives cannot reuse pv_after_best from
+    # the played-move record, so A3 returns the legally reconstructed line and
+    # the central decision must carry it across the V5 boundary.
+    coach_line_moves: List[str] = field(default_factory=list)
+    coach_line_length_hint: Optional[int] = None
     # PWC user-mistake Socratic payload (2026-05-27 migration). Populated
     # ONLY when MoveInputs.socratic_context is set AND the R18 gates
     # don't suppress (cp_loss<80, threat-handling, opening theory).
@@ -1332,6 +1338,21 @@ def inject_opp_side_narration_facts(
                 )
                 if _punish_facts:
                     caption_facts.update(_punish_facts)
+                    # The verified recapture/fork explanation names all five
+                    # plies. Preserve them in the existing coach-line payload
+                    # so every SAN in the caption can be replayed on the board.
+                    if _punish_facts.get(
+                        "opp_user_reply_unsafe_recapture_pawn_fork"
+                    ):
+                        _coach_line_moves = [
+                            move_san,
+                            _user_reply,
+                            *list(_next_pv_best_for_punish[:4]),
+                        ]
+                        coach_line_result = (
+                            _coach_line_moves,
+                            len(_coach_line_moves),
+                        )
             except Exception as _punish_exc:
                 logger.info(
                     f"[opp_punish] detect failed m{full_move_number} "
@@ -1406,6 +1427,7 @@ def inject_opp_side_narration_facts(
     # has a slight preference here. Best reply: Nc6.") instead of
     # the overclaiming "Opponent's Nc3 is an inaccuracy" framing.
     _concrete_fact_keys = (
+        "opp_user_reply_unsafe_recapture_pawn_fork",
         "opp_user_reply_queen_fork_sub_kind",
         "opp_user_reply_clearance_follow_up_san",
         "opp_user_reply_clearance_attack_square",
@@ -4129,7 +4151,7 @@ def build_move_teaching_decision(
     # depends on this ordering when V5 adopts the central entry).
 
     # ─── 3. A3 opp-side narration (gates on !is_user + opp_cp>=30) ──
-    inject_opp_side_narration_facts(
+    _coach_line_result = inject_opp_side_narration_facts(
         caption_facts,
         fen_before=inputs.fen_before,
         board=board_before,
@@ -4141,6 +4163,17 @@ def build_move_teaching_decision(
         eval_lookup=_eval_lookup,
         user_color=inputs.user_color,
     )
+    _coach_line_moves: List[str] = []
+    _coach_line_length_hint: Optional[int] = None
+    # The V5 migration historically dropped this return value. Do not silently
+    # activate every old generic opponent line as part of this narrow feature;
+    # carry it only for the fully proved five-ply family introduced here.
+    if (
+        _coach_line_result is not None
+        and caption_facts.get("opp_user_reply_unsafe_recapture_pawn_fork")
+    ):
+        _coach_line_moves = list(_coach_line_result[0])
+        _coach_line_length_hint = int(_coach_line_result[1])
 
     # ─── 3b. PWC coach-move narration facts (2026-05-26 migration off
     # smart_coaching.py per [[one-source-of-truth-for-coaching]]).
@@ -5101,6 +5134,9 @@ def build_move_teaching_decision(
             "pv_after_played": list(inputs.pv_after_played or []),
             "pv_after_best": list(inputs.pv_after_best or []),
             "mate_threat_evidence": caption_facts.get("mate_threat_evidence"),
+            "opp_unsafe_recapture_pawn_fork_proof": caption_facts.get(
+                "opp_unsafe_recapture_pawn_fork_proof"
+            ),
         }
         def _verify_final(text: str):
             return _stage4_verify(text, _stage4_facts, strict_v2=True)
@@ -5363,6 +5399,8 @@ def build_move_teaching_decision(
         should_skip=False,
         skip_reason="",
         coach_extras=coach_extras,
+        coach_line_moves=_coach_line_moves,
+        coach_line_length_hint=_coach_line_length_hint,
         socratic_extras=socratic_extras,
         explanation=explanation,
         cause=_exact_endgame_cause or legal_material_loss_cause,

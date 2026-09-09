@@ -67,15 +67,12 @@ def _is_allowlisted(rel: str) -> bool:
     return any(frag in rel for frag in SKIP_FRAGMENTS)
 
 
-def scan_file(path: Path, repo_root: Path):
-    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+def scan_source(rel: str, text: str):
+    """Return caption-source findings for one named source snapshot."""
+    rel = rel.replace("\\", "/")
     if _is_allowlisted(rel):
         return []
     findings = []
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return []
     # Only files that reason about the board produce chess prose — gate on it
     # to cut noise (a route returning a stored string isn't building a caption).
     if "import chess" not in text:
@@ -103,23 +100,17 @@ def scan_file(path: Path, repo_root: Path):
     return findings
 
 
-def main(argv):
-    strict = DEFAULT_STRICT
-    args = [a for a in argv if a != "--strict"]
-    if "--strict" in argv:
-        strict = True
+def scan_file(path: Path, repo_root: Path):
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return []
+    return scan_source(rel, text)
 
-    repo_root = Path(__file__).resolve().parents[2]  # .../smartchesscoach
-    if args:
-        targets = [Path(a) if Path(a).is_absolute() else repo_root / a for a in args]
-        targets = [t for t in targets if t.suffix == ".py" and t.exists()]
-    else:
-        targets = sorted((repo_root / "backend").rglob("*.py"))
 
-    all_findings = []
-    for t in targets:
-        all_findings.extend(scan_file(t, repo_root))
-
+def report_findings(all_findings, *, strict: bool) -> int:
+    """Print one canonical guard result and return its process status."""
     if not all_findings:
         print("[caption-guard] OK — no bespoke caption prose outside the central layer.")
         return 0
@@ -142,6 +133,26 @@ def main(argv):
             print(f"      … +{len(by_file[rel]) - 8} more")
     print()
     return 1 if strict else 0
+
+
+def main(argv):
+    strict = DEFAULT_STRICT
+    args = [a for a in argv if a != "--strict"]
+    if "--strict" in argv:
+        strict = True
+
+    repo_root = Path(__file__).resolve().parents[2]  # .../smartchesscoach
+    if args:
+        targets = [Path(a) if Path(a).is_absolute() else repo_root / a for a in args]
+        targets = [t for t in targets if t.suffix == ".py" and t.exists()]
+    else:
+        targets = sorted((repo_root / "backend").rglob("*.py"))
+
+    all_findings = []
+    for t in targets:
+        all_findings.extend(scan_file(t, repo_root))
+
+    return report_findings(all_findings, strict=strict)
 
 
 if __name__ == "__main__":

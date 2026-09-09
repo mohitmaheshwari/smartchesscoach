@@ -384,6 +384,44 @@ def detect_opp_move_punishments(
     except Exception:
         pass
 
+    # 7. unsafe recapture → pawn fork — the immediate capture can look
+    # unsound even though the stored line proves the recapturing piece is
+    # drawn onto a pawn double attack. The proof owner legally replays all
+    # five plies and preserves piece identity; this projection only exposes
+    # atomic slots for the central R12 renderer.
+    try:
+        from services.caption_facts import (
+            build_unsafe_recapture_pawn_fork_proof,
+        )
+
+        proof = build_unsafe_recapture_pawn_fork_proof(
+            post_opp_fen=post_opp_fen,
+            user_best_reply_san=user_best_reply_san,
+            pv_after_best=pv,
+        )
+        if proof is not None:
+            facts["opp_user_reply_unsafe_recapture_pawn_fork"] = True
+            facts["opp_unsafe_recapture_san"] = proof.recapture.move_san
+            facts["opp_unsafe_fork_san"] = proof.fork.move_san
+            facts["opp_unsafe_recapturing_piece"] = (
+                proof.recapturing_target.piece
+            )
+            facts["opp_unsafe_recapturing_square"] = (
+                proof.recapturing_target.square
+            )
+            facts["opp_unsafe_other_piece"] = proof.other_target.piece
+            facts["opp_unsafe_other_square"] = proof.other_target.square
+            facts["opp_unsafe_response_san"] = proof.response.move_san
+            facts["opp_unsafe_payoff_san"] = proof.payoff.move_san
+            facts["opp_unsafe_setup_piece"] = proof.setup.moving_piece
+            facts["opp_unsafe_payoff_piece"] = proof.payoff.target_piece
+            facts["opp_unsafe_resolution_kind"] = proof.resolution_kind
+            facts["opp_unsafe_recapture_pawn_fork_proof"] = (
+                proof.contract_dict()
+            )
+    except Exception:
+        pass
+
     return facts
 
 

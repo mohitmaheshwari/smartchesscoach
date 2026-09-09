@@ -42,6 +42,23 @@ Examples (target after this ships):
 - **m24 Qb8:** "Qb8 allows Nb7 forking your queen and rook. Two of your pieces a knight's jump apart are fork targets — keep them spaced or defended."
 - **m16 Bf6:** "Bf6 hangs to Nxd5 winning the bishop. Count defenders before placing a piece on an undefended square."
 
+### Opponent-side proved continuations (extension, 2026-09-09)
+
+When the lesson is hidden inside the continuation rather than the opponent's
+move itself, the central pipeline may explain the alternative only after a
+typed legal-replay proof establishes every move, piece identity, square, and
+payoff. The first proof family is capture -> recapture -> pawn fork:
+
+> Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 attacks their rook
+> at e4 and bishop at c4 together. After Bxd5 Qxd5, your knight and their
+> bishop both come off the board. Before recapturing, check whether a pawn
+> push can attack two pieces.
+
+The proof must include the resolution after the fork. A line ending at `d5`,
+or one in which the named payoff is illegal or unresolved, keeps the existing
+safe fallback. This is an extension of the same central R12 composition path,
+not a parallel caption source.
+
 ### Contextual verb table (failure modes)
 
 | Fact | Failure clause template |
@@ -230,7 +247,7 @@ Before declaring done: side-by-side comparison of the 4 flagged positions + 10 s
 
 - **Bug A (silence on routine moves)** — that's `fb_457d742bcc4b` / `fb_f4daba662227`. The "silent??" feedback on `m5 Nf3 cp=9` and `m4 c3 cp=24` is a different design question (positive fallback for sub-50cp opening moves). Separate spec.
 - **Voice/persona variants** — the captions stay in the existing neutral voice. The Indian-coach persona pass from the 3-game audit is a layered concern, separate doc.
-- **Opp-side captions** — `why_clauses_opp` is untouched. The pattern (alternative-promotion only) is correct for opp moves because the user wants to know "what should I have done about it" — that's the alternative.
+- **Opp-side captions (original v2 boundary)** — the June 2026 implementation left `why_clauses_opp` untouched. That boundary was deliberately extended on 2026-09-09 for alternative lines whose teaching payoff is proved only several plies later. Opp-side prose still cannot infer a reason from evaluation loss or an immediate capture alone; it must consume a typed proof from the canonical legal replay.
 - **Sac-aware extension** — item #1 in CAPTION_BACKLOG.md, deferred separately.
 
 ---

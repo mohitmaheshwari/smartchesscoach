@@ -107,6 +107,7 @@ CASES = [
             "mover_is_user": False,
             "played_san": "Bg3",
             "best_move_san": "Bxf4",
+            "user_best_reply_san": "Bxf4",
             "opp_has_concrete_why": True,
             "opp_user_reply_tactic_kind": "piece_capture",
             "opp_user_reply_tactic_target_piece": "bishop",
@@ -179,6 +180,65 @@ CASES = [
             "fork_target_1_square": "c8",
             "fork_target_2": "rook",
             "fork_target_2_square": "a8",
+        },
+    },
+
+    # OUTCOME 9 — REAL OPP-SIDE RECAPTURE TRAP: Re1.
+    # Nxe4 invites Rxe4, then d5 attacks the rook and bishop together.
+    # Bxd5 Qxd5 proves that the knight was paid for rather than hung.
+    {
+        "name": "9_opp_unsafe_recapture_pawn_fork_exchange",
+        "facts": {
+            "mover_is_user": False,
+            "played_san": "Re1",
+            "cp_loss": 40,
+            "best_move_san_differs": True,
+            "user_best_reply_san": "Nxe4",
+            "opp_user_reply_unsafe_recapture_pawn_fork": True,
+            "opp_unsafe_recapture_san": "Rxe4",
+            "opp_unsafe_fork_san": "d5",
+            "opp_unsafe_recapturing_piece": "rook",
+            "opp_unsafe_recapturing_square": "e4",
+            "opp_unsafe_other_piece": "bishop",
+            "opp_unsafe_other_square": "c4",
+            "opp_unsafe_response_san": "Bxd5",
+            "opp_unsafe_payoff_san": "Qxd5",
+            "opp_unsafe_setup_piece": "knight",
+            "opp_unsafe_payoff_piece": "bishop",
+            "opp_unsafe_recapture_pawn_fork_proof": {
+                "schema_version": "unsafe_recapture_pawn_fork_proof.v1"
+            },
+            "opp_unsafe_resolution_kind": (
+                "fork_target_captures_pawn_then_is_recaptured"
+            ),
+        },
+    },
+
+    # OUTCOME 10 — second real stored line. Nxc4 invites Qxc4, then
+    # d5 attacks the queen and e4-pawn; Qe2 dxe4 proves the pawn payoff.
+    {
+        "name": "10_opp_unsafe_recapture_pawn_fork_gain",
+        "facts": {
+            "mover_is_user": False,
+            "played_san": "Nf6",
+            "cp_loss": 494,
+            "best_move_san_differs": True,
+            "user_best_reply_san": "Nxc4",
+            "opp_user_reply_unsafe_recapture_pawn_fork": True,
+            "opp_unsafe_recapture_san": "Qxc4",
+            "opp_unsafe_fork_san": "d5",
+            "opp_unsafe_recapturing_piece": "queen",
+            "opp_unsafe_recapturing_square": "c4",
+            "opp_unsafe_other_piece": "pawn",
+            "opp_unsafe_other_square": "e4",
+            "opp_unsafe_response_san": "Qe2",
+            "opp_unsafe_payoff_san": "dxe4",
+            "opp_unsafe_setup_piece": "knight",
+            "opp_unsafe_payoff_piece": "pawn",
+            "opp_unsafe_recapture_pawn_fork_proof": {
+                "schema_version": "unsafe_recapture_pawn_fork_proof.v1"
+            },
+            "opp_unsafe_resolution_kind": "one_target_moves_pawn_captures_other",
         },
     },
 ]

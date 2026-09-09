@@ -7,6 +7,7 @@ Git boundary; ``check_caption_sources.py`` remains the prose-policy authority.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
@@ -16,6 +17,9 @@ from pathlib import Path, PurePosixPath
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
 EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+HUNK_HEADER = re.compile(
+    r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@"
+)
 
 
 class GateConfigurationError(RuntimeError):
@@ -88,10 +92,71 @@ def changed_backend_python_paths(repo_root: Path, base: str, head: str) -> list[
     return sorted(set(selected))
 
 
-def run_strict_guard(repo_root: Path, paths: list[str]) -> int:
+def changed_line_numbers(
+    repo_root: Path,
+    base: str,
+    head: str,
+    path: str,
+) -> set[int]:
+    """Return new-file line numbers added or modified by ``base..head``."""
+    raw = _git(
+        repo_root,
+        "diff",
+        "--unified=0",
+        "--no-ext-diff",
+        "--no-color",
+        base,
+        head,
+        "--",
+        path,
+    )
+    numbers: set[int] = set()
+    for line in raw.decode("utf-8", errors="replace").splitlines():
+        match = HUNK_HEADER.match(line)
+        if not match:
+            continue
+        start = int(match.group(1))
+        count = int(match.group(2) or 1)
+        numbers.update(range(start, start + count))
+    return numbers
+
+
+def _load_source_guard(repo_root: Path):
+    path = repo_root / "backend/scripts/check_caption_sources.py"
+    spec = importlib.util.spec_from_file_location(
+        "changed_caption_source_guard", path
+    )
+    if spec is None or spec.loader is None:
+        raise GateConfigurationError("caption source guard could not be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def run_strict_guard(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    base: str | None = None,
+    head: str | None = None,
+) -> int:
     if not paths:
         print("[caption-guard] No changed backend Python files.")
         return 0
+    if base is not None and head is not None:
+        guard = _load_source_guard(repo_root)
+        findings = []
+        for path in paths:
+            source = _git(repo_root, "show", f"{head}:{path}").decode(
+                "utf-8", errors="ignore"
+            )
+            changed = changed_line_numbers(repo_root, base, head, path)
+            findings.extend(
+                finding
+                for finding in guard.scan_source(path, source)
+                if finding[1] in changed
+            )
+        return guard.report_findings(findings, strict=True)
     completed = subprocess.run(
         [
             sys.executable,
@@ -120,7 +185,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(f"[caption-guard] Comparing {base}..{head}; files={len(paths)}")
-    return run_strict_guard(REPO_ROOT, paths)
+    return run_strict_guard(
+        REPO_ROOT,
+        paths,
+        base=base,
+        head=head,
+    )
 
 
 if __name__ == "__main__":

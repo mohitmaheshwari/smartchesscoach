@@ -138,6 +138,9 @@ BOARD_TRANSFORMATION_CAUSAL_QUALITY_ID = (
     "review:board_transformation_causal_proof"
 )
 HIDDEN_OPPORTUNITY_COMPOSER_VERSION = "hidden_opportunity_composer.v1"
+UNSAFE_RECAPTURE_PAWN_FORK_PROOF_VERSION = (
+    "unsafe_recapture_pawn_fork_proof.v1"
+)
 VERIFIED_LINE_MIN_CP_LOSS = 100
 _LEGAL_MATERIAL_PURPOSES = frozenset({
     "moves_affected_piece",
@@ -473,6 +476,101 @@ class VerifiedCausalStep:
             })
             if self.target_value_cp is not None:
                 payload["target_value_cp"] = self.target_value_cp
+        return payload
+
+
+@dataclass(frozen=True)
+class VerifiedForkTarget:
+    """One persistent opponent piece attacked by the proved pawn push."""
+
+    piece: str
+    piece_id: str
+    square: str
+
+    def __post_init__(self) -> None:
+        if self.piece not in set(PIECE_TYPE_NAMES.values()) - {"king"}:
+            raise ValueError("fork target must be a non-king piece")
+        if not self.piece_id:
+            raise ValueError("fork target requires persistent identity")
+        chess.parse_square(self.square)
+
+    def contract_dict(self) -> Dict[str, str]:
+        return {
+            "piece": self.piece,
+            "piece_id": self.piece_id,
+            "square": self.square,
+        }
+
+
+@dataclass(frozen=True)
+class VerifiedUnsafeRecapturePawnFork:
+    """A complete capture/recapture/pawn-fork line proved from stored moves."""
+
+    setup: VerifiedCausalStep
+    recapture: VerifiedCausalStep
+    fork: VerifiedCausalStep
+    recapturing_target: VerifiedForkTarget
+    other_target: VerifiedForkTarget
+    response: VerifiedCausalStep
+    payoff: VerifiedCausalStep
+    resolution_kind: str
+    line_evidence: StoredLineReplay
+    family: str = "unsafe_recapture_pawn_fork"
+    proof_version: str = UNSAFE_RECAPTURE_PAWN_FORK_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        if self.resolution_kind not in {
+            "fork_target_captures_pawn_then_is_recaptured",
+            "one_target_moves_pawn_captures_other",
+        }:
+            raise ValueError("unknown unsafe-recapture resolution")
+        if not self.line_evidence.complete or len(self.line_evidence.events) < 5:
+            raise ValueError("unsafe-recapture proof requires five legal plies")
+        if self.setup.role != "setup" or self.payoff.role != "payoff":
+            raise ValueError("unsafe-recapture proof endpoints are invalid")
+        if any(
+            step.role != "constraint"
+            for step in (self.recapture, self.fork, self.response)
+        ):
+            raise ValueError("unsafe-recapture proof steps are out of order")
+        if self.fork.moving_piece != "pawn":
+            raise ValueError("unsafe-recapture fork must be made by a pawn")
+        if self.recapture.target_piece_id != self.setup.moving_piece_id:
+            raise ValueError("recapture must take the exact setup piece")
+        if self.recapturing_target.piece_id != self.recapture.moving_piece_id:
+            raise ValueError("recapturing fork target identity mismatch")
+        if self.recapturing_target.piece_id == self.other_target.piece_id:
+            raise ValueError("unsafe-recapture fork needs two distinct targets")
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "resolution_kind": self.resolution_kind,
+            "setup": self.setup.contract_dict(),
+            "recapture": self.recapture.contract_dict(),
+            "fork": self.fork.contract_dict(),
+            "fork_targets": [
+                self.recapturing_target.contract_dict(),
+                self.other_target.contract_dict(),
+            ],
+            "response": self.response.contract_dict(),
+            "payoff": self.payoff.contract_dict(),
+            "line": self.line_evidence.contract_dict(),
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
         return payload
 
 
@@ -1863,6 +1961,196 @@ def _state_after_for_piece(
         ),
         None,
     )
+
+
+def _pawn_fork_targets_after(
+    event: StoredLineEvent,
+) -> Tuple[VerifiedForkTarget, ...]:
+    """Return exact non-king opponent targets newly attacked by this pawn."""
+    if event.moving_piece != "pawn":
+        return ()
+    targets = []
+    for change in event.relation_changes:
+        state = change.after
+        if (
+            state is None
+            or state.actor != "opponent"
+            or state.piece == "king"
+            or event.destination not in state.enemy_attackers
+        ):
+            continue
+        targets.append(
+            VerifiedForkTarget(
+                piece=state.piece,
+                piece_id=state.piece_id,
+                square=state.square,
+            )
+        )
+    return tuple(sorted(targets, key=lambda item: (item.square, item.piece_id)))
+
+
+def build_unsafe_recapture_pawn_fork_proof(
+    *,
+    post_opp_fen: str,
+    user_best_reply_san: str,
+    pv_after_best: Tuple[Any, ...] | List[Any],
+) -> Optional[VerifiedUnsafeRecapturePawnFork]:
+    """Prove capture → exact recapture → pawn fork → stored payoff.
+
+    This is deliberately narrower than a general fork detector. It speaks only
+    when all five plies are legal, the recapture takes the exact initiating
+    piece, the pawn attacks that recapturing piece plus another persistent
+    target, and the stored line resolves the double attack.
+    """
+    try:
+        board = chess.Board(post_opp_fen)
+        setup_move = board.parse_san(user_best_reply_san)
+    except (ValueError, AssertionError, TypeError):
+        return None
+
+    # Local import avoids the module cycle: stored_line_verifier reads the
+    # canonical piece-value table owned by this module.
+    from services.stored_line_verifier import replay_stored_line
+
+    replay = replay_stored_line(
+        board,
+        setup_move,
+        pv_after_best,
+        include_events=True,
+        resolve_ambiguous_continuation=True,
+    )
+    if not replay.complete or len(replay.events) < 5:
+        return None
+
+    setup, recapture, fork, response, payoff = replay.events[:5]
+    if (
+        setup.actor != "initiator"
+        or setup.captured_piece is None
+        or setup.captured_piece_id is None
+        or recapture.actor != "opponent"
+        or recapture.captured_piece_id != setup.moving_piece_id
+        or recapture.destination != setup.destination
+        or recapture.moving_piece == "pawn"
+        or fork.actor != "initiator"
+        or fork.moving_piece != "pawn"
+        or fork.captured_piece is not None
+        or fork.promotion_piece is not None
+        or response.actor != "opponent"
+        or payoff.actor != "initiator"
+        or payoff.captured_piece_id is None
+    ):
+        return None
+
+    try:
+        after_fork = chess.Board(fork.fen_after)
+        fork_square = chess.parse_square(fork.destination)
+        fork_piece = after_fork.piece_at(fork_square)
+    except (ValueError, TypeError):
+        return None
+    if (
+        fork_piece is None
+        or fork_piece.piece_type != chess.PAWN
+        or after_fork.is_pinned(fork_piece.color, fork_square)
+    ):
+        return None
+
+    targets = _pawn_fork_targets_after(fork)
+    recapturing_target = next(
+        (
+            target
+            for target in targets
+            if target.piece_id == recapture.moving_piece_id
+            and target.square == recapture.destination
+        ),
+        None,
+    )
+    other_targets = tuple(
+        target
+        for target in targets
+        if recapturing_target is None
+        or target.piece_id != recapturing_target.piece_id
+    )
+    if recapturing_target is None or len(other_targets) != 1:
+        return None
+    other_target = other_targets[0]
+
+    target_ids = {
+        recapturing_target.piece_id,
+        other_target.piece_id,
+    }
+    resolution_kind: Optional[str] = None
+    if (
+        response.moving_piece_id == other_target.piece_id
+        and response.captured_piece_id == fork.moving_piece_id
+        and payoff.captured_piece_id == response.moving_piece_id
+    ):
+        resolution_kind = "fork_target_captures_pawn_then_is_recaptured"
+    elif (
+        response.moving_piece_id in target_ids
+        and payoff.moving_piece_id == fork.moving_piece_id
+        and payoff.captured_piece_id in target_ids
+        and payoff.captured_piece_id != response.moving_piece_id
+    ):
+        resolution_kind = "one_target_moves_pawn_captures_other"
+    if resolution_kind is None:
+        return None
+
+    try:
+        return VerifiedUnsafeRecapturePawnFork(
+            setup=_causal_step(
+                setup,
+                role="setup",
+                branch="best",
+                fact_kind="capture_invites_exact_recapture",
+                **_captured_target(setup),
+            ),
+            recapture=_causal_step(
+                recapture,
+                role="constraint",
+                branch="best",
+                fact_kind="opponent_recaptures_exact_setup_piece",
+                **_captured_target(recapture),
+            ),
+            fork=_causal_step(
+                fork,
+                role="constraint",
+                branch="best",
+                fact_kind="pawn_attacks_recapturer_and_second_target",
+            ),
+            recapturing_target=recapturing_target,
+            other_target=other_target,
+            response=_causal_step(
+                response,
+                role="constraint",
+                branch="best",
+                fact_kind=(
+                    "fork_target_captures_attacking_pawn"
+                    if response.captured_piece_id == fork.moving_piece_id
+                    else "fork_target_moves"
+                ),
+                **(
+                    _captured_target(response)
+                    if response.captured_piece_id is not None
+                    else {}
+                ),
+            ),
+            payoff=_causal_step(
+                payoff,
+                role="payoff",
+                branch="best",
+                fact_kind=(
+                    "capture_recovers_fork_target"
+                    if resolution_kind
+                    == "fork_target_captures_pawn_then_is_recaptured"
+                    else "forking_pawn_captures_second_target"
+                ),
+                **_captured_target(payoff),
+            ),
+            resolution_kind=resolution_kind,
+            line_evidence=replay,
+        )
+    except (ValueError, TypeError):
+        return None
 
 
 def _supporting_target_line_proofs(
