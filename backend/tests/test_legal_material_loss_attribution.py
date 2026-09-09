@@ -18,12 +18,16 @@ Engine truth for that position (depth 22):
     evaluation goes from -864cp (100% loss) to -43cp (90% draw), so the
     "punishment" the card warned about would have thrown away Black's win
 
-Corpus measurement (400 games, 7,491 user moves): 583 of these cards exist,
-99 (17%) are unattributable this way, 484 still fire.
+The gate is clause 2 of the attribution contract already written down in
+services/concept_attribution.py -- "it was avoidable: at least one legal
+alternative did not flip it" -- which had never been applied to this path.
+If no legal move keeps the piece, losing it is not this move's fault.
 
-The gate: if the engine's own best move leaves the same piece hanging on the
-same square, the played move did not cause the loss and the best move is not a
-remedy for it -- abstain rather than assert both.
+Corpus measurement (400 games, 7,491 user moves): of 583 cards, 119 (20%) are
+unattributable; 464 are genuine and still fire. An earlier one-move proxy
+("does the engine's #1 move also lose it?") caught 99 of the 119 -- searching
+every legal move catches the rest, including one card that announced a lost
+rook when the real punishment was Qxd1#, i.e. mate reported as material.
 """
 import sys
 from pathlib import Path
@@ -82,6 +86,22 @@ def test_still_fires_when_the_best_move_moves_the_piece_to_safety():
     assert rescued.affected.square == "g3"
     assert rescued.punishment_san == "Bxg3"
     assert rescued.best_move_purpose == "moves_affected_piece"
+
+
+def test_a_genuine_card_carries_a_verified_saving_move():
+    # The remedy clause must name a move proven to keep the piece rather than
+    # asserting an unchecked "X was the safer move". Every card that survives
+    # the gate has one by construction.
+    cause = build_legal_material_loss_cause(
+        fen_before="3r1r2/2p3pk/3b3p/3P1q2/4p2P/P2P2R1/1Pn1QPP1/2B2K2 w - - 0 25",
+        played_san="Qxc2",
+        best_move_san="Rh3",
+        minimum_gain_cp=FLOOR,
+    )
+    assert cause is not None
+    assert cause.avoidable_with_san, (
+        "a card that passed clause 2 must carry the move that keeps the piece"
+    )
 
 
 def test_still_fires_when_the_best_move_adds_a_defender():

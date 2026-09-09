@@ -248,6 +248,15 @@ def _material_cause_teaching(
             f"{cause.best_move_san} added a defender, so "
             f"{cause.punishment_san} no longer won the {affected.piece}."
         )
+    elif cause.avoidable_with_san:
+        # The engine's move does not move the piece, take its attacker or
+        # defend it, so calling it "safer" was an unchecked claim -- and where
+        # the piece was doomed it was a false one. Name the move that is proven
+        # to keep the piece instead.
+        best = (
+            f"{cause.avoidable_with_san} would have kept the "
+            f"{affected.piece} on {affected.square}."
+        )
     else:
         best = f"{cause.best_move_san} was the safer move."
     principle = (

@@ -181,6 +181,10 @@ class LegalMaterialLossCause:
     best_move_to: str
     played_capture: Optional[PieceOnSquare] = None
     played_purposes: Tuple[str, ...] = ()
+    # SAN of a legal move that would have kept the affected piece. Proof that
+    # the loss was avoidable (clause 2 of services/concept_attribution.py), and
+    # a verified remedy to name instead of asserting an unchecked "safer move".
+    avoidable_with_san: Optional[str] = None
     proof_authority: str = "caption_facts.legally_hanging_pieces"
     proof_version: str = LEGAL_MATERIAL_LOSS_CAUSE_VERSION
 
@@ -1388,6 +1392,71 @@ def verified_move_purposes(
     return tuple(purposes)
 
 
+# Cost guard mirroring concept_attribution.MAX_ALTERNATIVES: the avoidability
+# search costs one exchange-truth run per legal move. It only runs once a cause
+# has already been built (~8% of user moves in a 400-game sample), so the
+# amortised cost is small.
+MAX_SAVING_ALTERNATIVES = 60
+
+
+def _material_loss_avoidable_with(
+    *,
+    before: chess.Board,
+    owner: chess.Color,
+    origin_square: int,
+    target_piece_type: int,
+    minimum_gain_cp: int,
+) -> Optional[str]:
+    """Return SAN of a legal move that keeps this piece, or None if none does.
+
+    This is clause 2 of the attribution contract in
+    services/concept_attribution.py, applied to material loss: a move is only
+    blamed for losing a piece when some other legal move would have kept it.
+    If every move loses it, losing it is not this move's fault.
+
+    A move only counts as saving the piece when the piece survives AND nothing
+    of equal or greater value is left winnable -- otherwise "Rg1 would have
+    kept the rook" is true only because it hands over the queen instead.
+    """
+    target_value = PIECE_VALUE_CP.get(target_piece_type, 0)
+    for index, alternative in enumerate(before.legal_moves):
+        if index >= MAX_SAVING_ALTERNATIVES:
+            return None
+        after_alt = before.copy(stack=False)
+        after_alt.push(alternative)
+        # Where the piece stands once the alternative is played.
+        square_after = (
+            alternative.to_square
+            if alternative.from_square == origin_square
+            else origin_square
+        )
+        survivor = after_alt.piece_at(square_after)
+        if (
+            survivor is None
+            or survivor.color != owner
+            or survivor.piece_type != target_piece_type
+        ):
+            continue
+        still_hanging = legally_hanging_pieces(after_alt, owner, minimum_gain_cp)
+        square_after_name = chess.square_name(square_after)
+        keeps_the_piece = True
+        for item in still_hanging:
+            item_square = str(item.get("square") or "")
+            if item_square == square_after_name:
+                keeps_the_piece = False
+                break
+            # Saving it by giving up something at least as valuable is not a save.
+            if int(item.get("material_loss_cp") or 0) >= target_value:
+                keeps_the_piece = False
+                break
+        if keeps_the_piece:
+            try:
+                return before.san(alternative)
+            except (ValueError, AssertionError):
+                return None
+    return None
+
+
 def build_legal_material_loss_cause(
     *,
     fen_before: str,
@@ -1480,25 +1549,24 @@ def build_legal_material_loss_cause(
         str(item.get("square") or "") for item in hanging_after_best
     }
     target_name = chess.square_name(target_square)
-    if target_name in hanging_squares_after_best:
-        # The engine's own best move leaves the same piece hanging on the same
-        # square, so the played move did not cause this loss and the best move
-        # is not a remedy for it. Saying otherwise inverts the truth twice:
-        # it blames a move for a pre-existing weakness, then recommends an
-        # alternative as "safer" when that alternative gives the piece up too.
-        #
-        # Flagged live 2026-09-09 (Qa4, "4r2k/5pp1/p4b1p/8/7P/1QP5/1P3Pq1/2KN3R w"):
-        # the rook on h1 was already hanging before the move, stayed hanging
-        # after Qxf7, and Qa4 was only 19cp behind Qxf7. Worse, the warned-about
-        # capture (Qxh1) is a blunder for the opponent -- after it White plays
-        # Qxe8+ and the eval goes -864cp to -43cp -- so the card scolded the
-        # player for the one resource that gave them a practical chance.
-        #
-        # Abstaining here keeps the detector and drops only the unattributable
-        # cards; a genuine case (where the best move moves the piece, removes
-        # its attacker or defends it) no longer has the target hanging after
-        # the best move, so it still fires.
-        return None
+
+    # Clause 2 of the attribution contract in services/concept_attribution.py:
+    # "a move is only blamed for a concept when ... it was avoidable -- at
+    # least one legal alternative did not flip it. Clause 2 is what stops the
+    # coach blaming a player for a lost position."
+    #
+    # That standard was written for pawn races, back-rank mates and trapped
+    # pieces and never reached this path, which is the highest-volume card in
+    # the product. So it asked only "is something hanging after the played
+    # move?" and blamed the move for whatever it found -- including pieces
+    # that no move could have saved.
+    #
+    # Flagged live 2026-09-09 (Qa4, "4r2k/5pp1/p4b1p/8/7P/1QP5/1P3Pq1/2KN3R w"):
+    # the rook on h1 was already hanging before the move and no legal move
+    # kept it. The card blamed Qa4 for it and offered Qxf7 as "safer" when
+    # Qxf7 loses the rook too, while Qa4 was only 19cp behind. The capture it
+    # warned about (Qxh1) would in fact have thrown away the opponent's win
+    # (-864cp to -43cp after Qxe8+).
     played_piece = before.piece_at(played.from_square)
     affected_origin_before = (
         played.from_square
@@ -1508,6 +1576,21 @@ def build_legal_material_loss_cause(
         and played_piece.piece_type == target.piece_type
         else target_square
     )
+    # Track the piece from where it stood BEFORE the played move. When the
+    # played move is the capture that put it on the target square, the target
+    # square holds an enemy piece in `before` -- searching from there finds no
+    # alternatives at all and would call every capture-into-a-loss
+    # "unavoidable". affected_origin_before is the existing answer to
+    # "where was the affected piece before this move".
+    avoidable_with_san = _material_loss_avoidable_with(
+        before=before,
+        owner=owner,
+        origin_square=affected_origin_before,
+        target_piece_type=target.piece_type,
+        minimum_gain_cp=minimum_gain_cp,
+    )
+    if avoidable_with_san is None:
+        return None
     target_after_best = after_best.piece_at(target_square)
     affected_remains_on_target = (
         affected_origin_before == target_square
@@ -1550,6 +1633,7 @@ def build_legal_material_loss_cause(
         best_move_purpose=purpose,
         best_move_from=chess.square_name(best.from_square),
         best_move_to=chess.square_name(best.to_square),
+        avoidable_with_san=avoidable_with_san,
         played_capture=played_capture,
         played_purposes=verified_move_purposes(
             fen_before=fen_before, played_san=played_san
