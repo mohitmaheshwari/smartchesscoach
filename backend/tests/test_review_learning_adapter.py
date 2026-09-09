@@ -285,6 +285,23 @@ def test_caption_only_application_cannot_reach_used_in_games_in_shadow():
     assert projection["visible_mastery_changed"] is False
 
 
+def test_coached_application_never_claims_used_in_games_even_when_authorized():
+    application = LessonResult(
+        content_kind=PIC_CONTENT_KIND,
+        content_id=PIC_CONTENT_ID,
+        canonical_source=PIC_CANONICAL_SOURCE,
+        content_version=PIC_CONTENT_VERSION,
+        attempt_kind=AttemptKind.APPLICATION,
+        occurred_at=NOW,
+        application_outcome=ApplicationOutcome.APPLIED,
+        source_type=EvidenceSourceType.COACHED_APPLICATION,
+        detector_quality_id="gap:piece_safety:destination_safety_exact",
+        source_event_id="coached-application:g:17",
+    )
+
+    assert application.earned_state() is None
+
+
 def test_duplicate_source_event_is_counted_once():
     event = build_shadow_learning_event(
         lesson_result_from_review_reflection(_reflection_document()),
@@ -379,7 +396,7 @@ def test_all_three_runtime_chokepoints_use_the_shared_adapter():
     )
     assert "lesson_result_from_review_reflection" in reflection
     assert "lesson_result_from_guided_pic_practice" in teaching
-    assert "application_results_from_observations" in worker
+    assert "complete_analyzed_game_evidence_sync" in worker
     assert "visible_mastery_changed" not in reflection
 
 

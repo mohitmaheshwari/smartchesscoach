@@ -1530,6 +1530,18 @@ def process_job(db, job):
 
         _write_analysis()
 
+        # Make the completed game visible before any aggregate tracker reads
+        # the analyzed-game corpus. Previously pattern decay ran first, so the
+        # newest game was always missing until some later analysis refreshed it.
+        db.games.update_one(
+            {"game_id": game_id, "user_id": user_id},
+            {"$set": {
+                "is_analyzed": True,
+                "analysis_status": "completed",
+                "analyzed_at": datetime.now(timezone.utc),
+            }},
+        )
+
         # Pattern decay + prescription auto-close (2026-07-14 rewire).
         # OLD behavior computed decay for the single new game with EMPTY puzzle
         # recoveries and threw the result away — training success never fed back.
@@ -1808,85 +1820,37 @@ def process_job(db, job):
         # =========================================================================
         obs_list = []
         try:
-            from services.move_observation_deriver import derive_observations_for_game
-            # Build the minimal stockfish_analysis dict the deriver expects
-            sf_for_deriver = {"move_evaluations": move_evaluations}
-            obs_list = derive_observations_for_game(
-                stockfish_analysis=sf_for_deriver,
-                game_id=game_id,
-                user_id=user_id,
-                user_color=user_color,
-                decryption_v5_data=None,  # v5 may not exist yet at this phase; backfill fills it later
+            from services.analysis_completion_evidence import (
+                complete_analyzed_game_evidence_sync,
+                external_game_context,
             )
-            if obs_list:
-                # Idempotent upsert by (game_id, move_number) so re-runs don't dup
-                for obs in obs_list:
-                    db.move_observations.update_one(
-                        {"game_id": obs["game_id"], "move_number": obs["move_number"]},
-                        {"$set": obs},
-                        upsert=True,
-                    )
-                logger.info(f"[OBSERVATIONS] Wrote {len(obs_list)} move_observations for {game_id}")
-        except Exception as obs_err:
-            logger.warning(f"[OBSERVATIONS] Failed to derive (non-fatal): {obs_err}")
 
-        # PIC uses the same observation-completion chokepoint. The envelope is
-        # deterministic and additive; flag-off users perform no write.
-        if obs_list:
-            try:
-                from services.focus_game_service import record_pic_game_evidence_sync
-                envelope = record_pic_game_evidence_sync(
-                    db, user_id, game, obs_list
+            completion = complete_analyzed_game_evidence_sync(
+                db,
+                user_id=user_id,
+                game=game,
+                analysis=analysis_doc,
+                context=external_game_context(),
+            )
+            obs_list = completion["observations_data"]
+            logger.info(
+                "[ANALYSIS-EVIDENCE] completed %s observations and %s "
+                "application events for %s",
+                completion["observations"],
+                completion["application_events"],
+                game_id,
+            )
+            if completion.get("focus_envelope"):
+                logger.info(
+                    "[PIC] Recorded %s evidence for %s",
+                    completion["focus_envelope"]["evidence_mode"],
+                    game_id,
                 )
-                if envelope:
-                    logger.info(
-                        "[PIC] Recorded %s evidence for %s",
-                        envelope["evidence_mode"],
-                        game_id,
-                    )
-            except Exception as pic_err:
-                logger.warning(f"[PIC] Evidence write failed (non-fatal): {pic_err}")
-
-            # Canonical misses continue to append as before.  Phase 2 may also
-            # capture explicit schema-18 handled opportunities, but only in
-            # shadow and only behind the Complete Coaching System flag.
-            try:
-                from services.concept_contract_registry import (
-                    complete_coaching_system_enabled,
-                )
-                from services.review_learning_adapter import (
-                    application_results_from_observations,
-                    build_shadow_learning_event,
-                    store_shadow_lesson_results_sync,
-                )
-                _application_results = application_results_from_observations(
-                    game_id=game_id,
-                    observations=obs_list,
-                    occurred_at=(
-                        game.get("date_played")
-                        or game.get("imported_at")
-                        or datetime.now(timezone.utc)
-                    ),
-                    include_handled=complete_coaching_system_enabled(),
-                )
-                if _application_results:
-                    _application_events = [
-                        build_shadow_learning_event(
-                            result,
-                            origin="external_game_observation",
-                        )
-                        for result in _application_results
-                    ]
-                    store_shadow_lesson_results_sync(
-                        db.learning_sessions,
-                        user_id=user_id,
-                        events=_application_events,
-                    )
-            except Exception as learning_err:
-                logger.warning(
-                    "[review-learning-shadow] application adaptation failed: %s",
-                    learning_err,
-                )
+        except Exception as evidence_err:
+            logger.warning(
+                "[ANALYSIS-EVIDENCE] completion failed (non-fatal, retryable): %s",
+                evidence_err,
+            )
 
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE

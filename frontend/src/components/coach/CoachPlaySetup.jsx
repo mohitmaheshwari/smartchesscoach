@@ -127,6 +127,8 @@ const CoachPlaySetup = ({
   setGuidedMode,
   gameMode,
   setGameMode,
+  evidenceMode,
+  setEvidenceMode,
   pastGamesHistory,
   playerIdentityData,
   startGame,
@@ -232,11 +234,15 @@ const CoachPlaySetup = ({
                 <label className="text-sm font-medium mb-3 block">
                   How close should I stay?
                 </label>
-                <div className="flex gap-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   <Button
-                    variant={gameMode === "coach" ? "default" : "outline"}
-                    onClick={() => setGameMode("coach")}
+                    variant={evidenceMode === "practice_assisted" ? "default" : "outline"}
+                    onClick={() => {
+                      setGameMode("coach");
+                      setEvidenceMode("practice_assisted");
+                    }}
                     className="flex-1 h-auto py-3"
+                    data-testid="evidence-mode-practice"
                   >
                     <div className="flex flex-col items-center gap-1">
                       <Brain className="w-5 h-5" />
@@ -245,14 +251,33 @@ const CoachPlaySetup = ({
                     </div>
                   </Button>
                   <Button
-                    variant={gameMode === "play" ? "default" : "outline"}
-                    onClick={() => setGameMode("play")}
+                    variant={evidenceMode === "checkpoint_unassisted" ? "default" : "outline"}
+                    onClick={() => {
+                      setGameMode("play");
+                      setEvidenceMode("checkpoint_unassisted");
+                    }}
                     className="flex-1 h-auto py-3"
+                    data-testid="evidence-mode-checkpoint"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Target className="w-5 h-5" />
+                      <span className="text-sm font-medium">Test this lesson</span>
+                      <span className="text-[10px] text-inherit opacity-70">No help while you play</span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={evidenceMode === "just_play" ? "default" : "outline"}
+                    onClick={() => {
+                      setGameMode("play");
+                      setEvidenceMode("just_play");
+                    }}
+                    className="flex-1 h-auto py-3"
+                    data-testid="evidence-mode-just-play"
                   >
                     <div className="flex flex-col items-center gap-1">
                       <Play className="w-5 h-5" />
-                      <span className="text-sm font-medium">Let me think</span>
-                      <span className="text-[10px] text-inherit opacity-70">We’ll talk after the game</span>
+                      <span className="text-sm font-medium">Just play</span>
+                      <span className="text-[10px] text-inherit opacity-70">We’ll still learn from it later</span>
                     </div>
                   </Button>
                 </div>

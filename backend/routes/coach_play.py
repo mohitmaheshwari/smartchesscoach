@@ -25,7 +25,6 @@ import chess
 
 # Active Recall Integration (pedagogical Q&A enrichment)
 from services.active_recall_integration import enrich_coaching_with_active_recall
-from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -6683,6 +6682,7 @@ async def start_play_with_coach(
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
     game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
+    evidence_mode = request.get("evidence_mode")
     logger.info(f"[/coach/play/start] RECEIVED game_mode={game_mode} from client for user {user.user_id[:8]}")
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
@@ -6696,6 +6696,13 @@ async def start_play_with_coach(
     # Validate user_color
     if user_color not in ["white", "black"]:
         raise HTTPException(status_code=400, detail="user_color must be 'white' or 'black'")
+    if game_mode not in {"coach", "play"}:
+        raise HTTPException(status_code=400, detail="game_mode must be 'coach' or 'play'")
+    if evidence_mode is not None:
+        from services.analysis_completion_evidence import PWC_EVIDENCE_MODES
+
+        if str(evidence_mode) not in PWC_EVIDENCE_MODES:
+            raise HTTPException(status_code=400, detail="unknown evidence_mode")
 
     # Premium gate — Coach Mode only (1 session/day free tier); Play Mode = unlimited.
     # Play Mode is pure chess with no coaching overhead, so no rate limit.
@@ -6747,7 +6754,8 @@ async def start_play_with_coach(
             starting_fen=starting_fen,
             practice_mode=practice_mode,
             source_game_id=source_game_id,
-            game_mode=game_mode
+            game_mode=game_mode,
+            evidence_mode=evidence_mode,
         )
 
         # The canonical snapshot is the only focus authority for eligible
@@ -7465,6 +7473,7 @@ def _build_enriched_coach_move_evaluations(move_history: list, user_color: str):
             "fen_before": m.get("fen_before", ""),
             "fen_after": m.get("fen_after", ""),
             "is_user_move": is_user,
+            "is_opponent_move": not is_user,
             # Coerce missing evals (opponent moves have none in the live
             # session) to 0.0 — downstream position-context classification
             # can't handle None, and these moves carry cp_loss=0 so they are
@@ -7504,11 +7513,6 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
     if not session:
         return
 
-    # Don't duplicate — check if already promoted
-    existing = await db.games.find_one({"coach_session_id": session_id})
-    if existing:
-        return
-
     move_history = session.get("move_history", [])
     if len(move_history) < 4:
         return  # Too short to be useful
@@ -7545,7 +7549,19 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
     # Create game document
     game_id = f"coach_{session_id[:12]}"
     opening_name = session.get("opening_name") or session.get("opening_to_teach", "")
+    opening_key = (
+        session.get("opening_key")
+        or session.get("teaching_opening")
+        or session.get("detected_opening")
+    )
 
+    completed_at = datetime.now(timezone.utc)
+    played_at = (
+        session.get("ended_at")
+        or session.get("last_move_at")
+        or session.get("created_at")
+        or completed_at
+    )
     game_doc = {
         "game_id": game_id,
         "user_id": user_id,
@@ -7553,12 +7569,17 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         "pgn": pgn_str,
         "user_color": user_color,
         "result": game_result,
-        "imported_at": datetime.now(timezone.utc).isoformat(),
+        "date_played": played_at,
+        "imported_at": completed_at,
         "is_analyzed": True,  # We already have evals
+        "analysis_status": "completed",
+        "analyzed_at": completed_at,
         "coach_session_id": session_id,
         "opponent_name": "Coach",
         "time_control": "untimed",
         "opening": opening_name.replace("_", " ").title() if opening_name else "",
+        "opening_name": opening_name,
+        "opening_key": opening_key,
         "white_player": "You" if user_color == "white" else "Coach",
         "black_player": "Coach" if user_color == "white" else "You",
     }
@@ -7616,7 +7637,8 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
     analysis_doc = {
         "game_id": game_id,
         "user_id": user_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": completed_at,
+        "analyzed_at": completed_at,
         "stockfish_analysis": {
             "accuracy": accuracy,
             "blunders": blunders,
@@ -7625,24 +7647,107 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         },
     }
 
-    # The find_one guard above is necessary but NOT sufficient: there is an
-    # await between the check and this insert, and three call sites
-    # (1222, 7832, 9770) can reach it concurrently. On 2026-08-18 one session
-    # was promoted NINE times inside 122ms because every caller passed the
-    # check before any of them inserted.
-    #
-    # games.coach_session_id now carries a partial UNIQUE index, so the storage
-    # layer settles the race. Losing it means another caller already promoted
-    # this session -- that is SUCCESS, not an error, so exit quietly rather
-    # than surfacing a 500 to a user who just finished a game.
+    # The unique coach_session_id index settles concurrent completion calls.
+    # Upserts also repair the historic failure mode where the game row existed
+    # but its analysis or downstream evidence never finished.
+    game_insert_doc = {
+        key: value
+        for key, value in game_doc.items()
+        if key not in {"is_analyzed", "analysis_status", "analyzed_at"}
+    }
+    await db.games.update_one(
+        {"coach_session_id": session_id},
+        {
+            "$setOnInsert": game_insert_doc,
+            "$set": {
+                "is_analyzed": True,
+                "analysis_status": "completed",
+                "analyzed_at": completed_at,
+            },
+        },
+        upsert=True,
+    )
+    await db.game_analyses.update_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"$setOnInsert": analysis_doc},
+        upsert=True,
+    )
+    stored_game = await db.games.find_one(
+        {"coach_session_id": session_id},
+        {"_id": 0},
+    )
+    stored_analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"_id": 0},
+    )
     try:
-        await db.games.insert_one(game_doc)
-    except DuplicateKeyError:
-        logger.info(f"[COACH] Session {session_id[:8]} already promoted "
-                    f"(concurrent call lost the race) — skipping")
-        return
-    await db.game_analyses.insert_one(analysis_doc)
-    logger.info(f"[COACH] Promoted session {session_id[:8]} → game {game_id} "
+        from services.analysis_completion_evidence import (
+            complete_analyzed_game_evidence,
+            pwc_game_context,
+        )
+
+        evidence = await complete_analyzed_game_evidence(
+            db,
+            user_id=user_id,
+            game=stored_game or game_doc,
+            analysis=stored_analysis or analysis_doc,
+            context=pwc_game_context(session),
+        )
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "analysis_evidence_status": "completed",
+                "analysis_evidence_completion": {
+                    key: value
+                    for key, value in evidence.items()
+                    if key not in {
+                        "observations_data",
+                        "focus_envelope",
+                        "pwc_evidence",
+                    }
+                },
+                "pic_evidence": evidence.get("pwc_evidence"),
+            }},
+        )
+        # Reuse the same aggregate owners imported games refresh after
+        # analysis. These are best-effort projections over canonical stored
+        # games/evidence; they do not alter the source event.
+        try:
+            from services.pattern_decay_service import refresh_user_pattern_decay
+            await refresh_user_pattern_decay(db, user_id)
+        except Exception as aggregate_error:
+            logger.warning(
+                "[COACH] post-completion aggregate refresh failed for %s: %s",
+                session_id[:8],
+                aggregate_error,
+            )
+        try:
+            from services.opening_mastery_tracker import (
+                update_mastery_from_analyzed_game,
+            )
+
+            await update_mastery_from_analyzed_game(db, user_id, game_id)
+        except Exception as opening_error:
+            logger.warning(
+                "[COACH] opening evidence refresh failed for %s: %s",
+                session_id[:8],
+                opening_error,
+            )
+    except Exception as evidence_error:
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "analysis_evidence_status": "retryable_error",
+                "analysis_evidence_error": type(evidence_error).__name__,
+            }},
+        )
+        logger.exception(
+            "[COACH] Evidence completion failed for %s; a repeated completion "
+            "call will reconcile it",
+            session_id[:8],
+        )
+
+    logger.info(f"[COACH] Promoted/reconciled session {session_id[:8]} → game {game_id} "
                 f"({len(pgn_moves)} moves, {blunders}B {mistakes}M, acc={accuracy}%)")
 
 

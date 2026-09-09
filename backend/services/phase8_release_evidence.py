@@ -448,6 +448,29 @@ async def _verified_lesson_and_application_evidence(
         "later_application_events": 0,
         "later_handled": 0,
         "later_missed": 0,
+        "coached_application_events": 0,
+        "coached_handled": 0,
+        "coached_missed": 0,
+        "assisted_practice_events": 0,
+        "unassisted_checkpoint_events": 0,
+        "ordinary_coach_play_events": 0,
+        "coached_modes": {
+            "practice_assisted": {
+                "opportunities": 0,
+                "handled": 0,
+                "missed": 0,
+            },
+            "checkpoint_unassisted": {
+                "opportunities": 0,
+                "handled": 0,
+                "missed": 0,
+            },
+            "just_play": {
+                "opportunities": 0,
+                "handled": 0,
+                "missed": 0,
+            },
+        },
         "server_grade_times": [],
         "application_times": [],
         "application_refs": [],
@@ -477,10 +500,32 @@ async def _verified_lesson_and_application_evidence(
                     result["server_grade_times"].append(occurred)
                 continue
             if (
-                lesson_result.source_type != EvidenceSourceType.ORGANIC_GAME
-                or lesson_result.detector_quality_id != QUALITY_ID
+                lesson_result.detector_quality_id != QUALITY_ID
                 or not lesson_result.evidence_complete
             ):
+                continue
+            if lesson_result.source_type == EvidenceSourceType.COACHED_APPLICATION:
+                result["coached_application_events"] += 1
+                origin = str(event.get("origin") or "")
+                if origin == "pwc_practice_assisted_observation":
+                    mode = "practice_assisted"
+                    result["assisted_practice_events"] += 1
+                elif origin == "pwc_checkpoint_unassisted_observation":
+                    mode = "checkpoint_unassisted"
+                    result["unassisted_checkpoint_events"] += 1
+                else:
+                    mode = "just_play"
+                    result["ordinary_coach_play_events"] += 1
+                bucket = result["coached_modes"][mode]
+                bucket["opportunities"] += 1
+                if lesson_result.application_outcome == ApplicationOutcome.APPLIED:
+                    result["coached_handled"] += 1
+                    bucket["handled"] += 1
+                elif lesson_result.application_outcome == ApplicationOutcome.MISSED:
+                    result["coached_missed"] += 1
+                    bucket["missed"] += 1
+                continue
+            if lesson_result.source_type != EvidenceSourceType.ORGANIC_GAME:
                 continue
             result["later_application_events"] += 1
             result["application_times"].append(occurred)
@@ -859,6 +904,22 @@ async def build_phase8_journey_projection(
         "practice": {
             "lesson_evidence_events": evidence["lesson_evidence_events"],
             "completed": step_state["lesson_completed"],
+            "changes_transfer_verdict": False,
+        },
+        "coach_games": {
+            "opportunities": evidence["coached_application_events"],
+            "handled": evidence["coached_handled"],
+            "missed": evidence["coached_missed"],
+            "assisted_practice": evidence["assisted_practice_events"],
+            "unassisted_checkpoints": evidence[
+                "unassisted_checkpoint_events"
+            ],
+            "ordinary_play": evidence["ordinary_coach_play_events"],
+            "practice": dict(evidence["coached_modes"]["practice_assisted"]),
+            "checkpoint": dict(
+                evidence["coached_modes"]["checkpoint_unassisted"]
+            ),
+            "discovery": dict(evidence["coached_modes"]["just_play"]),
             "changes_transfer_verdict": False,
         },
         "transfer": {

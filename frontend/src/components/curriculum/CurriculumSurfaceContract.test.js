@@ -24,3 +24,13 @@ test("Lab, Progress, Game Review, and Play with Coach use one curriculum state p
   expect(progress).toContain('user?.user_id, "progress"');
   expect(progress).not.toContain("CurriculumStateStrip");
 });
+
+test("Play with Coach exposes all three evidence intents and sends the choice", () => {
+  const setup = source("components/coach/CoachPlaySetup.jsx");
+  const page = source("pages/CoachPlay.jsx");
+
+  expect(setup).toContain('data-testid="evidence-mode-practice"');
+  expect(setup).toContain('data-testid="evidence-mode-checkpoint"');
+  expect(setup).toContain('data-testid="evidence-mode-just-play"');
+  expect(page).toContain("evidence_mode:");
+});

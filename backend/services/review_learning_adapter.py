@@ -128,8 +128,27 @@ def application_results_from_observations(
     observations: Iterable[Mapping[str, Any]],
     occurred_at: Any,
     include_handled: bool = False,
+    source_type: EvidenceSourceType = EvidenceSourceType.ORGANIC_GAME,
+    assistance: tuple[AssistanceKind, ...] = (),
+    assistance_measured: bool = True,
 ) -> List[LessonResult]:
-    """Adapt explicit exact opportunities; absence is never application."""
+    """Adapt explicit exact opportunities; absence is never application.
+
+    The board fact is identical for imported and Play With Coach games. Its
+    provenance is not: callers preserve whether the decision happened in an
+    organic game or a coached environment, and whether help was available.
+    """
+    if source_type not in (
+        EvidenceSourceType.ORGANIC_GAME,
+        EvidenceSourceType.COACHED_APPLICATION,
+    ):
+        raise ContractViolation(
+            "observation applications require an organic or coached source"
+        )
+    if any(not isinstance(item, AssistanceKind) for item in assistance):
+        raise ContractViolation("assistance entries must be AssistanceKind values")
+    if not isinstance(assistance_measured, bool):
+        raise ContractViolation("assistance_measured must be boolean")
     results: List[LessonResult] = []
     event_time = _parse_datetime(occurred_at, "occurred_at")
     for observation in observations or []:
@@ -204,7 +223,9 @@ def application_results_from_observations(
                 attempt_kind=AttemptKind.APPLICATION,
                 occurred_at=event_time,
                 application_outcome=application_outcome,
-                source_type=EvidenceSourceType.ORGANIC_GAME,
+                source_type=source_type,
+                assistance=assistance,
+                assistance_measured=assistance_measured,
                 detector_quality_id=(
                     "gap:piece_safety:destination_safety_exact"
                     if exact_destination

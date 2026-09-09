@@ -1450,6 +1450,7 @@ class LessonResult:
         if self.attempt_kind == AttemptKind.APPLICATION:
             if (
                 self.application_outcome == ApplicationOutcome.APPLIED
+                and self.source_type == EvidenceSourceType.ORGANIC_GAME
                 and _application_claim_authorized(self.detector_quality_id)
             ):
                 return StudentState.USED_IN_GAMES

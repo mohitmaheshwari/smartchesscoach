@@ -62,6 +62,10 @@ class CoachGameSession:
 
     # Game mode: "coach" (with captions) or "play" (pure chess)
     game_mode: str = "coach"
+    # Evidence intent is separate from presentation mode.  Coach mode is
+    # assisted practice; a silent Play-mode game becomes a checkpoint only
+    # when the player explicitly selected that purpose.
+    evidence_mode: str = "just_play"
 
     # Result
     result: Optional[GameResult] = None
@@ -221,7 +225,8 @@ async def start_coach_session(
     starting_fen: str = None,
     practice_mode: bool = False,
     source_game_id: str = None,
-    game_mode: str = "coach"  # "coach" (with captions) | "play" (pure chess)
+    game_mode: str = "coach",  # "coach" (with captions) | "play" (pure chess)
+    evidence_mode: str = None,
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -419,6 +424,20 @@ async def start_coach_session(
             "instruction_version": focus_bundle.get("instruction_version"),
         }
 
+    from services.analysis_completion_evidence import (
+        effective_pwc_evidence_mode,
+        pwc_checkpoint_focus_available,
+    )
+
+    primary_focus = (
+        (coaching_context or {}).get("primary_focus") or {}
+    )
+    effective_evidence_mode = effective_pwc_evidence_mode(
+        evidence_mode,
+        game_mode=game_mode,
+        has_verified_focus=pwc_checkpoint_focus_available(primary_focus),
+    )
+
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
         user_id=user_id,
@@ -444,6 +463,7 @@ async def start_coach_session(
         session_focus=focus_bundle,
         coaching_context=coaching_context,
         game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
+        evidence_mode=effective_evidence_mode,
     )
 
     logger.info(f"[start_coach_session] Created session with game_mode={session.game_mode}")

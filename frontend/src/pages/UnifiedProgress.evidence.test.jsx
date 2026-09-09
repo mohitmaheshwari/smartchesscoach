@@ -178,6 +178,94 @@ describe("UnifiedProgress evidence experience", () => {
     });
     expect(mockNavigate).toHaveBeenCalledWith("/import");
   });
+
+  test("shows coached evidence as rehearsal without changing the transfer claim", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(journey({
+        coach_games: {
+          opportunities: 2,
+          handled: 2,
+          missed: 0,
+          assisted_practice: 0,
+          unassisted_checkpoints: 2,
+          ordinary_play: 0,
+          checkpoint: { opportunities: 2, handled: 2, missed: 0 },
+          practice: { opportunities: 0, handled: 0, missed: 0 },
+          discovery: { opportunities: 0, handled: 0, missed: 0 },
+          changes_transfer_verdict: false,
+        },
+        transfer: {
+          verdict: "insufficient_evidence",
+          message:
+            "I need to see the same decision in a later unassisted game before I can judge improvement.",
+        },
+        steps: {
+          baseline_frozen: true,
+          lesson_completed: true,
+          later_unassisted_opportunity: false,
+        },
+        evidence_examples: { before: null, recent: null },
+      })),
+    });
+
+    await act(async () => {
+      root.render(<UnifiedProgress user={{ user_id: "user-1" }} />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="progress-coach-game-evidence"]')
+    ).not.toBeNull();
+    expect(container.textContent).toContain(
+      "you handled this decision without help"
+    );
+    expect(container.textContent).toContain(
+      "waiting to see it hold in one of your real games"
+    );
+    expect(container.textContent).not.toContain("2 opportunities");
+  });
+
+  test("does not attribute an assisted miss to a successful silent checkpoint", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(journey({
+        coach_games: {
+          opportunities: 2,
+          handled: 1,
+          missed: 1,
+          assisted_practice: 1,
+          unassisted_checkpoints: 1,
+          ordinary_play: 0,
+          checkpoint: { opportunities: 1, handled: 1, missed: 0 },
+          practice: { opportunities: 1, handled: 0, missed: 1 },
+          discovery: { opportunities: 0, handled: 0, missed: 0 },
+          changes_transfer_verdict: false,
+        },
+        transfer: {
+          verdict: "insufficient_evidence",
+          message: "I still need a later real-game decision.",
+        },
+        evidence_examples: { before: null, recent: null },
+      })),
+    });
+
+    await act(async () => {
+      root.render(<UnifiedProgress user={{ user_id: "user-1" }} />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain(
+      "you handled this decision without help"
+    );
+    expect(container.textContent).not.toContain(
+      "the same decision still caught you"
+    );
+  });
 });
 
 describe("buildProgressView", () => {

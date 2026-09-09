@@ -114,6 +114,7 @@ const CoachPlay = ({ user }) => {
 
   // Game settings
   const [gameMode, setGameMode] = useState("coach"); // "coach" | "play" — coach has captions, play is just chess
+  const [evidenceMode, setEvidenceMode] = useState("practice_assisted");
   const [selectedColor, setSelectedColor] = useState("white");
   const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
   const [guidedMode, setGuidedMode] = useState(true); // true = Guide Me, false = I Know It
@@ -1425,6 +1426,7 @@ const CoachPlay = ({ user }) => {
         user_color: selectedColor,
         time_control: timeControl,
         game_mode: gameMode, // "coach" (with captions) or "play" (no coaching)
+        evidence_mode: practiceMode ? "practice_assisted" : evidenceMode,
       };
 
       // If user selected a specific opening to practice, pass it
@@ -1470,6 +1472,16 @@ const CoachPlay = ({ user }) => {
           return;
         }
         throw new Error(data.detail || "Failed to start game");
+      }
+      const effectiveEvidenceMode = data.session?.evidence_mode || evidenceMode;
+      if (
+        evidenceMode === "checkpoint_unassisted" &&
+        effectiveEvidenceMode !== "checkpoint_unassisted"
+      ) {
+        setEvidenceMode(effectiveEvidenceMode);
+        toast.info(
+          "I don’t have a lesson ready to test yet, so I started a regular game instead."
+        );
       }
       setSession(data.session);
       if (data.coaching_context) {
@@ -3454,6 +3466,8 @@ const CoachPlay = ({ user }) => {
         setGuidedMode={setGuidedMode}
         gameMode={gameMode}
         setGameMode={setGameMode}
+        evidenceMode={evidenceMode}
+        setEvidenceMode={setEvidenceMode}
         pastGamesHistory={pastGamesHistory}
         playerIdentityData={playerIdentityData}
         startGame={startGame}

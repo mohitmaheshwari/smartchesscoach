@@ -10,6 +10,8 @@ import { useCoachFlow } from "@/coachFlow";
 
 let mockSearchParams = new URLSearchParams();
 const mockHandleStartLesson = jest.fn();
+const mockEvaluateMove = jest.fn();
+const mockHandleFlowUserMove = jest.fn();
 
 jest.mock("react-router-dom", () => ({
   useNavigate: () => jest.fn(),
@@ -25,7 +27,18 @@ jest.mock("@/lib/coachingContext", () => ({ coachPlayFocusRule: () => null }), {
 jest.mock("@/lib/teachingLessonPrompt", () => ({ nextLessonPrompt: () => null }), { virtual: true });
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>, { virtual: true });
 jest.mock("@/components/coach/CoachPlaySetup", () => (props) => (
-  <button data-testid="start-game" onClick={props.actuallyStartGame}>Start game</button>
+  <div>
+    <button
+      data-testid="choose-checkpoint"
+      onClick={() => {
+        props.setGameMode("play");
+        props.setEvidenceMode("checkpoint_unassisted");
+      }}
+    >
+      Test this lesson
+    </button>
+    <button data-testid="start-game" onClick={props.actuallyStartGame}>Start game</button>
+  </div>
 ), { virtual: true });
 jest.mock("@/components/coach/CoachPlayBoard", () => {
   const ReactModule = require("react");
@@ -135,13 +148,13 @@ const playerState = () => ({
 const guardianState = () => ({
   guardianIntervention: null, setGuardianIntervention: jest.fn(),
   pendingMove: null, remainingInterventions: 0, setRemainingInterventions: jest.fn(),
-  evaluateMove: jest.fn(), cancelRiskyMove: jest.fn(),
+  evaluateMove: mockEvaluateMove, cancelRiskyMove: jest.fn(),
   setIntervention: jest.fn(), clearIntervention: jest.fn(),
 });
 
 const flowState = () => ({
   setOpeningGuidance: jest.fn(), setTrapWarning: jest.fn(),
-  handleUserMove: jest.fn(), isInHold: false, cancelPendingMove: jest.fn(), pendingMove: null,
+  handleUserMove: mockHandleFlowUserMove, isInHold: false, cancelPendingMove: jest.fn(), pendingMove: null,
   timeline: [], interactionState: "idle", activeStripCoaching: null,
   activeCoachingMoment: null, liveChecklist: [], playerWeaknessList: [],
   playerProfile: null, rootProblem: null, clockState: "idle",
@@ -156,6 +169,8 @@ describe("CoachPlay lifecycle ownership", () => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
     mockSearchParams = new URLSearchParams();
     mockHandleStartLesson.mockReset();
+    mockEvaluateMove.mockReset();
+    mockHandleFlowUserMove.mockReset();
     useTeachingMode.mockReturnValue(teachingState());
     usePlayerData.mockReturnValue(playerState());
     useGuardian.mockReturnValue(guardianState());
@@ -249,6 +264,13 @@ describe("CoachPlay lifecycle ownership", () => {
     await act(async () => container.querySelector("[data-testid='start-game']").click());
     await flush();
     expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-2");
+    const startCall = global.fetch.mock.calls.find(
+      ([url]) => url.endsWith("/coach/play/start")
+    );
+    expect(JSON.parse(startCall[1].body)).toMatchObject({
+      game_mode: "coach",
+      evidence_mode: "practice_assisted",
+    });
 
     oldMessages.resolve(response({ messages: [{ content: "OLD SESSION MESSAGE" }] }));
     await flush();
@@ -396,6 +418,111 @@ describe("CoachPlay lifecycle ownership", () => {
 
     expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-new");
     expect(global.fetch.mock.calls.some(([url]) => url.endsWith("/coach/play/state/session-old"))).toBe(false);
+  });
+
+  test("an unassisted checkpoint starts pure play and bypasses every coaching hold", async () => {
+    const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [] }));
+      }
+      if (url.endsWith("/coaching/current-prescriptions")) {
+        return Promise.resolve(response({ prescriptions: [] }));
+      }
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({
+          coaching_context: {
+            primary_focus: {
+              topic_key: "piece_safety",
+              detector_quality_id: "gap:piece_safety:destination_safety_exact",
+              focus_id: "focus-1",
+              instruction_id: "instruction-1",
+            },
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({
+          session: {
+            ...session("checkpoint-session"),
+            game_mode: "play",
+            evidence_mode: "checkpoint_unassisted",
+          },
+          current_fen: startFen,
+          is_player_turn: true,
+        }));
+      }
+      if (url.endsWith("/coach/play/move")) {
+        return Promise.resolve(response({
+          current_fen: afterE4,
+          awaiting_coach: false,
+          game_over: false,
+        }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='choose-checkpoint']").click());
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+
+    const startCall = global.fetch.mock.calls.find(
+      ([url]) => url.endsWith("/coach/play/start")
+    );
+    expect(JSON.parse(startCall[1].body)).toMatchObject({
+      game_mode: "play",
+      evidence_mode: "checkpoint_unassisted",
+    });
+
+    act(() => container.querySelector("[data-testid='make-e4']").click());
+    await flush();
+
+    expect(mockEvaluateMove).not.toHaveBeenCalled();
+    expect(mockHandleFlowUserMove).not.toHaveBeenCalled();
+    expect(global.fetch.mock.calls.some(
+      ([url]) => url.endsWith("/coach/play/move")
+    )).toBe(true);
+  });
+
+  test("a checkpoint downgraded by the server is explained to the player", async () => {
+    const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [] }));
+      }
+      if (url.endsWith("/coaching/current-prescriptions")) {
+        return Promise.resolve(response({ prescriptions: [] }));
+      }
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({ personal_improvement_cycle: { eligible: false } }));
+      }
+      if (url.endsWith("/lab-coach-pick")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({
+          session: {
+            ...session("ordinary-session"),
+            game_mode: "play",
+            evidence_mode: "just_play",
+          },
+          current_fen: startFen,
+          is_player_turn: true,
+        }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='choose-checkpoint']").click());
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+
+    expect(jest.requireMock("sonner").toast.info).toHaveBeenCalledWith(
+      "I don’t have a lesson ready to test yet, so I started a regular game instead."
+    );
   });
 
   test("a late coach response cannot overwrite a replacement session", async () => {

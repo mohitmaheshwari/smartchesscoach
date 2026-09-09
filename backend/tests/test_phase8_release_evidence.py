@@ -121,7 +121,14 @@ class _Db:
         return self.collections[name]
 
 
-def _lesson_result(*, at, application=False, missed=False):
+def _lesson_result(
+    *,
+    at,
+    application=False,
+    missed=False,
+    source_type=EvidenceSourceType.ORGANIC_GAME,
+    origin=None,
+):
     payload = LessonResult(
         content_kind=PIC_CONTENT_KIND,
         content_id=PIC_CONTENT_ID,
@@ -140,7 +147,7 @@ def _lesson_result(*, at, application=False, missed=False):
         first_answer=None if application else True,
         attempt_id="application-1" if application else "attempt-1",
         source_type=(
-            EvidenceSourceType.ORGANIC_GAME
+            source_type
             if application
             else EvidenceSourceType.LESSON
         ),
@@ -163,6 +170,7 @@ def _lesson_result(*, at, application=False, missed=False):
     ).event_dict()
     return {
         "event_type": "lesson_result",
+        **({"origin": origin} if origin else {}),
         "lesson_result": payload,
     }
 
@@ -370,6 +378,60 @@ async def test_journey_records_idempotent_reach_and_practice_does_not_prove_tran
     assert projection["transfer"]["verdict"] == "insufficient_evidence"
     assert projection["steps"]["server_graded_first_attempt"] is True
     assert projection["steps"]["later_unassisted_opportunity"] is False
+
+
+@pytest.mark.asyncio
+async def test_coached_checkpoint_is_visible_but_never_becomes_transfer(
+    monkeypatch,
+):
+    now = datetime(2026, 9, 4, 12, tzinfo=timezone.utc)
+    coached = _lesson_result(
+        at=now + timedelta(days=1),
+        application=True,
+        source_type=EvidenceSourceType.COACHED_APPLICATION,
+        origin="pwc_checkpoint_unassisted_observation",
+    )
+    assisted_miss = _lesson_result(
+        at=now + timedelta(hours=1),
+        application=True,
+        missed=True,
+        source_type=EvidenceSourceType.COACHED_APPLICATION,
+        origin="pwc_practice_assisted_observation",
+    )
+    db = _db(now=now, events=[assisted_miss, coached])
+    for key, value in {
+        "COMPLETE_COACHING_SYSTEM_V1_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT": "validation",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    async def mastery(*_args, **_kwargs):
+        return {"state": "learning"}
+
+    monkeypatch.setattr(
+        "services.concept_mastery_service.get_pic_mastery_projection",
+        mastery,
+    )
+    projection = await build_phase8_journey_projection(db, "user-1")
+
+    assert projection["coach_games"]["opportunities"] == 2
+    assert projection["coach_games"]["unassisted_checkpoints"] == 1
+    assert projection["coach_games"]["handled"] == 1
+    assert projection["coach_games"]["missed"] == 1
+    assert projection["coach_games"]["checkpoint"] == {
+        "opportunities": 1,
+        "handled": 1,
+        "missed": 0,
+    }
+    assert projection["coach_games"]["practice"] == {
+        "opportunities": 1,
+        "handled": 0,
+        "missed": 1,
+    }
+    assert projection["coach_games"]["changes_transfer_verdict"] is False
+    assert projection["transfer"]["later_opportunities"] == 0
+    assert projection["transfer"]["verdict"] == "insufficient_evidence"
 
 
 @pytest.mark.asyncio

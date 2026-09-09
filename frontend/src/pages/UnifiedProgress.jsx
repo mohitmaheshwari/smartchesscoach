@@ -208,7 +208,10 @@ function ProofPath({ view, journey }) {
     },
     {
       label: "Practice recorded",
-      complete: Boolean((journey?.practice?.lesson_evidence_events || 0) > 0),
+      complete: Boolean(
+        (journey?.practice?.lesson_evidence_events || 0) > 0 ||
+        (journey?.coach_games?.assisted_practice || 0) > 0
+      ),
       Icon: BookOpenCheck,
     },
     {
@@ -267,6 +270,40 @@ function ProofPath({ view, journey }) {
         Practice is recorded, but it never changes the real-game verdict by itself.
       </p>
     </section>
+  );
+}
+
+function CoachGameEvidence({ evidence }) {
+  if (!evidence?.opportunities) return null;
+
+  const checkpoint = evidence.checkpoint || {};
+  const practice = evidence.practice || {};
+  let message =
+    "I noticed the same kind of decision while you played against the coach. I saved it as practice, not proof from one of your real games.";
+  if (checkpoint.handled > 0 && checkpoint.missed > 0) {
+    message =
+      "Across your silent test games, you handled this decision sometimes and missed it sometimes. It isn’t steady yet, so we keep practising it.";
+  } else if (checkpoint.missed > 0) {
+    message =
+      "In your silent test game, the same decision still caught you. That is useful: we keep the lesson, practise it differently, and test it again.";
+  } else if (checkpoint.handled > 0) {
+    message =
+      "In your silent test game, you handled this decision without help. That is a strong rehearsal; now I’m waiting to see it hold in one of your real games.";
+  } else if (practice.opportunities > 0) {
+    message =
+      "During coached play, you faced this decision again. I saved what happened as assisted practice, so it helps me teach you without pretending the habit is fixed.";
+  }
+
+  return (
+    <div
+      className="mb-8 rounded-2xl border border-violet-500/20 bg-violet-500/[0.06] p-5 md:p-6"
+      data-testid="progress-coach-game-evidence"
+    >
+      <p className="cg-eyebrow !text-[10px]">What I saw in Play with Coach</p>
+      <p className="mt-3 max-w-[760px] text-[13.5px] leading-relaxed text-foreground/90">
+        {message}
+      </p>
+    </div>
   );
 }
 
@@ -431,6 +468,7 @@ export default function UnifiedProgress({ user }) {
         </motion.section>
 
         <motion.div variants={fadeInUp} className="mb-10 md:mb-14">
+          <CoachGameEvidence evidence={journey?.coach_games} />
           <ProofPath view={view} journey={journey} />
         </motion.div>
 
