@@ -150,6 +150,81 @@ THEME_COACHING_CONTEXT = {
     },
 }
 
+# Coaching copy keyed on the WEAKNESS PATTERN (not the Lichess theme).
+#
+# Both pattern-driven paths below used to collapse to a binary: piece_safety,
+# or else "Calculate the Reply". That mislabelled every other pattern --
+# /training/pattern/opening_knowledge rendered "Let's Practise Calculate The
+# Reply", which is not what the player asked to practise and not what the
+# puzzles are. Same failure that sent a player with 144 clock losses to
+# calculation puzzles; this is the other half of it.
+#
+# Unknown patterns fall back to DEFAULT_COACHING, which is generic but true,
+# rather than to a specific claim that happens to be wrong.
+PATTERN_COACHING = {
+    "piece_safety": {
+        "lesson": "Piece Safety",
+        "what_to_look_for": "Scan every one of your pieces: attacked, defended, or able to move.",
+        "why_this_matters": "The same piece-safety habit showed up in your games.",
+    },
+    "hanging_piece": {
+        "lesson": "Piece Safety",
+        "what_to_look_for": "Before you commit, check whether any piece of yours is undefended.",
+        "why_this_matters": "You have been leaving pieces where they can simply be taken.",
+    },
+    "opening_knowledge": {
+        "lesson": "Opening Choices",
+        "what_to_look_for": "Ask what the move does for your development, your centre, and your king.",
+        "why_this_matters": "These positions come from the openings you actually play.",
+    },
+    "king_safety": {
+        "lesson": "King Safety",
+        "what_to_look_for": "Count the squares your king can use, and who is aiming at them.",
+        "why_this_matters": "Your games show positions where the king was left exposed.",
+    },
+    "missed_tactic": {
+        "lesson": "Spotting Tactics",
+        "what_to_look_for": "Check every capture and check before you choose a quiet move.",
+        "why_this_matters": "There was a tactic available in your games that went unplayed.",
+    },
+    "tactical_oversight": {
+        "lesson": "Seeing Their Reply",
+        "what_to_look_for": "After your move, what is their strongest answer?",
+        "why_this_matters": "These positions punish a move that only looks one step ahead.",
+    },
+    "threat_awareness": {
+        "lesson": "Their Threat First",
+        "what_to_look_for": "Before your own plan, name what their last move attacked.",
+        "why_this_matters": "Your games show threats that were answered too late.",
+    },
+    "calculation_depth": {
+        "lesson": "Calculate the Reply",
+        "what_to_look_for": "Choose a move, then calculate their strongest reply before you commit.",
+        "why_this_matters": "This real-game position asks you to calculate one safe continuation.",
+    },
+    "endgame_technique": {
+        "lesson": "Endgame Technique",
+        "what_to_look_for": "An active king and passed pawns decide these positions.",
+        "why_this_matters": "You have had winning endgames that slipped.",
+    },
+    "pawn_structure": {
+        "lesson": "Pawn Structure",
+        "what_to_look_for": "Which pawns can never be defended by another pawn?",
+        "why_this_matters": "These structures came out of your own games.",
+    },
+    "piece_activity": {
+        "lesson": "Active Pieces",
+        "what_to_look_for": "Find the piece doing the least, and give it something to do.",
+        "why_this_matters": "Your games show pieces left out of play.",
+    },
+    "punish_blunders": {
+        "lesson": "Punishing Mistakes",
+        "what_to_look_for": "They just erred. Find the move that makes them pay.",
+        "why_this_matters": "These are chances your games offered and did not take.",
+    },
+}
+
+
 # Default coaching for themes without specific context
 DEFAULT_COACHING = {
     "lesson": "Tactical Training",
@@ -168,10 +243,15 @@ WEAKNESS_TO_PATTERN_TYPES = {
     "missed_tactic":      ["fork", "pin", "skewer", "tactical_miss", "discovered_attack"],
     "piece_safety":       ["piece_safety", "hanging_piece", "trapped_piece"],
     "king_safety":        ["checkmate_pattern", "back_rank"],
-    "pawn_structure":     ["positional"],
-    "piece_activity":     ["positional"],
-    "opening_knowledge":  ["positional"],
-    "endgame_technique":  ["positional"],
+    # These four all pointed at "positional", and community_training_positions
+    # contains ZERO rows with pattern_type "positional" -- so every one of them
+    # rendered an empty page. The extractor stores the literal pattern name
+    # (293 rows are pattern_type "opening_knowledge"), so ask for that first
+    # and keep "positional" as a legacy alias for anything older.
+    "pawn_structure":     ["pawn_structure", "positional"],
+    "piece_activity":     ["piece_activity", "positional"],
+    "opening_knowledge":  ["opening_knowledge", "positional"],
+    "endgame_technique":  ["endgame_technique", "positional"],
     "time_pressure":      ["tactical_miss", "hanging_piece"],
     # "time_collapse" intentionally has NO puzzle mapping. Losing on the
     # clock is not trained by solving positions; it is trained by the time
@@ -326,24 +406,25 @@ class CoachingPuzzleService:
         primary_theme = themes[0] if themes else "short"
         theme_coaching = THEME_COACHING_CONTEXT.get(primary_theme, DEFAULT_COACHING)
         if verified_puzzle_admission_enforced():
+            # Report the theme the player actually asked for. This used to
+            # collapse to piece_safety-or-calculation_depth, so
+            # /training/pattern/opening_knowledge reported
+            # theme=calculation_depth for weakness=opening_knowledge -- the
+            # page then described itself as a different lesson entirely.
             verified_focus = (
                 "piece_safety"
                 if weakness_pattern in {"piece_safety", "hanging_piece"}
-                else "calculation_depth"
+                else weakness_pattern
             )
             primary_theme = verified_focus
-            theme_coaching = (
-                {
-                    "lesson": "Piece Safety",
-                    "what_to_look_for": "Scan every one of your pieces before you choose a move.",
-                    "why_this_matters": "These positions match the habit your coach wants you to practise now.",
-                }
-                if verified_focus == "piece_safety"
-                else {
-                    "lesson": "Calculate the Reply",
-                    "what_to_look_for": "Calculate their strongest reply before you commit.",
-                    "why_this_matters": "These real-game positions help you practise choosing a safer continuation.",
-                }
+            # Label by what the player actually asked to practise. The old
+            # binary called every non-piece-safety pattern "Calculate the
+            # Reply", so /training/pattern/opening_knowledge announced the
+            # wrong lesson.
+            theme_coaching = dict(
+                PATTERN_COACHING.get(weakness_pattern)
+                or PATTERN_COACHING.get(verified_focus)
+                or DEFAULT_COACHING
             )
 
         return {
@@ -984,11 +1065,9 @@ class CoachingPuzzleService:
                     ),
                 }
             else:
-                coaching = {
-                    "lesson": "Calculate the Reply",
-                    "what_to_look_for": "Choose a move, then calculate their strongest reply before you commit.",
-                    "why_this_matters": "This real-game position asks you to calculate one safe continuation.",
-                }
+                coaching = dict(
+                    PATTERN_COACHING.get(pattern) or DEFAULT_COACHING
+                )
             if own_game:
                 coaching["personal_note"] = (
                     f"This is move {move_number} from your game. Solve it again without looking at the answer."
