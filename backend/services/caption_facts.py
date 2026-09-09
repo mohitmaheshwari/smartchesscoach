@@ -1480,6 +1480,25 @@ def build_legal_material_loss_cause(
         str(item.get("square") or "") for item in hanging_after_best
     }
     target_name = chess.square_name(target_square)
+    if target_name in hanging_squares_after_best:
+        # The engine's own best move leaves the same piece hanging on the same
+        # square, so the played move did not cause this loss and the best move
+        # is not a remedy for it. Saying otherwise inverts the truth twice:
+        # it blames a move for a pre-existing weakness, then recommends an
+        # alternative as "safer" when that alternative gives the piece up too.
+        #
+        # Flagged live 2026-09-09 (Qa4, "4r2k/5pp1/p4b1p/8/7P/1QP5/1P3Pq1/2KN3R w"):
+        # the rook on h1 was already hanging before the move, stayed hanging
+        # after Qxf7, and Qa4 was only 19cp behind Qxf7. Worse, the warned-about
+        # capture (Qxh1) is a blunder for the opponent -- after it White plays
+        # Qxe8+ and the eval goes -864cp to -43cp -- so the card scolded the
+        # player for the one resource that gave them a practical chance.
+        #
+        # Abstaining here keeps the detector and drops only the unattributable
+        # cards; a genuine case (where the best move moves the piece, removes
+        # its attacker or defends it) no longer has the target hanging after
+        # the best move, so it still fires.
+        return None
     played_piece = before.piece_at(played.from_square)
     affected_origin_before = (
         played.from_square
