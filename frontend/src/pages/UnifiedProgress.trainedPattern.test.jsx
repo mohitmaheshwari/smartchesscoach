@@ -1,15 +1,6 @@
 /**
- * `derived.active.trained_pattern` was referenced exactly once in the whole
- * codebase and never assigned anywhere — the `active` weakness object only
- * ever sets `.pattern`. The "Practise this with me" button navigated to
- * `/training/pattern/undefined` for every user, for whichever pattern was
- * active, not just one. Reported live 2026-09-09 via the time-discipline
- * card ("it says that's the fix, but it loads nothing, no puzzle").
- *
- * A full render test of this page's data pipeline is a large lift for a
- * one-field typo; this is a cheap, fast source-level guard against the
- * typo coming back, in the spirit of this repo's existing caption-guard
- * pre-commit check.
+ * Progress no longer owns pattern-practice routing. Learn owns the lesson;
+ * Progress consumes its canonical destination and owns transfer evidence.
  */
 const fs = require("fs");
 const path = require("path");
@@ -19,7 +10,9 @@ const source = fs.readFileSync(
   "utf8"
 );
 
-test("the Practise-this-with-me button navigates with the field the active object actually sets", () => {
+test("Progress does not reconstruct a pattern-training route from weakness fields", () => {
   expect(source).not.toContain("trained_pattern");
-  expect(source).toContain("derived.active.pattern");
+  expect(source).not.toContain("/training/pattern/");
+  expect(source).toContain("primary?.destination?.href");
+  expect(source).toContain("/progress/complete-coaching");
 });

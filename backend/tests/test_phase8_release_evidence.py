@@ -156,7 +156,10 @@ def _lesson_result(*, at, application=False, missed=False):
         detector_quality_id=QUALITY_ID if application else None,
         detector_version=FACT_VERSION if application else None,
         evidence_owner="analysis_worker" if application else "learning_sessions",
-        evidence_ref="game-4" if application else "session-1",
+        evidence_ref="game-4:4" if application else "session-1",
+        source_event_id=(
+            "move_observation:game-4:4" if application else "lesson:attempt-1"
+        ),
     ).event_dict()
     return {
         "event_type": "lesson_result",
@@ -174,6 +177,13 @@ def _db(*, now, events=(), journey=()):
         }
         for index in range(1, 4)
     ]
+    games.append({
+        "game_id": "game-4",
+        "user_id": "user-1",
+        "is_analyzed": True,
+        "date_played": now + timedelta(days=1),
+        "opponent_name": "Recent opponent",
+    })
     analyses = [
         {
             "game_id": game["game_id"],
@@ -194,15 +204,45 @@ def _db(*, now, events=(), journey=()):
             "game_id": f"game-{index}",
             "user_id": "user-1",
             "schema_version": 18,
+            "ply": 4,
+            "move_number": 2,
+            "fen_before": "4k3/8/8/8/8/8/3R4/4K3 w - - 0 1",
+            "move_uci": "d2d7",
+            "move_san": "stale-stored-label",
             "destination_safety_exact": {
                 "version": FACT_VERSION,
+                "quality_id": QUALITY_ID,
                 "derivation_status": "ok",
                 "eligible": True,
                 "outcome": "miss" if index == 3 else "handled",
+                "fires": index == 3,
+                "moved_piece": "rook",
+                "destination": "d7",
             },
         }
         for index in range(1, 4)
     ]
+    observations.append({
+        "_id": "obs-4",
+        "game_id": "game-4",
+        "user_id": "user-1",
+        "schema_version": 18,
+        "ply": 4,
+        "move_number": 2,
+        "fen_before": "4k3/8/8/8/8/8/3R4/4K3 w - - 0 1",
+        "move_uci": "d2d7",
+        "move_san": "stale-stored-label",
+        "destination_safety_exact": {
+            "version": FACT_VERSION,
+            "quality_id": QUALITY_ID,
+            "derivation_status": "ok",
+            "eligible": True,
+            "outcome": "handled",
+            "fires": False,
+            "moved_piece": "rook",
+            "destination": "d7",
+        },
+    })
     return _Db({
         "users": [{
             "user_id": "user-1",
@@ -230,6 +270,10 @@ def _db(*, now, events=(), journey=()):
             "focus_id": "focus-1",
             "instruction_id": "instruction-1",
             "focus_kind": FOCUS_KIND,
+            "pre_period": {
+                "game_ids": ["game-3", "game-2", "game-1"],
+                "observation_ids": ["obs-1", "obs-2", "obs-3"],
+            },
         }],
         "user_active_focus": [{
             "_id": "focus-1",
@@ -359,6 +403,88 @@ async def test_later_verified_miss_keeps_focus_recurring(monkeypatch):
     assert projection["transfer"]["verdict"] == "still_recurring"
     assert projection["transfer"]["missed"] == 1
     assert projection["steps"]["later_unassisted_opportunity"] is True
+
+
+@pytest.mark.asyncio
+async def test_progress_evidence_resolves_owned_plan_grade_positions(monkeypatch):
+    now = datetime(2026, 9, 4, 12, tzinfo=timezone.utc)
+    events = [
+        _lesson_result(at=now + timedelta(minutes=1)),
+        _lesson_result(at=now + timedelta(days=1), application=True),
+    ]
+    db = _db(now=now, events=events)
+    for key, value in {
+        "COMPLETE_COACHING_SYSTEM_V1_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT": "validation",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    async def mastery(*_args, **_kwargs):
+        return {
+            "state": "proven_in_games",
+            "current_demonstrated_checkpoint": 8,
+        }
+
+    monkeypatch.setattr(
+        "services.concept_mastery_service.get_pic_mastery_projection",
+        mastery,
+    )
+    projection = await build_phase8_journey_projection(db, "user-1")
+
+    assert projection["transfer"]["verdict"] == "improved"
+    assert projection["evidence_examples"]["before"] == {
+        "game_id": "game-3",
+        "ply": 4,
+        "move_number": 2,
+        "fen": "4k3/8/8/8/8/8/3R4/4K3 w - - 0 1",
+        "move_uci": "d2d7",
+        "move_san": "Rd7",
+        "piece": "rook",
+        "destination": "d7",
+        "outcome": "miss",
+        "opponent": "Opponent",
+        "played_at": (now - timedelta(days=1)).isoformat(),
+    }
+    assert projection["evidence_examples"]["recent"]["game_id"] == "game-4"
+    assert projection["evidence_examples"]["recent"]["outcome"] == "handled"
+    assert projection["evidence_examples"]["recent"]["move_san"] == "Rd7"
+    assert (
+        projection["evidence_examples"]["recent"]["opponent"]
+        == "Recent opponent"
+    )
+
+
+@pytest.mark.asyncio
+async def test_progress_evidence_never_borrows_another_users_position(monkeypatch):
+    now = datetime(2026, 9, 4, 12, tzinfo=timezone.utc)
+    events = [
+        _lesson_result(at=now + timedelta(minutes=1)),
+        _lesson_result(at=now + timedelta(days=1), application=True),
+    ]
+    db = _db(now=now, events=events)
+    db.move_observations.rows[-1]["user_id"] = "someone-else"
+    for key, value in {
+        "COMPLETE_COACHING_SYSTEM_V1_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true",
+        "PERSONALIZED_GAME_REVIEW_COACH_ROLLOUT": "validation",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    async def mastery(*_args, **_kwargs):
+        return {
+            "state": "proven_in_games",
+            "current_demonstrated_checkpoint": 8,
+        }
+
+    monkeypatch.setattr(
+        "services.concept_mastery_service.get_pic_mastery_projection",
+        mastery,
+    )
+    projection = await build_phase8_journey_projection(db, "user-1")
+
+    assert projection["transfer"]["handled"] == 1
+    assert projection["evidence_examples"]["recent"] is None
 
 
 @pytest.mark.asyncio

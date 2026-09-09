@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import hashlib
 from typing import Any, Dict, Iterable, Optional
 
+import chess
+
 from services.complete_coaching_access import (
     BASELINE_COLLECTION,
     BASELINE_VERSION,
@@ -448,6 +450,7 @@ async def _verified_lesson_and_application_evidence(
         "later_missed": 0,
         "server_grade_times": [],
         "application_times": [],
+        "application_refs": [],
     }
     sessions = db.learning_sessions.find(
         {"user_id": user_id, "skill_id": PIC_SKILL_ID},
@@ -481,11 +484,211 @@ async def _verified_lesson_and_application_evidence(
                 continue
             result["later_application_events"] += 1
             result["application_times"].append(occurred)
+            source_ref = str(lesson_result.source_event_id or "")
+            if source_ref.startswith("move_observation:"):
+                source_ref = source_ref[len("move_observation:"):]
+                game_id, separator, ply_text = source_ref.rpartition(":")
+                try:
+                    ply = int(ply_text) if separator else 0
+                except (TypeError, ValueError):
+                    ply = 0
+                if game_id and ply > 0:
+                    result["application_refs"].append({
+                        "game_id": game_id,
+                        "ply": ply,
+                        "outcome": lesson_result.application_outcome.value,
+                        "occurred_at": occurred,
+                    })
             if lesson_result.application_outcome == ApplicationOutcome.APPLIED:
                 result["later_handled"] += 1
             elif lesson_result.application_outcome == ApplicationOutcome.MISSED:
                 result["later_missed"] += 1
     return result
+
+
+def _public_progress_observation(
+    row: Dict[str, Any],
+    *,
+    expected_outcome: str,
+    game: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Project one exact owned observation without exposing detector internals."""
+    fact = row.get("destination_safety_exact") or {}
+    if (
+        int(row.get("schema_version") or 0) < 18
+        or fact.get("version") != FACT_VERSION
+        or fact.get("quality_id") != QUALITY_ID
+        or fact.get("derivation_status") != "ok"
+        or fact.get("eligible") is not True
+        or fact.get("outcome") != expected_outcome
+        or (expected_outcome == "miss" and fact.get("fires") is not True)
+        or (expected_outcome == "handled" and fact.get("fires") is True)
+    ):
+        return None
+
+    fen = str(row.get("fen_before") or "").strip()
+    move_uci = str(row.get("move_uci") or "").strip().lower()
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(move_uci)
+    except (ValueError, TypeError):
+        return None
+    if move not in board.legal_moves:
+        return None
+    piece = board.piece_at(move.from_square)
+    destination = chess.square_name(move.to_square)
+    moved_piece = chess.piece_name(piece.piece_type) if piece else ""
+    if (
+        not piece
+        or fact.get("moved_piece") != moved_piece
+        or fact.get("destination") != destination
+    ):
+        return None
+
+    played_at = _utc((game or {}).get("date_played"))
+    return {
+        "game_id": str(row.get("game_id") or ""),
+        "ply": int(row.get("ply") or 0),
+        "move_number": int(
+            row.get("move_number") or ((int(row.get("ply") or 1) + 1) // 2)
+        ),
+        "fen": board.fen(),
+        "move_uci": move.uci(),
+        "move_san": board.san(move),
+        "piece": moved_piece,
+        "destination": destination,
+        "outcome": expected_outcome,
+        "opponent": str((game or {}).get("opponent_name") or "Opponent"),
+        "played_at": played_at.isoformat() if played_at else None,
+    }
+
+
+async def _progress_evidence_examples(
+    db,
+    user_id: str,
+    *,
+    baseline: Dict[str, Any],
+    evidence: Dict[str, Any],
+) -> Dict[str, Optional[Dict[str, Any]]]:
+    """Resolve one baseline miss and one later exact application, fail closed."""
+    empty = {"before": None, "recent": None}
+    if not is_authorized(QUALITY_ID, QualitySurface.PLAN):
+        return empty
+
+    baseline_games = tuple(
+        str(game_id)
+        for game_id in (
+            (baseline.get("pre_period") or {}).get("game_ids") or []
+        )
+        if game_id
+    )
+    application_refs = sorted(
+        evidence.get("application_refs") or [],
+        key=lambda item: (
+            _utc(item.get("occurred_at"))
+            or datetime.min.replace(tzinfo=timezone.utc)
+        ),
+        reverse=True,
+    )
+    application_refs = [
+        item
+        for item in application_refs
+        if item.get("outcome") in {"applied", "missed"}
+    ]
+
+    game_ids = set(baseline_games)
+    game_ids.update(str(item.get("game_id") or "") for item in application_refs)
+    game_ids.discard("")
+    games = (
+        await db.games.find(
+            {"user_id": user_id, "game_id": {"$in": sorted(game_ids)}},
+            {"_id": 0, "game_id": 1, "opponent_name": 1, "date_played": 1},
+        ).to_list(length=None)
+        if game_ids
+        else []
+    )
+    games_by_id = {
+        str(game.get("game_id")): game
+        for game in games
+        if game.get("game_id")
+    }
+
+    before = None
+    if baseline_games:
+        before_rows = await db.move_observations.find(
+            {
+                "user_id": user_id,
+                "game_id": {"$in": list(baseline_games)},
+                "schema_version": {"$gte": 18},
+                "destination_safety_exact.version": FACT_VERSION,
+                "destination_safety_exact.quality_id": QUALITY_ID,
+                "destination_safety_exact.outcome": "miss",
+                "destination_safety_exact.fires": True,
+            },
+            {
+                "_id": 0,
+                "game_id": 1,
+                "ply": 1,
+                "move_number": 1,
+                "fen_before": 1,
+                "move_uci": 1,
+                "move_san": 1,
+                "schema_version": 1,
+                "destination_safety_exact": 1,
+            },
+        ).to_list(length=None)
+        before_rows.sort(
+            key=lambda row: (
+                baseline_games.index(str(row.get("game_id")))
+                if str(row.get("game_id")) in baseline_games
+                else len(baseline_games),
+                -int(row.get("ply") or 0),
+            )
+        )
+        for row in before_rows:
+            before = _public_progress_observation(
+                row,
+                expected_outcome="miss",
+                game=games_by_id.get(str(row.get("game_id") or "")),
+            )
+            if before:
+                break
+
+    recent = None
+    for item in application_refs:
+        outcome = "handled" if item.get("outcome") == "applied" else "miss"
+        row = await db.move_observations.find_one(
+            {
+                "user_id": user_id,
+                "game_id": str(item.get("game_id") or ""),
+                "ply": int(item.get("ply") or 0),
+                "schema_version": {"$gte": 18},
+                "destination_safety_exact.version": FACT_VERSION,
+                "destination_safety_exact.quality_id": QUALITY_ID,
+            },
+            {
+                "_id": 0,
+                "game_id": 1,
+                "ply": 1,
+                "move_number": 1,
+                "fen_before": 1,
+                "move_uci": 1,
+                "move_san": 1,
+                "schema_version": 1,
+                "destination_safety_exact": 1,
+            },
+        )
+        if not row:
+            continue
+        recent = _public_progress_observation(
+            row,
+            expected_outcome=outcome,
+            game=games_by_id.get(str(row.get("game_id") or "")),
+        )
+        if recent:
+            break
+
+    return {"before": before, "recent": recent}
 
 
 async def build_phase8_journey_projection(
@@ -537,6 +740,12 @@ async def build_phase8_journey_projection(
     from services.concept_mastery_service import get_pic_mastery_projection
 
     learner = await get_pic_mastery_projection(db, user_id, diagnosed=True)
+    evidence_examples = await _progress_evidence_examples(
+        db,
+        user_id,
+        baseline=baseline,
+        evidence=evidence,
+    )
     if baseline.get("status") != "captured":
         verdict = "insufficient_evidence"
         transfer_message = (
@@ -660,6 +869,7 @@ async def build_phase8_journey_projection(
             "message": transfer_message,
             "evidence_identity": transfer_evidence_identity,
         },
+        "evidence_examples": evidence_examples,
         "learner_state": learner,
         "steps": step_state,
         "sequence_valid": sequence_valid,
