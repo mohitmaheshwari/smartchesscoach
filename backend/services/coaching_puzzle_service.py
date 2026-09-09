@@ -872,8 +872,28 @@ class CoachingPuzzleService:
         """
         if limit <= 0:
             return []
-        if verified_puzzle_admission_enforced() and weakness_pattern != "calculation_depth":
-            return []
+        # Source 3 serves the PRACTICE tier for every mapped pattern.
+        #
+        # This used to read `if enforced and pattern != "calculation_depth":
+        # return []`, which switched 4.1M puzzles off for 11 of the 12
+        # patterns -- leaving them to calculation_depth, already the
+        # best-supplied pattern in the system, while the thin ones got
+        # nothing. Measured before the change: opening_knowledge, piece_safety,
+        # missed_tactic, king_safety and endgame_technique each got 0 from
+        # Lichess; each gets 10 after.
+        #
+        # The verified-evidence guarantee is NOT weakened, because it does not
+        # live here. get_prescribed_training only reaches this source when
+        # `required_quality_id` is unset, so anything claiming verified mastery
+        # or Phase 8 transfer never sees a Lichess puzzle. That matters: a
+        # Lichess position is not from the player's games and must never count
+        # as proof they fixed THEIR weakness. Every row is tagged
+        # `source: "lichess"` so downstream readers can tell.
+        #
+        # And a Lichess puzzle is not an unverified CLAIM -- it is a position
+        # with a known solution. The claim risk is in the coaching prose around
+        # it, which is generated separately and still goes through the caption
+        # layer.
         themes = WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern)
         if not themes:
             return []
