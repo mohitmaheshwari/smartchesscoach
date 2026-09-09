@@ -1,138 +1,245 @@
-"""Admin surface for capturing a coach's reason for a good move.
+"""Admin workflow for reviewed positional teaching reasons.
 
-The machine can verify a positional idea and count how often it separates
-the played move from the best one. It cannot reliably originate the idea:
-of five predicates written in one pass, one fired zero times across 46,655
-positions, and there was no way to tell which in advance.
-
-So this collects the missing half. A position is shown with the move that
-was played and the move that was best, and the coach writes, in plain
-English, why the good move is good. Those reasons become candidate
-predicates, which are then measured against the whole corpus before any of
-them is allowed near a user.
-
-Nothing here is shown to players. Reasons are raw input for authoring, not
-captions.
+Reasons saved here are candidate evidence only. They cannot affect captions or
+mastery until a canonical detector and verifier are separately authorized.
 """
 from __future__ import annotations
 
-import os
+from collections import Counter
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
-import chess
-from fastapi import APIRouter, Body, Depends, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
 from routes.auth import User
+from services.positional_reason_learning import (
+    DISPOSITION_LABELS,
+    PositionalReasonValidationError,
+    canonical_concepts,
+    normalize_submission,
+    structural_features,
+    structural_signature,
+)
+
 
 router = APIRouter(tags=["Admin"])
+db = None
+_INDEXES_ENSURED = False
 
-_client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
-db = _client[os.environ.get("DB_NAME", "test_database")]
 
-MAX_REASON = 2000
+def set_db(database) -> None:
+    global db
+    db = database
+
+
+def _require_db() -> None:
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+
+async def _ensure_indexes() -> None:
+    global _INDEXES_ENSURED
+    if _INDEXES_ENSURED:
+        return
+    _require_db()
+    await db.positional_reason_queue.create_index(
+        [("status", 1), ("priority", 1), ("cp_loss", -1)],
+        name="positional_reason_queue_review_order",
+    )
+    await db.positional_reason_submissions.create_index(
+        "position_fingerprint",
+        unique=True,
+        sparse=True,
+        name="positional_reason_submission_position",
+    )
+    await db.positional_reason_submissions.create_index(
+        [("canonical_concept_id", 1), ("structural_signature", 1)],
+        name="positional_reason_submission_grouping",
+    )
+    _INDEXES_ENSURED = True
+
+
+async def _progress() -> Dict[str, Any]:
+    rows = await db.positional_reason_queue.find(
+        {}, {"_id": 0, "status": 1, "disposition": 1}
+    ).to_list(length=None)
+    dispositions = Counter(
+        row.get("disposition")
+        for row in rows
+        if row.get("disposition") in DISPOSITION_LABELS
+    )
+    pending = sum(row.get("status", "pending") == "pending" for row in rows)
+    return {
+        "resolved": len(rows) - pending,
+        "pending": pending,
+        "total": len(rows),
+        "by_disposition": dict(dispositions),
+    }
 
 
 @router.get("/admin/positional-reasons/next")
 async def next_position(
-    skip_answered: bool = True,
+    skip_resolved: bool = True,
     user: User = Depends(require_admin),
 ):
-    """The next position worth a coach's time.
-
-    Ordered so positions no existing predicate explains come first: those
-    are the only ones that can teach us a concept we do not already have.
-    """
-    query: Dict = {"status": "pending"} if skip_answered else {}
+    _require_db()
+    await _ensure_indexes()
+    query: Dict[str, Any] = {"status": "pending"} if skip_resolved else {}
     row = await db.positional_reason_queue.find_one(
-        query, {"_id": 0}, sort=[("priority", 1), ("cp_loss", -1)]
+        query,
+        {"_id": 0},
+        sort=[("priority", 1), ("cp_loss", -1)],
     )
     if not row:
-        raise HTTPException(status_code=404, detail="Queue is empty — reseed it")
-
-    total = await db.positional_reason_queue.count_documents({})
-    answered = await db.positional_reason_queue.count_documents({"status": "answered"})
-    row["progress"] = {"answered": answered, "total": total}
+        raise HTTPException(status_code=404, detail="Every queued position is resolved")
+    try:
+        row["structural_features"] = structural_features(
+            row["fen"], row["played_uci"], row["best_uci"]
+        )
+        row["structural_signature"] = structural_signature(
+            row["fen"], row["played_uci"], row["best_uci"]
+        )
+    except PositionalReasonValidationError as exc:
+        row["structural_error"] = str(exc)
+    row["progress"] = await _progress()
     return row
+
+
+@router.get("/admin/positional-reasons/concepts")
+async def list_concepts(user: User = Depends(require_admin)):
+    concepts = sorted(canonical_concepts().values(), key=lambda item: item["name"])
+    return {"concepts": concepts}
+
+
+@router.get("/admin/positional-reasons/similar")
+async def similar_reasons(
+    structural_signature_value: str = Query("", alias="structural_signature"),
+    canonical_concept_id: str = "",
+    concept_label: str = "",
+    exclude_fen: str = "",
+    limit: int = 8,
+    user: User = Depends(require_admin),
+):
+    _require_db()
+    clauses = []
+    if canonical_concept_id:
+        clauses.append({"canonical_concept_id": canonical_concept_id})
+    if concept_label:
+        clauses.append({"concept_label": concept_label})
+    if structural_signature_value:
+        clauses.append({"structural_signature": structural_signature_value})
+    if not clauses:
+        return {"count": 0, "submissions": []}
+    query: Dict[str, Any] = {"$or": clauses}
+    if exclude_fen:
+        query["fen"] = {"$ne": " ".join(exclude_fen.split()[:4])}
+    rows = await db.positional_reason_submissions.find(
+        query,
+        {
+            "_id": 0,
+            "fen": 1,
+            "played_san": 1,
+            "best_san": 1,
+            "concept_label": 1,
+            "canonical_concept_id": 1,
+            "reason": 1,
+            "disposition": 1,
+            "voice_warnings": 1,
+            "promotion": 1,
+        },
+    ).sort("updated_at", -1).to_list(min(max(limit, 1), 20))
+    return {"count": len(rows), "submissions": rows}
 
 
 @router.post("/admin/positional-reasons")
 async def submit_reason(
-    payload: Dict = Body(...),
+    payload: Dict[str, Any] = Body(...),
     user: User = Depends(require_admin),
 ):
-    """Store one coach reason against one position."""
+    _require_db()
+    await _ensure_indexes()
     fen = str(payload.get("fen") or "").strip()
-    reason = str(payload.get("reason") or "").strip()
-    if not fen or not reason:
-        raise HTTPException(status_code=400, detail="fen and reason are required")
-    if len(reason) > MAX_REASON:
-        raise HTTPException(status_code=400, detail="reason is too long")
-    try:
-        chess.Board(fen)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="fen is not a legal position")
-
+    if not fen:
+        raise HTTPException(status_code=400, detail="fen is required")
     row = await db.positional_reason_queue.find_one({"fen": fen}, {"_id": 0})
-    await db.positional_reason_submissions.insert_one({
-        "fen": fen,
-        "reason": reason,
-        # Free text from the coach, plus a short label when they give one, so
-        # related reasons can be grouped into a single candidate predicate.
-        "concept_label": str(payload.get("concept_label") or "").strip() or None,
-        "confidence": str(payload.get("confidence") or "").strip() or None,
-        "played_san": (row or {}).get("played_san"),
-        "best_san": (row or {}).get("best_san"),
-        "cp_loss": (row or {}).get("cp_loss"),
-        "men": (row or {}).get("men"),
-        "already_explained_by": (row or {}).get("already_explained_by") or [],
-        "submitted_by": user.user_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    await db.positional_reason_queue.update_one(
-        {"fen": fen}, {"$set": {"status": "answered"}}
-    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Queued position not found")
+    try:
+        submission = normalize_submission(
+            payload,
+            row,
+            submitted_by=user.user_id,
+        )
+    except PositionalReasonValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    answered = await db.positional_reason_queue.count_documents({"status": "answered"})
-    total = await db.positional_reason_queue.count_documents({})
-    return {"ok": True, "answered": answered, "total": total}
+    created_at = submission.pop("created_at")
+    await db.positional_reason_submissions.update_one(
+        {"position_fingerprint": submission["position_fingerprint"]},
+        {
+            "$set": submission,
+            "$setOnInsert": {"created_at": created_at},
+        },
+        upsert=True,
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    await db.positional_reason_queue.update_one(
+        {"fen": fen},
+        {
+            "$set": {
+                "status": "resolved",
+                "disposition": submission["disposition"],
+                "resolved_at": now,
+                "resolved_by": user.user_id,
+                "position_fingerprint": submission["position_fingerprint"],
+                "structural_signature": submission["structural_signature"],
+            }
+        },
+    )
+    return {
+        "ok": True,
+        "saved": {
+            "position_fingerprint": submission["position_fingerprint"],
+            "disposition": submission["disposition"],
+            "voice_warnings": submission["voice_warnings"],
+            "promotion": submission["promotion"],
+        },
+        "progress": await _progress(),
+    }
 
 
 @router.post("/admin/positional-reasons/skip")
 async def skip_position(
-    payload: Dict = Body(...),
+    payload: Dict[str, Any] = Body(...),
     user: User = Depends(require_admin),
 ):
-    """Skip a position without answering. Skipped is not answered."""
-    fen = str(payload.get("fen") or "").strip()
-    if not fen:
-        raise HTTPException(status_code=400, detail="fen is required")
-    await db.positional_reason_queue.update_one(
-        {"fen": fen}, {"$set": {"status": "skipped"}}
-    )
-    return {"ok": True}
+    forwarded = dict(payload)
+    forwarded["disposition"] = "insufficient_evidence"
+    return await submit_reason(forwarded, user)
 
 
 @router.get("/admin/positional-reasons/submissions")
 async def list_submissions(
     limit: int = 100,
+    disposition: Optional[str] = None,
     user: User = Depends(require_admin),
 ):
-    """Everything captured so far — the input to predicate authoring."""
+    _require_db()
+    query = {"disposition": disposition} if disposition else {}
     rows = await db.positional_reason_submissions.find(
-        {}, {"_id": 0}
-    ).sort("created_at", -1).to_list(min(max(limit, 1), 500))
-    labels: Dict[str, int] = {}
-    for r in rows:
-        label = r.get("concept_label")
-        if label:
-            labels[label] = labels.get(label, 0) + 1
+        query, {"_id": 0}
+    ).sort("updated_at", -1).to_list(min(max(limit, 1), 500))
+    labels = Counter(
+        row.get("canonical_concept_id") or row.get("concept_label")
+        for row in rows
+        if row.get("canonical_concept_id") or row.get("concept_label")
+    )
     return {
         "count": len(rows),
-        "by_concept": sorted(labels.items(), key=lambda kv: -kv[1]),
+        "by_concept": labels.most_common(),
         "submissions": rows,
+        "progress": await _progress(),
     }
 
 

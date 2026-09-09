@@ -851,6 +851,25 @@ def enforcement_enabled() -> bool:
     ).lower() == "true"
 
 
+def mastery_strict_evidence_enabled() -> bool:
+    """Whether strict per-event proof is required to move concept mastery.
+
+    Deliberately NOT DETECTOR_QUALITY_GATE_ENFORCED. That flag defaults to
+    true here and is set true in docker-compose, because it guards a
+    different thing: whether Shadow-grade detectors may reach players. It is
+    already on in production.
+
+    Reusing it would mean this feature ships enabled, and the strict path
+    currently admits nothing -- `proof.authority` exists on 0 of the 110,190
+    stored pattern events -- so mastery would stop moving for every user the
+    moment it deployed, silently, because the summary just reports zeros.
+
+    This switch is off until a principle quality_id is actually promoted and
+    games have been re-rendered so that proof exists.
+    """
+    return os.environ.get("MASTERY_STRICT_EVIDENCE", "false").lower() == "true"
+
+
 def can_influence(quality_id: str, surface: QualitySurface | str) -> bool:
     grade = grade_for(quality_id)
     if grade == QualityGrade.DISABLED:

@@ -3375,8 +3375,9 @@ def _verify_and_recover_caption(
       2. If no severity / no best move (clean move): "{played_san}." —
          factual mention only.
 
-    Returns a telemetry dict {original_text, verdict, recovery_text} or
-    None when the caption passed (most common case).
+    Returns a telemetry dict for every path. verdict is pass,
+    fail_recovered, not_applicable, or not_run. This lets persistent
+    concept events distinguish verified evidence from silence.
 
     The verifier itself is the one from scripts/content_correctness_audit.
     Mutates caption_payload in place; raising is OK (the caller has a
@@ -3384,7 +3385,7 @@ def _verify_and_recover_caption(
     """
     text_in = (caption_payload.get("caption") or "").strip()
     if not text_in:
-        return None  # nothing to verify
+        return {"verdict": "not_applicable", "reason": "empty_caption"}
 
     # Build the post-played-move board (Phase 1 claims like "your queen
     # on a7" reference the position AFTER the played move, which is what
@@ -3394,12 +3395,12 @@ def _verify_and_recover_caption(
         post_board.push(played_move)
         fen_after = post_board.fen()
     except Exception:
-        return None  # bad FEN/move — skip verify, leave caption alone
+        return {"verdict": "not_run", "reason": "invalid_position_or_move"}
 
     try:
         from scripts.content_correctness_audit import audit_text_against_fen
     except Exception:
-        return None  # audit module unavailable — skip silently
+        return {"verdict": "not_run", "reason": "verifier_unavailable"}
 
     try:
         audit = audit_text_against_fen(
@@ -3409,7 +3410,7 @@ def _verify_and_recover_caption(
             engine=None,  # Phase 1 (piece-on-square) only
         )
     except Exception:
-        return None
+        return {"verdict": "not_run", "reason": "verifier_error"}
 
     phase1_failed = (audit.overall == "fail")
 
@@ -3432,7 +3433,11 @@ def _verify_and_recover_caption(
             phase2_fail = None  # verifier crash — leave caption alone
 
     if not phase1_failed and phase2_fail is None:
-        return None  # both layers passed — caption ships unchanged
+        return {
+            "verdict": "pass",
+            "phase1": "pass",
+            "phase2": "pass",
+        }
 
     # Build the recovery caption — bare severity, no piece claims.
     _severity_phrases = {
@@ -3468,7 +3473,7 @@ def _verify_and_recover_caption(
     caption_payload["rule_name"] = f"{prev_rule}→R_VERIFIER_RECOVERY"
     return {
         "original_text": text_in,
-        "verdict": "fail",
+        "verdict": "fail_recovered",
         "recovery_text": recovery,
         "failed_claims": failed_claims,
     }
@@ -4688,6 +4693,7 @@ def build_move_teaching_decision(
             severity_practical=practical.practical_tier,
             mover_is_user=bool(inputs.mover_is_user),
         )
+        caption_facts["caption_verification"] = _verifier_telemetry
     except Exception as _ver_exc:
         # Defensive: verifier MUST NOT break caption rendering. Any
         # exception logs + the original caption survives unchanged.
@@ -4695,6 +4701,12 @@ def build_move_teaching_decision(
             f"[caption_verifier] crashed on move {inputs.full_move_number}: "
             f"{_ver_exc!r} — leaving caption unchanged"
         )
+
+    if "caption_verification" not in caption_facts:
+        caption_facts["caption_verification"] = {
+            "verdict": "not_run",
+            "reason": "pipeline_exception",
+        }
 
     # v104 (Mohit 2026-06-03) — floor teaching principle for bare shell.
     # Runs BEFORE tier classification so the enriched caption gets the

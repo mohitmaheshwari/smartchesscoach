@@ -1032,7 +1032,7 @@ async def get_game_pattern_misses(
     groups by pattern_id, and decorates each with human_name + family
     from the catalog. UI surface: "Patterns missed in this game."
     """
-    from services.pattern_catalog import get_pattern
+    from services.pattern_catalog import canonical_concept_id, get_pattern
 
     # Ensure the game belongs to the requesting user (scope filter).
     game = await db.games.find_one(
@@ -1044,10 +1044,35 @@ async def get_game_pattern_misses(
     # v73 (2026-05-23): also breaks out hits via outcome=="hit". Per-
     # game view shows both so the user sees "you hit the queen-fork
     # pattern on m12 but missed it on m18" instead of only misses.
+    from services.detector_quality import (
+        QualitySurface,
+        explicit_authorizations,
+        is_authorized,
+        mastery_strict_evidence_enabled,
+    )
+
+    # Same switch as the tracker and the aggregator -- see the note in
+    # services/pattern_progress_aggregator.py. No stored event carries
+    # proof.authority yet, so enforcement_enabled() here would empty this
+    # endpoint rather than tighten it.
+    strict_tracking = mastery_strict_evidence_enabled()
+    event_match = {"user_id": user.user_id, "game_id": game_id}
+    group_key = "$pattern_id"
+    if strict_tracking:
+        event_match["tracker_eligible"] = True
+        event_match["proof.authority"] = "verified_caption_principle"
+        event_match["proof.quality_id"] = {
+            "$in": [
+                quality_id for quality_id in explicit_authorizations()
+                if is_authorized(quality_id, QualitySurface.MASTERY)
+            ]
+        }
+        group_key = {"$ifNull": ["$concept_id", "$pattern_id"]}
+
     pipeline = [
-        {"$match": {"user_id": user.user_id, "game_id": game_id}},
+        {"$match": event_match},
         {"$group": {
-            "_id": "$pattern_id",
+            "_id": group_key,
             "hit_count":  {"$sum": {"$cond": [{"$eq": ["$outcome", "hit"]},  1, 0]}},
             "miss_count": {"$sum": {"$cond": [{"$eq": ["$outcome", "miss"]}, 1, 0]}},
             "moves": {"$push": {
@@ -1067,6 +1092,7 @@ async def get_game_pattern_misses(
         cat = get_pattern(pid) or {}
         patterns.append({
             "pattern_id": pid,
+            "concept_id": canonical_concept_id(pid),
             "human_name": cat.get("human_name") or pid,
             "short_description": cat.get("short_description"),
             "family": cat.get("family"),

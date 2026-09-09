@@ -4082,6 +4082,90 @@ async def generate_game_decryption_v5(
                         f"{move_san}: {_hit_exc}"
                     )
 
+            # Verified canonical concept opportunity. Unlike the legacy
+            # pattern adapter, this records the principle's aligned move set,
+            # explicit unknown outcomes, and strict mastery authorization.
+            if is_user and principle_id_used and user_id:
+                try:
+                    from services.detector_quality import (
+                        QualitySurface,
+                        is_authorized,
+                        principle_quality_id,
+                    )
+                    from services.pattern_event_logger import build_event
+
+                    _principle_event = next(
+                        (
+                            event for event in caption_principles_violated
+                            if event.get("principle_id") == principle_id_used
+                        ),
+                        {},
+                    )
+                    _aligned = [
+                        str(move).replace("+", "").replace("#", "")
+                        for move in (_principle_event.get("aligned_moves_offered") or [])
+                    ]
+                    _played_normalized = move_san.replace("+", "").replace("#", "")
+                    _affirms = _played_normalized in _aligned
+                    if _affirms and (cp_loss or 0) < 100:
+                        _concept_outcome = "hit"
+                    elif _aligned and not _affirms and (cp_loss or 0) >= 100:
+                        _concept_outcome = "miss"
+                    else:
+                        _concept_outcome = "unknown"
+
+                    _quality_id = principle_quality_id(principle_id_used)
+                    _verification = caption_facts.get("caption_verification") or {}
+                    _tracker_proof = _principle_event.get("tracker_proof") or {}
+                    _tracker_authorized = (
+                        is_authorized(_quality_id, QualitySurface.MASTERY)
+                        and bool(caption_facts.get("verified"))
+                        and _verification.get("verdict") == "pass"
+                        and _tracker_proof.get("verdict") == "pass"
+                        and bool(_tracker_proof.get("detector_version"))
+                        and bool(_tracker_proof.get("verifier_version"))
+                    )
+                    pattern_miss_events.append(build_event(
+                        user_id=user_id,
+                        game_id=game_id or "",
+                        move_number=full_move_number,
+                        move_san=move_san,
+                        best_move_san=best_move or "",
+                        pattern_id=principle_id_used,
+                        concept_id=principle_id_used,
+                        outcome=_concept_outcome,
+                        opportunity=bool(_aligned),
+                        tracker_eligible=_tracker_authorized,
+                        cp_loss=cp_loss or 0,
+                        fen_before=fen_before,
+                        detector_versions={"v5_coaching": V5_COACHING_VERSION},
+                        evidence={
+                            "engine_endorsement": _principle_event.get("engine_endorsement"),
+                            "aligned_moves_offered": _aligned,
+                            "fact_evidence": _principle_event.get("evidence") or {},
+                            "facts_verified": bool(caption_facts.get("verified")),
+                            "caption_verification": _verification,
+                            "tracker_proof": _tracker_proof,
+                        },
+                        authority=(
+                            "verified_caption_principle"
+                            if _tracker_authorized
+                            else "caption_principle_observation"
+                        ),
+                        quality_id=_quality_id,
+                        detector_version=str(
+                            _tracker_proof.get("detector_version") or "unpromoted"
+                        ),
+                        verifier_version=str(
+                            _tracker_proof.get("verifier_version") or "unknown"
+                        ),
+                    ))
+                except Exception as _concept_event_exc:
+                    logger.info(
+                        f"[concept_events] collect failed m{full_move_number} "
+                        f"{move_san}: {_concept_event_exc}"
+                    )
+
             # v67 LLM polish layer (Mohit 2026-05-22): pre-compute a
             # GPT-4.1-mini-polished version of the deterministic caption.
             # Stored alongside; UI uses polished when present, falls back
@@ -4502,6 +4586,9 @@ async def generate_game_decryption_v5(
                 "caption_arrows": caption_payload["arrows"],
                 "caption_highlight_squares": caption_payload["highlight_squares"],
                 "caption_facts_primary_reason": caption_primary_reason,
+                # Proof status from the central post-render verifier. New
+                # concept events require verdict=pass before mastery can move.
+                "caption_verification": caption_facts.get("caption_verification"),
                 # Teaching layer — list of evidence dicts, one per
                 # firing principle. Grows as detectors are shipped
                 # one-by-one per feedback_design_clean_code_leaky.md.
@@ -4846,12 +4933,16 @@ async def generate_game_decryption_v5(
         # or game_id wasn't passed; callers without those just lose
         # the per-user log for that run (no functional impact on the
         # caption pipeline).
+        # Keeps origin's persist_learning_side_effects guard: a read-only
+        # re-render must not write to the event log. Drops origin's
+        # `and pattern_miss_events` because the ledger now emits hit and
+        # unknown outcomes too, and an empty list is meaningful -- it clears
+        # rows left by a previous analysis of this game.
         if (
             persist_learning_side_effects
             and db is not None
             and user_id
             and game_id
-            and pattern_miss_events
         ):
             try:
                 from services.pattern_event_logger import replace_events_for_game
@@ -4860,7 +4951,7 @@ async def generate_game_decryption_v5(
                     events=pattern_miss_events,
                 )
                 logger.info(
-                    f"[pattern_events] flushed {inserted} miss events "
+                    f"[pattern_events] flushed {inserted} concept events "
                     f"for user={user_id} game={game_id}"
                 )
             except Exception as _flush_exc:

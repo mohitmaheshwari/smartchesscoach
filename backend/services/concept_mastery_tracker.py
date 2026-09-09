@@ -118,6 +118,73 @@ def extract_concepts_violated_in_game(v5_data: Iterable[Dict[str, Any]]) -> Set[
     return violated
 
 
+def extract_concept_outcomes_from_events(
+    events: Iterable[Dict[str, Any]],
+) -> Dict[str, str]:
+    """Collapse an event slice to one proved outcome per canonical concept.
+
+    Unknown, non-opportunity, missing-proof, and ineligible events are neutral.
+    A miss takes precedence when the same concept has conflicting events in
+    one game, matching the mastery rule that one violation resets the streak.
+    """
+    outcomes: Dict[str, str] = {}
+    rank = {"hit": 1, "miss": 2}
+    for event in events or ():
+        if not isinstance(event, dict):
+            continue
+        if not event.get("opportunity", True):
+            continue
+        if event.get("tracker_eligible") is not True:
+            continue
+        proof = event.get("proof") or {}
+        if not all(
+            str(proof.get(field) or "").strip()
+            for field in (
+                "authority",
+                "quality_id",
+                "detector_version",
+                "verifier_version",
+                "fingerprint",
+            )
+        ):
+            continue
+        if str(proof.get("authority")) in {
+            "unknown",
+            "legacy_pattern_detector",
+            "human_reviewed_candidate",
+            "caption_principle_observation",
+        }:
+            continue
+        if str(proof.get("detector_version")) in {"unpromoted", "legacy_detector.v1"}:
+            continue
+        if str(proof.get("verifier_version")) in {"unknown", "legacy_detector.v1"}:
+            continue
+        try:
+            from services.detector_quality import QualitySurface, is_authorized
+            if not is_authorized(
+                str(proof.get("quality_id")), QualitySurface.MASTERY
+            ):
+                continue
+        except Exception:
+            continue
+        outcome = str(event.get("outcome") or "").lower()
+        if outcome not in rank:
+            continue
+        concept_id = str(event.get("concept_id") or "").strip()
+        if not concept_id:
+            pattern_id = str(event.get("pattern_id") or "").strip()
+            if not pattern_id:
+                continue
+            try:
+                from services.pattern_catalog import canonical_concept_id
+                concept_id = canonical_concept_id(pattern_id)
+            except Exception:
+                concept_id = pattern_id
+        if rank[outcome] > rank.get(outcomes.get(concept_id, ""), 0):
+            outcomes[concept_id] = outcome
+    return outcomes
+
+
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -206,8 +273,8 @@ async def update_user_mastery_for_game(
     Idempotent: if the user_concept_understanding row already has
     last_evaluated_game_id == game_id, that concept is skipped.
 
-    Returns a summary dict: {violated_count, clean_count, mastered_count,
-    skipped_idempotent, no_concept_signal, autocreated}.
+    Returns a summary dict including violated, clean, mastered, neutral,
+    idempotent-skip, no-signal, and auto-created counts.
     """
     summary = {
         "violated_count": 0,
@@ -215,21 +282,55 @@ async def update_user_mastery_for_game(
         "mastered_count": 0,
         "skipped_idempotent": 0,
         "no_concept_signal": 0,
+        "neutral_event_count": 0,
         "autocreated": 0,
     }
 
-    ga = await db.game_analyses.find_one(
-        {"game_id": game_id},
-        {"_id": 0, "decryption_v5_data": 1, "analyzed_at": 1},
-    )
-    if not ga or not isinstance(ga.get("decryption_v5_data"), list):
-        # No v5 data — nothing to evaluate. Caller is expected to run
-        # this only after analysis completes and v5 renders.
-        return summary
+    from services.detector_quality import mastery_strict_evidence_enabled
 
-    v5 = ga["decryption_v5_data"]
-    concepts_present = extract_concepts_present_in_game(v5)
-    concepts_violated = extract_concepts_violated_in_game(v5)
+    events: List[Dict[str, Any]] = []
+    v5: List[Dict[str, Any]] = []
+    if mastery_strict_evidence_enabled():
+        events = await db.user_pattern_events.find(
+            {"user_id": user_id, "game_id": game_id},
+            {
+                "_id": 0,
+                "pattern_id": 1,
+                "concept_id": 1,
+                "outcome": 1,
+                "opportunity": 1,
+                "tracker_eligible": 1,
+                "proof": 1,
+                "fen_before": 1,
+            },
+        ).to_list(length=None)
+        event_outcomes = extract_concept_outcomes_from_events(events)
+        summary["neutral_event_count"] = sum(
+            1 for event in events
+            if not extract_concept_outcomes_from_events([event])
+        )
+        if not event_outcomes:
+            return summary
+        concepts_present = set(event_outcomes)
+        concepts_violated = {
+            concept_id
+            for concept_id, outcome in event_outcomes.items()
+            if outcome == "miss"
+        }
+    else:
+        # Existing rollout behavior remains available until the quality gate
+        # is enabled. This keeps deployment reversible while strict event
+        # evidence is evaluated on admin accounts.
+        ga = await db.game_analyses.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "decryption_v5_data": 1, "analyzed_at": 1},
+        )
+        if not ga or not isinstance(ga.get("decryption_v5_data"), list):
+            return summary
+        v5 = ga["decryption_v5_data"]
+        concepts_present = extract_concepts_present_in_game(v5)
+        concepts_violated = extract_concepts_violated_in_game(v5)
+
 
     # Auto-create rows for any concept that fired but the user has no
     # row for yet (closes the namespace gap between plan.concept_id and
@@ -237,10 +338,15 @@ async def update_user_mastery_for_game(
     now = _iso_now()
     if concepts_present:
         first_fen = ""
-        for rec in v5:
-            if isinstance(rec, dict) and rec.get("is_user_move"):
-                first_fen = rec.get("fen_before") or ""
+        for event in events:
+            if event.get("fen_before"):
+                first_fen = event["fen_before"]
                 break
+        if not first_fen:
+            for rec in v5:
+                if isinstance(rec, dict) and rec.get("is_user_move"):
+                    first_fen = rec.get("fen_before") or ""
+                    break
         summary["autocreated"] = await _ensure_concept_rows_exist(
             db, user_id, concepts_present, first_fen, now,
         )

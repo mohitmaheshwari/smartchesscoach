@@ -38,7 +38,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List
 
-from services.pattern_catalog import get_pattern
+from services.pattern_catalog import canonical_concept_id, get_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +61,37 @@ async def get_user_pattern_progress(db, user_id: str) -> Dict:
             },
         }
 
+    from services.detector_quality import (
+        QualitySurface,
+        explicit_authorizations,
+        is_authorized,
+        mastery_strict_evidence_enabled,
+    )
+
+    # Deliberately NOT enforcement_enabled(). That flag is already true in
+    # production, and no event carries proof.authority yet (0 of 110,224 on
+    # 2026-09-09), so reading through the strict match would return nothing
+    # for all 60 users with history -- a blank progress page, not a stricter
+    # one. The strict read ships complete and switched off; it turns on with
+    # the writer, once events actually carry their proof.
+    strict_tracking = mastery_strict_evidence_enabled()
+    event_match = {"user_id": user_id}
+    group_key = "$pattern_id"
+    if strict_tracking:
+        event_match["tracker_eligible"] = True
+        event_match["proof.authority"] = "verified_caption_principle"
+        event_match["proof.quality_id"] = {
+            "$in": [
+                quality_id for quality_id in explicit_authorizations()
+                if is_authorized(quality_id, QualitySurface.MASTERY)
+            ]
+        }
+        group_key = {"$ifNull": ["$concept_id", "$pattern_id"]}
+
     pipeline = [
-        {"$match": {"user_id": user_id}},
+        {"$match": event_match},
         {"$group": {
-            "_id": "$pattern_id",
+            "_id": group_key,
             "hit_count":  {"$sum": {"$cond": [{"$eq": ["$outcome", "hit"]},  1, 0]}},
             "miss_count": {"$sum": {"$cond": [{"$eq": ["$outcome", "miss"]}, 1, 0]}},
             "first_seen_at": {"$min": "$created_at"},
@@ -103,6 +130,7 @@ async def get_user_pattern_progress(db, user_id: str) -> Dict:
             total_misses += miss_count
             patterns.append({
                 "pattern_id": pattern_id,
+                "concept_id": canonical_concept_id(pattern_id),
                 "human_name": cat.get("human_name") or pattern_id,
                 "short_description": cat.get("short_description"),
                 "family": cat.get("family"),
