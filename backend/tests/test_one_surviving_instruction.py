@@ -25,6 +25,10 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from services.focus_bridge import get_active_focus_bundle  # noqa: E402
+from services.destination_safety_detector import (  # noqa: E402
+    FACT_VERSION,
+    LEGACY_FACT_VERSION,
+)
 from services.mission_scoreboard import (  # noqa: E402
     build_instruction_verdict,
     is_focus_moment,
@@ -184,6 +188,38 @@ class TestGateEffectiveness:
         bundle = await get_active_focus_bundle(db, "user_real_123")
         assert bundle["topic_key"] == "piece_safety"
         assert bundle["coaching_narrative"] == "Piece safety is your top pattern."
+
+    @pytest.mark.asyncio
+    async def test_exact_focus_bundle_preserves_version_and_safe_transition_state(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("PWC_SURVIVING_INSTRUCTION_ENABLED", "true")
+        focus = {
+            **REAL_FOCUS_DOC,
+            "focus_kind": "piece_safety/destination_safety_exact",
+            "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+            "proof_detector_id": LEGACY_FACT_VERSION,
+            "picker_evidence_count": 8,
+            "pending_focus_game": {"status": "waiting"},
+            "detector_version_transition": {
+                "status": "rewriting_observations",
+                "to_version": FACT_VERSION,
+                "run_id": "must-not-leak",
+                "plan_fingerprint": "must-not-leak",
+            },
+        }
+        db = _FakeDB(focus, {"role": "admin"})
+
+        bundle = await get_active_focus_bundle(db, "user_admin_1")
+
+        assert bundle["proof_detector_id"] == LEGACY_FACT_VERSION
+        assert bundle["picker_evidence_count"] == 8
+        assert bundle["pending_focus_game"] == {"status": "waiting"}
+        assert bundle["detector_version_transition"] == {
+            "status": "rewriting_observations",
+            "to_version": FACT_VERSION,
+        }
 
 
 class TestRebuildPathPreservation:

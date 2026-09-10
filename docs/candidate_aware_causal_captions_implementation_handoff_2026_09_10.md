@@ -32,8 +32,10 @@ The corrected release treats this as a bounded schema migration:
   stages the complete two-pool migration, refuses partial/limited apply, binds
   apply to the immediately preceding dry-run row count, and verifies that zero
   legacy destination admissions remain; and
-- the existing focus migration refreshes a stale v1 exact focus instead of
-  incorrectly calling it already migrated.
+- the existing focus migration now owns the v1→v2 observation and focus
+  refresh as one per-user state machine instead of two corpus-wide jobs; and
+- a focus under migration serves its saved evidence, starts no new PIC
+  evidence write, and cannot be claimed by a second live migration.
 
 The temporary v1/v1 admission pair must be removed in a later cleanup only
 after both puzzle pools report zero legacy rows and all active exact focuses
@@ -114,55 +116,72 @@ The first allowed production sequence is now:
    Compare admitted/quarantined/reclassified totals with the dry-run; do not
    require the old approved count to stay constant because v1 false positives
    must be honestly reclassified.
-5. Re-derive the current v2 observation facts, first dry-run and then apply:
+5. Migrate observations and focus provenance through the **single per-user
+   coordinator**. Do not run the corpus-wide
+   `backfill_move_observations.py --all --apply` command for this version
+   transition. Independent production measurement found that the old
+   batch-then-refresh sequence would make **43 of 43 active exact focuses**
+   read empty between the two commands.
 
-   ```bash
-   python backend/scripts/backfill_move_observations.py --all
-   python backend/scripts/backfill_move_observations.py --all --apply \
-     --confirm phase8-observations
-   ```
+   The dedicated mode cannot create a focus or convert another weakness. It
+   preflights every target, binds apply to an identity-free plan fingerprint,
+   then handles one user at a time:
 
-6. Immediately after the v2 observations are present, refresh **only focuses
-   that are already destination-safety exact focuses**. The dedicated mode
-   cannot create a focus or convert another weakness, so this is a schema
-   migration—not the previously withheld new-cohort `--all` rollout. It also
-   catches historical rows identified only by the exact quality id, with no
-   `focus_kind` or `proof_detector_id`. Run it for all existing non-admin exact
-   focuses, then explicitly for the enrolled pilot if that account has an
-   admin role:
+   1. mark that focus as transitioning;
+   2. re-derive that user's stored observations through the canonical writer;
+   3. verify the applied counts still equal the reviewed dry-run;
+   4. rebuild and pin the focus to v2; and
+   5. remove the marker.
+
+   While the marker exists, player-facing reads use the saved baseline instead
+   of partially rewritten rows, and the PIC game-evidence writer abstains
+   before claiming a pending game. A failed run keeps a resumable `failed`
+   marker and the old focus pin. A second live run cannot claim the same user;
+   an abandoned in-progress marker becomes reclaimable after two hours.
+
+   Run it for all existing non-admin exact focuses, then explicitly for the
+   enrolled pilot if that account has an admin role:
 
    ```bash
    python backend/scripts/migrate_destination_safety_focus.py \
      --all --existing-exact-only
+   # Copy plan_fingerprint from the reviewed dry-run.
    python backend/scripts/migrate_destination_safety_focus.py \
      --all --existing-exact-only --apply \
-     --confirm destination-safety-focus-v2
+     --confirm destination-safety-focus-v2 \
+     --confirm-plan <all-users-plan-fingerprint>
 
    python backend/scripts/migrate_destination_safety_focus.py \
      --email pilot@example.com --existing-exact-only
+   # The one-user dry-run has its own fingerprint.
    python backend/scripts/migrate_destination_safety_focus.py \
      --email pilot@example.com --existing-exact-only --apply \
-     --confirm destination-safety-focus-v2
+     --confirm destination-safety-focus-v2 \
+     --confirm-plan <pilot-plan-fingerprint>
    ```
 
-   Treat steps 5 and 6 as one maintenance operation. Applying the observation
-   rewrite while postponing the focus refresh would leave v1-pinned focuses
-   with no same-version observations. If the two cannot run back-to-back, do
-   not apply step 5. After step 6, verify every pre-existing exact focus is
-   either a valid v2 bundle or an explicitly reported insufficient-evidence
-   exception; no exact focus may remain silently unpinned.
+   Apply is refused before any write if one target is ineligible, has a source
+   error, or no longer matches the reviewed plan. After the coordinator,
+   require `updated == eligible`, zero `rewriting_observations` or `failed`
+   markers, and verify every pre-existing exact focus is a valid v2 bundle.
+   No exact focus may remain silently unpinned.
 
-7. Run `backfill_candidate_caption_evidence.py` for the one explicitly enrolled
+6. Run `backfill_candidate_caption_evidence.py` for the one explicitly enrolled
    user without `--apply`; inspect eligible games, searches, abstentions,
    engine time and storage estimate; then apply only with its exact printed
    plan fingerprint.
-8. Enable candidate-caption visibility only for that account and complete an
+7. Enable candidate-caption visibility only for that account and complete an
    authenticated existing-review plus newly imported-game journey. Keep wider
    rollout blocked on the locked blinded chess-quality and player-recognition
    validation.
 
 ## Verification completed
 
+- Per-user migration hardening, recovery, canonical Home-context reach,
+  detector/admission/caption/lesson/Phase 8 affected gate: **261 passed**.
+- Migration-focused safety gate, including dry-run binding, concurrent-claim
+  refusal, failed-run resume, no mixed-version PIC write and no mixed-row Home
+  read: **88 passed**.
 - Destination version transition, no-dark-window admission, full-pool apply
   safeguards, focus-version pinning, v1 focus refresh, and Phase 8 prerequisite
   contracts after closing the unpinned historical-focus case: **212 passed**.

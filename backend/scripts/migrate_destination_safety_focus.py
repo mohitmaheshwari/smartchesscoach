@@ -11,13 +11,15 @@ Run after the v18 move-observation backfill:
         --apply --confirm phase8-focus-bundles
 
 To refresh only users who already have an exact destination-safety focus,
-without creating or converting any additional focus:
+without creating or converting any additional focus, use one coordinated
+per-user observation + focus migration:
 
     python scripts/migrate_destination_safety_focus.py --all \
         --existing-exact-only
     python scripts/migrate_destination_safety_focus.py --all \
         --existing-exact-only --apply \
-        --confirm destination-safety-focus-v2
+        --confirm destination-safety-focus-v2 \
+        --confirm-plan <fingerprint-from-dry-run>
 """
 from __future__ import annotations
 
@@ -25,11 +27,13 @@ import argparse
 import asyncio
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import sys
 from typing import Any, Dict, Optional
+import uuid
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
@@ -40,11 +44,13 @@ from bson import ObjectId
 from services.destination_safety_detector import FACT_VERSION, QUALITY_ID
 from services.detector_quality import QualitySurface, is_authorized
 from services.focus_bridge import get_destination_safety_evidence_summary
+from services.focus_bridge import destination_safety_focus_fact_version
 from services.primary_weakness_picker import (
     INSTRUCTION_TEMPLATE_VERSION,
     MIN_ANALYZED_GAMES,
     MIN_EVIDENCE,
 )
+from scripts.backfill_move_observations import backfill_one_game, ensure_indexes
 
 
 FOCUS_KIND = "piece_safety/destination_safety_exact"
@@ -52,6 +58,7 @@ INSTRUCTION = "After choosing your move, ask: can they take the piece I just mov
 REVIEW_AFTER_MEASURED_GAMES = 3
 CALENDAR_BACKSTOP_DAYS = 21
 EXISTING_EXACT_REFRESH_CONFIRM = "destination-safety-focus-v2"
+TRANSITION_STALE_AFTER = timedelta(hours=2)
 
 
 def _is_existing_exact_focus(focus: Optional[Dict[str, Any]]) -> bool:
@@ -71,6 +78,89 @@ def _candidate_in_requested_scope(
         not existing_exact_only
         or candidate.get("existing_exact_focus") is True
     )
+
+
+def _transition_plan_fingerprint(entries) -> str:
+    """Bind apply to a deterministic, identity-free per-user dry-run plan."""
+    stable = [
+        {
+            key: entry.get(key)
+            for key in (
+                "user_fingerprint",
+                "focus_fingerprint",
+                "from_version",
+                "analyzed_games",
+                "games_inspected",
+                "observations_inspected",
+                "writes_required",
+                "exact_fires",
+                "eligible_decisions",
+                "errors",
+                "eligible",
+            )
+        }
+        for entry in entries
+    ]
+    payload = json.dumps(
+        sorted(stable, key=lambda item: item["user_fingerprint"]),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+async def _active_weakness_focuses(db, user_id: str):
+    return await db.user_active_focus.find({
+        "user_id": user_id,
+        "status": "active",
+        "type": {"$ne": "strength"},
+    }).to_list(length=2)
+
+
+async def _derive_user_observation_plan(db, user_id: str, *, apply: bool):
+    """Reuse the canonical observation writer for one user's stored games."""
+    report = {
+        "games_inspected": 0,
+        "observations_inspected": 0,
+        "writes_required": 0,
+        "exact_fires": 0,
+        "eligible_decisions": 0,
+        "misses": 0,
+        "handled": 0,
+        "errors": 0,
+    }
+    cursor = db.game_analyses.find(
+        {"user_id": user_id},
+        {
+            "game_id": 1,
+            "user_id": 1,
+            "stockfish_analysis": 1,
+            "decryption_v5_data": 1,
+        },
+    ).sort("analyzed_at", -1)
+    async for analysis in cursor:
+        game = await db.games.find_one(
+            {"game_id": analysis.get("game_id"), "user_id": user_id},
+            {"game_id": 1, "user_id": 1, "user_color": 1, "pgn": 1},
+        )
+        if not game:
+            report["errors"] += 1
+            continue
+        try:
+            outcome = await backfill_one_game(db, game, analysis, apply)
+        except Exception:
+            report["errors"] += 1
+            continue
+        report["games_inspected"] += 1
+        report["observations_inspected"] += int(outcome.get("derived") or 0)
+        report["writes_required"] += int(outcome.get("writes") or 0)
+        report["exact_fires"] += int(outcome.get("fires") or 0)
+        report["eligible_decisions"] += int(
+            outcome.get("eligible_decisions") or 0
+        )
+        report["misses"] += int(outcome.get("misses") or 0)
+        report["handled"] += int(outcome.get("handled") or 0)
+    return report
 
 
 async def _resolve_user_id(db, email: Optional[str]) -> Optional[str]:
@@ -206,6 +296,7 @@ def _valid_existing_exact_bundle(focus: Dict[str, Any]) -> bool:
         and str(focus.get("instruction_id") or "").strip()
         and str(focus.get("instruction_text") or "").strip()
         and str(focus.get("instruction_version") or "").strip()
+        and not focus.get("detector_version_transition")
         and is_authorized(QUALITY_ID, QualitySurface.PLAN)
     )
 
@@ -310,6 +401,209 @@ async def _candidate_for_user(db, user: Dict[str, Any]) -> Dict[str, Any]:
     return candidate
 
 
+async def _run_existing_exact_refresh(
+    db,
+    users,
+    *,
+    apply: bool,
+    confirm_plan: Optional[str],
+) -> Dict[str, Any]:
+    """Preflight all users, then migrate one locked exact focus at a time."""
+    entries = []
+    reasons = Counter()
+    already_current = 0
+    for user in users:
+        user_id = str(user.get("user_id") or "")
+        focuses = await _active_weakness_focuses(db, user_id)
+        if len(focuses) != 1:
+            reasons[
+                "multiple_active_focuses" if len(focuses) > 1 else "no_active_focus"
+            ] += 1
+            continue
+        focus = focuses[0]
+        if not _is_existing_exact_focus(focus):
+            reasons["outside_existing_exact_focus_scope"] += 1
+            continue
+        if _valid_existing_exact_bundle(focus):
+            reasons["already_migrated"] += 1
+            already_current += 1
+            continue
+
+        observation_plan = await _derive_user_observation_plan(
+            db, user_id, apply=False
+        )
+        analyzed_games = await db.games.count_documents(
+            {"user_id": user_id, "is_analyzed": True}
+        )
+        eligible = bool(
+            analyzed_games >= MIN_ANALYZED_GAMES
+            and observation_plan["exact_fires"] >= MIN_EVIDENCE
+            and observation_plan["eligible_decisions"] > 0
+            and observation_plan["errors"] == 0
+        )
+        reasons[
+            "qualifying_exact_evidence"
+            if eligible
+            else "insufficient_or_invalid_v2_evidence"
+        ] += 1
+        entries.append({
+            "_user_id": user_id,
+            "_focus": focus,
+            "user_fingerprint": hashlib.sha256(
+                user_id.encode("utf-8")
+            ).hexdigest(),
+            "focus_fingerprint": hashlib.sha256(
+                str(focus.get("_id") or "").encode("utf-8")
+            ).hexdigest(),
+            "from_version": destination_safety_focus_fact_version(focus),
+            "analyzed_games": analyzed_games,
+            **observation_plan,
+            "eligible": eligible,
+        })
+
+    plan_fingerprint = _transition_plan_fingerprint(entries)
+    report = {
+        "mode": "apply" if apply else "dry_run",
+        "existing_exact_only": True,
+        "users_scanned": len(users),
+        "existing_exact_focuses": already_current + len(entries),
+        "already_current": already_current,
+        "eligible": sum(int(entry["eligible"]) for entry in entries),
+        "ineligible": sum(int(not entry["eligible"]) for entry in entries),
+        "valid_bundles_after_run": already_current + sum(
+            int(entry["eligible"]) for entry in entries
+        ),
+        "observations_inspected": sum(
+            entry["observations_inspected"] for entry in entries
+        ),
+        "writes_required": sum(entry["writes_required"] for entry in entries),
+        "errors": sum(entry["errors"] for entry in entries),
+        "created": 0,
+        "updated": 0,
+        "skipped": len(users) - len(entries),
+        "reasons": dict(sorted(reasons.items())),
+        "plan_fingerprint": plan_fingerprint,
+    }
+    if not apply:
+        return report
+    if confirm_plan != plan_fingerprint:
+        raise ValueError(
+            "--apply plan changed; rerun dry-run and pass its "
+            "--confirm-plan fingerprint"
+        )
+    if report["ineligible"] or report["errors"]:
+        raise RuntimeError(
+            "existing-focus v2 migration aborted before writes: "
+            f"ineligible={report['ineligible']} errors={report['errors']}"
+        )
+
+    await ensure_indexes(db)
+    comparable_keys = (
+        "games_inspected",
+        "observations_inspected",
+        "writes_required",
+        "exact_fires",
+        "eligible_decisions",
+        "misses",
+        "handled",
+        "errors",
+    )
+    for entry in entries:
+        focus = entry["_focus"]
+        run_id = str(uuid.uuid4())
+        started_at = datetime.now(timezone.utc)
+        transition = {
+            "id": "destination_safety_exact.v1_to_v2",
+            "status": "rewriting_observations",
+            "from_version": entry["from_version"],
+            "to_version": FACT_VERSION,
+            "plan_fingerprint": plan_fingerprint,
+            "run_id": run_id,
+            "started_at": started_at,
+        }
+        claim = await db.user_active_focus.update_one(
+            {
+                "_id": focus["_id"],
+                "status": "active",
+                "$or": [
+                    {"detector_version_transition": {"$exists": False}},
+                    {
+                        "detector_version_transition.status": "failed",
+                        "detector_version_transition.to_version": FACT_VERSION,
+                    },
+                    {
+                        "detector_version_transition.status": "rewriting_observations",
+                        "detector_version_transition.to_version": FACT_VERSION,
+                        "detector_version_transition.started_at": {
+                            "$lt": started_at - TRANSITION_STALE_AFTER,
+                        },
+                    },
+                ],
+            },
+            {"$set": {"detector_version_transition": transition}},
+        )
+        if int(claim.modified_count or 0) != 1:
+            raise RuntimeError(
+                "could not claim one existing exact focus for v2 migration"
+            )
+
+        stage = "rewrite_observations"
+        try:
+            applied = await _derive_user_observation_plan(
+                db, entry["_user_id"], apply=True
+            )
+            stage = "verify_observation_plan"
+            changed = [
+                key for key in comparable_keys
+                if int(applied.get(key) or 0) != int(entry.get(key) or 0)
+            ]
+            if changed:
+                raise RuntimeError(
+                    "per-user observation plan changed after lock: "
+                    + ",".join(changed)
+                )
+            stage = "rebuild_focus"
+            candidate = await _eligible_update(db, focus)
+            if not candidate.get("eligible"):
+                raise RuntimeError(
+                    "v2 observations were written but the exact focus could "
+                    "not be rebuilt"
+                )
+            stage = "repin_focus"
+            updated = await db.user_active_focus.update_one(
+                {
+                    "_id": focus["_id"],
+                    "status": "active",
+                    "detector_version_transition.run_id": run_id,
+                },
+                {
+                    "$set": candidate["update"],
+                    "$unset": {"detector_version_transition": ""},
+                },
+            )
+            if int(updated.modified_count or 0) != 1:
+                raise RuntimeError("v2 focus repin lost its transition claim")
+        except Exception:
+            await db.user_active_focus.update_one(
+                {
+                    "_id": focus["_id"],
+                    "detector_version_transition.run_id": run_id,
+                },
+                {
+                    "$set": {
+                        "detector_version_transition.status": "failed",
+                        "detector_version_transition.failed_at": datetime.now(
+                            timezone.utc
+                        ),
+                        "detector_version_transition.failure_stage": stage,
+                    },
+                },
+            )
+            raise
+        report["updated"] += 1
+    return report
+
+
 async def run(
     *,
     apply: bool,
@@ -317,6 +611,7 @@ async def run(
     all_users: bool,
     confirm: Optional[str] = None,
     existing_exact_only: bool = False,
+    confirm_plan: Optional[str] = None,
 ) -> Dict[str, Any]:
     required_confirm = (
         EXISTING_EXACT_REFRESH_CONFIRM
@@ -344,6 +639,13 @@ async def run(
                 {"_id": 0, "user_id": 1, "role": 1},
             ).to_list(length=None)
             users = [user for user in users if _is_non_admin(user)]
+        if existing_exact_only:
+            return await _run_existing_exact_refresh(
+                db,
+                users,
+                apply=apply,
+                confirm_plan=confirm_plan,
+            )
         report = {
             "mode": "apply" if apply else "dry_run",
             "users_scanned": len(users),
@@ -426,6 +728,14 @@ def main() -> int:
             "never creates or converts another focus"
         ),
     )
+    parser.add_argument(
+        "--confirm-plan",
+        default=None,
+        help=(
+            "with --existing-exact-only --apply, the exact fingerprint from "
+            "the immediately preceding dry-run"
+        ),
+    )
     args = parser.parse_args()
     report = asyncio.run(
         run(
@@ -434,6 +744,7 @@ def main() -> int:
             all_users=args.all_users,
             confirm=args.confirm,
             existing_exact_only=args.existing_exact_only,
+            confirm_plan=args.confirm_plan,
         )
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
@@ -444,7 +755,8 @@ def main() -> int:
         )
     if (
         args.apply
-        and report["created"] + report["updated"] != report["eligible"]
+        and report.get("created", 0) + report.get("updated", 0)
+        != report.get("eligible", 0)
     ):
         return 1
     return 0

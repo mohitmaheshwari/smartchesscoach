@@ -198,6 +198,45 @@ def test_real_exact_focus_projects_one_instruction_to_all_core_surfaces(monkeypa
     } == {focus["instruction_text"]}
 
 
+def test_home_context_preserves_transition_and_never_reads_mixed_rows(
+    monkeypatch,
+):
+    monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    focus = dict(
+        PRIMARY,
+        focus_kind="piece_safety/destination_safety_exact",
+        detector_quality_id="gap:piece_safety:destination_safety_exact",
+        proof_detector_id="piece_safety.destination_safety_exact.v1",
+        picker_evidence_count=8,
+        evidence_summary={
+            "baseline": {"decisions": 20, "misses": 8, "handled": 12},
+            "recent": {"decisions": 3, "misses": 1, "handled": 2},
+        },
+        detector_version_transition={
+            "status": "rewriting_observations",
+            "to_version": "piece_safety.destination_safety_exact.v2",
+            "run_id": "internal-only",
+        },
+    )
+    db = _DB(focus)
+
+    async def mastery(*_args, **_kwargs):
+        return {"state": "learning", "label": "Learning"}
+
+    monkeypatch.setattr(
+        "services.concept_mastery_service.get_pic_mastery_projection",
+        mastery,
+    )
+    context = _run(build_coaching_context(db, "u1", surface="home"))
+
+    assert context["evidence"]["verdict"] == "measurement_pending"
+    assert context["evidence"]["message"].startswith(
+        "I’m checking your past games again."
+    )
+    assert db.move_observations.queries == []
+
+
 def test_support_is_strictly_authorized_and_capped_at_one(monkeypatch):
     monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
     focus = dict(PRIMARY)

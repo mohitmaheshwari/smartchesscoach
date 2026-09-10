@@ -10,6 +10,8 @@ from scripts.migrate_destination_safety_focus import (
     FOCUS_KIND,
     _candidate_in_requested_scope,
     _candidate_for_user,
+    _run_existing_exact_refresh,
+    _transition_plan_fingerprint,
     run as migrate_focuses,
 )
 from scripts.lock_phase8_reach_target import build_target_lock
@@ -264,6 +266,332 @@ def test_existing_exact_scope_never_creates_or_converts_another_focus():
         {"action": "update"},
         existing_exact_only=True,
     )
+
+
+def _transition_focus(**overrides):
+    return {
+        "_id": "focus-1",
+        "user_id": "user-1",
+        "type": "weakness",
+        "status": "active",
+        "topic_key": "piece_safety",
+        "focus_kind": FOCUS_KIND,
+        "detector_quality_id": QUALITY_ID,
+        "detector_quality_grade": "plan",
+        "proof_detector_id": LEGACY_FACT_VERSION,
+        "instruction_id": "instruction-1",
+        "instruction_text": "Check whether the piece can be taken.",
+        "instruction_version": 2,
+        **overrides,
+    }
+
+
+def _observation_plan(**overrides):
+    plan = {
+        "games_inspected": 12,
+        "observations_inspected": 120,
+        "writes_required": 120,
+        "exact_fires": 8,
+        "eligible_decisions": 80,
+        "misses": 8,
+        "handled": 72,
+        "errors": 0,
+    }
+    plan.update(overrides)
+    return plan
+
+
+class _TransitionResult:
+    def __init__(self, modified_count):
+        self.modified_count = modified_count
+
+
+def _set_dotted(document, dotted, value):
+    target = document
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        target = target.setdefault(part, {})
+    target[parts[-1]] = value
+
+
+class _TransitionFocuses:
+    def __init__(self, document):
+        self.document = document
+        self.updates = []
+
+    def find(self, _query):
+        return _Rows([self.document])
+
+    async def update_one(self, query, update):
+        transition = self.document.get("detector_version_transition")
+        if "$or" in query:
+            claimable = transition is None or transition.get("status") == "failed"
+            if transition and transition.get("status") == "rewriting_observations":
+                stale_before = query["$or"][2][
+                    "detector_version_transition.started_at"
+                ]["$lt"]
+                started_at = transition.get("started_at")
+                claimable = started_at is not None and started_at < stale_before
+            if not claimable:
+                return _TransitionResult(0)
+        expected_run = query.get("detector_version_transition.run_id")
+        if expected_run and (
+            (self.document.get("detector_version_transition") or {}).get("run_id")
+            != expected_run
+        ):
+            return _TransitionResult(0)
+        self.updates.append((query, update))
+        for dotted, value in (update.get("$set") or {}).items():
+            _set_dotted(self.document, dotted, value)
+        for dotted in (update.get("$unset") or {}):
+            if dotted == "detector_version_transition":
+                self.document.pop(dotted, None)
+        return _TransitionResult(1)
+
+
+class _TransitionGames:
+    async def count_documents(self, _query):
+        return 12
+
+
+class _TransitionDb:
+    def __init__(self, focus):
+        self.user_active_focus = _TransitionFocuses(focus)
+        self.games = _TransitionGames()
+
+
+def test_transition_plan_fingerprint_is_order_stable_and_excludes_private_ids():
+    first = {
+        "_user_id": "private-user-a",
+        "_focus": {"email": "private@example.com"},
+        "user_fingerprint": "a" * 64,
+        "focus_fingerprint": "b" * 64,
+        "from_version": LEGACY_FACT_VERSION,
+        "analyzed_games": 12,
+        **_observation_plan(),
+        "eligible": True,
+    }
+    second = {
+        **first,
+        "_user_id": "private-user-b",
+        "user_fingerprint": "c" * 64,
+    }
+    forward = _transition_plan_fingerprint([first, second])
+    reverse = _transition_plan_fingerprint([second, first])
+    assert forward == reverse
+    assert len(forward) == 64
+    assert forward != _transition_plan_fingerprint([
+        {**first, "writes_required": 119},
+        second,
+    ])
+
+
+@pytest.mark.asyncio
+async def test_existing_exact_refresh_rewrites_then_repins_one_user(
+    monkeypatch,
+):
+    db = _TransitionDb(_transition_focus())
+
+    async def derive(_db, _user_id, *, apply):
+        return _observation_plan()
+
+    async def eligible_update(_db, _focus):
+        return {
+            "eligible": True,
+            "update": {
+                "proof_detector_id": FACT_VERSION,
+                "diagnosis_detector_id": FACT_VERSION,
+            },
+        }
+
+    async def indexes(_db):
+        return None
+
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._derive_user_observation_plan",
+        derive,
+    )
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._eligible_update",
+        eligible_update,
+    )
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus.ensure_indexes",
+        indexes,
+    )
+    users = [{"user_id": "user-1", "role": "user"}]
+    dry_run = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=False,
+        confirm_plan=None,
+    )
+    applied = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=True,
+        confirm_plan=dry_run["plan_fingerprint"],
+    )
+
+    assert applied["updated"] == 1
+    assert db.user_active_focus.document["proof_detector_id"] == FACT_VERSION
+    assert "detector_version_transition" not in db.user_active_focus.document
+    assert db.user_active_focus.updates[0][1]["$set"][
+        "detector_version_transition"
+    ]["status"] == "rewriting_observations"
+
+
+@pytest.mark.asyncio
+async def test_existing_exact_refresh_failure_keeps_old_pin_and_marks_resume(
+    monkeypatch,
+):
+    db = _TransitionDb(_transition_focus())
+
+    async def derive(_db, _user_id, *, apply):
+        if apply:
+            raise RuntimeError("simulated rewrite failure")
+        return _observation_plan()
+
+    async def indexes(_db):
+        return None
+
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._derive_user_observation_plan",
+        derive,
+    )
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus.ensure_indexes",
+        indexes,
+    )
+    users = [{"user_id": "user-1", "role": "user"}]
+    dry_run = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=False,
+        confirm_plan=None,
+    )
+    with pytest.raises(RuntimeError, match="simulated rewrite failure"):
+        await _run_existing_exact_refresh(
+            db,
+            users,
+            apply=True,
+            confirm_plan=dry_run["plan_fingerprint"],
+        )
+
+    transition = db.user_active_focus.document["detector_version_transition"]
+    assert transition["status"] == "failed"
+    assert transition["failure_stage"] == "rewrite_observations"
+    assert db.user_active_focus.document["proof_detector_id"] == LEGACY_FACT_VERSION
+
+    async def successful_derive(_db, _user_id, *, apply):
+        return _observation_plan()
+
+    async def eligible_update(_db, _focus):
+        return {
+            "eligible": True,
+            "update": {"proof_detector_id": FACT_VERSION},
+        }
+
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._derive_user_observation_plan",
+        successful_derive,
+    )
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._eligible_update",
+        eligible_update,
+    )
+    resumed_dry_run = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=False,
+        confirm_plan=None,
+    )
+    resumed = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=True,
+        confirm_plan=resumed_dry_run["plan_fingerprint"],
+    )
+    assert resumed["updated"] == 1
+    assert db.user_active_focus.document["proof_detector_id"] == FACT_VERSION
+    assert "detector_version_transition" not in db.user_active_focus.document
+
+
+@pytest.mark.asyncio
+async def test_existing_exact_refresh_aborts_all_writes_when_preflight_is_invalid(
+    monkeypatch,
+):
+    db = _TransitionDb(_transition_focus())
+
+    async def derive(_db, _user_id, *, apply):
+        return _observation_plan(exact_fires=0, eligible_decisions=0)
+
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._derive_user_observation_plan",
+        derive,
+    )
+    users = [{"user_id": "user-1", "role": "user"}]
+    dry_run = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=False,
+        confirm_plan=None,
+    )
+    assert dry_run["ineligible"] == 1
+    with pytest.raises(RuntimeError, match="aborted before writes"):
+        await _run_existing_exact_refresh(
+            db,
+            users,
+            apply=True,
+            confirm_plan=dry_run["plan_fingerprint"],
+        )
+    assert db.user_active_focus.updates == []
+
+
+@pytest.mark.asyncio
+async def test_existing_exact_refresh_refuses_live_concurrent_claim(
+    monkeypatch,
+):
+    db = _TransitionDb(_transition_focus(
+        detector_version_transition={
+            "status": "rewriting_observations",
+            "to_version": FACT_VERSION,
+            "run_id": "other-run",
+            "started_at": datetime.now(timezone.utc),
+        },
+    ))
+
+    async def derive(_db, _user_id, *, apply):
+        return _observation_plan()
+
+    async def indexes(_db):
+        return None
+
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus._derive_user_observation_plan",
+        derive,
+    )
+    monkeypatch.setattr(
+        "scripts.migrate_destination_safety_focus.ensure_indexes",
+        indexes,
+    )
+    users = [{"user_id": "user-1", "role": "user"}]
+    dry_run = await _run_existing_exact_refresh(
+        db,
+        users,
+        apply=False,
+        confirm_plan=None,
+    )
+    with pytest.raises(RuntimeError, match="could not claim"):
+        await _run_existing_exact_refresh(
+            db,
+            users,
+            apply=True,
+            confirm_plan=dry_run["plan_fingerprint"],
+        )
+    assert db.user_active_focus.document[
+        "detector_version_transition"
+    ]["run_id"] == "other-run"
 
 
 @pytest.mark.asyncio

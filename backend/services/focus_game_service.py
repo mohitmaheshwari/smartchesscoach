@@ -215,6 +215,7 @@ def record_pic_game_evidence_sync(
     observations: Iterable[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
     """Write one deterministic evidence envelope after observation completion."""
+    observations = list(observations or [])
     user = db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1}) or {}
     if not _pic_fields_eligible(user.get("role")):
         return None
@@ -229,6 +230,26 @@ def record_pic_game_evidence_sync(
         return None
     if not focus_document_is_authorized(focus):
         return None
+    transition = focus.get("detector_version_transition") or {}
+    if transition.get("status") in {"rewriting_observations", "failed"}:
+        return None
+
+    exact_focus = (
+        quality_id_for_focus_document(focus) == DESTINATION_SAFETY_QUALITY_ID
+    )
+    proof_detector_id = PIC_FACT_VERSION
+    if exact_focus:
+        proof_detector_id = destination_safety_focus_fact_version(focus)
+        observed_versions = {
+            str(fact.get("version"))
+            for observation in observations
+            if (fact := observation.get("destination_safety_exact"))
+        }
+        # This check must happen before claiming a pending game. A claim and
+        # an evidence envelope are one logical action; version disagreement
+        # must leave both untouched so reconciliation can safely retry later.
+        if observed_versions and observed_versions != {proof_detector_id}:
+            return None
 
     game_id = str(game.get("game_id") or "")
     claimed_focus = claim_pending_focus_game_sync(
@@ -241,12 +262,6 @@ def record_pic_game_evidence_sync(
         pending.get("status") == "claimed"
         and pending.get("game_id") == game_id
     )
-    exact_focus = (
-        quality_id_for_focus_document(focus) == DESTINATION_SAFETY_QUALITY_ID
-    )
-    proof_detector_id = PIC_FACT_VERSION
-    if exact_focus:
-        proof_detector_id = destination_safety_focus_fact_version(focus)
     observation_version = 18 if exact_focus else 17
     summary = summarize_pic_observations(
         observations,
