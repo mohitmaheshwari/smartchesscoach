@@ -76,4 +76,27 @@ describe("LichessBoard dynamic controls", () => {
     expect(update.movable.showDests).toBe(false);
     expect(update.movable.dests.size).toBe(0);
   });
+
+  test("variation playback reports completion after its final legal move", async () => {
+    jest.useFakeTimers();
+    const onStep = jest.fn();
+    const onComplete = jest.fn();
+    await act(async () => root.render(
+      <LichessBoard ref={boardApi} fen={START} />
+    ));
+
+    act(() => {
+      boardApi.current.playVariation(START, ["e4", "e5"], {
+        stepDelayMs: 10,
+        onStep,
+        onComplete,
+      });
+      jest.advanceTimersByTime(420);
+    });
+
+    expect(onStep).toHaveBeenCalledWith(-1, null);
+    expect(onStep).toHaveBeenCalledTimes(3);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
 });

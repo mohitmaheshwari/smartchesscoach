@@ -12,6 +12,7 @@ from services.teaching_engine import (
     start_lesson,
 )
 from services.destination_safety_detector import (
+    FACT_VERSION as DESTINATION_SAFETY_FACT_VERSION,
     QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
     build_destination_safety_reason_bundle,
 )
@@ -628,6 +629,119 @@ def _blind_descriptor_v2():
             },
         ],
     }
+
+
+def _position_relative_lesson_descriptor():
+    descriptor = _blind_descriptor_v2()
+    descriptor["delivery_mode"] = "lesson"
+    descriptor["diagnostic_version"] = None
+    descriptor["items"] = [copy.deepcopy(descriptor["items"][0])]
+    descriptor["items"][0].update({
+        "item_id": "normal-position-relative",
+        "stage": "transfer",
+        "prompt": "Which move keeps every piece safe?",
+        "reason_prompt": "Static fallback question",
+        "reason_choices": [{"id": "static", "label": "Static answer"}],
+        "_detector_version": DESTINATION_SAFETY_FACT_VERSION,
+    })
+    return descriptor
+
+
+def test_normal_lesson_asks_exact_questions_only_after_the_move(monkeypatch):
+    monkeypatch.setenv("CANDIDATE_LESSON_REASONS_ENABLED", "true")
+
+    async def resolve(*args, **kwargs):
+        return _position_relative_lesson_descriptor()
+
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    async def grade(descriptor, item, move, **kwargs):
+        bundle = build_destination_safety_reason_bundle(item["fen"], move)
+        return {
+            "correct": bundle.target_result == "pass",
+            "target_result": bundle.target_result,
+            "soundness": {"status": "sound", "reason": "verified_acceptable"},
+            "feedback": "The move and its board relationships were verified.",
+            "answer_san": None,
+            "answer_uci": None,
+            "grader_version": "candidate-lesson.test",
+        }
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson", resolve
+    )
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile", profile
+    )
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.grade_personalized_move", grade
+    )
+    db = _DB()
+    started = asyncio.run(start_lesson(
+        db,
+        "normal-reasoned",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {"content_kind": "concept", "content_id": "piece_safety"},
+    ))
+    assert started["current_item"]["position_relative_reasoning"] is True
+    assert "reason_prompt" not in started["current_item"]
+    assert "reason_choices" not in started["current_item"]
+
+    staged = asyncio.run(process_lesson_move(
+        db,
+        "normal-reasoned",
+        "d3d2",
+        interaction_id="normal-stage",
+    ))
+    assert staged["awaiting_reason"] is True
+    first_question = staged["current_item"]["reason_question"]
+    assert first_question["prompt"] == (
+        "Which of your rooks did the queen on c2 attack?"
+    )
+    assert "Static answer" not in str(staged)
+
+    bundle = build_destination_safety_reason_bundle(
+        _position_relative_lesson_descriptor()["items"][0]["fen"],
+        "d3d2",
+    )
+    payload = staged
+    for index, component in enumerate(bundle.components):
+        question = payload["current_item"]["reason_question"]
+        payload = asyncio.run(process_lesson_move(
+            db,
+            "normal-reasoned",
+            "d3d2",
+            interaction_id=f"normal-reason-{index}",
+            reason_choice=component.accepted_choice_ids[0],
+            reason_component_id=question["question_id"],
+        ))
+    assert payload["complete"] is True
+    assert payload["reasoning_consistent"] is True
+
+
+def test_normal_lesson_dynamic_questions_fail_closed_for_stale_detector(monkeypatch):
+    monkeypatch.setenv("CANDIDATE_LESSON_REASONS_ENABLED", "true")
+    descriptor = _position_relative_lesson_descriptor()
+    descriptor["items"][0]["_detector_version"] = "stale.v0"
+
+    async def resolve(*args, **kwargs):
+        return descriptor
+
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson", resolve
+    )
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile", profile
+    )
+    db = _DB()
+    started = _start(db)
+    assert "position_relative_reasoning" not in started["current_item"]
+    assert started["current_item"]["reason_prompt"] == "Static fallback question"
 
 
 def _install_blind_v2(monkeypatch):

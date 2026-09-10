@@ -170,4 +170,123 @@ describe("PersonalizedLessonWorkspace", () => {
     expect(container.textContent).not.toContain("Not measured");
     expect(container.textContent).not.toContain("Reliable");
   });
+
+  test("asks exact position questions after the move and keeps the move staged", async () => {
+    const dynamicSession = {
+      ...session,
+      current_item: {
+        ...session.current_item,
+        position_relative_reasoning: true,
+        reason_prompt: undefined,
+        reason_choices: undefined,
+      },
+    };
+    let respondCount = 0;
+    global.fetch.mockImplementation((url, options) => {
+      if (url.endsWith("/start")) return response(dynamicSession);
+      if (url.endsWith("/respond")) {
+        respondCount += 1;
+        if (respondCount === 1) {
+          return response({
+            awaiting_reason: true,
+            current_item: {
+              ...dynamicSession.current_item,
+              move_san: "Kf3",
+              reason_question: {
+                question_id: "destination-safety",
+                prompt: "After Kf3, can Black take your king there?",
+                choices: [
+                  { id: "no", label: "No, the square is safe." },
+                  { id: "yes", label: "Yes, Black can take it." },
+                ],
+                progress: { current: 1, total: 2 },
+              },
+            },
+          });
+        }
+        if (respondCount === 2) {
+          return response({
+            awaiting_reason: true,
+            component_result: { feedback: "Correct. The landing square is safe." },
+            current_item: {
+              ...dynamicSession.current_item,
+              move_san: "Kf3",
+              reason_question: {
+                question_id: "one-reply",
+                prompt: "What can Black try next?",
+                choices: [
+                  { id: "wait", label: "Black has no immediate capture." },
+                  { id: "capture", label: "Black wins the king." },
+                ],
+                progress: { current: 2, total: 2 },
+              },
+            },
+          });
+        }
+        return response({
+          correct: true,
+          feedback: "You checked the whole position.",
+          earned_state: "can_do_alone",
+          highest_earned_state: "can_do_alone",
+          reasoning_consistent: true,
+          complete: true,
+          current_index: 1,
+          total_items: 1,
+          next_item: null,
+        });
+      }
+      if (url.includes("/evidence")) return response({ evidence: [] });
+      return response({});
+    });
+
+    await act(async () => root.render(
+      <PersonalizedLessonWorkspace contentKind="concept" contentId="piece_safety" />
+    ));
+    await settle();
+    expect(container.textContent).not.toContain("My pieces stay safe");
+
+    const board = container.querySelector('[data-testid="lesson-board"]');
+    await act(async () => board.click());
+    await settle();
+    expect(board.disabled).toBe(true);
+    expect(container.textContent).toContain(
+      "After Kf3, can Black take your king there?"
+    );
+    expect(container.textContent).not.toContain("What did you check before choosing");
+    const stageRequest = JSON.parse(
+      global.fetch.mock.calls.find(([url]) => url.endsWith("/respond"))[1].body
+    );
+    expect(stageRequest.move).toBe("e2f3");
+    expect(stageRequest.reason_choice).toBeUndefined();
+
+    const firstReason = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent.includes("No, the square is safe")
+    );
+    await act(async () => firstReason.click());
+    await settle();
+    expect(container.textContent).toContain("What can Black try next?");
+    expect(container.textContent).toContain("Correct. The landing square is safe.");
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(true);
+
+    const secondReason = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent.includes("Black has no immediate capture")
+    );
+    await act(async () => secondReason.click());
+    await settle();
+
+    const answerRequests = global.fetch.mock.calls
+      .filter(([url]) => url.endsWith("/respond"))
+      .map(([, options]) => JSON.parse(options.body));
+    expect(answerRequests[1]).toMatchObject({
+      move: "e2f3",
+      reason_choice: "no",
+      reason_component_id: "destination-safety",
+    });
+    expect(answerRequests[2]).toMatchObject({
+      move: "e2f3",
+      reason_choice: "wait",
+      reason_component_id: "one-reply",
+    });
+    expect(container.textContent).toContain("You found the idea");
+  });
 });

@@ -1,0 +1,189 @@
+{
+  "actual_move_coverage_pct": {
+    "top_1": 46.67,
+    "top_10": 96.33,
+    "top_20": 99.5,
+    "top_3": 75.83,
+    "top_5": 86.17,
+    "top_8": 93.5
+  },
+  "actual_move_rank": {
+    "mean": 2.941667,
+    "median": 2.0,
+    "p25": 1.0,
+    "p75": 3.0,
+    "p90": 6.0
+  },
+  "adaptive_policy": {
+    "mass_0.80_floor_3_cap_8": {
+      "actual_move_coverage_pct": 86.33,
+      "candidate_count": {
+        "mean": 4.33,
+        "median": 3.0,
+        "p25": 3.0,
+        "p75": 5.0,
+        "p90": 7.0
+      },
+      "cap": 8,
+      "floor": 3,
+      "returned_mass": {
+        "mean": 0.872523,
+        "median": 0.846216,
+        "p25": 0.818044,
+        "p75": 0.935514,
+        "p90": 0.993395
+      },
+      "target_mass": 0.8
+    },
+    "mass_0.90_floor_3_cap_10": {
+      "actual_move_coverage_pct": 91.67,
+      "candidate_count": {
+        "mean": 5.838333,
+        "median": 5.0,
+        "p25": 3.0,
+        "p75": 8.0,
+        "p90": 10.0
+      },
+      "cap": 10,
+      "floor": 3,
+      "returned_mass": {
+        "mean": 0.924592,
+        "median": 0.916818,
+        "p25": 0.90429,
+        "p75": 0.943329,
+        "p90": 0.994144
+      },
+      "target_mass": 0.9
+    }
+  },
+  "candidate_count_to_cumulative_mass": {
+    "0.7": {
+      "mean": 2.953333,
+      "median": 3.0,
+      "p25": 2.0,
+      "p75": 4.0,
+      "p90": 5.0
+    },
+    "0.8": {
+      "mean": 3.945,
+      "median": 3.0,
+      "p25": 2.0,
+      "p75": 5.0,
+      "p90": 7.0
+    },
+    "0.9": {
+      "mean": 5.871667,
+      "median": 5.0,
+      "p25": 3.0,
+      "p75": 8.0,
+      "p90": 11.0
+    }
+  },
+  "generated_date": "2026-09-10",
+  "latency_ms_per_position_after_warmup": {
+    "mean": 16.484374,
+    "median": 15.7492,
+    "p25": 14.3647,
+    "p75": 17.54395,
+    "p90": 19.9468
+  },
+  "method": {
+    "candidate_counts": [
+      1,
+      3,
+      5,
+      8,
+      10,
+      20
+    ],
+    "llm_calls": 0,
+    "mass_targets": [
+      0.7,
+      0.8,
+      0.9
+    ],
+    "per_stratum": 100,
+    "production_reads": 0,
+    "production_writes": 0,
+    "rating_range": [
+      600,
+      1500
+    ],
+    "selection": "lowest SHA-256 score per rating-band/phase stratum",
+    "source": "local public Maia-2 example test dataset",
+    "stockfish_runs": 0
+  },
+  "model": {
+    "artifact_sha256": "65aae8465eed5e65df66a24ea7370715579f9e5435098d06fe18bdb1e267e997",
+    "provider": "maia2",
+    "provider_version": "0.11.0:rapid"
+  },
+  "population": {
+    "eligible_by_stratum": {
+      "1200-1500:late": 8797,
+      "1200-1500:middlegame": 17359,
+      "1200-1500:opening": 11740,
+      "900-1199:late": 3454,
+      "900-1199:middlegame": 8330,
+      "900-1199:opening": 6292
+    },
+    "failures": 0,
+    "selected": 600,
+    "valid": 600,
+    "valid_by_stratum": {
+      "1200-1500:late": 100,
+      "1200-1500:middlegame": 100,
+      "1200-1500:opening": 100,
+      "900-1199:late": 100,
+      "900-1199:middlegame": 100,
+      "900-1199:opening": 100
+    }
+  },
+  "privacy": "Aggregate only; no names, ids, FENs, moves, PGNs, or free text.",
+  "probability_mass_by_fixed_count": {
+    "top_1": {
+      "mean": 0.506481,
+      "median": 0.460209,
+      "p25": 0.324235,
+      "p75": 0.655179,
+      "p90": 0.879535
+    },
+    "top_10": {
+      "mean": 0.958509,
+      "median": 0.974872,
+      "p25": 0.93899,
+      "p75": 0.996938,
+      "p90": 1.0
+    },
+    "top_20": {
+      "mean": 0.99459,
+      "median": 0.998213,
+      "p25": 0.993615,
+      "p75": 1.0,
+      "p90": 1.0
+    },
+    "top_3": {
+      "mean": 0.784083,
+      "median": 0.804165,
+      "p25": 0.657797,
+      "p75": 0.935225,
+      "p90": 0.993395
+    },
+    "top_5": {
+      "mean": 0.877315,
+      "median": 0.905184,
+      "p25": 0.805472,
+      "p75": 0.978814,
+      "p90": 1.0
+    },
+    "top_8": {
+      "mean": 0.938248,
+      "median": 0.96012,
+      "p25": 0.905643,
+      "p75": 0.993011,
+      "p90": 1.0
+    }
+  },
+  "schema_version": "human_candidate_budget_bakeoff.v1",
+  "source_sha256": "cd4defb7213f052eb0c3e78c1af32f40ee67b8cb85b859e890862db31dcb7bd9"
+}

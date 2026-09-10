@@ -31,15 +31,14 @@ Architecture:
 
 import chess
 import chess.pgn
-import chess.engine
 import json
 import os
 import io
 import re
 import logging
 import asyncio
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict, field
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from dataclasses import dataclass, asdict, field, replace
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -91,10 +90,9 @@ logger = logging.getLogger(__name__)
 # rewrite: 'Your knight on h3 has only 2 legal moves' → 'Your knight on h3 is passive —
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
-V5_COACHING_VERSION = 151  # v151 (2026-09-11): the Socratic surface finally asks a question. All 19 R18_socratic_user_mistake variants and all 18 R17_coach_move variants shipped their question / hint / hint_for_user fields as empty strings since the rules were written; across 500 stored reviews (29,302 move cards) socratic_coaching fired 2,115 times with a narrative and 0 questions, and coach_move_coaching fired 14,635 times with 0 hints. All 37 fields are authored, the review card renders the question plus a click-to-reveal hint again, and pwc_coaching_lint now fails on an unauthored one. Stored captions must re-render to carry them. Also: the unearned-verdict softener now runs before the board explanation is snapshotted, so the caption and the explanation stop disagreeing ("f3 is playable" vs "f3 is a mistake") and prefixing a personal sentence can no longer make an unearned verdict permanent. # allow-noncentral-caption v150 (2026-09-11): the loose-piece card ("X left your rook on h1 available") now has to be about a mistake. build_legal_material_loss_cause answers a board question -- is something of mine capturable for free after this move -- and the review path was using that answer as a verdict on the move, with no other test at all. Over 500 analysed games it rendered 641 such cards: 63 (9.8%) on moves that cost under 50cp, including a recapture at cp_loss 0 and "Rxf8 ... Kxf8" narrated as a rook left available; 47 (7.3%) in positions already decided by 15 pawns or a mate score (live examples at +9880 and -9990); and 5 whose "punishment" was checkmate, so the card discussed a rook while the player was being mated (Ne2 answered by Qxe2#). Three gates: cost >= 50cp, skip once |eval| >= 1500cp, and abstain when the winning capture is mate so the mate path speaks instead. The cost floor is FLAT, not the rating-band inaccuracy floor -- the bands are a volume control for subtle engine preferences, and using them here silenced a genuine free knight at cp_loss 142 for a 988-rated player. 641 -> 531 cards (82.8% kept). # allow-noncentral-caption v149 (2026-09-09): opponent alternatives can now explain a legally proved capture-recapture-pawn-fork resolution instead of stopping at the misleading immediate capture. v148 (2026-09-09): a piece that is paid for is a trade, not a loss, and an empty reason clause no longer ships broken punctuation. Reading rendered captions (not just counting predicates) turned up "O-O-O runs into Bxd1, losing your rook on d1" where d1 was defended by c1, c3 and f3 and the line was Bxd1 Nxd1 -- rook for bishop, ~170cp, which clears the material floor and so passed v147's gate while the WORDING still claimed an outright loss. walked_into_tactic now says "trading your rook on d1 for a bishop" when material comes back, and one_move_blunder abstains entirely since its text says "lose it for nothing". Also fixed captions shipping as "better was Qg6,." and "instead Kg1 was stronger whereas ..." when best_purpose was empty: the connector was stripped but its punctuation was left stranded. # allow-noncentral-caption v143 (2026-09-07): verdict-softening restricted to the hollow TEMPLATE shape. v142 decided "has a consequence" with a keyword list, so prose captions that explain in other words got softened - "Nxf7 is playable - you moved your knight away from defending e4" calls a move fine and then explains why it isn't. Now bounded by length+sentence count taken from the corpus. v142 (2026-09-07): a mistake verdict must be earned. R12 already refused to assert "X is a mistake" on a user move under 250cp with no why-clause; the fallback paths never got that rule, so 362 captions announced a verdict with nothing behind it (70% at cp 100-199). Same threshold, applied at the composition boundary so every path sees it. Real blunders and captions that name a consequence keep the verdict. v141 (2026-09-06): sentence salvage keeps the board-verified clauses of a caption the claim verifier rejected instead of discarding the whole caption for the hollow comparative floor (qBNJQg3g m16: "Qf6 lets Qxc5 win your bishop on c5" was generated, verified true, and thrown away over a complaint about the NEXT sentence). Plus the narrative truth gate: Truth/Player-Decryption claims are now checked against the game's own trajectory, and a clock loss renders time copy instead of blunder copy. docs/review_truth_layer_scope.md. v140 (2026-09-01): optional pinned Fathom/Syzygy evidence can attach an exact result-change cause for enrolled Quality V2 reviews. Incomplete/unsupported probes abstain; all legacy behavior remains the fallback. v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md.
+V5_COACHING_VERSION = 152  # v152 (2026-09-11): selected review moments may reuse immutable candidate evidence to compare the played human-likely idea with one verified stronger line. Read paths stay stored-only; writing is separately gated during analysis/backfill; visible projection is separately gated and fail-closed. v151 (2026-09-11): the Socratic surface finally asks a question. All 19 R18_socratic_user_mistake variants and all 18 R17_coach_move variants shipped their question / hint / hint_for_user fields as empty strings since the rules were written; across 500 stored reviews (29,302 move cards) socratic_coaching fired 2,115 times with a narrative and 0 questions, and coach_move_coaching fired 14,635 times with 0 hints. All 37 fields are authored, the review card renders the question plus a click-to-reveal hint again, and pwc_coaching_lint now fails on an unauthored one. Stored captions must re-render to carry them. Also: the unearned-verdict softener now runs before the board explanation is snapshotted, so the caption and the explanation stop disagreeing ("f3 is playable" vs "f3 is a mistake") and prefixing a personal sentence can no longer make an unearned verdict permanent. # allow-noncentral-caption v150 (2026-09-11): the loose-piece card ("X left your rook on h1 available") now has to be about a mistake. build_legal_material_loss_cause answers a board question -- is something of mine capturable for free after this move -- and the review path was using that answer as a verdict on the move, with no other test at all. Over 500 analysed games it rendered 641 such cards: 63 (9.8%) on moves that cost under 50cp, including a recapture at cp_loss 0 and "Rxf8 ... Kxf8" narrated as a rook left available; 47 (7.3%) in positions already decided by 15 pawns or a mate score (live examples at +9880 and -9990); and 5 whose "punishment" was checkmate, so the card discussed a rook while the player was being mated (Ne2 answered by Qxe2#). Three gates: cost >= 50cp, skip once |eval| >= 1500cp, and abstain when the winning capture is mate so the mate path speaks instead. The cost floor is FLAT, not the rating-band inaccuracy floor -- the bands are a volume control for subtle engine preferences, and using them here silenced a genuine free knight at cp_loss 142 for a 988-rated player. 641 -> 531 cards (82.8% kept). # allow-noncentral-caption v149 (2026-09-09): opponent alternatives can now explain a legally proved capture-recapture-pawn-fork resolution instead of stopping at the misleading immediate capture. v148 (2026-09-09): a piece that is paid for is a trade, not a loss, and an empty reason clause no longer ships broken punctuation. Reading rendered captions (not just counting predicates) turned up "O-O-O runs into Bxd1, losing your rook on d1" where d1 was defended by c1, c3 and f3 and the line was Bxd1 Nxd1 -- rook for bishop, ~170cp, which clears the material floor and so passed v147's gate while the WORDING still claimed an outright loss. walked_into_tactic now says "trading your rook on d1 for a bishop" when material comes back, and one_move_blunder abstains entirely since its text says "lose it for nothing". Also fixed captions shipping as "better was Qg6,." and "instead Kg1 was stronger whereas ..." when best_purpose was empty: the connector was stripped but its punctuation was left stranded. # allow-noncentral-caption v143 (2026-09-07): verdict-softening restricted to the hollow TEMPLATE shape. v142 decided "has a consequence" with a keyword list, so prose captions that explain in other words got softened - "Nxf7 is playable - you moved your knight away from defending e4" calls a move fine and then explains why it isn't. Now bounded by length+sentence count taken from the corpus. v142 (2026-09-07): a mistake verdict must be earned. R12 already refused to assert "X is a mistake" on a user move under 250cp with no why-clause; the fallback paths never got that rule, so 362 captions announced a verdict with nothing behind it (70% at cp 100-199). Same threshold, applied at the composition boundary so every path sees it. Real blunders and captions that name a consequence keep the verdict. v141 (2026-09-06): sentence salvage keeps the board-verified clauses of a caption the claim verifier rejected instead of discarding the whole caption for the hollow comparative floor (qBNJQg3g m16: "Qf6 lets Qxc5 win your bishop on c5" was generated, verified true, and thrown away over a complaint about the NEXT sentence). Plus the narrative truth gate: Truth/Player-Decryption claims are now checked against the game's own trajectory, and a clock loss renders time copy instead of blunder copy. docs/review_truth_layer_scope.md. v140 (2026-09-01): optional pinned Fathom/Syzygy evidence can attach an exact result-change cause for enrolled Quality V2 reviews. Incomplete/unsupported probes abstain; all legacy behavior remains the fallback. v139 (2026-09-01): default-off Personalized Review Quality V2 adds typed, stored-line/legal-board causes, practical game-state framing, cause-derived relationship arrows, strict evidence identity, and a 70-fire/30-negative Caption promotion gate. Existing V1 captions remain unchanged unless the subordinate Quality V2 flag is enabled. v138 (2026-08-31): Stage 4 adds the shared causal/personal explanation contract to Game Review in shadow mode and loads the same evidence-backed player context used by PWC. Visible personalization remains flag-gated. v137 (2026-08-27): hanging-piece facts now use board-mutating legal exchange truth, and free-piece shapes reject x-ray recaptures; invalidates stale false attributions measured in docs/detector_exchange_truth_lock_2026_08_27.md.
 
 # Stockfish path
-STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
 
 # ── V5 caption pipeline feature flag ────────────────────────────────────
 # When True, every move record also carries new fields produced by the
@@ -116,12 +114,14 @@ try:
     from services.caption_pipeline import (
         compute_severity_for_move as _compute_severity_for_move,
         build_move_teaching_decision as _build_move_teaching_decision,
+        build_candidate_comparison as _build_candidate_comparison,
         MoveInputs as _CaptionMoveInputs,
         CrossMoveState as _CaptionCrossMoveState,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _compute_severity_for_move = None
     _build_move_teaching_decision = None
+    _build_candidate_comparison = None
     _CaptionMoveInputs = None
     _CaptionCrossMoveState = None
     logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
@@ -1104,68 +1104,6 @@ def _is_move_safe(board: chess.Board, move_san: str, user_color: bool) -> bool:
                 return False
     
     return True
-
-
-async def _get_stockfish_candidates(board: chess.Board, num_moves: int = 3, depth: int = 12) -> List[Dict]:
-    """
-    Use Stockfish multi-PV to get the TOP candidate moves.
-    
-    This ensures we only suggest moves that are actually GOOD according to the engine.
-    Returns moves sorted by evaluation (best first).
-    """
-    candidates = []
-    
-    try:
-        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
-        
-        try:
-            # Multi-PV analysis to get top N moves
-            result = await engine.analyse(
-                board,
-                chess.engine.Limit(depth=depth),
-                multipv=num_moves
-            )
-            
-            for info in result:
-                if "pv" not in info or not info["pv"]:
-                    continue
-                
-                move = info["pv"][0]
-                san = board.san(move)
-                
-                # Get evaluation
-                score = info.get("score")
-                if score:
-                    if score.is_mate():
-                        cp = 10000 if score.relative.mate() > 0 else -10000
-                    else:
-                        cp = score.relative.score(mate_score=10000)
-                else:
-                    cp = 0
-                
-                # Get PV continuation
-                pv_san = []
-                temp_board = board.copy()
-                for pv_move in info["pv"][:4]:
-                    try:
-                        pv_san.append(temp_board.san(pv_move))
-                        temp_board.push(pv_move)
-                    except Exception:
-                        break
-                
-                candidates.append({
-                    "move": san,
-                    "eval_cp": cp,
-                    "pv": pv_san,
-                    "is_best": len(candidates) == 0  # First one is best
-                })
-        finally:
-            await engine.quit()
-            
-    except Exception as e:
-        logger.error(f"Stockfish multi-PV analysis failed: {e}")
-    
-    return candidates
 
 
 def _analyze_candidate_moves(
@@ -2927,6 +2865,9 @@ async def generate_game_decryption_v5(
     game_teaching_plan_output: Optional[Dict[str, object]] = None,
     persist_learning_side_effects: bool = True,
     allow_llm_polish: bool = True,
+    candidate_evidence_builder: Optional[
+        Callable[[Mapping[str, Any]], tuple[Any, Mapping[str, Any]]]
+    ] = None,
 ) -> List[Dict]:
     """
     Generate V5 "Thinking Simulator" coaching for a game.
@@ -3009,12 +2950,10 @@ async def generate_game_decryption_v5(
                 and personalized_review_quality_v2_enabled()
                 and _exact_endgame_review_enabled is not None
                 and _exact_endgame_review_enabled()
-                and probe_configured_fathom is not None
             )
             _human_policy_for_user = bool(
                 _u_doc
                 and personalized_game_review_access(_u_doc).enabled
-                and _derive_human_policy_evidence is not None
                 and _human_policy_evidence_enabled is not None
                 and _human_policy_evidence_enabled()
             )
@@ -3090,6 +3029,7 @@ async def generate_game_decryption_v5(
         _review_hidden_opportunity_evaluations = []
         _review_hidden_consumed_row_ids = set()
         _review_hidden_rows_by_fen = {}
+        _candidate_context_by_event_id: Dict[str, Dict[str, Any]] = {}
         _review_shadow_ready = False
         if game_teaching_plan_output is not None and game_id:
             for _review_row in [
@@ -3228,6 +3168,7 @@ async def generate_game_decryption_v5(
             is_white = (idx % 2 == 0)
             is_user = (user_color == "white" and is_white) or (user_color == "black" and not is_white)
             _decision = None
+            _inputs = None
             _review_event_contract = None
             _review_prompt_contract = None
 
@@ -3546,8 +3487,10 @@ async def generate_game_decryption_v5(
                 
             else:
                 # MISTAKE/INACCURACY - Extract plan
-                # Get Stockfish candidates for alternative moves
-                stockfish_candidates = await _get_stockfish_candidates(board, num_moves=3, depth=12)
+                # Candidate branches are generated by the bounded
+                # analysis-time writer. A stored-review render must never
+                # start an engine merely to enrich this legacy plan.
+                stockfish_candidates = []
                 
                 plan = extract_plan_from_pv(
                     board, move, best_move,
@@ -3750,12 +3693,12 @@ async def generate_game_decryption_v5(
                                     _exact_endgame_probe_reason = "stored_exact"
                             except Exception:
                                 _exact_endgame_probe_reason = "stored_exact_rejected"
-                        if _exact_probe is None:
-                            (
-                                _exact_probe,
-                                _exact_endgame_probe_reason,
-                            ) = await asyncio.to_thread(
-                                probe_configured_fathom, fen_before
+                        if (
+                            _exact_probe is None
+                            and _exact_endgame_probe_reason == "not_requested"
+                        ):
+                            _exact_endgame_probe_reason = (
+                                "stored_evidence_missing"
                             )
                         if _exact_probe is not None:
                             _exact_endgame_evidence = _exact_probe.contract_dict()
@@ -3791,6 +3734,9 @@ async def generate_game_decryption_v5(
                         session_focus=_v5_player_caption_context.get("session_focus"),
                         player_context_shadow_only=True,
                         exact_endgame_evidence=_exact_endgame_evidence,
+                        candidate_caption_evidence=eval_data.get(
+                            "candidate_caption_evidence"
+                        ),
                     )
                     _state = _CaptionCrossMoveState(
                         fired_principles=set(principles_fired_this_game),
@@ -3884,13 +3830,12 @@ async def generate_game_decryption_v5(
                                         _human_policy_reason = "stored_evidence_mismatch"
                                 except Exception:
                                     _human_policy_reason = "stored_evidence_rejected"
-                            if _human_evidence is None:
-                                (
-                                    _human_evidence,
-                                    _human_policy_reason,
-                                ) = await asyncio.to_thread(
-                                    _derive_human_policy_evidence,
-                                    _human_context,
+                            if (
+                                _human_evidence is None
+                                and _human_policy_reason == "not_requested"
+                            ):
+                                _human_policy_reason = (
+                                    "stored_evidence_missing"
                                 )
                             if _human_evidence is not None:
                                 _human_policy_evidence = _human_evidence.contract_dict()
@@ -3970,6 +3915,18 @@ async def generate_game_decryption_v5(
                         _review_shadow_events.append(_review_event)
                         _review_shadow_features[_review_event.event_id] = _review_feature
                         _review_event_contract = _review_event.contract_dict()
+                        if (
+                            _inputs is not None
+                            and _decision.cause is not None
+                        ):
+                            _candidate_context_by_event_id[
+                                _review_event.event_id
+                            ] = {
+                                "row": eval_data,
+                                "inputs": _inputs,
+                                "cause": _decision.cause,
+                                "output_index": len(decryption_data),
+                            }
                         if _review_event.reflection_eligible:
                             try:
                                 from services.review_reflection_service import (
@@ -4745,7 +4702,7 @@ async def generate_game_decryption_v5(
                 and m.get("priority") != "silent"
             ]
 
-            if mistakes_to_enhance:
+            if allow_llm_polish and mistakes_to_enhance:
                 logger.info(
                     f"[DECRYPTION V5] Enhancing {len(mistakes_to_enhance)} mistakes "
                     f"(deterministic tactical first, LLM fallback)..."
@@ -4981,6 +4938,105 @@ async def generate_game_decryption_v5(
                             _review_hidden_opportunity_evaluations
                         ),
                     )
+                )
+                _candidate_summary = {
+                    "schema_version": "candidate_enrichment_summary.v1",
+                    "selected": 0,
+                    "current": 0,
+                    "newly_enriched": 0,
+                    "changed": 0,
+                    "composed": 0,
+                    "unsupported": 0,
+                    "rejected": 0,
+                    "failed": 0,
+                    "stale": 0,
+                    "rebuilt": 0,
+                }
+                for _event_id in (
+                    game_teaching_plan_output.get("selected_event_ids") or []
+                ):
+                    _candidate_context = _candidate_context_by_event_id.get(
+                        str(_event_id)
+                    )
+                    if _candidate_context is None:
+                        _candidate_summary["unsupported"] += 1
+                        continue
+                    _candidate_summary["selected"] += 1
+                    _candidate_row = _candidate_context["row"]
+                    _candidate_document = _candidate_row.get(
+                        "candidate_caption_evidence"
+                    )
+                    from services.candidate_caption_evidence import (
+                        candidate_packet_state,
+                    )
+                    _candidate_state = candidate_packet_state(
+                        _candidate_document,
+                        _candidate_row,
+                    )
+                    if _candidate_state == "current":
+                        _candidate_summary["current"] += 1
+                    elif candidate_evidence_builder is not None:
+                        try:
+                            _candidate_packet, _candidate_stats = (
+                                candidate_evidence_builder(_candidate_row)
+                            )
+                            _candidate_document = _candidate_packet.document()
+                            _candidate_row["candidate_caption_evidence"] = (
+                                _candidate_document
+                            )
+                            if _candidate_state == "missing":
+                                _candidate_summary["newly_enriched"] += 1
+                            else:
+                                _candidate_summary[_candidate_state] += 1
+                                _candidate_summary["rebuilt"] += 1
+                        except Exception as _candidate_build_exc:
+                            if _candidate_state in {
+                                "changed", "rejected", "stale"
+                            }:
+                                _candidate_summary[_candidate_state] += 1
+                            _candidate_summary["failed"] += 1
+                            logger.warning(
+                                "[candidate-caption] writer failed for %s: %s",
+                                _event_id,
+                                _candidate_build_exc,
+                            )
+                            continue
+                    elif _candidate_state in {"changed", "rejected", "stale"}:
+                        _candidate_summary[_candidate_state] += 1
+                    if not _candidate_document:
+                        _candidate_summary["unsupported"] += 1
+                        continue
+                    try:
+                        _comparison = _build_candidate_comparison(
+                            replace(
+                                _candidate_context["inputs"],
+                                candidate_caption_evidence=_candidate_document,
+                            ),
+                            _candidate_context["cause"],
+                        )
+                    except Exception as _candidate_compose_exc:
+                        logger.warning(
+                            "[candidate-caption] composition failed for %s: %s",
+                            _event_id,
+                            _candidate_compose_exc,
+                        )
+                        _comparison = None
+                    if _comparison is None:
+                        _candidate_summary["unsupported"] += 1
+                        continue
+                    _candidate_summary["composed"] += 1
+                    # Store the deterministic comparison independently of
+                    # rollout. The authenticated route owns exposure and
+                    # strips it from legacy or kill-switched responses. This
+                    # lets enrichment happen safely before a visible pilot.
+                    _output_index = int(
+                        _candidate_context["output_index"]
+                    )
+                    decryption_data[_output_index][
+                        "candidate_comparison"
+                    ] = _comparison.public_dict()
+                game_teaching_plan_output["candidate_enrichment"] = (
+                    _candidate_summary
                 )
             except Exception as _review_plan_exc:
                 logger.warning(

@@ -109,7 +109,7 @@ def _feature(
 
 def test_shadow_constants_match_the_data_lock():
     assert SHADOW_FORMULA == "D_teaching_then_critical"
-    assert SHADOW_MOMENT_CAP == 2
+    assert SHADOW_MOMENT_CAP == 3
     assert SHADOW_REFLECTION_QUESTION_BUDGET == 1
 
 
@@ -146,32 +146,53 @@ def test_legacy_formula_still_counts_a_highlight_only_visual_as_teaching():
         ),
     )
     earlier_without_visual = _event("earlier-no-visual", 10, visual=False)
+    later_without_visual = _event("later-no-visual", 40, visual=False)
     result = build_shadow_game_teaching_plan(
         game_id="g",
-        events=(earlier_without_visual, complete, highlighted),
+        events=(
+            earlier_without_visual,
+            complete,
+            highlighted,
+            later_without_visual,
+        ),
         features={
             event.event_id: _feature(event, cp_loss=300)
-            for event in (earlier_without_visual, complete, highlighted)
+            for event in (
+                earlier_without_visual,
+                complete,
+                highlighted,
+                later_without_visual,
+            )
         },
         generated_at=NOW,
         formula_id=SHADOW_FORMULA,
     )
-    assert result.selected_event_ids == ("complete", "highlighted")
+    assert result.selected_event_ids == (
+        "earlier-no-visual",
+        "complete",
+        "highlighted",
+    )
 
 
 def test_quality_v2_prefers_a_real_state_change_over_a_huge_missed_finish():
     stayed_winning = _event("huge-loss-still-winning", 10)
     state_changed = _event("smaller-loss-state-changed", 20)
     second_stayed_winning = _event("another-stayed-winning", 30)
+    third_stayed_winning = _event("third-stayed-winning", 40)
     result = build_shadow_game_teaching_plan(
         game_id="g",
-        events=(stayed_winning, state_changed, second_stayed_winning),
+        events=(
+            stayed_winning,
+            state_changed,
+            second_stayed_winning,
+            third_stayed_winning,
+        ),
         features={
             stayed_winning.event_id: _feature(
                 stayed_winning,
                 cp_loss=2000,
                 stayed_winning=True,
-                mover_winprob_delta=-0.03,
+                mover_winprob_delta=-0.01,
             ),
             state_changed.event_id: _feature(
                 state_changed,
@@ -184,6 +205,12 @@ def test_quality_v2_prefers_a_real_state_change_over_a_huge_missed_finish():
                 cp_loss=1500,
                 stayed_winning=True,
                 mover_winprob_delta=-0.04,
+            ),
+            third_stayed_winning.event_id: _feature(
+                third_stayed_winning,
+                cp_loss=500,
+                stayed_winning=True,
+                mover_winprob_delta=-0.03,
             ),
         },
         generated_at=NOW,
@@ -207,11 +234,12 @@ def test_allowed_event_is_a_missed_opportunity_not_an_automatic_turning_point():
     assert result.plan.chapters[0].role.value == "missed_opportunity"
 
 
-def test_cap_is_two_and_display_order_is_chronological():
+def test_cap_is_three_and_display_order_is_chronological():
     events = (
         _event("late-complete", 40),
         _event("early-complete", 10),
         _event("middle-incomplete", 20, visual=False),
+        _event("latest-incomplete", 50, visual=False),
     )
     result = build_shadow_game_teaching_plan(
         game_id="g",
@@ -222,8 +250,16 @@ def test_cap_is_two_and_display_order_is_chronological():
         },
         generated_at=NOW,
     )
-    assert result.selected_event_ids == ("early-complete", "late-complete")
-    assert len(result.plan.chapters) == 2
+    assert result.selected_event_ids == (
+        "early-complete",
+        "middle-incomplete",
+        "late-complete",
+    )
+    assert len(result.plan.chapters) == 3
+    assert result.plan.game_arc == (
+        "I found three moments worth studying in this game. "
+        "Each is supported on its own."
+    )
 
 
 def test_only_one_selected_event_can_request_reflection():

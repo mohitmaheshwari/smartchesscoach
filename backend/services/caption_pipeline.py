@@ -350,6 +350,9 @@ class MoveInputs:
     # or tablebase subprocess itself.
     exact_endgame_evidence: Optional[Dict[str, Any]] = None
     human_policy_evidence: Optional[Dict[str, Any]] = None
+    # Immutable background evidence for the played and candidate branches.
+    # The central pipeline validates its source fingerprint before use.
+    candidate_caption_evidence: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -544,6 +547,52 @@ class CaptionExplanation:
     rollout_mode: str = "shadow"  # shadow | visible
 
 
+@dataclass(frozen=True)
+class CandidateComparison:
+    """One compact, replayable comparison from verified branch evidence."""
+    headline: str
+    played_summary: str
+    stronger_summary: str
+    memory_cue: str
+    played_line_moves: Tuple[str, ...]
+    stronger_line_moves: Tuple[str, ...]
+    source_fingerprint: str
+    evidence_fingerprint: str
+    cause_fingerprint: str
+    proof_authority: str
+    proof_version: str
+    schema_version: str = "candidate_comparison.v1"
+
+    def __post_init__(self) -> None:
+        required = (
+            self.headline, self.played_summary, self.stronger_summary,
+            self.memory_cue, self.source_fingerprint, self.evidence_fingerprint,
+            self.cause_fingerprint,
+            self.proof_authority, self.proof_version,
+        )
+        if any(not str(value).strip() for value in required):
+            raise ValueError("candidate comparison fields must be non-empty")
+        if len((self.played_summary + " " + self.stronger_summary).split()) > 32:
+            raise ValueError("candidate comparison exceeds the 32-word reading lock")
+        if len(self.memory_cue.split()) > 18:
+            raise ValueError("candidate memory cue exceeds the 18-word reading lock")
+        if not self.played_line_moves or not self.stronger_line_moves:
+            raise ValueError("candidate comparison requires two replayable branches")
+
+    def public_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "headline": self.headline,
+            "played": {"summary": self.played_summary, "moves": list(self.played_line_moves)},
+            "stronger": {"summary": self.stronger_summary, "moves": list(self.stronger_line_moves)},
+            "memory_cue": self.memory_cue,
+            "source_fingerprint": self.source_fingerprint,
+            "evidence_fingerprint": self.evidence_fingerprint,
+            "cause_fingerprint": self.cause_fingerprint,
+            "proof": {"authority": self.proof_authority, "version": self.proof_version},
+        }
+
+
 @dataclass
 class MoveTeachingDecision:
     """The complete teaching product for one move.
@@ -613,6 +662,7 @@ class MoveTeachingDecision:
     # Surface-neutral, typed explanation questions for an exact submitted
     # move. Callers render the contract; they never rebuild chess facts.
     reason_bundle: Optional["TeachingReasonBundle"] = None
+    candidate_comparison: Optional[CandidateComparison] = None
 
 
 def build_reason_bundle_for_move(
@@ -629,6 +679,122 @@ def build_reason_bundle_for_move(
 
     if quality_id == DESTINATION_SAFETY_QUALITY_ID:
         return build_destination_safety_reason_bundle(fen_before, submitted_move)
+    return None
+
+
+def build_candidate_comparison(
+    inputs: MoveInputs,
+    cause: Optional[ReviewTeachingCause],
+) -> Optional[CandidateComparison]:
+    """Compose one short comparison from a currently authorized exact cause."""
+    if cause is None or not inputs.candidate_caption_evidence:
+        return None
+    from services.candidate_caption_evidence import CandidateEvidence, root_moves
+    from services.detector_quality import QualitySurface, is_authorized
+
+    quality_id = (
+        "review:exact_endgame_result_change"
+        if isinstance(cause, ExactEndgameCause)
+        else "review:verified_single_game_cause"
+    )
+    if not is_authorized(quality_id, QualitySurface.CAPTION):
+        return None
+    source_row = {
+        "fen_before": inputs.fen_before,
+        "move_san": inputs.played_san,
+        "best_move_san": inputs.best_move_san,
+        "best_move_uci": inputs.best_move_uci,
+        "eval_before": inputs.eval_before_cp,
+        "eval_after": inputs.eval_after_cp,
+        "cp_loss": inputs.cp_loss,
+        "pv_after_played": list(inputs.pv_after_played or ()),
+        "pv_after_best": list(inputs.pv_after_best or ()),
+        "is_opponent_move": not inputs.mover_is_user,
+        "move_number": inputs.full_move_number,
+    }
+    try:
+        evidence = CandidateEvidence.from_document(
+            inputs.candidate_caption_evidence, source_row
+        )
+        _board, played, best = root_moves(source_row)
+        played_branch = evidence.branch(played.uci())
+        best_branch = evidence.branch(best.uci())
+        if played_branch is None or best_branch is None:
+            return None
+    except (TypeError, ValueError):
+        return None
+
+    if isinstance(cause, LegalMaterialLossCause):
+        affected = cause.affected.piece
+        if cause.played_capture is not None:
+            headline = "Count both sides of the trade"
+            played_summary = (
+                f"{inputs.played_san} takes their {cause.played_capture.piece}, "
+                f"but {cause.punishment_san} takes your {affected}."
+            )
+        else:
+            headline = f"Your {affected} needed protection"
+            played_summary = (
+                f"{inputs.played_san} leaves your {affected} on "
+                f"{cause.affected.square} open to {cause.punishment_san}."
+            )
+        stronger = cause.avoidable_with_san or cause.best_move_san
+        purpose = {
+            "moves_affected_piece": f"{stronger} moves it away.",
+            "removes_attacker": f"{stronger} removes the attacker.",
+            "adds_defender": f"{stronger} adds enough protection.",
+        }.get(cause.best_move_purpose, f"{stronger} keeps that piece safe.")
+        return CandidateComparison(
+            headline=headline,
+            played_summary=played_summary,
+            stronger_summary=purpose,
+            memory_cue="Count what you take and what comes back before starting a capture.",
+            played_line_moves=played_branch.moves_san,
+            stronger_line_moves=best_branch.moves_san,
+            source_fingerprint=evidence.source_fingerprint,
+            evidence_fingerprint=evidence.document()["fingerprint"],
+            cause_fingerprint=cause.fingerprint,
+            proof_authority=cause.proof_authority,
+            proof_version=cause.proof_version,
+        )
+
+    if isinstance(cause, VerifiedLineCause):
+        if cause.lesson_kind == "missed_forced_mate":
+            headline = "A checkmating finish was available"
+            played_text = f"{inputs.played_san} lets the finish pass."
+            stronger_text = f"{cause.best_move_san} starts a line that ends in checkmate."
+            memory = "Check every forcing reply before leaving an attack."
+        elif cause.lesson_kind == "allowed_forced_mate":
+            headline = "This move opened the door to mate"
+            played_text = f"{inputs.played_san} allows {cause.reply_san} and a forced checkmate."
+            stronger_text = f"{cause.best_move_san} stops that finish."
+            memory = "Before moving, scan every check your opponent gets next."
+        elif cause.lesson_kind == "exchange_sequence":
+            headline = "The capture sequence ends badly"
+            played_text = f"{inputs.played_san} starts a sequence that leaves you down material."
+            stronger_text = f"{cause.best_move_san} avoids that exchange."
+            memory = "Count every recapture before beginning a trade."
+        elif cause.lesson_kind == "missed_material_opportunity" and cause.first_best_capture:
+            target = cause.first_best_capture
+            headline = "A material win was hiding here"
+            played_text = f"{inputs.played_san} misses the {target.captured_piece} on {target.captured_square}."
+            stronger_text = f"{cause.best_move_san} begins the line that wins it."
+            memory = "Follow each candidate until you see what it actually wins."
+        else:
+            return None
+        return CandidateComparison(
+            headline=headline,
+            played_summary=played_text,
+            stronger_summary=stronger_text,
+            memory_cue=memory,
+            played_line_moves=played_branch.moves_san,
+            stronger_line_moves=best_branch.moves_san,
+            source_fingerprint=evidence.source_fingerprint,
+            evidence_fingerprint=evidence.document()["fingerprint"],
+            cause_fingerprint=cause.fingerprint,
+            proof_authority="caption_facts.build_verified_line_cause",
+            proof_version=cause.proof_version,
+        )
     return None
 
 
@@ -5480,6 +5646,9 @@ def build_move_teaching_decision(
         else:
             legal_material_loss_cause = board_cause or exact_line_cause
 
+    selected_cause = _exact_endgame_cause or legal_material_loss_cause
+    candidate_comparison = build_candidate_comparison(inputs, selected_cause)
+
     return MoveTeachingDecision(
         text=text,
         visual=visual,
@@ -5495,10 +5664,11 @@ def build_move_teaching_decision(
         coach_line_length_hint=_coach_line_length_hint,
         socratic_extras=socratic_extras,
         explanation=explanation,
-        cause=_exact_endgame_cause or legal_material_loss_cause,
+        cause=selected_cause,
         conductor_thread=_conductor_thread,
         exact_endgame_evidence=(
             _exact_endgame.contract_dict() if _exact_endgame is not None else None
         ),
         human_policy_evidence=inputs.human_policy_evidence,
+        candidate_comparison=candidate_comparison,
     )

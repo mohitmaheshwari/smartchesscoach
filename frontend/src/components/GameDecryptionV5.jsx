@@ -59,6 +59,8 @@ import PersonalizedReviewCoach, {
   boardArrowsForReviewVisual,
 } from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
+import CandidateComparisonCard from "@/components/review/CandidateComparisonCard";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -209,6 +211,34 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // correct cell.
   const [coachLinePlaybackIdx, setCoachLinePlaybackIdx] = useState(-1);
   const [coachLineStepIndex, setCoachLineStepIndex] = useState(-1);
+
+  const playCandidateComparison = useCallback((comparison, startFen, moveIndex) => {
+    const board = boardRef.current;
+    const played = comparison?.played?.moves || [];
+    const stronger = comparison?.stronger?.moves || [];
+    if (!board?.playVariation || !startFen || !played.length || !stronger.length) return;
+    setCoachLinePlaybackIdx(moveIndex);
+    setCoachLineStepIndex(-1);
+    track(ANALYTICS_EVENTS.REVIEW_COACH_COMPARISON_OPENED, {
+      source: "game_review_board",
+      move_number: decryptionData?.[moveIndex]?.move_number,
+    });
+    const playStronger = () => {
+      board.playVariation(startFen, stronger, {
+        stepDelayMs: 1500,
+        onStep: (idx) => setCoachLineStepIndex(idx),
+        onComplete: () => {
+          setCoachLinePlaybackIdx(-1);
+          setCoachLineStepIndex(-1);
+        },
+      });
+    };
+    board.playVariation(startFen, played, {
+      stepDelayMs: 1500,
+      onStep: (idx) => setCoachLineStepIndex(idx),
+      onComplete: playStronger,
+    });
+  }, [decryptionData]);
 
   // TESTER: Claude-gold captions for side-by-side evaluation. Keyed by
   // "{move_number}:{move_san}". Empty for games that haven't been gold-baked,
@@ -1355,6 +1385,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             }}
             onNavigate={(href) => navigate(href)}
             onReplay={() => goToStart()}
+            moves={decryptionData}
+            comparisonPlayingPly={
+              coachLinePlaybackIdx >= 0 ? coachLinePlaybackIdx + 1 : null
+            }
+            onCompareCandidate={playCandidateComparison}
           />
         ) : currentMoveIndex === -1 ? (
           <GameStartCard
@@ -1408,6 +1443,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               setCoachLinePlaybackIdx(-1);
               setCoachLineStepIndex(-1);
             }}
+            onCompareCandidate={(comparison) => playCandidateComparison(
+              comparison,
+              currentMove.fen_before,
+              currentMoveIndex,
+            )}
             // Caption move click: draw arrow on the main board for any
             // SAN clicked in the narrative or principle_cue. Arrow
             // colour amber so it visually differs from green (last move).
@@ -1711,6 +1751,7 @@ const MoveCoachingCardV5 = ({
   coachLineStepIndex,
   onPlayCoachLine,
   onCancelCoachLine,
+  onCompareCandidate,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [socraticHintOpen, setSocraticHintOpen] = useState(false);
@@ -1955,12 +1996,19 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
+        <CandidateComparisonCard
+          comparison={move.candidate_comparison}
+          playing={isCoachLinePlaying}
+          onCompare={onCompareCandidate}
+        />
+
         {/* v78.3 — "Play this line" button. Visible on user-mistake
             moves where V5 surfaced a coach_line_length_hint (or a
             trap_line_full). Animates engine's PV / trap_line on the
             board with 2-second pacing. Mirrors the GameAnalysis-side
             implementation but uses LichessBoard's new playVariation. */}
         {(() => {
+          if (move.candidate_comparison) return null;
           // Build coachLine in-line so we don't pollute the outer scope.
           // v78.4 — fires on both user mistakes AND opp mistakes. For
           // opp moves the backend ships an explicit coach_line_moves

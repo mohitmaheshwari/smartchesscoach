@@ -182,17 +182,55 @@ export default function PersonalizedLessonWorkspace({
     }
   };
 
-  const stageMove = (moveData) => {
+  const stageMove = async (moveData) => {
     const current = session?.current_item;
     if (!current || busy || pendingMove) return;
-    setPendingMove({
+    const staged = {
       uci: `${moveData.from}${moveData.to}${moveData.promotion || ""}`,
       san: moveData.san || "",
-    });
+    };
+    setPendingMove(staged);
     setReasonChoice("");
     setFeedback(null);
     setError(null);
     setHelp(null);
+    if (!current.position_relative_reasoning) return;
+
+    setBusy(true);
+    try {
+      const response = await fetch(`${API}/training/personalized/session/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: staged.uci,
+          interaction_id: interactionId("stage"),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Could not inspect that move");
+      if (payload.awaiting_reason && payload.current_item) {
+        setSession((currentSession) => ({
+          ...currentSession,
+          current_item: payload.current_item,
+          awaiting_reason: true,
+          pending_move_uci: staged.uci,
+        }));
+      } else {
+        setFeedback(payload);
+        if (payload.retry_move || payload.measurement_status === "unmeasured") {
+          setPendingMove(null);
+          setBoardRevision((revision) => revision + 1);
+        }
+      }
+    } catch (moveError) {
+      setError(moveError.message);
+      setPendingMove(null);
+      setBoardRevision((revision) => revision + 1);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submitMove = async (selectedReason) => {
@@ -211,11 +249,26 @@ export default function PersonalizedLessonWorkspace({
           session_id: session.session_id,
           move: pendingMove.uci,
           reason_choice: selectedReason,
+          reason_component_id: current.reason_question?.question_id,
           interaction_id: interactionId("answer"),
         }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "Could not check that move");
+      if (payload.awaiting_reason && payload.current_item) {
+        setSession((currentSession) => ({
+          ...currentSession,
+          current_item: payload.current_item,
+          awaiting_reason: true,
+        }));
+        setHelp(
+          payload.component_result?.feedback
+            ? { message: payload.component_result.feedback }
+            : null
+        );
+        setReasonChoice("");
+        return;
+      }
       setFeedback(payload);
       setHelp(null);
       if (payload.complete) invalidatePersonalCurriculum();
@@ -312,6 +365,8 @@ export default function PersonalizedLessonWorkspace({
   }
 
   const item = session?.current_item;
+  const reasonQuestion = item?.reason_question;
+  const reasonChoices = reasonQuestion?.choices || item?.reason_choices || [];
   // While the player explains a staged move, the board must show the
   // position that move produced. It previously re-rendered item.fen, so the
   // piece appeared not to move at all while the text said "You played Be3".
@@ -401,13 +456,15 @@ export default function PersonalizedLessonWorkspace({
                     Choose a different move
                   </button>
                 </div>
-                <legend className="text-sm font-medium text-foreground mb-1">{item?.reason_prompt}</legend>
+                <legend className="text-sm font-medium text-foreground mb-1">
+                  {reasonQuestion?.prompt || item?.reason_prompt}
+                </legend>
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Pick the one that matches what you checked — that submits your
-                  answer and moves you on.
+                  Pick the thought closest to what you checked. Your coach will
+                  test it against this exact position.
                 </p>
                 <div className="space-y-2">
-                  {(item?.reason_choices || []).map((choice) => (
+                  {reasonChoices.map((choice) => (
                     <button
                       type="button"
                       key={choice.id}

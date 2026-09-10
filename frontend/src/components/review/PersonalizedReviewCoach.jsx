@@ -12,6 +12,7 @@ import {
 
 import { API } from "../../App";
 import { ANALYTICS_EVENTS, track } from "../../lib/analytics";
+import CandidateComparisonCard from "./CandidateComparisonCard";
 
 
 const ROLE_LABELS = Object.freeze({
@@ -56,6 +57,9 @@ export default function PersonalizedReviewCoach({
   onShowVisual,
   onNavigate,
   onReplay,
+  moves,
+  onCompareCandidate,
+  comparisonPlayingPly,
 }) {
   const eventsById = useMemo(() => eventMap(events), [events]);
   const promptsByEvent = useMemo(
@@ -237,6 +241,8 @@ export default function PersonalizedReviewCoach({
   )?.label;
   const canReveal = !prompt || Boolean(answer);
   const visual = event.teaching?.visual || {};
+  const moveRecord = (moves || [])[Number(event.move?.ply) - 1] || {};
+  const candidateComparison = moveRecord.candidate_comparison || null;
   const hasVisual = Boolean(
     visual.relationship_arrows?.length
     || visual.arrows?.length
@@ -355,6 +361,17 @@ export default function PersonalizedReviewCoach({
                 </p>
               </div>
             )}
+            <CandidateComparisonCard
+              comparison={candidateComparison}
+              playing={comparisonPlayingPly === Number(event.move?.ply)}
+              onCompare={(comparison) => {
+                onCompareCandidate?.(
+                  comparison,
+                  moveRecord.fen_before,
+                  Number(event.move?.ply) - 1,
+                );
+              }}
+            />
             {hasVisual && (
               <button
                 type="button"

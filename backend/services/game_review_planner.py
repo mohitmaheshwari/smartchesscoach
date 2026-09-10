@@ -25,10 +25,10 @@ from services.game_review_contracts import (
 )
 
 
-PLANNER_VERSION = "personalized_game_review_planner.v1"
+PLANNER_VERSION = "personalized_game_review_planner.v2"
 SHADOW_FORMULA = "D_teaching_then_critical"
 QUALITY_V2_FORMULA = "E_transition_then_teaching"
-SHADOW_MOMENT_CAP = 2
+SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 
 
@@ -237,9 +237,14 @@ def build_shadow_game_teaching_plan(
     )
     if len(selected) == 1:
         game_arc = "I found one moment worth studying in this game."
-    else:
+    elif len(selected) == 2:
         game_arc = (
             "I found two moments worth studying in this game. "
+            "Each is supported on its own."
+        )
+    else:
+        game_arc = (
+            "I found three moments worth studying in this game. "
             "Each is supported on its own."
         )
 

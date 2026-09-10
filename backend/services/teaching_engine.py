@@ -881,6 +881,59 @@ def _public_personalized_item(item: Optional[Mapping[str, Any]]):
     }
 
 
+def _position_relative_reason_enabled(
+    item: Optional[Mapping[str, Any]],
+) -> bool:
+    if not item or not item.get("_diagnostic_quality_id"):
+        return False
+    try:
+        from services.destination_safety_detector import FACT_VERSION, QUALITY_ID
+        from services.detector_quality import QualitySurface, is_authorized
+        from services.candidate_caption_evidence import (
+            LESSON_FLAG,
+            enabled,
+        )
+
+        return bool(
+            enabled(LESSON_FLAG)
+            and item.get("_diagnostic_quality_id") == QUALITY_ID
+            and item.get("_detector_version") == FACT_VERSION
+            and is_authorized(QUALITY_ID, QualitySurface.PLAN)
+        )
+    except Exception:
+        return False
+
+
+def _public_reasoned_item(
+    item: Optional[Mapping[str, Any]],
+    *,
+    blind: bool,
+    awaiting_reason: bool = False,
+    reason_question: Optional[Mapping[str, Any]] = None,
+    move_san: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    if blind:
+        return _public_blind_item(
+            item,
+            awaiting_reason=awaiting_reason,
+            reason_question=reason_question,
+            move_san=move_san,
+        )
+    result = _public_personalized_item(item)
+    if result is None:
+        return None
+    if _position_relative_reason_enabled(item):
+        result.pop("reason_prompt", None)
+        result.pop("reason_choices", None)
+        result["position_relative_reasoning"] = True
+    if awaiting_reason and reason_question:
+        result.update({
+            "move_san": move_san,
+            "reason_question": dict(reason_question),
+        })
+    return result
+
+
 def _blind_pending_event(
     session: Mapping[str, Any],
     item_id: str,
@@ -1013,9 +1066,12 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
     current = items[index] if index < len(items) else None
     highest = str(session.get("highest_earned_state") or "learning")
     blind = session.get("delivery_mode") == "blind_diagnostic"
+    position_relative = bool(
+        not blind and _position_relative_reason_enabled(current)
+    )
     pending = (
         _blind_pending_event(session, str((current or {}).get("item_id") or ""))
-        if blind and current
+        if (blind or position_relative) and current
         else None
     )
     reason_bundle, reason_answers, reason_question = _blind_reason_state(
@@ -1070,7 +1126,15 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
         "current_index": index,
         "completed_items": min(index, len(items)),
         "total_items": len(items),
-        "current_item": _public_personalized_item(current),
+        "current_item": _public_reasoned_item(
+            current,
+            blind=False,
+            awaiting_reason=bool(pending),
+            reason_question=reason_question,
+            move_san=reason_bundle.move_san if reason_bundle else None,
+        ),
+        "awaiting_reason": bool(pending),
+        "pending_move_uci": pending.get("move_uci") if pending else None,
         "stage": (
             session.get("display_stage")
             or (current or {}).get("stage")
@@ -1682,8 +1746,12 @@ async def process_personalized_move(
     item = items[index]
 
     blind = session.get("delivery_mode") == "blind_diagnostic"
+    position_relative = bool(
+        not blind and _position_relative_reason_enabled(item)
+    )
+    reasoned = blind or position_relative
     reason_components = ()
-    if blind:
+    if reasoned:
         pending = _blind_pending_event(session, str(item.get("item_id") or ""))
         if not reason_choice:
             from services.personalized_lesson_adapter import _parse_move
@@ -1696,16 +1764,24 @@ async def process_personalized_move(
                 if pending.get("move_uci") == parsed.uci():
                     return staged
                 return {"error": "A move is already waiting for your reason"}
-            v2_blind = bool(
-                descriptor.get("diagnostic_version") == "home_replay_diagnostic.v2"
-                and item.get("_diagnostic_quality_id")
+            dynamic_reason = bool(
+                item.get("_diagnostic_quality_id")
+                and (
+                    position_relative
+                    or descriptor.get("diagnostic_version")
+                    == "home_replay_diagnostic.v2"
+                )
             )
-            if not v2_blind:
+            if not dynamic_reason:
                 staged = {
                     "awaiting_reason": True,
                     "session_id": session_id,
                     "current_index": index,
-                    "current_item": _public_blind_item(item, awaiting_reason=True),
+                    "current_item": _public_reasoned_item(
+                        item,
+                        blind=blind,
+                        awaiting_reason=True,
+                    ),
                 }
                 now = datetime.now(timezone.utc)
                 event = {
@@ -1747,7 +1823,10 @@ async def process_personalized_move(
                     ),
                     "session_id": session_id,
                     "current_index": index,
-                    "current_item": _public_blind_item(item),
+                    "current_item": _public_reasoned_item(
+                        item,
+                        blind=blind,
+                    ),
                 }
                 now = datetime.now(timezone.utc)
                 event = {
@@ -1775,8 +1854,9 @@ async def process_personalized_move(
                 "awaiting_reason": True,
                 "session_id": session_id,
                 "current_index": index,
-                "current_item": _public_blind_item(
+                "current_item": _public_reasoned_item(
                     item,
+                    blind=blind,
                     awaiting_reason=True,
                     reason_question=bundle.question(0),
                     move_san=bundle.move_san,
@@ -1838,8 +1918,9 @@ async def process_personalized_move(
                     "session_id": session_id,
                     "current_index": index,
                     "component_result": component_result,
-                    "current_item": _public_blind_item(
+                    "current_item": _public_reasoned_item(
                         item,
+                        blind=blind,
                         awaiting_reason=True,
                         reason_question=next_question,
                         move_san=bundle.move_san,
@@ -1984,7 +2065,7 @@ async def process_personalized_move(
         correction = str(grade.get("feedback") or "")
 
     evidence_complete = not bool(grade.get("unmeasured")) and not (
-        blind and str((grade.get("soundness") or {}).get("status")) not in {
+        reasoned and str((grade.get("soundness") or {}).get("status")) not in {
         "sound",
         "serious_problem",
         }

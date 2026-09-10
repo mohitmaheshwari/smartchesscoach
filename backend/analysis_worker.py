@@ -1478,6 +1478,49 @@ def process_job(db, job):
             db_name = os.environ.get("DB_NAME", "chess_coach")
 
             _game_teaching_plan = {}
+            _candidate_engine = None
+            _candidate_builder = None
+
+            try:
+                import chess.engine
+                from services.candidate_caption_evidence import (
+                    ENRICHMENT_FLAG,
+                    collect_candidate_evidence,
+                    enabled as candidate_feature_enabled,
+                )
+                if candidate_feature_enabled(ENRICHMENT_FLAG):
+                    from stockfish_service import StockfishEngine
+
+                    _candidate_limit = chess.engine.Limit(
+                        depth=int(STOCKFISH_DEPTH)
+                    )
+
+                    def _candidate_builder(row):
+                        nonlocal _candidate_engine
+                        if _candidate_engine is None:
+                            _candidate_engine = StockfishEngine()
+                            _candidate_engine.start()
+                        _engine_id = dict(_candidate_engine.engine.id or {})
+                        _candidate_identity = {
+                            "name": str(_engine_id.get("name") or "Stockfish"),
+                            "author": str(_engine_id.get("author") or "unknown"),
+                            "analysis_depth": int(STOCKFISH_DEPTH),
+                        }
+                        return collect_candidate_evidence(
+                            row,
+                            engine=_candidate_engine.engine,
+                            limit=_candidate_limit,
+                            engine_identity=_candidate_identity,
+                        )
+            except Exception as _candidate_engine_exc:
+                logger.warning(
+                    "[candidate-caption] writer unavailable; stored-only: %s",
+                    _candidate_engine_exc,
+                )
+                if _candidate_engine is not None:
+                    _candidate_engine.stop()
+                _candidate_engine = None
+                _candidate_builder = None
 
             async def _run_v5_for_new_game():
                 async_client = AsyncIOMotorClient(mongo_url)
@@ -1495,11 +1538,16 @@ def process_job(db, job):
                         # in db yet here, so the fallback query would miss).
                         opponent_move_evaluations=stockfish_result.get("opponent_moves", []),
                         game_teaching_plan_output=_game_teaching_plan,
+                        candidate_evidence_builder=_candidate_builder,
                     )
                 finally:
                     async_client.close()
 
-            v5_data = asyncio.run(_run_v5_for_new_game())
+            try:
+                v5_data = asyncio.run(_run_v5_for_new_game())
+            finally:
+                if _candidate_engine is not None:
+                    _candidate_engine.stop()
             if v5_data:
                 analysis_doc["decryption_v5_data"] = v5_data
                 analysis_doc["decryption_v5_version"] = V5_COACHING_VERSION

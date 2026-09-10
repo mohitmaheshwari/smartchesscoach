@@ -208,6 +208,39 @@ describe("PersonalizedReviewCoach", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  test("reveals the exact candidate comparison and delegates one board replay", () => {
+    const comparison = {
+      headline: "Count both sides of the trade",
+      played: { summary: "Qxd5 loses the queen after Rxd5.", moves: ["Qxd5", "Rxd5"] },
+      stronger: { summary: "Qa1 keeps the queen safe.", moves: ["Qa1", "Kf7"] },
+      memory_cue: "Count what comes back before starting a capture.",
+    };
+    const onCompareCandidate = jest.fn();
+    renderCoach({
+      moves: Array.from({ length: 23 }, (_, index) => (
+        index === 22
+          ? { fen_before: "fen-before", candidate_comparison: comparison }
+          : {}
+      )),
+      onCompareCandidate,
+      reflectionResponses: [{
+        event_id: EVENT_ID,
+        prompt_id: "prompt",
+        selected_option_id: "not_sure",
+      }],
+    });
+    act(() => {
+      container.querySelector("[data-testid='personalized-review-start']")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.textContent).toContain(comparison.headline);
+    act(() => {
+      container.querySelector("[data-testid='candidate-comparison-play']")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onCompareCandidate).toHaveBeenCalledWith(comparison, "fen-before", 22);
+  });
+
   test("finishes with one takeaway and routes the canonical next action", () => {
     const props = renderCoach({
       reflectionResponses: [{
