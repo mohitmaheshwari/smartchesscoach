@@ -1646,6 +1646,33 @@ async def coach_chat_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _insert_coach_message_once(db, doc: Dict) -> bool:
+    """Insert one coach message, at most once per (session, type, move).
+
+    The move pipeline is re-entrant: the client calls /v5/interactive-feedback
+    several times per move, and each pass re-ran the warning inserts. On
+    2026-09-10 one game produced the same Qxe6+ warning SIX times, the same a4
+    warning five times, each with a slightly different cp figure as the async
+    re-evaluations landed. To the player that reads as a coach shouting the
+    same thing over and over and not agreeing with itself.
+
+    Keying on the move (not the text) is deliberate: a later pass with a
+    refined cp number must not create a second message.
+    """
+    key = {
+        "session_id": doc.get("session_id"),
+        "type": doc.get("type"),
+        "move_san": doc.get("move_san"),
+    }
+    if not all(key.values()):
+        await db.coach_messages.insert_one(doc)
+        return True
+    result = await db.coach_messages.update_one(
+        key, {"$setOnInsert": doc}, upsert=True
+    )
+    return bool(result.upserted_id)
+
+
 def _coach_evaluate_sync(current_fen: str, move: str):
     """Sync Stockfish eval for /evaluate. Run in a thread executor so it does NOT
     block the async event loop — a blocking eval was stalling the /state and
@@ -1654,6 +1681,14 @@ def _coach_evaluate_sync(current_fen: str, move: str):
 
     Returns (eval_before, eval_after, best_move_san, best_line_san, punishment_line).
     """
+    # This helper runs in a thread executor, so it does NOT inherit the caller's
+    # function-local imports. 455b1a60 (2026-06-24) extracted this body out of
+    # evaluate_coach_play_move and left `from stockfish_service import
+    # StockfishEngine` behind in that function's scope, so every call raised
+    # NameError. The caller catches Exception and logs a warning, so the guardian
+    # silently ran with eval_before/eval_after = None -- blind -- for 78 days.
+    from stockfish_service import StockfishEngine
+
     eval_before = eval_after = None
     best_move_san = None
     best_line_san = []
@@ -1722,6 +1757,7 @@ async def evaluate_coach_play_move(
     best_move_san = None
     best_line_san = []
     punishment_line = []
+    guardian_engine_available = True
 
     try:
         # Run the Stockfish work in a thread so it does NOT block the async event
@@ -1733,7 +1769,16 @@ async def evaluate_coach_play_move(
             await loop.run_in_executor(None, _coach_evaluate_sync, current_fen, move)
 
     except Exception as e:
-        logger.warning(f"Stockfish evaluation failed: {e}")
+        # Without an engine eval the guardian falls back to heuristics and, in
+        # practice, never intervenes -- it is blind, not lenient. This was a
+        # warning for 78 days while every user played unguarded, so it is an
+        # error and it is reported in the response.
+        guardian_engine_available = False
+        logger.error(
+            "Stockfish evaluation failed; PRE-MOVE GUARDIAN IS BLIND for this "
+            "move (session=%s move=%s): %s",
+            session_id, move, e, exc_info=True,
+        )
 
     from coach_play.pre_move_guardian import PreMoveGuardian
 
@@ -1748,6 +1793,9 @@ async def evaluate_coach_play_move(
 
     result = guardian_result.to_dict()
     result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
+    # Honest provenance: say when this verdict was reached without an engine, so
+    # "no intervention" can never again be mistaken for "the move is fine".
+    result["engine_available"] = guardian_engine_available
 
     details = result.get("details", {})
     if details.get("good_trade"):
@@ -2981,7 +3029,7 @@ async def get_interactive_coaching(
                             _focus_topic, _focus_subtype, move_san, cp_loss, _today_topic,
                         )
                         if _fc_msg:
-                            await db.coach_messages.insert_one({
+                            await _insert_coach_message_once(db, {
                                 "session_id": session_id,
                                 "type": "focus_coach",
                                 "move_san": move_san,
@@ -3038,16 +3086,30 @@ async def get_interactive_coaching(
                         " That's your time management focus this week."
                         if _tm_focus else ""
                     )
-                    if _today >= 5:
-                        _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
-                                f"into a {_grade} ({cp_loss}cp lost). That's your "
-                                f"{_today + 1}{'st' if (_today + 1) % 10 == 1 and (_today+1) % 100 != 11 else 'th'} "
-                                f"impulsive move today. Slow down on the next one.{_anchor}")
+                    # The running tally ("that's your 17th impulsive move
+                    # today") was a scoreboard of failures. Repeated once per
+                    # async re-evaluation, it read as the app telling the
+                    # player they are bad at chess -- which is what one player
+                    # reported on 2026-09-10 after seeing it six times in a
+                    # single game. Name the habit, ask for one thing, never
+                    # keep count.
+                    #
+                    # A 0.0s reading means no thinking time reached the server,
+                    # not that the player moved instantly. Never call someone
+                    # impulsive on missing data -- say what the move did.
+                    _timed = isinstance(_tspent, (int, float)) and _tspent >= 0.5
+                    if _timed:
+                        _lead = (f"You played {move_san} in {_tspent_disp}s — that "
+                                 f"turned into a {_grade} ({cp_loss}cp lost).")
                     else:
-                        _msg = (f"You played {move_san} in {_tspent_disp}s — that turned "
-                                f"into a {_grade} ({cp_loss}cp lost). "
-                                f"Take a few more seconds before you move next time.{_anchor}")
-                    await db.coach_messages.insert_one({
+                        _lead = f"{move_san} turned into a {_grade} ({cp_loss}cp lost)."
+                    _recurring = (
+                        " This keeps coming up today — it is the one habit to change."
+                        if _today >= 5 else ""
+                    )
+                    _msg = (f"{_lead} Give the next one a few more seconds."
+                            f"{_recurring}{_anchor}")
+                    await _insert_coach_message_once(db, {
                         "session_id": session_id,
                         "type": "impulse_warning",
                         "move_san": move_san,

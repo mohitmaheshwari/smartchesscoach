@@ -94,9 +94,13 @@ def build_focus_coach_message(
     # Recall line — only when there's meaningful data
     recall = None
     if today_topic_count >= 3 and dominant_subtype:
-        # "the 4th ignored_king_attack today"
-        subtype_label = dominant_subtype.replace("_", " ")
-        recall = f"That's your {_ordinal(today_topic_count + 1)} {subtype_label} today."
+        # This used to read "That's your 14th destination safety exact
+        # today": a failure count, plus a raw detector id shown to the
+        # player. Both are wrong. The count shames without teaching, and
+        # "destination safety exact" is an internal identifier no 600-1500
+        # player would recognise. Recurrence still matters, so say it once,
+        # in plain English, with no number and no id.
+        recall = "This one keeps coming up today."
 
     # Prescription — reuse the same closing line as FocusCard
     closing = None

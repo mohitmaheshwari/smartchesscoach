@@ -4700,6 +4700,21 @@ async def get_coaching_context(
     return context
 
 
+# Surfaces allowed to ask for the personal curriculum. Keep in step with the
+# `surface=` values the frontend actually sends -- see
+# tests/test_curriculum_surface_contract.py, which enumerates them.
+CURRICULUM_SURFACES = frozenset({
+    None,
+    "home",
+    "learn",
+    "progress",
+    "play_with_coach",   # CoachPlaySetup.jsx
+    "coach_play",        # focus_bridge spelling of the same screen
+    "lab",               # Dashboard.jsx (the Lab page), two strips
+    "game_review",       # AllGames.jsx
+})
+
+
 @router.get("/personal-curriculum")
 async def get_personal_curriculum(
     surface: Optional[str] = Query(default=None),
@@ -4708,7 +4723,13 @@ async def get_personal_curriculum(
     """Return the one default-off curriculum decision shared by Home/Learn."""
     from services.personal_curriculum import build_player_curriculum
 
-    if surface not in {None, "home", "learn", "progress"}:
+    # Play With Coach sends surface="play_with_coach" (CoachPlaySetup.jsx and
+    # ~10 sibling components use that spelling). It was missing here, so the
+    # PWC page took a 400 on every load and silently ran with no personal
+    # curriculum at all -- the client .catch()es it, so nothing surfaced.
+    # "coach_play" is accepted too because focus_bridge.COACHING_CONTEXT_SURFACES
+    # uses that spelling for the same surface; both must resolve.
+    if surface not in CURRICULUM_SURFACES:
         raise HTTPException(status_code=400, detail="Unknown curriculum surface")
     result = await build_player_curriculum(db, user.user_id)
     if result.get("enabled") and surface == "home":
