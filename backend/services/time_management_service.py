@@ -211,16 +211,29 @@ def build_time_profile(games: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 async def get_time_profile(db, user_id: str, limit: int = 60) -> Dict[str, Any]:
-    """Read the player's recent games and summarise their clock use."""
+    """Read the player's recent games and summarise their clock use.
+
+    This used to `.sort("date_played_iso", -1)` in Mongo, which was wrong twice
+    over: that field is written by a one-off backfill rather than the importer
+    (so it froze at 2026-08-31 while games kept arriving), and a descending
+    sort puts the rows that lack it last. On the reporting account 155 of 787
+    games have no date_played_iso, so "the 60 most recent games" silently
+    excluded the newest ones and capped the window at 2026-08-30. Sort in
+    Python through the canonical parser instead -- see services/game_dates.py.
+    """
+    from services.game_dates import sort_games_by_played_at
+
     try:
-        games = await db.games.find(
+        candidates = await db.games.find(
             {"user_id": user_id, "pgn": {"$regex": r"%clk"}},
             {
                 "_id": 0, "game_id": 1, "pgn": 1, "user_color": 1,
                 "result": 1, "termination": 1, "time_control": 1,
+                "date_played": 1, "date_played_iso": 1,
             },
-        ).sort("date_played_iso", -1).limit(limit).to_list(limit)
+        ).to_list(length=None)
     except Exception as err:
         logger.warning(f"time profile query failed for {user_id}: {err}")
         return {"eligible": False, "reason": "query_failed"}
+    games = sort_games_by_played_at(candidates, newest_first=True)[:limit]
     return build_time_profile(games)
