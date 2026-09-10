@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, List, Mapping
 
 from services.detector_quality import gap_quality_id
+from services.destination_safety_detector import is_destination_safety_fact_version
 from services.personal_curriculum import (
     ApplicationOutcome,
     AssistanceKind,
@@ -161,8 +162,7 @@ def application_results_from_observations(
         exact_fact = observation.get("destination_safety_exact") or {}
         current_exact_miss = (
             int(observation.get("schema_version") or 0) >= 18
-            and exact_fact.get("version")
-            == "piece_safety.destination_safety_exact.v1"
+            and is_destination_safety_fact_version(exact_fact.get("version"))
             and exact_fact.get("fires") is True
             and exact_fact.get("derivation_status") == "ok"
             and exact_fact.get("eligible") is True
@@ -170,8 +170,7 @@ def application_results_from_observations(
         )
         legacy_exact_miss = (
             int(observation.get("schema_version") or 0) >= 18
-            and exact_fact.get("version")
-            == "piece_safety.destination_safety_exact.v1"
+            and is_destination_safety_fact_version(exact_fact.get("version"))
             and exact_fact.get("fires") is True
             and exact_fact.get("derivation_status") in {None, "ok"}
             and exact_fact.get("eligible") in {None, True}
@@ -186,8 +185,7 @@ def application_results_from_observations(
         exact_handled = (
             include_handled
             and int(observation.get("schema_version") or 0) >= 18
-            and exact_fact.get("version")
-            == "piece_safety.destination_safety_exact.v1"
+            and is_destination_safety_fact_version(exact_fact.get("version"))
             and exact_fact.get("derivation_status") == "ok"
             and exact_fact.get("eligible") is True
             and exact_fact.get("outcome") == "handled"

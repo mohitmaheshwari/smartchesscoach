@@ -18,6 +18,11 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from services.destination_safety_detector import (
+    FACT_VERSION as DESTINATION_SAFETY_FACT_VERSION,
+    is_destination_safety_fact_version,
+)
+
 
 COLLECTION = "user_active_focus"
 
@@ -31,7 +36,6 @@ COLLECTION = "user_active_focus"
 # to forget to check.
 _INSTRUCTION_ROLLOUT_ROLES = ("admin", "super_admin")
 PIC_FACT_VERSION = "piece_safety.d_live.v1"
-DESTINATION_SAFETY_FACT_VERSION = "piece_safety.destination_safety_exact.v1"
 COACHING_CONTEXT_SCHEMA_VERSION = "coaching_context.v1"
 COACHING_CONTEXT_SURFACES = frozenset({"home", "review", "training", "coach_play"})
 COACHING_CONTEXT_STATES = frozenset({
@@ -152,7 +156,12 @@ async def get_d_live_evidence_summary(
     }
 
 
-async def get_destination_safety_teaching_evidence(db, user_id: str) -> Dict[str, Any]:
+async def get_destination_safety_teaching_evidence(
+    db,
+    user_id: str,
+    *,
+    fact_version: str = DESTINATION_SAFETY_FACT_VERSION,
+) -> Dict[str, Any]:
     """The same Plan-authorized fact, shaped for something a coach can say.
 
     get_destination_safety_evidence_summary above answers "how often"; a
@@ -163,10 +172,12 @@ async def get_destination_safety_teaching_evidence(db, user_id: str) -> Dict[str
     Same match filter as the summary, deliberately -- one definition of
     what counts as a comparable decision.
     """
+    if not is_destination_safety_fact_version(fact_version):
+        raise ValueError("unknown destination-safety fact version")
     match: Dict[str, Any] = {
         "user_id": user_id,
         "schema_version": {"$gte": 18},
-        "destination_safety_exact.version": DESTINATION_SAFETY_FACT_VERSION,
+        "destination_safety_exact.version": fact_version,
         "destination_safety_exact.derivation_status": "ok",
         "destination_safety_exact.eligible": True,
         "destination_safety_exact.outcome": "miss",
@@ -229,15 +240,21 @@ async def get_destination_safety_teaching_evidence(db, user_id: str) -> Dict[str
 
 
 async def get_destination_safety_evidence_summary(
-    db, user_id: str, game_ids: Optional[list[str]] = None
+    db,
+    user_id: str,
+    game_ids: Optional[list[str]] = None,
+    *,
+    fact_version: str = DESTINATION_SAFETY_FACT_VERSION,
 ) -> Dict[str, int]:
     """Aggregate the Plan-authorized exact comparable-decision fact."""
+    if not is_destination_safety_fact_version(fact_version):
+        raise ValueError("unknown destination-safety fact version")
     if game_ids is not None and not game_ids:
         return {"decisions": 0, "misses": 0, "handled": 0}
     match: Dict[str, Any] = {
         "user_id": user_id,
         "schema_version": {"$gte": 18},
-        "destination_safety_exact.version": DESTINATION_SAFETY_FACT_VERSION,
+        "destination_safety_exact.version": fact_version,
         "destination_safety_exact.derivation_status": "ok",
         "destination_safety_exact.eligible": True,
     }
@@ -320,12 +337,22 @@ async def get_pic_focus_projection(
     diagnosis_subtype = (
         "destination_safety_exact" if exact_focus else "simple_hang"
     )
+    focus_detector_id = PIC_FACT_VERSION
+    if exact_focus:
+        pinned_version = str(focus.get("proof_detector_id") or "")
+        focus_detector_id = (
+            pinned_version
+            if is_destination_safety_fact_version(pinned_version)
+            else DESTINATION_SAFETY_FACT_VERSION
+        )
     diagnosis_query = {
         "user_id": user_id,
         "schema_version": {"$gte": 18 if exact_focus else 16},
         "missed_pattern": "piece_safety",
         "subtype": diagnosis_subtype,
     }
+    if exact_focus:
+        diagnosis_query["destination_safety_exact.version"] = focus_detector_id
     diagnosis_count = await db.move_observations.count_documents(diagnosis_query)
     example_cursor = db.move_observations.find(
         diagnosis_query,
@@ -339,12 +366,12 @@ async def get_pic_focus_projection(
     ).sort("derived_at", -1).limit(2)
     examples = await example_cursor.to_list(length=2)
 
-    evidence_reader = (
-        get_destination_safety_evidence_summary
-        if exact_focus
-        else get_d_live_evidence_summary
-    )
-    all_available = await evidence_reader(db, user_id)
+    if exact_focus:
+        all_available = await get_destination_safety_evidence_summary(
+            db, user_id, fact_version=focus_detector_id
+        )
+    else:
+        all_available = await get_d_live_evidence_summary(db, user_id)
     started_dt = _to_dt(focus.get("started_at"))
     recent_game_ids: list[str] = []
     if started_dt is not None:
@@ -371,7 +398,15 @@ async def get_pic_focus_projection(
                     "date_played": {"$gte": started_dt.isoformat()},
                 },
             )
-    recent = await evidence_reader(db, user_id, recent_game_ids)
+    if exact_focus:
+        recent = await get_destination_safety_evidence_summary(
+            db,
+            user_id,
+            recent_game_ids,
+            fact_version=focus_detector_id,
+        )
+    else:
+        recent = await get_d_live_evidence_summary(db, user_id, recent_game_ids)
     stored_baseline = ((focus.get("evidence_summary") or {}).get("baseline"))
     from services.concept_mastery_service import get_pic_mastery_projection
     learner_state = await get_pic_mastery_projection(
@@ -408,7 +443,7 @@ async def get_pic_focus_projection(
         "learner_state": learner_state,
         "diagnosis": {
             "detector_id": (
-                DESTINATION_SAFETY_FACT_VERSION
+                focus_detector_id
                 if exact_focus
                 else "move_observation.simple_hang.v16_plus"
             ),
@@ -417,7 +452,7 @@ async def get_pic_focus_projection(
         },
         "evidence": {
             "proof_detector_id": (
-                DESTINATION_SAFETY_FACT_VERSION if exact_focus else PIC_FACT_VERSION
+                focus_detector_id if exact_focus else PIC_FACT_VERSION
             ),
             "available": all_available,
             "baseline": stored_baseline,

@@ -24,6 +24,7 @@ from typing import Any, Dict, Mapping, Optional
 from datetime import datetime, timezone
 
 from services.personal_curriculum import PIC_LESSON_ID, PIC_SKILL_ID
+from services.destination_safety_detector import is_destination_safety_fact_version
 
 logger = logging.getLogger(__name__)
 
@@ -629,9 +630,7 @@ async def start_pic_piece_safety_lesson(
 ) -> Dict:
     """Start or resume a finite, own-game-first PIC lesson."""
     proof_detector_id = str((params or {}).get("proof_detector_id") or "")
-    exact_focus = (
-        proof_detector_id == "piece_safety.destination_safety_exact.v1"
-    )
+    exact_focus = is_destination_safety_fact_version(proof_detector_id)
     existing_query = {
         "user_id": user_id,
         "lesson_type": PIC_LESSON_TYPE,

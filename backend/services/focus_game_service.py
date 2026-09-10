@@ -19,6 +19,7 @@ from services.focus_bridge import (
     _pic_fields_eligible,
     _to_dt,
 )
+from services.destination_safety_detector import is_destination_safety_fact_version
 from services.detector_quality import (
     focus_document_is_authorized,
     quality_id_for_focus_document,
@@ -42,7 +43,7 @@ def summarize_pic_observations(
     cycles count the Plan-authorized destination-safety fact instead. Mixing
     the two would make a player's diagnosis, practice, and measurement disagree.
     """
-    exact = proof_detector_id == DESTINATION_SAFETY_FACT_VERSION
+    exact = is_destination_safety_fact_version(proof_detector_id)
     minimum_schema = 18 if exact else 16
     fact_field = "destination_safety_exact" if exact else "piece_safety_decision"
     diagnosis_subtype = "destination_safety_exact" if exact else "simple_hang"
@@ -242,9 +243,14 @@ def record_pic_game_evidence_sync(
     exact_focus = (
         quality_id_for_focus_document(focus) == DESTINATION_SAFETY_QUALITY_ID
     )
-    proof_detector_id = (
-        DESTINATION_SAFETY_FACT_VERSION if exact_focus else PIC_FACT_VERSION
-    )
+    pinned_version = str(focus.get("proof_detector_id") or "")
+    proof_detector_id = PIC_FACT_VERSION
+    if exact_focus:
+        proof_detector_id = (
+            pinned_version
+            if is_destination_safety_fact_version(pinned_version)
+            else DESTINATION_SAFETY_FACT_VERSION
+        )
     observation_version = 18 if exact_focus else 17
     summary = summarize_pic_observations(
         observations,

@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from services.engine2_skill_builder import _load_tree
+from services.destination_safety_detector import READABLE_FACT_VERSIONS
 from services.personal_curriculum import (
     ContractViolation,
     LessonResult,
@@ -204,7 +205,7 @@ async def get_pic_mastery_projection(
             "user_id": user_id,
             "pic_evidence.proof_detector_id": {"$in": [
                 "piece_safety.d_live.v1",
-                "piece_safety.destination_safety_exact.v1",
+                *sorted(READABLE_FACT_VERSIONS),
             ]},
         },
         {"_id": 0, "pic_evidence": 1, "date_played": 1},
