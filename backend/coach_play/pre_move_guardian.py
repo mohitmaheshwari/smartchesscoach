@@ -373,7 +373,22 @@ class PreMoveGuardian:
                     moving_name = PIECE_NAMES[moving_piece.piece_type]
                     captured_name = PIECE_NAMES[captured_piece.piece_type]
                     
-                    level = RiskLevel.HIGH if net_trade <= -2 else RiskLevel.MEDIUM
+                    # _decide_intervention only fires on CRITICAL, and its
+                    # docstring names "losing a queen for nothing" as the case
+                    # it exists to block. But material_loss was capped at HIGH,
+                    # so queen-for-a-pawn (net -8) graded exactly the same as
+                    # knight-for-a-pawn (net -2) and NO material loss could ever
+                    # trigger an intervention. A real game on 2026-09-10 lost a
+                    # queen this way: the guardian said "Bad trade! Losing queen
+                    # for pawn", graded it HIGH, and stayed silent.
+                    # Rook-or-worse net loss is catastrophic; below that the
+                    # Socratic system still teaches from the mistake.
+                    if net_trade <= -5:
+                        level = RiskLevel.CRITICAL
+                    elif net_trade <= -2:
+                        level = RiskLevel.HIGH
+                    else:
+                        level = RiskLevel.MEDIUM
                     
                     return {
                         "type": RiskType.MATERIAL_LOSS,
@@ -567,7 +582,14 @@ class PreMoveGuardian:
                 moving_name = PIECE_NAMES[moving_piece.piece_type]
                 captured_name = PIECE_NAMES[captured_piece.piece_type]
                 
-                level = RiskLevel.HIGH if net_value <= -2 else RiskLevel.MEDIUM
+                # Same ceiling bug as the capture path above: a catastrophic
+                # net loss must reach CRITICAL or the guardian can never speak.
+                if net_value <= -5:
+                    level = RiskLevel.CRITICAL
+                elif net_value <= -2:
+                    level = RiskLevel.HIGH
+                else:
+                    level = RiskLevel.MEDIUM
                 
                 return {
                     "type": RiskType.MATERIAL_LOSS,
