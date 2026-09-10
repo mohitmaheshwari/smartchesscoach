@@ -9,6 +9,15 @@ Run after the v18 move-observation backfill:
     python scripts/migrate_destination_safety_focus.py --email user@example.com
     python scripts/migrate_destination_safety_focus.py --email user@example.com \\
         --apply --confirm phase8-focus-bundles
+
+To refresh only users who already have an exact destination-safety focus,
+without creating or converting any additional focus:
+
+    python scripts/migrate_destination_safety_focus.py --all \
+        --existing-exact-only
+    python scripts/migrate_destination_safety_focus.py --all \
+        --existing-exact-only --apply \
+        --confirm destination-safety-focus-v2
 """
 from __future__ import annotations
 
@@ -42,6 +51,26 @@ FOCUS_KIND = "piece_safety/destination_safety_exact"
 INSTRUCTION = "After choosing your move, ask: can they take the piece I just moved?"
 REVIEW_AFTER_MEASURED_GAMES = 3
 CALENDAR_BACKSTOP_DAYS = 21
+EXISTING_EXACT_REFRESH_CONFIRM = "destination-safety-focus-v2"
+
+
+def _is_existing_exact_focus(focus: Optional[Dict[str, Any]]) -> bool:
+    return bool(
+        focus
+        and (
+            focus.get("focus_kind") == FOCUS_KIND
+            or focus.get("detector_quality_id") == QUALITY_ID
+        )
+    )
+
+
+def _candidate_in_requested_scope(
+    candidate: Dict[str, Any], *, existing_exact_only: bool
+) -> bool:
+    return bool(
+        not existing_exact_only
+        or candidate.get("existing_exact_focus") is True
+    )
 
 
 async def _resolve_user_id(db, email: Optional[str]) -> Optional[str]:
@@ -56,13 +85,7 @@ async def _resolve_user_id(db, email: Optional[str]) -> Optional[str]:
 
 async def _eligible_update(db, focus: Dict[str, Any]) -> Dict[str, Any]:
     user_id = str(focus.get("user_id") or "")
-    if (
-        (
-            focus.get("focus_kind") == FOCUS_KIND
-            or focus.get("detector_quality_id") == QUALITY_ID
-        )
-        and _valid_existing_exact_bundle(focus)
-    ):
+    if _is_existing_exact_focus(focus) and _valid_existing_exact_bundle(focus):
         return {
             "eligible": False,
             "reason": "already_migrated",
@@ -234,10 +257,7 @@ async def _candidate_for_user(db, user: Dict[str, Any]) -> Dict[str, Any]:
             "valid_bundle": False,
         }
     focus = active_focuses[0] if active_focuses else None
-    if focus and (
-        focus.get("focus_kind") == FOCUS_KIND
-        or focus.get("detector_quality_id") == QUALITY_ID
-    ):
+    if _is_existing_exact_focus(focus):
         qualifying = await _still_has_qualifying_evidence(db, user_id)
         valid = bool(qualifying and _valid_existing_exact_bundle(focus))
         if valid or not qualifying:
@@ -251,10 +271,12 @@ async def _candidate_for_user(db, user: Dict[str, Any]) -> Dict[str, Any]:
                 "user_id": user_id,
                 "qualifying_evidence": qualifying,
                 "valid_bundle": valid,
+                "existing_exact_focus": True,
             }
         candidate = await _eligible_update(db, focus)
         candidate["action"] = "update"
         candidate["valid_bundle"] = bool(candidate.get("eligible"))
+        candidate["existing_exact_focus"] = True
         return candidate
     if focus and focus.get("topic_key") != "piece_safety":
         return {
@@ -294,9 +316,15 @@ async def run(
     email: Optional[str],
     all_users: bool,
     confirm: Optional[str] = None,
+    existing_exact_only: bool = False,
 ) -> Dict[str, Any]:
-    if apply and confirm != "phase8-focus-bundles":
-        raise ValueError("--apply requires --confirm phase8-focus-bundles")
+    required_confirm = (
+        EXISTING_EXACT_REFRESH_CONFIRM
+        if existing_exact_only
+        else "phase8-focus-bundles"
+    )
+    if apply and confirm != required_confirm:
+        raise ValueError(f"--apply requires --confirm {required_confirm}")
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     try:
         db = client[os.environ.get("DB_NAME", "chess_coach")]
@@ -321,6 +349,7 @@ async def run(
             "users_scanned": len(users),
             "non_admin_only": bool(all_users),
             "full_cohort": bool(all_users and not email),
+            "existing_exact_only": existing_exact_only,
             "eligible": 0,
             "qualifying_evidence": 0,
             "valid_bundles_after_run": 0,
@@ -332,6 +361,15 @@ async def run(
         reasons = Counter()
         for user in users:
             candidate = await _candidate_for_user(db, user)
+            if not _candidate_in_requested_scope(
+                candidate,
+                existing_exact_only=existing_exact_only,
+            ):
+                candidate = {
+                    "eligible": False,
+                    "reason": "outside_existing_exact_focus_scope",
+                    "valid_bundle": False,
+                }
             reasons[candidate.get("reason") or "unknown"] += 1
             report["valid_bundles_after_run"] += int(
                 candidate.get("valid_bundle") is True
@@ -375,7 +413,18 @@ def main() -> int:
     parser.add_argument(
         "--confirm",
         default=None,
-        help="Required with --apply: phase8-focus-bundles",
+        help=(
+            "Required with --apply: phase8-focus-bundles normally, or "
+            f"{EXISTING_EXACT_REFRESH_CONFIRM} with --existing-exact-only"
+        ),
+    )
+    parser.add_argument(
+        "--existing-exact-only",
+        action="store_true",
+        help=(
+            "refresh only existing exact destination-safety focuses; "
+            "never creates or converts another focus"
+        ),
     )
     args = parser.parse_args()
     report = asyncio.run(
@@ -384,6 +433,7 @@ def main() -> int:
             email=args.email,
             all_users=args.all_users,
             confirm=args.confirm,
+            existing_exact_only=args.existing_exact_only,
         )
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))

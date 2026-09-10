@@ -25,6 +25,9 @@ The corrected release treats this as a bounded schema migration:
 - an active focus is pinned to its stored detector version until the focus
   migration rebuilds its baseline, so v1 and v2 decision semantics are never
   silently combined;
+- a historical exact-quality focus with no stored version pin temporarily
+  resolves to v1 (the only version present when that row was created) instead
+  of silently reading an empty v2 corpus;
 - the existing admission backfill now has a destination-safety mode that
   stages the complete two-pool migration, refuses partial/limited apply, binds
   apply to the immediately preceding dry-run row count, and verifies that zero
@@ -90,9 +93,10 @@ The first allowed production sequence is now:
 2. Backup and restore-test `community_puzzles`,
    `community_training_positions`, `move_observations`, `user_active_focus`,
    and the game records carrying PIC evidence.
-3. Deploy both candidate-caption commits with all three `CANDIDATE_*` flags
-   false. This deploy must include the matched v1/v1 + v2/v2 admission window;
-   do not deploy the original v2-only reader.
+3. Deploy the complete `codex/candidate-aware-causal-captions-v1` branch with
+   all three `CANDIDATE_*` flags false. This deploy must include the matched
+   v1/v1 + v2/v2 admission window and the unpinned-focus transition fix; do not
+   deploy either earlier partial shape.
 4. Re-grade destination-safety puzzle admissions **after deploy, never before**:
 
    ```bash
@@ -118,17 +122,35 @@ The first allowed production sequence is now:
      --confirm phase8-observations
    ```
 
-6. Only after the v2 observations are present, dry-run and apply the existing
-   focus migration (one pilot first; `--all` remains a separate cohort
-   decision). This intentionally rebuilds the focus baseline under v2 rather
-   than mixing v1 and v2 decisions:
+6. Immediately after the v2 observations are present, refresh **only focuses
+   that are already destination-safety exact focuses**. The dedicated mode
+   cannot create a focus or convert another weakness, so this is a schema
+   migration—not the previously withheld new-cohort `--all` rollout. It also
+   catches historical rows identified only by the exact quality id, with no
+   `focus_kind` or `proof_detector_id`. Run it for all existing non-admin exact
+   focuses, then explicitly for the enrolled pilot if that account has an
+   admin role:
 
    ```bash
    python backend/scripts/migrate_destination_safety_focus.py \
-     --email <pilot-email>
+     --all --existing-exact-only
    python backend/scripts/migrate_destination_safety_focus.py \
-     --email <pilot-email> --apply --confirm phase8-focus-bundles
+     --all --existing-exact-only --apply \
+     --confirm destination-safety-focus-v2
+
+   python backend/scripts/migrate_destination_safety_focus.py \
+     --email pilot@example.com --existing-exact-only
+   python backend/scripts/migrate_destination_safety_focus.py \
+     --email pilot@example.com --existing-exact-only --apply \
+     --confirm destination-safety-focus-v2
    ```
+
+   Treat steps 5 and 6 as one maintenance operation. Applying the observation
+   rewrite while postponing the focus refresh would leave v1-pinned focuses
+   with no same-version observations. If the two cannot run back-to-back, do
+   not apply step 5. After step 6, verify every pre-existing exact focus is
+   either a valid v2 bundle or an explicitly reported insufficient-evidence
+   exception; no exact focus may remain silently unpinned.
 
 7. Run `backfill_candidate_caption_evidence.py` for the one explicitly enrolled
    user without `--apply`; inspect eligible games, searches, abstentions,
@@ -143,7 +165,7 @@ The first allowed production sequence is now:
 
 - Destination version transition, no-dark-window admission, full-pool apply
   safeguards, focus-version pinning, v1 focus refresh, and Phase 8 prerequisite
-  contracts: **160 passed**.
+  contracts after closing the unpinned historical-focus case: **212 passed**.
 - Expanded affected backend gate after the correction: **391 passed**; the same
   six caption-boundary failures already documented and reproduced at the clean
   base remain unrelated to this change.
