@@ -18,6 +18,7 @@ from services.focus_bridge import (
     PIC_FACT_VERSION,
     _pic_fields_eligible,
     _to_dt,
+    destination_safety_focus_fact_version,
 )
 from services.destination_safety_detector import is_destination_safety_fact_version
 from services.detector_quality import (
@@ -243,14 +244,9 @@ def record_pic_game_evidence_sync(
     exact_focus = (
         quality_id_for_focus_document(focus) == DESTINATION_SAFETY_QUALITY_ID
     )
-    pinned_version = str(focus.get("proof_detector_id") or "")
     proof_detector_id = PIC_FACT_VERSION
     if exact_focus:
-        proof_detector_id = (
-            pinned_version
-            if is_destination_safety_fact_version(pinned_version)
-            else DESTINATION_SAFETY_FACT_VERSION
-        )
+        proof_detector_id = destination_safety_focus_fact_version(focus)
     observation_version = 18 if exact_focus else 17
     summary = summarize_pic_observations(
         observations,

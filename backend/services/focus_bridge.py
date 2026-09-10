@@ -20,6 +20,7 @@ from typing import Any, Dict, Optional
 
 from services.destination_safety_detector import (
     FACT_VERSION as DESTINATION_SAFETY_FACT_VERSION,
+    LEGACY_FACT_VERSION as DESTINATION_SAFETY_LEGACY_FACT_VERSION,
     is_destination_safety_fact_version,
 )
 
@@ -45,6 +46,19 @@ COACHING_CONTEXT_STATES = frozenset({
     "evidence_pending",
     "pic_outcome",
 })
+
+
+def destination_safety_focus_fact_version(focus: Dict[str, Any]) -> str:
+    """Resolve one focus to one fact version during the v1→v2 migration.
+
+    Current writers always pin v2. A missing pin therefore identifies a
+    historical exact-quality focus, which must keep reading v1 until the
+    coordinated observation/focus migration gives it a new v2 baseline.
+    """
+    pinned = str((focus or {}).get("proof_detector_id") or "")
+    if is_destination_safety_fact_version(pinned):
+        return pinned
+    return DESTINATION_SAFETY_LEGACY_FACT_VERSION
 
 
 def _instruction_flag_enabled() -> bool:
@@ -339,12 +353,7 @@ async def get_pic_focus_projection(
     )
     focus_detector_id = PIC_FACT_VERSION
     if exact_focus:
-        pinned_version = str(focus.get("proof_detector_id") or "")
-        focus_detector_id = (
-            pinned_version
-            if is_destination_safety_fact_version(pinned_version)
-            else DESTINATION_SAFETY_FACT_VERSION
-        )
+        focus_detector_id = destination_safety_focus_fact_version(focus)
     diagnosis_query = {
         "user_id": user_id,
         "schema_version": {"$gte": 18 if exact_focus else 16},

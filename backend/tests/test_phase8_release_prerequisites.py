@@ -6,7 +6,9 @@ from scripts.backfill_move_observations import (
     main_async as backfill_main_async,
 )
 from scripts.migrate_destination_safety_focus import (
+    EXISTING_EXACT_REFRESH_CONFIRM,
     FOCUS_KIND,
+    _candidate_in_requested_scope,
     _candidate_for_user,
     run as migrate_focuses,
 )
@@ -113,6 +115,18 @@ async def test_focus_apply_requires_named_confirmation_before_db_access():
         )
 
 
+@pytest.mark.asyncio
+async def test_existing_exact_refresh_has_its_own_scope_and_confirmation():
+    with pytest.raises(ValueError, match=EXISTING_EXACT_REFRESH_CONFIRM):
+        await migrate_focuses(
+            apply=True,
+            email=None,
+            all_users=True,
+            confirm="phase8-focus-bundles",
+            existing_exact_only=True,
+        )
+
+
 class _Rows:
     def __init__(self, rows):
         self.rows = list(rows)
@@ -207,6 +221,49 @@ async def test_stale_v1_exact_focus_becomes_a_v2_refresh_candidate():
     assert candidate["action"] == "update"
     assert candidate["update"]["proof_detector_id"] == FACT_VERSION
     assert candidate["valid_bundle"] is True
+
+
+@pytest.mark.asyncio
+async def test_unpinned_quality_only_focus_becomes_a_v2_refresh_candidate():
+    candidate = await _candidate_for_user(
+        _Db({
+            "_id": "focus-1",
+            "user_id": "user-1",
+            "type": "weakness",
+            "status": "active",
+            "topic_key": "piece_safety",
+            "focus_kind": None,
+            "detector_quality_id": QUALITY_ID,
+            "detector_quality_grade": "plan",
+            "proof_detector_id": None,
+            "instruction_id": "instruction-1",
+            "instruction_text": "Check whether the piece can be taken.",
+            "instruction_version": 2,
+        }),
+        {"user_id": "user-1", "role": "user"},
+    )
+
+    assert candidate["eligible"] is True
+    assert candidate["action"] == "update"
+    assert candidate["existing_exact_focus"] is True
+    assert candidate["update"]["focus_kind"] == FOCUS_KIND
+    assert candidate["update"]["proof_detector_id"] == FACT_VERSION
+    assert candidate["valid_bundle"] is True
+
+
+def test_existing_exact_scope_never_creates_or_converts_another_focus():
+    assert _candidate_in_requested_scope(
+        {"action": "update", "existing_exact_focus": True},
+        existing_exact_only=True,
+    )
+    assert not _candidate_in_requested_scope(
+        {"action": "insert", "existing_exact_focus": False},
+        existing_exact_only=True,
+    )
+    assert not _candidate_in_requested_scope(
+        {"action": "update"},
+        existing_exact_only=True,
+    )
 
 
 @pytest.mark.asyncio

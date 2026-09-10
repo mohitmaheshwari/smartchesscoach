@@ -161,6 +161,7 @@ async def test_exact_plan_focus_uses_v18_fact_and_normalized_game_dates(monkeypa
         **FOCUS,
         "focus_kind": "piece_safety/destination_safety_exact",
         "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "proof_detector_id": FACT_VERSION,
     }
     projection = await get_pic_focus_projection(db, "u1", focus=focus)
 
@@ -190,6 +191,35 @@ async def test_stale_focus_reads_only_its_pinned_v1_evidence(monkeypatch):
         "focus_kind": "piece_safety/destination_safety_exact",
         "detector_quality_id": "gap:piece_safety:destination_safety_exact",
         "proof_detector_id": LEGACY_FACT_VERSION,
+    }
+
+    projection = await get_pic_focus_projection(db, "u1", focus=focus)
+
+    assert projection["diagnosis"]["detector_id"] == LEGACY_FACT_VERSION
+    assert projection["evidence"]["proof_detector_id"] == LEGACY_FACT_VERSION
+    exact_queries = [
+        query for query in db.move_observations.queries
+        if isinstance(query, dict)
+        and "destination_safety_exact.version" in query
+    ]
+    assert exact_queries
+    assert all(
+        query["destination_safety_exact.version"] == LEGACY_FACT_VERSION
+        for query in exact_queries
+    )
+
+
+@pytest.mark.asyncio
+async def test_unpinned_historical_exact_focus_reads_v1_until_migrated(
+    monkeypatch,
+):
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    db = _DB(role="admin")
+    focus = {
+        **FOCUS,
+        "focus_kind": None,
+        "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "proof_detector_id": None,
     }
 
     projection = await get_pic_focus_projection(db, "u1", focus=focus)
