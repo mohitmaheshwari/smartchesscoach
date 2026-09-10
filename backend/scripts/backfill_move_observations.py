@@ -130,6 +130,9 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool):
         "derived": 0,
         "writes": 0,
         "fires": 0,
+        "eligible_decisions": 0,
+        "misses": 0,
+        "handled": 0,
         "storage": Counter(),
         "decisions": Counter(),
     }
@@ -184,6 +187,13 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool):
         result["storage"][classification["storage"]] += 1
         result["decisions"][classification["decision"]] += 1
         result["fires"] += int(classification["fires"])
+        fact = (obs.get("destination_safety_exact") or {})
+        if classification["decision"] == "eligible":
+            result["eligible_decisions"] += 1
+            if fact.get("outcome") == "miss":
+                result["misses"] += 1
+            elif fact.get("outcome") == "handled":
+                result["handled"] += 1
         if classification["write_required"]:
             ops.append(
                 UpdateOne(

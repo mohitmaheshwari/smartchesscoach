@@ -12,7 +12,7 @@ from services.focus_game_service import (
     record_pic_game_evidence_sync,
     summarize_pic_observations,
 )
-from services.destination_safety_detector import LEGACY_FACT_VERSION
+from services.destination_safety_detector import FACT_VERSION, LEGACY_FACT_VERSION
 
 
 EXACT_QUALITY_ID = "gap:piece_safety:destination_safety_exact"
@@ -33,13 +33,13 @@ def _observation(schema=17, version="piece_safety.d_live.v1", outcome="miss"):
     }
 
 
-def _exact_observation(outcome="miss", *, fires=True):
+def _exact_observation(outcome="miss", *, fires=True, version=EXACT_FACT_VERSION):
     return {
         "schema_version": 18,
         "missed_pattern": "piece_safety" if fires else None,
         "subtype": "destination_safety_exact" if fires else None,
         "destination_safety_exact": {
-            "version": EXACT_FACT_VERSION,
+            "version": version,
             "derivation_status": "ok",
             "eligible": True,
             "outcome": outcome,
@@ -188,3 +188,60 @@ def test_claimed_game_gets_deterministic_external_evidence(monkeypatch):
     assert envelope["proof_detector_id"] == EXACT_FACT_VERSION
     assert envelope["idempotency_key"] == "pic:f1:g1:move-observation-v18"
     assert db.games.last_update[1]["$set"]["pic_evidence"] == envelope
+
+
+def test_cross_version_or_transitioning_focus_never_writes_pic_evidence(
+    monkeypatch,
+):
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    game = {"game_id": "g1", "imported_at": datetime.now(timezone.utc)}
+
+    mismatched = _DB(_exact_focus())
+    mismatched.focus.doc["pending_focus_game"] = {
+        "commitment_id": "c1",
+        "status": "waiting",
+        "committed_at": datetime.now(timezone.utc) - timedelta(minutes=5),
+    }
+    assert record_pic_game_evidence_sync(
+        mismatched,
+        "u1",
+        game,
+        [_exact_observation(version=FACT_VERSION)],
+    ) is None
+    assert mismatched.games.last_update is None
+    assert mismatched.focus.doc["pending_focus_game"]["status"] == "waiting"
+
+    unknown = _DB(_exact_focus())
+    assert record_pic_game_evidence_sync(
+        unknown,
+        "u1",
+        game,
+        [_exact_observation(version="piece_safety.destination_safety_exact.unknown")],
+    ) is None
+    assert unknown.games.last_update is None
+
+    transitioning = _DB(_exact_focus(**{
+        "detector_version_transition": {
+            "status": "rewriting_observations",
+        },
+    }))
+    assert record_pic_game_evidence_sync(
+        transitioning,
+        "u1",
+        game,
+        [_exact_observation()],
+    ) is None
+    assert transitioning.games.last_update is None
+
+    failed_transition = _DB(_exact_focus(**{
+        "detector_version_transition": {
+            "status": "failed",
+        },
+    }))
+    assert record_pic_game_evidence_sync(
+        failed_transition,
+        "u1",
+        game,
+        [_exact_observation()],
+    ) is None
+    assert failed_transition.games.last_update is None

@@ -207,6 +207,17 @@ async def test_stale_focus_reads_only_its_pinned_v1_evidence(monkeypatch):
         query["destination_safety_exact.version"] == LEGACY_FACT_VERSION
         for query in exact_queries
     )
+    assert projection["evidence"]["proof_detector_id"] == LEGACY_FACT_VERSION
+    exact_queries = [
+        query for query in db.move_observations.queries
+        if isinstance(query, dict)
+        and "destination_safety_exact.version" in query
+    ]
+    assert exact_queries
+    assert all(
+        query["destination_safety_exact.version"] == LEGACY_FACT_VERSION
+        for query in exact_queries
+    )
 
 
 @pytest.mark.asyncio
@@ -225,17 +236,46 @@ async def test_unpinned_historical_exact_focus_reads_v1_until_migrated(
     projection = await get_pic_focus_projection(db, "u1", focus=focus)
 
     assert projection["diagnosis"]["detector_id"] == LEGACY_FACT_VERSION
-    assert projection["evidence"]["proof_detector_id"] == LEGACY_FACT_VERSION
-    exact_queries = [
-        query for query in db.move_observations.queries
-        if isinstance(query, dict)
-        and "destination_safety_exact.version" in query
-    ]
-    assert exact_queries
-    assert all(
-        query["destination_safety_exact.version"] == LEGACY_FACT_VERSION
-        for query in exact_queries
-    )
+
+
+@pytest.mark.asyncio
+async def test_transitioning_exact_focus_uses_stored_evidence_not_mixed_rows(
+    monkeypatch,
+):
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    db = _DB(role="admin")
+    focus = {
+        **FOCUS,
+        "focus_kind": "piece_safety/destination_safety_exact",
+        "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "proof_detector_id": LEGACY_FACT_VERSION,
+        "picker_evidence_count": 4,
+        "evidence_summary": {
+            "baseline": {"decisions": 20, "misses": 4, "handled": 16},
+            "recent": {"decisions": 3, "misses": 1, "handled": 2},
+        },
+        "detector_version_transition": {
+            "status": "rewriting_observations",
+            "to_version": FACT_VERSION,
+        },
+    }
+
+    projection = await get_pic_focus_projection(db, "u1", focus=focus)
+
+    assert projection["state"] == "evidence_updating"
+    assert projection["eligible"] is True
+    assert projection["evidence"]["available"] == {
+        "decisions": 20,
+        "misses": 4,
+        "handled": 16,
+    }
+    assert projection["evidence"]["since_focus"] == {
+        "decisions": 3,
+        "misses": 1,
+        "handled": 2,
+    }
+    assert projection["diagnosis"]["examples"] == []
+    assert db.move_observations.queries == []
 
 
 def test_pic_flag_can_authorize_same_canonical_instruction(monkeypatch):

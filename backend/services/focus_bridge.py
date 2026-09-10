@@ -354,6 +354,63 @@ async def get_pic_focus_projection(
     focus_detector_id = PIC_FACT_VERSION
     if exact_focus:
         focus_detector_id = destination_safety_focus_fact_version(focus)
+    transition = focus.get("detector_version_transition") or {}
+    if (
+        exact_focus
+        and transition.get("status") in {"rewriting_observations", "failed"}
+        and transition.get("to_version") == DESTINATION_SAFETY_FACT_VERSION
+    ):
+        stored_evidence = focus.get("evidence_summary") or {}
+        stored_baseline = stored_evidence.get("baseline")
+        stored_recent = stored_evidence.get("recent") or {
+            "decisions": 0,
+            "misses": 0,
+            "handled": 0,
+        }
+        diagnosis_count = int(
+            focus.get("picker_evidence_count")
+            or ((stored_baseline or {}).get("misses") or 0)
+        )
+        from services.concept_mastery_service import get_pic_mastery_projection
+        learner_state = await get_pic_mastery_projection(
+            db,
+            user_id,
+            diagnosed=diagnosis_count > 0,
+        )
+        return {
+            "enabled": True,
+            "eligible": True,
+            "cycle_version": 1,
+            "focus_kind": "piece_safety/destination_safety_exact",
+            "state": "evidence_updating",
+            "focus_label": "Keeping your pieces safe",
+            "instruction_id": focus.get("instruction_id"),
+            "instruction_text": focus.get("instruction_text"),
+            "proof_eligibility": focus.get("proof_eligibility") or "verified",
+            "focus_game": focus.get("pending_focus_game"),
+            "learner_state": learner_state,
+            "diagnosis": {
+                "detector_id": focus_detector_id,
+                "count": diagnosis_count,
+                "examples": [],
+            },
+            "evidence": {
+                "proof_detector_id": focus_detector_id,
+                "available": stored_baseline,
+                "baseline": stored_baseline,
+                "since_focus": stored_recent,
+                "verdict": "measurement_pending",
+                "message": (
+                    "I’m checking your past games again. Your lesson is saved, "
+                    "and I won’t judge your progress until the check is finished."
+                ),
+            },
+            "next_action": {
+                "type": "practice",
+                "label": "Continue my lesson",
+                "href": "/training/pattern/piece_safety",
+            },
+        }
     diagnosis_query = {
         "user_id": user_id,
         "schema_version": {"$gte": 18 if exact_focus else 16},
@@ -499,6 +556,10 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
           "days_remaining": int,               # locked_until - now, in days
           "days_into_focus": int,              # started_at - now, in days
           "baseline_metric": {value, name, occurrence_count, n_games_at_baseline},
+          "proof_detector_id": Optional[str],
+          "picker_evidence_count": Optional[int],
+          "pending_focus_game": Optional[dict],
+          "detector_version_transition": Optional[{status, to_version}],
           "started_at": str,                   # ISO
           "locked_until": str,                 # ISO
           "moments_page_topic": str,           # → /coach/moments/<key>
@@ -565,7 +626,22 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
         "proof_eligibility": focus.get("proof_eligibility"),
         "focus_kind": focus.get("focus_kind"),
         "diagnosis_detector_id": focus.get("diagnosis_detector_id"),
+        "proof_detector_id": focus.get("proof_detector_id"),
+        "picker_evidence_count": focus.get("picker_evidence_count"),
         "evidence_summary": focus.get("evidence_summary"),
+        "pending_focus_game": focus.get("pending_focus_game"),
+        "detector_version_transition": (
+            {
+                "status": (focus.get("detector_version_transition") or {}).get(
+                    "status"
+                ),
+                "to_version": (
+                    focus.get("detector_version_transition") or {}
+                ).get("to_version"),
+            }
+            if focus.get("detector_version_transition")
+            else None
+        ),
         "instruction_id": instruction_id,
         "instruction_text": instruction_text,
         "instruction_version": instruction_version,
