@@ -282,13 +282,13 @@ function CoachGameEvidence({ evidence }) {
     "I noticed the same kind of decision while you played against the coach. I saved it as practice, not proof from one of your real games.";
   if (checkpoint.handled > 0 && checkpoint.missed > 0) {
     message =
-      "Across your silent test games, you handled this decision sometimes and missed it sometimes. It isn’t steady yet, so we keep practising it.";
+      "Across your test games, you handled this decision sometimes and missed it sometimes. It isn’t steady yet, so we keep practising it.";
   } else if (checkpoint.missed > 0) {
     message =
-      "In your silent test game, the same decision still caught you. That is useful: we keep the lesson, practise it differently, and test it again.";
+      "In your test game, the same decision still caught you. That is useful: we keep the lesson, practise it differently, and test it again.";
   } else if (checkpoint.handled > 0) {
     message =
-      "In your silent test game, you handled this decision without help. That is a strong rehearsal; now I’m waiting to see it hold in one of your real games.";
+      "In your test game, you handled this decision without help. That is a strong rehearsal; now I’m waiting to see it hold in one of your real games.";
   } else if (practice.opportunities > 0) {
     message =
       "During coached play, you faced this decision again. I saved what happened as assisted practice, so it helps me teach you without pretending the habit is fixed.";

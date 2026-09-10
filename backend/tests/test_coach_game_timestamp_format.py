@@ -1,17 +1,19 @@
-"""Coach-promoted games must use the same timestamp wire format as imports.
+"""Coach-promoted games must match the games schema's split timestamp format.
 
-`journey_service` writes games.imported_at / date_played and
-game_analyses.created_at as ISO STRINGS. A BSON date in those fields is not a
-cosmetic difference -- it breaks two whole classes of query silently:
+The schema is deliberately mixed, and both halves are load-bearing:
 
-  * BSON sorts Date ABOVE String, so every coach game would pin itself to the
-    top of all `.sort("imported_at", -1)` recent-game lists forever, pushing
-    real games out of every fixed-size window.
-  * Range queries are type-bracketed, so `date_played: {"$gte": "<iso>"}`
-    would never match a coach game at all.
+  * games.imported_at / date_played are ISO STRINGS (journey_service writes
+    .isoformat()).  BSON sorts Date ABOVE String, so a datetime here would pin
+    every coach game to the top of all 43 `.sort("imported_at", -1)`
+    recent-game lists forever, pushing real games out of every fixed window.
+  * games.analyzed_at and game_analyses.created_at are BSON DATES
+    (analysis_worker writes datetime objects).  Range queries are
+    type-bracketed, so a string here would never match
+    `{"$gte": two_hours_ago}` in coach_advanced at all.
 
-Neither shows up in a fixture-only test, because fixtures are type-uniform.
-This asserts the format at the source instead.
+Neither failure shows up in a fixture-only test, because fixtures are
+type-uniform: every document in one is written by the same code.  This asserts
+the format at the source instead.
 """
 import ast
 import io
@@ -21,39 +23,76 @@ BACKEND = Path(__file__).resolve().parent.parent
 ROUTE = BACKEND / "routes" / "coach_play.py"
 JOURNEY = BACKEND / "journey_service.py"
 
-STRING_TIMESTAMP_FIELDS = {
-    "imported_at", "date_played", "analyzed_at", "created_at",
-}
+STRING_FIELDS = {"imported_at", "date_played"}
+DATETIME_FIELDS = {"analyzed_at", "created_at"}
 
 
-def _promote_source() -> str:
+def _promote_node() -> ast.AsyncFunctionDef:
     tree = ast.parse(io.open(ROUTE, encoding="utf-8").read())
     for node in ast.walk(tree):
         if isinstance(node, ast.AsyncFunctionDef) and node.name == "_promote_session_to_game":
-            return ast.unparse(node)
+            return node
     raise AssertionError("_promote_session_to_game not found")
 
 
-def test_promotion_never_stores_a_bare_datetime_timestamp():
+def _promote_source() -> str:
+    return ast.unparse(_promote_node())
+
+
+def _assignments():
+    """Yield (field, unparsed value) for every timestamp key in a dict literal.
+
+    Read from the AST, not the text: dict literals here span several lines and
+    a line-based scan silently matches nothing, which would pass vacuously.
+    """
+    node = _promote_node()
+    for sub in ast.walk(node):
+        if not isinstance(sub, ast.Dict):
+            continue
+        for key, value in zip(sub.keys, sub.values):
+            if isinstance(key, ast.Constant) and key.value in (
+                STRING_FIELDS | DATETIME_FIELDS
+            ):
+                yield key.value, ast.unparse(value)
+
+
+def test_string_fields_get_the_iso_string_and_dates_get_the_datetime():
+    seen = set()
+    for field, rhs in _assignments():
+        seen.add(field)
+        if field in STRING_FIELDS:
+            assert rhs in {"completed_at_iso", "played_at"}, (
+                f"games.{field} is an ISO string everywhere else; got {rhs!r}. "
+                "A BSON date sorts above every existing string value, so coach "
+                "games would pin themselves to the top of every recent list."
+            )
+        else:
+            assert rhs == "completed_at", (
+                f"{field} is a BSON date everywhere else; got {rhs!r}. "
+                "A string never matches a type-bracketed $gte datetime query."
+            )
+    assert STRING_FIELDS <= seen, f"string timestamp fields missing: {STRING_FIELDS - seen}"
+    assert DATETIME_FIELDS <= seen, f"date timestamp fields missing: {DATETIME_FIELDS - seen}"
+
+
+def test_the_two_stamps_are_the_same_instant():
     source = _promote_source()
-    assert "datetime.now(timezone.utc).isoformat()" in source, (
-        "coach promotion must stamp ISO strings, not BSON dates"
+    assert "completed_at = datetime.now(timezone.utc)" in source
+    assert "completed_at_iso = completed_at.isoformat()" in source, (
+        "the string and date stamps must be derived from one instant, not "
+        "two separate now() calls that can straddle a second boundary"
     )
-    for line in source.splitlines():
-        stripped = line.strip()
-        for field in STRING_TIMESTAMP_FIELDS:
-            if stripped.startswith(f"'{field}'") or stripped.startswith(f'"{field}"'):
-                assert "datetime.now(timezone.utc)," not in stripped + ",", (
-                    f"{field} assigned a bare datetime: {stripped}"
-                )
 
 
-def test_imports_still_write_iso_strings():
-    """If imports ever move to BSON dates, this file's premise changes."""
+def test_the_conventions_this_file_pins_still_hold_upstream():
+    """If either upstream writer changes format, re-decide -- don't diverge."""
     journey = io.open(JOURNEY, encoding="utf-8").read()
     assert '"imported_at": datetime.now(timezone.utc).isoformat()' in journey, (
-        "journey_service no longer writes imported_at as an ISO string; the "
-        "coach-promotion format must be re-decided, not silently diverge"
+        "journey_service no longer writes games.imported_at as an ISO string"
+    )
+    worker = io.open(BACKEND / "analysis_worker.py", encoding="utf-8").read()
+    assert '"analyzed_at": datetime.now(timezone.utc)' in worker, (
+        "analysis_worker no longer writes games.analyzed_at as a BSON date"
     )
 
 

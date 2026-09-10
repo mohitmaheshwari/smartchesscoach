@@ -7564,19 +7564,22 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         or session.get("detected_opening")
     )
 
-    # games.imported_at / date_played and game_analyses.created_at are ISO
-    # STRINGS everywhere else (journey_service writes .isoformat()). Storing a
-    # BSON date here instead would silently corrupt two whole classes of query:
-    # dates sort ABOVE strings, so coach games would pin themselves to the top
-    # of all 43 `.sort("imported_at", -1)` recent-game lists forever; and range
-    # queries are type-bracketed, so the 7 `date_played: {"$gte": "<iso>"}`
-    # windows would never match a coach game at all. Keep the wire format.
-    completed_at = datetime.now(timezone.utc).isoformat()
+    # The games schema is deliberately split, so match it field by field.
+    # imported_at / date_played are ISO STRINGS (journey_service writes
+    # .isoformat()); analyzed_at and game_analyses.created_at are BSON DATES
+    # (analysis_worker writes datetime objects and coach_advanced range-queries
+    # them with `{"$gte": <datetime>}`). Getting either side wrong is silent:
+    # BSON sorts Date above String, so a mistyped imported_at would pin coach
+    # games to the top of all 43 `.sort("imported_at", -1)` lists forever, and
+    # range queries are type-bracketed, so a mistyped analyzed_at would never
+    # match `{"$gte": two_hours_ago}` at all.
+    completed_at = datetime.now(timezone.utc)
+    completed_at_iso = completed_at.isoformat()
     played_at = _as_iso_string(
         session.get("ended_at")
         or session.get("last_move_at")
         or session.get("created_at")
-    ) or completed_at
+    ) or completed_at_iso
     game_doc = {
         "game_id": game_id,
         "user_id": user_id,
@@ -7585,7 +7588,7 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         "user_color": user_color,
         "result": game_result,
         "date_played": played_at,
-        "imported_at": completed_at,
+        "imported_at": completed_at_iso,
         "is_analyzed": True,  # We already have evals
         "analysis_status": "completed",
         "analyzed_at": completed_at,
