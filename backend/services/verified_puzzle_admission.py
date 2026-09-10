@@ -201,11 +201,16 @@ def stored_verdict_is_structurally_current(puzzle: Mapping[str, Any]) -> bool:
         return not verdict.get("acceptable_moves_uci")
 
     # A valid historical checksum does not make an obsolete chess proof current.
-    from services.destination_safety_detector import FACT_VERSION, QUALITY_ID
+    from services.destination_safety_detector import QUALITY_ID
     if verdict.get("quality_id") == QUALITY_ID:
-        from services.destination_safety_puzzle_proof import PROOF_VERSION
-        if (verdict.get("detector_version") != FACT_VERSION
-                or verdict.get("verifier_version") != PROOF_VERSION):
+        from services.destination_safety_puzzle_proof import (
+            TRANSITIONAL_ADMISSION_VERSION_PAIRS,
+        )
+        version_pair = (
+            verdict.get("detector_version"),
+            verdict.get("verifier_version"),
+        )
+        if version_pair not in TRANSITIONAL_ADMISSION_VERSION_PAIRS:
             return False
 
     try:

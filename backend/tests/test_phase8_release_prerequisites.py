@@ -21,9 +21,9 @@ from scripts.reconcile_phase8_review_records import (
 )
 from services.game_decryption_v5_service import V5_COACHING_VERSION
 from services.move_observation_deriver import current_deriver_identity
+from services.destination_safety_detector import FACT_VERSION, LEGACY_FACT_VERSION
 
 
-FACT_VERSION = "piece_safety.destination_safety_exact.v1"
 QUALITY_ID = "gap:piece_safety:destination_safety_exact"
 
 
@@ -181,6 +181,32 @@ async def test_current_non_piece_focus_is_never_replaced_to_inflate_denominator(
     assert candidate["valid_bundle"] is False
     assert "insert" not in candidate
     assert "update" not in candidate
+
+
+@pytest.mark.asyncio
+async def test_stale_v1_exact_focus_becomes_a_v2_refresh_candidate():
+    candidate = await _candidate_for_user(
+        _Db({
+            "_id": "focus-1",
+            "user_id": "user-1",
+            "type": "weakness",
+            "status": "active",
+            "topic_key": "piece_safety",
+            "focus_kind": FOCUS_KIND,
+            "detector_quality_id": QUALITY_ID,
+            "detector_quality_grade": "plan",
+            "proof_detector_id": LEGACY_FACT_VERSION,
+            "instruction_id": "instruction-1",
+            "instruction_text": "Check whether the piece can be taken.",
+            "instruction_version": 2,
+        }),
+        {"user_id": "user-1", "role": "user"},
+    )
+
+    assert candidate["eligible"] is True
+    assert candidate["action"] == "update"
+    assert candidate["update"]["proof_detector_id"] == FACT_VERSION
+    assert candidate["valid_bundle"] is True
 
 
 @pytest.mark.asyncio

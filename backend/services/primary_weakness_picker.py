@@ -23,6 +23,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from bson import ObjectId
 
+from services.destination_safety_detector import FACT_VERSION
+
 COLLECTION = "user_active_focus"
 
 # ─── Rating-tier-aware impact weights ────────────────────────────────────
@@ -915,8 +917,8 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             "cycle_version": 1,
             "focus_kind": "piece_safety/destination_safety_exact",
             "proof_eligibility": "verified",
-            "diagnosis_detector_id": "piece_safety.destination_safety_exact.v1",
-            "proof_detector_id": "piece_safety.destination_safety_exact.v1",
+            "diagnosis_detector_id": FACT_VERSION,
+            "proof_detector_id": FACT_VERSION,
             "evidence_summary": {
                 "baseline": await get_destination_safety_evidence_summary(db, user_id),
                 "recent": {"decisions": 0, "misses": 0, "handled": 0},

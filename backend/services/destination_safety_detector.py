@@ -17,7 +17,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import chess
 
 
+LEGACY_FACT_VERSION = "piece_safety.destination_safety_exact.v1"
 FACT_VERSION = "piece_safety.destination_safety_exact.v2"
+# Temporary read compatibility while the stored observation and focus
+# migrations replace v1 evidence. Writers must always emit FACT_VERSION.
+READABLE_FACT_VERSIONS = frozenset({LEGACY_FACT_VERSION, FACT_VERSION})
 QUALITY_ID = "gap:piece_safety:destination_safety_exact"
 REASON_SEMANTIC_VERSION = "destination_safety_reason.v2"
 SEE_FLOOR_CP = 150
@@ -30,6 +34,11 @@ PIECE_VALUES = {
     chess.QUEEN: 900,
     chess.KING: 0,
 }
+
+
+def is_destination_safety_fact_version(value: Any) -> bool:
+    """Identify exact-destination evidence during the bounded v1→v2 transition."""
+    return str(value or "") in READABLE_FACT_VERSIONS
 
 
 def _safe_cp(value: Any) -> float:
@@ -682,10 +691,13 @@ def grade_destination_safety_candidate(fen: str, supplied_move: str) -> Dict[str
 __all__ = [
     "CP_LOSS_FLOOR",
     "FACT_VERSION",
+    "LEGACY_FACT_VERSION",
     "QUALITY_ID",
+    "READABLE_FACT_VERSIONS",
     "REASON_SEMANTIC_VERSION",
     "SEE_FLOOR_CP",
     "build_destination_safety_reason_bundle",
     "derive_destination_safety_exact",
     "grade_destination_safety_candidate",
+    "is_destination_safety_fact_version",
 ]

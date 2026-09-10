@@ -19,6 +19,8 @@ from services.personal_curriculum import (
     StudentState,
 )
 from services.review_learning_adapter import application_results_from_observations
+from services.destination_safety_detector import FACT_VERSION, LEGACY_FACT_VERSION
+from services.destination_safety_puzzle_proof import PROOF_VERSION
 from services.verified_puzzle_admission import AdmissionStatus, AdmissionVerdict
 
 
@@ -125,9 +127,9 @@ def _specific_puzzle():
         concept_id="piece_safety.destination_safety_exact",
         broad_category="piece_safety",
         detector_id="piece_safety.destination_safety_exact",
-        detector_version="piece_safety.destination_safety_exact.v1",
+        detector_version=FACT_VERSION,
         verifier_id="destination_safety_exchange_verifier",
-        verifier_version="v1",
+        verifier_version=PROOF_VERSION,
         quality_id="gap:piece_safety:destination_safety_exact",
         quality_grade="plan",
         detector_facts=({"piece": "pawn", "square": "e2"},),
@@ -363,7 +365,7 @@ def test_exact_game_opportunities_keep_handled_missed_and_absent_distinct():
             "schema_version": 18,
             "ply": ply,
             "destination_safety_exact": {
-                "version": "piece_safety.destination_safety_exact.v1",
+                "version": LEGACY_FACT_VERSION,
                 **fact,
             },
         }

@@ -13,6 +13,7 @@ from services.focus_bridge import (
     _pic_fields_eligible,
     get_pic_focus_projection,
 )
+from services.destination_safety_detector import FACT_VERSION, LEGACY_FACT_VERSION
 
 
 class _AsyncRows:
@@ -164,12 +165,8 @@ async def test_exact_plan_focus_uses_v18_fact_and_normalized_game_dates(monkeypa
     projection = await get_pic_focus_projection(db, "u1", focus=focus)
 
     assert projection["focus_kind"] == "piece_safety/destination_safety_exact"
-    assert projection["diagnosis"]["detector_id"] == (
-        "piece_safety.destination_safety_exact.v1"
-    )
-    assert projection["evidence"]["proof_detector_id"] == (
-        "piece_safety.destination_safety_exact.v1"
-    )
+    assert projection["diagnosis"]["detector_id"] == FACT_VERSION
+    assert projection["evidence"]["proof_detector_id"] == FACT_VERSION
     exact_queries = [
         query for query in db.move_observations.queries
         if isinstance(query, dict)
@@ -177,7 +174,38 @@ async def test_exact_plan_focus_uses_v18_fact_and_normalized_game_dates(monkeypa
     ]
     assert exact_queries
     assert all(query["schema_version"] == {"$gte": 18} for query in exact_queries)
+    assert all(
+        query["destination_safety_exact.version"] == FACT_VERSION
+        for query in exact_queries
+    )
     assert any(query.get("game_id") == {"$in": ["new"]} for query in exact_queries)
+
+
+@pytest.mark.asyncio
+async def test_stale_focus_reads_only_its_pinned_v1_evidence(monkeypatch):
+    monkeypatch.setenv("PERSONAL_IMPROVEMENT_CYCLE_ENABLED", "true")
+    db = _DB(role="admin")
+    focus = {
+        **FOCUS,
+        "focus_kind": "piece_safety/destination_safety_exact",
+        "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "proof_detector_id": LEGACY_FACT_VERSION,
+    }
+
+    projection = await get_pic_focus_projection(db, "u1", focus=focus)
+
+    assert projection["diagnosis"]["detector_id"] == LEGACY_FACT_VERSION
+    assert projection["evidence"]["proof_detector_id"] == LEGACY_FACT_VERSION
+    exact_queries = [
+        query for query in db.move_observations.queries
+        if isinstance(query, dict)
+        and "destination_safety_exact.version" in query
+    ]
+    assert exact_queries
+    assert all(
+        query["destination_safety_exact.version"] == LEGACY_FACT_VERSION
+        for query in exact_queries
+    )
 
 
 def test_pic_flag_can_authorize_same_canonical_instruction(monkeypatch):

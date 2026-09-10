@@ -8,6 +8,7 @@ import chess
 
 from services.destination_safety_detector import (
     FACT_VERSION,
+    LEGACY_FACT_VERSION,
     QUALITY_ID,
     SEE_FLOOR_CP,
     derive_destination_safety_exact,
@@ -18,7 +19,14 @@ from services.legal_exchange_verifier import (
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
+LEGACY_PROOF_VERSION = "destination_safety_puzzle_proof.v1"
 PROOF_VERSION = "destination_safety_puzzle_proof.v2"
+# Remove the legacy pair only after the targeted puzzle re-grade reports zero
+# v1 rows in both pools. Cross-version pairs are never valid.
+TRANSITIONAL_ADMISSION_VERSION_PAIRS = frozenset({
+    (LEGACY_FACT_VERSION, LEGACY_PROOF_VERSION),
+    (FACT_VERSION, PROOF_VERSION),
+})
 
 
 @dataclass(frozen=True)
@@ -103,4 +111,10 @@ def build_destination_safety_proof(
     return DestinationSafetyProofBundle(detector=detector, verifier=verifier)
 
 
-__all__ = ["DestinationSafetyProofBundle", "build_destination_safety_proof"]
+__all__ = [
+    "DestinationSafetyProofBundle",
+    "LEGACY_PROOF_VERSION",
+    "PROOF_VERSION",
+    "TRANSITIONAL_ADMISSION_VERSION_PAIRS",
+    "build_destination_safety_proof",
+]

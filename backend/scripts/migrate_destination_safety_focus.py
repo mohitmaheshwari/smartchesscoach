@@ -57,8 +57,11 @@ async def _resolve_user_id(db, email: Optional[str]) -> Optional[str]:
 async def _eligible_update(db, focus: Dict[str, Any]) -> Dict[str, Any]:
     user_id = str(focus.get("user_id") or "")
     if (
-        focus.get("focus_kind") == FOCUS_KIND
-        or focus.get("detector_quality_id") == QUALITY_ID
+        (
+            focus.get("focus_kind") == FOCUS_KIND
+            or focus.get("detector_quality_id") == QUALITY_ID
+        )
+        and _valid_existing_exact_bundle(focus)
     ):
         return {
             "eligible": False,
@@ -145,7 +148,7 @@ async def _eligible_update(db, focus: Dict[str, Any]) -> Dict[str, Any]:
         "locked_until": now + timedelta(days=CALENDAR_BACKSTOP_DAYS),
         "updated_at": now,
         "migration": {
-            "id": "destination_safety_exact.v1",
+            "id": "destination_safety_exact_focus.v2",
             "migrated_at": now,
             "previous_quality_id": focus.get("detector_quality_id"),
             "previous_focus_kind": focus.get("focus_kind"),
@@ -237,17 +240,22 @@ async def _candidate_for_user(db, user: Dict[str, Any]) -> Dict[str, Any]:
     ):
         qualifying = await _still_has_qualifying_evidence(db, user_id)
         valid = bool(qualifying and _valid_existing_exact_bundle(focus))
-        return {
-            "eligible": False,
-            "reason": (
-                "already_migrated"
-                if valid
-                else "invalid_existing_exact_focus"
-            ),
-            "user_id": user_id,
-            "qualifying_evidence": qualifying,
-            "valid_bundle": valid,
-        }
+        if valid or not qualifying:
+            return {
+                "eligible": False,
+                "reason": (
+                    "already_migrated"
+                    if valid
+                    else "invalid_existing_exact_focus"
+                ),
+                "user_id": user_id,
+                "qualifying_evidence": qualifying,
+                "valid_bundle": valid,
+            }
+        candidate = await _eligible_update(db, focus)
+        candidate["action"] = "update"
+        candidate["valid_bundle"] = bool(candidate.get("eligible"))
+        return candidate
     if focus and focus.get("topic_key") != "piece_safety":
         return {
             "eligible": False,

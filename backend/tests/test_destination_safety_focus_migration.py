@@ -7,6 +7,7 @@ from scripts.migrate_destination_safety_focus import (
     INSTRUCTION,
     _eligible_update,
 )
+from services.destination_safety_detector import FACT_VERSION, LEGACY_FACT_VERSION
 
 
 class _Rows:
@@ -77,10 +78,38 @@ async def test_migration_refuses_below_locked_recurrence_floor():
 async def test_migration_is_idempotent_and_never_restarts_exact_focus():
     exact_focus = {
         **FOCUS,
+        "status": "active",
         "focus_kind": FOCUS_KIND,
         "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "detector_quality_grade": "plan",
+        "proof_detector_id": FACT_VERSION,
+        "instruction_id": "instruction-1",
+        "instruction_text": INSTRUCTION,
+        "instruction_version": 2,
     }
     candidate = await _eligible_update(_DB(fires=99), exact_focus)
     assert candidate["eligible"] is False
     assert candidate["reason"] == "already_migrated"
     assert "update" not in candidate
+
+
+@pytest.mark.asyncio
+async def test_migration_refreshes_a_v1_exact_focus_to_current_provenance():
+    stale_focus = {
+        **FOCUS,
+        "status": "active",
+        "focus_kind": FOCUS_KIND,
+        "detector_quality_id": "gap:piece_safety:destination_safety_exact",
+        "detector_quality_grade": "plan",
+        "proof_detector_id": LEGACY_FACT_VERSION,
+        "instruction_id": "instruction-1",
+        "instruction_text": INSTRUCTION,
+        "instruction_version": 2,
+    }
+    candidate = await _eligible_update(_DB(fires=4), stale_focus)
+    assert candidate["eligible"] is True
+    assert candidate["update"]["proof_detector_id"] == FACT_VERSION
+    assert candidate["update"]["diagnosis_detector_id"] == FACT_VERSION
+    assert candidate["update"]["migration"]["id"] == (
+        "destination_safety_exact_focus.v2"
+    )

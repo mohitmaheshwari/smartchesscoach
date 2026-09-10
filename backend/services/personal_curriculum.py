@@ -17,6 +17,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 from urllib.parse import urlencode
 
 from services.detector_quality import QualitySurface, is_authorized
+from services.destination_safety_detector import FACT_VERSION
 
 
 FEATURE_FLAG = "PERSONAL_CURRICULUM_ENABLED"
@@ -279,9 +280,7 @@ async def _count_later_exact_misses(
         {
             "user_id": user_id,
             "schema_version": {"$gte": 18},
-            "destination_safety_exact.version": (
-                "piece_safety.destination_safety_exact.v1"
-            ),
+            "destination_safety_exact.version": FACT_VERSION,
             "destination_safety_exact.fires": True,
         },
         {"_id": 0, "game_id": 1},

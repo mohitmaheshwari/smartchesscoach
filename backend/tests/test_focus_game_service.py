@@ -12,10 +12,11 @@ from services.focus_game_service import (
     record_pic_game_evidence_sync,
     summarize_pic_observations,
 )
+from services.destination_safety_detector import LEGACY_FACT_VERSION
 
 
 EXACT_QUALITY_ID = "gap:piece_safety:destination_safety_exact"
-EXACT_FACT_VERSION = "piece_safety.destination_safety_exact.v1"
+EXACT_FACT_VERSION = LEGACY_FACT_VERSION
 
 
 def _observation(schema=17, version="piece_safety.d_live.v1", outcome="miss"):
@@ -52,6 +53,7 @@ def _exact_focus(**extra):
         "_id": "f1",
         "focus_kind": "piece_safety/destination_safety_exact",
         "detector_quality_id": EXACT_QUALITY_ID,
+        "proof_detector_id": EXACT_FACT_VERSION,
         **extra,
     }
 

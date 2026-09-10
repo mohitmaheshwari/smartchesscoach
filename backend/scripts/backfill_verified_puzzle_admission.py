@@ -8,6 +8,14 @@ Usage inside the backend container:
   python backend/scripts/backfill_verified_puzzle_admission.py
   python backend/scripts/backfill_verified_puzzle_admission.py --apply
   python backend/scripts/backfill_verified_puzzle_admission.py --limit 1000
+
+Destination-safety v2 is a bounded, post-deploy migration. First dry-run and
+record its row count, then apply the full two-pool re-grade with that count:
+  python backend/scripts/backfill_verified_puzzle_admission.py \
+    --quality-id gap:piece_safety:destination_safety_exact
+  python backend/scripts/backfill_verified_puzzle_admission.py \
+    --quality-id gap:piece_safety:destination_safety_exact --apply \
+    --confirm destination-safety-v2 --expect-rows <dry-run-row-count>
 """
 
 from __future__ import annotations
@@ -32,6 +40,13 @@ from services.puzzle_extraction_service import verified_issue_type  # noqa: E402
 from services.forced_mate_puzzle_proof import (  # noqa: E402
     FORCED_MATE_QUALITY_ID,
 )
+from services.destination_safety_detector import (  # noqa: E402
+    FACT_VERSION as DESTINATION_SAFETY_FACT_VERSION,
+    QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
+)
+from services.destination_safety_puzzle_proof import (  # noqa: E402
+    PROOF_VERSION as DESTINATION_SAFETY_PROOF_VERSION,
+)
 from services.verified_puzzle_admission import (  # noqa: E402
     AdmissionReason,
     AdmissionStatus,
@@ -55,6 +70,7 @@ from scripts.measure_forced_mate_caption_promotion import (  # noqa: E402
 POOL_NAMES = ("community_puzzles", "community_training_positions")
 CACHE_LIMIT = 256
 BATCH_SIZE = 500
+DESTINATION_SAFETY_CONFIRM = "destination-safety-v2"
 _CACHE_MISS = object()
 _FORCED_MATE_FACT_KEYS = (
     "mate_ply",
@@ -339,6 +355,7 @@ async def process_rows(
     limit: Optional[int] = None,
     apply: bool = False,
     quality_id: Optional[str] = None,
+    expected_rows: Optional[int] = None,
 ):
     """Stream both pools with bounded memory; optionally write in batches."""
     caches = {
@@ -350,6 +367,7 @@ async def process_rows(
     processed = 0
     by_fen = defaultdict(list)
     strict_forced_mate = quality_id == FORCED_MATE_QUALITY_ID
+    strict_destination_safety = quality_id == DESTINATION_SAFETY_QUALITY_ID
     staged_updates = defaultdict(list)
     checked_fens = set()
     strict_violations = 0
@@ -364,11 +382,39 @@ async def process_rows(
         if limit:
             cursor = cursor.limit(limit)
         async for row in cursor:
+            if strict_destination_safety:
+                stored = row.get("verified_admission") or {}
+                detector_version = str(stored.get("detector_version") or "missing")
+                verifier_version = str(stored.get("verifier_version") or "missing")
+                counts[(
+                    collection,
+                    f"stored_version_pair:{detector_version}|{verifier_version}",
+                )] += 1
             verdict, source_move = await _source_verdict(
                 db, collection, row, caches
             )
             fields = _set_fields(collection, row, verdict, source_move)
             processed += 1
+            if strict_destination_safety:
+                rebuilt = fields.get("verified_admission") or {}
+                if rebuilt.get("quality_id") == DESTINATION_SAFETY_QUALITY_ID:
+                    current_pair = bool(
+                        rebuilt.get("detector_version")
+                        == DESTINATION_SAFETY_FACT_VERSION
+                        and rebuilt.get("verifier_version")
+                        == DESTINATION_SAFETY_PROOF_VERSION
+                    )
+                    counts[(
+                        collection,
+                        "destination_v2_current" if current_pair
+                        else "destination_v2_version_violation",
+                    )] += 1
+                    strict_violations += int(not current_pair)
+                else:
+                    counts[(
+                        collection,
+                        f"destination_reclassified:{verdict.status.value}",
+                    )] += 1
             if strict_forced_mate:
                 normalized = _normalized_fen(row.get("fen"))
                 if normalized:
@@ -398,7 +444,7 @@ async def process_rows(
                 ))
             if apply:
                 operation = UpdateOne({"_id": row["_id"]}, {"$set": fields})
-                if strict_forced_mate:
+                if strict_forced_mate or strict_destination_safety:
                     staged_updates[collection].append(operation)
                 else:
                     pending.append(operation)
@@ -491,6 +537,37 @@ async def process_rows(
                     await db[collection].bulk_write(
                         operations[start:start + BATCH_SIZE], ordered=False
                     )
+    elif strict_destination_safety:
+        counts[("all", "destination_v2_violations")] = strict_violations
+        row_count_matches = expected_rows is None or processed == expected_rows
+        counts[("all", "destination_v2_row_count_matches")] = int(
+            row_count_matches
+        )
+        gate_passed = bool(
+            processed > 0
+            and strict_violations == 0
+            and row_count_matches
+        )
+        counts[("all", "destination_v2_regrade_gate_passed")] = int(
+            gate_passed
+        )
+        if apply and not gate_passed:
+            raise RuntimeError(
+                "destination-safety v2 re-grade aborted before writes: "
+                f"rows={processed} expected_rows={expected_rows} "
+                f"violations={strict_violations}"
+            )
+        if apply:
+            for collection, operations in staged_updates.items():
+                for start in range(0, len(operations), BATCH_SIZE):
+                    await db[collection].bulk_write(
+                        operations[start:start + BATCH_SIZE], ordered=False
+                    )
+            for collection, operations in conflict_updates.items():
+                for start in range(0, len(operations), BATCH_SIZE):
+                    await db[collection].bulk_write(
+                        operations[start:start + BATCH_SIZE], ordered=False
+                    )
     elif apply:
         for collection, operations in conflict_updates.items():
             for start in range(0, len(operations), BATCH_SIZE):
@@ -498,6 +575,59 @@ async def process_rows(
                     operations[start:start + BATCH_SIZE], ordered=False
                 )
     return processed, counts
+
+
+def validate_apply_confirmation(
+    *,
+    apply: bool,
+    quality_id: Optional[str],
+    confirm: Optional[str],
+    limit: Optional[int] = None,
+    collections=POOL_NAMES,
+    expected_rows: Optional[int] = None,
+) -> None:
+    """Require an explicit, full-pool, dry-run-bound destination re-grade."""
+    if not (apply and quality_id == DESTINATION_SAFETY_QUALITY_ID):
+        return
+    if confirm != DESTINATION_SAFETY_CONFIRM:
+        raise ValueError(
+            "destination-safety --apply requires "
+            f"--confirm {DESTINATION_SAFETY_CONFIRM}"
+        )
+    if limit is not None:
+        raise ValueError("destination-safety --apply does not permit --limit")
+    if tuple(collections) != POOL_NAMES:
+        raise ValueError(
+            "destination-safety --apply must re-grade both puzzle pools"
+        )
+    if expected_rows is None or expected_rows <= 0:
+        raise ValueError(
+            "destination-safety --apply requires the positive dry-run count "
+            "via --expect-rows"
+        )
+
+
+async def destination_safety_legacy_counts(db, collections) -> Dict[str, int]:
+    """Count destination verdicts that are not the matched current v2 pair."""
+    query = {
+        "verified_admission.quality_id": DESTINATION_SAFETY_QUALITY_ID,
+        "$or": [
+            {
+                "verified_admission.detector_version": {
+                    "$ne": DESTINATION_SAFETY_FACT_VERSION
+                }
+            },
+            {
+                "verified_admission.verifier_version": {
+                    "$ne": DESTINATION_SAFETY_PROOF_VERSION
+                }
+            },
+        ],
+    }
+    return {
+        collection: int(await db[collection].count_documents(query))
+        for collection in collections
+    }
 
 
 async def main():
@@ -513,7 +643,30 @@ async def main():
             "forced-mate rows receive an automatic zero-violation caption gate"
         ),
     )
+    parser.add_argument(
+        "--confirm",
+        default=None,
+        help=(
+            "required with destination-safety --apply: "
+            f"{DESTINATION_SAFETY_CONFIRM}"
+        ),
+    )
+    parser.add_argument(
+        "--expect-rows",
+        type=int,
+        default=None,
+        help="abort before writes unless the targeted row count still matches",
+    )
     args = parser.parse_args()
+    collections = tuple(args.collection or POOL_NAMES)
+    validate_apply_confirmation(
+        apply=args.apply,
+        quality_id=args.quality_id,
+        confirm=args.confirm,
+        limit=args.limit,
+        collections=collections,
+        expected_rows=args.expect_rows,
+    )
 
     mongo_url = os.environ.get("MONGO_URL")
     if not mongo_url:
@@ -521,15 +674,38 @@ async def main():
     db_name = os.environ.get("DB_NAME", "chess_coach")
     client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=8000)
     db = client[db_name]
-    collections = tuple(args.collection or POOL_NAMES)
 
+    legacy_before = None
+    if args.quality_id == DESTINATION_SAFETY_QUALITY_ID:
+        legacy_before = await destination_safety_legacy_counts(db, collections)
     processed, counts = await process_rows(
         db,
         collections=collections,
         limit=args.limit,
         apply=args.apply,
         quality_id=args.quality_id,
+        expected_rows=args.expect_rows,
     )
+    if args.quality_id == DESTINATION_SAFETY_QUALITY_ID:
+        for collection, count in (legacy_before or {}).items():
+            counts[(collection, "destination_legacy_rows_before")] = count
+        if args.apply:
+            remaining = await destination_safety_legacy_counts(db, collections)
+            for collection, count in remaining.items():
+                counts[(collection, "destination_legacy_rows_remaining")] = count
+        else:
+            remaining = {}
+            counts[("all", "destination_predicted_legacy_rows_after")] = int(
+                counts[("all", "destination_v2_violations")]
+            )
+        if args.apply and sum(remaining.values()) != 0:
+            raise RuntimeError(
+                "destination-safety v2 re-grade left legacy rows: "
+                + ", ".join(
+                    f"{collection}={count}"
+                    for collection, count in sorted(remaining.items())
+                )
+            )
     print(f"mode={'APPLY' if args.apply else 'DRY_RUN'} rows={processed}")
     for key in sorted(counts, key=str):
         print(f"{key[0]} {key[1]}={counts[key]}")
