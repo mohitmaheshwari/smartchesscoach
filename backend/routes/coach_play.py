@@ -7499,6 +7499,15 @@ def _build_enriched_coach_move_evaluations(move_history: list, user_color: str):
     return move_evaluations, accuracy, blunders, mistakes
 
 
+def _as_iso_string(value) -> Optional[str]:
+    """Normalize a stored timestamp to the ISO string the games schema uses."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 async def _promote_session_to_game(db, session_id: str, user_id: str):
     """
     Convert a completed coach session into a games + game_analyses document
@@ -7555,13 +7564,19 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
         or session.get("detected_opening")
     )
 
-    completed_at = datetime.now(timezone.utc)
-    played_at = (
+    # games.imported_at / date_played and game_analyses.created_at are ISO
+    # STRINGS everywhere else (journey_service writes .isoformat()). Storing a
+    # BSON date here instead would silently corrupt two whole classes of query:
+    # dates sort ABOVE strings, so coach games would pin themselves to the top
+    # of all 43 `.sort("imported_at", -1)` recent-game lists forever; and range
+    # queries are type-bracketed, so the 7 `date_played: {"$gte": "<iso>"}`
+    # windows would never match a coach game at all. Keep the wire format.
+    completed_at = datetime.now(timezone.utc).isoformat()
+    played_at = _as_iso_string(
         session.get("ended_at")
         or session.get("last_move_at")
         or session.get("created_at")
-        or completed_at
-    )
+    ) or completed_at
     game_doc = {
         "game_id": game_id,
         "user_id": user_id,
