@@ -159,7 +159,9 @@ async def caption_for_pwc_move(
 
     try:
         v5_data = await generate_game_decryption_v5(
-            pgn, user_color, move_evaluations, user_id, db
+            pgn, user_color, move_evaluations, user_id, db,
+            persist_learning_side_effects=False,
+            allow_llm_polish=False,
         )
     except Exception as exc:
         logger.warning(f"[pwc_caption_bridge] V5 regen failed for {session_id}: {exc}")

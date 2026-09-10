@@ -121,7 +121,7 @@ const LichessBoard = forwardRef(({
     // or trap_line. 2-second step delay, cancel-on-next-setPosition.
     playVariation: (startFen, movesArray, options = {}) => {
       if (!startFen || !movesArray || movesArray.length === 0) return;
-      const { onStep, stepDelayMs = 2000 } = options;
+      const { onStep, onComplete, stepDelayMs = 2000 } = options;
       // Cancel any in-flight playback
       if (variationTimerRef.current) {
         clearTimeout(variationTimerRef.current);
@@ -161,6 +161,8 @@ const LichessBoard = forwardRef(({
           idx++;
           if (idx < moves.length) {
             variationTimerRef.current = setTimeout(playNext, stepDelayMs);
+          } else if (typeof onComplete === "function") {
+            onComplete();
           }
         };
         variationTimerRef.current = setTimeout(playNext, 400);

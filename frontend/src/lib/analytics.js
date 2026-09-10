@@ -162,6 +162,7 @@ export const ANALYTICS_EVENTS = Object.freeze({
   REVIEW_COACH_STARTED: "review_coach_started",
   REVIEW_COACH_REFLECTION_SUBMITTED: "review_coach_reflection_submitted",
   REVIEW_COACH_VISUAL_SHOWN: "review_coach_visual_shown",
+  REVIEW_COACH_COMPARISON_OPENED: "review_coach_comparison_opened",
   REVIEW_COACH_COMPLETED: "review_coach_completed",
   REVIEW_COACH_NEXT_ACTION_STARTED: "review_coach_next_action_started",
   REVIEW_VALIDATION_MODE_CHANGED: "review_validation_mode_changed",

@@ -17,9 +17,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import chess
 
 
-FACT_VERSION = "piece_safety.destination_safety_exact.v1"
+FACT_VERSION = "piece_safety.destination_safety_exact.v2"
 QUALITY_ID = "gap:piece_safety:destination_safety_exact"
-REASON_SEMANTIC_VERSION = "destination_safety_reason.v1"
+REASON_SEMANTIC_VERSION = "destination_safety_reason.v2"
 SEE_FLOOR_CP = 150
 CP_LOSS_FLOOR = 150
 PIECE_VALUES = {
@@ -369,6 +369,16 @@ def build_destination_safety_reason_bundle(
             f"Your {moved_piece} is safe on {destination}: {opponent_name} has no legal "
             "capture of it there."
         )
+    elif target_result == "pass" and grade.get("played_material_gain_cp", 0) > 0 and forced_line:
+        safety_kind = "paid_for_exchange"
+        captured_piece = board.piece_at(move.to_square)
+        captured_name = chess.piece_name(captured_piece.piece_type)
+        destination_correct = f"No. I already took a {captured_name} before the reply."
+        destination_false = f"Yes. My {moved_piece} comes off, so I lose it for nothing."
+        destination_success = (
+            f"{move_san} takes a {captured_name} first. The reply takes your {moved_piece}; "
+            "count both captures before calling this a loss."
+        )
     elif target_result == "pass" and len(forced_line) >= 2:
         safety_kind = "safe_by_recapture"
         destination_correct = f"No. The {moved_piece} on {destination} is protected."
@@ -542,6 +552,8 @@ def derive_destination_safety_exact(move_evaluation: Dict[str, Any]) -> Dict[str
             fact["reason"] = "piece_not_eligible"
             return fact
 
+        captured_before_reply = _captured_value(board, move) + _promotion_gain(move)
+        fact["played_material_gain_cp"] = captured_before_reply
         board.push(move)
         captures = [
             reply
@@ -557,7 +569,8 @@ def derive_destination_safety_exact(move_evaluation: Dict[str, Any]) -> Dict[str
         fact["eligible"] = True
         exact_gain = _exact_exchange_gain(board, move.to_square)
         fact["exact_exchange_gain_cp"] = exact_gain
-        if exact_gain < SEE_FLOOR_CP:
+        fact["net_material_loss_cp"] = exact_gain - captured_before_reply
+        if fact["net_material_loss_cp"] < SEE_FLOOR_CP:
             fact["outcome"] = "handled"
             fact["reason"] = "exchange_is_safe"
             return fact
@@ -644,16 +657,19 @@ def grade_destination_safety_candidate(fen: str, supplied_move: str) -> Dict[str
         exact_gain = _exact_exchange_gain(after, move.to_square)
         from services.legal_exchange_verifier import independent_exchange_gain
         independent_gain = independent_exchange_gain(after, move.to_square)
+        captured_before_reply = _captured_value(board, move) + _promotion_gain(move)
         agrees = exact_gain == independent_gain
         result.update({
             "exact_exchange_gain_cp": exact_gain,
             "independent_exchange_gain_cp": independent_gain,
+            "played_material_gain_cp": captured_before_reply,
+            "net_material_loss_cp": exact_gain - captured_before_reply,
             "proofs_agree": agrees,
         })
         if not agrees:
             result["reason"] = "proof_disagreement"
             return result
-        if exact_gain >= SEE_FLOOR_CP:
+        if exact_gain - captured_before_reply >= SEE_FLOOR_CP:
             result.update(status="fail", reason="destination_loses_material")
         else:
             result.update(status="pass", reason="destination_is_safe")

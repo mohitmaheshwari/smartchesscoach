@@ -71,6 +71,22 @@ def test_v5_regeneration_clears_the_stale_plan_with_the_stale_captions():
     assert '"game_teaching_plan": ""' in stale_branch
 
 
+def test_candidate_comparison_is_separate_from_legacy_and_kill_switched():
+    function = _function_source("get_game_decryption_v5")
+    assert "personalized_enriched_data.append(personalized_move)" in function
+    assert 'enriched_move.pop("candidate_comparison", None)' in function
+    assert 'personalized_move.pop("candidate_comparison", None)' in function
+    assert "candidate_caption_enabled(candidate_visible_flag)" in function
+    assert 'personalized_response["decryption_data"]' in function
+
+
+def test_background_read_regeneration_disables_side_effects_and_models():
+    function = _function_source("get_game_decryption_v5")
+    background = function[function.index("async def _background_generate_v5") :]
+    assert "persist_learning_side_effects=False" in background
+    assert "allow_llm_polish=False" in background
+
+
 def test_scorecard_route_rechecks_access_and_server_plan_before_storage():
     function = _function_source("submit_game_review_validation")
     access = function.index("personalized_game_review_access(user_doc)")

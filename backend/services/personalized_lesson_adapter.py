@@ -617,6 +617,17 @@ async def _concept_descriptor(
             and board.is_attacked_by(not board.turn, square)
         ]
         item_number = len(items) + 1
+        verified_admission = item.get("verified_admission") or {}
+        item_quality_id = str(
+            item.get("quality_id")
+            or verified_admission.get("quality_id")
+            or ""
+        ) or None
+        item_detector_version = str(
+            item.get("detector_version")
+            or verified_admission.get("detector_version")
+            or ""
+        ) or None
         reason_fields = (
             {}
             if blind_diagnostic
@@ -654,8 +665,12 @@ async def _concept_descriptor(
             "board_verified": True,
             "_puzzle_id": str(item["puzzle_id"]),
             "_puzzle_evaluator": True,
-            "_diagnostic_quality_id": item.get("quality_id") if blind_diagnostic else None,
-            "_detector_version": item.get("detector_version") if blind_diagnostic else None,
+            # The same promoted fact owner can ask a position-relative
+            # question in either the diagnostic or the normal lesson. The
+            # rollout flag is enforced by teaching_engine, not by copying a
+            # second set of questions into this adapter.
+            "_diagnostic_quality_id": item_quality_id,
+            "_detector_version": item_detector_version,
             "_normalized_fen": item.get("normalized_fen") if blind_diagnostic else None,
             "_moved_piece": item.get("moved_piece") if blind_diagnostic else None,
         })
@@ -829,6 +844,7 @@ def _destination_safety_feedback(
     move: "chess.Move",
     target_status: str,
     soundness_status: str,
+    target: Optional[Mapping[str, Any]] = None,
 ) -> str:
     """Two plain sentences: what went wrong here, then the check to carry.
 
@@ -843,6 +859,7 @@ def _destination_safety_feedback(
     piece = board.piece_at(move.from_square)
     moved = _PIECE_WORD.get(piece.piece_type, "piece") if piece else "piece"
     landing = chess.square_name(move.to_square)
+    target = target or {}
 
     if target_status == "fail":
         attacker = _cheapest_attacker_word(board, move)
@@ -857,6 +874,19 @@ def _destination_safety_feedback(
         return opening
 
     if target_status == "pass" and soundness_status == "sound":
+        captured = board.piece_at(move.to_square)
+        if (
+            captured is not None
+            and int(target.get("played_material_gain_cp") or 0) > 0
+            and int(target.get("exact_exchange_gain_cp") or 0) > 0
+        ):
+            captured_word = _PIECE_WORD.get(
+                captured.piece_type, "piece"
+            )
+            return (
+                f"{played_san} takes their {captured_word}. If they take your "
+                f"{moved} back, both captures count — this is a trade, not a free loss."
+            )
         # A correct answer used to get silence and the next position, which
         # is where understanding is least likely to stick. Name what they
         # did, so the habit is what gets remembered rather than the move.
@@ -962,7 +992,11 @@ async def grade_personalized_move(
 
         target_status = str(target.get("status") or "unmeasured")
         feedback = _destination_safety_feedback(
-            board, parsed, target_status, str(soundness["status"])
+            board,
+            parsed,
+            target_status,
+            str(soundness["status"]),
+            target,
         )
         return {
             "correct": target_status == "pass",
@@ -1034,6 +1068,7 @@ async def grade_personalized_move(
                     parsed_move,
                     safety_status,
                     "sound" if graded_correct else "serious_problem",
+                    safety,
                 )
         return {
             "correct": graded_correct,

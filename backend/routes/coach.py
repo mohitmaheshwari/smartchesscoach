@@ -945,6 +945,7 @@ async def get_game_decryption_v5(
 
             # Enrich decryption_v5_data with training plan links
             enriched_data = []
+            personalized_enriched_data = []
             for move_data in analysis.get("decryption_v5_data", []):
                 enriched_move = dict(move_data)
                 # Stored Phase 5 contracts are projected separately only
@@ -971,6 +972,24 @@ async def get_game_decryption_v5(
                     enriched_move["related_training_plans"] = related_plans
                     logger.info(f"[GAME-REVIEW] Move {move_data.get('move_number')} ({move_gap}) matches {len(related_plans)} active training plan(s)")
 
+                # Candidate comparisons belong only to the personalized
+                # presentation. Keeping a separate projection prevents the
+                # validation control from receiving the new content through
+                # the shared stored move document.
+                personalized_move = dict(enriched_move)
+                try:
+                    from services.candidate_caption_evidence import (
+                        VISIBLE_FLAG as candidate_visible_flag,
+                        enabled as candidate_caption_enabled,
+                    )
+                    if not candidate_caption_enabled(candidate_visible_flag):
+                        personalized_move.pop("candidate_comparison", None)
+                except Exception:
+                    # The feature is an additive teaching surface. A missing
+                    # flag owner or malformed environment must fail closed.
+                    personalized_move.pop("candidate_comparison", None)
+                personalized_enriched_data.append(personalized_move)
+                enriched_move.pop("candidate_comparison", None)
                 enriched_data.append(enriched_move)
 
             legacy_response = {
@@ -1021,6 +1040,9 @@ async def get_game_decryption_v5(
                             else "false"
                         ),
                     },
+                )
+                personalized_response["decryption_data"] = (
+                    personalized_enriched_data
                 )
             response = (
                 personalized_response
@@ -1151,6 +1173,8 @@ async def get_game_decryption_v5(
                         pgn, user_color, move_evaluations, user.user_id, db,
                         game_id=game_id,
                         game_teaching_plan_output=_game_teaching_plan,
+                        persist_learning_side_effects=False,
+                        allow_llm_polish=False,
                     )
                     
                     if decryption_data:

@@ -12,11 +12,13 @@ from services.destination_safety_detector import (
     SEE_FLOOR_CP,
     derive_destination_safety_exact,
 )
-from services.legal_exchange_verifier import independent_exchange_gain
+from services.legal_exchange_verifier import (
+    captured_value_cp, independent_exchange_gain, promotion_gain_cp,
+)
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-PROOF_VERSION = "destination_safety_puzzle_proof.v1"
+PROOF_VERSION = "destination_safety_puzzle_proof.v2"
 
 
 @dataclass(frozen=True)
@@ -39,7 +41,8 @@ def _parse_move(board: chess.Board, raw: Any) -> chess.Move:
 def _gain_after(board: chess.Board, move: chess.Move) -> int:
     after = board.copy(stack=False)
     after.push(move)
-    return independent_exchange_gain(after, move.to_square)
+    return (independent_exchange_gain(after, move.to_square)
+            - captured_value_cp(board, move) - promotion_gain_cp(move))
 
 
 def build_destination_safety_proof(
@@ -70,7 +73,7 @@ def build_destination_safety_proof(
         facts=({
             "piece": candidate.get("moved_piece"),
             "square": candidate.get("destination"),
-            "material_loss_cp": candidate.get("exact_exchange_gain_cp"),
+            "material_loss_cp": candidate.get("net_material_loss_cp"),
             "winning_reply_uci": candidate.get("opponent_reply_uci"),
         },),
         acceptable_moves=(best.uci(),),
