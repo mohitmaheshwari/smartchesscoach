@@ -80,3 +80,23 @@ def test_intervention_budget_is_still_respected():
         "budget exhaustion must still win, or the guardian becomes the nag "
         "this whole change is trying to remove"
     )
+
+
+def test_an_intervention_always_offers_a_better_move():
+    """Stopping a player without an alternative is worse than staying quiet.
+
+    The sidebar renders guardianIntervention.alternative_moves and nothing
+    else -- it never reads analysis.best_move. _suggest_alternatives covers
+    only HANGING_PIECE and IGNORE_THREAT, so the live queen blunder produced
+    should_intervene=True with alternative_moves=[] while the engine had Qe3
+    in hand. The route now backfills from the engine's best move.
+    """
+    import ast
+    import io as _io
+
+    source = _io.open(BACKEND / "routes" / "coach_play.py", encoding="utf-8").read()
+    assert 'result["alternative_moves"] = [best_move_san]' in source, (
+        "an intervention with an empty alternative_moves shows the player a "
+        "red stop sign and no way forward"
+    )
+    ast.parse(source)

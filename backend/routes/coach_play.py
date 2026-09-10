@@ -1833,6 +1833,16 @@ async def evaluate_coach_play_move(
             "mistake_category": mistake_category,
         }
 
+        # CoachPlaySidebar renders guardianIntervention.alternative_moves and
+        # nothing else -- it never reads analysis.best_move. But
+        # _suggest_alternatives only handles HANGING_PIECE and IGNORE_THREAT,
+        # so a MATERIAL_LOSS intervention -- now the most common kind, since
+        # catastrophic losses finally reach CRITICAL -- arrived with an empty
+        # list. The coach would stop the player and offer nothing. Seed it
+        # from the engine best move we already computed above.
+        if not result.get("alternative_moves") and best_move_san:
+            result["alternative_moves"] = [best_move_san]
+
     return result
 
 
