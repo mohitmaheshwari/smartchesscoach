@@ -184,6 +184,57 @@ def run():
                       "text": ""})
     print(f"  linted {n} R18 template fields")
 
+    # ── Pass 3c: user-mistake SELECTION (R18 render corpus) ──────────
+    # The static pass above sees "{socratic_problem_facts_joined}" and is
+    # happy. Rendering is what showed the real defect: those evidence strings
+    # were notes written ABOUT the student, so the card read "Your king
+    # position got weaker. Student's king is in danger". Render every
+    # fundamental and read the finished sentence.
+    print("\n=== Pass 3c: user-mistake selection (R18 render corpus) ===")
+    from services.caption_pipeline import populate_socratic_extras
+    FUNDAMENTALS = [
+        None, "hanging_pieces", "check_opponents_move", "calculate",
+        "king_safety", "development", "center_control", "have_a_plan",
+    ]
+    n = 0
+    for severity in ("mistake", "blunder"):
+        for fundamental in FUNDAMENTALS:
+            facts = {
+                "socratic_is_active": True,
+                "socratic_severity": severity,
+                "socratic_fundamental_violated": fundamental,
+                "played_san": "Nf3",
+                "socratic_hanging_piece": "rook",
+                "socratic_hanging_square": "h1",
+                "socratic_opponent_threat_text": "Qxh1",
+                "socratic_problem_facts": ["your king is in danger"],
+                "socratic_recovery_facts": ["Get your king safe"],
+                "socratic_phase": "middlegame",
+                "socratic_user_rating": 1200,
+            }
+            extras = populate_socratic_extras(facts)
+            if extras is None:
+                continue
+            for fld in ("narrative", "plan", "question", "hint"):
+                text = getattr(extras, fld, None)
+                lint(f"r18sel/{severity}/{fundamental}/{fld}", text); n += 1
+                value = str(text or "")
+                if "student" in value.lower():
+                    flags.append({
+                        "type": "speaks_about_the_player_in_third_person",
+                        "where": f"r18sel/{severity}/{fundamental}/{fld}",
+                        "detail": "coaching talks TO the player, never about "
+                                  "a 'student'",
+                        "text": value})
+                if "{" in value or "}" in value:
+                    flags.append({
+                        "type": "unrendered_placeholder",
+                        "where": f"r18sel/{severity}/{fundamental}/{fld}",
+                        "detail": "a placeholder reached the finished card",
+                        "text": value})
+    print(f"  rendered+linted {n} R18 fields")
+
+
     # ── Pass 4: progress card labels (improvement_label, all keys) ──────
     print("\n=== Pass 4: progress-card labels (every fundamental/gap key) ===")
     from routes.coach_play import improvement_label

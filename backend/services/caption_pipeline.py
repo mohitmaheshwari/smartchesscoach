@@ -81,6 +81,39 @@ logger = logging.getLogger(__name__)
 # legal-exchange floor used to measure 913 verified simple-hang causes.
 REVIEW_LEGAL_LOSS_FLOOR_CP = 150
 
+# --- cognitive_gap -> the fundamental the Socratic surface teaches -----------
+# Review derived fundamental_violated from exactly two board facts, so across
+# 8,405 stored Socratic cards 86% landed on the generic variant and 11 of the
+# 19 variants never fired at all. Every analysed move already carries the
+# analyser's own label. Of the 7,230 generic cards:
+#
+#   king_safety         1,546  21.4%   variants exist, never fired
+#   piece_safety        1,083  15.0%   variants exist
+#   missed_tactic         923  12.8%   -> calculate
+#   endgame_technique     770  10.7%   NO honest variant
+#   opening_knowledge     764  10.6%   variant asserts more than the gap does
+#   tactical_oversight    433   6.0%   -> calculate
+#   <no gap stored>     1,711  23.7%   stays generic
+#
+# Only the categories with a variant that says something the gap actually
+# establishes are mapped. opening_knowledge is deliberately absent: the
+# development variant claims "you moved a developed piece instead of bringing
+# a new one out", which does not follow from "this move left known theory".
+# endgame_technique, pawn_structure, piece_activity and time_pressure have no
+# variant at all. A wrong name is worse than no name
+# (services/concept_attribution.py).
+#
+# hanging_pieces is safe to propose because inject_socratic_user_facts already
+# downgrades it back to None when no piece is actually hanging after the move.
+GAP_TO_FUNDAMENTAL = {
+    "piece_safety": "hanging_pieces",
+    "missed_tactic": "calculate",
+    "tactical_oversight": "calculate",
+    "calculation_depth": "calculate",
+    "king_safety": "king_safety",
+}
+
+
 # --- gates on the loose-piece ("you left X available") card -------------------
 # Both numbers come from the 500-game distribution printed at the call site.
 #
@@ -232,6 +265,11 @@ class MoveInputs:
     eco_code: Optional[str] = None
     opening_name: Optional[str] = None
     user_rating: Optional[int] = None
+    # The analyser's own label for what went wrong on this move, one of the
+    # nine cognitive_gap categories. Stored on every analysed move and, until
+    # now, never read by the coaching layer -- which is why 86% of Socratic
+    # cards fell to the generic variant. See GAP_TO_FUNDAMENTAL below.
+    cognitive_gap: Optional[str] = None
 
     # ─── Pre-extracted optional engine candidates (V5 service fetches
     # these; PWC can skip) ───────────────────────────────────────
@@ -2370,14 +2408,25 @@ def inject_socratic_user_facts(
     caption_facts["socratic_phase"] = socratic_context.get("phase") or "middlegame"
     caption_facts["socratic_user_rating"] = int(user_rating or 1200)
 
-    # Build problem_facts based on fundamental_violated (mirrors
-    # smart_coaching 179-213).
+    # Build problem_facts based on fundamental_violated.
+    #
+    # These are user-facing: R18 narratives used to embed them via
+    # {socratic_problem_facts_joined}. They were inherited from
+    # smart_coaching as notes written ABOUT the student in the third
+    # person, and the only variants that ever fired did not use the
+    # joined field, so nobody saw it. Wiring cognitive_gap into variant
+    # selection made those variants fire and produced "Your king position
+    # got weaker. Student's king is in danger" -- the internal note,
+    # shown to the player, restating the sentence before it. The
+    # narratives no longer embed the joined string (every one of the
+    # seven simply repeated itself) and these are written in the voice we
+    # actually speak in, so a future variant that does embed them is safe.
     problem_facts: List[str] = []
     hanging_piece_name: Optional[str] = None
     hanging_square_name: Optional[str] = None
 
     if fundamental == "check_opponents_move":
-        problem_facts.append("Student did not respond to the opponent's threat from the previous move")
+        problem_facts.append("you did not answer the threat their last move made")
     elif fundamental == "hanging_pieces":
         # Look for the user's hanging piece on the POST-move board.
         try:
@@ -2394,32 +2443,33 @@ def inject_socratic_user_facts(
                         hanging_piece_name = chess.piece_name(p.piece_type)
                         hanging_square_name = chess.square_name(sq)
                         problem_facts.append(
-                            f"Student's {hanging_piece_name} on "
-                            f"{hanging_square_name} is now undefended and attacked"
+                            f"your {hanging_piece_name} on "
+                            f"{hanging_square_name} is attacked and nothing "
+                            f"defends it"
                         )
                         break
         except Exception:
             pass
         if not problem_facts:
-            problem_facts.append("Student left a piece undefended")
+            problem_facts.append("you left a piece undefended")
     elif fundamental == "calculate":
-        problem_facts.append("Student didn't calculate the opponent's response")
+        problem_facts.append("you did not work out their reply")
     elif fundamental == "king_safety":
-        problem_facts.append("Student's king is in danger")
+        problem_facts.append("your king is in danger")
     elif fundamental == "development":
-        problem_facts.append("Student moved an already-developed piece instead of developing a new one")
+        problem_facts.append("you moved a piece that was already out instead of bringing a new one into the game")
     elif fundamental == "center_control":
-        problem_facts.append("Student lost control of the center")
+        problem_facts.append("you gave up control of the middle squares")
     elif fundamental == "have_a_plan":
-        problem_facts.append("Student's move doesn't serve a clear purpose")
+        problem_facts.append("this move does not do a job")
 
     # Coach intent context (when set by the v2 selector).
     coach_intent = caption_facts["socratic_coach_intent"]
     if coach_intent:
         intent_map = {
-            "hanging_piece_punishment": "The coach created a position to test piece safety awareness",
-            "fork_opportunity": "The coach set up a double attack the student needed to handle",
-            "threat_awareness": "The coach created a threat the student needed to notice",
+            "hanging_piece_punishment": "the coach set this up to see whether you would spot the loose piece",
+            "fork_opportunity": "the coach set up a double attack for you to deal with",
+            "threat_awareness": "the coach made a threat for you to notice",
         }
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
@@ -2776,10 +2826,13 @@ def _compute_r18_derived_facts(caption_facts: Dict[str, Any]) -> None:
 
     recovery_facts = caption_facts.get("socratic_recovery_facts") or []
     if isinstance(recovery_facts, list) and recovery_facts:
-        # Cap at 3 per smart_coaching's slicing semantics.
-        caption_facts["socratic_recovery_facts_joined"] = "; ".join(
-            str(p) for p in recovery_facts[:3] if p
-        )
+        # Cap at 3 per smart_coaching's slicing semantics. The plan templates
+        # append this to a finished sentence, so it needs to end like one --
+        # plans were shipping as "... Get your king safe - castle".
+        _joined = "; ".join(str(p) for p in recovery_facts[:3] if p).strip()
+        if _joined and _joined[-1] not in ".!?":
+            _joined += "."
+        caption_facts["socratic_recovery_facts_joined"] = _joined
     else:
         caption_facts["socratic_recovery_facts_joined"] = ""
 
@@ -4424,11 +4477,20 @@ def build_move_teaching_decision(
         if _eff_sev in ("mistake", "blunder", "serious"):
             # Derive fundamental_violated from facts already computed
             # by extract_facts (step 1). hanging > missed-tactic > none.
+            # Board-proved facts win: they are checked against this position,
+            # while the gap is a stored classification of it.
             _fundamental = None
             if caption_facts.get("pieces_now_undefended"):
                 _fundamental = "hanging_pieces"
             elif caption_facts.get("missed_tactic_kind"):
                 _fundamental = "calculate"
+            else:
+                # Neither board fact fired. Before falling to the generic
+                # variant -- which 86% of Socratic cards used to do -- ask the
+                # analyser what it already decided was wrong with this move.
+                _fundamental = GAP_TO_FUNDAMENTAL.get(
+                    str(inputs.cognitive_gap or "").strip().lower()
+                )
             _effective_socratic_ctx = {
                 "severity": _eff_sev,
                 "fundamental_violated": _fundamental,

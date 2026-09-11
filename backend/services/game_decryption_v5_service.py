@@ -3726,6 +3726,7 @@ async def generate_game_decryption_v5(
                         prev_move_uci=(prev_move.uci() if prev_move else None),
                         best_move_uci=(eval_data.get("best_move_uci") or None),
                         user_rating=_v5_user_rating,
+                        cognitive_gap=eval_data.get("cognitive_gap"),
                         player_motif_threads=_v5_player_caption_context.get("player_motif_threads"),
                         player_opening_threads=_v5_player_caption_context.get("player_opening_threads"),
                         player_concept_threads=_v5_player_caption_context.get("player_concept_threads"),

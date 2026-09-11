@@ -204,19 +204,19 @@
       "hint": "Go through their captures one at a time. If you can take back, it is a trade; if you cannot, it is a gift."
     },
     "blunder_calculate": {
-      "narrative": "You didn't calculate the opponent's response. {socratic_problem_facts_joined}",
+      "narrative": "You didn't calculate the opponent's response.",
       "plan": "Before each move, look at their best reply first. {socratic_recovery_facts_joined}",
       "question": "After {played_san}, what is their strongest reply?",
       "hint": "Say their best answer out loud before you commit. Checks and captures first — those are the moves that change the position."
     },
     "blunder_king_safety": {
-      "narrative": "Your king is in danger now. {socratic_problem_facts_joined}",
+      "narrative": "Your king is in danger now.",
       "plan": "King safety beats material. Get the king to a safer square. {socratic_recovery_facts_joined}",
       "question": "Which lines are now open towards your king?",
       "hint": "Follow the rows, columns and diagonals that end at your king. Any one without a piece of yours in the way is a road in."
     },
     "blunder_missed_threat": {
-      "narrative": "You didn't respond to the opponent's last move. {socratic_problem_facts_joined}",
+      "narrative": "You didn't respond to the opponent's last move.",
       "plan": "Always pause after the opponent moves and read what they just did. {socratic_recovery_facts_joined}",
       "question": "What did their last move actually do?",
       "hint": "Every move they make covers new squares. Name the new square before you choose yours."
@@ -234,19 +234,19 @@
       "hint": "Count attackers and defenders on that one square. Equal numbers is a trade; more attackers is a loss."
     },
     "mistake_missed_threat": {
-      "narrative": "You didn't address the opponent's last move. {socratic_problem_facts_joined}",
+      "narrative": "You didn't address the opponent's last move.",
       "plan": "Pause after each opponent move and scan for any new threat. {socratic_recovery_facts_joined}",
       "question": "What new threat did their last move create?",
       "hint": "Look at the piece they just moved and at every square it now reaches."
     },
     "mistake_calculate": {
-      "narrative": "You didn't fully calculate the opponent's response. {socratic_problem_facts_joined}",
+      "narrative": "You didn't fully calculate the opponent's response.",
       "plan": "Try to see one or two moves ahead before committing. {socratic_recovery_facts_joined}",
       "question": "If they answer with their best move, what do you play next?",
       "hint": "One move each is enough here. Picture their reply, then your answer to it, before you commit."
     },
     "mistake_king_safety": {
-      "narrative": "Your king position got weaker. {socratic_problem_facts_joined}",
+      "narrative": "Your king position got weaker.",
       "plan": "Keep pawns in front of your king and watch for open lines. {socratic_recovery_facts_joined}",
       "question": "Which squares next to your king are harder to defend now?",
       "hint": "The pawns in front of your king are its roof. Note any that moved or disappeared."
@@ -258,7 +258,7 @@
       "hint": "In the opening, the piece still sitting on its starting square is usually the one that wants the move."
     },
     "mistake_center_control": {
-      "narrative": "You lost some control of the center. {socratic_problem_facts_joined}",
+      "narrative": "You lost some control of the center.",
       "plan": "Pieces and pawns in the center give you the most options. {socratic_recovery_facts_joined}",
       "question": "Who controls e4, d4, e5 and d5 now — you or them?",
       "hint": "Count how many of your pieces hit each of those four squares, then how many of theirs."
