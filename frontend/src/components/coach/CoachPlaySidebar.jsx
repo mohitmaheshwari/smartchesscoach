@@ -32,6 +32,7 @@ import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import ActiveRecallContainer from "@/components/coach/ActiveRecallContainer";
 import LiveChecklist from "@/components/coach/LiveChecklist";
 import PunishmentPuzzleCard from "@/components/coach/PunishmentPuzzleCard";
+import GeometryMomentCard from "@/components/coach/GeometryMomentCard";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton, InlineFlag } from "@/components/shared/FlagMoveDialog";
@@ -986,11 +987,14 @@ const CoachPlaySidebar = ({
   onShowArrow,
   preMoveTrap,
   interactiveCoaching,
+  loadingFeedback,
+  geometryMoment,
+  onGeometryReveal,
+  onGeometryDismiss,
   behavioralCoaching,
   consequenceFeedback,
   setConsequenceFeedback,
   isCoachThinking,
-  loadingFeedback,
   acknowledgedConcepts,
   activeTrapAlert,
   setActiveTrapAlert,
@@ -1223,26 +1227,24 @@ const CoachPlaySidebar = ({
               )}
             </AnimatePresence>
 
-            {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
-                From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
-                ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
-                Fraunces serif, Socratic questions in italic, and the opponent-
-                opportunity + trap-warning inline use quieter panels. */}
-            {/* Punishment-puzzle card. Renders ABOVE the TeachingMoment
-                when the coach just played an exploitable move (armed)
-                or when the user just answered (resolved). Quietly
-                no-ops when neither is set. */}
-            <PunishmentPuzzleCard
-              puzzle={session?.active_puzzle || null}
-              feedback={puzzleFeedback || null}
-              flagCtx={{
-                source: "play_with_coach",
-                sessionId: session?.session_id,
-                gameId: session?.session_id,
-                fen: currentFen,
-                component: "CoachPlaySidebar.PunishmentPuzzle",
-              }}
-            />
+            <AnimatePresence>
+              {geometryMoment && !guardianIntervention && (
+                <motion.div
+                  key={`geometry-${geometryMoment.event_id}`}
+                  variants={slideInRight}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <GeometryMomentCard
+                    moment={geometryMoment}
+                    sessionId={session?.session_id}
+                    onReveal={onGeometryReveal}
+                    onDismiss={onGeometryDismiss}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Coach is thinking — shimmer placeholder while move feedback
                 is being generated (scope: PWC coach-message shimmer). */}
@@ -1265,9 +1267,29 @@ const CoachPlaySidebar = ({
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
+                From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
+                ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
+                Fraunces serif, Socratic questions in italic, and the opponent-
+                opportunity + trap-warning inline use quieter panels. */}
+            {/* Punishment-puzzle card. Renders ABOVE the TeachingMoment
+                when the coach just played an exploitable move (armed)
+                or when the user just answered (resolved). Quietly
+                no-ops when neither is set. */}
+            <PunishmentPuzzleCard
+              puzzle={geometryMoment ? null : (session?.active_puzzle || null)}
+              feedback={puzzleFeedback || null}
+              flagCtx={{
+                source: "play_with_coach",
+                sessionId: session?.session_id,
+                gameId: session?.session_id,
+                fen: currentFen,
+                component: "CoachPlaySidebar.PunishmentPuzzle",
+              }}
+            />
 
             <AnimatePresence>
-            {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
+            {!geometryMoment && interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
               // Single flag context for the whole Teaching Moment card.
               // Every coach-generated text block inside gets an InlineFlag
               // for tester feedback (per "consistent flag everywhere" goal).
@@ -1492,7 +1514,7 @@ const CoachPlaySidebar = ({
 
             {/* ═══ User's Move Feedback — slides in from the right ═══ */}
             <AnimatePresence>
-            {v5Coaching && !session?.curriculum_active && (
+            {v5Coaching && !geometryMoment && !session?.curriculum_active && (
               <motion.div
                 key={`v5-${v5Coaching.move_san || v5Coaching.concept_id || "card"}`}
                 variants={slideInRight}
@@ -1793,6 +1815,19 @@ const CoachPlaySidebar = ({
               <span>Last 5 games: {improvementProof.recent?.wins || 0} wins</span>
               <span>{improvementProof.recent?.total_violations || 0} mistakes</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {session && gameOver && session.geometry_postgame_summary && (
+        <div className="px-4 pt-4">
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] px-4 py-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-700 dark:text-emerald-300 font-semibold mb-2">
+              Your geometry check
+            </p>
+            <p className="text-sm leading-relaxed">
+              {session.geometry_postgame_summary.message}
+            </p>
           </div>
         </div>
       )}

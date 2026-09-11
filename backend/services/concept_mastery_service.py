@@ -73,6 +73,12 @@ PIC_STATE_LABELS = {
     "remembered": "Remembered",
     "proven_in_games": "Proven in games",
 }
+BOARD_GEOMETRY_LESSON_TYPE = "board_geometry"
+BOARD_GEOMETRY_STATE_LABELS = {
+    "learning": "Learning",
+    "remembered": "Remembered",
+    "proven_in_games": "Proven in games",
+}
 
 
 def reduce_pic_mastery(
@@ -234,6 +240,85 @@ async def get_pic_mastery_projection(
             ),
         })
     return reduce_pic_mastery(events, diagnosed=diagnosed)
+
+
+async def get_board_geometry_mastery_projection(db, user_id: str) -> Dict[str, Any]:
+    """Project Board Geometry lesson and game evidence into shared LES states."""
+    modules: Dict[str, Dict[str, Any]] = {}
+    sessions = db.learning_sessions.find(
+        {"user_id": user_id, "lesson_type": BOARD_GEOMETRY_LESSON_TYPE},
+        {
+            "_id": 0,
+            "module_id": 1,
+            "mode": 1,
+            "status": 1,
+            "independent_passed": 1,
+            "delayed_available_at": 1,
+            "updated_at": 1,
+        },
+    )
+    async for session in sessions:
+        module_id = session.get("module_id")
+        if not module_id:
+            continue
+        record = modules.setdefault(module_id, {
+            "module_id": module_id,
+            "state": "learning",
+            "label": BOARD_GEOMETRY_STATE_LABELS["learning"],
+            "refresh_needed": False,
+            "independent_lesson_passed": False,
+            "delayed_recall_passed": False,
+            "delayed_available_at": None,
+            "delayed_due": False,
+            "verified_game_applications": 0,
+        })
+        if session.get("status") == "completed" and session.get("independent_passed"):
+            record["state"] = "remembered"
+            record["label"] = BOARD_GEOMETRY_STATE_LABELS["remembered"]
+            if session.get("mode", "learning") == "delayed":
+                record["delayed_recall_passed"] = True
+            else:
+                record["independent_lesson_passed"] = True
+                due = session.get("delayed_available_at")
+                if due and not record.get("delayed_available_at"):
+                    record["delayed_available_at"] = due
+
+    now = datetime.now(timezone.utc)
+    for record in modules.values():
+        due = record.get("delayed_available_at")
+        if isinstance(due, datetime):
+            due_at = due if due.tzinfo else due.replace(tzinfo=timezone.utc)
+        else:
+            due_at = _parse_iso(due)
+        record["delayed_due"] = bool(
+            record["independent_lesson_passed"]
+            and not record["delayed_recall_passed"]
+            and due_at
+            and due_at <= now
+        )
+
+    game_sessions = db.coach_sessions.find(
+        {"user_id": user_id, "geometry_events.payload.moment_type": "found"},
+        {"_id": 0, "geometry_events": 1},
+    )
+    async for session in game_sessions:
+        for event in session.get("geometry_events") or []:
+            payload = event.get("payload") or {}
+            module_id = payload.get("module_id")
+            record = modules.get(module_id)
+            if (
+                record
+                and record["independent_lesson_passed"]
+                and payload.get("moment_type") == "found"
+            ):
+                record["verified_game_applications"] += 1
+                record["state"] = "proven_in_games"
+                record["label"] = BOARD_GEOMETRY_STATE_LABELS["proven_in_games"]
+
+    return {
+        "lesson_type": BOARD_GEOMETRY_LESSON_TYPE,
+        "modules": modules,
+    }
 
 
 _SHADOW_STATE_ORDER = {

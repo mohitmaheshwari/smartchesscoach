@@ -120,6 +120,15 @@ def _classify_aligned(aligned) -> set:
     return out
 
 
+def classify_aligned_geometry(aligned: List[Dict[str, Any]]) -> set:
+    """Public projection for pin/skewer labels over canonical alignment facts.
+
+    Consumers must pass aligned_pieces_evidence from caption_facts; this wrapper
+    prevents lessons and live coaching from growing a second taxonomy.
+    """
+    return _classify_aligned(aligned)
+
+
 def _empty_motif() -> Dict[str, Any]:
     return {"made_sound": 0, "made_tunnel": 0, "got": 0, "got_positions": []}
 

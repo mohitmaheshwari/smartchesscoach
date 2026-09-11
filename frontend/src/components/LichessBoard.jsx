@@ -34,7 +34,9 @@ const LichessBoard = forwardRef(({
   fen: fenProp = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   orientation = "white",
   onMove,
+  onSquareClick,
   interactive = true,
+  selectionOnly = false,
   showDests = true,
   arrows = [],
   circles = [],  // [[square, color], ...] — chessground circle-shape on given squares
@@ -279,12 +281,16 @@ const LichessBoard = forwardRef(({
 
   // Use ref for onMove to avoid recreating the board when callback changes
   const onMoveRef = useRef(onMove);
+  const onSquareClickRef = useRef(onSquareClick);
   useEffect(() => {
     onMoveRef.current = onMove;
   }, [onMove]);
+  useEffect(() => {
+    onSquareClickRef.current = onSquareClick;
+  }, [onSquareClick]);
   
   // Key to force re-creation when interactivity changes
-  const shouldBeInteractive = planMode || movableColor || (interactive && !viewOnly);
+  const shouldBeInteractive = selectionOnly || planMode || movableColor || (interactive && !viewOnly);
   
   // Initialize and recreate chessground when interactivity mode changes
   useEffect(() => {
@@ -334,14 +340,15 @@ const LichessBoard = forwardRef(({
         coordinates: false,
         events: {
           select: (key) => {
-            console.log("LichessBoard piece selected:", key);
+            console.log("LichessBoard square selected:", key);
+            if (onSquareClickRef.current) onSquareClickRef.current(key);
           }
         },
         movable: {
           free: false,
-          color: shouldBeInteractive ? (movableColor || (planMode ? "both" : getTurnColor(fen))) : undefined,
-          dests: dests,
-          showDests: showDests && shouldBeInteractive,
+          color: shouldBeInteractive && !selectionOnly ? (movableColor || (planMode ? "both" : getTurnColor(fen))) : undefined,
+          dests: selectionOnly ? new Map() : dests,
+          showDests: showDests && shouldBeInteractive && !selectionOnly,
           events: {
             after: (orig, dest, metadata) => {
               console.log("LichessBoard movable.events.after:", { orig, dest, metadata });
@@ -403,7 +410,7 @@ const LichessBoard = forwardRef(({
           }
         },
         draggable: {
-          enabled: shouldBeInteractive,
+          enabled: shouldBeInteractive && !selectionOnly,
           showGhost: true,
           // No auto-cancel timeout
           distance: 3,
@@ -453,7 +460,7 @@ const LichessBoard = forwardRef(({
         groundRef.current = null;
       }
     };
-  }, [shouldBeInteractive, planMode, movableColor, disableArrows]);  // Re-create only when interactivity mode changes
+  }, [shouldBeInteractive, planMode, movableColor, selectionOnly, disableArrows]);  // Re-create only when interactivity mode changes
 
   // Track the previous fen to detect if we need to update it
   const prevFenRef = useRef(fen);
@@ -467,7 +474,7 @@ const LichessBoard = forwardRef(({
   // Combined effect to avoid race conditions between fen updates and interactivity changes
   useEffect(() => {
     if (groundRef.current) {
-      const shouldBeInteractive = planMode || movableColor || (interactive && !viewOnly);
+      const shouldBeInteractive = selectionOnly || planMode || movableColor || (interactive && !viewOnly);
       const fenChanged = prevFenRef.current !== fen;
       const interactivityChanged = prevInteractiveRef.current !== interactive || 
                                    prevViewOnlyRef.current !== viewOnly ||
@@ -513,7 +520,7 @@ const LichessBoard = forwardRef(({
       
       // For plan mode, get moves for BOTH colors
       // For normal mode, only get moves for current turn
-      const dests = shouldBeInteractive && showDests 
+      const dests = shouldBeInteractive && showDests && !selectionOnly
         ? (movableColor
           ? getMovesForColor(chessRef.current, movableColor)
           : planMode
@@ -535,14 +542,14 @@ const LichessBoard = forwardRef(({
         config.viewOnly = !shouldBeInteractive;
         config.movable = {
           free: false,
-          color: shouldBeInteractive
+          color: shouldBeInteractive && !selectionOnly
             ? (movableColor || (planMode ? "both" : getTurnColor(fen)))
             : undefined,
-          dests: dests,
-          showDests: showDests && shouldBeInteractive,
+          dests: selectionOnly ? new Map() : dests,
+          showDests: showDests && shouldBeInteractive && !selectionOnly,
         };
         config.draggable = {
-          enabled: shouldBeInteractive,
+          enabled: shouldBeInteractive && !selectionOnly,
           showGhost: true,
         };
         config.selectable = {
@@ -560,7 +567,7 @@ const LichessBoard = forwardRef(({
         groundRef.current.set(config);
       }
     }
-  }, [fen, interactive, viewOnly, showDests, lastMove, planMode, movableColor]);
+  }, [fen, interactive, viewOnly, showDests, lastMove, planMode, movableColor, selectionOnly]);
 
   // Update orientation
   useEffect(() => {

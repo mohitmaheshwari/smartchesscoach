@@ -99,6 +99,20 @@ export default function PrescribedTraining({ user = null }) {
   const [picProjection, setPicProjection] = useState(null);
   const [picCheckPending, setPicCheckPending] = useState(picCandidate);
   const [canonicalContext, setCanonicalContext] = useState(null);
+  const [geometryCatalog, setGeometryCatalog] = useState(null);
+
+  // Default-off discovery: reviewers and local dev receive the catalog; a
+  // disabled public endpoint returns 404 and leaves Training unchanged.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/training/geometry/catalog`, { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.modules?.length) setGeometryCatalog(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   
   // [PART C] Module and prescription state
   const planId = searchParams.get("plan");
@@ -764,6 +778,28 @@ export default function PrescribedTraining({ user = null }) {
         </button>
 
         <CanonicalTrainingAssignment context={canonicalContext} />
+
+        {geometryCatalog?.modules?.length > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate("/training/geometry")}
+            className="w-full text-left mb-8 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] px-5 py-4 hover:bg-emerald-500/[0.09] transition-colors"
+            data-testid="board-geometry-entry"
+          >
+            <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-700 dark:text-emerald-300 font-semibold mb-1.5">
+              Board Geometry
+            </p>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-serif text-xl">See the shape before the tactic</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Diagonal, straight line, knight L, and pawn V.
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-emerald-700 flex-none" />
+            </div>
+          </button>
+        )}
 
         {/* [PART C] Module selector — shown when viewing a training plan */}
         {modules && modules.modules && modules.modules.length > 0 && (

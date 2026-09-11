@@ -9093,6 +9093,43 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
 # Public API
 # ────────────────────────────────────────────────────────────────────
 
+def shared_attack_squares(
+    target_squares: List[str],
+    attacker_piece_type: str,
+    attacker_color: Optional[chess.Color] = None,
+) -> List[str]:
+    """Squares from which one piece attacks every target on an empty board.
+
+    This is the canonical shared-square primitive used by geometry lessons.
+    It describes the visual relationship only; move legality, blockers, and
+    tactical soundness remain separate checks.
+    """
+    piece_types = {
+        "pawn": chess.PAWN,
+        "knight": chess.KNIGHT,
+        "bishop": chess.BISHOP,
+        "rook": chess.ROOK,
+        "queen": chess.QUEEN,
+        "king": chess.KING,
+    }
+    piece_type = piece_types.get(str(attacker_piece_type).lower())
+    if piece_type is None or not target_squares:
+        return []
+    try:
+        targets = [chess.parse_square(square) for square in target_squares]
+    except (TypeError, ValueError):
+        return []
+    colors = [attacker_color] if attacker_color in (chess.WHITE, chess.BLACK) else [chess.WHITE, chess.BLACK]
+    found = set()
+    for color in colors:
+        for origin in chess.SQUARES:
+            board = chess.Board.empty()
+            board.set_piece_at(origin, chess.Piece(piece_type, color))
+            if all(target in board.attacks(origin) for target in targets):
+                found.add(chess.square_name(origin))
+    return sorted(found)
+
+
 def extract_facts(
     *,
     fen_before: str,

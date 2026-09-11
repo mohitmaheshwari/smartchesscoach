@@ -1,0 +1,1061 @@
+{
+  "schema_version": 1,
+  "content_version": "board-geometry-v1",
+  "review_status": "engine_verified_internal",
+  "modules": [
+    {
+      "module_id": "knight_shared_square",
+      "skill_id": "geometry_knight_shared_square",
+      "title": "Knight meeting squares",
+      "family": "knight",
+      "summary": "See the square where two L-shapes meet.",
+      "flash": {
+        "fen": "7k/8/1r6/4q3/2N5/8/8/7K w - - 0 1",
+        "orientation": "white",
+        "memory_line": "Two L-jumps. Find their meeting square.",
+        "supporting_line": "A knight on c4 attacks both marked pieces.",
+        "overlays": {
+          "arrows": [
+            [
+              "c4",
+              "b6"
+            ],
+            [
+              "c4",
+              "e5"
+            ]
+          ],
+          "highlights": [
+            "c4",
+            "b6",
+            "e5"
+          ]
+        }
+      },
+      "activities": [
+        {
+          "item_id": "knight-baseline",
+          "stage": "baseline",
+          "kind": "select_square",
+          "fen": "r3k3/8/8/1N6/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the square where your knight can attack both the king and rook.",
+          "expected": {
+            "squares": [
+              "c7"
+            ]
+          },
+          "hints": [
+            "Look for one square an L away from both targets."
+          ],
+          "correct_feedback": "Yes \u2014 c7 reaches both a8 and e8. When two targets share one knight square, check that square before calculating.",
+          "reveal": {
+            "arrows": [
+              [
+                "c7",
+                "a8"
+              ],
+              [
+                "c7",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "c7",
+              "a8",
+              "e8"
+            ]
+          }
+        },
+        {
+          "item_id": "knight-map",
+          "stage": "attack_map",
+          "kind": "select_targets",
+          "fen": "7k/8/8/8/2N5/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap every square the knight on c4 attacks.",
+          "expected": {
+            "squares": [
+              "a3",
+              "a5",
+              "b2",
+              "b6",
+              "d2",
+              "d6",
+              "e3",
+              "e5"
+            ]
+          },
+          "hints": [
+            "Start two squares away, then turn one.",
+            "Trace all four long directions from c4."
+          ],
+          "correct_feedback": "Those eight squares make the knight's L-shape. A knight always attacks in an L, wherever it stands.",
+          "reveal": {
+            "arrows": [
+              [
+                "c4",
+                "a3"
+              ],
+              [
+                "c4",
+                "a5"
+              ],
+              [
+                "c4",
+                "b2"
+              ],
+              [
+                "c4",
+                "b6"
+              ],
+              [
+                "c4",
+                "d2"
+              ],
+              [
+                "c4",
+                "d6"
+              ],
+              [
+                "c4",
+                "e3"
+              ],
+              [
+                "c4",
+                "e5"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "knight-shared",
+          "stage": "relationship",
+          "kind": "select_square",
+          "fen": "r3q2k/8/8/8/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "These two pieces share one knight-attack square. Tap it.",
+          "expected": {
+            "squares": [
+              "c7"
+            ]
+          },
+          "hints": [
+            "Work backward from both targets."
+          ],
+          "correct_feedback": "c7 is an L away from both pieces. Find the meeting square before you look for the knight.",
+          "reveal": {
+            "arrows": [
+              [
+                "c7",
+                "a8"
+              ],
+              [
+                "c7",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "c7"
+            ]
+          }
+        },
+        {
+          "item_id": "knight-fake",
+          "stage": "counterexample",
+          "kind": "choose",
+          "fen": "r6k/4q3/8/8/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Can one knight attack both marked pieces from a single square?",
+          "expected": {
+            "choice": "no"
+          },
+          "hints": [
+            "Trace the possible knight squares backward from a8."
+          ],
+          "correct_feedback": "No. Their L-shapes never meet, so there is no knight fork square here. Check that both targets share the same landing square before calling it a fork.",
+          "reveal": {
+            "highlights": [
+              "a8",
+              "e7"
+            ]
+          }
+        },
+        {
+          "item_id": "knight-create",
+          "stage": "create_or_avoid",
+          "kind": "move",
+          "fen": "r3k3/8/8/1N6/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Move the knight to attack both targets.",
+          "expected": {
+            "moves": [
+              "Nc7+"
+            ]
+          },
+          "hints": [
+            "Find the shared square first, then check whether your knight can reach it."
+          ],
+          "correct_feedback": "Nc7+ attacks the king on e8 and rook on a8. A fork works because one move creates two urgent problems.",
+          "reveal": {
+            "arrows": [
+              [
+                "b5",
+                "c7"
+              ],
+              [
+                "c7",
+                "a8"
+              ],
+              [
+                "c7",
+                "e8"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "knight-post",
+          "stage": "post_test",
+          "kind": "select_square",
+          "fen": "3r3k/8/8/4N3/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "No hints: tap the square that attacks both targets.",
+          "expected": {
+            "squares": [
+              "f7"
+            ]
+          },
+          "hints": [
+            ""
+          ],
+          "correct_feedback": "f7 reaches d8 and h8. In a crowded game, search for the shared L-square before calculating moves.",
+          "reveal": {
+            "arrows": [
+              [
+                "f7",
+                "d8"
+              ],
+              [
+                "f7",
+                "h8"
+              ]
+            ],
+            "highlights": [
+              "f7"
+            ]
+          }
+        },
+        {
+          "item_id": "knight-delayed",
+          "stage": "delayed_recall",
+          "kind": "move",
+          "fen": "7k/8/8/8/1n6/8/8/R3K3 b - - 0 1",
+          "orientation": "black",
+          "prompt": "Find Black's move that attacks the king and rook together.",
+          "expected": {
+            "moves": [
+              "Nc2+"
+            ]
+          },
+          "hints": [
+            "Find the square that is an L away from e1 and a1."
+          ],
+          "correct_feedback": "Nc2+ attacks e1 and a1. The board can turn around, but the knight's L-shape never changes.",
+          "reveal": {
+            "arrows": [
+              [
+                "b4",
+                "c2"
+              ],
+              [
+                "c2",
+                "e1"
+              ],
+              [
+                "c2",
+                "a1"
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_id": "pawn_fork_v",
+      "skill_id": "geometry_pawn_fork_v",
+      "title": "Pawn V-shapes",
+      "family": "pawn",
+      "summary": "See the one-gap V before a pawn push.",
+      "flash": {
+        "fen": "7k/8/2r1n3/3P4/8/8/8/7K w - - 0 1",
+        "orientation": "white",
+        "memory_line": "One gap. The pawn attacks both.",
+        "supporting_line": "The V points in the pawn's moving direction.",
+        "overlays": {
+          "arrows": [
+            [
+              "d5",
+              "c6"
+            ],
+            [
+              "d5",
+              "e6"
+            ]
+          ],
+          "highlights": [
+            "d5",
+            "c6",
+            "e6"
+          ]
+        }
+      },
+      "activities": [
+        {
+          "item_id": "pawn-baseline",
+          "stage": "baseline",
+          "kind": "select_piece",
+          "fen": "7k/8/2r1n3/3P4/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the pawn that attacks both marked pieces.",
+          "expected": {
+            "squares": [
+              "d5"
+            ]
+          },
+          "hints": [
+            "Look for a pawn one rank behind the gap."
+          ],
+          "correct_feedback": "The pawn on d5 attacks c6 and e6. A pawn fork is a V pointing in the pawn's moving direction.",
+          "reveal": {
+            "arrows": [
+              [
+                "d5",
+                "c6"
+              ],
+              [
+                "d5",
+                "e6"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-map",
+          "stage": "attack_map",
+          "kind": "select_targets",
+          "fen": "7k/8/8/3P4/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the two squares this white pawn attacks.",
+          "expected": {
+            "squares": [
+              "c6",
+              "e6"
+            ]
+          },
+          "hints": [
+            "White moves toward rank 8."
+          ],
+          "correct_feedback": "White pawns attack one square forward on each diagonal. Read a pawn's V in the direction it moves.",
+          "reveal": {
+            "arrows": [
+              [
+                "d5",
+                "c6"
+              ],
+              [
+                "d5",
+                "e6"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-gap",
+          "stage": "relationship",
+          "kind": "select_square",
+          "fen": "7k/8/2r1n3/8/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Where must a white pawn stand to attack both pieces?",
+          "expected": {
+            "squares": [
+              "d5"
+            ]
+          },
+          "hints": [
+            "Find the middle file, then move one rank backward for White."
+          ],
+          "correct_feedback": "d5 sits under the one-square gap and attacks c6 and e6. When two targets leave one file between them, check the pawn square below the gap.",
+          "reveal": {
+            "arrows": [
+              [
+                "d5",
+                "c6"
+              ],
+              [
+                "d5",
+                "e6"
+              ]
+            ],
+            "highlights": [
+              "d5"
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-fake",
+          "stage": "counterexample",
+          "kind": "choose",
+          "fen": "7k/8/8/3P4/2r1n3/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Does the pawn on d5 attack both marked pieces?",
+          "expected": {
+            "choice": "no"
+          },
+          "hints": [
+            "White pawns move up the board."
+          ],
+          "correct_feedback": "No. A white pawn attacks toward rank 8, so c4 and e4 are behind it. Always check the pawn's direction before trusting the V-shape.",
+          "reveal": {
+            "arrows": [
+              [
+                "d5",
+                "c6"
+              ],
+              [
+                "d5",
+                "e6"
+              ]
+            ],
+            "highlights": [
+              "c4",
+              "e4"
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-create",
+          "stage": "create_or_avoid",
+          "kind": "move",
+          "fen": "7k/8/2r1n3/8/3P4/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Push the pawn to attack both pieces.",
+          "expected": {
+            "moves": [
+              "d5"
+            ]
+          },
+          "hints": [
+            "The pawn needs to reach the point of the V."
+          ],
+          "correct_feedback": "d5 creates attacks on c6 and e6 at once. Before every pawn push, check the two new diagonal squares.",
+          "reveal": {
+            "arrows": [
+              [
+                "d4",
+                "d5"
+              ],
+              [
+                "d5",
+                "c6"
+              ],
+              [
+                "d5",
+                "e6"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-post",
+          "stage": "post_test",
+          "kind": "select_targets",
+          "fen": "7k/8/8/8/3p4/2R1N3/8/7K b - - 0 1",
+          "orientation": "black",
+          "prompt": "No hints: tap both squares the black pawn attacks.",
+          "expected": {
+            "squares": [
+              "c3",
+              "e3"
+            ]
+          },
+          "hints": [
+            ""
+          ],
+          "correct_feedback": "The black pawn attacks c3 and e3. Turn the V with the pawn's direction, not with the screen.",
+          "reveal": {
+            "arrows": [
+              [
+                "d4",
+                "c3"
+              ],
+              [
+                "d4",
+                "e3"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "pawn-delayed",
+          "stage": "delayed_recall",
+          "kind": "move",
+          "fen": "7k/8/8/3p4/8/2R1N3/8/7K b - - 0 1",
+          "orientation": "black",
+          "prompt": "Find Black's pawn move that attacks both pieces.",
+          "expected": {
+            "moves": [
+              "d4"
+            ]
+          },
+          "hints": [
+            "The black pawn moves toward rank 1."
+          ],
+          "correct_feedback": "d4 attacks c3 and e3 together. A pawn push changes both diagonal attacks, so scan the new V before moving.",
+          "reveal": {
+            "arrows": [
+              [
+                "d5",
+                "d4"
+              ],
+              [
+                "d4",
+                "c3"
+              ],
+              [
+                "d4",
+                "e3"
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_id": "diagonal_lines",
+      "skill_id": "geometry_diagonal_lines",
+      "title": "Diagonal lines",
+      "family": "diagonal",
+      "summary": "Trace one color and notice what stands behind.",
+      "flash": {
+        "fen": "7k/8/8/5q2/8/3n4/8/1B5K w - - 0 1",
+        "orientation": "white",
+        "memory_line": "Same color. Trace the diagonal.",
+        "supporting_line": "Start at the bishop and stop at the first blocker.",
+        "overlays": {
+          "arrows": [
+            [
+              "b1",
+              "f5"
+            ]
+          ],
+          "highlights": [
+            "b1",
+            "c2",
+            "d3",
+            "e4",
+            "f5"
+          ]
+        }
+      },
+      "activities": [
+        {
+          "item_id": "diagonal-baseline",
+          "stage": "baseline",
+          "kind": "select_piece",
+          "fen": "4k3/8/2n5/1B6/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the piece shielding the king on this diagonal.",
+          "expected": {
+            "squares": [
+              "c6"
+            ]
+          },
+          "hints": [
+            "Follow the bishop's squares from b5 toward the king."
+          ],
+          "correct_feedback": "The knight on c6 stands between the bishop on b5 and king on e8. On a diagonal, check the piece in front and what stands behind it.",
+          "reveal": {
+            "arrows": [
+              [
+                "b5",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "c6"
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-map",
+          "stage": "attack_map",
+          "kind": "select_targets",
+          "fen": "7k/8/8/8/2B5/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap every empty square the bishop on c4 can see.",
+          "expected": {
+            "squares": [
+              "a2",
+              "a6",
+              "b3",
+              "b5",
+              "d3",
+              "d5",
+              "e2",
+              "e6",
+              "f1",
+              "f7",
+              "g8"
+            ]
+          },
+          "hints": [
+            "Trace one diagonal at a time.",
+            "Keep moving one file and one rank together."
+          ],
+          "correct_feedback": "Every selected square has the same color as c4. A bishop stays on one square color for the whole game.",
+          "reveal": {
+            "arrows": [
+              [
+                "c4",
+                "a2"
+              ],
+              [
+                "c4",
+                "a6"
+              ],
+              [
+                "c4",
+                "b3"
+              ],
+              [
+                "c4",
+                "b5"
+              ],
+              [
+                "c4",
+                "d3"
+              ],
+              [
+                "c4",
+                "d5"
+              ],
+              [
+                "c4",
+                "e2"
+              ],
+              [
+                "c4",
+                "e6"
+              ],
+              [
+                "c4",
+                "f1"
+              ],
+              [
+                "c4",
+                "f7"
+              ],
+              [
+                "c4",
+                "g8"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-front",
+          "stage": "relationship",
+          "kind": "select_piece",
+          "fen": "7k/8/4q3/8/2n5/8/B7/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the front piece on the bishop's line.",
+          "expected": {
+            "squares": [
+              "c4"
+            ]
+          },
+          "hints": [
+            "Start at the bishop and trace toward e6."
+          ],
+          "correct_feedback": "The knight on c4 stands in front of the queen on e6. On one line, the order of the pieces tells you which one must move first.",
+          "reveal": {
+            "arrows": [
+              [
+                "a2",
+                "e6"
+              ]
+            ],
+            "highlights": [
+              "c4",
+              "e6"
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-fake",
+          "stage": "counterexample",
+          "kind": "choose",
+          "fen": "4k3/3n4/2P5/1B6/8/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Is the knight on d7 pinned to the king by the bishop?",
+          "expected": {
+            "choice": "no"
+          },
+          "hints": [
+            "Look at c6 before looking at the knight."
+          ],
+          "correct_feedback": "No. Your own pawn on c6 stops the bishop before it reaches d7. Trace every square on a line and stop at the first blocker.",
+          "reveal": {
+            "arrows": [
+              [
+                "b5",
+                "c6"
+              ]
+            ],
+            "highlights": [
+              "c6"
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-create",
+          "stage": "create_or_avoid",
+          "kind": "move",
+          "fen": "4k3/8/2n5/8/2B5/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Move the bishop onto the line with the knight and king.",
+          "expected": {
+            "moves": [
+              "Bb5"
+            ]
+          },
+          "hints": [
+            "Find the diagonal that reaches c6, then e8."
+          ],
+          "correct_feedback": "Bb5 puts the knight on c6 in front of its king on e8. A line becomes useful only when the attacker, front piece, and rear target truly connect.",
+          "reveal": {
+            "arrows": [
+              [
+                "c4",
+                "b5"
+              ],
+              [
+                "b5",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "c6"
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-post",
+          "stage": "post_test",
+          "kind": "select_piece",
+          "fen": "7k/8/8/8/4q3/5r2/6B1/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "No hints: tap the front target on this diagonal.",
+          "expected": {
+            "squares": [
+              "f3"
+            ]
+          },
+          "hints": [
+            ""
+          ],
+          "correct_feedback": "The rook on f3 stands in front of the queen on e4. Trace from the attacker outward so you see the order, not just the line.",
+          "reveal": {
+            "arrows": [
+              [
+                "g2",
+                "e4"
+              ]
+            ],
+            "highlights": [
+              "f3"
+            ]
+          }
+        },
+        {
+          "item_id": "diagonal-delayed",
+          "stage": "delayed_recall",
+          "kind": "select_piece",
+          "fen": "7k/8/8/8/1b6/2N5/8/4K3 b - - 0 1",
+          "orientation": "black",
+          "prompt": "Tap the piece shielding the king from the bishop.",
+          "expected": {
+            "squares": [
+              "c3"
+            ]
+          },
+          "hints": [
+            "Trace b4, c3, d2, e1."
+          ],
+          "correct_feedback": "The knight on c3 shields the king on e1. A crowded board becomes simpler when you trace one diagonal to its first blocker.",
+          "reveal": {
+            "arrows": [
+              [
+                "b4",
+                "e1"
+              ]
+            ],
+            "highlights": [
+              "c3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_id": "rank_file_lines",
+      "skill_id": "geometry_rank_file_lines",
+      "title": "Ranks and files",
+      "family": "orthogonal",
+      "summary": "Trace straight lines and notice what stands behind.",
+      "flash": {
+        "fen": "7k/8/8/8/R2n2q1/8/8/7K w - - 0 1",
+        "orientation": "white",
+        "memory_line": "Same line. Check what stands behind.",
+        "supporting_line": "Rooks and queens see along ranks and files.",
+        "overlays": {
+          "arrows": [
+            [
+              "a4",
+              "g4"
+            ]
+          ],
+          "highlights": [
+            "a4",
+            "d4",
+            "g4"
+          ]
+        }
+      },
+      "activities": [
+        {
+          "item_id": "line-baseline",
+          "stage": "baseline",
+          "kind": "select_piece",
+          "fen": "4k3/8/8/8/4n3/8/8/4R2K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the piece shielding the king on this file.",
+          "expected": {
+            "squares": [
+              "e4"
+            ]
+          },
+          "hints": [
+            "Trace the e-file upward from the rook."
+          ],
+          "correct_feedback": "The knight on e4 stands between the rook on e1 and king on e8. On a straight line, check the first piece and what stands behind it.",
+          "reveal": {
+            "arrows": [
+              [
+                "e1",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "e4"
+            ]
+          }
+        },
+        {
+          "item_id": "line-map",
+          "stage": "attack_map",
+          "kind": "select_targets",
+          "fen": "7k/8/8/8/3R4/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap every empty square the rook on d4 can see.",
+          "expected": {
+            "squares": [
+              "a4",
+              "b4",
+              "c4",
+              "e4",
+              "f4",
+              "g4",
+              "h4",
+              "d1",
+              "d2",
+              "d3",
+              "d5",
+              "d6",
+              "d7",
+              "d8"
+            ]
+          },
+          "hints": [
+            "Trace the horizontal line, then the vertical line.",
+            "Stay on file d or rank 4."
+          ],
+          "correct_feedback": "The rook sees along its rank and file until a piece stops it. Scan straight lines from the piece outward.",
+          "reveal": {
+            "arrows": [
+              [
+                "d4",
+                "a4"
+              ],
+              [
+                "d4",
+                "h4"
+              ],
+              [
+                "d4",
+                "d1"
+              ],
+              [
+                "d4",
+                "d8"
+              ]
+            ]
+          }
+        },
+        {
+          "item_id": "line-front",
+          "stage": "relationship",
+          "kind": "select_piece",
+          "fen": "7k/8/8/8/Q2b2q1/8/8/7K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Tap the front piece on the queen's rank.",
+          "expected": {
+            "squares": [
+              "d4"
+            ]
+          },
+          "hints": [
+            "Trace rank 4 from a4 toward g4."
+          ],
+          "correct_feedback": "The bishop on d4 stands in front of the queen on g4. Read a straight line from the attacker so the piece order is clear.",
+          "reveal": {
+            "arrows": [
+              [
+                "a4",
+                "g4"
+              ]
+            ],
+            "highlights": [
+              "d4"
+            ]
+          }
+        },
+        {
+          "item_id": "line-fake",
+          "stage": "counterexample",
+          "kind": "choose",
+          "fen": "4q2k/8/8/4n3/8/4P3/8/4R2K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Does the rook attack the knight through this file?",
+          "expected": {
+            "choice": "no"
+          },
+          "hints": [
+            "Start at e1 and stop at the first occupied square."
+          ],
+          "correct_feedback": "No. Your pawn on e3 blocks the rook before it reaches e5. A straight line ends at the first piece in its way.",
+          "reveal": {
+            "arrows": [
+              [
+                "e1",
+                "e3"
+              ]
+            ],
+            "highlights": [
+              "e3"
+            ]
+          }
+        },
+        {
+          "item_id": "line-create",
+          "stage": "create_or_avoid",
+          "kind": "move",
+          "fen": "4k3/8/8/8/4n3/8/8/R6K w - - 0 1",
+          "orientation": "white",
+          "prompt": "Move the rook onto the file with the knight and king.",
+          "expected": {
+            "moves": [
+              "Re1"
+            ]
+          },
+          "hints": [
+            "The rook needs the same file as e4 and e8."
+          ],
+          "correct_feedback": "Re1 places the rook, knight on e4, and king on e8 on one file. Before naming a pin, trace the whole line and check every blocker.",
+          "reveal": {
+            "arrows": [
+              [
+                "a1",
+                "e1"
+              ],
+              [
+                "e1",
+                "e8"
+              ]
+            ],
+            "highlights": [
+              "e4"
+            ]
+          }
+        },
+        {
+          "item_id": "line-post",
+          "stage": "post_test",
+          "kind": "select_piece",
+          "fen": "3k4/8/8/8/3b4/8/8/3Q3K w - - 0 1",
+          "orientation": "white",
+          "prompt": "No hints: tap the piece shielding the king on the file.",
+          "expected": {
+            "squares": [
+              "d4"
+            ]
+          },
+          "hints": [
+            ""
+          ],
+          "correct_feedback": "The bishop on d4 blocks the queen's line to d8. Straight-line vision starts by finding the first occupied square.",
+          "reveal": {
+            "arrows": [
+              [
+                "d1",
+                "d8"
+              ]
+            ],
+            "highlights": [
+              "d4"
+            ]
+          }
+        },
+        {
+          "item_id": "line-delayed",
+          "stage": "delayed_recall",
+          "kind": "select_piece",
+          "fen": "4r2k/8/8/4N3/8/8/8/4K3 b - - 0 1",
+          "orientation": "black",
+          "prompt": "Tap the piece shielding the king from the rook.",
+          "expected": {
+            "squares": [
+              "e5"
+            ]
+          },
+          "hints": [
+            "Follow the e-file down from e8."
+          ],
+          "correct_feedback": "The knight on e5 shields the king on e1. Files look the same from either side, so trace from the attacking rook to the first blocker.",
+          "reveal": {
+            "arrows": [
+              [
+                "e8",
+                "e1"
+              ]
+            ],
+            "highlights": [
+              "e5"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -943,6 +943,23 @@ async def get_coach_play_state(
     except Exception as _e:
         logger.warning(f"live mission_scoreboard failed: {_e}")
 
+    # Board Geometry uses the same session state and postgame surface. Raw
+    # evidence fields are not on the session dataclass, so project them here.
+    try:
+        if isinstance(state, dict) and isinstance(state.get("session"), dict):
+            focus_module = session_doc.get("geometry_focus_module")
+            if focus_module:
+                from services.board_geometry_service import postgame_summary
+                state["session"]["geometry_focus_module"] = focus_module
+                state["session"]["geometry_events"] = session_doc.get("geometry_events") or []
+                state["session"]["geometry_prompt_count"] = int(
+                    session_doc.get("geometry_prompt_count") or 0
+                )
+                if state["session"].get("status") == "completed":
+                    state["session"]["geometry_postgame_summary"] = postgame_summary(session_doc)
+    except Exception as _geometry_state_error:
+        logger.warning(f"geometry state projection failed: {_geometry_state_error}")
+
     return state
 
 
@@ -1222,6 +1239,21 @@ async def end_coach_play_session(
             await _promote_session_to_game(db, session_id, user.user_id)
         except Exception as e:
             logger.warning(f"[COACH] Session-to-game promotion failed (non-fatal): {e}")
+
+        try:
+            ended_session = await db.coach_sessions.find_one({
+                "session_id": session_id,
+                "user_id": user.user_id,
+            })
+            if ended_session and ended_session.get("geometry_focus_module"):
+                from services.board_geometry_service import postgame_summary
+                result.setdefault("session", {})["geometry_postgame_summary"] = (
+                    postgame_summary(ended_session)
+                )
+        except Exception as _geometry_end_error:
+            logger.warning(
+                f"geometry end projection failed (non-fatal): {_geometry_end_error}"
+            )
 
         return result
     except HTTPException:
@@ -3005,6 +3037,33 @@ async def get_interactive_coaching(
             else:
                 cp_loss = max(0, int((eval_after - eval_before) * 100))
 
+            # Persist the evaluated move facts immediately. Geometry reuses this
+            # record during the later coach-phase call even if optional caption
+            # enrichments fail, so it never needs a second engine verdict.
+            geometry_evidence = {
+                **last_user_move,
+                "move_number": len([
+                    item for item in move_history if item.get("by") == "player"
+                ]),
+                "best_move": best_move,
+                "eval_before": eval_before,
+                "eval_after": eval_after,
+                "cp_loss": cp_loss,
+                "pv_after_played": pv_after_played,
+                "pv_after_best": pv_after_best,
+            }
+            session_doc["geometry_last_user_evidence"] = geometry_evidence
+            try:
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"geometry_last_user_evidence": geometry_evidence}},
+                )
+            except Exception as _geometry_store_error:
+                logger.warning(
+                    f"geometry evidence persistence failed (non-fatal): "
+                    f"{_geometry_store_error}"
+                )
+
             # ── TOPIC-AWARE FOCUS COACH MESSAGE (2026-07-03) ──
             # If the mistake maps to the user's active focus topic (not
             # time_management, which impulse_warning owns), fire a
@@ -3824,6 +3883,22 @@ async def get_interactive_coaching(
             result["user_move_coaching"] = coaching_dict
             result["best_move_uci"] = coaching_dict.get("best_move_uci", "")
 
+            # Reuse the exact evaluated facts when the coach-phase response
+            # checks for a learned geometry moment. This keeps geometry and the
+            # main caption on one engine verdict and avoids a second analysis.
+            geometry_evidence["evaluation"] = coaching.severity
+            session_doc["geometry_last_user_evidence"] = geometry_evidence
+            try:
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"geometry_last_user_evidence": geometry_evidence}},
+                )
+            except Exception as _geometry_store_error:
+                logger.warning(
+                    f"geometry evidence persistence failed (non-fatal): "
+                    f"{_geometry_store_error}"
+                )
+
             # === ACTIVE RECALL ENRICHMENT (Pedagogical Q&A) ===
             # Add ranking + concept MCQ to coaching response if verification passes.
             # Gracefully skips if verification fails (active_recall = None).
@@ -4215,6 +4290,25 @@ async def get_interactive_coaching(
                         }
         except Exception as pre_trap_err:
             logger.debug(f"Pre-move trap detection failed (non-fatal): {pre_trap_err}")
+
+    # A completed geometry payload replaces the routine coach-move card for this
+    # response, so text and board marks arrive together and only one lesson speaks.
+    if phase in (None, "coach_move"):
+        try:
+            from services.board_geometry_service import build_pwc_moment
+            geometry_moment = await build_pwc_moment(
+                db,
+                session_doc,
+                allow_surface=(
+                    not result.get("pre_move_trap")
+                    and not session_doc.get("active_puzzle")
+                ),
+            )
+            if geometry_moment:
+                result["geometry_moment"] = geometry_moment
+                result["coach_move_coaching"] = None
+        except Exception as _geometry_error:
+            logger.warning(f"geometry moment failed (non-fatal): {_geometry_error}")
 
     # === SNAPSHOT: Save the complete interactive-feedback response ===
     # This is the FULL payload the frontend receives — everything shown in the sidebar
@@ -4828,6 +4922,26 @@ async def get_geometry_plans_endpoint(
     except Exception as _e:
         logger.warning(f"[geometry] plan detection failed: {_e}")
         return {"plans": []}
+
+
+@router.post("/geometry-moment/respond")
+async def respond_to_geometry_moment(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Reveal or skip the single learner-controlled geometry moment."""
+    global db
+    from services.board_geometry_service import respond_to_pwc_moment
+    result = await respond_to_pwc_moment(
+        db,
+        user.user_id,
+        str(request.get("session_id") or ""),
+        str(request.get("event_id") or ""),
+        str(request.get("action") or "skip"),
+    )
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
 
 
 @router.post("/position/read")
@@ -6764,6 +6878,7 @@ async def start_play_with_coach(
     guided_mode = request.get("guided_mode", True)  # True = arrows+ideas, False = test mode
     teaching_focus = request.get("teaching_focus", None)  # e.g. "tactics", "king_safety", "endgame_technique"
     training_focus_cognitive_gap = request.get("training_focus_cognitive_gap", None)  # Active training plan's cognitive gap
+    geometry_focus_requested = request.get("geometry_focus", None)
 
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -6839,6 +6954,42 @@ async def start_play_with_coach(
             teaching_focus = (
                 canonical_primary.get("topic_key") if canonical_primary else None
             )
+
+        # A geometry focus is explicit: it comes from the completed lesson's
+        # "Practice in Play with Coach" action. Validate the independent lesson
+        # gate, then place its plain instruction in the one existing goal slot.
+        geometry_focus_module = None
+        if (
+            geometry_focus_requested
+            and os.environ.get("PWC_BOARD_GEOMETRY", "false").lower() == "true"
+        ):
+            try:
+                from services.board_geometry_service import (
+                    eligible_modules,
+                    focus_instruction,
+                )
+                learned_geometry = await eligible_modules(db, user.user_id)
+                if geometry_focus_requested in learned_geometry:
+                    geometry_focus_module = geometry_focus_requested
+                    geometry_goal = {
+                        "text": focus_instruction(geometry_focus_module),
+                        "focus_area": geometry_focus_module,
+                        "source": "completed_geometry_lesson",
+                        "confidence": "independent_check_passed",
+                    }
+                    session.session_goal = geometry_goal
+                    await db.coach_sessions.update_one(
+                        {"session_id": session.session_id},
+                        {"$set": {
+                            "geometry_focus_module": geometry_focus_module,
+                            "geometry_focus_verified": True,
+                            "session_goal": geometry_goal,
+                        }},
+                    )
+            except Exception as _geometry_focus_error:
+                logger.warning(
+                    f"geometry focus setup failed (non-fatal): {_geometry_focus_error}"
+                )
 
         # Store opening preference and activate opening teaching if selected
         logger.info(f"[COACH-START] opening_key={opening_key}, opening_name={opening_name}")

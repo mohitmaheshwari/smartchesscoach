@@ -81,6 +81,7 @@ const CoachPlay = ({ user }) => {
   // Read opening and focus from URL query params
   const openingFromUrl = searchParams.get("opening");
   const focusFromUrl = searchParams.get("focus");
+  const geometryFocusFromUrl = searchParams.get("geometry_focus");
   // Deep-link from the Lab "Practice the <trap>" CTA — auto-launch that trap lesson.
   const trapFromUrl = searchParams.get("trap");
 
@@ -466,6 +467,7 @@ const CoachPlay = ({ user }) => {
   // higher in this function listed v5Coaching as a dep, which threw
   // 'Cannot access yn before initialization' under Vite/Rollup minification.
   const [v5Coaching, setV5Coaching] = useState(null);
+  const [geometryMoment, setGeometryMoment] = useState(null);
 
   // Client-side Stockfish (WASM) — computes the eval facts locally so PWC captions
   // route through the same central door as review with no server Stockfish call.
@@ -1445,6 +1447,9 @@ const CoachPlay = ({ user }) => {
         requestBody.training_focus_cognitive_gap = trainingFocusCognitivGap;
         console.log("[CoachPlay] Training focus cognitive gap:", trainingFocusCognitivGap);
       }
+      if (geometryFocusFromUrl) {
+        requestBody.geometry_focus = geometryFocusFromUrl;
+      }
       
       // If in practice mode, use custom starting position
       if (practiceMode && practicePosition?.fen) {
@@ -1968,6 +1973,11 @@ const CoachPlay = ({ user }) => {
         console.log("[V2-COACHING] behavioral:", data.behavioral_coaching ? "YES" : "NO");
         console.log("[V2-COACHING] pre_move_trap:", data.pre_move_trap ? "YES" : "NO");
 
+        if (phase !== "user_move" && data.geometry_moment) {
+          setGeometryMoment(data.geometry_moment);
+          setCoachMoveExplanation(null);
+        }
+
         setInteractiveCoaching(prev => ({
           ...(prev || {}),
           userMoveCoaching: data.user_move_coaching || null,
@@ -1997,16 +2007,14 @@ const CoachPlay = ({ user }) => {
         // let me play" click. (Mohit 2026-07-07 — the popups stopped the game.)
 
         // Update CommentaryPanel with v2 coach explanation (replaces generic text)
-        if (data.coach_move_coaching?.explanation) {
-          setCoachMoveExplanation(data.coach_move_coaching.explanation);
-        }
+        setCoachMoveExplanation(
+          data.coach_move_coaching?.explanation || null
+        );
       } else {
         console.log("[V2-FLOW] interactive-feedback response NOT OK:", response.status);
       }
     } catch (error) {
       console.error("Error fetching interactive coaching:", error);
-    } finally {
-      setLoadingFeedback(false);
     }
   };
 
@@ -2316,11 +2324,27 @@ const CoachPlay = ({ user }) => {
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    // Playing the next move is the same learner choice as "Continue playing".
+    // Persist that skip without delaying the move or mounting any placeholder.
+    if (geometryMoment?.event_id && session?.session_id && !geometryMoment.revealed) {
+      fetch(`${API}/coach/play/geometry-moment/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: session.session_id,
+          event_id: geometryMoment.event_id,
+          action: "skip",
+        }),
+      }).catch(() => {});
+    }
+
     const sessionId = session?.session_id;
     if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
     const ownsSession = () => currentSessionIdRef.current === sessionId;
     // IMMEDIATELY clear all coaching state for clean transition
     setV5Coaching(null);
+    setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setCurrentInsight(null);
@@ -2850,12 +2874,12 @@ const CoachPlay = ({ user }) => {
     
     // Clear coaching state for clean transition
     setV5Coaching(null);
+    setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setCurrentInsight(null);
     setConsequenceFeedback(null);
     setIsCoachThinking(true);
-    setLoadingFeedback(true);
 
     try {
       // Confirm endpoint processes the move AND triggers coach response
@@ -3735,6 +3759,14 @@ const CoachPlay = ({ user }) => {
           onShowArrow={setCoachArrows}
           preMoveTrap={preMoveTrap}
           interactiveCoaching={interactiveCoaching}
+          geometryMoment={geometryMoment}
+          onGeometryReveal={(moment) => {
+            setCoachArrows((moment.arrows || []).map(([from, to]) => [from, to, "green"]));
+          }}
+          onGeometryDismiss={() => {
+            setGeometryMoment(null);
+            setCoachArrows([]);
+          }}
           behavioralCoaching={behavioralCoaching}
           consequenceFeedback={consequenceFeedback}
           setConsequenceFeedback={setConsequenceFeedback}

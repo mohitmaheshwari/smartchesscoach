@@ -1177,3 +1177,112 @@ async def get_weekly_training_plan(user: User = Depends(get_current_user)):
         "weaknesses": weaknesses,
         "stats": weakness_stats
     }
+
+
+# ==================== BOARD GEOMETRY LEARNING ====================
+
+def _require_board_geometry(user: User):
+    from services.board_geometry_service import feature_enabled
+    if not feature_enabled(user):
+        raise HTTPException(status_code=404, detail="Board Geometry is not enabled")
+
+
+@router.get("/geometry/catalog")
+async def get_board_geometry_catalog(user: User = Depends(get_current_user)):
+    """Four deterministic board-vision modules inside canonical Training."""
+    _require_board_geometry(user)
+    from services.board_geometry_service import catalog
+    from services.concept_mastery_service import get_board_geometry_mastery_projection
+    payload = catalog()
+    mastery = await get_board_geometry_mastery_projection(db, user.user_id)
+    payload["mastery"] = mastery.get("modules", {})
+    payload["completed_modules"] = sorted(
+        module_id
+        for module_id, record in payload["mastery"].items()
+        if record.get("state") in {"remembered", "proven_in_games"}
+    )
+    return payload
+
+
+@router.post("/geometry/start")
+async def start_board_geometry_lesson(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    _require_board_geometry(user)
+    from services.teaching_engine import start_lesson
+    module_id = str(request.get("module_id") or "")
+    mode = str(request.get("mode") or "learning")
+    if mode not in {"learning", "delayed"}:
+        raise HTTPException(status_code=400, detail="mode must be learning or delayed")
+    try:
+        result = await start_lesson(
+            db,
+            f"geometry_{uuid.uuid4().hex}",
+            user.user_id,
+            "board_geometry",
+            {
+                "module_id": module_id,
+                "mode": mode,
+                "admin_preview": bool(request.get("admin_preview")),
+            },
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Geometry module not found")
+    if result.get("error"):
+        raise HTTPException(status_code=409, detail=result)
+    return result
+
+
+@router.get("/geometry/session/{session_id}")
+async def get_board_geometry_session(
+    session_id: str,
+    user: User = Depends(get_current_user),
+):
+    _require_board_geometry(user)
+    from services.board_geometry_service import get_session
+    result = await get_session(db, user.user_id, session_id)
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@router.post("/geometry/action")
+async def act_on_board_geometry_lesson(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    _require_board_geometry(user)
+    from services.teaching_engine import process_lesson_action
+    session_id = str(request.get("session_id") or "")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    response = request.get("response") or {}
+    result = await process_lesson_action(
+        db,
+        session_id,
+        user.user_id,
+        response,
+        interaction_id=request.get("interaction_id"),
+    )
+    if result.get("error"):
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@router.post("/geometry/pause")
+async def pause_board_geometry_lesson(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    _require_board_geometry(user)
+    from services.teaching_engine import exit_lesson
+    session_id = str(request.get("session_id") or "")
+    owned = await db.learning_sessions.find_one({
+        "session_id": session_id,
+        "user_id": user.user_id,
+        "lesson_type": "board_geometry",
+    }, {"_id": 1})
+    if not owned:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return await exit_lesson(db, session_id, "pause")
