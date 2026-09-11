@@ -31,6 +31,7 @@ _ENDGAME_TREE = None
 
 PIC_LESSON_TYPE = "pic_piece_safety"
 PIC_CONTENT_VERSION = 1
+BOARD_GEOMETRY_LESSON_TYPE = "board_geometry"
 
 def _load_endgame_tree() -> Dict:
     global _ENDGAME_TREE
@@ -635,6 +636,16 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
         return await start_pic_piece_safety_lesson(
             db, session_id, user_id, params
         )
+    elif lesson_type == BOARD_GEOMETRY_LESSON_TYPE:
+        from services.board_geometry_service import start_lesson as start_geometry_lesson
+        return await start_geometry_lesson(
+            db,
+            user_id,
+            str(params.get("module_id") or ""),
+            mode=str(params.get("mode") or "learning"),
+            admin_preview=bool(params.get("admin_preview")),
+            session_id=session_id,
+        )
     elif lesson_type in ("learn_trap", "learn_main_line", "opening"):
         # Delegate to existing opening teaching. trap_key (when provided)
         # tells the lesson which specific trap to teach — without it the
@@ -645,6 +656,37 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
         return await start_opening_lesson(db, session_id, user_id, lesson_type, trap_key=trap_key)
     else:
         return {"error": f"Unknown lesson type: {lesson_type}"}
+
+
+async def process_lesson_action(
+    db,
+    session_id: str,
+    user_id: str,
+    response: Dict,
+    interaction_id: Optional[str] = None,
+) -> Dict:
+    """Process a non-move lesson interaction through the shared dispatcher."""
+    learning_session = await db.learning_sessions.find_one({
+        "session_id": session_id,
+        "user_id": user_id,
+    })
+    if not learning_session:
+        return {"error": "Session not found"}
+    if learning_session.get("lesson_type") == BOARD_GEOMETRY_LESSON_TYPE:
+        from services.board_geometry_service import process_action
+        return await process_action(
+            db,
+            user_id,
+            session_id,
+            response,
+            interaction_id=interaction_id,
+        )
+    move = response.get("move")
+    if move:
+        return await process_lesson_move(
+            db, session_id, str(move), interaction_id=interaction_id
+        )
+    return {"error": "This lesson expects a move"}
 
 
 async def process_lesson_move(
@@ -659,6 +701,15 @@ async def process_lesson_move(
         if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
             return await process_pic_piece_safety_move(
                 db, session_id, move, interaction_id=interaction_id
+            )
+        if learning_session and learning_session.get("lesson_type") == BOARD_GEOMETRY_LESSON_TYPE:
+            from services.board_geometry_service import process_action
+            return await process_action(
+                db,
+                learning_session.get("user_id", ""),
+                session_id,
+                {"action": "answer", "move": move},
+                interaction_id=interaction_id,
             )
         return {"error": "Session not found"}
 
@@ -681,6 +732,18 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
         learning_session = await db.learning_sessions.find_one(
             {"session_id": session_id}
         )
+        if learning_session and learning_session.get("lesson_type") == BOARD_GEOMETRY_LESSON_TYPE:
+            if choice in ("pause", "continue_later"):
+                from services.board_geometry_service import pause_lesson
+                return await pause_lesson(
+                    db, learning_session.get("user_id", ""), session_id
+                )
+            now = datetime.now(timezone.utc)
+            write = await db.learning_sessions.update_one(
+                {"_id": learning_session["_id"], "status": "active"},
+                {"$set": {"status": "exited", "updated_at": now}},
+            )
+            return {"success": bool(write.modified_count), "status": "exited"}
         if learning_session and learning_session.get("lesson_type") == PIC_LESSON_TYPE:
             now = datetime.now(timezone.utc)
             status = "paused" if choice in ("pause", "continue_later") else "exited"

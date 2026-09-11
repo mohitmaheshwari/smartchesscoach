@@ -32,6 +32,7 @@ import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import ActiveRecallContainer from "@/components/coach/ActiveRecallContainer";
 import LiveChecklist from "@/components/coach/LiveChecklist";
 import PunishmentPuzzleCard from "@/components/coach/PunishmentPuzzleCard";
+import GeometryMomentCard from "@/components/coach/GeometryMomentCard";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton, InlineFlag } from "@/components/shared/FlagMoveDialog";
@@ -459,7 +460,6 @@ const LegacyChatMessages = ({
   setInlineOpening,
   moveFeedback,
   setMoveFeedback,
-  loadingFeedback,
   gameOver,
 }) => (
   <div
@@ -489,15 +489,6 @@ const LegacyChatMessages = ({
       />
     )}
 
-    {loadingFeedback && (
-      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 animate-pulse">
-        <div className="flex items-center gap-2 text-sm text-primary">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span>Analyzing your move...</span>
-        </div>
-      </div>
-    )}
-
     {chatMessages.length === 0 && !moveFeedback && !gameOver && (
       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
         <div className="flex items-start gap-2">
@@ -514,7 +505,7 @@ const LegacyChatMessages = ({
       </div>
     )}
 
-    {chatMessages.map((msg, i) => (
+    {chatMessages.filter((msg) => msg.type !== "thinking").map((msg, i) => (
       <div
         key={i}
         className={`p-3 rounded-lg ${
@@ -953,7 +944,7 @@ const LegacyChatMessages = ({
         <div className="flex items-center gap-2">
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <span className="text-sm text-muted-foreground">
-            Coach is thinking...
+            Replying...
           </span>
         </div>
       </div>
@@ -986,11 +977,13 @@ const CoachPlaySidebar = ({
   onShowArrow,
   preMoveTrap,
   interactiveCoaching,
+  geometryMoment,
+  onGeometryReveal,
+  onGeometryDismiss,
   behavioralCoaching,
   consequenceFeedback,
   setConsequenceFeedback,
   isCoachThinking,
-  loadingFeedback,
   acknowledgedConcepts,
   activeTrapAlert,
   setActiveTrapAlert,
@@ -1223,6 +1216,25 @@ const CoachPlaySidebar = ({
               )}
             </AnimatePresence>
 
+            <AnimatePresence>
+              {geometryMoment && !guardianIntervention && (
+                <motion.div
+                  key={`geometry-${geometryMoment.event_id}`}
+                  variants={slideInRight}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <GeometryMomentCard
+                    moment={geometryMoment}
+                    sessionId={session?.session_id}
+                    onReveal={onGeometryReveal}
+                    onDismiss={onGeometryDismiss}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
                 From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
                 ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
@@ -1233,7 +1245,7 @@ const CoachPlaySidebar = ({
                 or when the user just answered (resolved). Quietly
                 no-ops when neither is set. */}
             <PunishmentPuzzleCard
-              puzzle={session?.active_puzzle || null}
+              puzzle={geometryMoment ? null : (session?.active_puzzle || null)}
               feedback={puzzleFeedback || null}
               flagCtx={{
                 source: "play_with_coach",
@@ -1244,30 +1256,8 @@ const CoachPlaySidebar = ({
               }}
             />
 
-            {/* Coach is thinking — shimmer placeholder while move feedback
-                is being generated (scope: PWC coach-message shimmer). */}
             <AnimatePresence>
-              {loadingFeedback && !gameOver && (
-                <motion.div
-                  key="coach-thinking-shimmer"
-                  variants={slideInRight}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="relative overflow-hidden rounded-xl border border-border bg-muted/20 px-4 py-3"
-                  data-testid="coach-thinking-shimmer"
-                >
-                  <p className="text-[12px] text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Coach is thinking…
-                  </p>
-                  <div className="absolute inset-0 animate-shimmer pointer-events-none" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-            {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
+            {!geometryMoment && interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
               // Single flag context for the whole Teaching Moment card.
               // Every coach-generated text block inside gets an InlineFlag
               // for tester feedback (per "consistent flag everywhere" goal).
@@ -1492,7 +1482,7 @@ const CoachPlaySidebar = ({
 
             {/* ═══ User's Move Feedback — slides in from the right ═══ */}
             <AnimatePresence>
-            {v5Coaching && !session?.curriculum_active && (
+            {v5Coaching && !geometryMoment && !session?.curriculum_active && (
               <motion.div
                 key={`v5-${v5Coaching.move_san || v5Coaching.concept_id || "card"}`}
                 variants={slideInRight}
@@ -1578,11 +1568,6 @@ const CoachPlaySidebar = ({
               </div>
               );
             })()}
-
-            {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
-            {v5Coaching?.checklist_snapshot && (
-              <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
-            )}
 
             {/* All old sections removed: trap opportunity, eval label,
                 position read, behavioral coaching — v2 handles everything */}
@@ -1797,6 +1782,19 @@ const CoachPlaySidebar = ({
         </div>
       )}
 
+      {session && gameOver && session.geometry_postgame_summary && (
+        <div className="px-4 pt-4">
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] px-4 py-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-700 dark:text-emerald-300 font-semibold mb-2">
+              Your geometry check
+            </p>
+            <p className="text-sm leading-relaxed">
+              {session.geometry_postgame_summary.message}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Export Session Button — for debugging */}
       {session && gameOver && (
         <div className="px-4 pt-3">
@@ -1864,7 +1862,6 @@ const CoachPlaySidebar = ({
             setInlineOpening={setInlineOpening}
             moveFeedback={moveFeedback}
             setMoveFeedback={setMoveFeedback}
-            loadingFeedback={loadingFeedback}
             gameOver={gameOver}
           />
 
@@ -2007,44 +2004,6 @@ const PreMoveFundamentals = () => {
           </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-
-// ─── Fundamentals Checklist ─────────────────────────────────────
-
-const FUNDAMENTAL_ICONS = {
-  check_opponents_move: { label: "Threats", icon: "👁" },
-  hanging_pieces: { label: "Hanging", icon: "🛡" },
-  king_safety: { label: "King", icon: "♔" },
-  calculate: { label: "Calculate", icon: "🧮" },
-  development: { label: "Develop", icon: "♞" },
-  center_control: { label: "Center", icon: "⊞" },
-  have_a_plan: { label: "Plan", icon: "🎯" },
-};
-
-const FundamentalsChecklist = ({ snapshot }) => {
-  if (!snapshot) return null;
-  const entries = Object.entries(snapshot);
-  return (
-    <div className="flex flex-wrap gap-1.5 px-1 py-2">
-      {entries.map(([key, passed]) => {
-        const info = FUNDAMENTAL_ICONS[key] || { label: key, icon: "?" };
-        return (
-          <span
-            key={key}
-            title={info.label}
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              passed
-                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                : "bg-red-50 text-red-600 border border-red-200 font-semibold"
-            }`}
-          >
-            {info.icon} {info.label}
-          </span>
-        );
-      })}
     </div>
   );
 };
