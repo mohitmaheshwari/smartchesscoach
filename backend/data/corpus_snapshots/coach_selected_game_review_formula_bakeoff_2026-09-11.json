@@ -1,0 +1,88 @@
+{
+  "snapshot_id": "coach_selected_game_review_formula_bakeoff_2026-09-11",
+  "schema_version": 2,
+  "generated_at": "2026-09-11",
+  "measurement": "Read-only production query through the deployed public Game Review projection under the current environment.",
+  "privacy": {
+    "aggregate_only": true,
+    "contains_user_ids": false,
+    "contains_game_ids": false,
+    "contains_emails": false,
+    "contains_fens": false,
+    "contains_moves": false,
+    "contains_credentials": false
+  },
+  "population": {
+    "users": 126,
+    "games": 15584,
+    "analyzed_games": 14905,
+    "reviewed_games": 9,
+    "stored_game_teaching_plans": 605,
+    "player_safe_eligible_games": 53,
+    "player_safe_eligible_users": 13,
+    "users_with_multiple_candidates": 9,
+    "candidate_count_distribution": {
+      "1": 4,
+      "2": 1,
+      "3": 2,
+      "4": 1,
+      "5": 2,
+      "8": 2,
+      "11": 1
+    }
+  },
+  "authorization_projection": {
+    "quality_v2_enabled": true,
+    "safe_plan_rows": 53,
+    "selected_chapters": 99,
+    "chapter_roles": {
+      "missed_opportunity": 99
+    },
+    "projected_event_authorization": {
+      "authorized_true": 168,
+      "authorized_false_or_missing": 0
+    },
+    "event_concept_supply": {
+      "calculation.verified_stored_line": 123,
+      "calculation.legal_material_loss": 42,
+      "piece_safety.simple_hang": 3
+    },
+    "note": "Event counts include all projected authorized events; selected chapter counts include only the plan chapters. Eligibility uses the public safe plan, never the raw stored plan."
+  },
+  "formula_metrics": {
+    "A_newest": {
+      "users": 13,
+      "focus_eligible_users": 3,
+      "focus_selected_users": 0,
+      "focus_selection_rate_when_available_pct": 0.0,
+      "mean_selected_chapters": 2.23
+    },
+    "B_focus_then_richness": {
+      "users": 13,
+      "focus_eligible_users": 3,
+      "focus_selected_users": 3,
+      "focus_selection_rate_when_available_pct": 100.0,
+      "mean_selected_chapters": 2.23
+    },
+    "C_richness_then_focus": {
+      "users": 13,
+      "focus_eligible_users": 3,
+      "focus_selected_users": 2,
+      "focus_selection_rate_when_available_pct": 66.7,
+      "mean_selected_chapters": 2.31
+    }
+  },
+  "locks": {
+    "selector_formula": "B_focus_then_richness",
+    "selector_order": [
+      "resume an existing started prescription",
+      "active-focus match",
+      "number of already-authorized plan chapters",
+      "game recency"
+    ],
+    "eligibility": "An unreviewed analyzed player-owned game whose stored GameTeachingPlan survives the current public projection and contains at least one selected chapter.",
+    "preview_cap": "Inherit the already-measured GameTeachingPlan cap; do not add a selector-specific cap.",
+    "dismissal": "No timed cooldown is introduced. A dismissed prescription stays excluded in V1; if the eligible pool is exhausted, return an honest empty state.",
+    "source_preference": "Not locked. All currently eligible games are imported games, so the corpus cannot discriminate an imported-versus-coach tie-breaker."
+  }
+}

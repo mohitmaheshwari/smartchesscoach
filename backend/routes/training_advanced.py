@@ -25,6 +25,18 @@ logger = logging.getLogger(__name__)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 
+class ReviewProgressRequest(BaseModel):
+    move_index: int
+
+
+async def _review_service_call(operation):
+    from services.coach_selected_review_service import ReviewPrescriptionError
+    try:
+        return await operation
+    except ReviewPrescriptionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 # =============================================================================
 # BEHAVIOR DIAGNOSIS ENGINE v4 — Production-ready
 # =============================================================================
@@ -1194,6 +1206,59 @@ def _describe_critical_moment(pattern, move_data):
     return descs.get(pattern, f"you played {move} instead of {best}")
 
 
+@router.get("/game-review/recommendation")
+async def get_game_review_recommendation(
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import get_recommendation
+
+    return await _review_service_call(
+        get_recommendation(db, user.user_id)
+    )
+
+
+@router.post("/game-review/recommendation/{prescription_id}/start")
+async def start_game_review_recommendation(
+    prescription_id: str,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import start_prescription
+
+    return await _review_service_call(
+        start_prescription(db, user.user_id, prescription_id)
+    )
+
+
+@router.post("/game-review/recommendation/{prescription_id}/progress")
+async def save_game_review_recommendation_progress(
+    prescription_id: str,
+    request: ReviewProgressRequest,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import save_progress
+
+    return await _review_service_call(
+        save_progress(
+            db,
+            user.user_id,
+            prescription_id,
+            request.move_index,
+        )
+    )
+
+
+@router.post("/game-review/recommendation/{prescription_id}/dismiss")
+async def dismiss_game_review_recommendation(
+    prescription_id: str,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import dismiss_prescription
+
+    return await _review_service_call(
+        dismiss_prescription(db, user.user_id, prescription_id)
+    )
+
+
 @router.get("/lab-coach-pick")
 async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     """
@@ -2006,6 +2071,20 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
         body = await request.json()
     except Exception:
         body = {}
+    prescription_result = None
+    prescription_id = str(body.get("prescription_id") or "").strip()
+    if prescription_id:
+        from services.coach_selected_review_service import (
+            complete_prescription,
+        )
+        prescription_result = await _review_service_call(
+            complete_prescription(
+                db,
+                user.user_id,
+                prescription_id,
+                game_id=game_id,
+            )
+        )
     attempts = await db.puzzle_attempts.find({
         "user_id": user.user_id,
         "puzzle_id": {"$regex": f"^{game_id}_m"},
@@ -2039,6 +2118,7 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
             },
         }}
     )
+    await db.coaching_cache.delete_one({"user_id": user.user_id})
 
     # 2. Get the lesson and coach summary for this game
     analysis = await db.game_analyses.find_one(
@@ -2056,15 +2136,34 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
     lesson = core_les.get("lesson") or coach_sum.get("key_observation") or ""
     lesson_label = core_les.get("short_label", "")
 
-    # 3. Find the next unreviewed game (next Coach's Pick)
-    next_game = await db.games.find_one(
-        {"user_id": user.user_id, "is_analyzed": True, "reviewed": {"$ne": True}, "game_id": {"$ne": game_id}},
-        {"_id": 0, "game_id": 1, "opponent_name": 1, "result": 1, "user_color": 1, "opening": 1},
-        sort=[("imported_at", -1)]
-    )
-
     next_rec = None
-    if next_game:
+    next_prescription = (
+        (prescription_result or {}).get("prescription")
+        if prescription_result
+        else None
+    )
+    if next_prescription:
+        next_game = next_prescription.get("game") or {}
+        next_rec = {
+            "game_id": next_game.get("game_id"),
+            "opponent": next_game.get("opponent", ""),
+            "result": str(next_game.get("result", ""))[:1].upper(),
+            "opening": next_game.get("opening", ""),
+            "review_url": next_prescription.get("review_url"),
+            "prescription_id": next_prescription.get("prescription_id"),
+        }
+    elif not prescription_id:
+        # Legacy path remains byte-for-byte compatible when the personal
+        # coaching journey is not active.
+        next_game = await db.games.find_one(
+            {"user_id": user.user_id, "is_analyzed": True, "reviewed": {"$ne": True}, "game_id": {"$ne": game_id}},
+            {"_id": 0, "game_id": 1, "opponent_name": 1, "result": 1, "user_color": 1, "opening": 1},
+            sort=[("imported_at", -1)]
+        )
+    else:
+        next_game = None
+
+    if next_game and not next_rec:
         uc = next_game.get("user_color", "white")
         res = next_game.get("result", "")
         won = (res == "1-0" and uc == "white") or (res == "0-1" and uc == "black")
@@ -2088,6 +2187,7 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
             "retention": "not_measured",
         },
         "next_game": next_rec,
+        "next_review": prescription_result,
     }
 
 

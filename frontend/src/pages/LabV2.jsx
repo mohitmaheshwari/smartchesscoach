@@ -187,7 +187,7 @@ const fenToPositionObject = (fen) => {
 };
 
 // Review completion overlay — shown after clicking "Done reviewing"
-const ReviewCompleteOverlay = ({ summary, nextGame, navigate }) => {
+const ReviewCompleteOverlay = ({ summary, nextGame, navigate, returnTo = "/lab" }) => {
   const { lesson_label, lesson, takeaway, concepts_learned, drills_solved } = summary || {};
   
   return (
@@ -250,7 +250,7 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate }) => {
         <div className="space-y-2.5">
           {nextGame ? (
             <button
-              onClick={() => navigate(`/game/${nextGame.game_id}`)}
+              onClick={() => navigate(nextGame.review_url || `/game/${nextGame.game_id}`)}
               className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               data-testid="review-next-game-btn"
             >
@@ -259,20 +259,20 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate }) => {
             </button>
           ) : (
             <button
-              onClick={() => navigate("/lab")}
+              onClick={() => navigate(returnTo)}
               className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity"
               data-testid="review-back-to-lab-btn"
             >
-              Back to Lab
+              {returnTo === "/games" ? "Back to Game Review" : "Back to Lab"}
             </button>
           )}
           
           <button
-            onClick={() => navigate("/lab")}
+            onClick={() => navigate(returnTo)}
             className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             data-testid="review-go-lab-btn"
           >
-            Go to Lab queue
+            {returnTo === "/games" ? "See my game library" : "Go to Lab queue"}
           </button>
         </div>
       </motion.div>
@@ -375,6 +375,8 @@ const LabV2 = ({ user }) => {
   // set currentMoveIndex.
   const [searchParams] = useSearchParams();
   const initialMoveParam = searchParams.get("move");
+  const prescriptionParam = searchParams.get("prescription");
+  const resumeParam = searchParams.get("resume");
   const [initialMoveHandled, setInitialMoveHandled] = useState(false);
   const [positionObject, setPositionObject] = useState(() => fenToPositionObject(START_FEN));
   const [boardOrientation, setBoardOrientation] = useState("white");
@@ -565,11 +567,17 @@ const LabV2 = ({ user }) => {
   // navigated manually.
   useEffect(() => {
     if (initialMoveHandled) return;
+    if (!moves || moves.length === 0) return;
     if (!initialMoveParam) {
+      const resumeIndex = parseInt(resumeParam, 10);
+      if (!isNaN(resumeIndex) && resumeIndex >= -1) {
+        setCurrentMoveIndex(
+          Math.max(-1, Math.min(resumeIndex, moves.length - 1))
+        );
+      }
       setInitialMoveHandled(true);
       return;
     }
-    if (!moves || moves.length === 0) return;
     const moveNum = parseInt(initialMoveParam, 10);
     if (isNaN(moveNum) || moveNum <= 0) {
       setInitialMoveHandled(true);
@@ -579,7 +587,36 @@ const LabV2 = ({ user }) => {
     const clamped = Math.max(0, Math.min(targetPly, moves.length - 1));
     setCurrentMoveIndex(clamped);
     setInitialMoveHandled(true);
-  }, [initialMoveParam, moves, userColor, initialMoveHandled]);
+  }, [
+    initialMoveParam,
+    resumeParam,
+    moves,
+    userColor,
+    initialMoveHandled,
+  ]);
+
+  // Keep a coach-selected review resumable across devices. This records only
+  // the last viewed ply; it never claims that the player learned the lesson.
+  useEffect(() => {
+    if (!prescriptionParam || !initialMoveHandled || reviewComplete) return;
+    const timer = window.setTimeout(() => {
+      fetch(
+        `${API}/game-review/recommendation/${prescriptionParam}/progress`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ move_index: currentMoveIndex }),
+        },
+      ).catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    prescriptionParam,
+    initialMoveHandled,
+    currentMoveIndex,
+    reviewComplete,
+  ]);
   
   // Update position when move index changes — always show AFTER the move
   useEffect(() => {
@@ -794,10 +831,24 @@ const LabV2 = ({ user }) => {
           tabs_visited: Array.from(tabsVisitedRef.current),
           moves_viewed: currentMoveIndex + 1,
           total_moves: moves.length,
+          prescription_id: prescriptionParam || undefined,
         }),
       });
       if (res.ok) {
         const data = await res.json();
+        if (prescriptionParam) {
+          track(ANALYTICS_EVENTS.GAME_REVIEW_PRESCRIPTION_COMPLETED, {
+            surface: "game_review",
+            state: "completed",
+          });
+          if (data?.next_game?.review_url) {
+            track(ANALYTICS_EVENTS.GAME_REVIEW_NEXT_PRESCRIPTION_SERVED, {
+              surface: "game_review",
+              state: data.next_game.state || "recommended",
+              chapter_count: data.next_game.chapters?.length || 0,
+            });
+          }
+        }
         setReviewSummary(data);
         setReviewComplete(true);
       } else {
@@ -1918,6 +1969,7 @@ const LabV2 = ({ user }) => {
             summary={reviewSummary.summary}
             nextGame={reviewSummary.next_game}
             navigate={navigate}
+            returnTo={prescriptionParam ? "/games" : "/lab"}
           />
         )}
       </div>
