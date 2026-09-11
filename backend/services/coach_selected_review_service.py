@@ -334,8 +334,20 @@ async def _load_candidates(
 
 
 async def _focus_key(db, user_id: str) -> str:
+    """The topic the player is working on, or "" when there isn't one.
+
+    user_active_focus holds strengths as well as weaknesses. Selecting on
+    status alone returned a STRENGTH for 39 of the 54 production users with an
+    active focus, and focus_match is the first sort key in rank_candidates --
+    so the coach would have picked a game, and explained why it mattered, on
+    the strength of something the player is already good at.
+
+    The filter is owned by focus_bridge, which owns this collection.
+    """
+    from services.focus_bridge import ACTIVE_WEAKNESS_FILTER
+
     focus = await db.user_active_focus.find_one(
-        {"user_id": user_id, "status": "active"},
+        {"user_id": user_id, **ACTIVE_WEAKNESS_FILTER},
         {
             "_id": 0,
             "topic_key": 1,

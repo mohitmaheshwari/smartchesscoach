@@ -27,6 +27,20 @@ from services.destination_safety_detector import (
 
 COLLECTION = "user_active_focus"
 
+# user_active_focus stores STRENGTHS alongside weaknesses, so every read that
+# means "what is this player working on" has to exclude them. Measured on
+# production 2026-09-11: of 54 users with an active focus, an unfiltered
+# find_one returns a strength for 39 of them (72%). Rows written before `type`
+# existed are weaknesses by construction, so they are kept.
+#
+# This filter was inlined in two places here and then copied a third time into
+# a new selector without the type clause at all. It is a constant now: read it
+# from this module rather than restating it.
+ACTIVE_WEAKNESS_FILTER = {
+    "status": "active",
+    "$or": [{"type": {"$exists": False}}, {"type": "weakness"}],
+}
+
 # Sprint 2 (docs/one_surviving_instruction_scope.md, Correction #7):
 # instruction_id/instruction_text/instruction_version may ONLY reach
 # admin/super_admin accounts while Experiment #1 (Universal Habit Coach,
@@ -325,14 +339,7 @@ async def get_pic_focus_projection(
         return None
     if focus is None:
         focus = await db[COLLECTION].find_one(
-            {
-                "user_id": user_id,
-                "status": "active",
-                "$or": [
-                    {"type": {"$exists": False}},
-                    {"type": "weakness"},
-                ],
-            },
+            {"user_id": user_id, **ACTIVE_WEAKNESS_FILTER},
             {"_id": 0},
         )
     if not focus or focus.get("topic_key") != "piece_safety":
@@ -574,8 +581,7 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
         }
     """
     focus = await db[COLLECTION].find_one(
-        {"user_id": user_id, "status": "active",
-         "$or": [{"type": {"$exists": False}}, {"type": "weakness"}]},
+        {"user_id": user_id, **ACTIVE_WEAKNESS_FILTER},
     )
     if not focus:
         return None
