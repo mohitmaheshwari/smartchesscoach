@@ -404,12 +404,24 @@ async def process_rows(
                         and rebuilt.get("verifier_version")
                         == DESTINATION_SAFETY_PROOF_VERSION
                     )
+                    quarantined = (
+                        rebuilt.get("status") == AdmissionStatus.QUARANTINE.value
+                    )
                     counts[(
                         collection,
                         "destination_v2_current" if current_pair
+                        else "destination_v2_quarantined" if quarantined
                         else "destination_v2_version_violation",
                     )] += 1
-                    strict_violations += int(not current_pair)
+                    # A quarantine verdict carries no playable answer and is
+                    # excluded from every pool whatever its versions say, so it
+                    # cannot be a v2 provenance violation. Counting it made the
+                    # gate permanently unpassable: one 2026-04-19 row
+                    # (63a10df2-..._m12) holds a position whose FEN does not
+                    # reconstruct, so it re-grades to quarantine every time and
+                    # can never acquire a v2 pair. Without this the re-grade can
+                    # never run at all.
+                    strict_violations += int(not current_pair and not quarantined)
                 else:
                     counts[(
                         collection,
