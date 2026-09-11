@@ -4958,6 +4958,23 @@ def build_move_teaching_decision(
     # Preserve the verified board explanation before any player-memory
     # framing.  Stage 4 keeps these as separate typed fields even when the
     # visible renderer joins them into one natural coaching paragraph.
+    #
+    # The unearned-verdict softener (v142) used to run only at the composition
+    # boundary further down, which left two holes. The board explanation was
+    # snapshotted here, BEFORE softening, so the two surfaces disagreed -- the
+    # caption said "f3 is playable" while the explanation still said "f3 is a
+    # mistake" -- and the explanation is exactly what the caption falls back to
+    # when the personalized text fails verification, so a failure shipped the
+    # verdict the softener had just refused. Worse, the personalized path
+    # composes its caption FROM this snapshot, and the composed text is long
+    # enough that the softener's template-shape guard then declines to touch
+    # it: prefixing a sentence about the player made an unearned verdict
+    # permanent. Soften once, here, before anything is built on top of it.
+    caption_payload["caption"] = _soften_verdict_without_evidence(
+        _repair_dash_before_sentence((caption_payload.get("caption") or "").strip()),
+        mover_is_user=bool(inputs.mover_is_user),
+        cp_loss=inputs.cp_loss or 0,
+    )
     _board_explanation = (caption_payload.get("caption") or "").strip()
     _player_connection = ""
     _personal_evidence = None

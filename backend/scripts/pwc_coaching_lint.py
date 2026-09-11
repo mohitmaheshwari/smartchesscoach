@@ -21,10 +21,14 @@ Passes:
 Usage:  docker exec -i chess-coach-backend python -m scripts.pwc_coaching_lint
 Exit 0 = clean, 1 = defects.
 """
+import os
 import re
 import sys
 
-sys.path.insert(0, "/app/backend")
+# Resolve the backend root from this file so the lint runs in a checkout as
+# well as in the container, where it used to be pinned to /app/backend.
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BACKEND_ROOT)
 
 BANNED = [
     "zwischenzug", "prophylaxis", "zugzwang", "luft", "outpost",
@@ -108,7 +112,7 @@ def run():
     # ── Pass 2: coach-move R17 template strings (static) ────────────────
     print("\n=== Pass 2: coach-move R17 templates ===")
     import json, os
-    r17_path = os.path.join("/app/backend", "data", "captions", "R17_coach_move.json")
+    r17_path = os.path.join(BACKEND_ROOT, "data", "captions", "R17_coach_move.json")
     cfg = json.load(open(r17_path, encoding="utf-8"))
     n = 0
     for vname, body in (cfg.get("variants") or {}).items():
@@ -141,6 +145,44 @@ def run():
         for fld in ("explanation", "plan", "teaching_point", "hint_for_user"):
             lint(f"sel/{san}/{fld}", getattr(ce, fld, None), is_pawn=is_pawn); n += 1
     print(f"  rendered+linted {len(corpus)} coach moves x4 fields")
+
+    # ── Pass 3b: user-mistake R18 template strings (static) ──────────
+    # R18 is the Socratic surface: it is what asks the player a question
+    # instead of announcing an answer. Every variant shipped question and hint
+    # as empty strings until 2026-09-11, which is precisely why this pass did
+    # not exist -- there was nothing to lint. Now there is, and an unauthored
+    # variant is itself a defect: a card that states a problem and asks
+    # nothing has stopped coaching halfway.
+    print("\n=== Pass 3b: user-mistake R18 templates ===")
+    r18_path = os.path.join(BACKEND_ROOT, "data", "captions",
+                            "R18_socratic_user_mistake.json")
+    cfg18 = json.load(open(r18_path, encoding="utf-8"))
+    n = 0
+    unauthored = []
+    for vname, body in (cfg18.get("variants") or {}).items():
+        if not isinstance(body, dict):
+            continue
+        for fld in ("narrative", "plan", "question", "hint"):
+            value = body.get(fld)
+            lint(f"r18/{vname}/{fld}", value); n += 1
+            if fld in ("question", "hint") and not str(value or "").strip():
+                unauthored.append(f"{vname}.{fld}")
+        # A question that does not end in a question mark is a statement
+        # wearing a question's name.
+        q = str(body.get("question") or "").strip()
+        if q and not q.endswith("?"):
+            flags.append({"type": "question_without_a_question_mark",
+                          "where": f"r18/{vname}/question",
+                          "detail": "a Socratic prompt that does not ask "
+                                    "anything is a statement in disguise",
+                          "text": q})
+    for missing in unauthored:
+        flags.append({"type": "unauthored_socratic_field",
+                      "where": f"r18/{missing}",
+                      "detail": "shipped empty; a card that names the problem "
+                                "and asks nothing stops coaching halfway",
+                      "text": ""})
+    print(f"  linted {n} R18 template fields")
 
     # ── Pass 4: progress card labels (improvement_label, all keys) ──────
     print("\n=== Pass 4: progress-card labels (every fundamental/gap key) ===")

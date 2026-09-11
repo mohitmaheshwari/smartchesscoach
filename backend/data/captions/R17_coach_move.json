@@ -182,109 +182,109 @@
       "explanation": "{played_san} — your {captured_piece_type} on {target_square} was undefended.",
       "plan": "",
       "teaching_point": "Count attackers vs defenders on every piece before you move.",
-      "hint_for_user": ""
+      "hint_for_user": "Now check the rest of your board — is another piece of yours sitting on a square nothing defends?"
     },
     "coach_overreach": {
       "explanation": "{played_san} — but the piece it just moved can be taken. Look for the capture.",
       "plan": "",
       "teaching_point": "When a piece lands with a threat, first check it's safe itself — a fork only works if the forking piece can't simply be captured.",
-      "hint_for_user": ""
+      "hint_for_user": "Find the capture. Which of your pieces reaches {target_square}?"
     },
     "coach_capture_trade": {
       "explanation": "{played_san} — trading the {moving_piece_type} for your {captured_piece_type}.",
       "plan": "",
       "teaching_point": "Don't trade for the sake of trading — trade when it improves your structure or activity.",
-      "hint_for_user": ""
+      "hint_for_user": "Count what each side gave up on {target_square}. Did that trade leave you better or worse?"
     },
     "coach_creates_fork": {
       "explanation": "{played_san} — this piece is now attacking two of your pieces at once.",
       "plan": "You can only save one. Pick the more valuable target — accept losing the other or find a counter-threat.",
       "teaching_point": "Double attacks (forks) win material because the opponent can't save everything in one move.",
-      "hint_for_user": ""
+      "hint_for_user": "You cannot save both. Which is worth more — and do you have a check or a capture that changes the picture?"
     },
     "coach_gives_check": {
       "explanation": "{played_san} — check.",
       "plan": "Forced moves first: address the check before considering anything else.",
       "teaching_point": "Checks are the most forcing move in chess. Always answer a check before your own plans.",
-      "hint_for_user": ""
+      "hint_for_user": "Three ways out of a check: move the king, block the line, or take the checking piece. Which do you have here?"
     },
     "coach_threatens_hanging": {
       "explanation": "{played_san} — one of your pieces is now undefended.",
       "plan": "",
       "teaching_point": "The single biggest habit improving players develop: pause after each opponent move and re-scan the board.",
-      "hint_for_user": ""
+      "hint_for_user": "Find the piece of yours that nothing is guarding, then decide: move it, defend it, or make a bigger threat."
     },
     "coach_threat_undefended": {
       "explanation": "{played_san} attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}, and it has no defender.",
       "plan": "",
       "teaching_point": "The #1 habit of improving players: check what changed after the opponent's move.",
-      "hint_for_user": ""
+      "hint_for_user": "Your {coach_attack_first_target_piece} on {coach_attack_first_target_square} has no defender. Move it, guard it, or find a threat of your own — which is best here?"
     },
     "coach_threat_specific": {
       "explanation": "{played_san} attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}.",
       "plan": "When a piece is attacked, the three responses are: defend, move, or counter-threat.",
       "teaching_point": "Always identify what each opponent move attacks before choosing your reply.",
-      "hint_for_user": ""
+      "hint_for_user": "Defend, move, or counter-threat — which of the three fits your {coach_attack_first_target_piece} on {coach_attack_first_target_square}?"
     },
     "coach_threat_general": {
       "explanation": "{played_san} — the coach improves its position.",
       "plan": "",
       "teaching_point": "After the opponent moves, the position has changed — a quick re-scan keeps you from missing what their move did.",
-      "hint_for_user": ""
+      "hint_for_user": "Nothing of yours is attacked. So which of your pieces is doing the least right now?"
     },
     "coach_retreat": {
       "explanation": "{played_san} — the coach pulls its {coach_retreat_piece} back off {coach_retreat_from}; you were attacking it there.",
       "plan": "",
       "teaching_point": "When you attack a developed piece, it usually has to retreat to a worse square — that's a free gain in space and time for you.",
-      "hint_for_user": ""
+      "hint_for_user": "You just won a free move. Which of your pieces would use it best?"
     },
     "coach_castles_kingside": {
       "explanation": "O-O — castling kingside to get my king safe.",
       "plan": "Castle early too — a safe king lets you play more aggressively in the middlegame.",
       "teaching_point": "Castling does two things at once: it tucks your king behind pawns AND activates your rook.",
-      "hint_for_user": ""
+      "hint_for_user": "Is your own king safe yet? If not, what is stopping you from castling?"
     },
     "coach_castles_queenside": {
       "explanation": "O-O-O — castling queenside.",
       "plan": "Queenside castles trade a faster king-shelter for an immediately active rook on the d-file.",
       "teaching_point": "Queenside castling is sharper — the king is slightly more exposed but the rook hits the center faster.",
-      "hint_for_user": ""
+      "hint_for_user": "My rook now looks down the d-file. Which of your rooks has an open line?"
     },
     "coach_opening_develop_knight": {
       "explanation": "{played_san} — developing the knight toward the center.",
       "plan": "Knights belong on c3/f3/c6/f6 in most openings. They control more squares from there than from the edge.",
       "teaching_point": "Develop knights before bishops — knights need more moves to reach active squares.",
-      "hint_for_user": ""
+      "hint_for_user": "Which of your pieces is still on the square it started on?"
     },
     "coach_opening_develop_bishop": {
       "explanation": "{played_san} — developing the bishop to an active diagonal.",
       "plan": "Bishops need open diagonals. Place them where they see the whole board, not blocked by their own pawns.",
       "teaching_point": "Develop pieces toward the center, then castle, then connect rooks.",
-      "hint_for_user": ""
+      "hint_for_user": "Which diagonal is open for one of your own bishops?"
     },
     "coach_opening_central_pawn": {
       "explanation": "{played_san} — controlling the center with a pawn.",
       "plan": "Central pawns claim space and open lines for your pieces to develop into.",
       "teaching_point": "Control the center first, then develop pieces around your pawn structure.",
-      "hint_for_user": ""
+      "hint_for_user": "Who has more pieces aiming at the four middle squares right now?"
     },
     "coach_opening_generic": {
       "explanation": "{played_san} — following opening principles.",
       "plan": "Develop pieces, control the center, castle early — in that order.",
       "teaching_point": "The opening is about getting pieces active and the king safe, not about creating threats.",
-      "hint_for_user": ""
+      "hint_for_user": "Develop, centre, castle. Which of the three still needs work in your position?"
     },
     "coach_pawn_quiet": {
       "explanation": "{played_san} — a quiet pawn move, making a little room.",
       "plan": "Quiet pawn moves gain space or open a line — small gains that add up over time.",
       "teaching_point": "Not every move is a strike. A useful pawn push improves your position bit by bit — but it also leaves behind a square it can no longer guard.",
-      "hint_for_user": ""
+      "hint_for_user": "That pawn can no longer guard the square it left behind. Can you use it?"
     },
     "coach_quiet_repositioning": {
       "explanation": "{played_san} — improving the piece's position.",
       "plan": "Strong players make small improvements between bigger plans — every move should make some piece better.",
       "teaching_point": "Not every move needs to be a tactical strike — quiet positioning compounds into a winning position.",
-      "hint_for_user": ""
+      "hint_for_user": "No threats on the board. Which of your pieces is placed worst, and where would it rather be?"
     }
   }
 }

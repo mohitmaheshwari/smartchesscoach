@@ -1713,6 +1713,7 @@ const MoveCoachingCardV5 = ({
   onCancelCoachLine,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [socraticHintOpen, setSocraticHintOpen] = useState(false);
   if (!move) return null;
 
   const isUser = move.is_user_move;
@@ -1863,12 +1864,13 @@ const MoveCoachingCardV5 = ({
             rendered before 2026-08-01) ──────────────────────────
             caption_pipeline writes this for qualifying user mistakes and
             it flows onto `move` via the existing ...m spread above.
-            2026-08-03: gated on .narrative/.plan, not .question/.hint —
-            every variant in R18_socratic_user_mistake.json currently
-            ships question/hint as empty strings (never authored), so
-            gating on .question would never render. Renders whichever of
-            narrative/plan is actually populated; the click-to-reveal
-            question/hint UI can come back once that content exists. */}
+            2026-08-03: gated on .narrative/.plan because every variant in
+            R18_socratic_user_mistake.json shipped question/hint as empty
+            strings, so gating on .question would never have rendered.
+            2026-09-11: all 19 variants are authored, so the question and
+            the click-to-reveal hint are back. The gate stays on
+            narrative/plan — each field renders only when populated, so a
+            future unauthored variant degrades instead of blanking. */}
         {move.socratic_coaching && (move.socratic_coaching.narrative || move.socratic_coaching.plan) && (
           <div className="mt-3 pt-3 border-t border-violet-200/60 dark:border-violet-800/40" data-testid="socratic-coaching">
             <div className="flex items-start gap-2">
@@ -1883,6 +1885,35 @@ const MoveCoachingCardV5 = ({
                   <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5">
                     {move.socratic_coaching.plan}
                   </p>
+                )}
+                {move.socratic_coaching.question && (
+                  <p
+                    className="text-sm font-medium text-violet-900 dark:text-violet-200 leading-relaxed mt-2"
+                    data-testid="socratic-question"
+                  >
+                    {move.socratic_coaching.question}
+                  </p>
+                )}
+                {move.socratic_coaching.question && move.socratic_coaching.hint && (
+                  socraticHintOpen ? (
+                    <p
+                      className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5"
+                      data-testid="socratic-hint"
+                    >
+                      {move.socratic_coaching.hint}
+                    </p>
+                  ) : (
+                    /* Answer first, then check — revealing the hint with the
+                       question defeats the point of asking one. */
+                    <button
+                      type="button"
+                      onClick={() => setSocraticHintOpen(true)}
+                      className="text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline mt-1.5"
+                      data-testid="socratic-hint-reveal"
+                    >
+                      Show me how to work it out
+                    </button>
+                  )
                 )}
               </div>
             </div>

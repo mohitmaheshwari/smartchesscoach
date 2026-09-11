@@ -382,33 +382,61 @@ class TestComputeSeverityForMove:
 
     def test_forced_recapture_downgrades_user_facing_to_good(self):
         """Reviewer scenario: user recaptures on the square opp just
-        captured, only one legal capture exists → forced. Cap should
-        downgrade to 'good' and flag is_forced_recapture=True."""
-        # Position: white knight on c3 has captured a black bishop on d5.
-        # Black has only one piece (e6 pawn) that can recapture on d5.
-        fen = "rnbqkbnr/ppp1pppp/8/3N4/8/8/PPPP1PPP/R1BQKB1R b KQkq - 0 1"
+        captured, and it is the only legal capture on that square.
+
+        Two things were wrong with the older version of this test and both
+        are worth keeping written down.
+
+        Its position had no pawn on e6 at all (rank 7 read "ppp1pppp", so the
+        e-pawn was still on e7), which made the "recapture" e6d5 an illegal
+        move -- the assertion could never have described real behaviour.
+
+        It also asserted that a 400cp forced recapture is shown to the player
+        as "good". compute_severity_for_move deliberately refuses that now:
+        downgrading a genuine blunder set severity_override, which gated the
+        Socratic-coaching surface, and 0 of 12,328 analysed games carried
+        socratic_coaching as a result. A recapture being forced does not make
+        a 400cp loss not a mistake -- it changes whose fault it was, not what
+        happened. The downgrade applies only when the engine agrees the move
+        was not a real error, and that is what is asserted here."""
+        # Black to move. White's knight has just captured on d5. Black's d7
+        # pawn blocks the queen, so exd5 is the ONLY capture available.
+        fen = "rnbqkbnr/pppp1ppp/4p3/3N4/8/8/PPPP1PPP/R1BQKB1R b KQkq - 0 1"
         board = _make_board(fen)
         prev_move = chess.Move.from_uci("c3d5")
         played_move = chess.Move.from_uci("e6d5")  # pawn captures back
-        result = compute_severity_for_move(
-            cp_loss=400,  # canonical blunder, but forced recapture
-            opp_cp_loss=0,
-            is_user=True,
-            is_white=False,  # black is the user here
-            user_color="black",
-            mate_sentinel_eval_cp=None,
-            user_eval_before_white_pov=0,
-            user_eval_after_white_pov=0,
-            opp_eval_before=None,
-            opp_eval_after=None,
-            board_before=board,
-            played_move=played_move,
-            prev_move=prev_move,
-        )
-        assert result.is_forced_recapture is True
-        assert result.severity_user_facing == "good"
-        # Canonical tier still reflects raw cp_loss; only user_facing changes.
-        assert result.severity_canonical == "blunder"
+        assert played_move in board.legal_moves
+        assert [m for m in board.legal_moves
+                if m.to_square == chess.D5 and board.is_capture(m)] == [played_move]
+
+        def _severity(cp_loss):
+            return compute_severity_for_move(
+                cp_loss=cp_loss,
+                opp_cp_loss=0,
+                is_user=True,
+                is_white=False,  # black is the user here
+                user_color="black",
+                mate_sentinel_eval_cp=None,
+                user_eval_before_white_pov=0,
+                user_eval_after_white_pov=0,
+                opp_eval_before=None,
+                opp_eval_after=None,
+                board_before=board,
+                played_move=played_move,
+                prev_move=prev_move,
+            )
+
+        # Engine agrees it cost nothing -> forced, and shown as good.
+        cheap = _severity(0)
+        assert cheap.is_forced_recapture is True
+        assert cheap.severity_user_facing == "good"
+
+        # Engine says it cost 400cp -> the verdict stands. Being forced does
+        # not buy silence on a blunder.
+        costly = _severity(400)
+        assert costly.is_forced_recapture is False
+        assert costly.severity_canonical == "blunder"
+        assert costly.severity_user_facing == "blunder"
 
     def test_forced_recapture_not_triggered_when_multiple_captures_available(self):
         """When more than one piece can legally recapture, the move was
@@ -1093,11 +1121,16 @@ class TestCoachExtras:
     def test_capture_free_piece_populates_correctly(self):
         """Coach captures an undefended pawn — should fire the
         coach_capture_free variant with explanation referencing the
-        captured piece type + square."""
-        # Position: white knight on c3 can take a black pawn on d5
-        # which sits undefended. Position rigged so Nxd5 is a free
-        # piece.
-        fen = "rnbqkbnr/ppp1pppp/8/3p4/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1"
+        captured piece type + square.
+
+        The older position kept the black queen on d8, which defends d5, so
+        the pawn was not free at all and the pipeline correctly chose
+        coach_overreach ("the piece it just moved can be taken") instead.
+        The queen is removed here so the position matches what the test
+        claims to be testing."""
+        # White knight on c3 takes a black pawn on d5 that genuinely has no
+        # defender.
+        fen = "rnb1kbnr/ppp1pppp/8/3p4/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1"
         d = self._build(
             fen_before=fen,
             played_san="Nxd5",
@@ -1119,8 +1152,10 @@ class TestCoachExtras:
         # check the substrings.
         assert "undefended" in extras.explanation.lower()
         assert "d5" in extras.explanation
-        assert extras.plan != ""
+        # coach_capture_free carries no plan by design -- the teaching sits in
+        # teaching_point and in the question put to the player.
         assert extras.teaching_point != ""
+        assert extras.hint_for_user != ""
         assert extras.v2_intent == "hanging_piece_punishment"
         assert extras.v2_label == "Free piece"
 
