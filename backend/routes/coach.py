@@ -980,9 +980,13 @@ async def get_game_decryption_v5(
                 try:
                     from services.candidate_caption_evidence import (
                         VISIBLE_FLAG as candidate_visible_flag,
-                        enabled as candidate_caption_enabled,
+                        candidate_experience_allowed,
                     )
-                    if not candidate_caption_enabled(candidate_visible_flag):
+                    # Kill switch AND per-account enrollment. The except below
+                    # already fails closed, and so does the resolver itself.
+                    if not await candidate_experience_allowed(
+                        db, user.user_id, candidate_visible_flag
+                    ):
                         personalized_move.pop("candidate_comparison", None)
                 except Exception:
                     # The feature is an additive teaching surface. A missing

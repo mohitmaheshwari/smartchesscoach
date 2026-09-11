@@ -1486,9 +1486,13 @@ def process_job(db, job):
                 from services.candidate_caption_evidence import (
                     ENRICHMENT_FLAG,
                     collect_candidate_evidence,
-                    enabled as candidate_feature_enabled,
+                    candidate_experience_allowed_sync,
                 )
-                if candidate_feature_enabled(ENRICHMENT_FLAG):
+                # The flag is a kill switch, not an audience. Background
+                # enrichment must resolve the SAME per-account eligibility the
+                # request-time routes use, or the worker would write candidate
+                # evidence for accounts that can never be shown it.
+                if candidate_experience_allowed_sync(db, user_id, ENRICHMENT_FLAG):
                     from stockfish_service import StockfishEngine
 
                     _candidate_limit = chess.engine.Limit(

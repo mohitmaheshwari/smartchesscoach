@@ -36,6 +36,10 @@ _ENDGAME_TREE = None
 
 PIC_LESSON_TYPE = "pic_piece_safety"
 PIC_CONTENT_VERSION = 1
+from services.candidate_caption_evidence import (  # noqa: E402
+    LESSON_FLAG,
+    candidate_experience_allowed,
+)
 PERSONALIZED_LESSON_TYPE = "personalized_curriculum"
 PERSONALIZED_SESSION_SCHEMA_VERSION = "personalized_learning_session.v1"
 
@@ -882,19 +886,25 @@ def _public_personalized_item(item: Optional[Mapping[str, Any]]):
 
 def _position_relative_reason_enabled(
     item: Optional[Mapping[str, Any]],
+    eligible: bool = False,
 ) -> bool:
+    """`eligible` is the RESOLVED per-account decision, not a flag read.
+
+    These formatters are synchronous and have no db, so eligibility is
+    resolved once at the async entry point and passed down. The default is
+    False so any path that forgets to resolve it shows legacy behaviour
+    rather than leaking the candidate experience.
+    """
+    if not eligible:
+        return False
     if not item or not item.get("_diagnostic_quality_id"):
         return False
     try:
         from services.destination_safety_detector import FACT_VERSION, QUALITY_ID
         from services.detector_quality import QualitySurface, is_authorized
-        from services.candidate_caption_evidence import (
-            LESSON_FLAG,
-            enabled,
-        )
 
         return bool(
-            enabled(LESSON_FLAG)
+            True
             and item.get("_diagnostic_quality_id") == QUALITY_ID
             and item.get("_detector_version") == FACT_VERSION
             and is_authorized(QUALITY_ID, QualitySurface.PLAN)
@@ -907,6 +917,7 @@ def _public_reasoned_item(
     item: Optional[Mapping[str, Any]],
     *,
     blind: bool,
+    eligible: bool = False,
     awaiting_reason: bool = False,
     reason_question: Optional[Mapping[str, Any]] = None,
     move_san: Optional[str] = None,
@@ -921,7 +932,7 @@ def _public_reasoned_item(
     result = _public_personalized_item(item)
     if result is None:
         return None
-    if _position_relative_reason_enabled(item):
+    if _position_relative_reason_enabled(item, eligible):
         result.pop("reason_prompt", None)
         result.pop("reason_choices", None)
         result["position_relative_reasoning"] = True
@@ -1058,7 +1069,11 @@ def _public_blind_item(
     return result
 
 
-def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
+def _public_personalized_session(
+    session: Mapping[str, Any],
+    *,
+    eligible: bool = False,
+) -> Dict[str, Any]:
     descriptor = session.get("descriptor") or {}
     items = descriptor.get("items") or []
     index = int(session.get("current_index") or 0)
@@ -1066,7 +1081,7 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
     highest = str(session.get("highest_earned_state") or "learning")
     blind = session.get("delivery_mode") == "blind_diagnostic"
     position_relative = bool(
-        not blind and _position_relative_reason_enabled(current)
+        not blind and _position_relative_reason_enabled(current, eligible)
     )
     pending = (
         _blind_pending_event(session, str((current or {}).get("item_id") or ""))
@@ -1128,6 +1143,7 @@ def _public_personalized_session(session: Mapping[str, Any]) -> Dict[str, Any]:
         "current_item": _public_reasoned_item(
             current,
             blind=False,
+            eligible=eligible,
             awaiting_reason=bool(pending),
             reason_question=reason_question,
             move_san=reason_bundle.move_san if reason_bundle else None,
@@ -1187,7 +1203,8 @@ async def get_personalized_lesson(
     )
     if not session:
         return {"error": "Session not found"}
-    return _public_personalized_session(session)
+    _eligible = await candidate_experience_allowed(db, user_id, LESSON_FLAG)
+    return _public_personalized_session(session, eligible=_eligible)
 
 
 async def start_personalized_lesson(
@@ -1233,7 +1250,10 @@ async def start_personalized_lesson(
                 },
             )
             existing["status"] = "active"
-        return _public_personalized_session(existing)
+        return _public_personalized_session(
+            existing,
+            eligible=await candidate_experience_allowed(db, user_id, LESSON_FLAG),
+        )
 
     from services.personalized_lesson_adapter import (
         LessonUnavailable,
@@ -1308,7 +1328,10 @@ async def start_personalized_lesson(
         "updated_at": now,
     }
     await db.learning_sessions.insert_one(session)
-    return _public_personalized_session(session)
+    return _public_personalized_session(
+        session,
+        eligible=await candidate_experience_allowed(db, user_id, LESSON_FLAG),
+    )
 
 
 def _item_help_events(
@@ -1727,13 +1750,21 @@ async def process_personalized_move(
     })
     if not session:
         return {"error": "Session not found"}
+    # Resolve per-account eligibility ONCE, from the session's own owner,
+    # and hand that decision to every formatter below. No owner -> False.
+    eligible = await candidate_experience_allowed(
+        db, session.get("user_id"), LESSON_FLAG
+    )
     key = interaction_id or str(uuid.uuid4())
     for event in session.get("events") or []:
         if event.get("idempotency_key") == key:
             await _append_personalized_shadow_event(db, session, event)
             return event.get("result_payload") or {"duplicate": True}
     if session.get("status") == "completed":
-        return {**_public_personalized_session(session), "complete": True}
+        return {
+            **_public_personalized_session(session, eligible=eligible),
+            "complete": True,
+        }
     if session.get("status") != "active":
         return {"error": "Session is not active"}
 
@@ -1741,12 +1772,15 @@ async def process_personalized_move(
     items = descriptor.get("items") or []
     index = int(session.get("current_index") or 0)
     if index >= len(items):
-        return {**_public_personalized_session(session), "complete": True}
+        return {
+            **_public_personalized_session(session, eligible=eligible),
+            "complete": True,
+        }
     item = items[index]
 
     blind = session.get("delivery_mode") == "blind_diagnostic"
     position_relative = bool(
-        not blind and _position_relative_reason_enabled(item)
+        not blind and _position_relative_reason_enabled(item, eligible)
     )
     reasoned = blind or position_relative
     reason_components = ()
@@ -1779,6 +1813,7 @@ async def process_personalized_move(
                     "current_item": _public_reasoned_item(
                         item,
                         blind=blind,
+                        eligible=eligible,
                         awaiting_reason=True,
                     ),
                 }
@@ -1825,6 +1860,7 @@ async def process_personalized_move(
                     "current_item": _public_reasoned_item(
                         item,
                         blind=blind,
+                        eligible=eligible,
                     ),
                 }
                 now = datetime.now(timezone.utc)
@@ -1856,6 +1892,7 @@ async def process_personalized_move(
                 "current_item": _public_reasoned_item(
                     item,
                     blind=blind,
+                    eligible=eligible,
                     awaiting_reason=True,
                     reason_question=bundle.question(0),
                     move_san=bundle.move_san,
@@ -1920,6 +1957,7 @@ async def process_personalized_move(
                     "current_item": _public_reasoned_item(
                         item,
                         blind=blind,
+                        eligible=eligible,
                         awaiting_reason=True,
                         reason_question=next_question,
                         move_san=bundle.move_san,
@@ -2328,13 +2366,18 @@ async def continue_home_diagnostic(
     })
     if not session:
         return {"error": "Session not found"}
+    # Same per-account rule as every other surface, resolved once, BEFORE
+    # any return that hands a formatted session back to the caller.
+    eligible = await candidate_experience_allowed(
+        db, session.get("user_id"), LESSON_FLAG
+    )
     key = interaction_id or str(uuid.uuid4())
     for event in session.get("events") or []:
         if event.get("idempotency_key") == key:
             return event.get("result_payload") or {"duplicate": True}
     next_index = session.get("pending_next_index")
     if next_index is None:
-        return _public_personalized_session(session)
+        return _public_personalized_session(session, eligible=eligible)
     items = (session.get("descriptor") or {}).get("items") or []
     try:
         next_index = int(next_index)
@@ -2352,7 +2395,7 @@ async def continue_home_diagnostic(
         "display_stage": str(items[next_index].get("stage") or "transfer"),
         "updated_at": now,
     }
-    projected_payload = _public_personalized_session(projected_session)
+    projected_payload = _public_personalized_session(projected_session, eligible=eligible)
     event = {
         "event_id": str(uuid.uuid4()),
         "event_type": "position_summary_acknowledged",
@@ -2383,10 +2426,10 @@ async def continue_home_diagnostic(
         latest = await db.learning_sessions.find_one({"_id": session["_id"]})
         for prior_event in (latest or {}).get("events") or []:
             if prior_event.get("idempotency_key") == key:
-                return _public_personalized_session(latest)
+                return _public_personalized_session(latest, eligible=eligible)
         return {"error": "Session changed; reload and try again"}
     latest = await db.learning_sessions.find_one({"_id": session["_id"]})
-    return _public_personalized_session(latest)
+    return _public_personalized_session(latest, eligible=eligible)
 
 
 # ─────────────────────────────────────────────

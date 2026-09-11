@@ -76,7 +76,14 @@ def test_candidate_comparison_is_separate_from_legacy_and_kill_switched():
     assert "personalized_enriched_data.append(personalized_move)" in function
     assert 'enriched_move.pop("candidate_comparison", None)' in function
     assert 'personalized_move.pop("candidate_comparison", None)' in function
-    assert "candidate_caption_enabled(candidate_visible_flag)" in function
+    # The env flag is a kill switch, not an audience: os.getenv has no user
+    # dimension, so a flag-only gate would ship the unfinished experience to
+    # every account. The route must resolve per-account eligibility instead.
+    assert "candidate_experience_allowed(" in function
+    assert "user.user_id" in function
+    assert "candidate_caption_enabled(" not in function, (
+        "a bare flag read here would bypass the enrollment check"
+    )
     assert 'personalized_response["decryption_data"]' in function
 
 

@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Optional
 
 import chess
 
@@ -30,6 +30,74 @@ LESSON_FLAG = "CANDIDATE_LESSON_REASONS_ENABLED"
 
 def enabled(name: str) -> bool:
     return os.getenv(name, "false").lower().strip() in {"true", "1", "yes", "on"}
+
+
+# --- Per-account eligibility -------------------------------------------------
+#
+# The three environment flags above are GLOBAL KILL SWITCHES only. They are not
+# an audience: os.getenv has no user dimension, so a flag alone turns the
+# candidate experience on for everyone on the server.
+#
+# Audience is the existing personalized-review validation enrollment. Measured
+# on production 2026-09-11: exactly one account carries validation_compare,
+# while 2 super_admins, 1 admin and the 40-user Phase 8 cohort do not -- which
+# is why a role gate is NOT sufficient here.
+#
+# This is the ONE definition of eligibility. Every call site consumes it; no
+# service re-implements the rule.
+
+CANDIDATE_ENROLLMENT_FLAG = "personalized_game_review_coach"
+_USER_PROJECTION = {"_id": 0, "user_id": 1, f"feature_flags.{CANDIDATE_ENROLLMENT_FLAG}": 1}
+
+
+def user_document_is_enrolled(user_doc: Any) -> bool:
+    """True only for an account explicitly enrolled as a validation compare user.
+
+    Fails closed on a missing document, a missing flag block, or a flag block
+    that is not a mapping -- an absent answer is never an affirmative one.
+    """
+    if not isinstance(user_doc, Mapping):
+        return False
+    flags = (user_doc.get("feature_flags") or {})
+    if not isinstance(flags, Mapping):
+        return False
+    block = flags.get(CANDIDATE_ENROLLMENT_FLAG)
+    if not isinstance(block, Mapping):
+        return False
+    return block.get("enabled") is True and block.get("validation_compare") is True
+
+
+def _identity(user_id: Any) -> Optional[str]:
+    text = str(user_id or "").strip()
+    return text or None
+
+
+async def candidate_experience_allowed(db: Any, user_id: Any, flag: str) -> bool:
+    """Request-time gate: global switch AND this account's enrollment."""
+    if not enabled(flag):
+        return False
+    identity = _identity(user_id)
+    if identity is None or db is None:
+        return False
+    try:
+        doc = await db.users.find_one({"user_id": identity}, _USER_PROJECTION)
+    except Exception:
+        return False
+    return user_document_is_enrolled(doc)
+
+
+def candidate_experience_allowed_sync(db: Any, user_id: Any, flag: str) -> bool:
+    """Background-worker gate. Same rule, same predicate, synchronous I/O."""
+    if not enabled(flag):
+        return False
+    identity = _identity(user_id)
+    if identity is None or db is None:
+        return False
+    try:
+        doc = db.users.find_one({"user_id": identity}, _USER_PROJECTION)
+    except Exception:
+        return False
+    return user_document_is_enrolled(doc)
 
 
 def fingerprint(value: Any) -> str:

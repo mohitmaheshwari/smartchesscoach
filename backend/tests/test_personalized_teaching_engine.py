@@ -108,10 +108,35 @@ class _CoachSessions:
         return None
 
 
+class _Users:
+    """The candidate lesson surface is gated per ACCOUNT, not per flag.
+
+    A global env var has no user dimension, so eligibility additionally
+    requires the personalized-review validation enrollment. These tests
+    exercise the enrolled validator; `enrolled=False` gives an ordinary
+    account, which must keep legacy behaviour even with the flag on.
+    """
+
+    def __init__(self, enrolled=True):
+        self.enrolled = enrolled
+
+    async def find_one(self, query, projection=None):
+        return {
+            "user_id": query.get("user_id"),
+            "feature_flags": {
+                "personalized_game_review_coach": {
+                    "enabled": True,
+                    "validation_compare": bool(self.enrolled),
+                }
+            },
+        }
+
+
 class _DB:
-    def __init__(self):
+    def __init__(self, enrolled=True):
         self.learning_sessions = _Collection()
         self.coach_sessions = _CoachSessions()
+        self.users = _Users(enrolled)
 
 
 def _descriptor():
@@ -648,6 +673,7 @@ def _position_relative_lesson_descriptor():
 
 
 def test_normal_lesson_asks_exact_questions_only_after_the_move(monkeypatch):
+    # Flag ON *and* the account enrolled -- both are required now.
     monkeypatch.setenv("CANDIDATE_LESSON_REASONS_ENABLED", "true")
 
     async def resolve(*args, **kwargs):
