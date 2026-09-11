@@ -1294,7 +1294,26 @@ def validate_personalized_lesson_descriptor(
                 )
             seen_positions.add(normalized_fen)
 
-        for field_name in ("prompt", "reason_prompt", "source", "source_ref"):
+        # An item may carry its reason question in one of two places, and the
+        # contract has to know both. The original shape ships the question and
+        # its choices inside the descriptor. An item that declares
+        # `server_staged_reasoning` instead keeps them server-side and stages
+        # the exact question for the move the player actually chose, which is
+        # what lets a lesson ask "What is Kc3 preparing?" rather than a generic
+        # question authored before the move was known. Requiring the
+        # descriptor-side fields of those items marked all 20 endgame lessons
+        # unpublishable.
+        #
+        # The guarantee the checks below exist to protect -- the player is
+        # never handed the answer, and grading is server-owned -- is unchanged:
+        # `has_private_answer` still runs for every item, and a staged item has
+        # strictly less in the payload, not more.
+        server_staged = item.get("server_staged_reasoning") is True
+
+        required_fields = ["prompt", "source", "source_ref"]
+        if not server_staged:
+            required_fields.insert(1, "reason_prompt")
+        for field_name in required_fields:
             if not str(item.get(field_name) or "").strip():
                 record.error(
                     "personalized.item_field_missing",
@@ -1316,17 +1335,30 @@ def validate_personalized_lesson_descriptor(
             and str(choice.get("label") or "").strip()
         }
         expected_reason = str(item.get("_expected_reason") or "").strip()
-        if len(choice_ids) < 2:
+        if not server_staged:
+            if len(choice_ids) < 2:
+                record.error(
+                    "personalized.reason_choices_missing",
+                    "At least two explained reason choices are required.",
+                    f"{location}.reason_choices",
+                )
+            if not expected_reason or expected_reason not in choice_ids:
+                record.error(
+                    "personalized.expected_reason_missing",
+                    "The private expected reason must match a visible choice.",
+                    f"{location}._expected_reason",
+                )
+        elif choice_ids or expected_reason:
+            # A staged item that also ships choices or the expected answer in
+            # the descriptor would put the answer in front of the player, which
+            # is the one thing this validator exists to stop.
             record.error(
-                "personalized.reason_choices_missing",
-                "At least two explained reason choices are required.",
+                "personalized.staged_reason_leaks_answer",
+                (
+                    "An item that stages its reason server-side must not also "
+                    "ship reason_choices or _expected_reason."
+                ),
                 f"{location}.reason_choices",
-            )
-        if not expected_reason or expected_reason not in choice_ids:
-            record.error(
-                "personalized.expected_reason_missing",
-                "The private expected reason must match a visible choice.",
-                f"{location}._expected_reason",
             )
 
         has_private_answer = bool(
