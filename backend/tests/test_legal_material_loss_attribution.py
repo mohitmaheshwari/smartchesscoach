@@ -116,3 +116,48 @@ def test_still_fires_when_the_best_move_adds_a_defender():
     assert defended is not None, "attributable card must still be produced"
     assert defended.affected.square == "d4"
     assert defended.best_move_purpose == "adds_defender"
+
+
+# --- mate reported as material -----------------------------------------------
+# Measured over 500 games (641 loose-piece cards rendered): 5 cards, 0.8%, had
+# a CHECKMATE as the punishment they were warning about. Rare, but the card is
+# wrong in the worst possible way -- it discusses a rook while the player is
+# being mated. Live examples: Ne2 answered by Qxe2# (cp_loss 8742), Rg7
+# answered by Qxg7# (cp_loss 8807), Rxe5 answered by Nxe5#.
+#
+# White to move. The rook on d1 is defended by the knight on e3. Nc4 abandons
+# that defence and Black answers Qxd1#: the king on g1 is boxed in by its own
+# f2/g2/h2 pawns and nothing can take or block. Ra1 is a real saving
+# alternative, so clause 2 passes and the old code produced a full card:
+#   "Nc4 left your rook on d1 available. Their queen on d8 could win it with
+#    Qxd1#. Nd5 would have kept the rook on d1."
+MATE_AS_MATERIAL_FEN = "3q3k/5ppp/8/8/8/4N3/5PPP/3R2K1 w - - 0 1"
+
+
+def test_abstains_when_the_punishment_is_checkmate():
+    cause = build_legal_material_loss_cause(
+        fen_before=MATE_AS_MATERIAL_FEN,
+        played_san="Nc4",
+        best_move_san="Ra1",
+        minimum_gain_cp=FLOOR,
+    )
+    assert cause is None, (
+        "Qxd1 is checkmate, so the lesson is the mate, not the rook. A "
+        "material card here talks about 500 centipawns while the player is "
+        f"being mated. Got: {cause}"
+    )
+
+
+def test_the_same_shape_still_fires_when_the_capture_is_not_mate():
+    # Control for the gate above: identical geometry, but White's h-pawn is on
+    # h3, so after Qxd1+ the king walks to h2. Qxd1 then simply wins the rook,
+    # the material card is the correct lesson, and it must still be produced.
+    cause = build_legal_material_loss_cause(
+        fen_before="3q3k/5ppp/8/8/8/4N2P/5PP1/3R2K1 w - - 0 1",
+        played_san="Nc4",
+        best_move_san="Ra1",
+        minimum_gain_cp=FLOOR,
+    )
+    assert cause is not None, "a genuine loose-rook card must survive the gate"
+    assert cause.affected.square == "d1"
+    assert cause.punishment_san == "Qxd1+"

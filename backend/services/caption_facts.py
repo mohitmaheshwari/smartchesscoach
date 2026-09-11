@@ -1625,6 +1625,16 @@ def build_legal_material_loss_cause(
         return None
     if reply not in after_played.legal_moves or not after_played.is_capture(reply):
         return None
+    # If the capture we are about to narrate is CHECKMATE, material is the
+    # wrong lesson entirely: the player is being mated and the card would
+    # discuss a rook. Measured over 500 games, 5 of 641 loose-piece cards had a
+    # mate as their punishment -- rare, but wrong in the worst way when it
+    # fires (e.g. "Ne2 ... Qxe2#" narrated as a lost knight at cp_loss 8742).
+    # Abstain so the mate-specific path owns the moment.
+    after_reply = after_played.copy(stack=False)
+    after_reply.push(reply)
+    if after_reply.is_checkmate():
+        return None
     attacker = after_played.piece_at(reply.from_square)
     if (
         target is None

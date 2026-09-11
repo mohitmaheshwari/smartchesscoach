@@ -80,6 +80,44 @@ logger = logging.getLogger(__name__)
 # Locked by the 2026-09-01 Quality V2 evidence packet. This is the same
 # legal-exchange floor used to measure 913 verified simple-hang causes.
 REVIEW_LEGAL_LOSS_FLOOR_CP = 150
+
+# --- gates on the loose-piece ("you left X available") card -------------------
+# Both numbers come from the 500-game distribution printed at the call site.
+#
+# LEGAL_LOSS_MIN_COST_CP: the move has to have cost something. Below 50cp the
+# engine considers the move essentially free, so blaming it for giving a piece
+# away contradicts the engine we are quoting. 63 of 641 cards (9.8%) sat here,
+# including a recapture at cp_loss 0 and "Rxf8 ... Kxf8" narrated as a rook
+# left available.
+#
+# This floor is deliberately FLAT rather than the rating-band inaccuracy floor
+# from rating_resolver. The bands are a volume control for subtle engine
+# preferences; a piece hanging for free is not subtle, and it is exactly what a
+# 700-rated player most needs to hear. Using the bands here removed 170 cards,
+# among them a genuine free knight at cp_loss 142 for a 988-rated player --
+# the wrong axis for this card type.
+LEGAL_LOSS_MIN_COST_CP = 50
+
+# LEGAL_LOSS_GAME_OVER_CP: once one side is up ~15 pawns or the score is a mate
+# sentinel, a card about a rook is noise -- the live examples were cards fired
+# at evals of +9880 and -9990. 200 or 600 would have been far too aggressive:
+# 223 of 641 cards (35%) are played when one side is already 600-1499 ahead,
+# and losing a rook while down 700 is still a real mistake worth teaching.
+LEGAL_LOSS_GAME_OVER_CP = 1500
+
+
+def _position_already_decided(eval_after_cp: Optional[int]) -> bool:
+    """True when the score after the move puts the game beyond material talk.
+
+    Fails OPEN (returns False) when the eval is missing or unusable, so a card
+    is never dropped for want of a number. That also covers the ~3.9% of stored
+    analyses whose eval_before/eval_after are in PAWNS rather than centipawns:
+    those read as tiny values, never trip this gate, and keep their card.
+    """
+    if not isinstance(eval_after_cp, (int, float)):
+        return False
+    return abs(float(eval_after_cp)) >= LEGAL_LOSS_GAME_OVER_CP
+
 _EXACT_ENDGAME_REVIEW_ENABLED = os.environ.get(
     "EXACT_ENDGAME_REVIEW_ENABLED", "false"
 ).strip().lower() in {"1", "true", "yes", "on"}
@@ -5386,11 +5424,35 @@ def build_move_teaching_decision(
             pv_after_best=tuple(inputs.pv_after_best or ()),
             cp_loss=int(inputs.cp_loss or 0),
         )
-        board_cause = build_legal_material_loss_cause(
-            fen_before=inputs.fen_before,
-            played_san=inputs.played_san,
-            best_move_san=inputs.best_move_san,
-            minimum_gain_cp=REVIEW_LEGAL_LOSS_FLOOR_CP,
+        # build_legal_material_loss_cause answers a board question -- "after
+        # this move, is something of mine worth >=150cp capturable for free?"
+        # -- and this path used the answer as a verdict on the move, with no
+        # other test at all. See the two gates below; both were chosen from
+        # the measured distribution of 641 cards over 500 analysed games, not
+        # from taste. Cross-tab (cost of the move x how decided the game
+        # already was, eval units normalised):
+        #
+        #   cp_loss     close   one better   decided 600+   over 1500+   row
+        #     <30           5           14             23            7    49
+        #     <50           0            7              3            4    14
+        #     <75           3           12             16            2    33
+        #    <100           2           15             16            0    33
+        #    <150          10           23             23            5    61
+        #    <300           8           53             65            0   126
+        #   >=300          47          159             77           42   325
+        _board_cause_allowed = (
+            int(inputs.cp_loss or 0) >= LEGAL_LOSS_MIN_COST_CP
+            and not _position_already_decided(inputs.eval_after_cp)
+        )
+        board_cause = (
+            build_legal_material_loss_cause(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                minimum_gain_cp=REVIEW_LEGAL_LOSS_FLOOR_CP,
+            )
+            if _board_cause_allowed
+            else None
         )
         if (
             exact_line_cause is not None
