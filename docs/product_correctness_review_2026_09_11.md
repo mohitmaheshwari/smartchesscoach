@@ -15,6 +15,7 @@ The scripts are in the repo so each number can be re-derived:
 | Did their opponents get worse? | `backend/scripts/opponent_blunder_pilot.py` |
 | Do players improve without us? | `backend/scripts/natural_drift_study.py` |
 | Are game dates usable? | `backend/scripts/normalize_game_dates.py` |
+| How far does the Socratic diagnosis reach? | `backend/scripts/socratic_diagnosis_reach.py` |
 
 ---
 
@@ -33,7 +34,7 @@ a real blunder.
 
 Over 500 analysed games it produced 641 such cards. Cross-tabbed by what the
 move actually cost against how decided the game already was (eval units
-normalised — see finding 5):
+normalised — see finding 6):
 
 ```
 cp_loss    close   one side better   decided 600-1499   over 1500+   row
@@ -107,7 +108,86 @@ unauthored field, or on a "question" that does not end in a question mark;
 verified by sabotaging two variants and watching it fail. Test:
 `backend/tests/test_socratic_surface_asks_a_question.py`.
 
-### 3. The caption and its explanation disagreed about whether the move was a mistake
+### 3. Eighty-six per cent of Socratic cards said the same generic thing
+
+**v153, live.**
+
+Authoring the questions raised the obvious next question: which variant is
+actually asking them? Classifying 8,405 stored Socratic cards back to their
+template:
+
+```
+generic variants               7,230   86.0%
+mistake_hanging                  423    5.0%
+blunder_hanging_with_capture     412    4.9%
+blunder_threat_fork              142    1.7%
+blunder_threat_mate              116    1.4%
+blunder_hanging_with_mate         81    1.0%
+blunder_threat_capture              1    0.0%
+```
+
+Eleven of the nineteen variants had never fired. Review derived
+`fundamental_violated` from exactly two board facts and fell to the generic
+variant for everything else — while every analysed move already carried the
+analyser's own `cognitive_gap`. Over 400 games, of the moves that reach this
+surface:
+
+```
+<none>               30.8%
+piece_safety         19.5%   -> hanging_pieces
+king_safety          15.1%   -> king_safety
+missed_tactic        12.8%   -> calculate
+opening_knowledge     9.0%   (not mapped)
+endgame_technique     6.8%   (not mapped)
+tactical_oversight    6.0%   -> calculate
+```
+
+The mapping is deliberately partial. `opening_knowledge` is **not** mapped to
+`development`: that variant says "you moved a developed piece instead of
+bringing a new one out", and leaving known theory does not establish that.
+`endgame_technique`, `pawn_structure`, `piece_activity` and `time_pressure`
+have no variant that says anything they establish. A wrong name is worse than
+no name.
+
+The first attempt at this barely moved — 86.0% to 83.1% — and the wiring was
+right while the ordering was wrong. The derivation proposes `hanging_pieces`
+whenever `pieces_now_undefended` is truthy, which is far more often than a
+piece genuinely hangs; the injector then refutes that label and set the
+fundamental to None, straight to generic, having never reached the gap. On
+396 real Socratic-eligible moves, 87 were being discarded at exactly that
+point (king_safety 44, missed_tactic 21, piece_safety 19, tactical_oversight
+3). The fallback now runs at the guard, where the board has just said what the
+move is *not*. If the gap agrees with the label the board refuted, the board
+wins.
+
+Measured on the same 396 moves, before and after:
+
+```
+                        before    after
+fundamental=None           187      119
+king_safety                  9       53
+calculate                    7       31
+hanging_pieces              21       21   (board-proved, unchanged)
+```
+
+Re-rendering 20 real games end to end: **generic 86.0% → 59.2%**, variants
+speaking 8 → 11, a question on 71 of 71 cards, zero leaks.
+
+Making eleven silent variants speak exposed a defect latent in all of them.
+Their narratives embedded `socratic_problem_facts`, inherited from
+`smart_coaching` as notes written *about* the student, so a card rendered as:
+
+> Your king position got weaker. Student's king is in danger
+
+— the internal note, shown to the player, restating the sentence before it.
+All seven narratives that embedded the joined string did nothing but repeat
+themselves, so the embedding is gone and the evidence strings are written in
+the voice we speak in. `pwc_coaching_lint` gained a *rendered* R18 pass (64
+fields across every severity × fundamental) that fails on third-person prose
+or an unrendered placeholder — the static pass could not have caught this,
+because statically the narrative is just a placeholder.
+
+### 4. The caption and its explanation disagreed about whether the move was a mistake
 
 **v151, live.**
 
@@ -124,7 +204,7 @@ declines to touch it. Prefixing a sentence about the player made an unearned
 verdict permanent. Softening now happens once, before anything is built on top
 of it — which is what `caption_pipeline`'s own docstring says it should do.
 
-### 4. Game chronology was decided by a field that stopped updating
+### 5. Game chronology was decided by a field that stopped updating
 
 **Migrated; 14,809 of 15,517 games rewritten.**
 
@@ -139,7 +219,7 @@ stale "60 most recent games."
 
 `services/game_dates.py` is the single parser. The migration converged: 14,809
 correct, 447 already fine, **261 with no parseable date at all** (see finding
-8). Every consumer was checked first for equality-on-a-bare-date-string; none
+9). Every consumer was checked first for equality-on-a-bare-date-string; none
 does, so widening the field to a full timestamp is safe for ordering and range
 queries.
 
@@ -149,7 +229,7 @@ queries.
 
 Ranked by what they cost a real user.
 
-### 5. Stored evaluations are in two different units, inside the same field
+### 6. Stored evaluations are in two different units, inside the same field
 
 3.9% of analyses (78 of 2,000) store `eval_before` / `eval_after` in **pawns**;
 the other 96.1% store centipawns. `cp_loss` is centipawns in both, so the two
@@ -168,7 +248,7 @@ not "the number is small"), correct it, then backfill the 3.9% by multiplying
 by 100. Do the deploy before the migration — writing normalised values under
 code that still expects pawns would invert the bug.
 
-### 6. Half of every game is never analysed
+### 7. Half of every game is never analysed
 
 3 of 14,839 stored analyses contain a single opponent move. We analyse the
 user's moves and discard the opponent's.
@@ -184,12 +264,12 @@ rose because their opponents played worse. Opponent *rating* is the only proxy
 available, and it cannot see a 1200 having a bad day.
 
 **The fix, and what not to do.** Do not backfill 14,839 games to answer the
-measurement question — the pilot already answered it (finding 10) and the
+measurement question — the pilot already answered it (finding 11) and the
 compute is better spent elsewhere. Do analyse both sides **going forward**, for
 the coaching category. The pilot script shows the shape; depth 12 (the
 codebase's `QUICK_DEPTH`) is adequate for a blunder rate.
 
-### 7. 13% of blunders carry no cognitive gap
+### 8. 13% of blunders carry no cognitive gap
 
 Over 2,000 analyses: 63,576 user moves, 8,658 blunders at 150cp or worse.
 7,534 (87.0%) have a `cognitive_gap`; **1,124 (13.0%) have none**. A blunder
@@ -203,7 +283,7 @@ genuinely unclassifiable. Build the detector only if the sample says the
 category exists — per the standing rule, verify the target exists before
 building the detector.
 
-### 8. 261 games have no usable date at all
+### 9. 261 games have no usable date at all
 
 Left behind by the migration. They cannot be ordered, so they are invisible to
 every before/after measurement and to "your recent games." 1.7% of the corpus.
@@ -212,7 +292,7 @@ every before/after measurement and to "your recent games." 1.7% of the corpus.
 directly; where the PGN has none either, fall back to the import timestamp and
 mark the row as approximate rather than leaving it unsortable.
 
-### 9. The material-claim verifier lets two classes through
+### 10. The material-claim verifier lets two classes through
 
 `narrator_claim_verifier._check_unsupported_material_loss` guards captions that
 say "costs you material" / "hands material away" / "loses material".
@@ -230,7 +310,7 @@ Measure first: count how many rendered captions carry the phrase and how many
 take each path, then choose. Not yet measured, so no threshold is proposed
 here.
 
-### 10. Rating change mostly cannot be attributed, and that is the finding
+### 11. Rating change mostly cannot be attributed, and that is the finding
 
 Across 18 users with 200+ analysed games each, split into halves:
 
@@ -256,7 +336,7 @@ rating user showed −21.5% blunders, a −165 user +16.0%.
 metric at this sample size. Blunder rate within a user, against their own
 baseline, is the measurable one.
 
-### 11. The evidence a coaching claim would need does not exist yet
+### 12. The evidence a coaching claim would need does not exist yet
 
 - `complete_coaching_journeys`: 113 documents, **1 distinct user**.
 - `MASTERY_STRICT_EVIDENCE` must stay off, and must **never** be gated on
@@ -288,7 +368,7 @@ written into the test:
   which defends d5, so the pawn was not free and `coach_overreach` was the
   correct variant.
 
-The caption suite is green: 455 passed, 0 failed. Separately, 53 API and
+The caption suite is green: 507 passed, 0 failed. Separately, 53 API and
 integration tests fail in a plain checkout because they need a live server and
 database; that is unchanged by this work and verified against the pre-change
 tree.
@@ -300,7 +380,7 @@ tree.
 - **Backfilling opponent analysis across 14,839 games.** The measurement
   question it would answer is already answered (finding 10). Analyse both
   sides going forward instead.
-- **Picking a threshold for the material-claim verifier** (finding 9). Not
+- **Picking a threshold for the material-claim verifier** (finding 10). Not
   measured yet, and a threshold chosen before the distribution is a guess.
 - **Fixing the 53 integration-test failures.** They need a running stack; that
   is an environment task, not a correctness one.
