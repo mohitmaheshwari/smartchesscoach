@@ -80,7 +80,7 @@ const resultLetter = (g) => {
 };
 
 const fmtDate = (g) => {
-  const d = g?.analyzed_at || g?.created_at || g?.date;
+  const d = g?.played_at || g?.analyzed_at || g?.created_at || g?.date;
   if (!d) return "";
   const ts = new Date(d);
   const diffH = (Date.now() - ts.getTime()) / 3600000;
@@ -126,6 +126,9 @@ const Dashboard = ({ user }) => {
   const [graduation, setGraduation] = useState(null);
   const [openingBenchmark, setOpeningBenchmark] = useState(null);
   const [openingFit, setOpeningFit] = useState(null);
+  const [reviewRecommendation, setReviewRecommendation] = useState(null);
+  const [reviewRecommendationLoading, setReviewRecommendationLoading] =
+    useState(true);
   // Session panel (Mirror window) — only loaded when ?session=... is in URL.
   const [mirrorSession, setMirrorSession] = useState(null);
   const recommendationShownRef = useRef(null);
@@ -146,6 +149,7 @@ const Dashboard = ({ user }) => {
     fetchGraduation();
     fetchOpeningBenchmark();
     fetchOpeningFit();
+    fetchReviewRecommendation();
     if (sessionParam) {
       fetchMirrorSession();
     }
@@ -172,6 +176,20 @@ const Dashboard = ({ user }) => {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviewRecommendation = async () => {
+    try {
+      const res = await fetch(`${API}/game-review/recommendation`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("recommendation unavailable");
+      setReviewRecommendation(await res.json());
+    } catch (_e) {
+      setReviewRecommendation({ load_failed: true });
+    } finally {
+      setReviewRecommendationLoading(false);
     }
   };
 
@@ -294,6 +312,12 @@ const Dashboard = ({ user }) => {
   const groupedGames = coaching?.grouped_games || {};
   const priorityGame = coaching?.priority_game;
   const activeFocus = coaching?.active_focus || null;
+  const coachSelectedReview =
+    reviewRecommendation?.enabled === true
+      ? reviewRecommendation?.prescription
+      : null;
+  const coachSelectedReviewFailed =
+    reviewRecommendation?.load_failed === true;
   const primaryProblem = topProblems[0] || null;
   const primaryGames = primaryProblem
     ? groupedGames[primaryProblem.category]?.games || []
@@ -303,7 +327,27 @@ const Dashboard = ({ user }) => {
   // Featured game for Coach's Pick hero — same logic as before
   let featuredGame = null;
   try {
-    if (priorityGame) {
+    if (coachSelectedReviewFailed) {
+      featuredGame = null;
+    } else if (coachSelectedReview) {
+      const chapter = coachSelectedReview.chapters?.[0] || {};
+      featuredGame = {
+        ...coachSelectedReview.game,
+        result:
+          coachSelectedReview.game?.result === "Won"
+            ? "W"
+            : coachSelectedReview.game?.result === "Lost"
+              ? "L"
+              : "D",
+        root_cause: coachSelectedReview.reason?.headline,
+        subline: coachSelectedReview.reason?.body,
+        coach_take: chapter.headline || chapter.explanation || "",
+        critical_move: chapter.move_number || null,
+        coach_selected: true,
+        prescription_id: coachSelectedReview.prescription_id,
+        review_url: coachSelectedReview.review_url,
+      };
+    } else if (priorityGame) {
       featuredGame = {
         ...priorityGame,
         critical_fen:
@@ -314,7 +358,11 @@ const Dashboard = ({ user }) => {
           priorityGame.critical_move || priorityGame.move_number || null,
       };
     }
-    if (!featuredGame?.critical_fen && unreviewed.length > 0) {
+    if (
+      !coachSelectedReviewFailed
+      && !featuredGame?.critical_fen
+      && unreviewed.length > 0
+    ) {
       featuredGame = unreviewed[0];
     }
     if (
@@ -328,6 +376,31 @@ const Dashboard = ({ user }) => {
   }
 
   const unreviewedCount = games.filter((g) => !g.reviewed).length;
+
+  const openFeaturedGame = async () => {
+    if (!featuredGame?.coach_selected) {
+      navigate(
+        `/lab/game/${featuredGame.game_id}${
+          featuredGame.critical_move
+            ? `?move=${featuredGame.critical_move}`
+            : ""
+        }`,
+      );
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${API}/game-review/recommendation/${featuredGame.prescription_id}/start`,
+        { method: "POST", credentials: "include" },
+      );
+      const payload = await res.json();
+      if (res.ok && payload?.prescription?.review_url) {
+        navigate(payload.prescription.review_url);
+      }
+    } catch (_e) {
+      // Keep the user on the page rather than opening an untracked review.
+    }
+  };
 
   // Archive — apply filter
   const filteredGames = useMemo(() => {
@@ -369,7 +442,7 @@ const Dashboard = ({ user }) => {
   ];
 
   // ─── Loading / empty ─────────────────────────────────────────────────
-  if (loading) {
+  if (loading || reviewRecommendationLoading) {
     // Skeleton shimmer while loading (scope §Lab) — page-shaped rows
     // instead of a spinner so the layout doesn't jump when data lands.
     return (
@@ -828,17 +901,7 @@ const Dashboard = ({ user }) => {
                   {/* CTA row */}
                   <div className="mt-8 md:mt-9 flex flex-wrap items-center gap-5">
                     <button
-                      onClick={() =>
-                        navigate(
-                          // 2026-05-19: route to interactive LabV2 surface,
-                          // not the static legacy GameAnalysis page.
-                          `/lab/game/${featuredGame.game_id}${
-                            featuredGame.critical_move
-                              ? `?move=${featuredGame.critical_move}`
-                              : ""
-                          }`
-                        )
-                      }
+                      onClick={openFeaturedGame}
                       className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                     >
                       Review this game

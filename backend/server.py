@@ -283,6 +283,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error initializing Game Review validation indexes: {e}")
 
+    try:
+        from services.coach_selected_review_service import (
+            ensure_review_prescription_indexes,
+        )
+        await ensure_review_prescription_indexes(db)
+    except Exception as e:
+        logger.error(f"Error initializing Game Review prescription indexes: {e}")
+
     _background_sync_task = asyncio.create_task(background_sync_loop())
     logger.info("Background sync scheduler started (6 hour interval)")
 
