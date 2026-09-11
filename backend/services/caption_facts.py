@@ -8908,6 +8908,73 @@ _REC_PRINCIPLE_PHRASE = {
 }
 
 
+# Below this static-exchange value on the target square, a capture is not a
+# "trade" in any sense the player would recognise -- it loses material there.
+# Measured over 500 analysed games: of 1,376 recommended captures that get a
+# why, 506 were described as a trade, and 128 of those (25.3%) had a SEE at or
+# below -50, 110 of them below -100. One of them was the flagged
+# "Play Nxb5 - it trades his pawn", where the SEE is -200.
+TRADE_FLOOR_CP = -50
+
+# How much has to fall for "taking back costs him X" to be worth saying.
+_RECAPTURE_COST_FLOOR_CP = 150
+
+
+def _recapture_costs_him(
+    board: chess.Board, move: chess.Move
+) -> Optional[Tuple[str, str]]:
+    """Prove that recapturing this capture loses the opponent something bigger.
+
+    A capture whose exchange value is negative is usually a tactic: the piece
+    guarding the square cannot afford to take. The flagged case is the shape --
+    Nxb5 looks like it drops a knight to axb5, but that pawn is also the only
+    thing keeping the a-file shut in front of an undefended rook, so after
+    axb5 Rxa8 wins it outright.
+
+    EVERY recapture has to lose something, because the opponent picks which
+    one; the smallest such loss is reported, so the claim holds whichever he
+    plays. Returns (piece name, square) or None.
+
+    Uses legally_hanging_pieces -- the same exchange-truth authority the
+    loose-piece card trusts -- which, unlike static_exchange_eval, does count
+    a king recapture. That matters: SEE skips kings by design, so a rook
+    sacrifice on f2 in front of a castled king reads as -200 when the true
+    value is +150 (engine-confirmed, game 1d591f35 move 7).
+    """
+    try:
+        after = board.copy(stack=False)
+        after.push(move)
+        recaptures = [
+            reply for reply in after.legal_moves
+            if after.is_capture(reply) and reply.to_square == move.to_square
+        ]
+        if not recaptures:
+            # Nothing can take back at all. That is a different (and simpler)
+            # story than a deflection, and the branches below tell it better.
+            return None
+        smallest = None
+        for reply in recaptures:
+            probe = after.copy(stack=False)
+            probe.push(reply)
+            hanging = legally_hanging_pieces(
+                probe, not board.turn, _RECAPTURE_COST_FLOOR_CP
+            )
+            if not hanging:
+                # He has a recapture that costs him nothing, so there is no
+                # claim to make.
+                return None
+            best = max(hanging, key=lambda h: int(h.get("material_loss_cp") or 0))
+            loss = int(best.get("material_loss_cp") or 0)
+            if smallest is None or loss < smallest[0]:
+                smallest = (loss, str(best.get("piece_type") or "piece"),
+                            str(best.get("square") or ""))
+        if smallest is None or not smallest[2]:
+            return None
+        return smallest[1], smallest[2]
+    except Exception:
+        return None
+
+
 def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
@@ -8934,8 +9001,19 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
                 return "wins material"
             if see is not None and see >= 80:
                 return "wins a pawn" if cap_pt == chess.PAWN else "wins material"
-            # equal-ish exchange — the value is removing the piece, not material
-            return f"trades his {name}"
+            if see is not None and see >= TRADE_FLOOR_CP:
+                # Genuinely equal-ish: the value is removing the piece, not
+                # material.
+                return f"trades his {name}"
+            # Below the floor the exchange on that square LOSES material, so
+            # this is not a trade and saying so is false. It is a recommended
+            # move, though, so it is good for some other reason -- prove the
+            # reason or fall through to the board-verified branches below.
+            # Never assert the material story SEE just refuted.
+            deflection = _recapture_costs_him(board, move)
+            if deflection is not None:
+                lost_name, lost_square = deflection
+                return f"costs him the {lost_name} on {lost_square} if he takes back"
 
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.
