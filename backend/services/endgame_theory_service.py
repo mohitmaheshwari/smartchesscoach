@@ -8,9 +8,10 @@ validator. Correct moves remain server-side until the player attempts.
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import chess
 
@@ -187,6 +188,128 @@ def get_lesson_by_content_ref(content_ref: str):
     return get_lesson(resolved["category_key"], resolved["lesson_key"])
 
 
+def _parse_legal_move(board: chess.Board, supplied: str) -> Optional[chess.Move]:
+    text = str(supplied or "").strip()
+    try:
+        move = chess.Move.from_uci(text.lower())
+        return move if move in board.legal_moves else None
+    except ValueError:
+        try:
+            return board.parse_san(text)
+        except (ValueError, AssertionError):
+            return None
+
+
+def _authored_moves(position: Mapping[str, Any]) -> list[Dict[str, Any]]:
+    primary = {
+        "move_san": position["correct_move_san"],
+        "move_uci": position["correct_move_uci"],
+        "idea": position["idea"],
+        "on_correct": position["on_correct"],
+        "reason_contract": position.get("reason_contract"),
+    }
+    return [primary, *deepcopy(position.get("accepted_alternatives") or [])]
+
+
+def _matched_authored_move(
+    position: Mapping[str, Any],
+    move_uci: str,
+) -> Optional[Dict[str, Any]]:
+    target = str(move_uci or "").lower()
+    return next(
+        (
+            authored
+            for authored in _authored_moves(position)
+            if str(authored.get("move_uci") or "").lower() == target
+        ),
+        None,
+    )
+
+
+def build_endgame_reason_bundle(
+    category_key: str,
+    lesson_key: str,
+    position_index: int,
+    user_move: str,
+):
+    """Convert one canonical move-specific reason into the shared contract.
+
+    The lesson JSON remains the only chess-knowledge owner. This function only
+    validates the submitted legal move, selects its authored contract, and
+    projects that contract into the surface-neutral reason schema.
+    """
+    lesson = get_verified_lesson_data(category_key, lesson_key)
+    positions = (lesson or {}).get("positions") or []
+    if position_index < 0 or position_index >= len(positions):
+        return None
+    position = positions[position_index]
+    board = chess.Board(position["fen"])
+    parsed = _parse_legal_move(board, user_move)
+    if parsed is None:
+        return None
+    authored = _matched_authored_move(position, parsed.uci())
+    contract = (authored or {}).get("reason_contract")
+    if not isinstance(contract, dict):
+        return None
+
+    from services.teaching_reason_contracts import (
+        ReasonChoice,
+        ReasonComponent,
+        ReasonProof,
+        TeachingReasonBundle,
+    )
+
+    fingerprint_source = json.dumps(
+        {
+            "content_id": _lesson_id(category_key, lesson_key),
+            "position_index": position_index,
+            "fen": board.fen(),
+            "move_uci": parsed.uci(),
+            "reason_contract": contract,
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+    fingerprint = hashlib.sha256(fingerprint_source).hexdigest()
+    return TeachingReasonBundle(
+        semantic_version="endgame.authored_reason.v1",
+        position_fingerprint=hashlib.sha256(board.fen().encode("utf-8")).hexdigest(),
+        move_uci=parsed.uci(),
+        move_san=board.san(parsed),
+        target_result="pass",
+        safety_kind="tablebase_result_preserving_lesson_move",
+        components=(
+            ReasonComponent(
+                question_id=f"endgame:{position_index}:{parsed.uci()}:idea",
+                kind="endgame_idea",
+                prompt=str(contract.get("prompt") or ""),
+                choices=tuple(
+                    ReasonChoice.from_dict(choice)
+                    for choice in (contract.get("choices") or [])
+                ),
+                accepted_choice_ids=tuple(
+                    contract.get("accepted_choice_ids") or ()
+                ),
+                facts={
+                    "content_id": _lesson_id(category_key, lesson_key),
+                    "position_index": position_index,
+                    "move_uci": parsed.uci(),
+                },
+                success_text=str(contract.get("success_text") or ""),
+                correction_text=str(contract.get("correction_text") or ""),
+            ),
+        ),
+        proof=ReasonProof(
+            authority="canonical_endgame_curriculum",
+            quality_id=(
+                f"concept:endgame_curriculum__{category_key}__{lesson_key}"
+            ),
+            detector_version="endgame_theory_tree.v1",
+            verifier_version="curriculum_content_validator.v2",
+            fingerprint=fingerprint,
+        ),
+    )
+
+
 def check_move(
     category_key: str,
     lesson_key: str,
@@ -203,36 +326,44 @@ def check_move(
     position = positions[position_index]
     board = chess.Board(position["fen"])
     supplied = str(user_move_uci or "").strip()
-    user_move = None
-    try:
-        user_move = chess.Move.from_uci(supplied.lower())
-    except ValueError:
-        try:
-            user_move = board.parse_san(supplied)
-        except (ValueError, AssertionError):
-            pass
+    user_move = _parse_legal_move(board, supplied)
 
     correct_uci = position["correct_move_uci"].lower()
-    correct = bool(user_move and user_move.uci() == correct_uci)
+    matched = (
+        _matched_authored_move(position, user_move.uci())
+        if user_move is not None
+        else None
+    )
+    correct = matched is not None
     stage = _stage_for(position_index, len(positions))
     is_last = position_index == len(positions) - 1
 
     if correct:
         return {
             "correct": True,
-            "move_san": position["correct_move_san"],
-            "move_uci": correct_uci,
-            "idea": position["idea"],
-            "on_correct": position["on_correct"],
+            "move_san": str(matched["move_san"]),
+            "move_uci": str(matched["move_uci"]).lower(),
+            "idea": str(matched["idea"]),
+            "on_correct": str(matched["on_correct"]),
+            "reason_contract": deepcopy(matched.get("reason_contract")),
             "rule_reminder": position.get("rule_reminder", lesson["rule"]),
             "is_last": is_last,
             "stage": stage,
             "demonstrated": is_last,
         }
 
+    submitted_san = board.san(user_move) if user_move is not None else ""
+    wrong_example = str(position.get("wrong_example_san") or "").strip()
     response = {
         "correct": False,
-        "on_wrong": position["on_wrong"],
+        "on_wrong": (
+            position["on_wrong"]
+            if submitted_san == wrong_example
+            else (
+                "That legal move does not practise this position's idea yet. "
+                + str(position.get("rule_reminder") or lesson["rule"])
+            )
+        ),
         "rule_reminder": position.get("rule_reminder", lesson["rule"]),
         "is_last": is_last,
         "stage": stage,

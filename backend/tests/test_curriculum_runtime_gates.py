@@ -9,6 +9,7 @@ from services.curriculum_content_validator import (
     validate_all_content,
 )
 from services.endgame_theory_service import (
+    build_endgame_reason_bundle,
     check_move,
     get_all_categories,
     get_lesson,
@@ -106,6 +107,60 @@ def test_independent_endgame_failure_does_not_reveal_answer():
     assert result["stage"] == "independent_proof"
     assert "correct_move_san" not in result
     assert "correct_move_uci" not in result
+
+
+def test_key_squares_accepts_kc3_and_teaches_what_that_move_prepares():
+    result = check_move(
+        "king_and_pawn",
+        "key_squares",
+        0,
+        "c2c3",
+    )
+    bundle = build_endgame_reason_bundle(
+        "king_and_pawn",
+        "key_squares",
+        0,
+        "c2c3",
+    )
+
+    assert result["correct"] is True
+    assert result["move_san"] == "Kc3"
+    assert result["move_uci"] == "c2c3"
+    assert "prepares c4" in result["idea"]
+    assert bundle is not None
+    question = bundle.question(0)
+    assert question["prompt"] == "What is Kc3 preparing?"
+    assert [choice["id"] for choice in question["choices"]] == [
+        "reach_c4",
+        "pawn_leads",
+        "not_sure",
+    ]
+    graded = bundle.grade_component(
+        index=0,
+        question_id=question["question_id"],
+        selected_choice_id="reach_c4",
+    )
+    assert graded["correct"] is True
+    assert "Kc3 prepares c4" in graded["feedback"]
+
+
+def test_key_squares_off_concept_move_is_not_given_a_fake_reason_question():
+    result = check_move(
+        "king_and_pawn",
+        "key_squares",
+        0,
+        "b2b3",
+    )
+    bundle = build_endgame_reason_bundle(
+        "king_and_pawn",
+        "key_squares",
+        0,
+        "b2b3",
+    )
+
+    assert result["correct"] is False
+    assert "can still win" in result["on_wrong"]
+    assert bundle is None
 
 
 def test_opening_catalog_hides_recognition_only_records():

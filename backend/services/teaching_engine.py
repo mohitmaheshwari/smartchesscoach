@@ -913,6 +913,18 @@ def _position_relative_reason_enabled(
         return False
 
 
+def _authored_endgame_reason_enabled(
+    descriptor: Optional[Mapping[str, Any]],
+    item: Optional[Mapping[str, Any]],
+) -> bool:
+    return bool(
+        descriptor
+        and descriptor.get("kind") == "endgame"
+        and item
+        and item.get("server_staged_reasoning") is True
+    )
+
+
 def _public_reasoned_item(
     item: Optional[Mapping[str, Any]],
     *,
@@ -949,6 +961,8 @@ def _blind_pending_event(
     item_id: str,
 ) -> Optional[Mapping[str, Any]]:
     for event in reversed(list(session.get("events") or [])):
+        if event.get("event_type") == "lesson_content_refreshed":
+            return None
         if event.get("item_id") != item_id:
             continue
         if event.get("event_type") == "answer_submitted":
@@ -1083,9 +1097,10 @@ def _public_personalized_session(
     position_relative = bool(
         not blind and _position_relative_reason_enabled(current, eligible)
     )
+    authored_endgame = _authored_endgame_reason_enabled(descriptor, current)
     pending = (
         _blind_pending_event(session, str((current or {}).get("item_id") or ""))
-        if (blind or position_relative) and current
+        if (blind or position_relative or authored_endgame) and current
         else None
     )
     reason_bundle, reason_answers, reason_question = _blind_reason_state(
@@ -1230,6 +1245,64 @@ async def start_personalized_lesson(
         existing_query["delivery_mode"] = delivery_mode
     existing = await db.learning_sessions.find_one(existing_query)
     if existing:
+        descriptor = None
+        if content_kind == "endgame":
+            from services.personalized_lesson_adapter import (
+                LessonUnavailable,
+                resolve_personalized_lesson,
+            )
+            try:
+                descriptor = await resolve_personalized_lesson(
+                    db,
+                    user_id,
+                    content_kind=content_kind,
+                    content_id=content_id,
+                    params=params,
+                )
+            except LessonUnavailable as exc:
+                return {"error": str(exc)}
+            if bool((params or {}).get("review")):
+                review_item = dict(descriptor["items"][-1])
+                review_item["stage"] = "retain"
+                descriptor = {
+                    **descriptor,
+                    "items": [review_item],
+                    "mastery_capability": "review",
+                }
+        if (
+            descriptor is not None
+            and existing.get("content_version") != descriptor.get("content_version")
+        ):
+            now = datetime.now(timezone.utc)
+            refresh_event = {
+                "event_id": str(uuid.uuid4()),
+                "event_type": "lesson_content_refreshed",
+                "idempotency_key": (
+                    f"content-refresh:{existing['session_id']}:"
+                    f"{descriptor['content_version']}"
+                ),
+                "occurred_at": now,
+                "evidence_eligible": False,
+                "from_content_version": existing.get("content_version"),
+                "content_version": descriptor["content_version"],
+            }
+            await db.learning_sessions.update_one(
+                {"_id": existing["_id"]},
+                {
+                    "$set": {
+                        "descriptor": descriptor,
+                        "content_version": descriptor["content_version"],
+                        "skill_id": descriptor["skill_id"],
+                        "updated_at": now,
+                    },
+                    "$push": {"events": refresh_event},
+                },
+            )
+            existing["descriptor"] = descriptor
+            existing["content_version"] = descriptor["content_version"]
+            existing["skill_id"] = descriptor["skill_id"]
+            existing["updated_at"] = now
+            existing.setdefault("events", []).append(refresh_event)
         if existing.get("status") == "paused":
             now = datetime.now(timezone.utc)
             await db.learning_sessions.update_one(
@@ -1733,6 +1806,56 @@ def _reason_correction(
     )
 
 
+async def _stage_authored_reason_bundle(
+    db,
+    *,
+    session: Mapping[str, Any],
+    session_id: str,
+    item: Mapping[str, Any],
+    index: int,
+    interaction_key: str,
+    eligible: bool,
+    bundle,
+) -> Dict[str, Any]:
+    staged = {
+        "awaiting_reason": True,
+        "session_id": session_id,
+        "current_index": index,
+        "current_item": _public_reasoned_item(
+            item,
+            blind=False,
+            eligible=eligible,
+            awaiting_reason=True,
+            reason_question=bundle.question(0),
+            move_san=bundle.move_san,
+        ),
+    }
+    now = datetime.now(timezone.utc)
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "move_staged",
+        "idempotency_key": interaction_key,
+        "occurred_at": now,
+        "item_id": item["item_id"],
+        "move_uci": bundle.move_uci,
+        "move_san": bundle.move_san,
+        "reason_bundle": bundle.private_dict(),
+        "evidence_eligible": False,
+        "result_payload": staged,
+    }
+    write = await db.learning_sessions.update_one(
+        {
+            "_id": session["_id"],
+            "current_index": index,
+            "events.idempotency_key": {"$ne": interaction_key},
+        },
+        {"$set": {"updated_at": now}, "$push": {"events": event}},
+    )
+    if not write.modified_count:
+        return {"error": "Session changed; reload and try again"}
+    return staged
+
+
 async def process_personalized_move(
     db,
     session_id: str,
@@ -1782,8 +1905,44 @@ async def process_personalized_move(
     position_relative = bool(
         not blind and _position_relative_reason_enabled(item, eligible)
     )
-    reasoned = blind or position_relative
+    authored_endgame = _authored_endgame_reason_enabled(descriptor, item)
+    reasoned = blind or position_relative or authored_endgame
     reason_components = ()
+    if authored_endgame and not reason_choice:
+        from services.personalized_lesson_adapter import _parse_move
+
+        parsed = _parse_move(str(item.get("fen") or ""), move)
+        if parsed is None:
+            return {"error": "That move is not legal here"}
+        pending = _blind_pending_event(session, str(item.get("item_id") or ""))
+        if pending:
+            staged = pending.get("result_payload") or {}
+            if pending.get("move_uci") == parsed.uci():
+                return staged
+            return {"error": "A move is already waiting for your reason"}
+
+        from services.endgame_theory_service import build_endgame_reason_bundle
+
+        bundle = build_endgame_reason_bundle(
+            str(descriptor.get("category_key") or ""),
+            str(descriptor.get("lesson_key") or ""),
+            int(item.get("_endgame_position_index") or 0),
+            parsed.uci(),
+        )
+        if bundle is not None and bundle.components:
+            return await _stage_authored_reason_bundle(
+                db,
+                session=session,
+                session_id=session_id,
+                item=item,
+                index=index,
+                interaction_key=key,
+                eligible=eligible,
+                bundle=bundle,
+            )
+        # A legal move without an authored position-specific reason is graded
+        # immediately. It must never fall back to a generic endgame question.
+        reasoned = blind or position_relative
     if reasoned:
         pending = _blind_pending_event(session, str(item.get("item_id") or ""))
         if not reason_choice:

@@ -770,6 +770,199 @@ def test_normal_lesson_dynamic_questions_fail_closed_for_stale_detector(monkeypa
     assert started["current_item"]["reason_prompt"] == "Static fallback question"
 
 
+def test_key_squares_asks_why_kc3_prepares_c4_without_static_choices(monkeypatch):
+    async def profile(*args, **kwargs):
+        return {
+            "mode": "diagnostic_required",
+            "why_now": "Learn how your King leads the pawn.",
+            "delivery": {"preferred_help": None},
+        }
+
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile",
+        profile,
+    )
+    db = _DB()
+    started = asyncio.run(start_lesson(
+        db,
+        "key-squares-session",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "endgame",
+            "content_id": "king_and_pawn/key_squares",
+        },
+    ))
+
+    item = started["current_item"]
+    assert item["server_staged_reasoning"] is True
+    assert item["position_idea"].startswith("Your King is aiming for a4")
+    assert "reason_prompt" not in item
+    assert "reason_choices" not in item
+
+    staged = asyncio.run(process_lesson_move(
+        db,
+        "key-squares-session",
+        "c2c3",
+        interaction_id="key-squares-stage",
+    ))
+    assert staged["awaiting_reason"] is True
+    question = staged["current_item"]["reason_question"]
+    assert staged["current_item"]["move_san"] == "Kc3"
+    assert question["prompt"] == "What is Kc3 preparing?"
+    assert "gives check" not in str(question).lower()
+    assert "uses the rule" not in str(question).lower()
+
+    result = asyncio.run(process_lesson_move(
+        db,
+        "key-squares-session",
+        "c2c3",
+        interaction_id="key-squares-answer",
+        reason_choice="reach_c4",
+        reason_component_id=question["question_id"],
+    ))
+    assert result["correct"] is True
+    assert result["reasoning_consistent"] is True
+    assert result["current_index"] == 1
+    assert "Kc3 prepares c4" in result["reason_components"][0]["feedback"]
+
+
+def test_key_squares_b3_is_graded_without_a_generic_reason_question(monkeypatch):
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile",
+        profile,
+    )
+    db = _DB()
+    asyncio.run(start_lesson(
+        db,
+        "key-squares-b3",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "endgame",
+            "content_id": "king_and_pawn/key_squares",
+        },
+    ))
+
+    result = asyncio.run(process_lesson_move(
+        db,
+        "key-squares-b3",
+        "b2b3",
+        interaction_id="key-squares-b3-move",
+    ))
+
+    assert result["correct"] is False
+    assert "awaiting_reason" not in result
+    assert "can still win" in result["feedback"]
+    assert result["next_item"]["server_staged_reasoning"] is True
+
+
+def test_endgame_without_authored_reason_is_server_graded_without_empty_prompt(
+    monkeypatch,
+):
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile",
+        profile,
+    )
+    db = _DB()
+    started = asyncio.run(start_lesson(
+        db,
+        "square-rule-session",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "endgame",
+            "content_id": "king_and_pawn/square_rule",
+        },
+    ))
+    assert started["current_item"]["server_staged_reasoning"] is True
+    assert "reason_choices" not in started["current_item"]
+
+    result = asyncio.run(process_lesson_move(
+        db,
+        "square-rule-session",
+        "g6f5",
+        interaction_id="square-rule-move",
+    ))
+    assert result["correct"] is True
+    assert "awaiting_reason" not in result
+    assert result["current_index"] == 1
+
+
+def test_reopening_endgame_refreshes_a_stale_active_descriptor(monkeypatch):
+    from services.personalized_lesson_adapter import (
+        resolve_personalized_lesson as current_resolver,
+    )
+
+    async def profile(*args, **kwargs):
+        return {"mode": "diagnostic_required", "delivery": {}}
+
+    async def stale_resolver(*args, **kwargs):
+        descriptor = await current_resolver(*args, **kwargs)
+        descriptor["content_version"] = "stale-endgame-v1"
+        for item in descriptor["items"]:
+            item.pop("server_staged_reasoning", None)
+            item["reason_prompt"] = "Why does this move fit the position?"
+            item["reason_choices"] = [
+                {"id": "uses_rule", "label": "It uses the rule."},
+            ]
+        return descriptor
+
+    monkeypatch.setattr(
+        "services.personal_teaching_profile.build_personal_teaching_profile",
+        profile,
+    )
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson",
+        stale_resolver,
+    )
+    db = _DB()
+    first = asyncio.run(start_lesson(
+        db,
+        "stale-key-squares",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "endgame",
+            "content_id": "king_and_pawn/key_squares",
+        },
+    ))
+    assert first["current_item"]["reason_choices"]
+
+    monkeypatch.setattr(
+        "services.personalized_lesson_adapter.resolve_personalized_lesson",
+        current_resolver,
+    )
+    refreshed = asyncio.run(start_lesson(
+        db,
+        "unused-new-session-id",
+        "u1",
+        PERSONALIZED_LESSON_TYPE,
+        {
+            "content_kind": "endgame",
+            "content_id": "king_and_pawn/key_squares",
+        },
+    ))
+
+    assert refreshed["session_id"] == "stale-key-squares"
+    assert refreshed["current_item"]["server_staged_reasoning"] is True
+    assert "reason_choices" not in refreshed["current_item"]
+    operational = next(
+        doc for doc in db.learning_sessions.docs
+        if doc.get("session_id") == "stale-key-squares"
+    )
+    assert any(
+        event.get("event_type") == "lesson_content_refreshed"
+        for event in operational["events"]
+    )
+
+
 def _install_blind_v2(monkeypatch):
     async def resolve(*args, **kwargs):
         return _blind_descriptor_v2()

@@ -194,7 +194,7 @@ export default function PersonalizedLessonWorkspace({
     setFeedback(null);
     setError(null);
     setHelp(null);
-    if (!current.position_relative_reasoning) return;
+    if (!current.position_relative_reasoning && !current.server_staged_reasoning) return;
 
     setBusy(true);
     try {
@@ -219,10 +219,25 @@ export default function PersonalizedLessonWorkspace({
         }));
       } else {
         setFeedback(payload);
-        if (payload.retry_move || payload.measurement_status === "unmeasured") {
-          setPendingMove(null);
-          setBoardRevision((revision) => revision + 1);
-        }
+        setHelp(null);
+        if (payload.complete) invalidatePersonalCurriculum();
+        setSession((currentSession) => ({
+          ...currentSession,
+          status: payload.complete ? "completed" : "active",
+          current_index: payload.current_index,
+          completed_items: payload.current_index,
+          current_item: payload.next_item,
+          stage: payload.next_stage || payload.next_item?.stage || "retain",
+          learner_state: {
+            ...currentSession.learner_state,
+            state: payload.highest_earned_state,
+          },
+          teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
+        }));
+        setPendingMove(null);
+        setReasonChoice("");
+        setBoardArrows([]);
+        setBoardRevision((revision) => revision + 1);
       }
     } catch (moveError) {
       setError(moveError.message);
@@ -415,7 +430,9 @@ export default function PersonalizedLessonWorkspace({
             </h1>
             <div className="rounded-xl border border-emerald-700/20 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 mb-5">
               <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-300 font-semibold mb-1.5">The idea</p>
-              <p className="text-sm leading-relaxed text-foreground">{session?.lesson?.rule}</p>
+              <p className="text-sm leading-relaxed text-foreground">
+                {item?.position_idea || session?.lesson?.rule}
+              </p>
             </div>
             {/* Once a move is staged this question is already answered.
                 Leaving it up put two questions on screen at once and read

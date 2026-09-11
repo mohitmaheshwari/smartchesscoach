@@ -97,6 +97,24 @@ def test_verified_endgame_uses_tree_skill_id_without_explicit_param():
     assert descriptor["skill_id"] == "endgame_rule_of_square"
 
 
+def test_key_squares_projects_position_idea_but_keeps_answers_private():
+    descriptor = asyncio.run(resolve_personalized_lesson(
+        _NoDB(),
+        "u1",
+        content_kind="endgame",
+        content_id="king_and_pawn/key_squares",
+    ))
+    public = public_lesson_descriptor(descriptor)
+    first = public["items"][0]
+
+    assert first["server_staged_reasoning"] is True
+    assert first["position_idea"].startswith("Your King is aiming for a4")
+    assert "reason_choices" not in first
+    assert "reason_prompt" not in first
+    assert "_expected_uci" not in first
+    assert "c2d3" not in str(first)
+
+
 def test_verified_trap_set_uses_tree_skill_id_without_explicit_param():
     descriptor = asyncio.run(resolve_personalized_lesson(
         _NoDB(),

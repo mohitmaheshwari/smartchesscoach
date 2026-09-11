@@ -38,10 +38,6 @@ def _reason_choices(kind: str) -> list[Dict[str, str]]:
             ("answers_threat", "It answers the opponent's immediate threat."),
             ("starts_attack", "It starts my own attack first."),
         ),
-        "endgame": (
-            ("uses_rule", "It uses the rule for this ending."),
-            ("gives_check", "It gives check, so it must be best."),
-        ),
         "concept": (
             ("keeps_piece_safe", "It leaves my pieces protected or able to move."),
             ("looks_active", "It looks active, even if a piece can be taken."),
@@ -472,31 +468,53 @@ def _trap_set_descriptor(
 
 
 def _endgame_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, Any]:
-    from services.endgame_theory_service import get_lesson
+    from services.endgame_theory_service import (
+        get_lesson,
+        get_verified_lesson_data,
+    )
 
     parts = str(content_id or "").split("/", 1)
     if len(parts) != 2:
         raise LessonUnavailable("Endgame lesson id must include category and lesson")
     category_key, lesson_key = parts
     lesson = get_lesson(category_key, lesson_key)
-    if not lesson:
+    verified_lesson = get_verified_lesson_data(category_key, lesson_key)
+    if not lesson or not verified_lesson:
         raise LessonUnavailable("Verified endgame lesson not found")
+    verified_positions = verified_lesson.get("positions") or []
     items = []
     for position in lesson.get("positions") or []:
         index = int(position["index"])
+        if index >= len(verified_positions):
+            raise LessonUnavailable("Verified endgame position is missing")
+        verified_position = verified_positions[index]
         items.append({
             "item_id": f"{content_id}:{index}",
             "fen": position["fen"],
             "orientation": position.get("side_to_move") or "white",
             "prompt": position.get("prompt") or "What move works here?",
-            "reason_prompt": "Why does this move fit the position?",
-            "reason_choices": _reason_choices("endgame"),
-            "_expected_reason": "uses_rule",
+            "position_idea": str(
+                verified_position.get("teaching_focus") or ""
+            ) or None,
+            # Every endgame move is checked by the server. When the selected
+            # move has an authored reason contract the server pauses for that
+            # exact question; otherwise it returns the move grade immediately.
+            "server_staged_reasoning": True,
             "stage": "transfer" if position.get("stage") == "independent_proof" else "guide",
             "source": "canonical_endgame",
             "source_ref": f"{content_id}:{index}",
             "board_verified": True,
-            "_help_squares": list(position.get("square_corners") or []),
+            "_expected_uci": str(
+                verified_position.get("correct_move_uci") or ""
+            ),
+            "_expected_san": str(
+                verified_position.get("correct_move_san") or ""
+            ),
+            "_help_squares": list(
+                verified_position.get("help_squares")
+                or position.get("square_corners")
+                or []
+            ),
             "_endgame_position_index": index,
         })
     if not items:
@@ -510,7 +528,7 @@ def _endgame_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
         "rule": lesson["rule"],
         "intro": str(lesson.get("intro") or lesson.get("description") or ""),
         "canonical_source": lesson["canonical_source"],
-        "content_version": _content_version(lesson),
+        "content_version": _content_version(verified_lesson),
         "items": items,
         "category_key": category_key,
         "lesson_key": lesson_key,
@@ -930,6 +948,19 @@ async def grade_personalized_move(
         )
         return {
             "correct": bool(result.get("correct")),
+            "target_result": (
+                "pass" if result.get("correct") else "fail"
+            ),
+            "soundness": {
+                "status": (
+                    "sound" if result.get("correct") else "serious_problem"
+                ),
+                "reason": (
+                    "verified_endgame_lesson_move"
+                    if result.get("correct")
+                    else "does_not_demonstrate_lesson_target"
+                ),
+            },
             "feedback": (
                 result.get("on_correct")
                 if result.get("correct")
@@ -937,7 +968,7 @@ async def grade_personalized_move(
             ),
             "answer_san": result.get("correct_move_san"),
             "answer_uci": result.get("correct_move_uci"),
-            "grader_version": "endgame_theory_service.v1",
+            "grader_version": "endgame_theory_service.v2",
         }
     if item.get("_diagnostic_quality_id"):
         from coach_play.coach_blunder_guard import (
