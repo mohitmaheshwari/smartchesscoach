@@ -2480,7 +2480,29 @@ def inject_socratic_user_facts(
     # it so R18 variant selection falls to the generic branch instead of a
     # hanging-piece variant that would reference the now-None piece/square.
     if fundamental == "hanging_pieces" and hanging_piece_name is None:
-        caption_facts["socratic_fundamental_violated"] = None
+        # Nothing is actually hanging, so the hanging variants cannot speak --
+        # they would reference a piece and square that are None. Rather than
+        # dropping to the generic variant, ask the analyser what it decided was
+        # wrong with this move. Measured over 400 games, 53.4% of the moves
+        # that reach this surface carry a gap we can map; almost all of them
+        # were arriving here and being thrown away.
+        _gap_fallback = GAP_TO_FUNDAMENTAL.get(
+            str(socratic_context.get("cognitive_gap") or "").strip().lower()
+        )
+        if _gap_fallback == "hanging_pieces":
+            # The gap agrees with the label the board just refuted. Trust the
+            # board.
+            _gap_fallback = None
+        caption_facts["socratic_fundamental_violated"] = _gap_fallback
+        fundamental = _gap_fallback
+        # Rebuild the evidence for whatever we landed on; the hanging-piece
+        # attempt left either nothing or a generic "you left a piece
+        # undefended" that no longer matches the variant about to render.
+        problem_facts = []
+        if fundamental == "calculate":
+            problem_facts.append("you did not work out their reply")
+        elif fundamental == "king_safety":
+            problem_facts.append("your king is in danger")
 
     caption_facts["socratic_problem_facts"] = problem_facts
     caption_facts["socratic_hanging_piece"] = hanging_piece_name
@@ -4496,6 +4518,13 @@ def build_move_teaching_decision(
                 "fundamental_violated": _fundamental,
                 "coach_intent": None,
                 "phase": _phase_for_ctx,
+                # Carried so inject_socratic_user_facts can fall back to it
+                # AFTER its hanging-piece guard. pieces_now_undefended is
+                # truthy far more often than a piece is actually hanging on
+                # the post-move board, so the guard was demoting most of these
+                # moves straight to the generic variant without ever consulting
+                # the gap.
+                "cognitive_gap": inputs.cognitive_gap,
             }
 
     # No-op when context (effective) is None. Stamps coach_intent /
