@@ -16,6 +16,7 @@ The scripts are in the repo so each number can be re-derived:
 | Do players improve without us? | `backend/scripts/natural_drift_study.py` |
 | Are game dates usable? | `backend/scripts/normalize_game_dates.py` |
 | How far does the Socratic diagnosis reach? | `backend/scripts/socratic_diagnosis_reach.py` |
+| Is a recommended capture really a trade? | `backend/scripts/trade_claim_distribution.py` |
 
 ---
 
@@ -204,7 +205,58 @@ declines to touch it. Prefixing a sentence about the player made an unearned
 verdict permanent. Softening now happens once, before anything is built on top
 of it — which is what `caption_pipeline`'s own docstring says it should do.
 
-### 5. Game chronology was decided by a field that stopped updating
+### 5. A piece sacrifice was being called a trade
+
+**v154, live.** Reported from the product on 2026-09-11:
+
+> Opponent's Bd6 is a mistake. Play Nxb5 — it trades his pawn.
+
+`Nxb5` is the engine's best move at +263, and the reason is the opposite of a
+trade. The a6 pawn guarding b5 is also the only thing keeping the a-file shut
+in front of an undefended rook, so after `axb5 Rxa8` the rook falls outright —
+Black has no recapture on a8 at all. The card replaced a tactic with a reason
+that was false *and* boring.
+
+`_recommended_move_why` described every recommended capture from the static
+exchange value on the target square, and its last branch — labelled "equal-ish
+exchange" — had no floor under it:
+
+```
+SEE >= 200     -> "wins material"
+SEE >=  80     -> "wins a pawn" / "wins material"
+anything else  -> "trades his {piece}"
+```
+
+Over 500 analysed games, 1,376 recommended captures get a why; 506 were called
+trades, and **128 of those (25.3%) sat at SEE ≤ −50**, 110 of them below −100.
+SEE on b5 in the flagged position is −200. One trade claim in four was not a
+trade.
+
+Two rules, both from that distribution. Below −50 the word is not used. When
+*every* recapture on the square leaves something worth ≥150cp hanging, the card
+names that instead — "costs him the rook on a8 if he takes back" — every
+recapture, because the opponent picks which one. The rest fall through to the
+branches the function already had, all board-verified. The 128 redistribute as:
+
+```
+costs him the X on Y if he takes back   30
+attacks the X on Y                      25
+takes the center                        21
+gives check                              9
+defends / takes the open file           12
+develops / posts a knight                4
+no why at all                           27
+```
+
+101 keep a true why and 27 lose it. That is the right way round. "wins
+material" (870 cases) is untouched. Three of the new claims were hand-verified
+against engine PVs before shipping: `Nxb5` (a8 rook, no recapture exists),
+`Rxf2` (+205, `Kxf2`), `Qxa8` (+882, PV `17. Qxa8 Qxa8 18. Bxa8`).
+
+The card now reads: *"Opponent's Bd6 is a mistake. Play Nxb5 — it costs him the
+rook on a8 if he takes back."*
+
+### 6. Game chronology was decided by a field that stopped updating
 
 **Migrated; 14,809 of 15,517 games rewritten.**
 
@@ -229,7 +281,7 @@ queries.
 
 Ranked by what they cost a real user.
 
-### 6. Stored evaluations are in two different units, inside the same field
+### 7. Stored evaluations are in two different units, inside the same field
 
 3.9% of analyses (78 of 2,000) store `eval_before` / `eval_after` in **pawns**;
 the other 96.1% store centipawns. `cp_loss` is centipawns in both, so the two
@@ -248,7 +300,7 @@ not "the number is small"), correct it, then backfill the 3.9% by multiplying
 by 100. Do the deploy before the migration — writing normalised values under
 code that still expects pawns would invert the bug.
 
-### 7. Half of every game is never analysed
+### 8. Half of every game is never analysed
 
 3 of 14,839 stored analyses contain a single opponent move. We analyse the
 user's moves and discard the opponent's.
@@ -269,7 +321,7 @@ compute is better spent elsewhere. Do analyse both sides **going forward**, for
 the coaching category. The pilot script shows the shape; depth 12 (the
 codebase's `QUICK_DEPTH`) is adequate for a blunder rate.
 
-### 8. 13% of blunders carry no cognitive gap
+### 9. 13% of blunders carry no cognitive gap
 
 Over 2,000 analyses: 63,576 user moves, 8,658 blunders at 150cp or worse.
 7,534 (87.0%) have a `cognitive_gap`; **1,124 (13.0%) have none**. A blunder
@@ -283,7 +335,7 @@ genuinely unclassifiable. Build the detector only if the sample says the
 category exists — per the standing rule, verify the target exists before
 building the detector.
 
-### 9. 261 games have no usable date at all
+### 10. 261 games have no usable date at all
 
 Left behind by the migration. They cannot be ordered, so they are invisible to
 every before/after measurement and to "your recent games." 1.7% of the corpus.
@@ -292,7 +344,7 @@ every before/after measurement and to "your recent games." 1.7% of the corpus.
 directly; where the PGN has none either, fall back to the import timestamp and
 mark the row as approximate rather than leaving it unsortable.
 
-### 10. The material-claim verifier lets two classes through
+### 11. The material-claim verifier lets two classes through
 
 `narrator_claim_verifier._check_unsupported_material_loss` guards captions that
 say "costs you material" / "hands material away" / "loses material".
@@ -310,7 +362,35 @@ Measure first: count how many rendered captions carry the phrase and how many
 take each path, then choose. Not yet measured, so no threshold is proposed
 here.
 
-### 11. Rating change mostly cannot be attributed, and that is the finding
+### 12. The exchange evaluator does not see king recaptures
+
+`static_exchange_eval` skips kings on every ply of the recapture sequence. The
+code documents this as a deliberate Phase-1 limitation and predicts it is
+"correct in middlegame positions and slightly too-cautious in some K+P
+endgames."
+
+The second half of that is wrong. Game `1d591f35` move 7 is an opening
+position: `Rxf2` reads as −200 because SEE stops after `Rxf2 Bxf2+` and never
+counts `Kxf2`. The engine says **+205** (`7. Rxf2 Bxf2+ 8. Kxf2`). A rook
+landing in front of a castled king is one of the most common tactical shapes
+there is, not an endgame curiosity.
+
+This is why finding 5's proof is built on `legally_hanging_pieces`, which does
+count `Kxf2`, rather than on SEE.
+
+**Why it was not fixed here.** SEE feeds hanging-piece detection and every
+"wins material" claim in the caption layer. Changing it would move far more
+than the wording bug that exposed it, and the existing comment's caution is
+legitimate — a king recapture is only legal when no other defender remains and
+the destination is not attacked, so a naive fix would overclaim in the other
+direction.
+
+**The fix.** Measure first: re-run the caption corpus with a king-aware SEE
+alongside the current one and count where the two disagree, split by whether
+the king recapture is actually legal. Then decide. Do not change it behind an
+unrelated wording change.
+
+### 13. Rating change mostly cannot be attributed, and that is the finding
 
 Across 18 users with 200+ analysed games each, split into halves:
 
@@ -336,7 +416,7 @@ rating user showed −21.5% blunders, a −165 user +16.0%.
 metric at this sample size. Blunder rate within a user, against their own
 baseline, is the measurable one.
 
-### 12. The evidence a coaching claim would need does not exist yet
+### 14. The evidence a coaching claim would need does not exist yet
 
 - `complete_coaching_journeys`: 113 documents, **1 distinct user**.
 - `MASTERY_STRICT_EVIDENCE` must stay off, and must **never** be gated on
@@ -368,7 +448,7 @@ written into the test:
   which defends d5, so the pawn was not free and `coach_overreach` was the
   correct variant.
 
-The caption suite is green: 507 passed, 0 failed. Separately, 53 API and
+The caption suite is green: 526 passed, 0 failed. Separately, 53 API and
 integration tests fail in a plain checkout because they need a live server and
 database; that is unchanged by this work and verified against the pre-change
 tree.
