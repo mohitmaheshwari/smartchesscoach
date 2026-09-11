@@ -382,6 +382,34 @@ def test_endgame_fen_and_answer_must_agree():
     )
     assert "endgame.wrong_example_illegal" in _codes(illegal_wrong_record)
 
+    unsupported_alternative = deepcopy(lesson)
+    unsupported_alternative["positions"][0]["accepted_alternatives"] = [{
+        "move_san": "Kf3",
+        "move_uci": "e2f3",
+        "idea": "The king takes another route.",
+        "on_correct": "The route works.",
+        "reason_contract": {
+            "prompt": "What does Kf3 prepare?",
+            "choices": [
+                {"id": "route", "label": "A route toward the pawn."},
+                {"id": "wait", "label": "Nothing; it only waits."},
+            ],
+            "accepted_choice_ids": ["route"],
+            "success_text": "Right.",
+            "correction_text": "Look at the route.",
+        },
+    }]
+    unsupported_record = validate_endgame_lesson(
+        "kings",
+        "king_step",
+        unsupported_alternative,
+        evidence,
+    )
+    assert (
+        "endgame.accepted_alternative_tablebase_regression"
+        in _codes(unsupported_record)
+    )
+
 
 def test_repaired_tablebase_lessons_preserve_the_exact_result():
     report = validate_all_content()

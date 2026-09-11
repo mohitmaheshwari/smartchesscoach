@@ -793,6 +793,72 @@ def validate_trap_record(
     return record
 
 
+def _validate_endgame_reason_contract(
+    contract: Any,
+    record: RecordValidation,
+    location: str,
+) -> None:
+    if contract is None:
+        return
+    if not isinstance(contract, dict):
+        record.error(
+            "endgame.reason_contract_type",
+            "A move-specific reason contract must be an object.",
+            location,
+        )
+        return
+    for field_name in ("prompt", "success_text", "correction_text"):
+        if not str(contract.get(field_name) or "").strip():
+            record.error(
+                f"endgame.reason_contract_{field_name}_missing",
+                f"{field_name} is required for a move-specific reason.",
+                f"{location}.{field_name}",
+            )
+    choices = contract.get("choices") or []
+    if not isinstance(choices, list) or len(choices) < 2:
+        record.error(
+            "endgame.reason_contract_choices_missing",
+            "A move-specific reason needs at least two choices.",
+            f"{location}.choices",
+        )
+        return
+    choice_ids = []
+    for choice_index, choice in enumerate(choices):
+        choice_location = f"{location}.choices[{choice_index}]"
+        if not isinstance(choice, dict):
+            record.error(
+                "endgame.reason_choice_type",
+                "Each reason choice must be an object.",
+                choice_location,
+            )
+            continue
+        choice_id = str(choice.get("id") or "").strip()
+        label = str(choice.get("label") or "").strip()
+        if not choice_id or not label:
+            record.error(
+                "endgame.reason_choice_incomplete",
+                "Each reason choice needs a non-empty id and label.",
+                choice_location,
+            )
+        choice_ids.append(choice_id)
+    if len(choice_ids) != len(set(choice_ids)):
+        record.error(
+            "endgame.reason_choice_duplicate",
+            "Reason choice ids must be unique.",
+            f"{location}.choices",
+        )
+    accepted = {
+        str(value or "").strip()
+        for value in (contract.get("accepted_choice_ids") or [])
+    }
+    if not accepted or not accepted.issubset(set(choice_ids)):
+        record.error(
+            "endgame.reason_contract_answer_invalid",
+            "Accepted reason ids must name at least one visible choice.",
+            f"{location}.accepted_choice_ids",
+        )
+
+
 def validate_endgame_lesson(
     category_key: str,
     lesson_key: str,
@@ -881,6 +947,80 @@ def validate_endgame_lesson(
             continue
 
         canonical_san = board.san(uci_move)
+        authored_uci_moves = {uci}
+        _validate_endgame_reason_contract(
+            position.get("reason_contract"),
+            record,
+            f"{location}.reason_contract",
+        )
+        alternatives = position.get("accepted_alternatives") or []
+        if not isinstance(alternatives, list):
+            record.error(
+                "endgame.accepted_alternatives_type",
+                "accepted_alternatives must be a list.",
+                f"{location}.accepted_alternatives",
+            )
+            alternatives = []
+        for alternative_index, alternative in enumerate(alternatives):
+            alternative_location = (
+                f"{location}.accepted_alternatives[{alternative_index}]"
+            )
+            if not isinstance(alternative, dict):
+                record.error(
+                    "endgame.accepted_alternative_type",
+                    "Each accepted alternative must be an object.",
+                    alternative_location,
+                )
+                continue
+            alternative_uci = str(alternative.get("move_uci") or "").lower()
+            alternative_san = _clean_san(
+                str(alternative.get("move_san") or "")
+            )
+            try:
+                alternative_move = chess.Move.from_uci(alternative_uci)
+            except ValueError:
+                record.error(
+                    "endgame.accepted_alternative_uci_invalid",
+                    f"{alternative_uci!r} is not valid UCI.",
+                    f"{alternative_location}.move_uci",
+                )
+                continue
+            if alternative_move not in board.legal_moves:
+                record.error(
+                    "endgame.accepted_alternative_illegal",
+                    f"{alternative_uci!r} is not legal from the stored FEN.",
+                    f"{alternative_location}.move_uci",
+                )
+                continue
+            if alternative_uci in authored_uci_moves:
+                record.error(
+                    "endgame.accepted_alternative_duplicate",
+                    "An accepted alternative cannot duplicate another authored move.",
+                    f"{alternative_location}.move_uci",
+                )
+            authored_uci_moves.add(alternative_uci)
+            canonical_alternative_san = board.san(alternative_move)
+            if alternative_san != canonical_alternative_san:
+                record.error(
+                    "endgame.accepted_alternative_san_invalid",
+                    (
+                        f"Stored SAN is {alternative_san!r}; the position "
+                        f"requires {canonical_alternative_san!r}."
+                    ),
+                    f"{alternative_location}.move_san",
+                )
+            for field_name in ("idea", "on_correct"):
+                if not str(alternative.get(field_name) or "").strip():
+                    record.error(
+                        f"endgame.accepted_alternative_{field_name}_missing",
+                        f"{field_name} is required for an accepted move.",
+                        f"{alternative_location}.{field_name}",
+                    )
+            _validate_endgame_reason_contract(
+                alternative.get("reason_contract"),
+                record,
+                f"{alternative_location}.reason_contract",
+            )
         try:
             san_move = board.parse_san(san)
         except (ValueError, AssertionError):
@@ -984,6 +1124,22 @@ def validate_endgame_lesson(
                     ),
                     f"{location}.correct_move_uci",
                 )
+            elif alternatives:
+                preserving_uci = {
+                    str(move.get("uci") or "").lower()
+                    for move in (evidence.get("preserving_moves") or [])
+                    if isinstance(move, dict)
+                }
+                for alternative_uci in authored_uci_moves - {uci}:
+                    if alternative_uci not in preserving_uci:
+                        record.error(
+                            "endgame.accepted_alternative_tablebase_regression",
+                            (
+                                f"Accepted move {alternative_uci!r} does not "
+                                "preserve the exact tablebase result."
+                            ),
+                            f"{location}.accepted_alternatives",
+                        )
         else:
             verification = position.get("verification") or {}
             if not (
@@ -996,6 +1152,15 @@ def validate_endgame_lesson(
                     "endgame.engine_evidence_missing",
                     "This position is outside Syzygy coverage and has no pinned engine verification.",
                     location,
+                )
+            if alternatives:
+                record.error(
+                    "endgame.accepted_alternative_engine_evidence_missing",
+                    (
+                        "Accepted alternatives outside tablebase coverage need "
+                        "their own pinned engine evidence."
+                    ),
+                    f"{location}.accepted_alternatives",
                 )
 
         for field_name in ("prompt", "idea", "on_correct", "on_wrong"):

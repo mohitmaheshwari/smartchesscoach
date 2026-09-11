@@ -167,10 +167,59 @@
             "correct_move_uci": "c2d3",
             "wrong_example_san": "b3",
             "prompt": "White has a pawn on b2. Where should the King go?",
-            "idea": "Head toward the key squares (a4, b4, c4). Kd3 starts the march toward c4.",
+            "teaching_focus": "Your King is aiming for a4, b4, or c4. Get in front of the b-pawn, then let the pawn follow.",
+            "idea": "Your target squares are a4, b4, and c4. Kd3 starts the walk toward c4.",
             "on_correct": "Good. Kd3 heads toward the key square c4. Once your King arrives there, the pawn promotes by force.",
-            "on_wrong": "b3 pushes the pawn too early. Your King needs to reach the key squares first.",
-            "rule_reminder": "Key squares for a pawn on the 2nd rank: three squares on the 4th rank. Get your King there."
+            "on_wrong": "That move can still win because Black's King is far away, but it does not practise today's idea. Walk your King toward a4, b4, or c4 before relying on the pawn.",
+            "rule_reminder": "For a pawn on b2, aim your King for a4, b4, or c4 before pushing.",
+            "help_squares": ["a4", "b4", "c4"],
+            "reason_contract": {
+              "prompt": "What is Kd3 preparing?",
+              "choices": [
+                {"id": "reach_c4", "label": "Reach c4, then let the b-pawn follow."},
+                {"id": "pawn_leads", "label": "Push the pawn first and keep my King behind it."},
+                {"id": "not_sure", "label": "I am not sure yet."}
+              ],
+              "accepted_choice_ids": ["reach_c4"],
+              "success_text": "Exactly. Kd3 starts the walk to c4, where your King can lead the pawn.",
+              "correction_text": "Kd3 matters because it starts the walk to c4. Get your King in front before sending the pawn forward."
+            },
+            "accepted_alternatives": [
+              {
+                "move_san": "Kc3",
+                "move_uci": "c2c3",
+                "idea": "Kc3 prepares c4. From c4, your King stands in front of the b-pawn and can lead it forward.",
+                "on_correct": "Good. Kc3 prepares c4, one of the three squares your King is trying to reach.",
+                "reason_contract": {
+                  "prompt": "What is Kc3 preparing?",
+                  "choices": [
+                    {"id": "reach_c4", "label": "Reach c4, then let the b-pawn follow."},
+                    {"id": "pawn_leads", "label": "Push b3 next and keep my King beside the pawn."},
+                    {"id": "not_sure", "label": "I am not sure yet."}
+                  ],
+                  "accepted_choice_ids": ["reach_c4"],
+                  "success_text": "Exactly. Kc3 prepares c4, where your King can lead the pawn.",
+                  "correction_text": "Kc3 matters because it prepares c4. Get your King in front before sending the pawn forward."
+                }
+              },
+              {
+                "move_san": "Kb3",
+                "move_uci": "c2b3",
+                "idea": "Kb3 prepares b4. From b4, your King stands directly in front of the pawn and controls both sides.",
+                "on_correct": "Good. Kb3 prepares b4, the middle target square in front of your pawn.",
+                "reason_contract": {
+                  "prompt": "What is Kb3 preparing?",
+                  "choices": [
+                    {"id": "reach_b4", "label": "Reach b4 and lead the pawn from the front."},
+                    {"id": "king_beside", "label": "Stay beside the pawn while it moves first."},
+                    {"id": "not_sure", "label": "I am not sure yet."}
+                  ],
+                  "accepted_choice_ids": ["reach_b4"],
+                  "success_text": "Exactly. Kb3 prepares b4, putting your King in front of the pawn.",
+                  "correction_text": "Kb3 is useful because it prepares b4. In this ending, your King should lead from the front."
+                }
+              }
+            ]
           },
           {
             "fen": "8/8/3k4/8/8/4K3/4P3/8 w - - 0 1",
@@ -180,10 +229,59 @@
             "correct_move_uci": "e3d4",
             "wrong_example_san": "Kf3",
             "prompt": "White to move. How do you secure the promotion?",
-            "idea": "Kd4 claims a key square (d4, e4, f4 are key squares for the e-pawn on e2). From d4, the pawn is unstoppable.",
+            "teaching_focus": "Your King can step straight onto d4, e4, or f4. From one of those squares, it can lead the e-pawn.",
+            "idea": "Kd4 reaches one of the three target squares: d4, e4, and f4. From there, your King can lead the e-pawn.",
             "on_correct": "Kd4 occupies the key square. Black's King can't prevent promotion now.",
-            "on_wrong": "Kf3 develops the King but does not claim a key square yet. Kd4 reaches one immediately.",
-            "rule_reminder": "Occupy the key square, then push the pawn. Not the other way around."
+            "on_wrong": "Kf3 still wins, but it does not step onto a target square yet. Kd4, Ke4, or Kf4 reaches one immediately.",
+            "rule_reminder": "For a pawn on e2, get your King to d4, e4, or f4 before pushing.",
+            "help_squares": ["d4", "e4", "f4"],
+            "reason_contract": {
+              "prompt": "Why is Kd4 useful now?",
+              "choices": [
+                {"id": "occupy_d4", "label": "It reaches d4, so my King can lead the e-pawn."},
+                {"id": "chases_king", "label": "It chases the black King away immediately."},
+                {"id": "not_sure", "label": "I am not sure yet."}
+              ],
+              "accepted_choice_ids": ["occupy_d4"],
+              "success_text": "Right. Kd4 reaches a target square and puts your King in front of the pawn.",
+              "correction_text": "Kd4 matters because it reaches d4, one of the three target squares in front of the e-pawn."
+            },
+            "accepted_alternatives": [
+              {
+                "move_san": "Ke4",
+                "move_uci": "e3e4",
+                "idea": "Ke4 reaches the middle target square and puts your King directly in front of the e-pawn.",
+                "on_correct": "Good. Ke4 reaches the middle target square and lets your King lead the pawn.",
+                "reason_contract": {
+                  "prompt": "Why is Ke4 useful now?",
+                  "choices": [
+                    {"id": "occupy_e4", "label": "My King reaches e4 and stands in front of the pawn."},
+                    {"id": "push_next", "label": "It means I should push e3 immediately, whatever Black does."},
+                    {"id": "not_sure", "label": "I am not sure yet."}
+                  ],
+                  "accepted_choice_ids": ["occupy_e4"],
+                  "success_text": "Right. Ke4 puts your King directly in front of the e-pawn.",
+                  "correction_text": "Ke4 matters because your King reaches e4 and leads the pawn from the front."
+                }
+              },
+              {
+                "move_san": "Kf4",
+                "move_uci": "e3f4",
+                "idea": "Kf4 reaches the third target square. Your King can now help the e-pawn advance.",
+                "on_correct": "Good. Kf4 reaches a target square and keeps the promotion plan alive.",
+                "reason_contract": {
+                  "prompt": "Why is Kf4 useful now?",
+                  "choices": [
+                    {"id": "occupy_f4", "label": "It reaches f4, one of the squares that helps my pawn promote."},
+                    {"id": "wins_pawn", "label": "It wins a black pawn on the next move."},
+                    {"id": "not_sure", "label": "I am not sure yet."}
+                  ],
+                  "accepted_choice_ids": ["occupy_f4"],
+                  "success_text": "Right. Kf4 reaches the third target square in front of the e-pawn.",
+                  "correction_text": "Kf4 matters because f4 is one of the three target squares for the e-pawn."
+                }
+              }
+            ]
           },
           {
             "fen": "8/8/2k5/8/2K5/2P5/8/8 w - - 0 1",
@@ -193,10 +291,23 @@
             "correct_move_uci": "c4d4",
             "wrong_example_san": "Kb4",
             "prompt": "White to move. Can the King reach a key square before Black blocks it?",
+            "teaching_focus": "Both Kings are close enough to the important squares. Keep your King central and compare its route with Black's route.",
             "idea": "Kd4 tests Black from the centre, but the exact position is still drawn because Black's King is already close enough to answer.",
             "on_correct": "Good practical choice. Kd4 keeps the most options, while accurate Black defence still holds the draw.",
-            "on_wrong": "Kb4 moves toward the edge. Kd4 is the cleaner practical try because it keeps the King central and tests both sides.",
-            "rule_reminder": "A key square only wins when your King can occupy it in time. Count the defending King's route too."
+            "on_wrong": "Kb4 also holds the draw, but it steps toward the edge. Kd4 is the clearer try because it tests Black from the centre.",
+            "rule_reminder": "A target square only wins when your King gets there before the defending King can block it.",
+            "help_squares": ["b5", "c5", "d5"],
+            "reason_contract": {
+              "prompt": "What does Kd4 test?",
+              "choices": [
+                {"id": "test_both_routes", "label": "Whether Black can stop my King from either side."},
+                {"id": "wins_now", "label": "It wins immediately because my King reached the fourth rank."},
+                {"id": "not_sure", "label": "I am not sure yet."}
+              ],
+              "accepted_choice_ids": ["test_both_routes"],
+              "success_text": "Exactly. Kd4 keeps both routes open, but Black is close enough to hold the draw.",
+              "correction_text": "Kd4 keeps both routes open. You still have to count whether Black can block your King in time."
+            }
           }
         ]
       },
