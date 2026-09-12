@@ -66,6 +66,7 @@ async def run(
     all_users: bool,
     cutoff: datetime,
     source_commit: str,
+    include_admin: bool = False,
 ) -> Dict[str, Any]:
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     try:
@@ -97,6 +98,10 @@ async def run(
                     user_id,
                     cutoff=cutoff,
                     source_commit=source_commit,
+                    # Only ever true for one named --email account: main()
+                    # refuses --include-admin without --email and refuses it
+                    # outright with --all, so this cannot widen to the cohort.
+                    allow_admin=include_admin and bool(email),
                 )
             except ValueError as exc:
                 reason = str(exc)
@@ -139,7 +144,17 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--confirm", default="")
     parser.add_argument("--report-json", default=None)
+    parser.add_argument(
+        "--include-admin",
+        action="store_true",
+        help="Capture a baseline for ONE named admin account. Requires --email "
+             "and is refused with --all, so it can never widen to the cohort.",
+    )
     args = parser.parse_args()
+    if args.include_admin and not args.email:
+        raise SystemExit("--include-admin requires --email for a single account")
+    if args.include_admin and args.all_users:
+        raise SystemExit("--include-admin cannot be combined with --all")
     if args.apply and args.confirm != CONFIRMATION:
         raise SystemExit(f"Refusing write: --confirm must equal {CONFIRMATION!r}")
     if not args.source_commit:
@@ -150,6 +165,7 @@ def main() -> int:
         all_users=args.all_users,
         cutoff=_parse_cutoff(args.cutoff),
         source_commit=args.source_commit,
+        include_admin=args.include_admin,
     ))
     rendered = json.dumps(report, indent=2, sort_keys=True)
     print(rendered)

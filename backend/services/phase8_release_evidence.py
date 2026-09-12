@@ -222,7 +222,21 @@ async def build_pre_enrollment_baseline(
     *,
     cutoff: datetime,
     source_commit: str,
+    allow_admin: bool = False,
 ) -> Dict[str, Any]:
+    """`allow_admin` is an explicit single-account escape hatch.
+
+    Admin accounts are kept out of the real-user cohort so they cannot skew
+    the pilot's reach and transfer metrics. That rule belongs to MEASUREMENT.
+    Applied to PROVISIONING it also denied the validation account the baseline
+    that gates its own access, so the one account used to check the product
+    could not see it -- observed 2026-09-12 as
+    /api/game-review/recommendation returning reason="baseline_missing" while
+    41 pilot users were correctly provisioned.
+
+    Defaults to False, so every existing caller and the --all cohort path are
+    unchanged. The caller that passes True must name a single account.
+    """
     if cutoff.tzinfo is None:
         raise ValueError("baseline cutoff must be timezone-aware")
     if not source_commit:
@@ -241,7 +255,10 @@ async def build_pre_enrollment_baseline(
     )
     if not user:
         raise ValueError("user does not exist")
-    if str(user.get("role") or "user").lower() in {"admin", "super_admin"}:
+    if (
+        not allow_admin
+        and str(user.get("role") or "user").lower() in {"admin", "super_admin"}
+    ):
         raise ValueError("admin accounts cannot enter the real-user baseline")
     enrollment = ((user.get("feature_flags") or {}).get(
         "personalized_game_review_coach"
