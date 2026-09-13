@@ -1,7 +1,7 @@
 # Play with Coach — Unified Experience Pre-Code Audit
 
-Date: 2026-09-13  
-Scope: `docs/play_with_coach_unified_experience_scope.md`  
+Date: 2026-09-13
+Scope: `docs/play_with_coach_unified_experience_scope.md`
 Data lock: `docs/play_with_coach_unified_experience_data_lock.md`
 
 ## Single-source-of-truth audit
@@ -85,7 +85,6 @@ The production browser-control helper failed to start twice. The current-state a
 
 ## Result
 
-**PRE-CODE AUDIT: PASS**  
-Feature: Play with Coach — Unified Experience  
+**PRE-CODE AUDIT: PASS**
+Feature: Play with Coach — Unified Experience
 Proceeding to implementation behind a default-off flag.
-

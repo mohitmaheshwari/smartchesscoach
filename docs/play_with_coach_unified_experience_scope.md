@@ -1,6 +1,6 @@
 # Play with Coach — Unified Experience Scope
 
-Status: APPROVED BY MOHIT — 2026-09-13  
+Status: APPROVED BY MOHIT — 2026-09-13
 Audit base: `origin/working-code` at `c1e576c0`
 
 ## 0. Existing surfaces audit

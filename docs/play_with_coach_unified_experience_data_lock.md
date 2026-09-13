@@ -1,7 +1,7 @@
 # Play with Coach — Unified Experience Data Lock
 
-Date: 2026-09-13  
-Scope: `docs/play_with_coach_unified_experience_scope.md`  
+Date: 2026-09-13
+Scope: `docs/play_with_coach_unified_experience_scope.md`
 Production database: `chess_coach`, read-only
 
 ## Measurement boundary
@@ -165,4 +165,3 @@ The canonical active-focus collection contains 53 active weakness rows for 53 us
 - No timing threshold is set while the move timer is invalid.
 - No supporting focus is shown until the existing detector-quality authorization can identify one.
 - No new focus-ranking formula is added to Play with Coach.
-
