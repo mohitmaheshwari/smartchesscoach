@@ -89,6 +89,34 @@ const CoachPlay = ({ user }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [experienceConfig, setExperienceConfig] = useState(null);
+  const [experienceLoading, setExperienceLoading] = useState(true);
+  const unifiedExperience = (
+    session?.experience_version === "unified_v1"
+    || (!gameStarted && experienceConfig?.experience_version === "unified_v1")
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setExperienceLoading(true);
+    fetch(`${API}/coach/play/experience`, {
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setExperienceConfig(data);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") {
+          console.warn("[CoachPlay] Experience preload failed; using legacy setup.", error);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setExperienceLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   useLayoutEffect(() => {
     const sessionId = session?.session_id || null;
@@ -1428,8 +1456,12 @@ const CoachPlay = ({ user }) => {
         user_color: selectedColor,
         time_control: timeControl,
         game_mode: gameMode, // "coach" (with captions) or "play" (no coaching)
-        evidence_mode: practiceMode ? "practice_assisted" : evidenceMode,
       };
+      if (unifiedExperience) {
+        requestBody.experience_version = "unified_v1";
+      } else {
+        requestBody.evidence_mode = practiceMode ? "practice_assisted" : evidenceMode;
+      }
 
       // If user selected a specific opening to practice, pass it
       console.log("[CoachPlay] selectedOpening:", selectedOpening, "openingFromUrl:", openingFromUrl);
@@ -1473,6 +1505,18 @@ const CoachPlay = ({ user }) => {
         // Surface as upsell modal, not an error toast.
         if (response.status === 402 && data.detail && typeof data.detail === "object") {
           setUpgradeInfo(data.detail);
+          if (unifiedExperience) {
+            setExperienceConfig((current) => ({
+              ...(current || {}),
+              access: {
+                ...(current?.access || {}),
+                coach: {
+                  ...data.detail,
+                  allowed: false,
+                },
+              },
+            }));
+          }
           setLoading(false);
           return;
         }
@@ -1480,6 +1524,7 @@ const CoachPlay = ({ user }) => {
       }
       const effectiveEvidenceMode = data.session?.evidence_mode || evidenceMode;
       if (
+        !unifiedExperience &&
         evidenceMode === "checkpoint_unassisted" &&
         effectiveEvidenceMode !== "checkpoint_unassisted"
       ) {
@@ -1492,7 +1537,7 @@ const CoachPlay = ({ user }) => {
       if (data.coaching_context) {
         const canonicalRule = coachPlayFocusRule(data.coaching_context, gameMode);
         setFocusRule(canonicalRule);
-        setShowFocusBanner(Boolean(canonicalRule));
+        setShowFocusBanner(!unifiedExperience && Boolean(canonicalRule));
       } else if (gameMode === "play") {
         setFocusRule(null);
         setShowFocusBanner(false);
@@ -3498,6 +3543,11 @@ const CoachPlay = ({ user }) => {
         showPreGameStreakPopup={showPreGameStreakPopup}
         setShowPreGameStreakPopup={setShowPreGameStreakPopup}
         actuallyStartGame={actuallyStartGame}
+        unifiedExperience={unifiedExperience}
+        experienceLoading={experienceLoading}
+        experienceConfig={experienceConfig}
+        upgradeInfo={upgradeInfo}
+        timeControl={timeControl}
       />
     );
   }

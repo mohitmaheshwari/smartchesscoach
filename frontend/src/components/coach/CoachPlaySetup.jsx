@@ -15,6 +15,7 @@ import Layout from "@/components/Layout";
 import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import { PreGameStreakPopup } from "@/components/streak";
 import { API } from "@/App";
+import UnifiedCoachPlaySetup from "@/components/coach/UnifiedCoachPlaySetup";
 import {
   ArrowLeft,
   Swords,
@@ -135,8 +136,34 @@ const CoachPlaySetup = ({
   showPreGameStreakPopup,
   setShowPreGameStreakPopup,
   actuallyStartGame,
+  unifiedExperience = false,
+  experienceLoading = false,
+  experienceConfig = null,
+  upgradeInfo = null,
+  timeControl = "15+10",
 }) => {
   const navigate = useNavigate();
+
+  if (unifiedExperience) {
+    return (
+      <UnifiedCoachPlaySetup
+        user={user}
+        loading={loading}
+        experienceLoading={experienceLoading}
+        experienceConfig={experienceConfig}
+        upgradeInfo={upgradeInfo}
+        practiceMode={practiceMode}
+        practicePosition={practicePosition}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        selectedOpening={selectedOpening}
+        gameMode={gameMode}
+        setGameMode={setGameMode}
+        timeControl={timeControl}
+        startGame={startGame}
+      />
+    );
+  }
 
   return (
     <Layout user={user}>

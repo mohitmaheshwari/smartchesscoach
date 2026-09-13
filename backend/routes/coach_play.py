@@ -637,6 +637,20 @@ async def get_active_coach_sessions(
     }
 
 
+@router.get("/experience")
+async def get_coach_play_experience(
+    user: User = Depends(get_current_user),
+):
+    """Return setup capability before the player commits to a session."""
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    from services.pwc_experience import build_experience_config
+
+    return await build_experience_config(db, user.user_id)
+
+
 @router.get("/history")
 async def get_coach_play_history(
     user: User = Depends(get_current_user),
@@ -6958,6 +6972,7 @@ async def start_play_with_coach(
     time_control = request.get("time_control", "15+10")
     game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
     evidence_mode = request.get("evidence_mode")
+    requested_experience_version = request.get("experience_version")
     logger.info(f"[/coach/play/start] RECEIVED game_mode={game_mode} from client for user {user.user_id[:8]}")
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
@@ -6979,6 +6994,30 @@ async def start_play_with_coach(
 
         if str(evidence_mode) not in PWC_EVIDENCE_MODES:
             raise HTTPException(status_code=400, detail="unknown evidence_mode")
+
+    from services.pwc_experience import (
+        UNIFIED_V1_EXPERIENCE,
+        resolve_requested_experience_version,
+    )
+
+    rollout_user = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "role": 1, "feature_flags": 1},
+    )
+    try:
+        experience_version = resolve_requested_experience_version(
+            requested_experience_version,
+            rollout_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # The unified UI exposes only Coach and Play. Evidence purpose remains an
+    # internal learning-state decision rather than a third setup choice.
+    if experience_version == UNIFIED_V1_EXPERIENCE:
+        evidence_mode = None
 
     # Premium gate — Coach Mode only (1 session/day free tier); Play Mode = unlimited.
     # Play Mode is pure chess with no coaching overhead, so no rate limit.
@@ -7032,6 +7071,7 @@ async def start_play_with_coach(
             source_game_id=source_game_id,
             game_mode=game_mode,
             evidence_mode=evidence_mode,
+            experience_version=experience_version,
         )
 
         # The canonical snapshot is the only focus authority for eligible
@@ -7426,6 +7466,7 @@ async def start_play_with_coach(
                 "mate_in": mate_in
             },
             "practice_mode": practice_mode,
+            "experience_version": experience_version,
             "openingGuidance": (
                 _get_initial_opening_guidance(
                     update_fields if (opening_key or opening_name) else {}, logger

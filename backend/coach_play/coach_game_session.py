@@ -62,6 +62,9 @@ class CoachGameSession:
 
     # Game mode: "coach" (with captions) or "play" (pure chess)
     game_mode: str = "coach"
+    # Stored at session creation so rollout changes cannot switch an active
+    # game's interaction controller halfway through.
+    experience_version: str = "legacy"
     # Evidence intent is separate from presentation mode.  Coach mode is
     # assisted practice; a silent Play-mode game becomes a checkpoint only
     # when the player explicitly selected that purpose.
@@ -231,6 +234,7 @@ async def start_coach_session(
     source_game_id: str = None,
     game_mode: str = "coach",  # "coach" (with captions) | "play" (pure chess)
     evidence_mode: str = None,
+    experience_version: str = "legacy",
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -491,6 +495,7 @@ async def start_coach_session(
         coaching_context=coaching_context,
         game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
         evidence_mode=effective_evidence_mode,
+        experience_version=experience_version,
     )
 
     logger.info(f"[start_coach_session] Created session with game_mode={session.game_mode}")
