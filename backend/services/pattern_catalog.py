@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,34 @@ def canonical_concept_id(pattern_id: str) -> str:
     """Resolve a legacy pattern alias to its existing canonical principle."""
     entry = get_catalog().get("patterns", {}).get(pattern_id) or {}
     return str(entry.get("canonical_concept_id") or pattern_id)
+
+
+def concept_aliases(concept_id: str) -> Tuple[str, ...]:
+    """Every older spelling that resolves to this canonical concept.
+
+    The reverse of canonical_concept_id. A lookup holds a curriculum id --
+    "TAC_PIN_PATTERN" -- while the player's stored history spells the same idea
+    "pin", so asking for the curriculum id alone finds nothing. Measured on
+    production 2026-09-13: a strict lookup matched 0 of 124 players.
+
+    Only `canonical_concept_id` entries are reversed. Entries carrying
+    `teaches_concept_id` are LESSONS -- "endgame_opposition" is the lesson that
+    teaches END_OPPOSITION -- and a player who sat through one has attendance,
+    not demonstrated understanding. Returning those here would let lesson
+    attendance answer a question about competence, so they are excluded by
+    construction.
+    """
+    wanted = str(concept_id or "").strip()
+    if not wanted:
+        return ()
+    aliases = [
+        str(pattern_id)
+        for pattern_id, entry in (get_catalog().get("patterns") or {}).items()
+        if isinstance(entry, dict)
+        and str(entry.get("canonical_concept_id") or "").strip() == wanted
+        and str(pattern_id) != wanted
+    ]
+    return tuple(sorted(aliases))
 
 
 def resolve_pattern_ids(caption_facts: Dict) -> List[str]:

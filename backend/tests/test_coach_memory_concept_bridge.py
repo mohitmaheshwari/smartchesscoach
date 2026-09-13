@@ -112,3 +112,69 @@ def test_no_alias_points_at_an_id_the_curriculum_does_not_have():
         pytest.skip("caption_principles exposes no id table to check against")
     for stored, concept in {**ALIASES, **LESSONS}.items():
         assert concept in known, f"{stored} -> {concept} is not a known concept id"
+
+
+# ---------------------------------------------------------------------------
+# The bridge has to be REACHED, not just be correct (added 2026-09-13).
+#
+# The aliases resolved correctly while nothing fed them: the one function that
+# reads coach_memory skill records had no consumer, so a lookup still asked for
+# the curriculum id alone and still matched nothing. Measured on production
+# across all 124 coach_memory documents: 0 players before, 43 after.
+# ---------------------------------------------------------------------------
+
+from services.engine2_skill_builder import lesson_skill_aliases  # noqa: E402
+from services.pattern_catalog import concept_aliases  # noqa: E402
+from services.personal_teaching_profile import _exact_skill  # noqa: E402
+
+
+@pytest.mark.parametrize("concept,older", sorted(
+    {v: k for k, v in ALIASES.items()}.items()  # one older spelling per concept
+))
+def test_a_lookup_for_the_curriculum_id_reaches_the_older_spelling(concept, older):
+    assert older in concept_aliases(concept)
+    assert older in lesson_skill_aliases("concept", "", requested_skill_id=concept)
+
+
+@pytest.mark.parametrize("concept,taught_by", sorted(
+    {v: k for k, v in LESSONS.items()}.items()
+))
+def test_a_concept_lookup_never_reaches_a_lesson(concept, taught_by):
+    """Attendance must not answer a question about competence."""
+    assert taught_by not in concept_aliases(concept), (
+        f"{taught_by} is the lesson that teaches {concept}; returning it as an "
+        "alias would let sitting through the lesson count as holding the concept"
+    )
+
+
+def test_the_widened_lookup_finds_history_the_strict_one_missed():
+    """The end-to-end property, on a record shaped like the real ones."""
+    memory = {"learning": {"skills": [
+        {"skill_id": "pre_move_check", "skill_type": "concept",
+         "seen": 6, "correct": 4},
+    ]}}
+    strict = _exact_skill(memory, ["TAC_CHECKS_CAPTURES_THREATS"])
+    assert strict is None, "the miss this change exists to fix"
+
+    widened = lesson_skill_aliases(
+        "concept", "", requested_skill_id="TAC_CHECKS_CAPTURES_THREATS")
+    found = _exact_skill(memory, list(widened))
+    assert found is not None and found["skill_id"] == "pre_move_check"
+
+
+def test_a_lesson_record_still_does_not_satisfy_a_concept_lookup():
+    memory = {"learning": {"skills": [
+        {"skill_id": "endgame_opposition", "skill_type": "endgame",
+         "seen": 9, "correct": 9},
+    ]}}
+    widened = lesson_skill_aliases("concept", "", requested_skill_id="END_OPPOSITION")
+    assert _exact_skill(memory, list(widened)) is None, (
+        "nine correct answers in the lesson are still not evidence the player "
+        "holds the concept in a real game"
+    )
+
+
+def test_an_unknown_concept_widens_to_nothing():
+    assert concept_aliases("NOT_A_CONCEPT") == ()
+    assert concept_aliases("") == ()
+    assert concept_aliases(None) == ()

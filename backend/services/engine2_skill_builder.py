@@ -353,6 +353,25 @@ def lesson_skill_aliases(
     node_ref = str((node or {}).get("content_ref") or "").strip()
     if node_ref and node_ref not in aliases:
         aliases.append(node_ref)
+    # The player's stored history may spell this concept an older way. The
+    # catalog owns that mapping (data/pattern_catalog.json); reverse it so a
+    # lookup for "TAC_PIN_PATTERN" also reads the history stored as "pin".
+    # Measured on production 2026-09-13: without this, a strict concept lookup
+    # matched 0 of 124 players.
+    #
+    # Lessons are deliberately NOT reversed -- concept_aliases excludes them --
+    # because "endgame_opposition" is the lesson that teaches END_OPPOSITION,
+    # and attendance is not evidence the player holds the concept.
+    try:
+        from services.pattern_catalog import concept_aliases
+
+        for alias in tuple(aliases):
+            for older in concept_aliases(alias):
+                if older not in aliases:
+                    aliases.append(older)
+    except (ImportError, KeyError, TypeError, ValueError):
+        pass
+
     if str(content_kind or "").strip().lower() == "endgame":
         try:
             from services.endgame_theory_service import resolve_content_ref
