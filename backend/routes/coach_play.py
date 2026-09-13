@@ -1958,53 +1958,26 @@ async def confirm_risky_move(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
 ):
-    """
-    Confirm a risky move after user acknowledges the warning.
-    
-    Decrements intervention count for this session.
-    """
+    """Atomically commit a warned move and continue the game."""
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
-    
+
     session_id = request.get("session_id")
     move = request.get("move")
     risk_level = request.get("risk_level", "medium")
-    
+
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
     if not move:
         raise HTTPException(status_code=400, detail="move is required")
-    
+
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
-    # Decrement intervention count
-    remaining = session_doc.get("remaining_interventions", 3)
-    if remaining > 0:
-        remaining -= 1
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {"remaining_interventions": remaining}}
-        )
-    
-    # Log the override
-    guardian_overrides = session_doc.get("guardian_overrides", [])
-    guardian_overrides.append({
-        "move": move,
-        "risk_level": risk_level,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
-    
-    await db.coach_sessions.update_one(
-        {"session_id": session_id},
-        {"$set": {"guardian_overrides": guardian_overrides}}
-    )
-    
-    # Now actually execute the move (same as /move endpoint)
+
     time_spent = request.get("time_spent", 0)
     try:
         current_fen = session_doc.get("current_fen")
@@ -2015,10 +1988,12 @@ async def confirm_risky_move(
 
         move_history = session_doc.get("move_history", [])
         move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
+        action_revision = int(session_doc.get("action_revision") or 0) + 1
+        game_over = board.is_game_over()
+        result = None
+        if game_over:
+            result = "win" if board.is_checkmate() else "draw"
 
-        # Confirming a risky move is a second request for a move the client
-        # already tried, so it is the most likely path to double-append. Commit
-        # it as a compare-and-swap like every other writer.
         _confirmed_entry = {
             "move": move,
             "uci": chess_move.uci(),
@@ -2029,53 +2004,126 @@ async def confirm_risky_move(
             "risk_acknowledged": risk_level,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        if await _append_move_atomically(
+        extra_set = {
+            "coach_move_pending": not game_over,
+            "action_revision": action_revision,
+        }
+        if game_over:
+            extra_set.update({
+                "status": "completed",
+                "result": result,
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+            })
+
+        committed = await _append_move_atomically(
             db,
             session_id,
             entry=_confirmed_entry,
             fen_before=current_fen,
             fen_after=fen_after_user,
             expected_history_length=len(move_history),
-            extra_set={"coach_move_pending": True},
-        ):
-            move_history.append(_confirmed_entry)
-        else:
-            logger.info(
-                "[move-cas] confirmed move %s already recorded for %s",
-                move, session_id[:8],
+            extra_set=extra_set,
+        )
+        if not committed:
+            latest = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "current_fen": 1, "move_history": {"$slice": -1},
+                 "remaining_interventions": 1, "coach_move_pending": 1,
+                 "status": 1, "result": 1},
+            )
+            latest_move = ((latest or {}).get("move_history") or [{}])[-1]
+            if (
+                latest_move.get("by") == "player"
+                and latest_move.get("move") == move
+                and latest_move.get("fen_before") == current_fen
+            ):
+                return {
+                    "success": True,
+                    "idempotent": True,
+                    "user_move_recorded": True,
+                    "move": move,
+                    "intervention_consumed": True,
+                    "remaining_interventions": (latest or {}).get(
+                        "remaining_interventions", 0
+                    ),
+                    "current_fen": (latest or {}).get("current_fen"),
+                    "awaiting_coach": bool(
+                        (latest or {}).get("coach_move_pending")
+                    ),
+                    "game_over": (latest or {}).get("status") == "completed",
+                    "result": (latest or {}).get("result"),
+                }
+            raise HTTPException(
+                status_code=409,
+                detail="The position changed before this move could be committed.",
             )
 
-        # Check if game is over
-        game_over = board.is_game_over()
-        if game_over:
-            result = "draw"
-            if board.is_checkmate():
-                result = "win"
-            await db.coach_sessions.update_one(
-                {"session_id": session_id},
-                {"$set": {"status": "completed", "result": result}}
+        move_history.append(_confirmed_entry)
+        remaining = max(
+            0, int(session_doc.get("remaining_interventions", 3)) - 1
+        )
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {
+                "$set": {"remaining_interventions": remaining},
+                "$push": {"guardian_overrides": {
+                    "move": move,
+                    "risk_level": risk_level,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }},
+            },
+        )
+
+        # Confirmation is a complete commit path, not a logging prelude to
+        # /move. It must schedule the same opponent turn as a normal move.
+        import asyncio
+        user_rating = int(session_doc.get("user_rating") or 1200)
+        user_color = str(session_doc.get("user_color") or "white")
+        is_play_mode = session_doc.get("game_mode") == "play"
+        if not is_play_mode:
+            asyncio.create_task(
+                _process_move_and_respond(
+                    session_id=session_id,
+                    user_move=move,
+                    fen_before=current_fen,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                    user_color=user_color,
+                    move_number=move_number,
+                    game_over=game_over,
+                    expected_action_revision=action_revision,
+                )
             )
-            return {
-                "success": True,
-                "remaining_interventions": remaining,
-                "current_fen": fen_after_user,
-                "game_over": True,
-                "result": result,
-            }
+        elif not game_over:
+            asyncio.create_task(
+                _play_mode_coach_move(
+                    session_id=session_id,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                )
+            )
 
         return {
             "success": True,
+            "user_move_recorded": True,
+            "move": move,
+            "intervention_consumed": True,
             "remaining_interventions": remaining,
             "current_fen": fen_after_user,
-            "awaiting_coach": True,
+            "awaiting_coach": not game_over,
+            "game_over": game_over,
+            "result": result,
         }
+    except HTTPException:
+        raise
+    except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError) as exc:
+        raise HTTPException(status_code=400, detail="Move is not legal here.") from exc
     except Exception as e:
         logger.error(f"[GUARDIAN] Move execution after confirm failed: {e}")
-        return {
-            "success": True,
-            "remaining_interventions": remaining,
-            "message": "Move confirmed but execution failed. Try again.",
-        }
+        raise HTTPException(
+            status_code=500,
+            detail="The move was not committed. Please try again.",
+        ) from e
 
 
 
@@ -5372,10 +5420,55 @@ async def evaluate_pending_move(
              "coaching_decisions": 1, "last_coaching_move_index": 1,
              "opening_to_teach": 1, "opening_key": 1, "opening_teaching_active": 1,
              "opening_teaching_moves": 1, "opening_teaching_index": 1,
-             "behavior_summary": 1}
+             "behavior_summary": 1, "experience_version": 1, "game_mode": 1,
+             "coaching_context": 1, "user_rating": 1, "current_fen": 1,
+             "v5_fired_principles": 1, "v5_fired_state_keys": 1}
         )
         if not session_doc:
             return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
+        if session_doc.get("user_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Not your session")
+
+        # Unified V1 owns one controller and one verified narration path. It
+        # exits before any legacy focus reader, template picker, gap filler,
+        # opening enforcer, or behavioral message generator can compete.
+        from services.pwc_experience import UNIFIED_V1_EXPERIENCE
+        if session_doc.get("experience_version") == UNIFIED_V1_EXPERIENCE:
+            from services.unified_pwc_coaching import evaluate_unified_pending
+
+            unified_response = await evaluate_unified_pending(
+                session_doc=session_doc,
+                fen_before=fen_before,
+                uci=uci,
+                user_rating=int(session_doc.get("user_rating") or user_rating or 1200),
+            )
+            unified_decision = unified_response.get("coachingDecision") or {}
+            move_key = f"{move_index_preview}:{uci}"
+            await db.coach_sessions.update_one(
+                {
+                    "session_id": session_id,
+                    "user_id": user.user_id,
+                    "coaching_decisions.move_key": {"$ne": move_key},
+                },
+                {"$push": {"coaching_decisions": {
+                    "move_index": move_index_preview,
+                    "move_key": move_key,
+                    "source": unified_decision.get("source"),
+                    "layer": unified_decision.get("layer", "silent"),
+                    "category": unified_decision.get("category"),
+                    "concept_key": unified_decision.get("conceptKey"),
+                    "text": unified_decision.get("text"),
+                    "eval_valid": (
+                        unified_response.get("moveEvaluation", {}).get("moveQuality")
+                        != "unknown"
+                    ),
+                    "caption_verified": bool(
+                        (unified_decision.get("proof") or {}).get("caption_verified")
+                    ),
+                    "experience_version": UNIFIED_V1_EXPERIENCE,
+                }}},
+            )
+            return unified_response
 
         user_color = session_doc.get("user_color", "white")
         user_id = session_doc.get("user_id", "")
@@ -6144,6 +6237,8 @@ async def evaluate_pending_move(
             },
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         elapsed_total = (_time.monotonic() - start) * 1000
         logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
@@ -9936,7 +10031,10 @@ async def _process_move_and_respond(
                 # nothing can leak). The frontend shows the panel; /predict-move/answer logs the guess,
                 # then /trigger-coach-move applies THIS pending move. FAIL-OPEN: any error falls through
                 # to the normal apply below, so PWC can never break. See predict_coach_move_scope.md.
-                if coach_move:
+                if (
+                    coach_move
+                    and session_doc.get("experience_version") != "unified_v1"
+                ):
                     try:
                         import asyncio as _aio
                         import chess.engine as _ce

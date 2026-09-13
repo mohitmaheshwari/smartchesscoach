@@ -15,8 +15,13 @@ const MOVE = {
   moveIndexPreview: 0,
 };
 
-const Harness = ({ session, gameMode, expose }) => {
-  expose(useCoachFlow({ session, gameMode, userRating: 1200 }));
+const Harness = ({ session, gameMode, experienceVersion = "legacy", expose }) => {
+  expose(useCoachFlow({
+    session,
+    gameMode,
+    experienceVersion,
+    userRating: 1200,
+  }));
   return null;
 };
 
@@ -99,5 +104,55 @@ describe("useCoachFlow current mode ownership", () => {
 
     expect(result).toEqual({ autoCommitted: false, cancelled: true });
     expect(commit).not.toHaveBeenCalled();
+  });
+
+  test("unified critical warning waits for a visible player choice, not a timer", async () => {
+    let flow;
+    const expose = (value) => { flow = value; };
+    global.fetch = jest.fn().mockResolvedValue(response({
+      shouldAutoCommit: false,
+      coachingDecision: {
+        layer: "critical_interrupt",
+        severity: "high",
+        text: "Qh5 leaves your queen open to Nxh5.",
+        instruction: "Check every reply before you commit.",
+        conceptKey: "TAC_HANGING_PIECE",
+        requiresHold: true,
+        minHoldMs: 0,
+      },
+      coachingMoment: {
+        layer: "critical_interrupt",
+        severity: "high",
+        text: "Qh5 leaves your queen open to Nxh5.",
+        conceptKey: "TAC_HANGING_PIECE",
+        minHoldMs: 0,
+      },
+      moveEvaluation: { moveQuality: "blunder" },
+    }));
+    const commit = jest.fn().mockResolvedValue(true);
+
+    await act(async () => root.render(
+      <Harness
+        session={{ session_id: "session-unified" }}
+        gameMode="coach"
+        experienceVersion="unified_v1"
+        expose={expose}
+      />
+    ));
+
+    let result;
+    await act(async () => {
+      result = await flow.handleUserMove(MOVE, commit, 2.5);
+    });
+    expect(result).toEqual({ autoCommitted: false, requiresChoice: true });
+    expect(commit).not.toHaveBeenCalled();
+    expect(flow.isInHold).toBe(true);
+    expect(flow.clockState).toBe("normal");
+
+    await act(async () => {
+      await flow.acceptPendingMove(commit, 2.5);
+    });
+    expect(commit).toHaveBeenCalledWith("e4", 2.5);
+    expect(flow.isInHold).toBe(false);
   });
 });

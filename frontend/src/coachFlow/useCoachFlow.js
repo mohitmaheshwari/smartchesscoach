@@ -21,7 +21,12 @@ import {
 } from "./types";
 import { getAdaptiveHoldMs, getCoachingPresentation } from "./adaptiveTiming";
 
-export default function useCoachFlow({ session, userRating = 1200, gameMode = null }) {
+export default function useCoachFlow({
+  session,
+  userRating = 1200,
+  gameMode = null,
+  experienceVersion = "legacy",
+}) {
   // ─── Core State ─────────────────────────────────────────────
   const [interactionState, setInteractionState] = useState(INTERACTION_STATES.IDLE);
   const [clockState, setClockState] = useState(CLOCK_STATES.NORMAL);
@@ -286,6 +291,13 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       counts[decision.conceptKey] = (counts[decision.conceptKey] || 0) + 1;
 
       setInteractionState(INTERACTION_STATES.CRITICAL_HOLD);
+      if (experienceVersion === "unified_v1") {
+        // Unified V1 has explicit visible choices in the coach panel. There is
+        // no hidden timer and no clock gesture required to release the move.
+        setClockState(CLOCK_STATES.NORMAL);
+        return { autoCommitted: false, requiresChoice: true };
+      }
+
       setClockState(CLOCK_STATES.HOLD_LOCKED);
 
       // Start hold timer
@@ -309,7 +321,53 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
       setPendingMove(null);
       return { autoCommitted: true };
     }
-  }, [session?.session_id, userRating, gameMode, _clearHoldTimer, _invalidatePendingWork]);
+  }, [
+    session?.session_id,
+    userRating,
+    gameMode,
+    experienceVersion,
+    _clearHoldTimer,
+    _invalidatePendingWork,
+  ]);
+
+  // Unified V1's visible "Play it anyway" action. Unlike handleClockTap this
+  // has no elapsed-time gate: the player's explicit choice is the release.
+  const acceptPendingMove = useCallback(async (commitFn, timeSpent) => {
+    if (experienceVersion !== "unified_v1") return false;
+    if (interactionState !== INTERACTION_STATES.CRITICAL_HOLD) return false;
+    if (!pendingMove) return false;
+
+    setInteractionState(INTERACTION_STATES.COMMITTING_MOVE);
+    const generation = flowGenerationRef.current;
+    const sessionId = currentSessionIdRef.current;
+    const success = await commitFn(pendingMove.san, timeSpent);
+    if (
+      flowGenerationRef.current !== generation
+      || currentSessionIdRef.current !== sessionId
+    ) return false;
+
+    if (success && activeCoachingMoment) {
+      setTimeline(prev => [...prev, createTimelineItem({
+        moveIndex: activeCoachingMoment.moveIndex,
+        moveSan: pendingMove.san,
+        messageType: activeCoachingMoment.messageType,
+        severity: activeCoachingMoment.severity,
+        text: activeCoachingMoment.text,
+        conceptKey: activeCoachingMoment.conceptKey,
+      })]);
+    }
+    _clearState();
+    setInteractionState(
+      success ? INTERACTION_STATES.COACH_TURN : INTERACTION_STATES.IDLE
+    );
+    return success;
+  }, [
+    experienceVersion,
+    interactionState,
+    pendingMove,
+    activeCoachingMoment,
+    _clearState,
+  ]);
 
   // ─── Clock Tap (Commit) ─────────────────────────────────────
   const handleClockTap = useCallback(async (commitFn, timeSpent) => {
@@ -464,6 +522,7 @@ export default function useCoachFlow({ session, userRating = 1200, gameMode = nu
     // Actions
     handleUserMove,
     handleClockTap,
+    acceptPendingMove,
     handleMoveRevision,
     cancelPendingMove,
     setCoachTurn,
