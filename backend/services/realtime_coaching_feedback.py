@@ -1073,9 +1073,21 @@ async def generate_move_feedback(
     
     coach_move = coach_move_data.get("move", "") if coach_move_data else ""
     
-    # Classify quality using rating-aware thresholds
+    # Classify quality using rating-aware thresholds.
+    #
+    # Use the COACHING REGISTER, not the opponent-strength number. session
+    # user_rating can be lowered by the move-quality read (the coach's own
+    # estimate of strength from recent play), and that is right for choosing
+    # opponent moves. It is wrong for deciding how to speak: a 1490-rapid player
+    # resolved to 984, crossed the `is_beginner = rating < 1000` line, and was
+    # told his pieces were "friends coming out to play". How harshly to grade a
+    # -120cp move is the same kind of judgement, so it reads the register too.
+    #
+    # Sessions created before coaching_rating existed fall back to user_rating,
+    # so no migration is needed and their behaviour is unchanged.
     user_rating = session.get("user_rating", 1200)
-    quality = _classify_move_quality(eval_before, eval_after, user_color, user_rating)
+    coaching_rating = session.get("coaching_rating") or user_rating
+    quality = _classify_move_quality(eval_before, eval_after, user_color, coaching_rating)
 
     # === OPENING BOOK CHECK ===
     # In the first ~10 moves, if eval barely changed, this is likely a book move.
@@ -1322,7 +1334,8 @@ async def generate_move_feedback(
             coach_move=coach_move,
             understanding_context=understanding_context,
             user_name="",
-            user_rating=user_rating,
+            # Register, not opponent strength -- this is what gates is_beginner.
+            user_rating=coaching_rating,
             fen_before=fen_before,
             eval_before=eval_before,
             eval_after=eval_after,

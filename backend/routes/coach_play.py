@@ -9230,6 +9230,62 @@ async def _process_move_and_respond(
                     _clean_open_name(_sub_match.get("name") if _sub_match else None)
                     or (_opening_match.get("name") if _opening_match else None)
                 )
+
+                # A sub-variation label is only a NAME inside the curriculum
+                # tree; it is not necessarily something a player would recognise
+                # as an opening. On 2026-09-10 a French Defence game announced
+                # "You're in the Knight First" -- a generic node label from
+                # opening_curriculum.json -- while the same session held
+                # opening_to_teach=italian_game_black and
+                # detected_opening=french_defense. Three identities, one game.
+                #
+                # The canonical per-move recognizer
+                # (decryption_voice.opening_book) is the authority on what is
+                # actually on the board. Announce the sub-line only when it
+                # agrees with that identity; otherwise fall back to the family
+                # name, and say nothing rather than something contradictory.
+                try:
+                    from services.decryption_voice.opening_book import (
+                        recognize_opening_from_history,
+                    )
+                    _canonical = recognize_opening_from_history(_played_san_list) or {}
+                    _canonical_id = str(_canonical.get("name") or "")
+                except Exception:
+                    _canonical_id = ""
+
+                if _open_name and _canonical_id:
+                    # "defense" is shared by half the opening table, so a bare
+                    # token overlap accepted "Sicilian Defense" for a French
+                    # game. Drop the words that carry no identity.
+                    _GENERIC_OPENING_WORDS = {
+                        "defense", "defence", "game", "opening", "variation",
+                        "attack", "system", "line", "main", "gambit", "accepted",
+                        "declined", "classical", "modern", "closed", "open",
+                    }
+
+                    def _tokens(value: str) -> set:
+                        return {
+                            t for t in str(value).lower()
+                            .replace("-", " ").replace("_", " ").replace(",", " ")
+                            .split()
+                            if len(t) > 3 and t not in _GENERIC_OPENING_WORDS
+                        }
+
+                    _family_name = (
+                        _opening_match.get("name") if _opening_match else ""
+                    ) or ""
+                    if not (_tokens(_open_name) & _tokens(_canonical_id)):
+                        # The sub-line disagrees with the board. Try the family.
+                        if _tokens(_family_name) & _tokens(_canonical_id):
+                            _open_name = _family_name
+                        else:
+                            logger.info(
+                                "[opening] suppressing announcement %r: it does "
+                                "not match the recognised opening %r",
+                                _open_name, _canonical_id,
+                            )
+                            _open_name = None
+
                 if _open_name:
                     await db.coach_messages.insert_one({
                         "session_id": session_id,

@@ -349,7 +349,7 @@ const CoachPlay = ({ user }) => {
   // Coach Flow — pending move, hold states, clock commit, timeline
   const coachFlow = useCoachFlow({
     session,
-    userRating: session?.user_rating || 1200,
+    userRating: session?.coaching_rating || session?.user_rating || 1200,
     gameMode,
   });
   const {
@@ -3140,7 +3140,7 @@ const CoachPlay = ({ user }) => {
               fenBefore: currentFen,
               uci: moveObj.from + moveObj.to + (moveObj.promotion || ""),
               moveIndexPreview: session?.move_history?.length || 0,
-              userRating: session?.user_rating || 1200,
+              userRating: session?.coaching_rating || session?.user_rating || 1200,
             }),
           });
           const evalData = evalRes.ok ? await evalRes.json() : null;

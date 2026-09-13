@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import copy
 from datetime import datetime, timezone
 import hashlib
@@ -114,6 +115,10 @@ async def build_plan(db, *, user_id: str, limit_games: int):
     engine_calls: list[dict[str, Any]] = []
     pending: list[dict[str, Any]] = []
     scanned = 0
+    # One worker thread owns the engine for this whole run. See
+    # candidate_builder: the engine must not be driven from the event loop
+    # thread, or SimpleEngine hangs indefinitely.
+    _engine_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cand-engine")
     try:
         cursor = db.game_analyses.find(
             {
@@ -140,7 +145,7 @@ async def build_plan(db, *, user_id: str, limit_games: int):
             working_moves = copy.deepcopy(original_moves)
             plan_output: dict[str, Any] = {}
 
-            def candidate_builder(row):
+            def _candidate_builder_blocking(row):
                 nonlocal engine
                 if engine is None:
                     engine = StockfishEngine()
@@ -163,6 +168,24 @@ async def build_plan(db, *, user_id: str, limit_games: int):
                     **stats,
                 })
                 return packet, stats
+
+            def candidate_builder(row):
+                """Run the engine on a dedicated thread, never the event loop.
+
+                This body is invoked synchronously from inside the awaited
+                generate_game_decryption_v5, so it used to execute ON the event
+                loop thread. python-chess SimpleEngine drives its UCI transport
+                from its own loop and expects to be called from a thread that
+                has no loop running; from the loop thread it simply hung.
+
+                Measured 2026-09-12 on production: a user with ONE analysed
+                game, capped at two, timed out after 540s with the backend at
+                0.4% CPU and no stockfish process alive. Not slow -- stuck.
+
+                max_workers=1 keeps every call on the same thread, so the engine
+                started on the first call stays valid for the rest of the run.
+                """
+                return _engine_pool.submit(_candidate_builder_blocking, row).result()
 
             rendered = await generate_game_decryption_v5(
                 str(game["pgn"]),
@@ -269,8 +292,13 @@ async def build_plan(db, *, user_id: str, limit_games: int):
                 },
             })
     finally:
+        # Stop the engine on the thread that started it, then retire the pool.
         if engine is not None:
-            engine.stop()
+            try:
+                _engine_pool.submit(engine.stop).result(timeout=30)
+            except Exception:
+                engine.stop()
+        _engine_pool.shutdown(wait=True)
 
     scope = {
         "schema_version": "candidate_caption_backfill_plan.v1",

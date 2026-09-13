@@ -88,6 +88,10 @@ class CoachGameSession:
     
     # Coach difficulty (based on user rating)
     user_rating: int = 1200  # User's rating for difficulty matching
+    # How the coach should SPEAK to this player. Separate from user_rating on
+    # purpose: strength may be re-estimated downward from recent play, register
+    # may not. Never below the imported platform rating.
+    coaching_rating: int = 1200
     coach_skill_level: int = 5  # Stockfish skill level (0-20)
 
     # Pedagogical Coach inputs — populated at session start from the
@@ -278,6 +282,20 @@ async def start_coach_session(
     user_rating = rating_data.get('rating', 1200)
     rating_source = rating_data.get('source', 'default')
 
+    # The imported platform rating is kept separately as the COACHING REGISTER:
+    # how the coach should speak to this player. One number used to drive both
+    # that and the opponent's strength, and the move-quality override below
+    # legitimately lowers the strength estimate -- which then silently changed
+    # the voice. A 1490-rapid player resolved to 984, landing in the
+    # beginner_low band, and was told his pieces were "friends coming out to
+    # play" (realtime_coaching_feedback: is_beginner = user_rating < 1000).
+    #
+    # Strength may be re-estimated from how someone plays. Register may not:
+    # addressing an intermediate player as a beginner is wrong regardless of
+    # how badly the last ten games went.
+    coaching_rating = int(user_rating)
+    coaching_rating_source = rating_source
+
     # Move-quality override (flag-gated, docs/move_quality_rating_scope.md): the
     # coach's OWN read of strength from how the user plays — not the platform Elo,
     # which is contaminated by timeouts/disconnects. Only when we have >= MIN_GAMES
@@ -293,8 +311,16 @@ async def start_coach_session(
     except Exception as _mq_exc:
         logger.warning(f"[move_quality_rating] fell back to imported: {_mq_exc}")
 
+    # Register never drops below the imported rating. The move-quality read can
+    # lower the OPPONENT (user_rating) as much as the evidence supports.
+    if coaching_rating < int(user_rating):
+        coaching_rating = int(user_rating)
+
     # Log for debugging
-    logger.info(f"User {user_id} rating: {user_rating} (source: {rating_source})")
+    logger.info(
+        f"User {user_id} rating: {user_rating} (source: {rating_source}) "
+        f"| coaching register: {coaching_rating} (source: {coaching_rating_source})"
+    )
 
     skill_level = rating_to_skill_level(user_rating)
 
@@ -450,6 +476,7 @@ async def start_coach_session(
         fen_history=[initial_fen],
         current_fen=initial_fen,
         user_rating=user_rating,
+        coaching_rating=coaching_rating,
         coach_skill_level=skill_level,
         pedagogical_mode_active=True,  # Enable pedagogical opponent by default
         student_weaknesses=student_weaknesses,
