@@ -53,7 +53,7 @@ import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
-import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
+import LegacyReplayRedirect from "@/components/review/LegacyReplayRedirect";
 import { configureAnalyticsContext, resetAnalyticsContext } from "@/lib/analytics";
 
 // V1 Plateau Breaker Mode (Enforced Learning)
@@ -377,7 +377,7 @@ function AppRouter() {
       } />
       <Route path="/replay/:gameId" element={
         <ProtectedRoute>
-          {({ user }) => <CoachReplay user={user} />}
+          {() => <LegacyReplayRedirect />}
         </ProtectedRoute>
       } />
       <Route path="/game/:gameId" element={

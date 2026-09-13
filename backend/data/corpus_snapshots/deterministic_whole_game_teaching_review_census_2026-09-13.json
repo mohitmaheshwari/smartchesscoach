@@ -1,0 +1,133 @@
+{
+  "schema_version": "deterministic_whole_game_teaching_review_census.v1",
+  "captured_at_utc": "2026-09-13T08:26:28+00:00",
+  "operation": "read_only_aggregate",
+  "privacy": {
+    "contains_credentials": false,
+    "contains_email": false,
+    "contains_user_id": false,
+    "contains_game_id": false,
+    "contains_fen": false,
+    "contains_pgn": false
+  },
+  "eligibility": {
+    "rating_min": 600,
+    "rating_max": 1500,
+    "requires_joined_game": true,
+    "requires_nonempty_pgn": true,
+    "requires_v5_data": true,
+    "minimum_move_entries": 8,
+    "requires_move_san_and_fen_before_per_entry": true,
+    "analysis_cutoff_field": "analyzed_at",
+    "analysis_cutoff_utc": "2026-09-13T08:26:28+00:00"
+  },
+  "eligible_corpus": {
+    "games": 6897,
+    "users": 42,
+    "signature_sha256": "1a302e7a618303cd2cb1895f9fd20ae079ba77921f402a21c1b4be45d4c0219f",
+    "rating_band": {
+      "600-799": 1330,
+      "800-999": 757,
+      "1000-1199": 2097,
+      "1200-1399": 2123,
+      "1400-1500": 590
+    },
+    "phase_combination": {
+      "opening_only": 953,
+      "opening_and_middlegame": 1625,
+      "opening_and_endgame": 774,
+      "opening_middlegame_endgame": 3545
+    },
+    "color": {
+      "black": 3435,
+      "white": 3462
+    },
+    "platform": {
+      "chess.com": 6640,
+      "lichess": 257
+    },
+    "time_control": {
+      "rapid": 3107,
+      "blitz": 2630,
+      "bullet": 6,
+      "classical": 35,
+      "correspondence": 61,
+      "unknown": 1058
+    },
+    "maximum_games_from_one_user": 1119
+  },
+  "development": {
+    "games": 100,
+    "users": 36,
+    "signature_sha256": "91f8aacdb0d121fce9258509c84cc2b4bd1a840c3d63224a182ed9e875044496",
+    "maximum_games_from_one_user": 3,
+    "rating_band": {
+      "600-799": 19,
+      "800-999": 11,
+      "1000-1199": 30,
+      "1200-1399": 31,
+      "1400-1500": 9
+    },
+    "phase_combination": {
+      "opening_only": 14,
+      "opening_and_middlegame": 25,
+      "opening_and_endgame": 10,
+      "opening_middlegame_endgame": 51
+    },
+    "color": {
+      "black": 53,
+      "white": 47
+    },
+    "platform": {
+      "chess.com": 83,
+      "lichess": 17
+    },
+    "time_control": {
+      "rapid": 47,
+      "blitz": 23,
+      "bullet": 1,
+      "classical": 2,
+      "correspondence": 9,
+      "unknown": 18
+    }
+  },
+  "holdout": {
+    "games": 42,
+    "users": 42,
+    "signature_sha256": "87daa7089e35060cfaeb0164c9a0e741ad799634b74b94878f2f11dc5250020b",
+    "maximum_games_from_one_user": 1,
+    "rating_band": {
+      "600-799": 11,
+      "800-999": 6,
+      "1000-1199": 13,
+      "1200-1399": 10,
+      "1400-1500": 2
+    },
+    "phase_combination": {
+      "opening_only": 10,
+      "opening_and_middlegame": 7,
+      "opening_and_endgame": 7,
+      "opening_middlegame_endgame": 18
+    },
+    "color": {
+      "black": 18,
+      "white": 24
+    },
+    "platform": {
+      "chess.com": 35,
+      "lichess": 7
+    },
+    "time_control": {
+      "rapid": 20,
+      "blitz": 12,
+      "correspondence": 5,
+      "unknown": 5
+    }
+  },
+  "selection_checks": {
+    "development_flow": 100,
+    "rating_quotas_met": true,
+    "development_holdout_overlap": 0,
+    "maximum_combined_games_from_one_user": 4
+  }
+}

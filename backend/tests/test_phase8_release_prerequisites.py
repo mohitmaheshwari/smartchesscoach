@@ -20,7 +20,10 @@ from scripts.report_phase8_release import (
     release_status,
 )
 from scripts.reconcile_phase8_review_records import (
+    MAX_APPLY_GAMES,
     _regenerate_one,
+    _selection_digest,
+    build_reconciliation_report,
     classify_game_reconciliation,
 )
 from services.game_decryption_v5_service import V5_COACHING_VERSION
@@ -900,3 +903,33 @@ async def test_review_reconciliation_disables_model_and_learning_side_effects(
     assert outcome == "updated"
     assert captured["persist_learning_side_effects"] is False
     assert captured["allow_llm_polish"] is False
+    assert captured["allow_fresh_engine_verification"] is False
+
+
+def test_review_reconciliation_selection_digest_is_order_independent():
+    first = _selection_digest([{"game_id": "b"}, {"game_id": "a"}])
+    second = _selection_digest([{"game_id": "a"}, {"game_id": "b"}])
+    assert first == second
+    assert len(first) == 64
+
+
+@pytest.mark.asyncio
+async def test_review_reconciliation_apply_requires_bound_ten_game_dry_run():
+    assert MAX_APPLY_GAMES == 10
+    with pytest.raises(ValueError, match="explicit --user-id"):
+        await build_reconciliation_report(object(), apply=True)
+    with pytest.raises(ValueError, match="max-games"):
+        await build_reconciliation_report(
+            object(),
+            user_id="user-1",
+            apply=True,
+            max_games=MAX_APPLY_GAMES + 1,
+            expected_plan_sha256="a" * 64,
+        )
+    with pytest.raises(ValueError, match="plan-sha256"):
+        await build_reconciliation_report(
+            object(),
+            user_id="user-1",
+            apply=True,
+            max_games=MAX_APPLY_GAMES,
+        )

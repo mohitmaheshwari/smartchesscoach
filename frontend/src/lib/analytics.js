@@ -160,6 +160,7 @@ export const ANALYTICS_EVENTS = Object.freeze({
   HOME_DIAGNOSTIC_COMPLETED: "home_diagnostic_completed",
   HOME_DIAGNOSTIC_PAUSED: "home_diagnostic_paused",
   REVIEW_COACH_STARTED: "review_coach_started",
+  REVIEW_COACH_PHASE_OPENED: "review_coach_phase_opened",
   REVIEW_COACH_REFLECTION_SUBMITTED: "review_coach_reflection_submitted",
   REVIEW_COACH_VISUAL_SHOWN: "review_coach_visual_shown",
   REVIEW_COACH_COMPARISON_OPENED: "review_coach_comparison_opened",

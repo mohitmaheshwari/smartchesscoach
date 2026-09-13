@@ -123,7 +123,8 @@ PIECE_VALUE_CP: Dict[int, int] = {
 
 LEGAL_MATERIAL_LOSS_CAUSE_VERSION = "legal_material_loss_cause.v2"
 VERIFIED_LINE_CAUSE_VERSION = "verified_line_cause.v1"
-VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION = "verified_line_cause.v2"
+VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION = "verified_line_cause.v3"
+IMMEDIATE_REPLY_MATERIAL_QUALITY_ID = "review:immediate_reply_material_loss"
 TARGET_LINE_CAUSAL_PROOF_VERSION = "target_line_causal_proof.v6"
 TARGET_LINE_CAUSAL_QUALITY_ID = "review:target_line_causal_proof"
 TARGET_LINE_MIN_PAYOFF_CP = PIECE_VALUE_CP[chess.KNIGHT]
@@ -881,6 +882,9 @@ class VerifiedLineCause:
     played_net_material_gain_cp: int
     best_net_material_gain_cp: int
     played_purposes: Tuple[str, ...] = ()
+    immediate_reply_net_loss_cp: Optional[int] = None
+    played_settled_material_gain_cp: Optional[int] = None
+    best_settled_material_gain_cp: Optional[int] = None
     mate_in: Optional[int] = None
     reply_san: Optional[str] = None
     reply_from: Optional[str] = None
@@ -895,6 +899,7 @@ class VerifiedLineCause:
             "missed_forced_mate",
             "allowed_forced_mate",
             "exchange_sequence",
+            "immediate_material_loss",
             "missed_material_opportunity",
         }:
             raise ValueError("unknown verified-line lesson kind")
@@ -916,11 +921,47 @@ class VerifiedLineCause:
             self.branch_evidence is not None
             and self.proof_version != VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION
         ):
-            raise ValueError("causal branch evidence requires cause schema v2")
+            raise ValueError("causal branch evidence requires the current cause schema")
+        if self.lesson_kind == "immediate_material_loss":
+            if (
+                self.immediate_reply_net_loss_cp is None
+                or self.immediate_reply_net_loss_cp < 100
+                or self.played_settled_material_gain_cp is None
+                or self.played_settled_material_gain_cp > -100
+                or self.best_settled_material_gain_cp is None
+                or self.best_settled_material_gain_cp
+                - self.played_settled_material_gain_cp
+                < 100
+            ):
+                raise ValueError(
+                    "immediate material loss requires a settled branch edge"
+                )
+        elif any(
+            value is not None
+            for value in (
+                self.immediate_reply_net_loss_cp,
+                self.played_settled_material_gain_cp,
+                self.best_settled_material_gain_cp,
+            )
+        ):
+            raise ValueError(
+                "settled immediate-loss fields belong only to that lesson"
+            )
 
     @property
     def first_best_capture(self) -> Optional[VerifiedLineCapture]:
         return self.best_captures[0] if self.best_captures else None
+
+    @property
+    def immediate_reply_capture(self) -> Optional[VerifiedLineCapture]:
+        return next(
+            (
+                capture
+                for capture in self.played_captures
+                if capture.ply == 2 and capture.actor == "opponent"
+            ),
+            None,
+        )
 
     @property
     def fingerprint(self) -> str:
@@ -949,6 +990,11 @@ class VerifiedLineCause:
             "played_net_material_gain_cp": self.played_net_material_gain_cp,
             "best_net_material_gain_cp": self.best_net_material_gain_cp,
             "played_purposes": list(self.played_purposes),
+            "immediate_reply_net_loss_cp": self.immediate_reply_net_loss_cp,
+            "played_settled_material_gain_cp": (
+                self.played_settled_material_gain_cp
+            ),
+            "best_settled_material_gain_cp": self.best_settled_material_gain_cp,
             "mate_in": self.mate_in,
             "reply_san": self.reply_san,
             "reply_from": self.reply_from,
@@ -4018,7 +4064,10 @@ def build_verified_line_cause(
 
     # Local import avoids a module cycle: stored_line_verifier consumes the
     # canonical piece-value table owned by this module.
-    from services.stored_line_verifier import replay_stored_line
+    from services.stored_line_verifier import (
+        replay_stored_line,
+        settled_material_gain_cp,
+    )
 
     played_replay = replay_stored_line(before, played, pv_after_played)
     best_replay = replay_stored_line(before, best, pv_after_best)
@@ -4052,6 +4101,9 @@ def build_verified_line_cause(
 
     lesson_kind: Optional[str] = None
     mate_in: Optional[int] = None
+    immediate_reply_net_loss_cp: Optional[int] = None
+    played_settled_gain_cp: Optional[int] = None
+    best_settled_gain_cp: Optional[int] = None
     if (
         best_replay.checkmate
         and best_replay.checkmating_color == initiator
@@ -4075,7 +4127,44 @@ def build_verified_line_cause(
             and played_replay.net_material_gain_cp <= -100
         ):
             lesson_kind = "exchange_sequence"
-        elif (
+        else:
+            reply_capture = next(
+                (
+                    capture
+                    for capture in played_captures
+                    if capture.ply == 2 and capture.actor == "opponent"
+                ),
+                None,
+            )
+            root_capture = next(
+                (
+                    capture
+                    for capture in played_captures
+                    if capture.ply == 1 and capture.actor == "initiator"
+                ),
+                None,
+            )
+            reply_net_loss = (
+                reply_capture.captured_value_cp
+                - (root_capture.captured_value_cp if root_capture else 0)
+                if reply_capture is not None
+                else 0
+            )
+            if reply_net_loss >= 100:
+                played_settled_gain_cp = settled_material_gain_cp(
+                    played_replay
+                )
+                best_settled_gain_cp = settled_material_gain_cp(best_replay)
+            if (
+                reply_net_loss >= 100
+                and played_settled_gain_cp is not None
+                and played_settled_gain_cp <= -100
+                and best_settled_gain_cp is not None
+                and best_settled_gain_cp - played_settled_gain_cp >= 100
+            ):
+                lesson_kind = "immediate_material_loss"
+                immediate_reply_net_loss_cp = reply_net_loss
+        if lesson_kind is None and (
             best_captures
             and best_replay.net_material_gain_cp >= 100
             and (
@@ -4158,6 +4247,17 @@ def build_verified_line_cause(
         best_net_material_gain_cp=best_replay.net_material_gain_cp,
         played_purposes=verified_move_purposes(
             fen_before=fen_before, played_san=played_san
+        ),
+        immediate_reply_net_loss_cp=immediate_reply_net_loss_cp,
+        played_settled_material_gain_cp=(
+            played_settled_gain_cp
+            if lesson_kind == "immediate_material_loss"
+            else None
+        ),
+        best_settled_material_gain_cp=(
+            best_settled_gain_cp
+            if lesson_kind == "immediate_material_loss"
+            else None
         ),
         mate_in=mate_in,
         reply_san=reply_san,

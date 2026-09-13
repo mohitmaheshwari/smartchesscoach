@@ -13,7 +13,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from services.caption_pipeline import MoveTeachingDecision
-from services.caption_facts import LegalMaterialLossCause, VerifiedLineCause
+from services.caption_facts import (
+    IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
+    LegalMaterialLossCause,
+    VerifiedLineCause,
+)
 from services.exact_endgame_service import (
     ExactEndgameCause,
     render_exact_endgame_cause,
@@ -38,6 +42,10 @@ from services.game_review_contracts import (
     personalized_review_quality_v2_enabled,
 )
 from services.game_review_planner import QUALITY_V2_FORMULA, SHADOW_FORMULA
+from services.whole_game_review_composer import (
+    compose_empty_whole_game_review,
+    compose_whole_game_review,
+)
 
 
 PHASE2_SOURCE_VERSION = "game_review_event_adapter.v1"
@@ -178,6 +186,10 @@ def _practical_frame(
             "exchange_sequence": (
                 "The capture sequence cost material",
                 f"{san} began a series of captures that ended badly for you.",
+            ),
+            "immediate_material_loss": (
+                "The reply won material immediately",
+                f"After {san}, your opponent could take material at once.",
             ),
             "missed_material_opportunity": (
                 "There was material to win",
@@ -377,6 +389,21 @@ def _verified_line_teaching(
             "Before starting a capture sequence, count every recapture to "
             "the end."
         )
+    elif cause.lesson_kind == "immediate_material_loss":
+        capture = cause.immediate_reply_capture
+        if capture is None:
+            raise ReviewContractViolation(
+                "immediate-loss cause requires the verified reply capture"
+            )
+        caption = (
+            f"After {san}, {cause.reply_san} takes your "
+            f"{capture.captured_piece} on {capture.captured_square}. "
+            f"{cause.best_move_san} avoids that loss in the verified line."
+        )
+        principle = (
+            "After choosing a move, scan every check and capture your "
+            "opponent gets next."
+        )
     elif cause.lesson_kind == "missed_material_opportunity":
         capture = cause.first_best_capture
         if capture is None:
@@ -477,8 +504,17 @@ def adapt_move_teaching_decision(
     final_verified = bool(explanation.final_verified and not decision.should_skip)
     usable = bool(caption or principle or decision.visual.arrows or decision.visual.highlight_squares)
 
+    event_quality_id = context.quality_id
+    if (
+        isinstance(decision.cause, VerifiedLineCause)
+        and decision.cause.lesson_kind == "immediate_material_loss"
+    ):
+        # A new semantic proof family never inherits an older family's player
+        # authority merely because both are represented by VerifiedLineCause.
+        event_quality_id = IMMEDIATE_REPLY_MATERIAL_QUALITY_ID
+
     evidence = EventEvidence(
-        quality_id=context.quality_id,
+        quality_id=event_quality_id,
         source_version=context.source_version,
         provenance=context.provenance,
         final_verified=final_verified,
@@ -768,17 +804,30 @@ def maybe_attach_phase5_review_fields(
         stored_moves=stored_moves,
         env=env,
     )
-    if not isinstance(stored_plan, Mapping):
-        return augmented
-    safe_plan = _safe_stored_plan(
-        stored_plan,
-        tuple(augmented.get("teachable_events") or []),
-        expected_formula_id=(
-            QUALITY_V2_FORMULA
-            if personalized_review_quality_v2_enabled(env)
-            else SHADOW_FORMULA
-        ),
-    )
+    safe_plan = None
+    if isinstance(stored_plan, Mapping):
+        safe_plan = _safe_stored_plan(
+            stored_plan,
+            tuple(augmented.get("teachable_events") or []),
+            expected_formula_id=(
+                QUALITY_V2_FORMULA
+                if personalized_review_quality_v2_enabled(env)
+                else SHADOW_FORMULA
+            ),
+        )
+    whole_game_review = None
     if safe_plan is not None:
         augmented["game_teaching_plan"] = safe_plan
+        whole_game_review = compose_whole_game_review(
+            stored_moves=stored_moves,
+            safe_plan=safe_plan,
+            safe_events=tuple(augmented.get("teachable_events") or []),
+            stored_plan_envelope=stored_plan,
+        )
+    if whole_game_review is None:
+        whole_game_review = compose_empty_whole_game_review(
+            stored_moves=stored_moves,
+        )
+    if whole_game_review is not None:
+        augmented["whole_game_review"] = whole_game_review
     return augmented

@@ -11,6 +11,7 @@ import argparse
 import asyncio
 from collections import Counter
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -38,6 +39,7 @@ from services.verified_puzzle_admission import ADMISSION_VERSION  # noqa: E402
 
 REPORT_VERSION = "phase8_review_reconciliation.v1"
 PLAN_SCHEMA_VERSION = "personalized_game_review.shadow_plan.v1"
+MAX_APPLY_GAMES = 10
 GAME_STATES = (
     "already_current",
     "partially_reconciled",
@@ -53,6 +55,20 @@ def _at_least(value: Any, minimum: int) -> bool:
         return int(value or 0) >= int(minimum)
     except (TypeError, ValueError):
         return False
+
+
+def _selection_digest(games: Iterable[Dict[str, Any]]) -> str:
+    identities = sorted(str(game.get("game_id") or "") for game in games)
+    if not identities or any(not value for value in identities):
+        raise ValueError("reconciliation selection requires complete game identities")
+    return hashlib.sha256("|".join(identities).encode("utf-8")).hexdigest()
+
+
+def _game_recency_key(game: Dict[str, Any]) -> tuple[str, str]:
+    value = game.get("date_played") or game.get("imported_at") or ""
+    if isinstance(value, datetime):
+        value = value.astimezone(timezone.utc).isoformat()
+    return str(value), str(game.get("game_id") or "")
 
 
 def _expected_user_move_records(analysis: Dict[str, Any]) -> int:
@@ -275,6 +291,7 @@ async def _regenerate_one(db, game: Dict[str, Any], analysis: Dict[str, Any]):
         game_teaching_plan_output=plan,
         persist_learning_side_effects=False,
         allow_llm_polish=False,
+        allow_fresh_engine_verification=False,
     )
     if not generated:
         return "no_output"
@@ -302,10 +319,22 @@ async def build_reconciliation_report(
     user_id: Optional[str] = None,
     game_ids: Iterable[str] = (),
     apply: bool = False,
+    max_games: Optional[int] = None,
+    expected_plan_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     ids = tuple(sorted({str(value) for value in game_ids if value}))
-    if apply and not (user_id or ids):
-        raise ValueError("apply requires --user-id or --game-id")
+    if max_games is not None and max_games < 1:
+        raise ValueError("max_games must be positive")
+    if apply and not user_id:
+        raise ValueError("apply requires one explicit --user-id")
+    if apply and (max_games is None or max_games > MAX_APPLY_GAMES):
+        raise ValueError(f"apply requires --max-games between 1 and {MAX_APPLY_GAMES}")
+    if apply and (
+        not expected_plan_sha256
+        or len(expected_plan_sha256) != 64
+        or any(char not in "0123456789abcdef" for char in expected_plan_sha256)
+    ):
+        raise ValueError("apply requires the exact dry-run --plan-sha256")
     query: Dict[str, Any] = {"is_analyzed": True}
     if user_id:
         query["user_id"] = user_id
@@ -321,8 +350,16 @@ async def build_reconciliation_report(
             "user_plays_as": 1,
             "is_analyzed": 1,
             "pgn": 1,
+            "date_played": 1,
+            "imported_at": 1,
         },
     ).to_list(length=None)
+    games.sort(key=_game_recency_key, reverse=True)
+    if max_games is not None:
+        games = games[:max_games]
+    selection_sha256 = _selection_digest(games) if games else None
+    if apply and selection_sha256 != expected_plan_sha256:
+        raise ValueError("dry-run plan changed; rerun dry-run before apply")
     states = Counter()
     moves = Counter()
     apply_results = Counter()
@@ -355,6 +392,8 @@ async def build_reconciliation_report(
             "all_analyzed_games": not bool(user_id or ids),
             "user_scoped": bool(user_id),
             "game_count_requested": len(ids),
+            "max_games": max_games,
+            "selection_sha256": selection_sha256,
         },
         "games_inspected": len(games),
         "game_states": {
@@ -394,6 +433,8 @@ async def _main(args) -> int:
             user_id=args.user_id,
             game_ids=args.game_id,
             apply=args.apply,
+            max_games=args.max_games,
+            expected_plan_sha256=args.plan_sha256,
         )
     finally:
         client.close()
@@ -410,6 +451,8 @@ def main() -> int:
     parser.add_argument("--game-id", action="append", default=[])
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--confirm")
+    parser.add_argument("--max-games", type=int)
+    parser.add_argument("--plan-sha256")
     parser.add_argument("--report-json")
     return asyncio.run(_main(parser.parse_args()))
 

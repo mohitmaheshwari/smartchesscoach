@@ -25,6 +25,20 @@ const ROLE_LABELS = Object.freeze({
   reflection: "Before I explain",
 });
 
+const PHASE_STATE_LABELS = Object.freeze({
+  verified_lesson: "Lesson found",
+  verified_good_play: "You handled this",
+  no_authorized_lesson: "No proven lesson",
+  not_reached: "Not reached",
+});
+
+const PHASE_STATE_STYLES = Object.freeze({
+  verified_lesson: "border-amber-200/80 bg-amber-50/70 text-amber-950",
+  verified_good_play: "border-emerald-200/80 bg-emerald-50/70 text-emerald-950",
+  no_authorized_lesson: "border-slate-200 bg-white/75 text-slate-700",
+  not_reached: "border-slate-200/70 bg-slate-50/70 text-slate-500",
+});
+
 
 const eventMap = (events) => new Map(
   (events || []).map((event) => [event.event_id, event])
@@ -50,6 +64,7 @@ export const boardArrowsForReviewVisual = (visual = {}) => {
 export default function PersonalizedReviewCoach({
   gameId,
   plan,
+  wholeGame,
   events,
   prompts,
   reflectionResponses,
@@ -60,6 +75,7 @@ export default function PersonalizedReviewCoach({
   moves,
   onCompareCandidate,
   comparisonPlayingPly,
+  onBrowseGame,
 }) {
   const eventsById = useMemo(() => eventMap(events), [events]);
   const promptsByEvent = useMemo(
@@ -74,6 +90,7 @@ export default function PersonalizedReviewCoach({
   const [error, setError] = useState("");
   const openedAtRef = useRef(Date.now());
   const chapters = plan?.chapters || [];
+  const phases = wholeGame?.phases || [];
 
   useEffect(() => {
     setAnswers(Object.fromEntries(
@@ -81,7 +98,78 @@ export default function PersonalizedReviewCoach({
     ));
   }, [reflectionResponses]);
 
-  if (!plan || !chapters.length) return null;
+  if ((!plan || !chapters.length) && !wholeGame) return null;
+
+  if (!chapters.length) {
+    return (
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-[28px] border border-emerald-900/10 bg-gradient-to-br from-[#f7fbf5] via-white to-[#f6f1ff] p-6 md:p-8 shadow-[0_24px_70px_-36px_rgba(32,69,56,0.45)]"
+        data-testid="personalized-review-empty"
+      >
+        <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-violet-200/30 blur-3xl" />
+        <div className="absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="relative">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-800/10 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
+            <Eye className="h-3.5 w-3.5" />
+            Your honest game review
+          </div>
+          <h2 className="max-w-xl font-serif text-3xl leading-tight tracking-[-0.025em] text-slate-950 md:text-[42px]">
+            {wholeGame?.central_story?.headline}
+          </h2>
+          <p className="mt-5 max-w-xl text-[17px] leading-8 text-slate-600">
+            {wholeGame?.central_story?.lead}
+          </p>
+          {phases.length > 0 && (
+            <div
+              className="mt-7 grid gap-3 md:grid-cols-3"
+              data-testid="whole-game-phase-overview"
+            >
+              {phases.map((phase) => (
+                <div
+                  key={phase.phase}
+                  className={[
+                    "min-h-[138px] rounded-2xl border p-4 text-left",
+                    PHASE_STATE_STYLES[phase.state]
+                      || PHASE_STATE_STYLES.no_authorized_lesson,
+                  ].join(" ")}
+                  data-testid={"whole-game-phase-" + phase.phase}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                    {PHASE_STATE_LABELS[phase.state] || phase.state}
+                  </span>
+                  <strong className="mt-2 block font-serif text-lg leading-tight">
+                    {phase.title}
+                  </strong>
+                  <span className="mt-2 block text-xs leading-5 opacity-80">
+                    {phase.summary}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {onBrowseGame && (
+            <button
+              type="button"
+              onClick={() => {
+                track(ANALYTICS_EVENTS.REVIEW_COACH_STARTED, {
+                  chapter_count: 0,
+                  empty_story: true,
+                });
+                onBrowseGame();
+              }}
+              className="group mt-8 inline-flex min-h-12 items-center gap-3 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+              data-testid="personalized-review-browse"
+            >
+              Walk through the moves
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </button>
+          )}
+        </div>
+      </motion.section>
+    );
+  }
 
   const showChapter = (index) => {
     const chapter = chapters[index];
@@ -91,6 +179,16 @@ export default function PersonalizedReviewCoach({
     setError("");
     setActiveIndex(index);
     onChapterSelect?.(event, index);
+    const phase = phases.find((item) => (
+      item?.event_ids || []
+    ).includes(event.event_id));
+    if (phase) {
+      track(ANALYTICS_EVENTS.REVIEW_COACH_PHASE_OPENED, {
+        phase: phase.phase,
+        state: phase.state,
+        chapter_index: index,
+      });
+    }
   };
 
   const submitReflection = async (event, prompt, optionId) => {
@@ -147,14 +245,64 @@ export default function PersonalizedReviewCoach({
         <div className="relative">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-800/10 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
             <Sparkles className="h-3.5 w-3.5" />
-            Your coach's game plan
+            {wholeGame ? "What this game was about" : "Your coach's game plan"}
           </div>
           <h2 className="max-w-xl font-serif text-3xl leading-tight tracking-[-0.025em] text-slate-950 md:text-[42px]">
-            {plan.opening}
+            {wholeGame?.central_story?.headline || plan.opening}
           </h2>
           <p className="mt-5 max-w-xl text-[17px] leading-8 text-slate-600">
-            {plan.game_arc}
+            {wholeGame?.central_story?.lead || plan.game_arc}
           </p>
+          {phases.length > 0 && (
+            <div
+              className="mt-7 grid gap-3 md:grid-cols-3"
+              data-testid="whole-game-phase-overview"
+            >
+              {phases.map((phase) => {
+                const phaseEventIds = phase.event_ids || [];
+                const chapterIndex = chapters.findIndex((chapter) => (
+                  phaseEventIds.includes(chapter.event_id)
+                ));
+                const content = (
+                  <>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                      {PHASE_STATE_LABELS[phase.state] || phase.state}
+                    </span>
+                    <strong className="mt-2 block font-serif text-lg leading-tight">
+                      {phase.title}
+                    </strong>
+                    <span className="mt-2 block text-xs leading-5 opacity-80">
+                      {phase.lead_event_headline || phase.summary}
+                    </span>
+                  </>
+                );
+                const className = [
+                  "min-h-[138px] rounded-2xl border p-4 text-left",
+                  PHASE_STATE_STYLES[phase.state]
+                    || PHASE_STATE_STYLES.no_authorized_lesson,
+                ].join(" ");
+                return chapterIndex >= 0 ? (
+                  <button
+                    type="button"
+                    key={phase.phase}
+                    onClick={() => showChapter(chapterIndex)}
+                    className={className + " transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"}
+                    data-testid={"whole-game-phase-" + phase.phase}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div
+                    key={phase.phase}
+                    className={className}
+                    data-testid={"whole-game-phase-" + phase.phase}
+                  >
+                    {content}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <button
               type="button"
@@ -167,11 +315,11 @@ export default function PersonalizedReviewCoach({
               className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
               data-testid="personalized-review-start"
             >
-              Review this game with me
+              Start with the first lesson
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
             <span className="text-sm text-slate-500">
-              {chapters.length === 1 ? "One useful moment" : `${chapters.length} useful moments`}
+              {chapters.length === 1 ? "One useful moment" : chapters.length + " useful moments"}
             </span>
           </div>
         </div>

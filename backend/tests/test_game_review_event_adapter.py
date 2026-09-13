@@ -15,8 +15,9 @@ from services.caption_pipeline import (
     TextSurface,
     VisualSurface,
 )
-from services.detector_quality import QualitySurface
+from services.detector_quality import QualityGrade, QualitySurface, grade_for, is_authorized
 from services.caption_facts import (
+    IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
     LegalMaterialLossCause,
     PieceOnSquare,
     ReviewTeachingCause,
@@ -244,6 +245,40 @@ def test_quality_v2_exchange_caption_counts_the_full_sequence():
     assert "lose it for nothing" not in caption
 
 
+def test_new_immediate_reply_family_stays_shadow_until_its_own_promotion():
+    cause = build_verified_line_cause(
+        fen_before="r2qk2r/ppp1bppp/2n2n2/4p2b/2B1P3/2N2N1P/PPPP2P1/R1BQ1RK1 w kq - 0 9",
+        played_san="Qe1",
+        best_move_san="Kh1",
+        pv_after_played=("Bxf3", "d3", "Bh5", "Nd5"),
+        pv_after_best=("Nd4", "g4", "Bg6", "d3"),
+        cp_loss=420,
+    )
+    assert cause is not None
+    assert cause.lesson_kind == "immediate_material_loss"
+    assert grade_for(IMMEDIATE_REPLY_MATERIAL_QUALITY_ID) == QualityGrade.SHADOW
+    assert not is_authorized(
+        IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
+        QualitySurface.CAPTION,
+    )
+
+    event = adapt_move_teaching_decision(
+        _decision(cause=cause),
+        _context(
+            san="Qe1",
+            concept_id="calculation.immediate_reply_material_loss",
+            quality_id="review:verified_single_game_cause",
+            provenance=("caption_pipeline:verified_line",),
+            quality_v2_requested=True,
+        ),
+    )
+
+    assert event.evidence.quality_id == IMMEDIATE_REPLY_MATERIAL_QUALITY_ID
+    assert event.requested_surface == QualitySurface.DIAGNOSTIC
+    assert event.player_authorized is False
+    assert event.reflection_eligible is False
+
+
 def test_adapted_event_can_enter_the_existing_plan_contract():
     event = adapt_move_teaching_decision(_decision(), _context())
     plan = GameTeachingPlan(
@@ -421,6 +456,7 @@ def _stored_plan_envelope(event, *, formula_id=SHADOW_FORMULA):
     return {
         "rollout_mode": "shadow",
         "formula_id": formula_id,
+        "source_v5_version": 154,
         "selected_event_ids": [event.event_id],
         "plan": plan,
     }
@@ -439,6 +475,29 @@ def test_phase5_flag_off_preserves_identity_even_with_stored_plan():
     )
     assert result is legacy
     assert set(result) == {"decryption_data", "status"}
+
+
+def test_phase5_exposes_honest_phase_overview_when_no_safe_plan_exists():
+    stored_moves = (
+        {"phase": "opening", "opening_name": "Italian Game"},
+        {"phase": "middlegame"},
+    )
+    result = maybe_attach_phase5_review_fields(
+        {"decryption_data": [{}, {}]},
+        stored_moves=stored_moves,
+        stored_plan=None,
+        env={"PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true"},
+    )
+
+    assert "game_teaching_plan" not in result
+    assert result["whole_game_review"]["featured_event_ids"] == []
+    assert result["whole_game_review"]["surviving_instruction"] is None
+    assert result["whole_game_review"]["central_story"]["source_event_id"] is None
+    assert [phase["state"] for phase in result["whole_game_review"]["phases"]] == [
+        "no_authorized_lesson",
+        "no_authorized_lesson",
+        "not_reached",
+    ]
 
 
 def test_phase5_exposes_only_plan_whose_chapters_remain_authorized():
@@ -508,6 +567,36 @@ def test_phase5_rejects_protocol_relative_next_action():
         env={"PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true"},
     )
     assert "game_teaching_plan" not in result
+
+
+def test_phase5_attaches_whole_game_story_only_from_the_safe_plan():
+    typed_event = adapt_move_teaching_decision(_decision(), _context())
+    event = typed_event.contract_dict()
+    stored_moves = tuple(
+        {
+            "phase": "opening" if index < 12 else "middlegame",
+            "opening_name": "Italian Game" if index < 12 else None,
+            **({"teachable_event": event} if index == 22 else {}),
+        }
+        for index in range(23)
+    )
+    envelope = _stored_plan_envelope(typed_event)
+    envelope["plan"]["takeaway"] = event["teaching"]["principle"]
+
+    result = maybe_attach_phase5_review_fields(
+        {"decryption_data": [{} for _ in stored_moves]},
+        stored_moves=stored_moves,
+        stored_plan=envelope,
+        env={"PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true"},
+    )
+
+    whole_game = result["whole_game_review"]
+    assert whole_game["source"]["plan_id"] == "phase5-plan"
+    assert whole_game["source"]["source_v5_version"] == 154
+    assert whole_game["opening"]["claim_strength"] == "identity_only"
+    assert whole_game["central_story"]["phase"] == "middlegame"
+    assert whole_game["featured_event_ids"] == [event["event_id"]]
+    assert whole_game["phases"][2]["state"] == "not_reached"
 
 
 def test_adapter_has_no_board_engine_database_network_or_llm_dependency():

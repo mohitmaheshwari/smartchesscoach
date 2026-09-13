@@ -1,0 +1,97 @@
+{
+  "schema_version": "whole_game_teaching_review_development_adjudication.v1",
+  "status": "frozen",
+  "reviewer": "Codex offline chess reasoning",
+  "review_completed_on": "2026-09-13",
+  "source": {
+    "packet_path": "backend/data/detector_gold/whole_game_teaching_review_development_packet_v1.json",
+    "packet_sha256": "b0f44d273b9b597e9aaabcc0fa991a50083aa2909ec701cb625b6267303d4ac2",
+    "membership_sha256": "91f8aacdb0d121fce9258509c84cc2b4bd1a840c3d63224a182ed9e875044496",
+    "worksheet_path": "backend/data/detector_gold/whole_game_teaching_review_codex_worksheet_v1.json",
+    "worksheet_sha256": "6eb3014201940703420057bd72bb9cb6d7eee4f1327c6cc266238afe1968946c"
+  },
+  "review_contract": {
+    "games_expected": 100,
+    "games_reviewed": 100,
+    "duplicate_games": 0,
+    "omitted_games": 0,
+    "source_identities_visible": 0,
+    "chessguru_captions_visible": 0,
+    "chessguru_selected_events_visible": 0,
+    "detector_labels_visible": 0,
+    "new_engine_runs": 0,
+    "model_calls": 0,
+    "production_writes": 0
+  },
+  "accepted_gold": {
+    "games_with_board_proved_story": 93,
+    "games_with_no_provable_story": 7,
+    "proved_moments": 219,
+    "critical_false_claims": 0,
+    "cause_family": {
+      "allowed_forced_mate": 15,
+      "fork_geometry": 5,
+      "immediate_material_loss": 167,
+      "missed_forced_mate": 4,
+      "safe_missed_capture": 28
+    }
+  },
+  "review_disposition": {
+    "machine_proved_rows": "accepted after Codex review of the board predicates, legal settlements, family samples, every no-story game and the aggregate actor/phase distribution",
+    "engine_preference_without_board_cause": "not accepted as a lesson",
+    "exact_sample_exceptions": 0,
+    "holdout_opened": false
+  },
+  "unsupported_residue": {
+    "candidate_decisions": 546,
+    "note": "These are evidence gaps to investigate, not automatically valid lessons or detector misses.",
+    "by_phase_and_move_shape": {
+      "endgame.quiet_piece_move": 118,
+      "opening.quiet_piece_move": 81,
+      "middlegame.quiet_piece_move": 79,
+      "opening.quiet_pawn_move": 54,
+      "endgame.quiet_pawn_move": 46,
+      "opening.capture_with_recapture_or_unsettled": 44,
+      "middlegame.capture_with_recapture_or_unsettled": 29,
+      "middlegame.quiet_pawn_move": 24,
+      "endgame.quiet_check": 20,
+      "endgame.capture_with_recapture_or_unsettled": 18,
+      "middlegame.quiet_check": 15,
+      "opening.castle": 8,
+      "opening.quiet_check": 6,
+      "middlegame.castle": 4
+    }
+  },
+  "repeated_missing_concept_candidates": [
+    {
+      "candidate": "quiet_endgame_king_and_piece_activity",
+      "evidence": "118 unsupported quiet piece alternatives in stored endgame phases",
+      "decision": "requires exact ending or independently promoted positional proof; no generic king-activity caption is authorized"
+    },
+    {
+      "candidate": "purpose_of_quiet_piece_moves",
+      "evidence": "160 unsupported quiet piece alternatives in opening and middlegame",
+      "decision": "inspect existing board-transformation facts before creating any new recognizer"
+    },
+    {
+      "candidate": "purpose_of_pawn_breaks_and_restraining_moves",
+      "evidence": "124 unsupported quiet pawn alternatives across all phases",
+      "decision": "needs a board-change fact with hard negatives; engine preference alone is insufficient"
+    },
+    {
+      "candidate": "exchange_and_recapture_settlement",
+      "evidence": "91 captures whose lesson is not established by the immediate-capture proof",
+      "decision": "inspect existing verified-line and target-line facts; do not call the first capture a payoff"
+    },
+    {
+      "candidate": "forcing_move_order",
+      "evidence": "41 unsupported quiet checks",
+      "decision": "inspect existing forcing-tempo proof; checks are candidates, not automatically best"
+    },
+    {
+      "candidate": "king_safety_and_castling_purpose",
+      "evidence": "12 unsupported castling alternatives",
+      "decision": "requires a causal king-safety fact, not an opening-rule slogan"
+    }
+  ]
+}

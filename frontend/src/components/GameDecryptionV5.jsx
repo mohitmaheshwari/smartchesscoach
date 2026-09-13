@@ -158,6 +158,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [patternEvidence, setPatternEvidence] = useState(null);
   const [motifBlindspot, setMotifBlindspot] = useState(null);
   const [gameTeachingPlan, setGameTeachingPlan] = useState(null);
+  const [wholeGameReview, setWholeGameReview] = useState(null);
   const [teachableEvents, setTeachableEvents] = useState([]);
   const [reflectionPrompts, setReflectionPrompts] = useState([]);
   const [reflectionResponses, setReflectionResponses] = useState([]);
@@ -280,6 +281,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setPatternEvidence(null);
     setMotifBlindspot(null);
     setGameTeachingPlan(null);
+    setWholeGameReview(null);
     setTeachableEvents([]);
     setReflectionPrompts([]);
     setReflectionResponses([]);
@@ -580,6 +582,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
       setDecryptionData(perMoveData);
       setGameTeachingPlan(data.game_teaching_plan || null);
+      setWholeGameReview(data.whole_game_review || null);
       setTeachableEvents(data.teachable_events || []);
       setReflectionPrompts(data.reflection_prompts || []);
       setReflectionResponses(data.reflection_responses || []);
@@ -1127,6 +1130,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     && gameTeachingPlan.chapters?.length
     && teachableEvents.length
   );
+  const hasWholeGameOverview = Boolean(wholeGameReview?.phases?.length);
 
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
@@ -1372,6 +1376,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           <PersonalizedReviewCoach
             gameId={gameId}
             plan={gameTeachingPlan}
+            wholeGame={wholeGameReview}
             events={teachableEvents}
             prompts={reflectionPrompts}
             reflectionResponses={reflectionResponses}
@@ -1390,6 +1395,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               coachLinePlaybackIdx >= 0 ? coachLinePlaybackIdx + 1 : null
             }
             onCompareCandidate={playCandidateComparison}
+          />
+        ) : currentMoveIndex === -1 && hasWholeGameOverview ? (
+          <PersonalizedReviewCoach
+            gameId={gameId}
+            plan={null}
+            wholeGame={wholeGameReview}
+            events={[]}
+            prompts={[]}
+            reflectionResponses={[]}
+            moves={decryptionData}
+            onBrowseGame={goForward}
           />
         ) : currentMoveIndex === -1 ? (
           <GameStartCard

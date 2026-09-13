@@ -1,0 +1,3668 @@
+{
+  "by_gold_family": {
+    "allowed_forced_mate": {
+      "different_fact": 0,
+      "exact_fact": 14,
+      "gold_moments": 15,
+      "no_typed_fact": 1
+    },
+    "fork_geometry": {
+      "different_fact": 4,
+      "exact_fact": 0,
+      "gold_moments": 5,
+      "no_typed_fact": 1
+    },
+    "immediate_material_loss": {
+      "different_fact": 21,
+      "exact_fact": 118,
+      "gold_moments": 167,
+      "no_typed_fact": 28
+    },
+    "missed_forced_mate": {
+      "different_fact": 0,
+      "exact_fact": 4,
+      "gold_moments": 4,
+      "no_typed_fact": 0
+    },
+    "safe_missed_capture": {
+      "different_fact": 3,
+      "exact_fact": 22,
+      "gold_moments": 28,
+      "no_typed_fact": 3
+    }
+  },
+  "execution_contract": {
+    "database_reads": 0,
+    "database_writes": 0,
+    "engine_runs": 0,
+    "fact_authority": "services.caption_facts",
+    "minimum_material_gain_cp": 80,
+    "model_calls": 0
+  },
+  "moments": [
+    {
+      "actor": "player",
+      "anonymous_game_key": "0005cb7c318aabec4467fdc93d32f35e9ce929c122c11643c6fb5c93c2c31b54",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "5d2b8047b587d0551e777e16859af0ee57fe6e6d3a7613d1e3c1dc0dbaf74ced",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "0005cb7c318aabec4467fdc93d32f35e9ce929c122c11643c6fb5c93c2c31b54",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "0bcd3a578fc9fe846a1b0ab11bc7648f691f950d2aefc84be46a969618a21812",
+          "material_loss_cp": 300,
+          "punishment_san": "Bxe4"
+        },
+        "verified_line": {
+          "fingerprint": "c9cad604c2fc9a5a176f48195ec779e2023de14f18b3b8a05939940326002e47",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "0110071bad56deb434c439bd42ede9da63302069fff3b9ccc1768a6e66e0b728",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "123f596c96dd7ddf8b2423344169bdcd6e2dc6d5397c03a2c50bb1b273978dec",
+          "material_loss_cp": 200,
+          "punishment_san": "dxc6"
+        },
+        "verified_line": {
+          "fingerprint": "c92df445a85822ce2eff9e6ce01d0218bcda00486e4523bf37d34edf5f0e01fc",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 12,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "0110071bad56deb434c439bd42ede9da63302069fff3b9ccc1768a6e66e0b728",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "f7f8add426a1b998651bea4e2e640245c2a5b262728390f88ca2d1ced3597bbd",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxf7+"
+        },
+        "verified_line": {
+          "fingerprint": "e65c970cd53f60d2aa74e357c017b53c60aa89a371b6da3e41217d0c6740586d",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 30,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "0110071bad56deb434c439bd42ede9da63302069fff3b9ccc1768a6e66e0b728",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "357648ea563f7f88b67107b5924e5c1689bbf8f65dfb2cdb1f2d6bd0c855f145",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 68,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "04bed70529018290c5bf5cc1f9fbad8a9c03c159aeb3ffd428255f113b10a300",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "04bed70529018290c5bf5cc1f9fbad8a9c03c159aeb3ffd428255f113b10a300",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "861f7427a930ddaffc2a8afb4f15bccf50a193884c029877f768379f2d7d12c4",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 36,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "04bed70529018290c5bf5cc1f9fbad8a9c03c159aeb3ffd428255f113b10a300",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "85d3e2c4fc329528ae3b2aa6b614b5e320e62f78389c794960adaf530722d2ef",
+          "material_loss_cp": 400,
+          "punishment_san": "Qxf2"
+        },
+        "verified_line": {
+          "fingerprint": "f0697a398ffe35be9f537c99a5e6a648f20f60b86dd95f57fc7901be5c605c25",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 48,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "07411fd8485d4572bfa4769b13498dedecf01c81cd670fc1e6b891b15f978ea2",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7e1c8fcea7c3bfcc8449462a45f4db2a1342a646d00362cc673a533e2bc6dbf3",
+          "material_loss_cp": 500,
+          "punishment_san": "Qxh1+"
+        },
+        "verified_line": {
+          "fingerprint": "e52195ee0406683c7d8a84b594947550a944aa5cf1f8f0754d4ef16e52e4a1b1",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 49,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "07411fd8485d4572bfa4769b13498dedecf01c81cd670fc1e6b891b15f978ea2",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "bf3a09477c064baaa43c62c9df2f120b769de7ff6fa00295068b968836e24558",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "8a65f555499361b0be981b0ac414aeceab6860c56bc9302ee20fffab3a9b199c",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 52,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "07411fd8485d4572bfa4769b13498dedecf01c81cd670fc1e6b891b15f978ea2",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8e994521a823af4d68be31762e973e587f906207e1654d298b1c118dd516c6d8",
+          "material_loss_cp": 800,
+          "punishment_san": "Qxh2"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 58,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "082f3c2e97a8499ca5bfde9cd4fb5b971638038ff0ea7f4aeefdad0dd1002b0a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "a12891335c23461d6688c67ba5a8c0b0eb18e6284cc1b69f31c6608d8c88b0d5",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "different_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "082f3c2e97a8499ca5bfde9cd4fb5b971638038ff0ea7f4aeefdad0dd1002b0a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 33,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "082f3c2e97a8499ca5bfde9cd4fb5b971638038ff0ea7f4aeefdad0dd1002b0a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "bf712c3531df774630558983d4cb3c252ab30eec4d12fa0d3143b126c1c1c581",
+          "material_loss_cp": 500,
+          "punishment_san": "Rxg4"
+        },
+        "verified_line": {
+          "fingerprint": "9922f1d350df952267f9d6a59d116a7a6b01d3069929f82d307fda25757ccbbd",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 56,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "087ee70a9e6031f8812575c5add77c17cfa4136c4de2daf6f63f373f875c14cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "2f13cf4f1a315a89f2d6deb52bd522909c927336a3e8a48a696cd7a527ee4342",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 36,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "087ee70a9e6031f8812575c5add77c17cfa4136c4de2daf6f63f373f875c14cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "e7f15d548fa073ffceb848ff5a37a6e08f7ff8f806e8850c8b35df58c69626c5",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxc3"
+        },
+        "verified_line": {
+          "fingerprint": "cf230b295af23a4e90c64317e097b0ad491f35c422b48f732d8b3dc731e1efa4",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 54,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "087ee70a9e6031f8812575c5add77c17cfa4136c4de2daf6f63f373f875c14cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "21958f6217585bc5a6a48e134816a1e1fbb3a20138c2549a8764669eb24a7661",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxb4"
+        },
+        "verified_line": {
+          "fingerprint": "7e98f5d2e0df924c365eb32f7e4e5bfa0569e3b2cffb2ff2f4eba7dddac22ef2",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 80,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "08f4505d80ac184f9edb235fd6c3764d56c777276255b71db4e05c6cb27a272b",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "d5063b31771c7d4aa46a75f9c1651232de3488ce8633c243255f061b820a5f5f",
+          "mechanism": "persistent_piece_attack"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "7529f859eb68949d5e1021661812ff599043f6d4c3f06d704177ad6ddfc5c9f6",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "fork_geometry",
+      "ply": 36,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "08f4505d80ac184f9edb235fd6c3764d56c777276255b71db4e05c6cb27a272b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "a911d8e2635731413f0bc55f87795b6292ef77b9651135db4db77c2b869f0c97",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 78,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "109fe9e1acc6b1c74526f6c3f90f12143543033c092a71b55566f41b9943a04c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "97d722dc0c7f43ac8be3cc7699c5ccd560f4fd85c4b319d42eb8ddfce29619da",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxf3"
+        },
+        "verified_line": {
+          "fingerprint": "852906cd314aa8bfcb62837352e684e414b1a2eb3f46e53eb3fe0686d4a64de3",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 23,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "109fe9e1acc6b1c74526f6c3f90f12143543033c092a71b55566f41b9943a04c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 36,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "109fe9e1acc6b1c74526f6c3f90f12143543033c092a71b55566f41b9943a04c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 39,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "118fe95c529d5b0acfd5f6d3a5970b429dc69773c92469690d09c6d178354cf0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "e3199b07632534fd175cb2fff0a3dfb3edbb031d74d2b885071398c58b493c57",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 17,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "118fe95c529d5b0acfd5f6d3a5970b429dc69773c92469690d09c6d178354cf0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "fa482ebd2b7433883dcbe7f491c39d99a5ae60d39b9aa20fe46fd5807a82ebaf",
+          "material_loss_cp": 300,
+          "punishment_san": "Rxd2"
+        },
+        "verified_line": {
+          "fingerprint": "4bf104485583b91a7be06b5b52c5a59c864888c5e9b27e24c82ac235b1b240c9",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 59,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "118fe95c529d5b0acfd5f6d3a5970b429dc69773c92469690d09c6d178354cf0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "8b264f63b51f9f5ae50717a3f2fbc77c508ff6f4d475183aa793170b0be23632",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 135,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "158aa2ef0671cf70efddd4374bcdbb2771a89d597daff644d5f064aa39ebcc61",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "f284317df22d40dc5e923d84dfa5951b9cff38800319c262456d39d2e2aa6f04",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 54,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1b588bcd6f40177602bd61d6339d8fd5f599947d9c5fa12c2708c843d69147fb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 19,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1c36955d2fa3567ff1d2be66d7fc60c3cc769f80ec7542dadeccafe776252e01",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d5a2c5819095e16f1201405565d16016d0dfdf9e2a728edc8c58719be2bcb0d5",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxe5"
+        },
+        "verified_line": {
+          "fingerprint": "a7b2d99ec4f2155910440be8d1e0c538b01ded06d47a5aecfec2c4b69df20e9e",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 6,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1c36955d2fa3567ff1d2be66d7fc60c3cc769f80ec7542dadeccafe776252e01",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "63877fdbef1dc8a5fcec4d1b2ea2e3ffb7f10bea6cf4833eb48835082a2bfd3e",
+          "material_loss_cp": 200,
+          "punishment_san": "exf6"
+        },
+        "verified_line": {
+          "fingerprint": "b292f947387a834347a310c42c0828135826a400c8e7179d6c38833811ca48f8",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 16,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1c36955d2fa3567ff1d2be66d7fc60c3cc769f80ec7542dadeccafe776252e01",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "ed8221d6ea151215313574aec165348caef4711b828bfd2486b586aaf5e61068",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxa5"
+        },
+        "verified_line": {
+          "fingerprint": "acae9d5410d7c1ace3c9acc6cb4e64a6cc69a03b095fc51294e13a87f61bc876",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 46,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1c4ba56a02c4a15a75ffb3966ef969afeca3b0cbb3727c8621355233477db5ea",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "7bd6cedb68a0bf6031a08c7db0627f6911628ab76bcc27ad04dbd3a06b71ef68",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 11,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1c4ba56a02c4a15a75ffb3966ef969afeca3b0cbb3727c8621355233477db5ea",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "ff09fc5d5c02b1837d05a14ae1501a97f43f279697e25a029ee65afb50525955",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 15,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1d97c38fe44ad1c0a76f2f7dd3df2fe55ca3e7ada248448ac112932562b3fd47",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6c58c06268d256890b7e56519ab7714fc35ffc1c27668bcd3e3f3c53fc5ec2aa",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxf5"
+        },
+        "verified_line": {
+          "fingerprint": "be69aa3fe83880a28cb523bcc603418a15f8eb87c12135282a1da30ae9872ec4",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 34,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1d97c38fe44ad1c0a76f2f7dd3df2fe55ca3e7ada248448ac112932562b3fd47",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7377ea13193f9b9ab1ad67965dfbdcd0b309e66202d4ba98f250a9aba61fbf62",
+          "material_loss_cp": 200,
+          "punishment_san": "Bxe5"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 58,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "1d97c38fe44ad1c0a76f2f7dd3df2fe55ca3e7ada248448ac112932562b3fd47",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "forcing_tempo_and_move_order",
+          "fingerprint": "bebca21c7c76533e27a030539387d717e8bda2691e7c314f24562add3e00d933",
+          "mechanism": "check_saves_future_target"
+        },
+        "legal_material_loss": {
+          "fingerprint": "e3e1fbdb201de954f7fe2a0fcf541ab27922e1c7ba2ca22872852c69a71a8758",
+          "material_loss_cp": 900,
+          "punishment_san": "Kxe6"
+        },
+        "verified_line": {
+          "fingerprint": "00ba82b23b25466ea716b9c716d2b3bc6163c5fe0b839b97a0c4c7a956ef641b",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 82,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "23b77c2c608815dc8bd2682c754c0345654d136ce7a6df9f7d017b8f53c6e996",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "376efa8b37c66842fcfb1486d786eeb13e9e50320e542fc648c54bd2877cd6d7",
+          "material_loss_cp": 500,
+          "punishment_san": "Bxf3"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 23,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "240dbb47d679cf71a613cbdca704d81107a7e9131a48796df8d602ed113a62f5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "19b3b9fe970ce3b26c31806cd79678c1ff29e5b5274fa76270837a051491b912",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxf7"
+        },
+        "verified_line": {
+          "fingerprint": "493f37e436a4fd21e7898dedcc2d11fe31fe58ba74695d4dc6e030118c8f3764",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 72,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "240dbb47d679cf71a613cbdca704d81107a7e9131a48796df8d602ed113a62f5",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "forcing_tempo_and_move_order",
+          "fingerprint": "ed74d6b6902dd93399a1d87a6c619407a5c70fc6e8c0b679ed3652a426cb0242",
+          "mechanism": "check_saves_future_target"
+        },
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 88,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "240dbb47d679cf71a613cbdca704d81107a7e9131a48796df8d602ed113a62f5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "9fbec82b299abdc32e70187a93e910dc641a734b790abc4df9a1447a248d6597",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 96,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "286fb3ec6e770e735d5f5542a3b7e6b5ef3ae5cf6286ca31e5d36598db42ceae",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "b79f745792ace62b255abcce59f1f420ffd2ef32808335d2f61e4088281be4eb",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxe3"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 27,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "2e1c89abc4669278aebb594e81c8fbfdbe77481f216ced4f0279ead6c80b657e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8dddd0f3965e49c4d45215e3f13f846f2e76b1fac3ba63bc37fd8ff50dcf82a3",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxb7"
+        },
+        "verified_line": {
+          "fingerprint": "d021f18b39a1afe57eb06ae9aa92f91eb36719fc62611c530f86fb85a689053d",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 50,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "34199e53d4b5f32e5f60f440b93591652cc89f27be0de2049285778591c17630",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d5254a05934a40eac21166dcc5e1456edfb1a84a9f812ea03a338b8dfce9d534",
+          "material_loss_cp": 300,
+          "punishment_san": "Nxc4"
+        },
+        "verified_line": {
+          "fingerprint": "d49880b685f4e5a7015cdd6ca29f3b75a815cb4c045dc549f5d814957846f238",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 13,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "34199e53d4b5f32e5f60f440b93591652cc89f27be0de2049285778591c17630",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "fork_geometry",
+      "ply": 25,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "34199e53d4b5f32e5f60f440b93591652cc89f27be0de2049285778591c17630",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "0f2fb8f8c8c7108ae3e0836b372be60915063b51500267550f561520f5096161",
+          "material_loss_cp": 900,
+          "punishment_san": "Nxe3+"
+        },
+        "verified_line": {
+          "fingerprint": "c3005b3327eff2bef26655796c4459c6d2052221bb30203de17c577cc19f4e36",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 37,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3c29f37672f49d5cddb76027e215831ecdf2b04ef43c27af8d181841cab0ab9b",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "84ccba00671603b735a7feaade71db2661565e869a74098da4d92080bea2dee1",
+          "mechanism": "remove_future_attacker"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "0f6f0f755988d7a7fb27abf23a4362b3565a1808e0978d7d4f29849154535639",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 21,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3c29f37672f49d5cddb76027e215831ecdf2b04ef43c27af8d181841cab0ab9b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "2ca9bd16c315ee15b84ba1fcdec0fbf70bb631c435a73e1d1d304c7f44813ae2",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 31,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3c29f37672f49d5cddb76027e215831ecdf2b04ef43c27af8d181841cab0ab9b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "658c69eb3254752f5bcb7d9bb7459cd9beb784d65ec03de175fc23bf5e1fe91a",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 69,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3e9126879ee8a8319c96096b8ad93cd568a64f99f90a5e3382fe4ff757f3206d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "c7e29182a44145862319cc43507875d4813b1404ee6fd20086f743d2b2153913",
+          "material_loss_cp": 100,
+          "punishment_san": "exf4"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 3,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3e9126879ee8a8319c96096b8ad93cd568a64f99f90a5e3382fe4ff757f3206d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "8faeda79c489e6cbc46295bd6c8d1087aac481df7f3ad87737f4ec9762c9619b",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 17,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "3e9126879ee8a8319c96096b8ad93cd568a64f99f90a5e3382fe4ff757f3206d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8d26e786f2b356a3b6d1e50dc73e8019745bbfb167bf838ffd88f2a8dab93c0a",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxd3"
+        },
+        "verified_line": {
+          "fingerprint": "30a91796364a2873f51e5a3bc47bd0f033a3393becd5e7ff172b1b6a2faf47b1",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 49,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "440a3d7ed24731310498337cf019ba41e9bcc3770029216367e290309f660165",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "94c63c9479867077b1108a277eed7a49335bc7223993168d158552e8279ee5d3",
+          "material_loss_cp": 900,
+          "punishment_san": "Qxf6"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 38,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "446f71e40538a7702ef24dc00cd519f2670190db4ad019bfed140d98aa621138",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "32e3438b9544bb63192f898b5185994bab831ce7dcd59d1b1c3ce1c7da0606c7",
+          "material_loss_cp": 200,
+          "punishment_san": "Nxh2"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "446f71e40538a7702ef24dc00cd519f2670190db4ad019bfed140d98aa621138",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "e41090d82aa0a21241355543c1ca527eda6e03697ba9d8bf578adffdba0948d5",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 37,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "446f71e40538a7702ef24dc00cd519f2670190db4ad019bfed140d98aa621138",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "414a438956d2c4d5025933f918320d3b278a083b224482c5a268ff40a3ac0320",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 45,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "4de822110e8e20af23b31355e3e9dda588e2ac79718e2a558c67523c8943dbf5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "4de822110e8e20af23b31355e3e9dda588e2ac79718e2a558c67523c8943dbf5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "4dd720a0adb4d1e3d2da60116b3526cc22b810f8082c5fb16228e46fa5060e43",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "4de822110e8e20af23b31355e3e9dda588e2ac79718e2a558c67523c8943dbf5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "5121765c88ac41522b0e3a1d325f58e5fa8d92e99ab7ea76a98a9eae1ede4fca",
+          "material_loss_cp": 500,
+          "punishment_san": "cxd5"
+        },
+        "verified_line": {
+          "fingerprint": "de54b2e5dda96659d70f180a02965f64a83b0bf856730648ae7f47a300dba5fc",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 62,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "50bd522c59ea0340decf53a0094baa88bbeacd08f036c697d321f16843d5e5c3",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 14,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5196675e6b28583e8db5b61e95bc4f973b59b58da24e54f70c0d827800688ca0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "3fe0871ccfd3c8b1b15a60a03ec804a7a4119ceb150446d52f700f42ca0b29e4",
+          "material_loss_cp": 100,
+          "punishment_san": "gxh6"
+        },
+        "verified_line": {
+          "fingerprint": "44e9a54558394ade025e234e65dbdddffc9a4c695b9ddade5a54b5f1eccb0b36",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 25,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5196675e6b28583e8db5b61e95bc4f973b59b58da24e54f70c0d827800688ca0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "be40cfdd752e1e4674fc946c592a5cd14aa9acf0aca59c1f6e2c3971aad43c07",
+          "material_loss_cp": 900,
+          "punishment_san": "fxg5"
+        },
+        "verified_line": {
+          "fingerprint": "3013c27d89762e6655d375c1bd65f346d30618e0da4482fb89efe3deedb3228a",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 35,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5196675e6b28583e8db5b61e95bc4f973b59b58da24e54f70c0d827800688ca0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "99b60c2e75285a8a2c30fc3f83c98ca5b5397f2249a9e90ef326bf5cf54a90a3",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxh2"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 63,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5d023c0733a58aafa5f08e088e5f903b8396af19def14228daa65130c64cb825",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "62e3ded49e06e0e2e6912e0b8a23975828170dc22bf6e19f30f3f8a5e9b5f88f",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxa4+"
+        },
+        "verified_line": {
+          "fingerprint": "3c9feac7e0ee2455bccc3a05838d2f254bce9b4839b983b46d7e548b36415e76",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 45,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5d023c0733a58aafa5f08e088e5f903b8396af19def14228daa65130c64cb825",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "a9474e013d0ac99b6af856737494993b81b124ed208313616d22d9bdda241fd7",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 51,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5d023c0733a58aafa5f08e088e5f903b8396af19def14228daa65130c64cb825",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "3f269f93482856329e0f01a801511e497e566f31c7b3e911adca5283d53f4e93",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 87,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "5f7269c78cff687eb9a4deef9a073abdca29cbf23b0fd7956e812527e2bb3fae",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "94544a6a7aaef01021eae3e4c5aefc012fe5a9343c9bb128e4680cb2c2e60fc4",
+          "material_loss_cp": 200,
+          "punishment_san": "Bxe5"
+        },
+        "verified_line": {
+          "fingerprint": "2b63b78a535d13f4880941ba0f1afcfc396ac65c18ca91a6be1e4fabe2db2d72",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 10,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "605039c525799a25da3d8c1390c022fc1cd73bda79b0efbff232ae031cce50a9",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 13,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "605039c525799a25da3d8c1390c022fc1cd73bda79b0efbff232ae031cce50a9",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "90426301075d14f7ffdacf4467dab0c7addd32751ab4c7dae2b943c2f6beb457",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 55,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "605039c525799a25da3d8c1390c022fc1cd73bda79b0efbff232ae031cce50a9",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c656a9087d64032d3ce6a2b216a6e0b3b458fa3267123435d5a5c1f92c80697f",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 69,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "62a464ede68fe3f533c8906793a70ea0f10c7252c3e8ea325d09215bd6446984",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "08481428c81b57bf1d7ff47e29eb0cdf3d7ea096552c2fd5fc1bdea585a12d1a",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 11,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "62a464ede68fe3f533c8906793a70ea0f10c7252c3e8ea325d09215bd6446984",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d9709ccaf2848280faaca7cde6af02dc97e20503e3a3bd08d28912c6e2045790",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxd3"
+        },
+        "verified_line": {
+          "fingerprint": "4749527e2713014fea813f74822bebc351eced969c196379f6e729d8f256cdee",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 35,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "62a464ede68fe3f533c8906793a70ea0f10c7252c3e8ea325d09215bd6446984",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "22310592e25eab159e456892db478ca73a8c684d7c9e8ed43686d02883e43701",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 53,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6576165894f12d05b3553d28e01abaf7bdde6a9c987ed20109281e17716fddac",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "4f46d520741c70c2f385fa2dc26653fdac12658905cc70955b7e3eca1290bdea",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxc6"
+        },
+        "verified_line": {
+          "fingerprint": "15823258e724606948f676d4ca970e52a0eece1005ed4f5d76c0193a0af38eb2",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 36,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6576165894f12d05b3553d28e01abaf7bdde6a9c987ed20109281e17716fddac",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6a42ac4463d9930fe39c83e3387e3c159ec76077cd3bddc1b3a8759ceb5cefcd",
+          "material_loss_cp": 500,
+          "punishment_san": "Bxd2"
+        },
+        "verified_line": {
+          "fingerprint": "cae11a64f97da4864393225da7cf431961c82345ee2f6d06decd700998020436",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 52,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6576165894f12d05b3553d28e01abaf7bdde6a9c987ed20109281e17716fddac",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "forcing_tempo_and_move_order",
+          "fingerprint": "4a47ee18218bf066cd847f39a96e807d5d49c17713d9b4af2d464b5dc1632e6b",
+          "mechanism": "check_saves_future_target"
+        },
+        "legal_material_loss": {
+          "fingerprint": "8d67ea7c6b6da4f1a0468076707edf533ec238cef18d9e541183fb0edb15beea",
+          "material_loss_cp": 400,
+          "punishment_san": "Bxd2"
+        },
+        "verified_line": {
+          "fingerprint": "8e4c0673e61bdf33688a4f8a2cc7dccc58e7c2e7d870c9a4d8917fc5379cac7a",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 56,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "69ae08954810c1fb3f9da203c07f286948dfd1b98faf5f02a514ce4e6d2a0d62",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8abe9abe5224622228bcfd98af6a015b36ae381b4352f1819b9b511906f54a4e",
+          "material_loss_cp": 300,
+          "punishment_san": "dxc4"
+        },
+        "verified_line": {
+          "fingerprint": "2bc7e55dcfd57bf6b232c66dce69e5a27288b4acfc49b742654d7b058bbc9122",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 7,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "69ae08954810c1fb3f9da203c07f286948dfd1b98faf5f02a514ce4e6d2a0d62",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "66274d2ebf32983af4850b37b408ae785945f849d4a502a7be541a9f1657202c",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "24e64b6b3d6ac52443a649b71c4485a7457360466ee1e0caac048fe5174ece0b",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 43,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6c994319c7ecca77c22ad12672bd06b4644911599202e8ff4e7a7852bb167548",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "cf79bc954873690e95c19449271205b20266bc92d1a50d3c028963a6d9266347",
+          "material_loss_cp": 200,
+          "punishment_san": "Bxb4"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6c994319c7ecca77c22ad12672bd06b4644911599202e8ff4e7a7852bb167548",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "cd5e92c52f606fcfa24341b606d1629628ee9410aac400dcdf8e89399efad690",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxd5"
+        },
+        "verified_line": {
+          "fingerprint": "58156725cbc67557864dfd3b163343a65bb859ef69f31dab95a20f9349bc1e2e",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6c994319c7ecca77c22ad12672bd06b4644911599202e8ff4e7a7852bb167548",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "043508e878635c42f030d57a319ebfc9ce05afb1d8b92493f4278c0ed228d11f",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 84,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6e53cc639b84f10343cfd003b40b2c817c7c4f4ba93949e5e2265b6d5d72e67e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "fa26095a6d982bd02342b5e61e20bac090e03d01ac351c5862855d7ff657eea0",
+          "material_loss_cp": 300,
+          "punishment_san": "Nxe5"
+        },
+        "verified_line": {
+          "fingerprint": "01f96bb960d0d5fdfa3f7d43dd13c1ff6a183c346970852b6b981c2be9f68e92",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 18,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6e53cc639b84f10343cfd003b40b2c817c7c4f4ba93949e5e2265b6d5d72e67e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "cb9b8a163850a5bdbbe2684c864cdfc418d8243d263f50a6acf731ffd698f968",
+          "material_loss_cp": 500,
+          "punishment_san": "Qxh5"
+        },
+        "verified_line": {
+          "fingerprint": "7bcd5e8aa624faa2e0a9da5d3595ef3e2b7a42c122f4e09bb737ed5fcff4f4ec",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6fff0804b5854335319f5ff2d1b2ee348e22ad295485e12a0a9fe6e7e896895a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "196af406439470e2cedba7101f722c73290a183d9e8621ad5ccd0dce640ab59e",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 53,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6fff0804b5854335319f5ff2d1b2ee348e22ad295485e12a0a9fe6e7e896895a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "0547beaefb327f78254218c35f9c68a55fb4f14ee889620d183f318921bb1f91",
+          "material_loss_cp": 300,
+          "punishment_san": "Rxd1"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 69,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "6fff0804b5854335319f5ff2d1b2ee348e22ad295485e12a0a9fe6e7e896895a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "f4f06a3440c10ee5ccd02c9223a105dd1c2464a4c0d4a3a347e0983078136d03",
+          "material_loss_cp": 900,
+          "punishment_san": "Nxe5+"
+        },
+        "verified_line": {
+          "fingerprint": "266d490e253459e0d0b6fffcee90989dfef580441d36d1c851753087bed174e4",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 75,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "7387e5078d1ba0a8d944737554c8a0e6fc1f2c23a453940273c00e3a45fd169b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8fb901f03b0df33b1bfce41755a01a422042c8887e86c94d07ba943d2c00f9cc",
+          "material_loss_cp": 300,
+          "punishment_san": "Rxc5"
+        },
+        "verified_line": {
+          "fingerprint": "fad4d5ced91d0fe1e27b13b3ad44a09fa0c88a055ad8a66f84bdae6303381ecf",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 45,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "7387e5078d1ba0a8d944737554c8a0e6fc1f2c23a453940273c00e3a45fd169b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "341a128f935570f1ed01b0752733200f0787d2f06fc5721788ba53bc9fc9f703",
+          "material_loss_cp": 500,
+          "punishment_san": "Rxh8"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 73,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "7a98965afefa1d1b27a573779323e530bc81d7b58c18d01e6cd6e1b340360888",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "cd1d15497f64fd61ac1842e112e6c0b979b884f111f64fac22c996be1e7d33ea",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxc6+"
+        },
+        "verified_line": {
+          "fingerprint": "f071453885cc692df3c28c5f4a5d5147f9a40cde287964d227c9c05f71d1450e",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8046ca3a6875caca0147eda8140d7be8e2752523d72f00bd9cba52564bd2f0b4",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 12,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8046ca3a6875caca0147eda8140d7be8e2752523d72f00bd9cba52564bd2f0b4",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "0fe5387c8229606e0e7492987ca0664deccafd92909be984dbad09ea960f82fd",
+          "material_loss_cp": 200,
+          "punishment_san": "bxc5"
+        },
+        "verified_line": {
+          "fingerprint": "210b6644afaf31d93d282551e00aed04a8222566b57ff82cdcd59dee81faabde",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "84189e367a79da732059dfa47974a2799978f66e9e6b286e3e0f000287a556ef",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "02e11bd1981625b35a1bdd12fe4d575df147aa749158bd634f237c538a5fe4f1",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxf7+"
+        },
+        "verified_line": {
+          "fingerprint": "e88f562ea014736cb0a8eb9e483895e07ce711172c140c9e7e6067e4c0432702",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 12,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "84189e367a79da732059dfa47974a2799978f66e9e6b286e3e0f000287a556ef",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "ee7ec0d8f64870cac3f67371717f9654006188d6ab1a0d5eb0053a6197258dc8",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 25,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "84189e367a79da732059dfa47974a2799978f66e9e6b286e3e0f000287a556ef",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "755a1f34b002be0e6ba4eba1e4261776bb73f26592562b2a5c8b90c3846a7549",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxb4"
+        },
+        "verified_line": {
+          "fingerprint": "64ad3909d0d3fed817d4234b7eaf59ee145758ec1d0a49461d730bf876aab3b2",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "84a2141d927a21ec203152cca5ef5c71bbdd79ae081c15b8b7562918844abdcd",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "636d5731513a0338dd9923ef79c326125ea66f8c3df3b514c41486b900847d3e",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 11,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "84a2141d927a21ec203152cca5ef5c71bbdd79ae081c15b8b7562918844abdcd",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 35,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "84a2141d927a21ec203152cca5ef5c71bbdd79ae081c15b8b7562918844abdcd",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "7921d4c7de937baec8829c7e8dd1c4b693f8869b7b787c7e684ab498a8d63ac5",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 56,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8a5cf0efbaeb1ccdd70847b63bb8e284b7c7b6cb4f67459df90c57b1c177a47d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "0b02e3dfad11a672bd306800bd15d3aca532dfc31b9edb2969bf4dd148eeb29c",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxd5"
+        },
+        "verified_line": {
+          "fingerprint": "7f326dfb5ff8bb800ce992508a2cf7ca1e5f86a48e8cfec883379a9c57d99919",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 6,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8a5cf0efbaeb1ccdd70847b63bb8e284b7c7b6cb4f67459df90c57b1c177a47d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7c5f9fb06525a6e703706d7e179ee869691fe327d6851150f6727a4b81e1a630",
+          "material_loss_cp": 200,
+          "punishment_san": "exd7+"
+        },
+        "verified_line": {
+          "fingerprint": "12b0d4ae76651431f8b181d89ecf20eb3f2085110b09ffaa3b054aaec83ddb5f",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 10,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8a5cf0efbaeb1ccdd70847b63bb8e284b7c7b6cb4f67459df90c57b1c177a47d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "c3843027784cd63bea36c4619619677b8a3f629b90eb4cc876a8ef1c5aaea743",
+          "material_loss_cp": 300,
+          "punishment_san": "Nxe7+"
+        },
+        "verified_line": {
+          "fingerprint": "8f8131e875c911f95cefb5318421e0450291dc9bcd4e57f6e5c6221fe42370ee",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 40,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "8cc46cd7a99c42a485c616ebde36cb81c914b529ccdc3d569dd8062b17811d67",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "5bdab5f56b144a311f17811b9e67144269699d4c0319524f248f1756c799a573",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxe4"
+        },
+        "verified_line": {
+          "fingerprint": "95aa02bc95c2474119bfc99b2a22c5338b9bafe5a94441b7ba1d43434c6e0fec",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 28,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "91df197a6d6cf1135b6d451c90945f118e9c5fb4412c0b941be40a948913f238",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "723513be6eff417e2ff37d7f14939493e92f7f3416aab2427cd387b1e04763e6",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 67,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "953ecac6dba5d7d82528009045c6dc9feb187859d9cb9b4bba34bcb8a320bc77",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 6,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "953ecac6dba5d7d82528009045c6dc9feb187859d9cb9b4bba34bcb8a320bc77",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 14,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "953ecac6dba5d7d82528009045c6dc9feb187859d9cb9b4bba34bcb8a320bc77",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 72,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "95ed36807cb2f1ccd67c2a2e76e9b4a5c6183f0e96a49688d9c7eb26210cde90",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "8f66a3ef648e3da2bde379e1020afcd94a0f278b01f88ba9b3a213e65f784ccf",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 28,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "95ed36807cb2f1ccd67c2a2e76e9b4a5c6183f0e96a49688d9c7eb26210cde90",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "5ef0a12bd6c4aa06330762bd86c9b1c5031f5286a75d840c80c9ef9a2b2b7478",
+          "lesson_kind": "missed_forced_mate"
+        }
+      },
+      "gold_family": "missed_forced_mate",
+      "ply": 54,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "97ee48ba401635910d70caa8cf5e5d0deb6d391f50b96d021c65a5d4b55ae4f8",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 12,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "97ee48ba401635910d70caa8cf5e5d0deb6d391f50b96d021c65a5d4b55ae4f8",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "44986206c80e40ebc4d4b52f9e837d652acd61a88b422d8fcca14d7ea8ec52d4",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "97ee48ba401635910d70caa8cf5e5d0deb6d391f50b96d021c65a5d4b55ae4f8",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "3edf3ec12a474f06ca1ce68c4d1cf48b0a4e6dba553b04b3b7782c3a908bbd96",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 50,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "980bb1b8c3db5588143345d3b530e065c3d2707bebea4d280291f25b2ad641d2",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "f31470f88b526301b11a1737e5385493a3eb7f3f5ca9bc413a95117a24731048",
+          "material_loss_cp": 200,
+          "punishment_san": "Kxf7"
+        },
+        "verified_line": {
+          "fingerprint": "445125aec75bacd6a0ed00035eef9a8d904ba2f8a5866de678c86001eea594a8",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 39,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "980bb1b8c3db5588143345d3b530e065c3d2707bebea4d280291f25b2ad641d2",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "48e24befcea93611f96d615f4215e3d17806e23369e79f40d117f182bec3629e",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 45,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "980bb1b8c3db5588143345d3b530e065c3d2707bebea4d280291f25b2ad641d2",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "13f75b839f41586f239aadd63109e6456d36eb48a6d2068c57eabc430c372435",
+          "mechanism": "persistent_piece_attack"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "25c0869d2179df7306c27c6ad840d2612af7fb27f9d0f2591d7cfba063e6e3cd",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "fork_geometry",
+      "ply": 105,
+      "status": "different_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "9ab9018910660874545859aee3a16b8ff9f1b016d63bba041ac306592cb60b51",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "b8c44586963584ff9411ecb4555eb09ce3fecaff0271a56ab05395e2470a1e66",
+          "material_loss_cp": 200,
+          "punishment_san": "Nxe5"
+        },
+        "verified_line": {
+          "fingerprint": "4f22bc33d17e1eadf7f7661716e376a24a4d64708f3b91f01691bd7bdf4b2934",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 41,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9c3f93a5b34f91e8a42f71902be47d6b93a280bf0012e0be960812c9ca65c597",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "04282d268d3bce89e527ffa595ab40e9a34b492daae4c4978e437576286efc69",
+          "material_loss_cp": 300,
+          "punishment_san": "Rxf4"
+        },
+        "verified_line": {
+          "fingerprint": "096f31e8ed7da9849f150ccb8947ce4ab374fc4fdee09cbc07b560626b1db7ca",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 29,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9c3f93a5b34f91e8a42f71902be47d6b93a280bf0012e0be960812c9ca65c597",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "83992ca2f735accacbb318e6f760d32646cea2ea1094d6803a07c293266924fe",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 33,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9c3f93a5b34f91e8a42f71902be47d6b93a280bf0012e0be960812c9ca65c597",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "4db1e2abb28cf3dc2b98800167e02b7753e9542b3bd671f2f22d0950fdfe3251",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 43,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9f2843f2f42e4049d12605b129d19fb9ba92aa833fde44ad7594e1314e3fde90",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "b7b568af742cb3f9903847389af3428dbf22472f679c0d66a57fe620e04a47b4",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9f2843f2f42e4049d12605b129d19fb9ba92aa833fde44ad7594e1314e3fde90",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c517686c2e39f495a12404407854b4628d2829971ac521883b2e7843e18c379a",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 38,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9f2843f2f42e4049d12605b129d19fb9ba92aa833fde44ad7594e1314e3fde90",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c70dce8d3c0f152cb5ee97686eceeb12873b225aee5d7160f82c9deca17c83f7",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 90,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "9f4d2070e8655ec848023661706ae6408433c7cd9f8b104fe94fccc363b884f0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "03d3eb215c4694ecc88dd77cfe32da7529194d6a9fbc570bd90a04f4ddf0637a",
+          "material_loss_cp": 300,
+          "punishment_san": "Bxe6"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 6,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "9f4d2070e8655ec848023661706ae6408433c7cd9f8b104fe94fccc363b884f0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "5b4f26087c6fcab608d10d121f8b757b3b0363d5a419cc7d80ada2565881f7fe",
+          "material_loss_cp": 800,
+          "punishment_san": "Nxf7"
+        },
+        "verified_line": {
+          "fingerprint": "69ec2f6ec63b6e13483f275d06047f49f4112fa67ed276203dc1a7354ae40d59",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 9,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "a15eda97aa49f3baae1e20f533f8389af0e9bd8827289bc5ebe0646453da983f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "36d83839049701f9c6eda2019544920440756570880941330760e66cf6dc4517",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 9,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "a15eda97aa49f3baae1e20f533f8389af0e9bd8827289bc5ebe0646453da983f",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "b62d68cc0b5ac8932f27968aef3e373282da90e228c5d409cfac78666c723dac",
+          "mechanism": "persistent_piece_attack"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "5558ee6d18d480a56afc427fbbc6d65597a6087ec8757f97669755ba236c6cab",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 23,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "a962111a27e6bc0c267f9a9db908e0ab3f8afd28dbd00c298c681c36846bcdf9",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "a962111a27e6bc0c267f9a9db908e0ab3f8afd28dbd00c298c681c36846bcdf9",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "cff6120503bd477cc84f1bee7ff637ec663ab8f726ae508e076cb864f9d6bdb0",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "2d55d8eea620ded990426f4737282166673b7ab27af3cb406fd787601d4b4672",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 28,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ac2c2180cd8eb27c610f3bc3baa74173091863cfcd227731593b92a3d9291d1b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "ffd2aae7b398eb59dbbf47859e059902d9f246bec0971bfb53ba517dbda4941d",
+          "material_loss_cp": 100,
+          "punishment_san": "exd5"
+        },
+        "verified_line": {
+          "fingerprint": "acc747d2784036145c9a52e689060c52ea9d52650740ed6dd1f34337dbe24b40",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 16,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ae157f5e21e9ad1085e19051848858658ec5871d3f638dced6fdf42e73b549c7",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "e74ddf579444c68588aa6de038c6649a5b5a480d41705610e507f14ebeef5796",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxc2"
+        },
+        "verified_line": {
+          "fingerprint": "6ea994995d9efd89a09dfbadfbb6c3688630baf5d2932f52a15cc107777ff0f6",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ae157f5e21e9ad1085e19051848858658ec5871d3f638dced6fdf42e73b549c7",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "3694d74faf6b1c7200bf86c2f69e74c8a0e4d6ad3c7ecf73491b77a782d856d3",
+          "material_loss_cp": 200,
+          "punishment_san": "Bxa8"
+        },
+        "verified_line": {
+          "fingerprint": "9880e38b6a14fcba3dd7904148443006bf27f1be1fb5bfc8f1ea22ad91c8538f",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 28,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ae8a11f674d73b34dd0dfec92cc337033b1dfabaf71f07ebc8be62ffdc5f838a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "37efbb67aeb87c29bf28834e2416dfefcc03962b7194414d77c981b7d0ea5746",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 35,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ae8a11f674d73b34dd0dfec92cc337033b1dfabaf71f07ebc8be62ffdc5f838a",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 51,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b0c287705b2d0330fdcbbf7015deffe9c5ca820a4eae4135fca805c868129cad",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "493750be681eec03237cd28ca6cd0643a74df69bf788b67907f4e5f9dc5622b0",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 12,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b0c287705b2d0330fdcbbf7015deffe9c5ca820a4eae4135fca805c868129cad",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "c23224a59d9adcd2d4b20c8d8ba767df79cba5e80b3099a9baf5ac66aad0834b",
+          "material_loss_cp": 600,
+          "punishment_san": "Qxd8"
+        },
+        "verified_line": {
+          "fingerprint": "d2c723384b822e4035be0a54a10109b735c90c8dafad28fb2c144aa2ef5e71cf",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 16,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b0c287705b2d0330fdcbbf7015deffe9c5ca820a4eae4135fca805c868129cad",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "6060d1240ddcd653049f9c18a4c977ff23758b019b8bb90c72318bacb4543788",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 20,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b161be46d8a83b7b9d308c097fca87c5a7adace004ccfc3543bdba2d338ec9b6",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 34,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b161be46d8a83b7b9d308c097fca87c5a7adace004ccfc3543bdba2d338ec9b6",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7062efe8b6b76f80d13339c9725024126b26691a0fb96ceb1312880d8524d1f5",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxa8+"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 44,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b1bdd0cdc6a63477d825b738fdf9b5384c981b484fc70b5d0f8246dacd79260e",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "62283f8a7938348c25449254f342e9aeb7bc8665e7282ed9d66fb1cd34e2fc52",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "081a6ff1e2def8518b5dd91f8b4d09432a4b07b962c31c535cdef875e3d6232a",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 41,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b210a1abaf60b281b54d930973e1ced0578726e43a4a2b156201db4019f35b44",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 26,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b210a1abaf60b281b54d930973e1ced0578726e43a4a2b156201db4019f35b44",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6941dfd518b1c1e4a94b7a01243da7ddcf2157040780bb369a8eda4da9e109b0",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxf2+"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 33,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b210a1abaf60b281b54d930973e1ced0578726e43a4a2b156201db4019f35b44",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "d85520e7f8d2a7eb8dc9bc380e2b68c6ee51e173d2f2635d0f19b0dd539e427f",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 47,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b23d6bdb50c77e1aaea3af9942488bc24f0b0b9f811d648636ed3c726174f2ac",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7d8380ff5065da4bbeab36c31b4f7129c8dfcc3b71ac42cb38df329324db6d19",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxa6"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b23d6bdb50c77e1aaea3af9942488bc24f0b0b9f811d648636ed3c726174f2ac",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "f9f7acbce433541e02cbd2541cbc0d8bff871766dd94e4f55029582e04dc194f",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 66,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b26665ffe3d9350c62f5f39c55a3d6d99c6e9428a37b4841de519fbbd7ad775f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "b55f201333954516bce61e29e8e6baa4d03c8144b80c64fa3c67e02b958a2273",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 36,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b26665ffe3d9350c62f5f39c55a3d6d99c6e9428a37b4841de519fbbd7ad775f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "e8c16c5d0c5fb0eba98e3fed80fe474d63ef097ee7b6066241df8640b1a172b4",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxf7"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 40,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b26665ffe3d9350c62f5f39c55a3d6d99c6e9428a37b4841de519fbbd7ad775f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 58,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b3b98a116e26bbd1cb2a51b1dfedc5944372cbfd7882b1e7aa3b3fd1c479064c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "c2aedc2e75448e47f8446678ca611fd6014b044b8a79b2c987d3832d463f1d0c",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxc3"
+        },
+        "verified_line": {
+          "fingerprint": "e7896de9bd41fe5fb7611197b1eae5219781b776cafc557eabf3a7922168d953",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 41,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b3b98a116e26bbd1cb2a51b1dfedc5944372cbfd7882b1e7aa3b3fd1c479064c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d99972174dbff92a525d1a941232597f0d00a67a27f5a2ef3180bbaa91f9b56f",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxd6"
+        },
+        "verified_line": {
+          "fingerprint": "00d12c89eb0593d942151c8396f709c179dc9bd2fe02bf128d6d08a0365fd891",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 51,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b3b98a116e26bbd1cb2a51b1dfedc5944372cbfd7882b1e7aa3b3fd1c479064c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "b1b790aa84942e9853ebd958b52e6096350d842d107bd9a803d8143a85d23f64",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxc3"
+        },
+        "verified_line": {
+          "fingerprint": "d7a9e91789371b2f495c8ba5a99037599cb68661c1fe43e44cba668705f8608b",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 61,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b7575785051a7e1db96aedecbb6afb27630d106e8cbeff34d8744f44102a4868",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "19b04a91b70e00294b7516bb9bc90902da7572c1fa43217c7b1a56c10b0d5e66",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxe4+"
+        },
+        "verified_line": {
+          "fingerprint": "8ce5c2699e4a28705a0a697bed0023f66a50a78aa8d97f9f176b72ecc0d0e716",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 16,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b7575785051a7e1db96aedecbb6afb27630d106e8cbeff34d8744f44102a4868",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c2c3b38615f36ae165a4f42ca5e0287dd4f1ae8228725f52723475fd36e97e01",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "fork_geometry",
+      "ply": 38,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b7575785051a7e1db96aedecbb6afb27630d106e8cbeff34d8744f44102a4868",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "ffa032a67db02d3f7d99ab1e870e61862519a1fcaeb6d377ff5951b2fc21f59d",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxc6+"
+        },
+        "verified_line": {
+          "fingerprint": "f55afbc5b860097ecd762c8319e3e6f527da0dd82adeeb45509dc05ee1e078d0",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 74,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b86827d1543b52367dbc96608506d76ffdaff75908ae220e89109b2f58ca08cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "5b40fa572cf93795043a3246585a0ba12cb23cd2ae71b2bf0e34a19490d63cc5",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 21,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "b86827d1543b52367dbc96608506d76ffdaff75908ae220e89109b2f58ca08cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "b86827d1543b52367dbc96608506d76ffdaff75908ae220e89109b2f58ca08cb",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "377cf79e7955b6a381de77114ed94698927e5dfe434e0b1cb274ccf538122682",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 37,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "bb3238e47135ceba1a50718985cc7441ec116a900c61d8d1f622db5c40f34842",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "04fe097662a189f09f03d3afbe5a32f40fdf879317380ab67f3e0ca401960377",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxd5"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 26,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "bb3238e47135ceba1a50718985cc7441ec116a900c61d8d1f622db5c40f34842",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8a3646cc959021bdf5b28ba9b75e3e4a1bdd4a9ccb1e67ee948564ae5c4d95d7",
+          "material_loss_cp": 900,
+          "punishment_san": "Nxb5"
+        },
+        "verified_line": {
+          "fingerprint": "7c5363a92a698862c869a8777bd1da2fd0b6a0569504d956328961f9e6b554a4",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 32,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "bb3238e47135ceba1a50718985cc7441ec116a900c61d8d1f622db5c40f34842",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "4dd4fabb1d63dd56ad1ddd4318c48f57e52dd60ba29ea20b6bd620cfab1cb7b8",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxc6"
+        },
+        "verified_line": {
+          "fingerprint": "6a73d027e692665eeabd60aa3093f0578990d5e720090cf7b037c9f468daf82a",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 86,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "be678039e7dff6ae86ad2019162a23008db4f59a61d3c036d76efdaf6c9232f8",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "forcing_tempo_and_move_order",
+          "fingerprint": "b1e4e988cdebbf5c4414605e957c3b987da098ca73eb145519a6994d69714565",
+          "mechanism": "forcing_target_displacement"
+        },
+        "legal_material_loss": {
+          "fingerprint": "6e87f34edf4c2ad465da7e7363bbf2b4f11d82ee6bf73e4f098fc4922e760474",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxa7"
+        },
+        "verified_line": {
+          "fingerprint": "78501cb5d4fe385dcef179588f87960f12f2ef8143fc225486838d76dc64b9ba",
+          "lesson_kind": "missed_forced_mate"
+        }
+      },
+      "gold_family": "missed_forced_mate",
+      "ply": 46,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "be678039e7dff6ae86ad2019162a23008db4f59a61d3c036d76efdaf6c9232f8",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "a31a8539c4ec1fa58ac6a1f2a48aa18a0b2883126a456e924223434480a0fd55",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 62,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "be678039e7dff6ae86ad2019162a23008db4f59a61d3c036d76efdaf6c9232f8",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 68,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "c1b3103c88d7923d9e423b6824173addfb592b1d34a2935269c25b27c6522a48",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c033fb597a3e5275937188621ce014eb6023bf295a4caec9b770414db1dd7711",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 31,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "c6ba4d2b4a5f495c686e5317b38742066deb7571c8f171638f8598686ff8a70c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "dbbdc0db467c6036b72794d9dfcaecca3bdfdfd49d7e6dd5c7b50d4f736cc7eb",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 41,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "c6ba4d2b4a5f495c686e5317b38742066deb7571c8f171638f8598686ff8a70c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7b09467c858542b4efade47c2809423994afce5e138b8fa54541fc49274e45fa",
+          "material_loss_cp": 200,
+          "punishment_san": "Bxg4"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 53,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "c6ba4d2b4a5f495c686e5317b38742066deb7571c8f171638f8598686ff8a70c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "5cf747526807fff7194f84e1cedb5470ce0070aff444532ec00a7e3e9526210b",
+          "material_loss_cp": 200,
+          "punishment_san": "Rxb6"
+        },
+        "verified_line": {
+          "fingerprint": "34c13e97c595c9a739a5c640c4aca78f5d167523828ddef6fceefbb8e3f85e27",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 95,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "c9ffc125c7b4435d26ce144e7525b422d171f1c09958ec16aad63d96a9518332",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "a19160fad9df1325a55f5e3eb032ab007aea383f590e1ebaf52c97f5663afe07",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 31,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca74c5868b86cd764b707a6e4cac1a215d7c689d2eae9de64f6d4b0f66ff896d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "d50a8d100509360fa52f5b591ed297aeb541523b772f0faa7c6dadc6c603844b",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 11,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca74c5868b86cd764b707a6e4cac1a215d7c689d2eae9de64f6d4b0f66ff896d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "84b744dd6d50e9d061babec90b502d93172ba7bf355a09e853eb095b40f30155",
+          "material_loss_cp": 200,
+          "punishment_san": "Nxc6"
+        },
+        "verified_line": {
+          "fingerprint": "e2702b80fb5bce39f7175afbfc40790f925f425807694020d3898b15b53c4951",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 17,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca74c5868b86cd764b707a6e4cac1a215d7c689d2eae9de64f6d4b0f66ff896d",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "8629187be73e33870a6102168e8efb3b126c36fe14c429a44d17b9f4dfd32252",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxa2"
+        },
+        "verified_line": null
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 43,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca88268971b0107f2b8cc6f6bf4cc0156646a7f32e7d700fd004117af525563c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "ee1077e226a900823de60b6102692d3f9b282974917b0f9f44b64dc2eeb30896",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxe5"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 34,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca88268971b0107f2b8cc6f6bf4cc0156646a7f32e7d700fd004117af525563c",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "cf8dfeedb4c389f5c9527083b0de8babf5331c06d5111d714de625cb0e80c22a",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "58fc3ac8baa2975097b0c120ef90eb0a23e5d6dd3dcaab2cfefd4aa65c5e03ac",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 44,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ca88268971b0107f2b8cc6f6bf4cc0156646a7f32e7d700fd004117af525563c",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "cdbff2c040a364c2ee342403562e4e5e649240ee6196c8e8fbccaab9d4a32875",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxg7+"
+        },
+        "verified_line": {
+          "fingerprint": "883b2684cdb39ac5e4be15a2c0161e8340a9d3970cd7b30701848190b287f662",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 50,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16c1ae34b5f0414257ad02eb63eca4967991d5caf454d978dac8a05cfe828a5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 11,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16c1ae34b5f0414257ad02eb63eca4967991d5caf454d978dac8a05cfe828a5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "7acbcf64579d7f6fde932ff86c4eed1ce58c537dc852df202f170c90d559dd32",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxc3+"
+        },
+        "verified_line": {
+          "fingerprint": "73979d741aee007cf75726ab2000f788dff96fcf6503e72d280dc2dcae9764b7",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 23,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16c1ae34b5f0414257ad02eb63eca4967991d5caf454d978dac8a05cfe828a5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "115f2c3ee25accde47a7118a3627a3931a2fd21987e3075a9ae82d4152fce9db",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxc3"
+        },
+        "verified_line": {
+          "fingerprint": "6ddeab4a38493692716f277739f008e7e383e07aa71ce34ba857b9cf05b4222a",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 27,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16e3cc98771d595e7e75616acbc29bfcfc96e52b928a9c0d4766beac473cc2b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "1e1cfc66e7f6aa18d26a76886a5f2cb5b35517b421e40ce3f4842d1dad467db7",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16e3cc98771d595e7e75616acbc29bfcfc96e52b928a9c0d4766beac473cc2b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "d3ba8d42b246c1e10a76cd7c02bb055ca1ac8a8769cae3f3b23e182eec08486e",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 96,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d16e3cc98771d595e7e75616acbc29bfcfc96e52b928a9c0d4766beac473cc2b",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "ed6e61286102051d66129bbc85b9b6103eb9821efae73d71e0ac85c51f590ad6",
+          "lesson_kind": "missed_forced_mate"
+        }
+      },
+      "gold_family": "missed_forced_mate",
+      "ply": 100,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "d30cf911ae2e56b9bffcdfadf252adab7a4702e6f209799de6b5c5d6a80b98e5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "127b3ea1b75a4944e3f9cc03d34c9c4f81cc320d4283b594bdc2c966c49fccb1",
+          "material_loss_cp": 200,
+          "punishment_san": "Qxg3"
+        },
+        "verified_line": {
+          "fingerprint": "813026bec9e3e311ebebe1677e7fe73f2f46d097ac4f4d6f6f150345c91720a4",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 30,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d37e3ca9e250129d66c4b52fbf29b7657c5799886e4be9a4403494e3163124cc",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "07bf7dc7819e1bf9ec88db6299928861973d5c21421ef98f308e3221972a0523",
+          "lesson_kind": "missed_forced_mate"
+        }
+      },
+      "gold_family": "missed_forced_mate",
+      "ply": 53,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d37e3ca9e250129d66c4b52fbf29b7657c5799886e4be9a4403494e3163124cc",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "9f560f1144f3b077203f83231a3d274fc53e7590cc37ace9ac72670f4bed57be",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxc3+"
+        },
+        "verified_line": {
+          "fingerprint": "01b5fb3374d46fa9d63d884fb9d054536436a4b4604ecc10a0ac566d8a718c24",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 71,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "d37e3ca9e250129d66c4b52fbf29b7657c5799886e4be9a4403494e3163124cc",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "5a12de0c14c2d259113b146926f06fc1b4efa5329ca8c4526b009095c6dcf594",
+          "mechanism": "remove_future_attacker"
+        },
+        "legal_material_loss": {
+          "fingerprint": "f88343ab4332adab13a914c0a8f983eededb29cf72bfb6083c7a7e360a52c8f2",
+          "material_loss_cp": 300,
+          "punishment_san": "Rxa4"
+        },
+        "verified_line": {
+          "fingerprint": "eed273cc6099d5658b41db7639ae811b5ba08e9255f086697ce7fdc517295660",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 75,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "db0e31dfa575fe9f4b14851f5832653fdb856f0e2d24e1193909638fd607e02f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "376022f016c6c8c7adc0d50692c8050d1977b3bec68c7f512f4c613a7a3b75be",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxf6"
+        },
+        "verified_line": {
+          "fingerprint": "4068612ca5ed1a6039defbed307b18defaf800352fdf5227f8f7985120e3b5b6",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 24,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "db0e31dfa575fe9f4b14851f5832653fdb856f0e2d24e1193909638fd607e02f",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "08d2657085bebe9c1fdf9b6d6914e6b214d36ad31a608531efa0a3fb0ecbd599",
+          "material_loss_cp": 800,
+          "punishment_san": "Qxg4"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 38,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "db5771d51748c8bb5fd7223b2cac8a62c920a27bc31b51ee3bef2fb2ca4abe92",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "a83d2a7f7b6415e4ce512f44bba7e21bff3c733a88e9b7a0d6d8db48da7a3c72",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxd5"
+        },
+        "verified_line": {
+          "fingerprint": "101966391aecd2704065ab1b7355d85f68283570fd2e0ef667412a4607ca4ee1",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 10,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "db5771d51748c8bb5fd7223b2cac8a62c920a27bc31b51ee3bef2fb2ca4abe92",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6772669b92058d975cb46025f839e03de3d9ed58099576191f793a3128b68c50",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxh6"
+        },
+        "verified_line": {
+          "fingerprint": "9e7cea4be1eb441e9ebfc37bb4084ca4542355c99c2104eb9aba08b91afb171b",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 44,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "db5771d51748c8bb5fd7223b2cac8a62c920a27bc31b51ee3bef2fb2ca4abe92",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "e0c1d5d58ba97075564994bd58e096904120a7e40a357728de1efacbfe7f3a59",
+          "material_loss_cp": 400,
+          "punishment_san": "Rxa3"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 50,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc29d1d18322910767034f6d769dd8f16aa8aeb74317dad1ed018ac0b91f7fd1",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6f4d275e76b8be2181fcf9f9c19216c9d00a6d0ce42de7e296c60d75f25d427a",
+          "material_loss_cp": 100,
+          "punishment_san": "Nxe4"
+        },
+        "verified_line": {
+          "fingerprint": "a47f576061494f4168e8b8677ffae83e83a4e7dc03de047b8a00761bf348377e",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 25,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc29d1d18322910767034f6d769dd8f16aa8aeb74317dad1ed018ac0b91f7fd1",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "1b2a68b0814137c3a8b02e1483f3a6a92667a6d39de707bc8bd8afcb6299ee09",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 33,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc29d1d18322910767034f6d769dd8f16aa8aeb74317dad1ed018ac0b91f7fd1",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 49,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc4ead79ba3a9be8f182817bdb35b37b7352b60d505a2c21aba07ce6e3c0e803",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 24,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc4ead79ba3a9be8f182817bdb35b37b7352b60d505a2c21aba07ce6e3c0e803",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "7421af25b0dc188698dacf622a40856f11fd5c10d7d8c990d20e63ee84163130",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "94c40f075000ab4d9d05d0761e5a2d3bfd12dd7275ad7dab6395daa6775e9d66",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 52,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "dc4ead79ba3a9be8f182817bdb35b37b7352b60d505a2c21aba07ce6e3c0e803",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d907000bf7ec81e2f479c16491c296e38a065f2776c8296f6fa7d679cd32dbb0",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxe5+"
+        },
+        "verified_line": {
+          "fingerprint": "5b7bb9961c6171dd8f211bb12fe23529e490fcd7b414d62e8363d356021c6736",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 72,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e006f50ac42ef209b97b72dbb2abd437dff46cbfebba10154f6d6c546a118f6e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 21,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e006f50ac42ef209b97b72dbb2abd437dff46cbfebba10154f6d6c546a118f6e",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "3436ba10c8b557203f880ada695f269c729e14d0755bea1bc94498c26b3ffe71",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "47653145c70f47edd2c2c6f8875ef980c7bccc4283ceaf3a28638b127b323e26",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 35,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e4f1c2a804800fcbd33fda221a355c0c65c1adff3f5d6d6bba1207e8cf818700",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 33,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e4f1c2a804800fcbd33fda221a355c0c65c1adff3f5d6d6bba1207e8cf818700",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "25d9c839c96bbfad9eb30efb8863e2d6fc432626822962659412a19df8e0952e",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxd4"
+        },
+        "verified_line": {
+          "fingerprint": "1ae620f38882b968210a7748f56aa76fa287b392ce9ba03aaf21bed32ed07324",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 51,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e4f1c2a804800fcbd33fda221a355c0c65c1adff3f5d6d6bba1207e8cf818700",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "5388839a2aedd5d758b95c63fbb8994abf5db5e80f6d87aa23b8d36cc04abd3c",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 65,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e729566d1c7d7e594dcb715b1d062623ee8a3cbe4f84f709e09c518354d57559",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "6264ee57f40c9992f23c50d09b5e992fc28fc2311ee61df0c22bf6f7b2eb3b17",
+          "material_loss_cp": 300,
+          "punishment_san": "Qxc5"
+        },
+        "verified_line": {
+          "fingerprint": "d8a54851f6542e0a91d6269bb64fdf01dcadd134717c836a2b092f7ceb96bced",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 38,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e729566d1c7d7e594dcb715b1d062623ee8a3cbe4f84f709e09c518354d57559",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "66df67307004c73cb935a8c2c3199b89eace5e094a371a8f4b1874cb8dfa8b6e",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxc7"
+        },
+        "verified_line": {
+          "fingerprint": "849a9466bf4ba8033d1b29a91953eef053d27226aa63494046299732a9097aae",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 44,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e7b4d5ddf9fd577c06d2f8eba3266bf8f83fd1c0af6ebe9922a877f4511534c0",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "e05c008ded6c8eab11ffa9bb29a84aeeb5f3e4fd9074d77ddddafbbc58431945",
+          "mechanism": "remove_future_attacker"
+        },
+        "legal_material_loss": {
+          "fingerprint": "cbce4cc0f56e8e8b7a7d95ca414884c703df5554082990d04f75cd96ac738a35",
+          "material_loss_cp": 300,
+          "punishment_san": "cxb4"
+        },
+        "verified_line": {
+          "fingerprint": "554afae8c9befad8104d21be8544b9aaf7684fbee2aea535e703184a7fab78a7",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 50,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e7b4d5ddf9fd577c06d2f8eba3266bf8f83fd1c0af6ebe9922a877f4511534c0",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "a6adeec3f4a52462325bc1b9a3bfd75505a1ea0b3ec9b203dae95f6a06837906",
+          "material_loss_cp": 400,
+          "punishment_san": "Kxh3"
+        },
+        "verified_line": {
+          "fingerprint": "8e28c5c39fd3fb88f9fbd0e6a0f582c38c199a4783d59db90217078c1a56787a",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 82,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e7b4d5ddf9fd577c06d2f8eba3266bf8f83fd1c0af6ebe9922a877f4511534c0",
+      "facts": {
+        "hidden_opportunity": {
+          "family": "target_and_line_geometry_with_payoff",
+          "fingerprint": "8a15fcfbc5b1a96dc3988cd941d302a536393f3bd044970c43595295e7f91ced",
+          "mechanism": "immediate_free_capture"
+        },
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "fbdb814879c1511ccda29f380b4b2e70966af16e794362c0160de9f979e8c0f5",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 94,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e85b53c74ea4522dcf9f35b416196acd0b96574f8b037249584ecf9dd29bf80e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 50,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "e85b53c74ea4522dcf9f35b416196acd0b96574f8b037249584ecf9dd29bf80e",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 76,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ec1bafa8ef5499b06936dc9d5b84b5486d02f53574bf0ce9548d79a957e97b62",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "0e31394a933b6249fc9ba68e4acf0dcef60efafb3e501d1f7cc6936bd6520a06",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 3,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ec1bafa8ef5499b06936dc9d5b84b5486d02f53574bf0ce9548d79a957e97b62",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "1cf7495954a2790c1708eefda38b6b6f9359ccf608521ab0bbc740b7be08535c",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "safe_missed_capture",
+      "ply": 17,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ec1bafa8ef5499b06936dc9d5b84b5486d02f53574bf0ce9548d79a957e97b62",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "aa57a4b81b0c0809c93b5eca7ad4431a711406349ee15fb09d38c4d03e586c94",
+          "material_loss_cp": 300,
+          "punishment_san": "Kxf7"
+        },
+        "verified_line": {
+          "fingerprint": "df2580215908eb9bd2d8f83431a48cc85520784c6f92071759dc56a5846d1c4f",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 25,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ecd7f76169c46b228d4fc2fc639c0daff3f157e2265154013e4a1370602aa4b1",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "d5ed02a8e6c626548ab6ef4965c59efce22ff9d7d7c386d71cfa41ccc295d710",
+          "material_loss_cp": 200,
+          "punishment_san": "Kxf7"
+        },
+        "verified_line": {
+          "fingerprint": "ed5c1b0003dc2876c050feebc6b159c65d2e05967629121fb788351e7a296549",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 9,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ed52a89de305e01aba9fd288b73c269726edc96b2c713368ae6222b7c09ba617",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 41,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ed52a89de305e01aba9fd288b73c269726edc96b2c713368ae6222b7c09ba617",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "35464ed257761b05098659c67c35b5fe272f52cb8456c0faa4666740e1188c1c",
+          "material_loss_cp": 100,
+          "punishment_san": "Bxc3"
+        },
+        "verified_line": {
+          "fingerprint": "a5f1efacfd17c9986ca2a45afd3a29d2a5abdf69a8c9647c26974cbfaaa3666e",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 47,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "ef49e8d971dc23b3f63d5299edee1ac634e35d34623c93859095f34178005bb3",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "f13f86cc52fbfe895038654ee63df9db8931ee1cb24845ea2b7090d41c65b20b",
+          "lesson_kind": "missed_material_opportunity"
+        }
+      },
+      "gold_family": "fork_geometry",
+      "ply": 18,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "f6f3f09f6e6503728b0d20ce549bebd2d0dbd823cb145c49e1ae8cbfc6662ac5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "9db4cba6587e2f003963f5efa9e074afe76916f68310893025b2274fb75f5d89",
+          "material_loss_cp": 100,
+          "punishment_san": "Rxb3"
+        },
+        "verified_line": {
+          "fingerprint": "bbf0afb0ab3cb2267b0ab83059268266db6b55b6b51c4bfe50c8096a233f8325",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 33,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "f6f3f09f6e6503728b0d20ce549bebd2d0dbd823cb145c49e1ae8cbfc6662ac5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "79933dff9c24ea101c8c85d952022302eaaa107ac3478a74d919f6921c4bc901",
+          "material_loss_cp": 300,
+          "punishment_san": "Nxe3+"
+        },
+        "verified_line": {
+          "fingerprint": "d341fb51b4dd5966d2bd144aeebd6f6bd2019953f7b957946328c96d405c203f",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 69,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "f6f3f09f6e6503728b0d20ce549bebd2d0dbd823cb145c49e1ae8cbfc6662ac5",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c9520d8ddbf4cde362afc0a8839e2aadf75b12653b817dbe6dc9aa699e6fc2dd",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 89,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "fc4357e0ebde2983fe48da8e7283fc98f763d2c2e4bee9eb2f808e237fcb4197",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 15,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "opponent",
+      "anonymous_game_key": "fd89241f6da73e4392d7ab11337b4b6ffe892bc25bd2675f421a7f89a6446aa7",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "c2c4730d07f59dc71f9a57070576595fc8434c1717e8d7d3ff42a0b995f69a97",
+          "material_loss_cp": 200,
+          "punishment_san": "hxg6"
+        },
+        "verified_line": {
+          "fingerprint": "63ce084ec38632df92bf7ce89c8f1cf297bbde64f70df10832f05292b874f8bf",
+          "lesson_kind": "immediate_material_loss"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 23,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "fd89241f6da73e4392d7ab11337b4b6ffe892bc25bd2675f421a7f89a6446aa7",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 36,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "fd89241f6da73e4392d7ab11337b4b6ffe892bc25bd2675f421a7f89a6446aa7",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "0739aa3db38cd9dfa7b4619988fa61f26dba390b3b16c07db23f498e7edfeed6",
+          "lesson_kind": "exchange_sequence"
+        }
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 40,
+      "status": "different_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "feb6c5387d2d85e40c75b1cdeb1c06bc74a160228acf90d417865b5bbeffb052",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 16,
+      "status": "no_typed_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "feb6c5387d2d85e40c75b1cdeb1c06bc74a160228acf90d417865b5bbeffb052",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": {
+          "fingerprint": "3b8e53ade4645b5c7cd69cc72f9956bbf9e11a0c79141eabad72f219ba74f131",
+          "material_loss_cp": 100,
+          "punishment_san": "Qxa8+"
+        },
+        "verified_line": null
+      },
+      "gold_family": "immediate_material_loss",
+      "ply": 46,
+      "status": "exact_fact"
+    },
+    {
+      "actor": "player",
+      "anonymous_game_key": "feb6c5387d2d85e40c75b1cdeb1c06bc74a160228acf90d417865b5bbeffb052",
+      "facts": {
+        "hidden_opportunity": null,
+        "legal_material_loss": null,
+        "verified_line": {
+          "fingerprint": "c083afeef2ab2495454ca1a691d0aeaf1a545155b92981ab7e766cd3d2e2b7a0",
+          "lesson_kind": "allowed_forced_mate"
+        }
+      },
+      "gold_family": "allowed_forced_mate",
+      "ply": 68,
+      "status": "exact_fact"
+    }
+  ],
+  "schema_version": "whole_game_teaching_fact_coverage.v1",
+  "source": {
+    "games": 100,
+    "holdout_opened": false,
+    "packet_sha256": "b0f44d273b9b597e9aaabcc0fa991a50083aa2909ec701cb625b6267303d4ac2",
+    "worksheet_sha256": "6eb3014201940703420057bd72bb9cb6d7eee4f1327c6cc266238afe1968946c"
+  },
+  "summary": {
+    "different_fact": 28,
+    "exact_coverage_pct": 72.15,
+    "exact_fact": 158,
+    "gold_moments": 219,
+    "no_typed_fact": 33
+  }
+}

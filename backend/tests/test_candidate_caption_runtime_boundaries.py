@@ -9,6 +9,7 @@ import textwrap
 import pytest
 
 from scripts import backfill_candidate_caption_evidence as backfill
+from scripts import reconcile_phase8_review_records as phase8_reconcile
 from services.game_decryption_v5_service import generate_game_decryption_v5
 
 
@@ -29,6 +30,18 @@ def test_v5_render_never_calls_fresh_candidate_tablebase_or_human_model():
     source = inspect.getsource(generate_game_decryption_v5)
     assert "_candidate_comparison_visible_for_user" not in source
     assert '"candidate_comparison"\n                    ] = _comparison.public_dict()' in source
+
+
+def test_stored_only_reconciliation_disables_every_optional_truth_source():
+    signature = inspect.signature(generate_game_decryption_v5)
+    assert signature.parameters["allow_fresh_engine_verification"].default is True
+    v5_source = inspect.getsource(generate_game_decryption_v5)
+    assert "allow_fresh_engine_verification=bool(" in v5_source
+
+    reconciliation_source = inspect.getsource(phase8_reconcile._regenerate_one)
+    assert "persist_learning_side_effects=False" in reconciliation_source
+    assert "allow_llm_polish=False" in reconciliation_source
+    assert "allow_fresh_engine_verification=False" in reconciliation_source
 
 
 def test_backfill_is_bounded_and_apply_requires_prior_plan(monkeypatch):

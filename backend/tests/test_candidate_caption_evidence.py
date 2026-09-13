@@ -9,8 +9,13 @@ from services.candidate_caption_evidence import (
     CandidateEvidence, candidate_packet_state, collect_candidate_evidence,
     select_candidates,
 )
-from services.caption_facts import build_legal_material_loss_cause
+from services.caption_facts import (
+    IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
+    build_legal_material_loss_cause,
+    build_verified_line_cause,
+)
 from services.caption_pipeline import MoveInputs, build_candidate_comparison
+from services.detector_quality import QualitySurface
 
 
 ROW = {
@@ -175,6 +180,44 @@ def test_central_caption_rejects_candidate_packet_from_another_source():
         pv_after_best=ROW["pv_after_best"], candidate_caption_evidence=doc,
     )
     assert build_candidate_comparison(inputs, cause) is None
+
+
+def test_immediate_reply_comparison_uses_its_own_shadow_quality_id(monkeypatch):
+    cause = build_verified_line_cause(
+        fen_before="r2qk2r/ppp1bppp/2n2n2/4p2b/2B1P3/2N2N1P/PPPP2P1/R1BQ1RK1 w kq - 0 9",
+        played_san="Qe1",
+        best_move_san="Kh1",
+        pv_after_played=("Bxf3", "d3", "Bh5", "Nd5"),
+        pv_after_best=("Nd4", "g4", "Bg6", "d3"),
+        cp_loss=420,
+    )
+    assert cause is not None
+    checked = []
+
+    def deny(quality_id, surface):
+        checked.append((quality_id, surface))
+        return False
+
+    monkeypatch.setattr("services.detector_quality.is_authorized", deny)
+    inputs = MoveInputs(
+        fen_before="r2qk2r/ppp1bppp/2n2n2/4p2b/2B1P3/2N2N1P/PPPP2P1/R1BQ1RK1 w kq - 0 9",
+        played_san="Qe1",
+        mover_is_user=True,
+        mover_is_white=True,
+        user_color="white",
+        full_move_number=9,
+        move_history_san=[],
+        best_move_san="Kh1",
+        cp_loss=420,
+        pv_after_played=("Bxf3", "d3", "Bh5", "Nd5"),
+        pv_after_best=("Nd4", "g4", "Bg6", "d3"),
+        candidate_caption_evidence={"present": True},
+    )
+
+    assert build_candidate_comparison(inputs, cause) is None
+    assert checked == [
+        (IMMEDIATE_REPLY_MATERIAL_QUALITY_ID, QualitySurface.CAPTION)
+    ]
 
 
 def test_reconciliation_states_distinguish_missing_stale_changed_and_rejected():

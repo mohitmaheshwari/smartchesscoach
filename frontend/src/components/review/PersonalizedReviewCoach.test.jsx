@@ -25,6 +25,7 @@ jest.mock("../../App", () => ({ API: "/api" }));
 jest.mock("../../lib/analytics", () => ({
   ANALYTICS_EVENTS: {
     REVIEW_COACH_STARTED: "review_coach_started",
+    REVIEW_COACH_PHASE_OPENED: "review_coach_phase_opened",
     REVIEW_COACH_REFLECTION_SUBMITTED: "review_coach_reflection_submitted",
     REVIEW_COACH_VISUAL_SHOWN: "review_coach_visual_shown",
     REVIEW_COACH_COMPLETED: "review_coach_completed",
@@ -64,6 +65,36 @@ const prompt = {
     { id: "thought_piece_safe", label: "I thought my piece was safe" },
     { id: "not_sure", label: "Not sure what to do" },
     { id: "none_of_these", label: "None of these" },
+  ],
+};
+const wholeGame = {
+  central_story: {
+    headline: "One decision is worth replaying",
+    lead: "You reached the Italian Game. The clearest verified lesson came in the middlegame.",
+  },
+  phases: [
+    {
+      phase: "opening",
+      title: "Italian Game",
+      state: "no_authorized_lesson",
+      summary: "You reached the Italian Game. I do not yet have an opening lesson I can prove from this game.",
+      event_ids: [],
+    },
+    {
+      phase: "middlegame",
+      title: "Middlegame",
+      state: "verified_lesson",
+      summary: "I found one verified decision worth studying here.",
+      event_ids: [EVENT_ID],
+      lead_event_headline: "One decision is worth replaying",
+    },
+    {
+      phase: "endgame",
+      title: "Endgame",
+      state: "not_reached",
+      summary: "This game ended before a real endgame began.",
+      event_ids: [],
+    },
   ],
 };
 
@@ -119,6 +150,66 @@ describe("PersonalizedReviewCoach", () => {
     expect(
       container.querySelector("[data-testid='personalized-reflection-option-not_sure']").tagName
     ).toBe("BUTTON");
+  });
+
+  test("shows one connected story and honest phase states before the lesson", () => {
+    const props = renderCoach({ wholeGame });
+
+    expect(container.textContent).toContain("What this game was about");
+    expect(container.textContent).toContain("One decision is worth replaying");
+    expect(container.textContent).toContain("Italian Game");
+    expect(container.textContent).toContain("No proven lesson");
+    expect(container.textContent).toContain("Lesson found");
+    expect(container.textContent).toContain("Not reached");
+    expect(container.textContent).not.toContain("perfect");
+    expect(
+      container.querySelector("[data-testid='whole-game-phase-opening']").tagName
+    ).toBe("DIV");
+    expect(
+      container.querySelector("[data-testid='whole-game-phase-middlegame']").tagName
+    ).toBe("BUTTON");
+
+    act(() => {
+      container.querySelector("[data-testid='whole-game-phase-middlegame']")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(props.onChapterSelect).toHaveBeenCalledWith(event, 0);
+    expect(container.textContent).toContain("What were you thinking before this move?");
+  });
+
+  test("shows an honest phase overview when no verified lesson exists", () => {
+    const emptyWholeGame = {
+      central_story: {
+        headline: "I don't have a verified lesson for this game yet.",
+        lead: "You can still walk through every move. I won't invent a lesson that the stored evidence cannot prove.",
+      },
+      phases: wholeGame.phases.map((phase) => ({
+        ...phase,
+        state: phase.phase === "endgame" ? "not_reached" : "no_authorized_lesson",
+        event_ids: [],
+        lead_event_headline: null,
+      })),
+    };
+    const onBrowseGame = jest.fn();
+    renderCoach({
+      plan: null,
+      wholeGame: emptyWholeGame,
+      events: [],
+      prompts: [],
+      onBrowseGame,
+    });
+
+    expect(container.textContent).toContain("Your honest game review");
+    expect(container.textContent).toContain("don't have a verified lesson");
+    expect(container.textContent).toContain("won't invent a lesson");
+    expect(container.textContent).toContain("Italian Game");
+    expect(container.querySelector("[data-testid='personalized-review-start']")).toBeNull();
+
+    act(() => {
+      container.querySelector("[data-testid='personalized-review-browse']")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onBrowseGame).toHaveBeenCalledTimes(1);
   });
 
   test("shows practical framing before reflection and maps cause roles to board colors", () => {

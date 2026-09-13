@@ -63,8 +63,10 @@ from services.severity import (
     PracticalSeverity,
 )
 from services.caption_facts import (
+    IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
     LegalMaterialLossCause,
     ReviewTeachingCause,
+    VerifiedLineCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
 )
@@ -738,11 +740,15 @@ def build_candidate_comparison(
     from services.candidate_caption_evidence import CandidateEvidence, root_moves
     from services.detector_quality import QualitySurface, is_authorized
 
-    quality_id = (
-        "review:exact_endgame_result_change"
-        if isinstance(cause, ExactEndgameCause)
-        else "review:verified_single_game_cause"
-    )
+    if isinstance(cause, ExactEndgameCause):
+        quality_id = "review:exact_endgame_result_change"
+    elif (
+        isinstance(cause, VerifiedLineCause)
+        and cause.lesson_kind == "immediate_material_loss"
+    ):
+        quality_id = IMMEDIATE_REPLY_MATERIAL_QUALITY_ID
+    else:
+        quality_id = "review:verified_single_game_cause"
     if not is_authorized(quality_id, QualitySurface.CAPTION):
         return None
     source_row = {
@@ -820,6 +826,15 @@ def build_candidate_comparison(
             played_text = f"{inputs.played_san} starts a sequence that leaves you down material."
             stronger_text = f"{cause.best_move_san} avoids that exchange."
             memory = "Count every recapture before beginning a trade."
+        elif cause.lesson_kind == "immediate_material_loss" and cause.immediate_reply_capture:
+            target = cause.immediate_reply_capture
+            headline = "The next reply wins material"
+            played_text = (
+                f"After {inputs.played_san}, {cause.reply_san} takes your "
+                f"{target.captured_piece} on {target.captured_square}."
+            )
+            stronger_text = f"{cause.best_move_san} avoids that loss."
+            memory = "Before moving, scan every check and capture they get next."
         elif cause.lesson_kind == "missed_material_opportunity" and cause.first_best_capture:
             target = cause.first_best_capture
             headline = "A material win was hiding here"

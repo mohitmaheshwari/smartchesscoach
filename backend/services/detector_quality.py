@@ -160,6 +160,25 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Plan, mastery, prescription, and persistent prompts remain unauthorized.",
         ),
     ),
+    "review:immediate_reply_material_loss": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "backend/data/corpus_snapshots/"
+            "whole_game_teaching_review_fact_coverage_v1_2026-09-13.json"
+        ),
+        rationale=(
+            "A frozen 100-game review found a repeatable stored-line family in "
+            "which the opponent's immediate reply wins material and bounded "
+            "legal settlement confirms that the loss survives. The family is "
+            "measurable but has not yet passed its own blinded false-positive "
+            "promotion packet."
+        ),
+        limitations=(
+            "Diagnostic-only until an independent opportunity-level review establishes precision.",
+            "It may not inherit Caption authority from other verified-line proof families.",
+            "No recurrence, plan, mastery, or psychological claim is authorized.",
+        ),
+    ),
     "gap:piece_safety:trapped_piece_exact": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="backend/tests/test_trapped_piece_puzzle_proof.py",
