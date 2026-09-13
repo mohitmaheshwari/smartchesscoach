@@ -43,6 +43,9 @@ const DiagnosticPuzzles = () => {
   const [submitting, setSubmitting] = useState(false);
   const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // The unmount cleanup below closes over its first render, so it needs a ref
+  // rather than the state value to know whether a diagnosis already exists.
+  const diagnosisRef = useRef(null);
   const boardRef = useRef(null);
   const navigateRef = useRef(navigate);
   // Analytics (2026-08-05 residency, revised event list -- "where does
@@ -111,6 +114,48 @@ const DiagnosticPuzzles = () => {
         setLoading(false);
       }
     })();
+  }, []);
+
+  // Leaving without pressing "finish" used to throw the answers away. The
+  // backend has always been willing to score a partial run -- /diagnostic/exit
+  // says so in as many words -- but only the confirm-dialog button ever called
+  // it, so navigating away, hitting back or closing the tab left the session
+  // stuck in_progress forever. Measured on production: 34 of 40 sessions were
+  // stranded that way, holding 104 answered puzzles between them, one of them
+  // 19 answers deep.
+  //
+  // Report the partial run on the way out instead. keepalive lets the request
+  // finish after the page is gone, and the backend no-ops when the session is
+  // already finished, so a normal completion is unaffected.
+  const answeredRef = useRef(0);
+  const reportedRef = useRef(false);
+  useEffect(() => {
+    answeredRef.current = Math.max(0, puzzleNumber - 1) + (verdict ? 1 : 0);
+  }, [puzzleNumber, verdict]);
+  useEffect(() => {
+    diagnosisRef.current = diagnosis;
+  }, [diagnosis]);
+  useEffect(() => {
+    const reportPartialRun = () => {
+      if (reportedRef.current) return;
+      if (answeredRef.current < 1) return;   // nothing to score
+      if (diagnosisRef.current) return;      // already scored
+      reportedRef.current = true;
+      try {
+        // checkpoint=true: score what they answered, leave the run open so
+        // they can still finish it later.
+        fetch(`${API}/diagnostic/exit?checkpoint=true`, {
+          method: "POST",
+          credentials: "include",
+          keepalive: true,
+        }).catch(() => {});
+      } catch { /* leaving anyway */ }
+    };
+    window.addEventListener("pagehide", reportPartialRun);
+    return () => {
+      window.removeEventListener("pagehide", reportPartialRun);
+      reportPartialRun();
+    };
   }, []);
 
   // A tab backgrounded mid-puzzle is a different user story from a
@@ -238,6 +283,7 @@ const DiagnosticPuzzles = () => {
 
   // ── Finish early — score whatever's solved and STILL build the profile ──
   const handleExit = async () => {
+    reportedRef.current = true;  // the explicit path owns the report now
     track(ANALYTICS_EVENTS.DIAGNOSTIC_ABANDONED, { puzzle_number: puzzleNumber });
     try {
       const res = await fetch(`${API}/diagnostic/exit`, {

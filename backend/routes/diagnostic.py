@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 import chess
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from routes.auth import User, get_current_user
@@ -718,9 +718,24 @@ async def record_attempt(
 
 
 @router.post("/exit")
-async def exit_diagnostic(user: User = Depends(get_current_user)):
+async def exit_diagnostic(
+    user: User = Depends(get_current_user),
+    checkpoint: bool = Query(default=False),
+):
     """User left the diagnostic early. Score whatever they solved and STILL
-    build their profile from it (partial run nudges the profile, per scope)."""
+    build their profile from it (partial run nudges the profile, per scope).
+
+    `checkpoint=true` scores the partial run but leaves the session open, for
+    the case where the player simply navigated away rather than pressing
+    "finish". They get a starting profile from the positions they did answer
+    AND can still pick the run up where they left it -- scoring is idempotent
+    ("safe to call repeatedly; a longer run just refines the focus"), so
+    finishing later only sharpens it.
+
+    Without this, answering some positions and leaving was worth nothing: 34 of
+    40 production sessions sat stranded in_progress holding 104 answered
+    puzzles, one of them 19 answers deep.
+    """
     session = await db.diagnostic_sessions.find_one(
         {"user_id": user.user_id, "status": "in_progress"}, {"_id": 0},
     )
@@ -732,6 +747,19 @@ async def exit_diagnostic(user: User = Depends(get_current_user)):
         diagnosis = await apply_diagnosis_to_training(
             db, user.user_id, session.get("attempts", [])
         )
+    if checkpoint:
+        await db.diagnostic_sessions.update_one(
+            {"user_id": user.user_id, "status": "in_progress"},
+            {"$set": {
+                "diagnosis": diagnosis,
+                "checkpointed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        return {
+            "status": "in_progress",
+            "diagnosis": diagnosis,
+            "checkpoint": True,
+        }
     await db.diagnostic_sessions.update_one(
         {"user_id": user.user_id, "status": "in_progress"},
         {"$set": {
