@@ -36,7 +36,7 @@ def _tier23(facts: Dict[str, Any], silence_rule: str) -> CaptionOutput:
         cap, rule = "", silence_rule
     if not cap:
         return CaptionOutput(caption="", rule_name=silence_rule)
-    return CaptionOutput(caption=_enforce_word_cap(cap), rule_name=rule)
+    return CaptionOutput(caption=_enforce_word_cap(cap, rule), rule_name=rule)
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
                     )
                     continue
 
-                output.caption = _enforce_word_cap(output.caption)
+                output.caption = _enforce_word_cap(output.caption, output.rule_name)
                 return output
         except Exception as exc:
             logger.warning(
@@ -101,7 +101,7 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
     return _tier23(facts, "R_FALLBACK_no_trigger_fired")
 
 
-def _enforce_word_cap(caption: str) -> str:
+def _enforce_word_cap(caption: str, rule_name: str = "") -> str:
     """Truncate to MAX_CAPTION_WORDS words. Hard cap — rules should
     self-limit but this is the safety net.
 
@@ -119,8 +119,20 @@ def _enforce_word_cap(caption: str) -> str:
     capped = " ".join(words[:MAX_CAPTION_WORDS])
     last_period = capped.rfind(". ")
     if last_period > 0:
-        return capped[: last_period + 1]
-    return capped + "…"
+        result = capped[: last_period + 1]
+    else:
+        result = capped + "…"
+    # Say so. Cutting at a sentence boundary leaves no visible mark, so a
+    # coaching sentence can disappear with nothing to show it ever existed --
+    # that is how "Play b4 - your pawn kicks their knight on a5." was lost from
+    # an opponent-mistake caption on 2026-09-13 without anyone noticing.
+    logger.warning(
+        "[caption_renderer] caption truncated: rule=%s %d words -> %d "
+        "(cap %d); dropped: %r",
+        rule_name or "?", len(words), len(result.split()), MAX_CAPTION_WORDS,
+        caption[len(result):].strip()[:160],
+    )
+    return result
 
 
 def render_caption_dict(facts: Dict[str, Any]) -> Dict[str, Any]:
