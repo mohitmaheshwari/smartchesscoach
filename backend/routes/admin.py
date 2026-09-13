@@ -74,6 +74,45 @@ async def require_super_admin(user: User = Depends(get_current_user)):
     return user
 
 
+@router.get("/admin/pwc-unified-rollout")
+async def pwc_unified_rollout_report(
+    user: User = Depends(require_admin),
+):
+    """Aggregate rollout health; never returns a player row or chess content."""
+    del user
+    sessions = await db.coach_sessions.find(
+        {"experience_version": "unified_v1"},
+        {
+            "_id": 0,
+            "session_id": 1,
+            "game_mode": 1,
+            "status": 1,
+            "created_at": 1,
+            "move_history.by": 1,
+            "coaching_decisions.source": 1,
+            "coaching_decisions.layer": 1,
+            "coaching_decisions.delivered_at": 1,
+            "coaching_decisions.outcome": 1,
+            "coaching_decisions.interruption_duration_ms": 1,
+            "coaching_help_events": 1,
+            "unified_journey": 1,
+        },
+    ).to_list(length=5000)
+    session_ids = [row.get("session_id") for row in sessions if row.get("session_id")]
+    live_message_counts = {}
+    if session_ids:
+        pipeline = [
+            {"$match": {"session_id": {"$in": session_ids}}},
+            {"$group": {"_id": "$session_id", "count": {"$sum": 1}}},
+        ]
+        async for row in db.coach_messages.aggregate(pipeline):
+            live_message_counts[str(row.get("_id"))] = int(row.get("count") or 0)
+
+    from services.pwc_unified_observability import summarize_unified_rollout
+
+    return summarize_unified_rollout(sessions, live_message_counts)
+
+
 # ==================== MODELS ====================
 
 class CreateUserRequest(BaseModel):

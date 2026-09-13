@@ -9,6 +9,7 @@ const mockNavigate = jest.fn();
 jest.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
 }), { virtual: true });
+jest.mock("@/App", () => ({ API: "https://api.test" }), { virtual: true });
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>, { virtual: true });
 jest.mock("@/components/ui/button", () => ({
   Button: ({ children, ...props }) => <button {...props}>{children}</button>,
@@ -36,6 +37,7 @@ const allowedConfig = {
 const Harness = ({ config = allowedConfig, startGame = jest.fn() }) => {
   const [gameMode, setGameMode] = useState("coach");
   const [selectedColor, setSelectedColor] = useState("white");
+  const [selectedOpening, setSelectedOpening] = useState(null);
   return (
     <UnifiedCoachPlaySetup
       user={{ user_id: "student-1" }}
@@ -47,7 +49,8 @@ const Harness = ({ config = allowedConfig, startGame = jest.fn() }) => {
       practicePosition={null}
       selectedColor={selectedColor}
       setSelectedColor={setSelectedColor}
-      selectedOpening={null}
+      selectedOpening={selectedOpening}
+      setSelectedOpening={setSelectedOpening}
       gameMode={gameMode}
       setGameMode={setGameMode}
       timeControl="15+10"
@@ -72,6 +75,7 @@ describe("UnifiedCoachPlaySetup", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    delete global.fetch;
   });
 
   test("shows one personal focus and exactly two player-facing modes", () => {
@@ -127,5 +131,39 @@ describe("UnifiedCoachPlaySetup", () => {
 
     expect(startGame).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith("/pricing");
+  });
+
+  test("work on something else offers at most three openings from recent games", async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({
+        white: [
+          { name: "Italian Game" },
+          { name: "Bishop's Opening" },
+          { name: "Vienna Game" },
+          { name: "Scotch Game" },
+        ],
+        black: [],
+      }),
+    }));
+    act(() => root.render(<Harness />));
+
+    await act(async () => {
+      container.querySelector("[data-testid='unified-work-choice-toggle']").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const choices = container.querySelector("[data-testid='unified-work-choices']");
+    const openingButtons = Array.from(choices.querySelectorAll("button"));
+    expect(openingButtons).toHaveLength(3);
+    expect(choices.textContent).toContain("Italian Game");
+    expect(choices.textContent).not.toContain("Scotch Game");
+
+    act(() => openingButtons[0].click());
+    expect(container.textContent).toContain("Italian Game");
+    expect(container.textContent).toContain(
+      "connect Italian Game to the position without choosing your moves"
+    );
   });
 });

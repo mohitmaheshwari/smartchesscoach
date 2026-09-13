@@ -141,6 +141,7 @@ const CoachPlaySetup = ({
   experienceConfig = null,
   upgradeInfo = null,
   timeControl = "15+10",
+  onUnifiedModeSelected,
 }) => {
   const navigate = useNavigate();
 
@@ -157,10 +158,12 @@ const CoachPlaySetup = ({
         selectedColor={selectedColor}
         setSelectedColor={setSelectedColor}
         selectedOpening={selectedOpening}
+        setSelectedOpening={setSelectedOpening}
         gameMode={gameMode}
         setGameMode={setGameMode}
         timeControl={timeControl}
         startGame={startGame}
+        onModeSelected={onUnifiedModeSelected}
       />
     );
   }

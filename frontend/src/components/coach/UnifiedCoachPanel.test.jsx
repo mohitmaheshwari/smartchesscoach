@@ -47,6 +47,11 @@ describe("UnifiedCoachPanel", () => {
       gameOver: false,
       gameResult: null,
       summary: null,
+      canExplainLastMove: true,
+      helpAnswer: null,
+      helpLoading: false,
+      onAskCoach: jest.fn(),
+      onDismissHelp: jest.fn(),
       onTryAnother: jest.fn(),
       onPlayAnyway: jest.fn(),
       onNewGame: jest.fn(),
@@ -107,5 +112,57 @@ describe("UnifiedCoachPanel", () => {
     const buttons = container.querySelectorAll("button");
     expect(buttons).toHaveLength(1);
     expect(buttons[0].textContent).toContain("Practise this check");
+  });
+
+  test("postgame prefers the unified focus story and canonical next action", () => {
+    renderPanel({
+      gameOver: true,
+      summary: {
+        has_data: true,
+        coach_summary: "Legacy summary that should not win.",
+        unified_summary: {
+          focus_label: "Piece safety",
+          story: "Your piece safety work showed up in 1 verified moment today.",
+          detail: "Moving the bishop leaves your knight on e5 undefended.",
+          next_action: {
+            label: "Practise this check",
+            href: "/training/pattern/piece_safety",
+          },
+        },
+      },
+    });
+
+    expect(container.textContent).toContain("Today’s work: Piece safety");
+    expect(container.textContent).toContain("1 verified moment");
+    expect(container.textContent).not.toContain("Legacy summary");
+    expect(container.querySelectorAll("button")).toHaveLength(1);
+  });
+
+  test("ask coach opens two bounded no-typing actions", () => {
+    const props = renderPanel();
+
+    act(() => container.querySelector('[data-testid="unified-ask-coach"]').click());
+    const actions = container.querySelector('[data-testid="unified-help-actions"]');
+    expect(actions.textContent).toContain("Explain their move");
+    expect(actions.textContent).toContain("Remind me what to check");
+    expect(actions.querySelectorAll("button").length).toBeLessThanOrEqual(3);
+
+    act(() => actions.querySelector("button").click());
+    expect(props.onAskCoach).toHaveBeenCalledWith("explain_last_move");
+  });
+
+  test("a help answer owns the panel without stacking an idle prompt", () => {
+    const props = renderPanel({
+      helpAnswer: {
+        answer: "Their rook moved to e8 and now protects the pawn on e6.",
+      },
+    });
+
+    expect(container.textContent).toContain("Coach’s answer");
+    expect(container.textContent).toContain("Their rook moved to e8");
+    expect(container.textContent).not.toContain("Your turn. Take your time.");
+    act(() => Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent === "Got it").click());
+    expect(props.onDismissHelp).toHaveBeenCalledTimes(1);
   });
 });

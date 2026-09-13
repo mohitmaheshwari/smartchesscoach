@@ -152,7 +152,7 @@ describe("useCoachFlow current mode ownership", () => {
     await act(async () => {
       await flow.acceptPendingMove(commit, 2.5);
     });
-    expect(commit).toHaveBeenCalledWith("e4", 2.5);
+    expect(commit).toHaveBeenCalledWith("e4", 2.5, expect.any(Number));
     expect(flow.isInHold).toBe(false);
   });
 });

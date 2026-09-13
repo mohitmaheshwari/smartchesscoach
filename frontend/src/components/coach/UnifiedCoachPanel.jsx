@@ -1,4 +1,5 @@
 import { AlertTriangle, Brain, CheckCircle2, RotateCcw, Target } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -15,28 +16,45 @@ const UnifiedCoachPanel = ({
   gameOver,
   gameResult,
   summary,
+  canExplainLastMove,
+  helpAnswer,
+  helpLoading,
+  onAskCoach,
+  onDismissHelp,
   onTryAnother,
   onPlayAnyway,
   onNewGame,
+  onPostgameAction,
 }) => {
   const navigate = useNavigate();
+  const [helpOpen, setHelpOpen] = useState(false);
   const primaryFocus = coachingContext?.primary_focus;
   const verdict = summary?.pattern_verdict;
   const visibleMoment = activeMoment || stripMoment;
 
   if (gameOver) {
-    const story = verdict?.message
+    const unifiedSummary = summary?.unified_summary;
+    const story = unifiedSummary?.story
+      || verdict?.message
       || summary?.coach_summary
       || (gameResult === "win"
         ? "You finished the game. I’m checking what changed in your thinking."
         : "The game is over. I’m checking the moment that will help most next time.");
-    const detail = verdict?.detail || summary?.instruction_verdict?.message || null;
-    const actionLabel = verdict?.cta_label
+    const detail = unifiedSummary?.detail
+      || verdict?.detail
+      || summary?.instruction_verdict?.message
+      || null;
+    const actionLabel = unifiedSummary?.next_action?.label
+      || verdict?.cta_label
       || (summary?.has_data ? "Use the next step" : "Play another game");
 
     const takeNextAction = () => {
-      if (verdict?.cta_href) {
-        navigate(verdict.cta_href);
+      const actionHref = unifiedSummary?.next_action?.href || verdict?.cta_href;
+      onPostgameAction?.(
+        actionHref ? "recommended_next_action" : "new_game"
+      );
+      if (actionHref) {
+        navigate(actionHref);
       } else {
         onNewGame();
       }
@@ -48,6 +66,11 @@ const UnifiedCoachPanel = ({
           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           <p className="cg-eyebrow !mb-0">Your game, one clear takeaway</p>
         </div>
+        {unifiedSummary?.focus_label && (
+          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+            Today’s work: {unifiedSummary.focus_label}
+          </p>
+        )}
         <p className="font-serif text-xl leading-snug text-foreground">{story}</p>
         {detail && (
           <p className="text-sm leading-relaxed text-muted-foreground">{detail}</p>
@@ -68,7 +91,7 @@ const UnifiedCoachPanel = ({
         </div>
         <p className="font-serif text-xl text-foreground">Your game. No hints.</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          I’m saving every coaching comment for the review after the game.
+          I’m saving the game for a full review afterward.
         </p>
       </section>
     );
@@ -129,9 +152,30 @@ const UnifiedCoachPanel = ({
             {visibleMoment.text}
           </p>
         </div>
+      ) : helpAnswer?.answer ? (
+        <div className="mt-5 rounded-2xl border border-blue-700/20 bg-blue-50/60 p-4 dark:bg-blue-950/20">
+          <p className="cg-eyebrow !mb-2">Coach’s answer</p>
+          <p className="text-sm leading-relaxed text-foreground">
+            {helpAnswer.answer}
+          </p>
+          {helpAnswer.instruction
+            && !helpAnswer.answer.includes(helpAnswer.instruction) && (
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {helpAnswer.instruction}
+              </p>
+            )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-3"
+            onClick={onDismissHelp}
+          >
+            Got it
+          </Button>
+        </div>
       ) : (
         <div className="flex flex-1 items-center py-8">
-          <div>
+          <div className="w-full">
             <p className="font-serif text-xl text-foreground">
               {isCoachThinking
                 ? "I’m choosing my reply."
@@ -142,6 +186,43 @@ const UnifiedCoachPanel = ({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               I’ll interrupt only when the position gives us something worth learning.
             </p>
+            {helpOpen ? (
+              <div className="mt-5 grid gap-2" data-testid="unified-help-actions">
+                {canExplainLastMove && (
+                  <Button
+                    variant="outline"
+                    disabled={helpLoading}
+                    onClick={() => onAskCoach("explain_last_move")}
+                  >
+                    Explain their move
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  disabled={helpLoading}
+                  onClick={() => onAskCoach("focus_check")}
+                >
+                  Remind me what to check
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={helpLoading}
+                  onClick={() => setHelpOpen(false)}
+                >
+                  Never mind
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="mt-5"
+                onClick={() => setHelpOpen(true)}
+                data-testid="unified-ask-coach"
+              >
+                Ask coach
+              </Button>
+            )}
           </div>
         </div>
       )}

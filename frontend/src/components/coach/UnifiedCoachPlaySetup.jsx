@@ -4,6 +4,7 @@ import { ArrowLeft, Brain, Check, Lock, Play, Settings2, Target } from "lucide-r
 
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { API } from "@/App";
 
 
 const ModeChoice = ({
@@ -59,13 +60,18 @@ const UnifiedCoachPlaySetup = ({
   selectedColor,
   setSelectedColor,
   selectedOpening,
+  setSelectedOpening,
   gameMode,
   setGameMode,
   timeControl,
   startGame,
+  onModeSelected,
 }) => {
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
+  const [showWorkChoices, setShowWorkChoices] = useState(false);
+  const [openingChoices, setOpeningChoices] = useState(null);
+  const [choicesLoading, setChoicesLoading] = useState(false);
 
   const context = experienceConfig?.coaching_context;
   const primaryFocus = context?.primary_focus;
@@ -80,6 +86,7 @@ const UnifiedCoachPlaySetup = ({
 
   const chooseCoach = () => {
     setGameMode("coach");
+    onModeSelected?.("coach");
   };
 
   const begin = () => {
@@ -89,6 +96,27 @@ const UnifiedCoachPlaySetup = ({
     }
     startGame();
   };
+
+  const toggleWorkChoices = async () => {
+    const nextOpen = !showWorkChoices;
+    setShowWorkChoices(nextOpen);
+    if (!nextOpen || openingChoices || choicesLoading) return;
+    setChoicesLoading(true);
+    try {
+      const response = await fetch(`${API}/coach/play/opening-suggestions`, {
+        credentials: "include",
+      });
+      setOpeningChoices(response.ok ? await response.json() : {});
+    } catch (_error) {
+      setOpeningChoices({});
+    } finally {
+      setChoicesLoading(false);
+    }
+  };
+
+  const availableOpenings = (
+    selectedColor === "white" ? openingChoices?.white : openingChoices?.black
+  )?.slice(0, 3) || [];
 
   return (
     <Layout user={user}>
@@ -124,8 +152,55 @@ const UnifiedCoachPlaySetup = ({
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 {focusInstruction}
               </p>
+              {!practiceMode && (
+                <button
+                  type="button"
+                  className="mt-3 text-sm font-medium text-emerald-800 underline-offset-4 hover:underline dark:text-emerald-300"
+                  onClick={toggleWorkChoices}
+                  aria-expanded={showWorkChoices}
+                  data-testid="unified-work-choice-toggle"
+                >
+                  {selectedOpening ? "Choose a different opening" : "Work on something else"}
+                </button>
+              )}
             </div>
           </div>
+          {showWorkChoices && (
+            <div className="mt-4 border-t border-emerald-900/10 pt-4" data-testid="unified-work-choices">
+              {choicesLoading ? (
+                <p className="text-sm text-muted-foreground">Finding useful choices…</p>
+              ) : availableOpenings.length ? (
+                <div className="grid gap-2">
+                  {availableOpenings.map((opening) => (
+                    <button
+                      type="button"
+                      key={opening.name}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                        selectedOpening === opening.name
+                          ? "border-emerald-700 bg-white/80 dark:bg-emerald-950/40"
+                          : "border-emerald-900/10 hover:border-emerald-700/40"
+                      }`}
+                      onClick={() => {
+                        setSelectedOpening(
+                          selectedOpening === opening.name ? null : opening.name
+                        );
+                        setShowWorkChoices(false);
+                      }}
+                    >
+                      <span className="block font-medium text-foreground">{opening.name}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        From your recent {selectedColor} games
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  I need a few games with this color before I can offer a useful opening choice.
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         <section role="radiogroup" aria-label="Choose how to play" className="grid gap-3 md:grid-cols-2">
@@ -148,7 +223,10 @@ const UnifiedCoachPlaySetup = ({
             label="Play a Game"
             description="No help during the game. We’ll review it afterward."
             icon={Play}
-            onClick={() => setGameMode("play")}
+            onClick={() => {
+              setGameMode("play");
+              onModeSelected?.("play");
+            }}
             testId="unified-mode-play"
           />
         </section>

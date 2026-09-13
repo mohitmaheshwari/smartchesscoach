@@ -111,6 +111,9 @@ export default function useCoachFlow({
     setPendingMove(pending);
     setInteractionState(INTERACTION_STATES.PENDING_USER_MOVE);
     setActiveCoachingMoment(null);
+    if (experienceVersion === "unified_v1") {
+      setActiveStripCoaching(null);
+    }
     _clearHoldTimer();
 
     // Async eval — race with 400ms window
@@ -340,7 +343,14 @@ export default function useCoachFlow({
     setInteractionState(INTERACTION_STATES.COMMITTING_MOVE);
     const generation = flowGenerationRef.current;
     const sessionId = currentSessionIdRef.current;
-    const success = await commitFn(pendingMove.san, timeSpent);
+    const interruptionDurationMs = activeCoachingMoment?.shownAt
+      ? Math.max(0, Date.now() - activeCoachingMoment.shownAt)
+      : 0;
+    const success = await commitFn(
+      pendingMove.san,
+      timeSpent,
+      interruptionDurationMs,
+    );
     if (
       flowGenerationRef.current !== generation
       || currentSessionIdRef.current !== sessionId

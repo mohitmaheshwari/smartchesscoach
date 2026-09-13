@@ -154,6 +154,14 @@ class CoachGameSession:
     
     # Move evaluations for post-game analysis
     evaluations: List[Dict] = field(default_factory=list)  # [{move_number, move, score, eval_before, eval_after}]
+
+    # Unified experience evidence must live on the session dataclass as well
+    # as in Mongo. Several legacy lifecycle functions replace the full session
+    # document; omitting these fields would silently erase the new controller's
+    # decisions, help requests, and journey measurements on resign/resume.
+    coaching_decisions: List[Dict] = field(default_factory=list)
+    coaching_help_events: List[Dict] = field(default_factory=list)
+    unified_journey: Dict = field(default_factory=dict)
     
     # Proactive Opening Teaching State
     opening_to_teach: Optional[str] = None  # Opening key to teach this game
@@ -878,6 +886,14 @@ async def end_coach_session(
     session.result = GameResult.LOSS  # User loses if they resign/abandon
     session.termination_reason = reason
     session.ended_at = datetime.now(timezone.utc)
+    if session.experience_version == "unified_v1":
+        journey = dict(session.unified_journey or {})
+        journey["abandoned_at"] = session.ended_at.isoformat()
+        journey["abandonment_reason"] = reason
+        journey["abandonment_player_move_count"] = sum(
+            1 for item in session.move_history if item.get("by") == "player"
+        )
+        session.unified_journey = journey
     
     # Generate basic summary
     summary = _generate_session_summary(session)
