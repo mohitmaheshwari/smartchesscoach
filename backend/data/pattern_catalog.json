@@ -9,6 +9,22 @@
       "family": "Tactical/positional grouping. Used to roll up related patterns in insights ('you handle the Légal's family well — 4/5 hits').",
       "example_fen": "Canonical example position. Optional — null means Mohit will fill from a known game later.",
       "canonical_concept_id": "Optional existing caption_principles ID. New events use it as concept_id; pattern_id remains the stable legacy alias."
+    },
+    "coach_memory_bridge": {
+      "what": "coach_memory.learning.skills stores skill ids in an older vocabulary than the 238 curriculum concept ids. Entries with family 'coach_memory alias' carry canonical_concept_id and ARE that concept. Entries with family 'coach_memory lesson' carry teaches_concept_id: a finished lesson is attendance, not evidence the player holds the concept, so it must never be read as a concept observation.",
+      "authority": "A record's own skill_type field decides its kind. See services/personal_teaching_profile.skill_kind.",
+      "measured": "2026-09-13, all 8,166 production skill records: 7,910 openings, 113 concepts across 11 ids, 143 lesson records.",
+      "deliberately_unmapped": {
+        "opening_principles": "An umbrella over the six golden_opening_principle_7..12 leaves. Picking one would assert the player worked on a specific principle the record does not name.",
+        "king_pawn_endgame": "A category, not a concept: END_OPPOSITION, END_PASSED_PAWN, END_KING_ACTIVE and END_RULE_OF_SQUARE all sit inside it.",
+        "conversion": "One record, no position context. 'Converting' spans every endgame technique in the curriculum; the id carries nothing that narrows it.",
+        "endgame_philidor": "The Philidor third-rank rook defence has no counterpart among the 238 curriculum concepts. A curriculum gap, not a naming gap.",
+        "mate_kq_vs_k": "Basic K+Q mate is absent from the 238 curriculum concepts.",
+        "mate_kr_vs_k": "Basic K+R mate is absent from the 238 curriculum concepts.",
+        "italian_game_fried_liver_attack": "A trap lesson. Traps have no concept counterpart; the DEFENCE does (see defend_fried_liver -> OP_F2_F7_STRIKE).",
+        "queens_gambit_elephant_trap": "A trap lesson — see above.",
+        "trap_set_italian": "A trap lesson — see above."
+      }
     }
   },
   "patterns": {
@@ -146,6 +162,96 @@
       "short_description": "Opponent reached a setup that's part of a known trap; the engine's move is the textbook refutation.",
       "family": "Opening traps",
       "example_fen": null
+    },
+    "pre_move_check": {
+      "human_name": "Scan the opponent's checks, captures and threats before you commit — that scan is literally what this habit is.",
+      "short_description": "Scan the opponent's checks, captures and threats before you commit — that scan is literally what this habit is.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_CHECKS_CAPTURES_THREATS",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "The pre-move check IS the checks/captures/threats sweep. Same act, two names."
+    },
+    "defend_fried_liver": {
+      "human_name": "Hold f7 when the knight jumps to g5.",
+      "short_description": "Hold f7 when the knight jumps to g5.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "OP_F2_F7_STRIKE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "The Fried Liver is Nxf7 after 4.Ng5 d5 5.exd5 Nxd5 6.Nxf7. Defending it is defending the f7 strike — that is the same motif, not a related one."
+    },
+    "defend_scholars_mate": {
+      "human_name": "Stop the early mate on f7.",
+      "short_description": "Stop the early mate on f7.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "OP_F2_F7_STRIKE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Scholar's mate is Qxf7# supported by Bc4 — the mate lands ON f7, so the square is the concept. OP_QUEEN_OUT_EARLY is the co-cause (the queen that delivers it gets chased once f7 holds), but f7 is what the defender guards."
+    },
+    "hanging_piece": {
+      "human_name": "A piece left undefended.",
+      "short_description": "A piece left undefended.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_HANGING_PIECE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Exact identity, two spellings."
+    },
+    "free_piece_capture": {
+      "human_name": "Take the piece that is defended by nothing.",
+      "short_description": "Take the piece that is defended by nothing.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_HANGING_PIECE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Same motif seen from the winning side: the piece is hanging, you collect it. One concept, two vantage points — not two weaknesses."
+    },
+    "fork": {
+      "human_name": "One piece attacking two things at once.",
+      "short_description": "One piece attacking two things at once.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_FORK_PATTERN",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Exact identity. knight_fork is the knight-specific sub-case; the bare `fork` record names no piece, so it maps to the general pattern."
+    },
+    "pin": {
+      "human_name": "A piece that cannot move without exposing something behind it.",
+      "short_description": "A piece that cannot move without exposing something behind it.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_PIN_PATTERN",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Exact identity, two spellings."
+    },
+    "opponent_threat": {
+      "human_name": "Ask what the opponent's last move changed.",
+      "short_description": "Ask what the opponent's last move changed.",
+      "family": "coach_memory alias",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_CHANGED_AFTER_MOVE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Spotting the opponent's threat is reading what their move altered — the curriculum states the habit as the question, the memory states it as the object."
+    },
+    "endgame_opposition": {
+      "human_name": "The opposition in king-and-pawn endings.",
+      "short_description": "The opposition in king-and-pawn endings.",
+      "family": "coach_memory lesson",
+      "example_fen": null,
+      "teaches_concept_id": "END_OPPOSITION",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "endgames.json key `opposition`, stored with the endgame_ prefix."
+    },
+    "endgame_rule_of_square": {
+      "human_name": "Whether the king catches the running pawn.",
+      "short_description": "Whether the king catches the running pawn.",
+      "family": "coach_memory lesson",
+      "example_fen": null,
+      "teaches_concept_id": "END_RULE_OF_SQUARE",
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "endgames.json key `rule_of_square`, stored with the endgame_ prefix."
     }
   }
 }

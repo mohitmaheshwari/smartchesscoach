@@ -25,9 +25,35 @@ def _mapping(value: Any) -> Mapping[str, Any]:
 
 OPENING_SKILL = "opening"
 CONCEPT_SKILL = "concept"
+LESSON_SKILL = "lesson"
+
+# Every stored skill record already declares what it is, in `skill_type`,
+# written by coach_memory.record_skill_attempt. That field is the authority;
+# the string heuristic below is only a fallback for records that predate it.
+#
+# Measured on production 2026-09-13 over all 8,166 stored records: the
+# heuristic disagrees with the declared field on 47 of them -- it calls 22
+# openings concepts, and it calls the 25 `opening_principles` records (a
+# declared CONCEPT, the second-largest concept by volume) an opening, which
+# would have excluded them from the concept lookup they belong in.
+_DECLARED_KIND = {
+    "opening": OPENING_SKILL,
+    # Habits and patterns are observed concepts.
+    "concept": CONCEPT_SKILL,
+    "coached_play": CONCEPT_SKILL,
+    "pattern": CONCEPT_SKILL,
+    # A finished trap or endgame lesson is neither. "endgame_opposition" is the
+    # LESSON that teaches END_OPPOSITION; it is not an observation that the
+    # player has (or lacks) the concept. Filing it as a concept would write
+    # lesson attendance into the profile as demonstrated understanding.
+    "endgame": LESSON_SKILL,
+    "mate_pattern": LESSON_SKILL,
+    "trap": LESSON_SKILL,
+    "trap_set": LESSON_SKILL,
+}
 
 
-def skill_kind(skill_id: Any) -> str:
+def skill_kind(skill_id: Any, declared: Any = None) -> str:
     """Classify a stored skill id as an opening line or a concept.
 
     coach_memory and the curriculum speak different vocabularies, and they are
@@ -47,12 +73,19 @@ def skill_kind(skill_id: Any) -> str:
     contains a space; concept ids never do. Measured on production 2026-09-12
     that separates 3,579 of 3,623 stored ids correctly.
 
+    `declared` is the record's own `skill_type`. When present it decides,
+    because it is what the writer recorded rather than what the id looks like.
+    The rules below apply only when it is absent.
+
     The exception is a snake_case opening key -- "opening_ruy_lopez",
     "opening_sicilian_black" -- which has no space. Fifteen of those exist, and
     treating them as concepts made them look like plausible matches for
     "golden_opening_principle_10" purely because both contain the word
     "opening". They are openings, so the prefix is checked explicitly.
     """
+    resolved = _DECLARED_KIND.get(str(declared or "").strip().lower())
+    if resolved is not None:
+        return resolved
     text = str(skill_id or "").strip()
     if " " in text:
         return OPENING_SKILL
@@ -82,7 +115,10 @@ def _skill_records(
     else:
         records = [dict(item) for item in raw if isinstance(item, Mapping)]
     for record in records:
-        record.setdefault("skill_kind", skill_kind(record.get("skill_id")))
+        record.setdefault(
+            "skill_kind",
+            skill_kind(record.get("skill_id"), record.get("skill_type")),
+        )
     if kind is None:
         return records
     return [r for r in records if r.get("skill_kind") == kind]

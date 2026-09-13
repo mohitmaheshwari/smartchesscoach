@@ -95,3 +95,80 @@ def test_a_concept_lookup_still_finds_a_stored_concept():
 
 def test_an_empty_alias_list_is_a_miss_not_a_crash():
     assert _exact_skill(_memory(), []) is None
+
+
+# ---------------------------------------------------------------------------
+# The record's own skill_type is the authority (added 2026-09-13).
+#
+# coach_memory.record_skill_attempt has always written skill_type on every
+# record. Guessing the kind from the id string duplicated a field the data
+# already carried -- and got it wrong. Measured over all 8,166 production
+# records, the string heuristic disagrees with the declared field on 47:
+#   22 openings it called concepts, and the 25 `opening_principles` records --
+#   a declared CONCEPT, the second-largest concept by volume -- it called an
+#   opening, which would have excluded them from the concept lookup.
+# ---------------------------------------------------------------------------
+
+from services.personal_teaching_profile import (  # noqa: E402
+    CONCEPT_SKILL,
+    LESSON_SKILL,
+    OPENING_SKILL,
+    _skill_records,
+    skill_kind,
+)
+
+
+@pytest.mark.parametrize(
+    "stored_id,declared,expected,why",
+    [
+        # The 47 real mismatches, by example.
+        ("opening_principles", "concept", CONCEPT_SKILL,
+         "the heuristic's opening_ prefix rule would have hidden 25 records"),
+        ("Qgd", "opening", OPENING_SKILL,
+         "an opening abbreviation with no space and no prefix"),
+        ("caro_kann", "opening", OPENING_SKILL, "a snake_case opening name"),
+        ("kings_pawn", "opening", OPENING_SKILL, "a snake_case opening name"),
+        ("Undefined", "opening", OPENING_SKILL,
+         "garbage, but the writer still declared what it was"),
+        # Lessons are their own kind: neither an opening line nor an observation.
+        ("endgame_opposition", "endgame", LESSON_SKILL, "a finished lesson"),
+        ("mate_kq_vs_k", "mate_pattern", LESSON_SKILL, "a finished lesson"),
+        ("italian_game_fried_liver_attack", "trap", LESSON_SKILL, "a trap lesson"),
+        ("trap_set_italian", "trap_set", LESSON_SKILL, "a trap lesson"),
+        # Habits and legacy patterns are observed concepts.
+        ("pre_move_check", "concept", CONCEPT_SKILL, "a habit"),
+        ("some_habit", "coached_play", CONCEPT_SKILL, "habits are concepts"),
+        ("some_pattern", "pattern", CONCEPT_SKILL, "legacy concept spelling"),
+    ],
+)
+def test_the_declared_type_beats_the_string_guess(stored_id, declared, expected, why):
+    assert skill_kind(stored_id, declared) == expected, why
+
+
+@pytest.mark.parametrize("declared", [None, "", "   ", "something_new"])
+def test_the_heuristic_still_covers_records_with_no_declared_type(declared):
+    """Old records predate the field; an unknown value must not silently win."""
+    assert skill_kind("Alapin Sicilian Defense 2...Nc6", declared) == OPENING_SKILL
+    assert skill_kind("opening_ruy_lopez", declared) == OPENING_SKILL
+    assert skill_kind("TAC_PIN_PATTERN", declared) == CONCEPT_SKILL
+
+
+def test_records_are_tagged_from_their_own_declared_type():
+    memory = {"learning": {"skills": [
+        {"skill_id": "opening_principles", "skill_type": "concept"},
+        {"skill_id": "caro_kann", "skill_type": "opening"},
+        {"skill_id": "endgame_opposition", "skill_type": "endgame"},
+        {"skill_id": "legacy_no_type"},
+    ]}}
+    kinds = {r["skill_id"]: r["skill_kind"] for r in _skill_records(memory)}
+    assert kinds == {
+        "opening_principles": CONCEPT_SKILL,
+        "caro_kann": OPENING_SKILL,
+        "endgame_opposition": LESSON_SKILL,
+        "legacy_no_type": CONCEPT_SKILL,
+    }
+    # A lesson must not leak into either real vocabulary.
+    assert [r["skill_id"] for r in _skill_records(memory, kind=CONCEPT_SKILL)] == [
+        "opening_principles", "legacy_no_type"]
+    assert [r["skill_id"] for r in _skill_records(memory, kind=OPENING_SKILL)] == [
+        "caro_kann"]
