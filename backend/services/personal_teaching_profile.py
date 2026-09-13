@@ -23,15 +23,81 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _skill_records(coach_memory: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+OPENING_SKILL = "opening"
+CONCEPT_SKILL = "concept"
+
+
+def skill_kind(skill_id: Any) -> str:
+    """Classify a stored skill id as an opening line or a concept.
+
+    coach_memory and the curriculum speak different vocabularies, and they are
+    not two spellings of one identity -- they are two KINDS of skill:
+
+      openings  "Alapin Sicilian Defense 2...Nc6 3.Nf3"   (3,606 stored ids)
+      concepts  "DEF_WALK_KING", "END_OPPOSITION",
+                "piece_safety"                            (238 curriculum ids)
+
+    Measured on production 2026-09-12: overlap between the two sets is ZERO, and
+    a strict lookup found history for 0 of 124 players. A regex bridge was tried
+    (fable/skill-id-bridge) and helped exactly one player, because mapping an
+    opening line onto a defensive concept is a category error, not a formatting
+    problem.
+
+    An opening line is written as prose and carries move notation, so it always
+    contains a space; concept ids never do. Measured on production 2026-09-12
+    that separates 3,579 of 3,623 stored ids correctly.
+
+    The exception is a snake_case opening key -- "opening_ruy_lopez",
+    "opening_sicilian_black" -- which has no space. Fifteen of those exist, and
+    treating them as concepts made them look like plausible matches for
+    "golden_opening_principle_10" purely because both contain the word
+    "opening". They are openings, so the prefix is checked explicitly.
+    """
+    text = str(skill_id or "").strip()
+    if " " in text:
+        return OPENING_SKILL
+    if text.lower().startswith("opening_"):
+        return OPENING_SKILL
+    return CONCEPT_SKILL
+
+
+def _skill_records(
+    coach_memory: Mapping[str, Any],
+    *,
+    kind: Optional[str] = None,
+) -> Sequence[Mapping[str, Any]]:
+    """Stored skill history, each record tagged with its kind.
+
+    `kind` filters to one vocabulary. Passing it stops a concept lookup from
+    scanning thousands of opening lines it can never match, and -- the point --
+    makes the opening history reachable at all, which nothing did before.
+    """
     learning = _mapping(coach_memory.get("learning"))
     raw = learning.get("skills") or []
     if isinstance(raw, Mapping):
-        return [
+        records = [
             {"skill_id": skill_id, **dict(_mapping(value))}
             for skill_id, value in raw.items()
         ]
-    return [item for item in raw if isinstance(item, Mapping)]
+    else:
+        records = [dict(item) for item in raw if isinstance(item, Mapping)]
+    for record in records:
+        record.setdefault("skill_kind", skill_kind(record.get("skill_id")))
+    if kind is None:
+        return records
+    return [r for r in records if r.get("skill_kind") == kind]
+
+
+def opening_skill_records(
+    coach_memory: Mapping[str, Any],
+) -> Sequence[Mapping[str, Any]]:
+    """The player's stored opening-line history.
+
+    Exposed so an opening lesson can read the history that actually exists for
+    it. 67 of 124 accounts hold these records; no consumer read them before,
+    because every lookup was searching for a concept id.
+    """
+    return _skill_records(coach_memory, kind=OPENING_SKILL)
 
 
 def _exact_skill(
@@ -43,7 +109,15 @@ def _exact_skill(
         if isinstance(skill_ids, str)
         else {str(value) for value in skill_ids}
     )
-    for item in _skill_records(coach_memory):
+    if not wanted:
+        return None
+    # Only search the vocabulary the requested ids belong to. A concept lookup
+    # used to scan every stored opening line -- thousands of records it could
+    # never match -- which made a guaranteed miss look like an absence of
+    # history.
+    kinds = {skill_kind(value) for value in wanted}
+    search_kind = kinds.pop() if len(kinds) == 1 else None
+    for item in _skill_records(coach_memory, kind=search_kind):
         if str(item.get("skill_id") or "") in wanted:
             return item
     return None
