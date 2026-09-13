@@ -59,6 +59,37 @@ EXPECTED_HOLDOUT_SHA256 = (
 FROZEN_DEVELOPMENT_ADJUDICATION_SHA256 = (
     "985c155d96bf9a74a95fd4d115cf51197763046bc894a1b3895a909ff57e34f2"
 )
+TEACHING_INTELLIGENCE_CYCLE = "deterministic-teaching-intelligence-v1"
+TEACHING_INTELLIGENCE_SCHEMA_VERSION = (
+    "deterministic_teaching_intelligence_evidence.v1"
+)
+TEACHING_INTELLIGENCE_SELECTION_VERSION = (
+    "deterministic_teaching_intelligence_selection.v1"
+)
+TEACHING_INTELLIGENCE_CUTOFF = datetime(
+    2026, 9, 13, 17, 26, 42, tzinfo=timezone.utc
+)
+TEACHING_INTELLIGENCE_MIN_PLAYER_GAMES = 8
+TEACHING_INTELLIGENCE_PLAYER_CAP = 3
+TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS = dict(DEVELOPMENT_QUOTAS)
+TEACHING_INTELLIGENCE_HOLDOUT_TAG = (
+    "deterministic-teaching-intelligence-holdout-v1"
+)
+TEACHING_INTELLIGENCE_DEVELOPMENT_TAG = (
+    "deterministic-teaching-intelligence-development-v1"
+)
+TEACHING_INTELLIGENCE_EXPECTED_CORPUS_SHA256 = (
+    "9335599bf28d0926ce6b66f85c5b7ecee6d7d937c272eae56cb5fbcd4bb08a7f"
+)
+TEACHING_INTELLIGENCE_EXPECTED_DEVELOPMENT_SHA256 = (
+    "e987cde54eb7df59aebf94ce710fef6991fcbb55787f5e2671956a286801a280"
+)
+TEACHING_INTELLIGENCE_EXPECTED_HOLDOUT_SHA256 = (
+    "661fba3496d406205e4205db3a4122a05ddd1fe63ca78aa3755b9e819cb7063f"
+)
+TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256 = (
+    "ae933d3445ab4a4057ea6bb5b9ecad780b191ab4fa7eccb5787a0d051af504b6"
+)
 FORBIDDEN_KEYS = frozenset(
     {
         "_id",
@@ -188,7 +219,11 @@ def _eligible(game: Mapping[str, Any], analysis: Mapping[str, Any]) -> bool:
     )
 
 
-def load_eligible(db) -> list[Dict[str, Any]]:
+def load_eligible(
+    db,
+    *,
+    cutoff: datetime = CUTOFF,
+) -> list[Dict[str, Any]]:
     games = {
         row["game_id"]: row
         for row in db.games.find(
@@ -235,7 +270,7 @@ def load_eligible(db) -> list[Dict[str, Any]]:
             continue
         if analyzed_at.tzinfo is None:
             analyzed_at = analyzed_at.replace(tzinfo=timezone.utc)
-        if analyzed_at > CUTOFF:
+        if analyzed_at > cutoff:
             continue
         game = games.get(analysis.get("game_id"))
         if not game or not _eligible(game, analysis):
@@ -281,6 +316,9 @@ def _add_edge(
 
 def _max_flow_allocations(
     cells: Mapping[tuple[str, str], Sequence[Mapping[str, Any]]],
+    *,
+    quotas: Mapping[str, int] = DEVELOPMENT_QUOTAS,
+    player_cap: int = 3,
 ) -> Dict[tuple[str, str], int]:
     """Reproduce the max-flow allocation frozen by the 2026-09-13 census."""
     source = "source"
@@ -291,7 +329,7 @@ def _max_flow_allocations(
         for index, player in enumerate(players)
     }
     band_nodes = {
-        band: "band:" + band for band in DEVELOPMENT_QUOTAS
+        band: "band:" + band for band in quotas
     }
     graph: Dict[str, list[_Edge]] = {
         source: [],
@@ -300,7 +338,7 @@ def _max_flow_allocations(
         **{node: [] for node in band_nodes.values()},
     }
     for player in players:
-        _add_edge(graph, source, user_nodes[player], 3)
+        _add_edge(graph, source, user_nodes[player], player_cap)
     # Iteration order is intentional: cells preserve the frozen source scan.
     for (player, band), rows in cells.items():
         _add_edge(
@@ -309,7 +347,7 @@ def _max_flow_allocations(
             band_nodes[band],
             len(rows),
         )
-    for band, demand in DEVELOPMENT_QUOTAS.items():
+    for band, demand in quotas.items():
         _add_edge(graph, band_nodes[band], sink, demand)
 
     total = 0
@@ -337,7 +375,7 @@ def _max_flow_allocations(
             graph[node][edge.reverse].capacity += increment
             node = previous
         total += increment
-    if total != sum(DEVELOPMENT_QUOTAS.values()):
+    if total != sum(quotas.values()):
         raise ValueError(f"development max-flow shortfall: {total}")
 
     allocations = {}
@@ -386,6 +424,84 @@ def select_memberships(
     for cell, rows in cells.items():
         development.extend(rows[: allocations.get(cell, 0)])
     return development, holdout
+
+
+def select_teaching_intelligence_memberships(
+    eligible: Sequence[Mapping[str, Any]],
+    *,
+    prior_development: Sequence[Mapping[str, Any]],
+    prior_holdout: Sequence[Mapping[str, Any]],
+) -> tuple[
+    list[Mapping[str, Any]],
+    list[Mapping[str, Any]],
+    list[Mapping[str, Any]],
+]:
+    """Select the fresh, identity-hidden evidence cycle from stored games.
+
+    Players need eight eligible games because the previous cycle consumed at
+    most four, the fresh holdout reserves one, and the development cap is
+    three. This makes corpus capacity a property of the selection rather than
+    an optimistic operator assumption.
+    """
+    by_player: Dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in eligible:
+        by_player[row["source_player_id"]].append(row)
+    qualified_players = {
+        player
+        for player, rows in by_player.items()
+        if len(rows) >= TEACHING_INTELLIGENCE_MIN_PLAYER_GAMES
+    }
+    qualified = [
+        row
+        for row in eligible
+        if row["source_player_id"] in qualified_players
+    ]
+    consumed_ids = {
+        row["source_game_id"]
+        for row in (*prior_development, *prior_holdout)
+    }
+    fresh_by_player: Dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in qualified:
+        if row["source_game_id"] not in consumed_ids:
+            fresh_by_player[row["source_player_id"]].append(row)
+    if set(fresh_by_player) != qualified_players:
+        raise ValueError("a qualified player has no fresh holdout candidate")
+
+    holdout = [
+        min(
+            rows,
+            key=lambda row: _rank(
+                TEACHING_INTELLIGENCE_HOLDOUT_TAG,
+                row["source_game_id"],
+            ),
+        )
+        for _, rows in sorted(fresh_by_player.items())
+    ]
+    holdout_ids = {row["source_game_id"] for row in holdout}
+
+    cells: Dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for row in qualified:
+        if (
+            row["source_game_id"] not in consumed_ids
+            and row["source_game_id"] not in holdout_ids
+        ):
+            cells[(row["source_player_id"], row["band"])].append(row)
+    for rows in cells.values():
+        rows.sort(
+            key=lambda row: _rank(
+                TEACHING_INTELLIGENCE_DEVELOPMENT_TAG,
+                row["source_game_id"],
+            )
+        )
+    allocations = _max_flow_allocations(
+        cells,
+        quotas=TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS,
+        player_cap=TEACHING_INTELLIGENCE_PLAYER_CAP,
+    )
+    development = []
+    for cell, rows in cells.items():
+        development.extend(rows[: allocations.get(cell, 0)])
+    return development, holdout, qualified
 
 
 def selection_summary(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
@@ -796,18 +912,137 @@ def _assert_memberships(
         raise ValueError("development rating quotas changed")
 
 
+def load_cycle_memberships(
+    db,
+    *,
+    cycle: str,
+) -> tuple[
+    list[Mapping[str, Any]],
+    list[Mapping[str, Any]],
+    list[Mapping[str, Any]],
+    Dict[str, Any],
+]:
+    """Load one frozen selection cycle without exposing source identity."""
+    if cycle == "whole-game-v1":
+        eligible = load_eligible(db)
+        development, holdout = select_memberships(eligible)
+        _assert_memberships(eligible, development, holdout)
+        return eligible, development, holdout, {
+            "previously_consumed": 0,
+            "previous_overlap": 0,
+        }
+    if cycle != TEACHING_INTELLIGENCE_CYCLE:
+        raise ValueError(f"unknown evidence cycle: {cycle}")
+
+    prior_eligible = load_eligible(db, cutoff=CUTOFF)
+    prior_development, prior_holdout = select_memberships(prior_eligible)
+    _assert_memberships(prior_eligible, prior_development, prior_holdout)
+    eligible = load_eligible(db, cutoff=TEACHING_INTELLIGENCE_CUTOFF)
+    development, holdout, qualified = select_teaching_intelligence_memberships(
+        eligible,
+        prior_development=prior_development,
+        prior_holdout=prior_holdout,
+    )
+    consumed_ids = {
+        row["source_game_id"]
+        for row in (*prior_development, *prior_holdout)
+    }
+    selected_ids = {
+        row["source_game_id"] for row in (*development, *holdout)
+    }
+    return qualified, development, holdout, {
+        "eligible_before_player_floor": len(eligible),
+        "eligible_players_before_player_floor": len({
+            row["source_player_id"] for row in eligible
+        }),
+        "previously_consumed": len(consumed_ids),
+        "previous_overlap": len(consumed_ids & selected_ids),
+    }
+
+
+def _assert_teaching_intelligence_memberships(
+    qualified: Sequence[Mapping[str, Any]],
+    development: Sequence[Mapping[str, Any]],
+    holdout: Sequence[Mapping[str, Any]],
+    *,
+    metadata: Mapping[str, Any],
+) -> None:
+    expected = {
+        "corpus": TEACHING_INTELLIGENCE_EXPECTED_CORPUS_SHA256,
+        "development": TEACHING_INTELLIGENCE_EXPECTED_DEVELOPMENT_SHA256,
+        "holdout": TEACHING_INTELLIGENCE_EXPECTED_HOLDOUT_SHA256,
+    }
+    if any(not _SHA256_RE.fullmatch(value) for value in expected.values()):
+        raise ValueError(
+            "teaching-intelligence membership is not pinned; run "
+            "--fingerprint-only, review the aggregate, then freeze digests"
+        )
+    actual = {
+        "corpus": _sha_members(row["source_game_id"] for row in qualified),
+        "development": _sha_members(
+            row["source_game_id"] for row in development
+        ),
+        "holdout": _sha_members(row["source_game_id"] for row in holdout),
+    }
+    failures = {
+        name: value
+        for name, value in actual.items()
+        if value != expected[name]
+    }
+    if failures:
+        raise ValueError(
+            "teaching-intelligence membership mismatch: "
+            + json.dumps(failures, sort_keys=True)
+        )
+    if len(holdout) != 34 or len({
+        row["source_player_id"] for row in holdout
+    }) != 34:
+        raise ValueError("fresh holdout must contain one game from 34 players")
+    if len(development) != sum(
+        TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS.values()
+    ):
+        raise ValueError("fresh development size changed")
+    if Counter(row["band"] for row in development) != Counter(
+        TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS
+    ):
+        raise ValueError("fresh development rating quotas changed")
+    per_player = Counter(row["source_player_id"] for row in development)
+    if max(per_player.values(), default=0) > TEACHING_INTELLIGENCE_PLAYER_CAP:
+        raise ValueError("fresh development player cap exceeded")
+    development_ids = {row["source_game_id"] for row in development}
+    holdout_ids = {row["source_game_id"] for row in holdout}
+    if development_ids & holdout_ids:
+        raise ValueError("fresh development/holdout overlap")
+    if int(metadata.get("previous_overlap") or 0):
+        raise ValueError("fresh cycle overlaps previously consumed evidence")
+
+
 def build_packet(
     db,
     *,
     sample: str,
+    cycle: str = "whole-game-v1",
     freeze_marker: Path | None = None,
     include_system: bool = False,
     adjudication_sha256: str | None = None,
 ) -> Dict[str, Any]:
-    eligible = load_eligible(db)
-    development, holdout = select_memberships(eligible)
-    _assert_memberships(eligible, development, holdout)
+    eligible, development, holdout, cycle_metadata = load_cycle_memberships(
+        db,
+        cycle=cycle,
+    )
+    if cycle == TEACHING_INTELLIGENCE_CYCLE:
+        _assert_teaching_intelligence_memberships(
+            eligible,
+            development,
+            holdout,
+            metadata=cycle_metadata,
+        )
     if sample == "holdout":
+        if cycle == TEACHING_INTELLIGENCE_CYCLE:
+            raise ValueError(
+                "teaching-intelligence holdout is sealed until a new "
+                "implementation-freeze contract is committed"
+            )
         if include_system:
             raise ValueError("holdout cannot include system output")
         if freeze_marker is None:
@@ -818,11 +1053,10 @@ def build_packet(
         selected = development
     else:
         raise ValueError("sample must be development or holdout")
-    if include_system and (
-        adjudication_sha256 != FROZEN_DEVELOPMENT_ADJUDICATION_SHA256
-    ):
-        raise ValueError(
-            "system comparison requires the frozen development adjudication"
+    if include_system:
+        validate_system_comparison_gate(
+            cycle=cycle,
+            adjudication_sha256=adjudication_sha256,
         )
     selected_ids = [row["source_game_id"] for row in selected]
     projection = {
@@ -858,10 +1092,22 @@ def build_packet(
         games_out.append(game_out)
         sensitive.update(game_sensitive)
     packet = {
-        "schema_version": SCHEMA_VERSION,
-        "selection_version": SELECTION_VERSION,
+        "schema_version": (
+            TEACHING_INTELLIGENCE_SCHEMA_VERSION
+            if cycle == TEACHING_INTELLIGENCE_CYCLE
+            else SCHEMA_VERSION
+        ),
+        "selection_version": (
+            TEACHING_INTELLIGENCE_SELECTION_VERSION
+            if cycle == TEACHING_INTELLIGENCE_CYCLE
+            else SELECTION_VERSION
+        ),
         "sample": sample,
-        "analysis_cutoff_utc": CUTOFF.isoformat(),
+        "analysis_cutoff_utc": (
+            TEACHING_INTELLIGENCE_CUTOFF
+            if cycle == TEACHING_INTELLIGENCE_CYCLE
+            else CUTOFF
+        ).isoformat(),
         "membership_sha256": _sha_members(selected_ids),
         "source": "read-only production export of stored analysis",
         "read_only": True,
@@ -883,8 +1129,26 @@ def build_packet(
         "selection_summary": packet_selection_summary(selected),
         "games": games_out,
     }
+    if cycle == TEACHING_INTELLIGENCE_CYCLE:
+        packet["evidence_cycle"] = cycle
+        packet["selection_guards"] = {
+            "minimum_eligible_games_per_player": (
+                TEACHING_INTELLIGENCE_MIN_PLAYER_GAMES
+            ),
+            "development_player_cap": TEACHING_INTELLIGENCE_PLAYER_CAP,
+            "previously_consumed_games": cycle_metadata[
+                "previously_consumed"
+            ],
+            "previous_cycle_overlap": cycle_metadata["previous_overlap"],
+            "holdout_open": False,
+        }
     if include_system:
-        packet["development_adjudication_sha256"] = adjudication_sha256
+        lock_field = (
+            "development_review_sha256"
+            if cycle == TEACHING_INTELLIGENCE_CYCLE
+            else "development_adjudication_sha256"
+        )
+        packet[lock_field] = adjudication_sha256
         packet["hidden_from_reviewer"] = []
         packet["system_recomposition"] = {
             "performed": False,
@@ -901,6 +1165,27 @@ def build_packet(
     return packet
 
 
+def validate_system_comparison_gate(
+    *,
+    cycle: str,
+    adjudication_sha256: str | None,
+) -> str:
+    """Open stored system output only after the matching blind review froze."""
+    expected = (
+        TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256
+        if cycle == TEACHING_INTELLIGENCE_CYCLE
+        else FROZEN_DEVELOPMENT_ADJUDICATION_SHA256
+    )
+    if adjudication_sha256 != expected:
+        label = (
+            "frozen complete-game review"
+            if cycle == TEACHING_INTELLIGENCE_CYCLE
+            else "frozen development adjudication"
+        )
+        raise ValueError(f"system comparison requires the {label}")
+    return expected
+
+
 def _connect():
     return MongoClient(os.environ["MONGO_URL"])[
         os.environ.get("DB_NAME", "chess_coach")
@@ -909,6 +1194,11 @@ def _connect():
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--cycle",
+        choices=("whole-game-v1", TEACHING_INTELLIGENCE_CYCLE),
+        default="whole-game-v1",
+    )
     parser.add_argument(
         "--sample",
         choices=("development", "holdout"),
@@ -925,9 +1215,11 @@ def main() -> None:
     args = parser.parse_args()
     db = _connect()
     if args.fingerprint_only:
-        eligible = load_eligible(db)
-        development, holdout = select_memberships(eligible)
+        eligible, development, holdout, cycle_metadata = (
+            load_cycle_memberships(db, cycle=args.cycle)
+        )
         report = {
+            "evidence_cycle": args.cycle,
             "corpus": selection_summary(eligible),
             "development": selection_summary(development),
             "holdout": selection_summary(holdout),
@@ -935,6 +1227,7 @@ def main() -> None:
                 {r["source_game_id"] for r in development}
                 & {r["source_game_id"] for r in holdout}
             ),
+            "selection_guards": cycle_metadata,
         }
         print(json.dumps(report, sort_keys=True))
         return
@@ -942,6 +1235,7 @@ def main() -> None:
     packet = build_packet(
         db,
         sample=args.sample,
+        cycle=args.cycle,
         freeze_marker=args.freeze_marker,
         include_system=include_system,
         adjudication_sha256=args.development_adjudication_sha256,

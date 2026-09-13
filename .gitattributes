@@ -1,0 +1,3 @@
+# Frozen evidence hashes must be identical on Windows and Linux checkouts.
+backend/data/detector_gold/deterministic_teaching_intelligence_*.json text eol=lf
+backend/data/corpus_snapshots/deterministic_teaching_intelligence_*.json text eol=lf

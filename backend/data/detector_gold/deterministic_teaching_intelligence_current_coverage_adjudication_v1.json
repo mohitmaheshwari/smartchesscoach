@@ -1,0 +1,49 @@
+{
+  "schema_version": "deterministic_teaching_intelligence_current_coverage_adjudication.v1",
+  "status": "frozen_after_blind_review",
+  "source_review_sha256": "ae933d3445ab4a4057ea6bb5b9ecad780b191ab4fa7eccb5787a0d051af504b6",
+  "source_system_baseline_sha256": "0bd15422c57742133701376d46c0cd2a2ab5194170890232897995bbf0692c60",
+  "comparison_contract": {
+    "same_move_different_reason_counts": false,
+    "generic_mate_announcement_counts_as_forced_mate_story": false,
+    "generic_best_move_announcement_counts": false,
+    "adjacent_captions_may_form_one_explanation": true,
+    "default_for_unlisted_family_occurrence": "uncovered",
+    "holdout_opened": false,
+    "engine_runs": 0,
+    "model_calls": 0
+  },
+  "covered_family_occurrences": [
+    {"review_index": 2, "family": "passed_pawn_race", "supporting_plies": [9], "reason": "The caption names the incoming bxa1=Q promotion and explains that Bxb2 removes the pawn before it wins the rook."},
+    {"review_index": 6, "family": "unpunished_opponent_opportunity", "supporting_plies": [17, 18], "reason": "The adjacent captions say d5 permits exf4 and record that the opponent chose c6 instead of using the material win."},
+    {"review_index": 19, "family": "unpunished_opponent_opportunity", "supporting_plies": [33, 34], "reason": "The review first says Qh6+ permits Qxh6 and then says the opponent missed that free queen."},
+    {"review_index": 19, "family": "queen_safety_or_greedy_capture", "supporting_plies": [33, 34], "reason": "The two captions identify the unsound queen check and its legal capture."},
+    {"review_index": 20, "family": "clean_or_positive_play", "supporting_plies": [21], "reason": "The caption recognizes that the calm move keeps a winning position simple."},
+    {"review_index": 25, "family": "queen_safety_or_greedy_capture", "supporting_plies": [33], "reason": "The caption identifies that the opponent's queen move leaves it capturable by Bxb7."},
+    {"review_index": 29, "family": "clean_or_positive_play", "supporting_plies": [17, 19], "reason": "The captions recognize the player's threat against e6 and the forcing check."},
+    {"review_index": 42, "family": "clean_or_positive_play", "supporting_plies": [25, 27, 29], "reason": "The captions recognize the queen capture, the threat against e6, and the useful defender trade."},
+    {"review_index": 57, "family": "clean_or_positive_play", "supporting_plies": [25, 29], "reason": "The captions identify the opponent's lost queen and rook and the player's exact captures."},
+    {"review_index": 59, "family": "queen_safety_or_greedy_capture", "supporting_plies": [25], "reason": "The caption states that Qxf7+ hangs the queen to the recapture."},
+    {"review_index": 67, "family": "countercheck_or_forcing_defense", "supporting_plies": [28], "reason": "The caption contrasts the tempting check with Nxb7, which removes the bishop attacking the rook."},
+    {"review_index": 71, "family": "opening_purpose", "supporting_plies": [17], "reason": "The caption explains d5 as a central pawn tempo against the knight rather than presenting theory alone."},
+    {"review_index": 72, "family": "defensive_remove_attacker", "supporting_plies": [40, 41], "reason": "The captions show the check and identify Bxc1 as capturing the checking queen."},
+    {"review_index": 75, "family": "clean_or_positive_play", "supporting_plies": [84, 85], "reason": "The captions identify the opponent's loose rook and positively record the player's Qxb3 capture."},
+    {"review_index": 76, "family": "clean_or_positive_play", "supporting_plies": [36, 62, 64], "reason": "The captions recognize the central knight outpost and the final forcing sequence through checkmate."},
+    {"review_index": 81, "family": "unpunished_opponent_opportunity", "supporting_plies": [25, 26], "reason": "The adjacent captions identify the opponent's mistake and the player's failure to use Ne4 against the queen."},
+    {"review_index": 81, "family": "multi_move_material_accounting", "supporting_plies": [50], "reason": "The caption explicitly follows Bxe3+ through Rexe3 and identifies the lost bishop."},
+    {"review_index": 85, "family": "fork_or_double_attack_geometry", "supporting_plies": [15, 17, 19], "reason": "The captions show Qxe5+ attacking c7, then Nxc7+ checking while attacking a8, followed by the rook capture."},
+    {"review_index": 85, "family": "clean_or_positive_play", "supporting_plies": [15, 17, 19], "reason": "The review positively and correctly traces the player's forcing fork sequence."},
+    {"review_index": 86, "family": "unpunished_opponent_opportunity", "supporting_plies": [19, 20, 22], "reason": "The captions show the unsound Qh5+ reply g6 and then the opponent's missed chance before White's winning capture."},
+    {"review_index": 87, "family": "queen_safety_or_greedy_capture", "supporting_plies": [17], "reason": "The caption states that castling leaves the queen on d2 to Nxd2."},
+    {"review_index": 97, "family": "opening_purpose", "supporting_plies": [10, 14], "reason": "The captions explain castling and development as the practical opening priorities."},
+    {"review_index": 98, "family": "unpunished_opponent_opportunity", "supporting_plies": [25, 26], "reason": "The adjacent captions say Ng5 hangs the knight and that the opponent missed Qxg5."},
+    {"review_index": 99, "family": "multi_move_material_accounting", "supporting_plies": [13, 14, 16], "reason": "The sequence is explained across captions as Nxc2+ checking and attacking a1 before Nxa1 takes the rook."}
+  ],
+  "critical_baseline_examples": [
+    {"review_index": 14, "ply": 15, "finding": "The caption names Nd6# but explains a side attack on b7 instead of why the move is checkmate."},
+    {"review_index": 32, "ply": 10, "finding": "The caption reverses the actor and calls the player's Rg8 an opponent rook move."},
+    {"review_index": 44, "ply": 87, "finding": "The caption combines unrelated material claims instead of the exact endgame consequence."},
+    {"review_index": 77, "ply": 115, "finding": "The caption recommends b8=Q because it attacks d6, not because the queen changes the conversion or mate."},
+    {"review_index": 82, "ply": 40, "finding": "The stored line shows a mating opportunity, but the caption reduces Qxf2+ to winning one pawn."}
+  ]
+}

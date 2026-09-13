@@ -1,0 +1,89 @@
+{
+  "schema_version": "deterministic_teaching_intelligence_census.v1",
+  "evidence_cycle": "deterministic-teaching-intelligence-v1",
+  "analysis_cutoff_utc": "2026-09-13T17:26:42+00:00",
+  "operation": "read_only_aggregate",
+  "eligible_before_player_floor": {
+    "games": 6944,
+    "players": 42
+  },
+  "qualified_corpus": {
+    "minimum_games_per_player": 8,
+    "games": 6916,
+    "players": 34,
+    "maximum_games_from_one_player": 1125,
+    "membership_sha256": "9335599bf28d0926ce6b66f85c5b7ecee6d7d937c272eae56cb5fbcd4bb08a7f",
+    "rating_band": {
+      "600-799": 1350,
+      "800-999": 756,
+      "1000-1199": 2094,
+      "1200-1399": 2120,
+      "1400-1500": 596
+    },
+    "phase_combination": {
+      "opening_only": 951,
+      "opening_and_middlegame": 1636,
+      "opening_and_endgame": 777,
+      "opening_middlegame_endgame": 3552
+    }
+  },
+  "previous_cycle": {
+    "consumed_games": 142,
+    "overlap_with_new_cycle": 0
+  },
+  "development": {
+    "games": 100,
+    "players": 34,
+    "maximum_games_from_one_player": 3,
+    "membership_sha256": "e987cde54eb7df59aebf94ce710fef6991fcbb55787f5e2671956a286801a280",
+    "rating_band": {
+      "600-799": 19,
+      "800-999": 11,
+      "1000-1199": 30,
+      "1200-1399": 31,
+      "1400-1500": 9
+    },
+    "phase_combination": {
+      "opening_only": 12,
+      "opening_and_middlegame": 26,
+      "opening_and_endgame": 10,
+      "opening_middlegame_endgame": 52
+    }
+  },
+  "holdout": {
+    "games": 34,
+    "players": 34,
+    "maximum_games_from_one_player": 1,
+    "membership_sha256": "661fba3496d406205e4205db3a4122a05ddd1fe63ca78aa3755b9e819cb7063f",
+    "rating_band": {
+      "600-799": 10,
+      "800-999": 3,
+      "1000-1199": 13,
+      "1200-1399": 6,
+      "1400-1500": 2
+    },
+    "phase_combination": {
+      "opening_only": 6,
+      "opening_and_middlegame": 7,
+      "opening_and_endgame": 7,
+      "opening_middlegame_endgame": 14
+    }
+  },
+  "selection_checks": {
+    "development_holdout_overlap": 0,
+    "previous_cycle_overlap": 0,
+    "development_rating_quotas_met": true,
+    "holdout_one_game_per_player": true
+  },
+  "privacy": {
+    "contains_credentials": false,
+    "contains_email": false,
+    "contains_user_id": false,
+    "contains_game_id": false,
+    "contains_fen": false,
+    "contains_pgn": false
+  },
+  "database_writes": 0,
+  "stockfish_runs": 0,
+  "model_calls": 0
+}

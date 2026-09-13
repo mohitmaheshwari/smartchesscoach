@@ -1,0 +1,596 @@
+{
+  "candidate_bundle_comparison": {
+    "all_families": {
+      "confirmed_high_consequence_uncovered": 159,
+      "families": [
+        "back_rank_geometry",
+        "clean_or_positive_play",
+        "countercheck_or_forcing_defense",
+        "defensive_remove_attacker",
+        "exact_endgame",
+        "forced_mate_story",
+        "forcing_pawn_tempo",
+        "fork_or_double_attack_geometry",
+        "king_safety_commitment",
+        "known_trap_or_mating_pattern",
+        "multi_move_material_accounting",
+        "opening_purpose",
+        "passed_pawn_race",
+        "pin_xray_or_line_geometry",
+        "promotion_choice",
+        "queen_safety_or_greedy_capture",
+        "rook_activity_coordination",
+        "unpunished_opponent_opportunity",
+        "zwischenzug_or_move_order"
+      ],
+      "family_count": 19,
+      "maximum_visible_coverage_if_all_prove": 192,
+      "maximum_visible_coverage_pct_if_all_prove": 100.0,
+      "uncovered_opportunities": 168,
+      "unique_games": 92,
+      "unique_players": 34
+    },
+    "all_high_feasibility": {
+      "confirmed_high_consequence_uncovered": 107,
+      "families": [
+        "back_rank_geometry",
+        "countercheck_or_forcing_defense",
+        "defensive_remove_attacker",
+        "forced_mate_story",
+        "forcing_pawn_tempo",
+        "fork_or_double_attack_geometry",
+        "known_trap_or_mating_pattern",
+        "multi_move_material_accounting",
+        "passed_pawn_race",
+        "pin_xray_or_line_geometry",
+        "promotion_choice",
+        "queen_safety_or_greedy_capture",
+        "unpunished_opponent_opportunity",
+        "zwischenzug_or_move_order"
+      ],
+      "family_count": 14,
+      "maximum_visible_coverage_if_all_prove": 133,
+      "maximum_visible_coverage_pct_if_all_prove": 69.27,
+      "uncovered_opportunities": 109,
+      "unique_games": 80,
+      "unique_players": 34
+    },
+    "frequency_top_8": {
+      "confirmed_high_consequence_uncovered": 121,
+      "families": [
+        "clean_or_positive_play",
+        "exact_endgame",
+        "forced_mate_story",
+        "king_safety_commitment",
+        "multi_move_material_accounting",
+        "queen_safety_or_greedy_capture",
+        "rook_activity_coordination",
+        "unpunished_opponent_opportunity"
+      ],
+      "family_count": 8,
+      "maximum_visible_coverage_if_all_prove": 151,
+      "maximum_visible_coverage_pct_if_all_prove": 78.65,
+      "uncovered_opportunities": 127,
+      "unique_games": 83,
+      "unique_players": 34
+    },
+    "high_feasibility_reach_floor": {
+      "confirmed_high_consequence_uncovered": 72,
+      "families": [
+        "forced_mate_story",
+        "multi_move_material_accounting",
+        "queen_safety_or_greedy_capture",
+        "unpunished_opponent_opportunity"
+      ],
+      "family_count": 4,
+      "maximum_visible_coverage_if_all_prove": 97,
+      "maximum_visible_coverage_pct_if_all_prove": 50.52,
+      "uncovered_opportunities": 73,
+      "unique_games": 61,
+      "unique_players": 30
+    },
+    "pareto_first": {
+      "confirmed_high_consequence_uncovered": 35,
+      "families": [
+        "forced_mate_story"
+      ],
+      "family_count": 1,
+      "maximum_visible_coverage_if_all_prove": 60,
+      "maximum_visible_coverage_pct_if_all_prove": 31.25,
+      "uncovered_opportunities": 36,
+      "unique_games": 36,
+      "unique_players": 24
+    }
+  },
+  "current_product_reach": {
+    "games": 100,
+    "games_with_stored_whole_game_plan": 3,
+    "stored_caption_explanations": 0,
+    "stored_move_captions": 6372,
+    "stored_teachable_events": 3
+  },
+  "execution_contract": {
+    "database_reads": 0,
+    "database_writes": 0,
+    "engine_runs": 0,
+    "holdout_opened": false,
+    "model_calls": 0,
+    "player_facing_authorization": false
+  },
+  "families": [
+    {
+      "canonical_proof_assets": [
+        "python-chess legal geometry",
+        "stored mate line"
+      ],
+      "confirmed_high_consequence_opportunities": 5,
+      "confirmed_high_consequence_uncovered": 5,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 4,
+      "consequence_evidence_partial": 1,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "back_rank_geometry",
+      "feasibility_rank": 2,
+      "opportunities": 5,
+      "players": 4,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 5,
+      "uncovered_players": 4
+    },
+    {
+      "canonical_proof_assets": [
+        "stored best line",
+        "causal fact",
+        "independent recognition guard"
+      ],
+      "confirmed_high_consequence_opportunities": 16,
+      "confirmed_high_consequence_uncovered": 13,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 23,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 7,
+      "current_causal_coverage_pct": 30.43,
+      "family": "clean_or_positive_play",
+      "feasibility_rank": 1,
+      "opportunities": 23,
+      "players": 17,
+      "proof_feasibility": "medium",
+      "uncovered_opportunities": 16,
+      "uncovered_players": 14
+    },
+    {
+      "canonical_proof_assets": [
+        "legal reply set",
+        "stored played and best lines"
+      ],
+      "confirmed_high_consequence_opportunities": 4,
+      "confirmed_high_consequence_uncovered": 3,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 4,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 1,
+      "current_causal_coverage_pct": 25.0,
+      "family": "countercheck_or_forcing_defense",
+      "feasibility_rank": 2,
+      "opportunities": 4,
+      "players": 4,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 3,
+      "uncovered_players": 3
+    },
+    {
+      "canonical_proof_assets": [
+        "legal capture",
+        "threat removal",
+        "stored continuation"
+      ],
+      "confirmed_high_consequence_opportunities": 6,
+      "confirmed_high_consequence_uncovered": 5,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 6,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 1,
+      "current_causal_coverage_pct": 16.67,
+      "family": "defensive_remove_attacker",
+      "feasibility_rank": 2,
+      "opportunities": 6,
+      "players": 5,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 5,
+      "uncovered_players": 4
+    },
+    {
+      "canonical_proof_assets": [
+        "canonical exact-ending source",
+        "tablebase where eligible"
+      ],
+      "confirmed_high_consequence_opportunities": 17,
+      "confirmed_high_consequence_uncovered": 17,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 16,
+      "consequence_evidence_partial": 1,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "exact_endgame",
+      "feasibility_rank": 1,
+      "opportunities": 17,
+      "players": 13,
+      "proof_feasibility": "medium",
+      "uncovered_opportunities": 17,
+      "uncovered_players": 13
+    },
+    {
+      "canonical_proof_assets": [
+        "stored mate score",
+        "legal mate replay",
+        "story deduplication"
+      ],
+      "confirmed_high_consequence_opportunities": 35,
+      "confirmed_high_consequence_uncovered": 35,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 34,
+      "consequence_evidence_partial": 2,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "forced_mate_story",
+      "feasibility_rank": 2,
+      "opportunities": 36,
+      "players": 24,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 36,
+      "uncovered_players": 24
+    },
+    {
+      "canonical_proof_assets": [
+        "attack map before and after",
+        "stored continuation"
+      ],
+      "confirmed_high_consequence_opportunities": 3,
+      "confirmed_high_consequence_uncovered": 3,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 3,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "forcing_pawn_tempo",
+      "feasibility_rank": 2,
+      "opportunities": 3,
+      "players": 3,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 3,
+      "uncovered_players": 3
+    },
+    {
+      "canonical_proof_assets": [
+        "exact target identities",
+        "settled material payoff"
+      ],
+      "confirmed_high_consequence_opportunities": 2,
+      "confirmed_high_consequence_uncovered": 2,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 4,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 1,
+      "current_causal_coverage_pct": 25.0,
+      "family": "fork_or_double_attack_geometry",
+      "feasibility_rank": 2,
+      "opportunities": 4,
+      "players": 4,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 3,
+      "uncovered_players": 3
+    },
+    {
+      "canonical_proof_assets": [
+        "legal forcing replies",
+        "stored mate or material consequence"
+      ],
+      "confirmed_high_consequence_opportunities": 9,
+      "confirmed_high_consequence_uncovered": 9,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 10,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "king_safety_commitment",
+      "feasibility_rank": 1,
+      "opportunities": 10,
+      "players": 9,
+      "proof_feasibility": "medium",
+      "uncovered_opportunities": 10,
+      "uncovered_players": 9
+    },
+    {
+      "canonical_proof_assets": [
+        "canonical trap registry",
+        "exact legal sequence"
+      ],
+      "confirmed_high_consequence_opportunities": 5,
+      "confirmed_high_consequence_uncovered": 5,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 5,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "known_trap_or_mating_pattern",
+      "feasibility_rank": 2,
+      "opportunities": 5,
+      "players": 3,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 5,
+      "uncovered_players": 3
+    },
+    {
+      "canonical_proof_assets": [
+        "stored_line_verifier.v4",
+        "settled material payoff"
+      ],
+      "confirmed_high_consequence_opportunities": 21,
+      "confirmed_high_consequence_uncovered": 19,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 19,
+      "consequence_evidence_partial": 2,
+      "current_causal_coverage": 2,
+      "current_causal_coverage_pct": 9.52,
+      "family": "multi_move_material_accounting",
+      "feasibility_rank": 2,
+      "opportunities": 21,
+      "players": 15,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 19,
+      "uncovered_players": 14
+    },
+    {
+      "canonical_proof_assets": [
+        "canonical opening identity",
+        "legal consequence fact"
+      ],
+      "confirmed_high_consequence_opportunities": 5,
+      "confirmed_high_consequence_uncovered": 3,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 7,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 2,
+      "current_causal_coverage_pct": 28.57,
+      "family": "opening_purpose",
+      "feasibility_rank": 1,
+      "opportunities": 7,
+      "players": 6,
+      "proof_feasibility": "medium",
+      "uncovered_opportunities": 5,
+      "uncovered_players": 5
+    },
+    {
+      "canonical_proof_assets": [
+        "promotion distance",
+        "legal stopping moves",
+        "exact ending where eligible"
+      ],
+      "confirmed_high_consequence_opportunities": 7,
+      "confirmed_high_consequence_uncovered": 6,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 6,
+      "consequence_evidence_partial": 1,
+      "current_causal_coverage": 1,
+      "current_causal_coverage_pct": 14.29,
+      "family": "passed_pawn_race",
+      "feasibility_rank": 2,
+      "opportunities": 7,
+      "players": 6,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 6,
+      "uncovered_players": 6
+    },
+    {
+      "canonical_proof_assets": [
+        "python-chess attack rays",
+        "exact target identities"
+      ],
+      "confirmed_high_consequence_opportunities": 3,
+      "confirmed_high_consequence_uncovered": 3,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 3,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "pin_xray_or_line_geometry",
+      "feasibility_rank": 2,
+      "opportunities": 3,
+      "players": 3,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 3,
+      "uncovered_players": 3
+    },
+    {
+      "canonical_proof_assets": [
+        "legal promotion set",
+        "stored mate or exact-ending result"
+      ],
+      "confirmed_high_consequence_opportunities": 1,
+      "confirmed_high_consequence_uncovered": 1,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 1,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "promotion_choice",
+      "feasibility_rank": 2,
+      "opportunities": 1,
+      "players": 1,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 1,
+      "uncovered_players": 1
+    },
+    {
+      "canonical_proof_assets": [
+        "legal reply set",
+        "settled material payoff"
+      ],
+      "confirmed_high_consequence_opportunities": 14,
+      "confirmed_high_consequence_uncovered": 10,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 14,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 4,
+      "current_causal_coverage_pct": 28.57,
+      "family": "queen_safety_or_greedy_capture",
+      "feasibility_rank": 2,
+      "opportunities": 14,
+      "players": 12,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 10,
+      "uncovered_players": 9
+    },
+    {
+      "canonical_proof_assets": [
+        "legal rook mobility",
+        "concrete stored consequence"
+      ],
+      "confirmed_high_consequence_opportunities": 10,
+      "confirmed_high_consequence_uncovered": 10,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 11,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "rook_activity_coordination",
+      "feasibility_rank": 1,
+      "opportunities": 11,
+      "players": 9,
+      "proof_feasibility": "medium",
+      "uncovered_opportunities": 11,
+      "uncovered_players": 9
+    },
+    {
+      "canonical_proof_assets": [
+        "opponent best line",
+        "played-line divergence",
+        "causal fact"
+      ],
+      "confirmed_high_consequence_opportunities": 13,
+      "confirmed_high_consequence_uncovered": 8,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 12,
+      "consequence_evidence_partial": 1,
+      "current_causal_coverage": 5,
+      "current_causal_coverage_pct": 38.46,
+      "family": "unpunished_opponent_opportunity",
+      "feasibility_rank": 2,
+      "opportunities": 13,
+      "players": 10,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 8,
+      "uncovered_players": 7
+    },
+    {
+      "canonical_proof_assets": [
+        "legal intermediate move",
+        "settled branch comparison"
+      ],
+      "confirmed_high_consequence_opportunities": 2,
+      "confirmed_high_consequence_uncovered": 2,
+      "consequence_evidence_absent": 0,
+      "consequence_evidence_complete": 2,
+      "consequence_evidence_partial": 0,
+      "current_causal_coverage": 0,
+      "current_causal_coverage_pct": 0.0,
+      "family": "zwischenzug_or_move_order",
+      "feasibility_rank": 2,
+      "opportunities": 2,
+      "players": 2,
+      "proof_feasibility": "high",
+      "uncovered_opportunities": 2,
+      "uncovered_players": 2
+    }
+  ],
+  "policy_comparison": {
+    "balanced_definition": "Non-dominated across uncovered opportunity count, uncovered player reach, confirmed high-consequence uncovered count, and proof feasibility. No hidden weighted score is used.",
+    "balanced_pareto_front": [
+      "forced_mate_story"
+    ],
+    "frequency_first": [
+      "forced_mate_story",
+      "multi_move_material_accounting",
+      "exact_endgame",
+      "clean_or_positive_play",
+      "rook_activity_coordination",
+      "king_safety_commitment",
+      "queen_safety_or_greedy_capture",
+      "unpunished_opponent_opportunity",
+      "passed_pawn_race",
+      "opening_purpose",
+      "back_rank_geometry",
+      "defensive_remove_attacker",
+      "known_trap_or_mating_pattern",
+      "countercheck_or_forcing_defense",
+      "forcing_pawn_tempo",
+      "fork_or_double_attack_geometry",
+      "pin_xray_or_line_geometry",
+      "zwischenzug_or_move_order",
+      "promotion_choice"
+    ],
+    "player_reach_first": [
+      "forced_mate_story",
+      "multi_move_material_accounting",
+      "clean_or_positive_play",
+      "exact_endgame",
+      "rook_activity_coordination",
+      "king_safety_commitment",
+      "queen_safety_or_greedy_capture",
+      "unpunished_opponent_opportunity",
+      "passed_pawn_race",
+      "opening_purpose",
+      "back_rank_geometry",
+      "defensive_remove_attacker",
+      "known_trap_or_mating_pattern",
+      "countercheck_or_forcing_defense",
+      "forcing_pawn_tempo",
+      "fork_or_double_attack_geometry",
+      "pin_xray_or_line_geometry",
+      "zwischenzug_or_move_order",
+      "promotion_choice"
+    ],
+    "safety_and_feasibility_first": [
+      "forced_mate_story",
+      "multi_move_material_accounting",
+      "queen_safety_or_greedy_capture",
+      "unpunished_opponent_opportunity",
+      "passed_pawn_race",
+      "back_rank_geometry",
+      "defensive_remove_attacker",
+      "known_trap_or_mating_pattern",
+      "countercheck_or_forcing_defense",
+      "forcing_pawn_tempo",
+      "pin_xray_or_line_geometry",
+      "fork_or_double_attack_geometry",
+      "zwischenzug_or_move_order",
+      "promotion_choice",
+      "exact_endgame",
+      "clean_or_positive_play",
+      "rook_activity_coordination",
+      "king_safety_commitment",
+      "opening_purpose"
+    ]
+  },
+  "schema_version": "deterministic_teaching_intelligence_opportunity_report.v1",
+  "sources": {
+    "baseline": "0bd15422c57742133701376d46c0cd2a2ab5194170890232897995bbf0692c60",
+    "coverage": "a6d16a4ad3bb57d2e769d55e8e883f4f4882751e28e3c16e74499603bbd758ae",
+    "packet": "b9d912b1cc72fb1c928c576a70baf1b982e0cdbe08e28eb01e8a55915948af91",
+    "review": "ae933d3445ab4a4057ea6bb5b9ecad780b191ab4fa7eccb5787a0d051af504b6"
+  },
+  "status": "measured_not_authorized",
+  "summary": {
+    "candidate_plies": 254,
+    "candidate_plies_with_stored_engine_evidence": 249,
+    "candidate_plies_without_stored_engine_evidence": 5,
+    "current_causal_coverage_pct": 12.5,
+    "current_causally_covered_occurrences": 24,
+    "family_occurrences": 192,
+    "games_with_candidate_teaching": 96,
+    "honest_no_strong_lesson_games": 4,
+    "reviewed_games": 100,
+    "uncovered_family_occurrences": 168
+  }
+}

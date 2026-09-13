@@ -1,4 +1,6 @@
 import ast
+from collections import Counter
+import hashlib
 import inspect
 import json
 from pathlib import Path
@@ -10,12 +12,17 @@ import scripts.export_whole_game_review_evidence as exporter_module
 from scripts.export_whole_game_review_evidence import (
     FORBIDDEN_KEYS,
     FROZEN_DEVELOPMENT_ADJUDICATION_SHA256,
+    TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS,
+    TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256,
     _max_flow_allocations,
     _sha_members,
+    _assert_teaching_intelligence_memberships,
     assert_private,
     assert_comparison_private,
     export_game,
     packet_selection_summary,
+    select_teaching_intelligence_memberships,
+    validate_system_comparison_gate,
     validate_freeze_marker,
 )
 
@@ -186,6 +193,30 @@ def test_frozen_adjudication_hash_is_full_sha256():
     assert len(FROZEN_DEVELOPMENT_ADJUDICATION_SHA256) == 64
 
 
+def test_teaching_intelligence_system_baseline_opens_only_for_frozen_review():
+    review_path = (
+        Path(__file__).resolve().parents[1]
+        / "data/detector_gold/deterministic_teaching_intelligence_codex_complete_game_review_v1.json"
+    )
+    assert hashlib.sha256(review_path.read_bytes()).hexdigest() == (
+        TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256
+    )
+    with pytest.raises(ValueError, match="frozen complete-game review"):
+        validate_system_comparison_gate(
+            cycle=exporter_module.TEACHING_INTELLIGENCE_CYCLE,
+            adjudication_sha256=None,
+        )
+    with pytest.raises(ValueError, match="frozen complete-game review"):
+        validate_system_comparison_gate(
+            cycle=exporter_module.TEACHING_INTELLIGENCE_CYCLE,
+            adjudication_sha256="0" * 64,
+        )
+    assert validate_system_comparison_gate(
+        cycle=exporter_module.TEACHING_INTELLIGENCE_CYCLE,
+        adjudication_sha256=TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256,
+    ) == TEACHING_INTELLIGENCE_FROZEN_REVIEW_SHA256
+
+
 def test_forbidden_contract_includes_labels_and_raw_source_fields():
     assert {
         "email",
@@ -223,3 +254,104 @@ def test_exporter_cannot_invoke_runtime_composer_or_spawn_an_engine():
         "Popen",
     } & called_names
     assert "recompose_system" not in source
+
+
+def _fresh_cycle_rows():
+    bands = tuple(TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS)
+    rows = []
+    for player_index in range(34):
+        for game_index in range(12):
+            band = bands[(player_index + game_index) % len(bands)]
+            rows.append({
+                "source_player_id": f"player-{player_index}",
+                "source_game_id": f"game-{player_index}-{game_index}",
+                "band": band,
+            })
+    return rows
+
+
+def test_fresh_cycle_excludes_every_consumed_game_and_reserves_one_holdout_per_player():
+    rows = _fresh_cycle_rows()
+    prior_development = [
+        row for row in rows if row["source_game_id"].endswith(("-0", "-1", "-2"))
+    ]
+    prior_holdout = [
+        row for row in rows if row["source_game_id"].endswith("-3")
+    ]
+
+    development, holdout, qualified = select_teaching_intelligence_memberships(
+        rows,
+        prior_development=prior_development,
+        prior_holdout=prior_holdout,
+    )
+
+    consumed_ids = {
+        row["source_game_id"] for row in (*prior_development, *prior_holdout)
+    }
+    development_ids = {row["source_game_id"] for row in development}
+    holdout_ids = {row["source_game_id"] for row in holdout}
+    assert len(qualified) == len(rows)
+    assert len(holdout) == 34
+    assert len({row["source_player_id"] for row in holdout}) == 34
+    assert len(development) == 100
+    assert not consumed_ids & (development_ids | holdout_ids)
+    assert not development_ids & holdout_ids
+    assert Counter(row["band"] for row in development) == Counter(
+        TEACHING_INTELLIGENCE_DEVELOPMENT_QUOTAS
+    )
+    assert max(Counter(
+        row["source_player_id"] for row in development
+    ).values()) <= 3
+
+
+def test_fresh_cycle_excludes_players_below_the_measured_eight_game_floor():
+    rows = _fresh_cycle_rows()
+    rows.extend({
+        "source_player_id": "too-small",
+        "source_game_id": f"small-{index}",
+        "band": "1000-1199",
+    } for index in range(7))
+
+    development, holdout, qualified = select_teaching_intelligence_memberships(
+        rows,
+        prior_development=(),
+        prior_holdout=(),
+    )
+
+    assert all(row["source_player_id"] != "too-small" for row in qualified)
+    assert all(row["source_player_id"] != "too-small" for row in development)
+    assert all(row["source_player_id"] != "too-small" for row in holdout)
+
+
+def test_fresh_cycle_content_export_fails_until_membership_hashes_are_pinned(
+    monkeypatch,
+):
+    rows = _fresh_cycle_rows()
+    development, holdout, qualified = select_teaching_intelligence_memberships(
+        rows,
+        prior_development=(),
+        prior_holdout=(),
+    )
+
+    monkeypatch.setattr(
+        exporter_module,
+        "TEACHING_INTELLIGENCE_EXPECTED_CORPUS_SHA256",
+        "",
+    )
+    monkeypatch.setattr(
+        exporter_module,
+        "TEACHING_INTELLIGENCE_EXPECTED_DEVELOPMENT_SHA256",
+        "",
+    )
+    monkeypatch.setattr(
+        exporter_module,
+        "TEACHING_INTELLIGENCE_EXPECTED_HOLDOUT_SHA256",
+        "",
+    )
+    with pytest.raises(ValueError, match="membership is not pinned"):
+        _assert_teaching_intelligence_memberships(
+            qualified,
+            development,
+            holdout,
+            metadata={"previous_overlap": 0},
+        )
