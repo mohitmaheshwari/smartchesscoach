@@ -206,7 +206,9 @@ async def first_aha(user: User = Depends(get_current_user)):
                 logger.warning(f"first-aha sync failed (using existing games): {sync_err}")
 
         games = await db.games.find(
-            {"user_id": user.user_id}, {"_id": 0, "game_id": 1, "date_played": 1, "result": 1}
+            {"user_id": user.user_id},
+            {"_id": 0, "game_id": 1, "date_played": 1, "result": 1,
+             "user_color": 1},
         ).to_list(None)
         if not games:
             return {"game_id": None, "reason": "no_games"}
@@ -214,7 +216,13 @@ async def first_aha(user: User = Depends(get_current_user)):
         def norm_date(g):
             return str(g.get("date_played") or "").replace(".", "-")[:10]
         games.sort(key=norm_date, reverse=True)
-        losses = [g for g in games if str(g.get("result", "")).lower() in ("loss", "lost", "0-1", "1-0-loss", "resigned", "timeout", "checkmated")]
+        # Read the result against the player's colour. This used to match
+        # "0-1" for everybody, so a Black player's WIN was chosen as the game
+        # to learn from and their real loss never surfaced -- 32 of 69
+        # production users (46.4%) opened their first session on a game they
+        # had won. services/game_outcome.py is the single owner of that pairing.
+        from services.game_outcome import user_lost
+        losses = [g for g in games if user_lost(g)]
         pick = (losses[0] if losses else games[0])
         game_id = pick["game_id"]
 
