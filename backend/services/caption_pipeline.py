@@ -259,6 +259,8 @@ class MoveInputs:
     opp_eval_after: Optional[int] = None
     opp_cp_loss: Optional[int] = None
     user_best_reply_san: Optional[str] = None
+    # True when this move is the one the previous card recommended.
+    move_was_our_recommendation: bool = False
     user_best_reply_san_is_forcing: bool = False
 
     # ─── Game metadata (for opening intro / curriculum walker) ───
@@ -417,6 +419,10 @@ class CrossMoveState:
     # Previous user eval_after — needed for opp cp_loss computation
     # on the NEXT opp move. Game-wide for batch; session-wide for PWC.
     prev_user_eval_after: Optional[int] = None
+
+    # What the PREVIOUS card told the player to play. Read on the next user
+    # move so a generic lesson cannot scold the very move we prescribed.
+    last_recommended_san: Optional[str] = None
     # Coach Conductor restraint: motif-thread keys already pulled this game
     # ("offense:skewer", "defense:fork"). A thread fires at most once per game.
     # Mutated in place by the door when a thread fires; the caller persists it.
@@ -439,6 +445,8 @@ class StateMutations:
     active_trap_step_cursor_after: int = 0
     active_trap_setup_completed_by_user_after: bool = False
     prev_user_eval_after: Optional[int] = None
+    # Carries the recommendation this card makes to the next move.
+    last_recommended_san_after: Optional[str] = None
     # Coach Conductor: motif-thread key(s) pulled this move ("offense:skewer").
     # Caller unions into the session's conductor_threads_pulled for restraint.
     conductor_threads_pulled_added: Set[str] = field(default_factory=set)
@@ -1631,6 +1639,21 @@ def inject_opp_side_narration_facts(
                 _rwhy = _rmw(_post_opp_board, _reply_mv)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
+                # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
+                # Measured 2026-09-13: of 29,087 opponent mistake/inaccuracy
+                # cards, 91% state a verdict and a move but never the reason.
+                # When the reply leaves a piece with nowhere safe to go, say so
+                # and give the geometry lesson that transfers.
+                from services.caption_facts import (
+                    _recommended_move_traps_piece as _rmtp,
+                )
+                _trap = _rmtp(_post_opp_board, _reply_mv)
+                if _trap:
+                    caption_facts["opp_reply_traps_piece"] = True
+                    caption_facts["opp_trapped_piece"] = _trap["piece"]
+                    caption_facts["opp_trapped_square"] = _trap["square"]
+                    caption_facts["opp_trapped_escape_count"] = _trap["escape_count"]
+                    caption_facts["opp_trapped_lesson"] = _trap["lesson"]
             except Exception:
                 pass
             if "x" in _user_reply:
@@ -4252,6 +4275,12 @@ def _salvage_verified_sentences(text: str, verify_fn) -> str:
     return joined
 
 
+def _normalize_san_for_match(san: Optional[str]) -> str:
+    """Compare SAN ignoring check/mate marks so b4 matches b4+."""
+    return str(san or "").replace("+", "").replace("#", "").replace(
+        "!", "").replace("?", "").strip()
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -5205,7 +5234,21 @@ def build_move_teaching_decision(
     if _DISTILLED_CAPTIONS_ENABLED:
         try:
             from services.distilled_caption_service import try_distilled_caption as _tdc
-            _dc = _tdc(inputs)
+            # Coherence: when this move is the one the previous card told them to
+            # play, the generic lessons must not scold it. Mohit 2026-09-13
+            # (game c7f3400f m11/m12): the coach said "Play b4", the player played
+            # b4 -- the engine's best move -- and the next card replied "that can be
+            # okay, but first get your other pieces out".
+            _tdc_inputs = inputs
+            if (
+                inputs.mover_is_user
+                and state.last_recommended_san
+                and _normalize_san_for_match(inputs.played_san)
+                == _normalize_san_for_match(state.last_recommended_san)
+            ):
+                import dataclasses as _dcs
+                _tdc_inputs = _dcs.replace(inputs, move_was_our_recommendation=True)
+            _dc = _tdc(_tdc_inputs)
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
                 caption_payload["rule_name"] = _dc[1]
@@ -5668,6 +5711,12 @@ def build_move_teaching_decision(
         active_trap_step_cursor_after=new_step_cursor,
         active_trap_setup_completed_by_user_after=new_setup_completed,
         prev_user_eval_after=(inputs.eval_after_cp if inputs.mover_is_user else state.prev_user_eval_after),
+        # Remember what we just told them to play. Set on an opponent card
+        # ("Play b4 ..."); only ever read by the very next move.
+        last_recommended_san_after=(
+            caption_facts.get("user_best_reply_san")
+            if not inputs.mover_is_user else None
+        ),
         conductor_threads_pulled_added=(
             {f"{_conductor_thread['side']}:{_conductor_thread['motif']}"}
             if _conductor_thread else set()

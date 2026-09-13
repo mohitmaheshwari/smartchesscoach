@@ -206,6 +206,7 @@
   ],
   "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
   "failure_mode_clauses_opp": [
+    {"when": {"opp_reply_traps_piece": true, "opp_trapped_piece": "present", "opp_trapped_square": "present", "opp_trapped_lesson": "present"}, "variant": "opp_failure_trapped_piece"},
     {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
     {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
     {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"},
@@ -222,6 +223,7 @@
     "failure_played_piece_attacked":      "Before every move, ask what your opponent's strongest reply does to your pieces",
     "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
     "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
+    "opp_failure_trapped_piece":          "their {opp_trapped_piece} on {opp_trapped_square} then has nowhere safe to go — {opp_trapped_lesson}",
     "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate",
     "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}",
     "opp_failure_traded_active":          "they swapped their {opp_traded_active_piece} on {opp_traded_active_square} — a piece that was doing nothing — and gave you time to build your attack",

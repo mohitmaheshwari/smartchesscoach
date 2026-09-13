@@ -416,6 +416,12 @@ def _good_caption(inp):
     except Exception:
         return None, None
     is_user = bool(getattr(inp, "mover_is_user", True))
+    # The previous card told them to play this move. A generic lesson that
+    # then hedges ("that can be okay, but first ...") contradicts our own
+    # advice one move earlier, so confirm the move instead.
+    if is_user and getattr(inp, "move_was_our_recommendation", False):
+        return ("good_followed_coach",
+                f"Good — {san} is exactly the move to play here.")
     TSET = GOOD_T if is_user else OPP_T
     prefix = "good_" if is_user else "opp_"
     pc = b.piece_at(mv.from_square)

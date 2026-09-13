@@ -8975,6 +8975,81 @@ def _recapture_costs_him(
         return None
 
 
+def _recommended_move_traps_piece(
+    board: chess.Board,
+    move: Optional[chess.Move],
+) -> Optional[Dict[str, Any]]:
+    """After the recommended reply, is an enemy piece left with no safe square?
+
+    This answers a different question from _recommended_move_why. That one says
+    why OUR move is good ("kicks their knight on a5"); this one says why THEIR
+    move was a mistake -- the piece it hits now has nowhere to go. 91% of
+    opponent-mistake captions never state that consequence, so the learner is
+    told a verdict and a move but never the reason.
+
+    Board-verified and right-or-silent: every legal destination is played out
+    and scored with SEE, so "no safe square" is only ever asserted when it is
+    true of this position. Returns None otherwise.
+    """
+    if move is None:
+        return None
+    try:
+        after = board.copy()
+        after.push(move)
+    except Exception:
+        return None
+
+    victim_color = after.turn                 # the side that must now respond
+    attacked = [
+        sq for sq in after.attacks(move.to_square)
+        if (p := after.piece_at(sq)) is not None
+        and p.color == victim_color
+        and p.piece_type not in (chess.PAWN, chess.KING)
+    ]
+    if not attacked:
+        return None
+
+    for sq in attacked:
+        piece = after.piece_at(sq)
+        dests = [m for m in after.legal_moves if m.from_square == sq]
+        if not dests:
+            # Zero moves is a pin or a wall -- a different lesson; stay silent.
+            continue
+        safe = False
+        for m in dests:
+            probe = after.copy()
+            probe.push(m)
+            if static_exchange_eval(probe, m.to_square, not victim_color) <= 50:
+                safe = True
+                break
+        if safe:
+            continue
+
+        name = PIECE_TYPE_NAMES.get(piece.piece_type, "piece")
+        square = chess.square_name(sq)
+        on_rim = chess.square_file(sq) in (0, 7) or chess.square_rank(sq) in (0, 7)
+        if piece.piece_type == chess.KNIGHT and on_rim:
+            lesson = (
+                "a knight on the edge has only four squares to jump to"
+            )
+        elif piece.piece_type == chess.KNIGHT:
+            lesson = (
+                "count a knight's squares before you move it"
+            )
+        else:
+            lesson = (
+                f"check where a {name} can run to before it is attacked"
+            )
+        return {
+            "piece": name,
+            "square": square,
+            "escape_count": len(dests),
+            "on_rim": on_rim,
+            "lesson": lesson,
+        }
+    return None
+
+
 def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
