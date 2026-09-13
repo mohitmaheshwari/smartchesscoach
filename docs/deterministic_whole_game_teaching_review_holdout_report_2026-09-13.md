@@ -1,7 +1,7 @@
 # Deterministic Whole-Game Teaching Review — Holdout Report
 
 **Date:** 2026-09-13
-**Status:** CHESS-TRUTH AND FACT-GENERALIZATION GATES PASS; RELEASE GATES REMAIN
+**Status:** CHESS-TRUTH PASSES; USEFUL-LESSON COVERAGE FAILS; RELEASE BLOCKED
 **Frozen implementation:** 76a411306b0066b4e585f6f23f2d0df8a7306e7e
 
 ## Outcome
@@ -54,24 +54,73 @@ adjudication was frozen.
 
 ## Stored-product baseline
 
-A post-adjudication aggregate read found all 42 holdout games. Their stored
-review contains 2,451 legacy caption or explanation rows, but zero typed
-teachable-event rows and zero whole-game plan chapters.
+A post-adjudication read found all 42 holdout games. Their stored review
+contains 2,451 legacy caption or explanation rows, zero typed teachable-event
+rows and zero whole-game plan chapters. A separately approved, read-only
+export then retrieved only the 90 same-ply legacy caption rows needed for the
+comparison. It contains no source game ID, user ID, account field, email,
+credential or URL and records zero production writes, engine runs and model
+calls.
 
-That does **not** mean all 2,451 old captions are useless. A semantic,
-same-ply comparison against the 90 frozen gold moments still requires a
-separately authorized export of those product captions. That export was not
-covered by the position-only production-data permission and was therefore not
-performed.
+The identity-free caption packet is SHA-256
+`f4a08f9131a55b014e07a6bc24ed36f9d7ba7c4a4ab5ec4e2eec4731be0f4ca5`.
+The complete 90-row adjudication and paired score is SHA-256
+`92c3566af399633de96f8fcf2cbe8a7de616079f8346acd2d7d30c7dd4bcd8ad`.
 
-The paired useful-lesson coverage gate remains open until that comparison is
-completed. It is not silently treated as a zero baseline.
+Every row was read after the chess gold had been frozen. A legacy caption
+counts only when its caption, explanation or visible principle teaches the
+same causal reply, opportunity or mate direction. Naming the same move with a
+different reason does not count.
+
+| Legacy disposition | Count |
+|---|---:|
+| Exact match | 55 |
+| Causal equivalent | 15 |
+| Same move, wrong reason | 13 |
+| Detector miss | 4 |
+| Verified fact not wired | 2 |
+| Missing concept candidate | 1 |
+| **Useful legacy coverage** | **70/90 (77.78%)** |
+
+Examples of uncovered legacy teaching include three captions that describe
+defending against mate when the player actually had a forced mate, an ordinary
+“check” caption that omits the legal rook capture of the checking piece, a
+caption that praises a pin while the bishop can simply be taken, a caption
+that praises a move which loses a knight on the next reply, and a fork caption
+that mentions only check rather than the two attacked targets.
+
+## Paired useful-lesson gate
+
+The pure deterministic fact layer matches 72/90 gold moments (80.0%). This is
+an **upper bound**, not a claim that 72 lessons reach the player: it includes
+the new immediate-reply material family while that family remains Shadow.
+The authorized player-visible subset cannot cover more of these gold moments
+than the fact layer supplying it.
+
+Four honest no-story games have no proved-lesson denominator. The locked
+paired test therefore uses the remaining 38 games, which are also 38 distinct
+players.
+
+| Paired measure | Result |
+|---|---:|
+| Legacy macro coverage | 78.509% |
+| Deterministic fact upper-bound macro coverage | 82.456% |
+| Upper-bound paired improvement | +3.947 percentage points |
+| Candidate upper bound better / tied / worse | 8 / 24 / 6 games |
+| Player-clustered 95% bootstrap interval | **−6.140 to +14.474 points** |
+| Locked requirement | lower bound above 0 |
+| **Gate** | **FAIL** |
+
+Because even the pointwise fact-layer upper bound fails the locked interval,
+the authorized visible product cannot pass this release gate. Authorization
+was not relaxed and Shadow evidence was not mislabeled as player-visible.
 
 ## Verification
 
 - Backend feature, evidence and newly landed upstream regressions: 325 passed.
 - Holdout identity wrapper: 2 passed.
 - Holdout coverage wrapper: 1 passed.
+- Frozen caption export and semantic paired-score tests: 2 passed.
 - Frontend feature suites: 11 passed.
 - Frontend production build: passed.
 - Full frontend run: 266 passed and 2 unchanged ActivationHub tests failed;
@@ -83,18 +132,21 @@ completed. It is not silently treated as a zero baseline.
 
 ## Release decision
 
-Do not enable this for the population yet. The following gates remain:
+Do not enable or deploy this experience as a release candidate. Its decisive
+precommitted useful-lesson gate failed. The implementation may remain isolated
+behind closed flags, but reconciliation, pilot enrollment, usefulness testing
+and recognition testing do not turn a failed coverage result into a pass.
 
-1. authorize and run the 90-row legacy-caption comparison, then calculate the
-   precommitted paired coverage interval;
-2. run the bounded production reconciliation dry-run for at most ten pilot
-   games and preserve its exact selection SHA;
-3. deploy with existing access gates closed, reconcile only the selected pilot
-   after backup and restore proof, and complete one authenticated player
-   journey;
-4. collect the precommitted blinded usefulness and recognition evidence;
-5. keep review:immediate_reply_material_loss Shadow until a separate
-   opportunity-level false-positive review promotes it.
+The next valid evidence cycle is:
+
+1. keep `review:immediate_reply_material_loss` Shadow until a separate
+   opportunity-level false-positive review promotes it;
+2. use a new development corpus—not these holdout examples—to improve shared
+   deterministic coverage and authorized delivery;
+3. freeze the revised implementation and evaluate it on a new untouched,
+   player-stratified holdout with a newly frozen current-review baseline;
+4. only after that paired interval passes, run the bounded reconciliation,
+   authenticated pilot journey, blinded usefulness and recognition gates.
 
 Holdout failures may block rollout. The holdout may not be used to tune
 detectors, captions, ranking, thresholds or per-game exceptions.
