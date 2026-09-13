@@ -106,7 +106,27 @@ def _pic_rollout_roles() -> set[str]:
 
 
 def _pic_fields_eligible(user_role: Optional[str]) -> bool:
-    return _pic_flag_enabled() and user_role in _pic_rollout_roles()
+    """An absent role means an ordinary player, not "no role".
+
+    123 of 126 production accounts store role: None -- only the 3 privileged
+    accounts carry a value. Every admin-EXCLUSION check in the codebase already
+    normalises that (capture_phase8_baselines, configure_phase8_pilot,
+    migrate_destination_safety_focus, report_phase8_release all use
+    `str(user.get("role") or "user")`), so absent-role accounts are correctly
+    treated as real users there.
+
+    This INCLUSION check was the outlier: a bare `in` meant None matched
+    nothing, so widening PERSONAL_IMPROVEMENT_CYCLE_ROLES to include "user"
+    changed nothing at all. Combined with the default of "admin,super_admin",
+    PIC evidence had been written for admins only -- which is why
+    games.pic_evidence existed on 1 game out of 14,905.
+    """
+    # Strip before defaulting, so a blank string counts as absent too. The
+    # exclusion checks use `str(role or "user")`, which would leave "   " as ""
+    # and match nothing; there that fails safe (excluded), here it would fail
+    # closed against the player.
+    normalised = str(user_role or "").strip().lower() or "user"
+    return _pic_flag_enabled() and normalised in _pic_rollout_roles()
 
 
 def _instruction_fields_eligible(user_role: Optional[str]) -> bool:
