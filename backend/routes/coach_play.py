@@ -17,7 +17,7 @@ Fully extracted from server.py (April 2026).
 
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List
 from datetime import datetime, timezone
 import logging
 import json
@@ -1678,6 +1678,67 @@ async def coach_chat_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _append_move_atomically(
+    db,
+    session_id: str,
+    *,
+    entry: Dict,
+    fen_before: str,
+    fen_after: str,
+    expected_history_length: int,
+    extra_set: Optional[Dict] = None,
+) -> bool:
+    """Append ONE move to a session, but only if nobody else moved meanwhile.
+
+    Every writer used to do read-modify-write on the whole array:
+
+        move_history = session_doc.get("move_history", [])   # read
+        move_history.append({...})                            # modify
+        {"$set": {"move_history": move_history}}              # write it ALL back
+
+    Five sites did that, and THREE of them append a coach move --
+    trigger_coach_move_endpoint, _apply_coach_move and
+    _process_move_and_respond -- so two writers could resolve the same turn
+    concurrently. The last writer won and silently discarded the other's move.
+
+    Observed in a real game on 2026-09-10: the API returned coach_move "e5" and
+    a FEN with the pawn on e5, while the stored history recorded "e6"; the board
+    then resynced to e6, so a black pawn appeared to move backwards. The same
+    game stored "dxe4" twice with byte-identical fen_before/fen_after. The HAR
+    showed paired requests landing in the same millisecond four separate times.
+
+    This replaces that with a compare-and-swap:
+
+      * $push appends atomically, so no concurrent write can be lost.
+      * current_fen must still equal the board this caller reasoned from.
+      * move_history.<N> must not exist, i.e. the array is still exactly N long.
+
+    Returns True if this caller's move landed. False means someone else already
+    resolved this turn -- the caller must NOT treat its move as played; re-read
+    the session and return the stored state instead.
+    """
+    condition: Dict[str, Any] = {
+        "session_id": session_id,
+        "current_fen": fen_before,
+        f"move_history.{int(expected_history_length)}": {"$exists": False},
+    }
+    update: Dict[str, Any] = {
+        "$push": {"move_history": entry},
+        "$set": {"current_fen": fen_after, **(extra_set or {})},
+    }
+    result = await db.coach_sessions.update_one(condition, update)
+    won = bool(result.modified_count)
+    if not won:
+        logger.info(
+            "[move-cas] %s lost the race appending %s at index %s (fen_before=%s)",
+            session_id[:8],
+            entry.get("move"),
+            expected_history_length,
+            fen_before[:24],
+        )
+    return won
+
+
 async def _insert_coach_message_once(db, doc: Dict) -> bool:
     """Insert one coach message, at most once per (session, type, move).
 
@@ -1941,7 +2002,10 @@ async def confirm_risky_move(
         move_history = session_doc.get("move_history", [])
         move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
 
-        move_history.append({
+        # Confirming a risky move is a second request for a move the client
+        # already tried, so it is the most likely path to double-append. Commit
+        # it as a compare-and-swap like every other writer.
+        _confirmed_entry = {
             "move": move,
             "uci": chess_move.uci(),
             "by": "player",
@@ -1949,17 +2013,23 @@ async def confirm_risky_move(
             "fen_after": fen_after_user,
             "time_spent": time_spent,
             "risk_acknowledged": risk_level,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {
-                "current_fen": fen_after_user,
-                "move_history": move_history,
-                "coach_move_pending": True,
-            }}
-        )
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if await _append_move_atomically(
+            db,
+            session_id,
+            entry=_confirmed_entry,
+            fen_before=current_fen,
+            fen_after=fen_after_user,
+            expected_history_length=len(move_history),
+            extra_set={"coach_move_pending": True},
+        ):
+            move_history.append(_confirmed_entry)
+        else:
+            logger.info(
+                "[move-cas] confirmed move %s already recorded for %s",
+                move, session_id[:8],
+            )
 
         # Check if game is over
         game_over = board.is_game_over()
@@ -2720,36 +2790,55 @@ async def trigger_coach_move_endpoint(
         board.push(chess_move)
         new_fen = board.fen()
         
-        # Update session
+        # Update session. Three paths can append a coach move for one turn, so
+        # this is a compare-and-swap, not a read-modify-write: if another path
+        # already resolved this turn we must return ITS move, never overwrite it
+        # with ours. See _append_move_atomically.
         move_history = session_doc.get("move_history", [])
         move_number = len(move_history) + 1
-        
-        move_history.append({
-            "move": coach_move_san,
-            "uci": coach_move_uci,
-            "by": "coach",
-            "move_number": move_number,
-            "fen_before": current_fen,
-            "fen_after": new_fen,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-        
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {
-                "$set": {
-                    "current_fen": new_fen,
-                    "move_history": move_history,
-                    "coach_move_pending": False,
-                    "last_coach_move": {
-                        "move": coach_move_san,
-                        "san": coach_move_san,
-                        "uci": coach_move_uci,
-                        "explanation": get_coach_move_explanation(coach_move_san, current_fen),
-                    }
-                }
-            }
+
+        landed = await _append_move_atomically(
+            db,
+            session_id,
+            entry={
+                "move": coach_move_san,
+                "uci": coach_move_uci,
+                "by": "coach",
+                "move_number": move_number,
+                "fen_before": current_fen,
+                "fen_after": new_fen,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            fen_before=current_fen,
+            fen_after=new_fen,
+            expected_history_length=len(move_history),
+            extra_set={
+                "coach_move_pending": False,
+                "last_coach_move": {
+                    "move": coach_move_san,
+                    "san": coach_move_san,
+                    "uci": coach_move_uci,
+                    "explanation": get_coach_move_explanation(coach_move_san, current_fen),
+                },
+            },
         )
+        if not landed:
+            # Another writer played this turn. Report the stored truth rather
+            # than the move we computed, so the client and the database can
+            # never disagree about what the coach played.
+            latest = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "current_fen": 1, "move_history": 1, "last_coach_move": 1},
+            ) or {}
+            stored = (latest.get("move_history") or [])
+            stored_last = stored[-1] if stored else {}
+            return {
+                "success": True,
+                "coach_move": stored_last.get("move"),
+                "current_fen": latest.get("current_fen"),
+                "is_player_turn": True,
+                "already_resolved": True,
+            }
 
         # SSE: notify any connected EventSource subscriber
         publish_session_event(session_id, {
@@ -7537,9 +7626,10 @@ async def make_coach_play_move(
             ):
                 result = "draw"
 
+        # current_fen and move_history are committed by the compare-and-swap
+        # below, not set here -- writing the whole array back is what allowed a
+        # concurrent coach move to be erased.
         update_fields = {
-            "current_fen": fen_after_user,
-            "move_history": move_history,
             # Coach only has a turn coming if the game continues.
             "coach_move_pending": not game_over,
             "action_revision": action_revision,
@@ -7569,10 +7659,29 @@ async def make_coach_play_move(
             except Exception as _sb_err:
                 logger.warning(f"final mission_scoreboard persist failed for {session_id}: {_sb_err}")
 
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": update_fields}
+        # Commit the player's move as a compare-and-swap too. A double-submitted
+        # move (or a retry) would otherwise append the same move twice -- the
+        # 2026-09-10 session stored "dxe4" twice with byte-identical
+        # fen_before/fen_after. Losing the swap means the move is already
+        # recorded, which is success from the player's point of view.
+        _player_entry = move_history[-1]
+        _committed = await _append_move_atomically(
+            db,
+            session_id,
+            entry=_player_entry,
+            fen_before=fen_before,
+            fen_after=fen_after_user,
+            expected_history_length=len(move_history) - 1,
+            extra_set={
+                k: v for k, v in update_fields.items()
+                if k not in {"current_fen", "move_history"}
+            },
         )
+        if not _committed:
+            logger.info(
+                "[move-cas] player move %s already recorded for %s; not duplicating",
+                move, session_id[:8],
+            )
 
         # If the user's own move ends the game, no coach turn — push now.
         if game_over:
@@ -8005,7 +8114,7 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         board.push(chess_move)
         fen_after = board.fen()
 
-        move_history.append({
+        entry = {
             "move": coach_move_san,
             "san": coach_move_san,
             "uci": chess_move.uci(),
@@ -8013,11 +8122,9 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             "fen_before": fen,
             "fen_after": fen_after,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        }
 
         update = {
-            "current_fen": fen_after,
-            "move_history": move_history,
             "coach_move_pending": False,
             "last_coach_move": {
                 "move": coach_move_san,
@@ -8036,10 +8143,26 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                 update["status"] = "completed"
                 update["result"] = "draw"
 
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": update}
+        # Compare-and-swap, not read-modify-write: trigger_coach_move_endpoint
+        # and _process_move_and_respond can be resolving the same turn right now.
+        landed = await _append_move_atomically(
+            db,
+            session_id,
+            entry=entry,
+            fen_before=fen,
+            fen_after=fen_after,
+            expected_history_length=len(move_history),
+            extra_set=update,
         )
+        if not landed:
+            logger.info(
+                "[COACH MOVE] %s not applied to %s; another path already "
+                "resolved this turn",
+                coach_move_san, session_id[:8],
+            )
+            return False
+        # Keep the caller's local list consistent with what was stored.
+        move_history.append(entry)
         logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
 
         # ── PHASE 3: PRE-MOVE NAG (2026-07-08, Mohit's Phase 2 follow-up) ──
@@ -8445,6 +8568,9 @@ async def _process_move_and_respond(
 
         # Check if the move_history entry already has eval (from evaluate-pending's fast path)
         move_history = session_doc.get("move_history", [])
+        # Index of the entry this block enriches, so the write below can target
+        # that element's fields instead of replacing the whole array.
+        _eval_index = -1
         for i in range(len(move_history) - 1, -1, -1):
             if move_history[i].get("move") == user_move and move_history[i].get("by") == "player":
                 # If evaluate-pending already stored evals, use them
@@ -8486,6 +8612,7 @@ async def _process_move_and_respond(
                     move_history[i]["is_critical"] = position_is_critical(fen_before)
                 except Exception:
                     pass
+                _eval_index = i
                 break
 
         # Store evaluations list for post-game analysis
@@ -8500,12 +8627,27 @@ async def _process_move_and_respond(
             "best_move": analysis.get("best_move")
         })
 
+        # This block ENRICHES one existing entry (eval_before/eval_after/
+        # evaluation/is_critical) -- it does not append. Writing the whole array
+        # back was the dangerous part: `move_history` came from a session_doc
+        # read earlier, so a coach move that landed in between was erased by
+        # this write. That is the likeliest mechanism behind the 2026-09-10
+        # report where the API returned coach_move "e5" and the stored history
+        # held "e6". Update only the fields of the one element instead, so a
+        # concurrent append cannot be clobbered.
+        _enrich: Dict[str, Any] = {"evaluations": evaluations}
+        if 0 <= _eval_index < len(move_history):
+            for _field in (
+                "eval_before", "eval_after", "is_best_move", "best_move",
+                "evaluation", "is_critical",
+            ):
+                if _field in move_history[_eval_index]:
+                    _enrich[f"move_history.{_eval_index}.{_field}"] = (
+                        move_history[_eval_index][_field]
+                    )
         await db.coach_sessions.update_one(
             {"session_id": session_id},
-            {"$set": {
-                "move_history": move_history,
-                "evaluations": evaluations
-            }}
+            {"$set": _enrich},
         )
 
         # Generate trigger from cached analysis (no extra Stockfish call)
@@ -10122,8 +10264,6 @@ async def _process_move_and_respond(
                     
                     # Update session
                     update_fields = {
-                        "current_fen": fen_after_coach,
-                        "move_history": move_history,
                         "coach_move_pending": False,
                         "last_coach_move": {
                             "move": coach_move,
@@ -10140,10 +10280,28 @@ async def _process_move_and_respond(
                     if v2_pending_opportunity:
                         update_fields["pending_opportunity"] = v2_pending_opportunity
 
-                    await db.coach_sessions.update_one(
-                        {"session_id": session_id},
-                        {"$set": update_fields}
-                    )
+                    # The revision guard above narrows the window but does not
+                    # close it: it is a separate read from this write. Commit the
+                    # coach move as a compare-and-swap so a concurrent
+                    # trigger_coach_move_endpoint or _apply_coach_move cannot be
+                    # overwritten. `move_history` already carries the appended
+                    # entry, so swap on the length BEFORE it.
+                    _coach_entry = move_history[-1]
+                    if not await _append_move_atomically(
+                        db,
+                        session_id,
+                        entry=_coach_entry,
+                        fen_before=fen_after_user,
+                        fen_after=fen_after_coach,
+                        expected_history_length=len(move_history) - 1,
+                        extra_set=update_fields,
+                    ):
+                        logger.info(
+                            "Coach move %s for %s not stored; another path "
+                            "already resolved this turn",
+                            coach_move, session_id[:8],
+                        )
+                        return
 
                     # SSE: push to the frontend EventSource subscriber
                     publish_session_event(session_id, {
