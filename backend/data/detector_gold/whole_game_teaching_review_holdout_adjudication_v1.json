@@ -1,0 +1,58 @@
+{
+  "schema_version": "whole_game_teaching_review_holdout_adjudication.v1",
+  "status": "frozen",
+  "evaluation_kind": "one_time_unseen_holdout",
+  "reviewer": "Codex offline chess reasoning",
+  "review_completed_on": "2026-09-13",
+  "source": {
+    "packet_path": "backend/data/detector_gold/whole_game_teaching_review_holdout_packet_v1.json",
+    "packet_sha256": "ee694af72dc95a7c0ea6807023c0fc1e98e37cfe8726eb452d941bddef0695f9",
+    "membership_sha256": "87daa7089e35060cfaeb0164c9a0e741ad799634b74b94878f2f11dc5250020b",
+    "worksheet_path": "backend/data/detector_gold/whole_game_teaching_review_holdout_worksheet_v1.json",
+    "worksheet_sha256": "adefb7104e7c48639f1f7c50064a3a3d14c71c4c2e5c11af6f09dc7927ca6a17",
+    "frozen_implementation_source_commit": "76a411306b0066b4e585f6f23f2d0df8a7306e7e"
+  },
+  "review_contract": {
+    "games_expected": 42,
+    "games_reviewed": 42,
+    "duplicate_games": 0,
+    "omitted_games": 0,
+    "proposed_moments_reviewed": 90,
+    "games_with_board_proved_story": 38,
+    "games_with_no_provable_story": 4,
+    "source_identities_visible": 0,
+    "chessguru_captions_visible": 0,
+    "chessguru_selected_events_visible": 0,
+    "detector_labels_visible": 0,
+    "new_engine_runs": 0,
+    "model_calls": 0,
+    "production_writes": 0
+  },
+  "accepted_gold": {
+    "proved_moments": 90,
+    "critical_false_claims": 0,
+    "cause_family": {
+      "allowed_forced_mate": 8,
+      "fork_geometry": 1,
+      "immediate_material_loss": 66,
+      "missed_forced_mate": 5,
+      "safe_missed_capture": 10
+    }
+  },
+  "manual_checks": {
+    "all_legal_settlements_replayed": true,
+    "actor_and_side_direction_checked": true,
+    "mate_direction_checked": true,
+    "immediate_capture_piece_and_square_checked": true,
+    "safe_capture_immediate_recapture_checked": true,
+    "fork_targets_checked": true,
+    "all_no_story_games_checked": true
+  },
+  "decision": {
+    "chess_truth_gate": "pass",
+    "critical_false_claim_gate": "pass",
+    "coverage_not_yet_joined": true,
+    "holdout_may_tune_product_logic": false,
+    "note": "This freeze accepts only the literal board-proved causes. Engine preference without a board cause remains unsupported."
+  }
+}

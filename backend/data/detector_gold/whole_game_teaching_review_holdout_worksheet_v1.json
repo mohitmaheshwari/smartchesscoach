@@ -1,0 +1,2714 @@
+{
+  "evaluation_kind": "one_time_unseen_holdout",
+  "games": [
+    {
+      "anonymous_game_key": "15c6d80aa0c21248e506b2350e7f263c96413f490127b9e8c3b5e88bd3ad445e",
+      "anonymous_player_key": "ea426b045055f777c5895488eb96f710e6d5446bc17683193102885db3a92d91",
+      "candidate_decisions_considered": 3,
+      "central_story": {
+        "cause_family": "allowed_forced_mate",
+        "phase": "opening",
+        "source_ply": 20,
+        "statement": "Rxg5 allowed the stored line to end in checkmate."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After g5, Bxg5 took the pawn on g5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 193,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "g5",
+            "Bxg5",
+            "c5",
+            "Nc3",
+            "Bg7"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "g5",
+          "ply": 2,
+          "proposed_alternative": "d5",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxd4, Nxd4 took the knight on d4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 261,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxd4",
+            "Nxd4",
+            "d5",
+            "e6",
+            "Nxf2"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxd4",
+          "ply": 12,
+          "proposed_alternative": "d6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Rxg5 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9332,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxg5",
+            "Qh8+",
+            "Rg8",
+            "Qxg8#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "opening",
+          "played_decision": "Rxg5",
+          "ply": 20,
+          "proposed_alternative": "d6",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "8d4049b5bc38c2b4b2893e2cf9aa5712714935749ff23b88422f514ff90dc34f",
+      "anonymous_player_key": "8a8b5d4c2369a56e68dd899bcf79f1b1088e7e578a158763a88ee23e6612f384",
+      "candidate_decisions_considered": 1,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "opening",
+        "source_ply": 17,
+        "statement": "After Qa4, Bxf3 took the knight on f3."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qa4, Bxf3 took the knight on f3.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 358,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qa4",
+            "Bxf3",
+            "Rg1",
+            "Qd7",
+            "Rc1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Qa4",
+          "ply": 17,
+          "proposed_alternative": "Be3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "3bbb6c0f290749a4b364766a63e61fac9495014ce12d40ef3e5d378e3b7a1560",
+      "anonymous_player_key": "8d55cca1df7a684c96e7a813c2bf20270e98e2e0b3b9592ce70bdb4a14cf46a7",
+      "candidate_decisions_considered": 22,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 37,
+        "statement": "After Rff1, Bxd4+ took the knight on d4."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be6+, Bxe6 took the bishop on e6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 634,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be6+",
+            "Bxe6",
+            "Qxd6",
+            "Bxd6",
+            "Bxd6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Be6+",
+          "ply": 27,
+          "proposed_alternative": "Qxd6",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rff1, Bxd4+ took the knight on d4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 908,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rff1",
+            "Bxd4+",
+            "Kh1",
+            "Bxe6",
+            "h4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rff1",
+          "ply": 37,
+          "proposed_alternative": "Raf1",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Bxg4 could take the bishop on g4 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 643,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxg4",
+            "Rde8",
+            "Ref3",
+            "Rhg8",
+            "h3"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "endgame",
+          "played_decision": "Rf2",
+          "ply": 47,
+          "proposed_alternative": "Bxg4",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "5735933252c77676e6c02d95e32ed7c7db7e4a884ec8dc2d944d6270cd1b6c9c",
+      "anonymous_player_key": "45879883f9e5d0543567813b3e2d027a9c6a1dc4d0f44e7a03277038581db651",
+      "candidate_decisions_considered": 16,
+      "central_story": {
+        "cause_family": "allowed_forced_mate",
+        "phase": "middlegame",
+        "source_ply": 44,
+        "statement": "Bxg3 allowed the stored line to end in checkmate."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After f5, Nxe5 took the pawn on e5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 138,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "f5",
+            "Nxe5",
+            "Qf6",
+            "Nc4",
+            "fxe4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "f5",
+          "ply": 4,
+          "proposed_alternative": "Nc6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be7, dxe4 took the pawn on e4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 275,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be7",
+            "dxe4",
+            "Bxe4",
+            "Nc3",
+            "Nc6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Be7",
+          "ply": 18,
+          "proposed_alternative": "c5",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Bxg3 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9500,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxg3",
+            "Qd8#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "middlegame",
+          "played_decision": "Bxg3",
+          "ply": 44,
+          "proposed_alternative": "Nc6",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 2
+    },
+    {
+      "anonymous_game_key": "2e492fe36e64390cb459238ba1d830f9510a8b61bed22c672567726d11f3d7a3",
+      "anonymous_player_key": "25779b6bf1b79e9131ccc9f6f001ef359e12a2e6da7c0996e45633f41f29d165",
+      "candidate_decisions_considered": 4,
+      "central_story": {
+        "cause_family": "safe_missed_capture",
+        "phase": "middlegame",
+        "source_ply": 45,
+        "statement": "Rxb2 could take the bishop on b2 without an immediate recapture."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Rxb2 could take the bishop on b2 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 8826,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxb2",
+            "Rc8",
+            "Re1",
+            "Kc7",
+            "Rb7+"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "middlegame",
+          "played_decision": "Bb5",
+          "ply": 45,
+          "proposed_alternative": "Rxb2",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "0c3a26902f90ec257c3d5b4392d501dbe864e6db3338dfbfb14ee59368393c78",
+      "anonymous_player_key": "ace9d8754ee778765ea9ef1c91b3dce0872de4f0b711698d19cb183f5f15bff2",
+      "candidate_decisions_considered": 8,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 32,
+        "statement": "After Kh7, Rxg6 took the pawn on g6."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Kh7, Rxg6 took the pawn on g6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 9498,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kh7",
+            "Rxg6",
+            "Bg5",
+            "Rxg5+",
+            "f5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Kh7",
+          "ply": 32,
+          "proposed_alternative": "Bg5",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After h5, Qxh5+ took the pawn on h5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 9356,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "h5",
+            "Qxh5+",
+            "Bh6",
+            "Qxh6+",
+            "Kg8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "h5",
+          "ply": 38,
+          "proposed_alternative": "Bh4+",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "5c6e9669daaa583e0f3fe768f06eb4b3a8462825c6938d574e2a13c08ee0c736",
+      "anonymous_player_key": "7142bccfe0936a0d4cbcc803c928bb4239608d4e8f3cb133e321da8926f6dee7",
+      "candidate_decisions_considered": 27,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 47,
+        "statement": "After Rxa5, Bxc6 took the knight on c6."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rxa5, Bxc6 took the knight on c6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 542,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxa5",
+            "Bxc6",
+            "Rxa8",
+            "Bxa8",
+            "c4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rxa5",
+          "ply": 47,
+          "proposed_alternative": "Nd4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After e6, Rxa2+ took the pawn on a2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 96,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "e6",
+            "Rxa2+",
+            "Kb4",
+            "Re2",
+            "c5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "e6",
+          "ply": 75,
+          "proposed_alternative": "b4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qxf4, gxf4+ took the queen on f4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 237,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxf4",
+            "gxf4+",
+            "Kxf4",
+            "h2",
+            "Ke5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Qxf4",
+          "ply": 109,
+          "proposed_alternative": "Kf2",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 21
+    },
+    {
+      "anonymous_game_key": "3c3ee087973f68ec21b9406afd224b902179cb8a61603232484d117f26a604b4",
+      "anonymous_player_key": "efc1922451d48212212f3974adde03f2f127116ca7c95adb881c5be9867a0ab5",
+      "candidate_decisions_considered": 3,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 59,
+        "statement": "After e5, Nxd5 took the pawn on d5."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Nxd5 could take the pawn on d5 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 129,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxd5",
+            "c5",
+            "e3",
+            "O-O",
+            "Be2"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "opening",
+          "played_decision": "e3",
+          "ply": 17,
+          "proposed_alternative": "Nxd5",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After e5, Nxd5 took the pawn on d5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 132,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "e5",
+            "Nxd5",
+            "exd6",
+            "Nxc3",
+            "bxc3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "e5",
+          "ply": 59,
+          "proposed_alternative": "dxc6",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "31d41ab2ea21af0913f6dcd5fc77cb418eadc069a4ac419466bb9cc618c084ca",
+      "anonymous_player_key": "821ed6fa4f52b4059d31b53152bbaac75e0124464de6b214de53c74d924d0106",
+      "candidate_decisions_considered": 0,
+      "central_story": null,
+      "moments": [],
+      "no_provable_central_story": true,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "92709c8afefd190b07d1362c35b12ebddf0f6077fc6e8ba5791ddc22f26273f6",
+      "anonymous_player_key": "e72833650e69241f6b249f4110982db2b0469b4691570480843f786cf39f4a2e",
+      "candidate_decisions_considered": 20,
+      "central_story": {
+        "cause_family": "missed_forced_mate",
+        "phase": "endgame",
+        "source_ply": 68,
+        "statement": "Black had a forced checkmate beginning with Rg1+."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "Kg3 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9626,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kg3",
+            "Rg1+",
+            "Kxh4",
+            "g5#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "endgame",
+          "played_decision": "Kg3",
+          "ply": 65,
+          "proposed_alternative": "f4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Black had a forced checkmate beginning with Rg1+.",
+          "cause_family": "missed_forced_mate",
+          "cp_loss": 9731,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rg1+",
+            "Kh2",
+            "Nf3#"
+          ],
+          "memory_cue": "When the king is exposed, calculate checks before anything else.",
+          "phase": "endgame",
+          "played_decision": "Bc4",
+          "ply": 68,
+          "proposed_alternative": "Rg1+",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Black had a forced checkmate beginning with Nf3.",
+          "cause_family": "missed_forced_mate",
+          "cp_loss": 9456,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nf3",
+            "Re2",
+            "Rxe2",
+            "Ra8",
+            "Rh2#"
+          ],
+          "memory_cue": "When the king is exposed, calculate checks before anything else.",
+          "phase": "endgame",
+          "played_decision": "Rxc2",
+          "ply": 80,
+          "proposed_alternative": "Nf3",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 4
+    },
+    {
+      "anonymous_game_key": "ae71efe0298c8947724601d7838f9a699c35bae548a2e611e5c8f90bad33c335",
+      "anonymous_player_key": "239f78d92bfd85591a0a38fcda127f7a2eb8b4f30ead9dcf6ff2596e6c06161d",
+      "candidate_decisions_considered": 8,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 44,
+        "statement": "After Be6, Qxb6 took the queen on b6."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nd5, cxd5 took the knight on d5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 126,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nd5",
+            "cxd5",
+            "exd5",
+            "Na3",
+            "Bf5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Nd5",
+          "ply": 40,
+          "proposed_alternative": "a4",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be6, Qxb6 took the queen on b6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 368,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be6",
+            "Qxb6",
+            "Rfc8",
+            "Na3",
+            "c4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Be6",
+          "ply": 44,
+          "proposed_alternative": "Qc7",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 6
+    },
+    {
+      "anonymous_game_key": "50750664ca85335327ece779c45adff36efb703d537cac3c47b65b96666c95cd",
+      "anonymous_player_key": "17bd62b075cb0b1115b077da81b80406cc44989a4fe058036a2e6df28bb6542f",
+      "candidate_decisions_considered": 15,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 46,
+        "statement": "After f5, fxg5 took the pawn on g5."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qc8, Nfxd5 took the pawn on d5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 391,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qc8",
+            "Nfxd5",
+            "Nxd5",
+            "Nxd5",
+            "Qf5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Qc8",
+          "ply": 24,
+          "proposed_alternative": "Ng4",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After f5, fxg5 took the pawn on g5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 571,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "f5",
+            "fxg5",
+            "Bxg2",
+            "Qxg2",
+            "hxg5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "f5",
+          "ply": 46,
+          "proposed_alternative": "exf3",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qg4+, Qxg4 took the queen on g4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 88,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qg4+",
+            "Qxg4",
+            "hxg4",
+            "Kg2",
+            "Rh7"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Qg4+",
+          "ply": 70,
+          "proposed_alternative": "Qf5",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 9
+    },
+    {
+      "anonymous_game_key": "fb2522d6444433406589a605cd33282df5741f8904015e9ba1b3d3d99e745997",
+      "anonymous_player_key": "a338f8093618b8ae473c954c0e750ac6698998cac0127e0ac734f6530f06bcce",
+      "candidate_decisions_considered": 2,
+      "central_story": {
+        "cause_family": "missed_forced_mate",
+        "phase": "middlegame",
+        "source_ply": 33,
+        "statement": "White had a forced checkmate beginning with Rxb8#."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "White had a forced checkmate beginning with Rxb8#.",
+          "cause_family": "missed_forced_mate",
+          "cp_loss": 9426,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxb8#"
+          ],
+          "memory_cue": "When the king is exposed, calculate checks before anything else.",
+          "phase": "middlegame",
+          "played_decision": "Qa6+",
+          "ply": 33,
+          "proposed_alternative": "Rxb8#",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qc4+, Kxb8 took the bishop on b8.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 564,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qc4+",
+            "Kxb8",
+            "Rxb7+",
+            "Kxb7",
+            "Nf3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Qc4+",
+          "ply": 41,
+          "proposed_alternative": "Qxb7+",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "c2207ffe78ff530485ee82b1a524ebcde1b79abd3249e8591551d3e70268cc0e",
+      "anonymous_player_key": "cd50081fda16fc89aa8a060ac6c24f516eddc2897a85182e00efd64329dfd0e9",
+      "candidate_decisions_considered": 9,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 62,
+        "statement": "After Rf1+, Rxf1 took the rook on f1."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Qg3, Nxf2+ took the pawn on f2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 311,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qg3",
+            "Nxf2+",
+            "Kg1",
+            "Nh3+",
+            "Kg2"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Qg3",
+          "ply": 57,
+          "proposed_alternative": "Rae1",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rf1+, Rxf1 took the rook on f1.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 9288,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rf1+",
+            "Rxf1",
+            "Rxf1+",
+            "Kg2",
+            "Rf8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rf1+",
+          "ply": 62,
+          "proposed_alternative": "Qd2",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 4
+    },
+    {
+      "anonymous_game_key": "3345e0ead087b90cd5572544b5ef6be2acd7fd52290b08963378751936d2762f",
+      "anonymous_player_key": "c74278454f680d43018270f8b9d6a3d9fc6326d76a7c904bbebb63241855528b",
+      "candidate_decisions_considered": 15,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 73,
+        "statement": "After Re3+, Kxf2 took the pawn on f2."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Nxe4, Nxc6 took the bishop on c6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 507,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxe4",
+            "Nxc6",
+            "Rd6",
+            "Nxe4",
+            "Rxc6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxe4",
+          "ply": 18,
+          "proposed_alternative": "Bxe4",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Rc4, Rxf6+ took the pawn on f6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 417,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rc4",
+            "Rxf6+",
+            "Ke5",
+            "Rxf3",
+            "Rhc8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rc4",
+          "ply": 62,
+          "proposed_alternative": "Ke6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Re3+, Kxf2 took the pawn on f2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 376,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Re3+",
+            "Kxf2",
+            "Rb3+",
+            "Rxb6",
+            "Rxb6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Re3+",
+          "ply": 73,
+          "proposed_alternative": "Rb3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 5
+    },
+    {
+      "anonymous_game_key": "e25d3a266aad000304bd9cf3a812657f5e46e9fcdd6d8a7e667873bf49129c81",
+      "anonymous_player_key": "b048eeb2c8e99b24685418b14d9cfb15e8f168a7193ae4a15568110329beb034",
+      "candidate_decisions_considered": 4,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "opening",
+        "source_ply": 12,
+        "statement": "After Ke7, bxa7 took the pawn on a7."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Ke7, bxa7 took the pawn on a7.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 230,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ke7",
+            "bxa7",
+            "Nb4",
+            "a3",
+            "Nc6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Ke7",
+          "ply": 12,
+          "proposed_alternative": "axb6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Ne4, Bxa6 took the knight on a6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 218,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ne4",
+            "Bxa6",
+            "Nd6",
+            "Bxc8",
+            "Nxc8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Ne4",
+          "ply": 24,
+          "proposed_alternative": "Nc7",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Bh6, Qxh6 took the bishop on h6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 156,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bh6",
+            "Qxh6",
+            "Qf8",
+            "Qxf8+",
+            "Kxf8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Bh6",
+          "ply": 38,
+          "proposed_alternative": "f5",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "955ab584ed073551caf90c0f2989eee747d96927be4e23cf3fe7790c507f49c0",
+      "anonymous_player_key": "1aaba80ae1dd5c48098ead4742d7a6f3e9bb5e950a5ad9642034cf78ec00c0ba",
+      "candidate_decisions_considered": 5,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "opening",
+        "source_ply": 13,
+        "statement": "After Nxd4, Bxd4 took the knight on d4."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxd4, Bxd4 took the knight on d4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 353,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxd4",
+            "Bxd4",
+            "h4",
+            "g4",
+            "c3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxd4",
+          "ply": 13,
+          "proposed_alternative": "c3",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Nd3+, Bxd3 took the knight on d3.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 307,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nd3+",
+            "Bxd3",
+            "exd3",
+            "O-O",
+            "Bf5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nd3+",
+          "ply": 26,
+          "proposed_alternative": "Bg4",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "c75b60f7c9213a76d667c02e18afdc71e283d3b5761dc23d07504d496a9da195",
+      "anonymous_player_key": "0762d889e4ad60cdd2de931d01603170161febc09ebcd14f506ba1dcb8140ddf",
+      "candidate_decisions_considered": 14,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 64,
+        "statement": "After e2, Nxe7+ took the rook on e7."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Re7, Nxf4 took the pawn on f4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 352,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Re7",
+            "Nxf4",
+            "Bg8",
+            "b3",
+            "e3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Re7",
+          "ply": 60,
+          "proposed_alternative": "Rf7",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After e2, Nxe7+ took the rook on e7.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 557,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "e2",
+            "Nxe7+",
+            "Kd7",
+            "Nd5",
+            "Bd3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "e2",
+          "ply": 64,
+          "proposed_alternative": "Rf7",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Kb6, Nxf1 took the rook on f1.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 503,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kb6",
+            "Nxf1",
+            "Bd5",
+            "Kc3",
+            "Bf3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Kb6",
+          "ply": 102,
+          "proposed_alternative": "Rf7",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1400-1500",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "86c59a5cbe37c0cf79983bc65ef7ebb0ec9b708bdaf00157daa73d20c1966a9f",
+      "anonymous_player_key": "3d106c19c97906b002ac78a2592a4535a23386780e182d263880f1577e6a34f7",
+      "candidate_decisions_considered": 12,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 109,
+        "statement": "After Qxg5+, Kxg5 took the queen on g5."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Ka6, Kxg4 took the pawn on g4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 458,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ka6",
+            "Kxg4",
+            "Kxa7",
+            "h5",
+            "b5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Ka6",
+          "ply": 83,
+          "proposed_alternative": "Kc4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qxg5+, Kxg5 took the queen on g5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 9203,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxg5+",
+            "Kxg5",
+            "a5",
+            "Kf4",
+            "a6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Qxg5+",
+          "ply": 109,
+          "proposed_alternative": "a5",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 10
+    },
+    {
+      "anonymous_game_key": "220fa87c0f85cfff336465e3c25040e91a0742a6dfdcabc223d22befe58fb9be",
+      "anonymous_player_key": "91cc51da16a5c8442e120f610625c14199261c936811083f3bb5d379d6d6c91b",
+      "candidate_decisions_considered": 0,
+      "central_story": null,
+      "moments": [],
+      "no_provable_central_story": true,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "add76725f266e91f280bb3dfa5e3e446805ce817023efbd0498548752e795839",
+      "anonymous_player_key": "5065a2ba93572313cd72ea1c9fe65678c30b7acdbddde7fce65d1ae8f1703890",
+      "candidate_decisions_considered": 6,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "opening",
+        "source_ply": 23,
+        "statement": "After Be2, Bxc3+ took the pawn on c3."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Bg5, Qxg5 took the bishop on g5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 499,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bg5",
+            "Qxg5",
+            "Nf3",
+            "Qe7",
+            "exd5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Bg5",
+          "ply": 5,
+          "proposed_alternative": "exd5",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be2, Bxc3+ took the pawn on c3.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 9034,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be2",
+            "Bxc3+",
+            "Kf1",
+            "Qc1+",
+            "Bd1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Be2",
+          "ply": 23,
+          "proposed_alternative": "Ne2",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Kg3 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 8875,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kg3",
+            "Be5+",
+            "Kh4",
+            "g5#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "middlegame",
+          "played_decision": "Kg3",
+          "ply": 31,
+          "proposed_alternative": "g4",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "1018555d46ea0bde193430c14f106e608512dcdfe186d4036c16c72b9315dadc",
+      "anonymous_player_key": "f212c10a6644269c9a813b1592cc7271a718132a43bca69301ad2d88b10a7ba0",
+      "candidate_decisions_considered": 10,
+      "central_story": {
+        "cause_family": "safe_missed_capture",
+        "phase": "opening",
+        "source_ply": 28,
+        "statement": "Bxb2 could take the pawn on b2 without an immediate recapture."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Bxb2 could take the pawn on b2 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 178,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxb2",
+            "Rb1",
+            "Qf6",
+            "Bg3",
+            "Bc3"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "opening",
+          "played_decision": "Qe7",
+          "ply": 28,
+          "proposed_alternative": "Bxb2",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After f4, hxg3 took the bishop on g3.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 295,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "f4",
+            "hxg3",
+            "hxg3",
+            "e4",
+            "Rad1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "f4",
+          "ply": 39,
+          "proposed_alternative": "Bxe5",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "Kf1 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 8936,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kf1",
+            "Rh1#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "endgame",
+          "played_decision": "Kf1",
+          "ply": 57,
+          "proposed_alternative": "Qg3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 4
+    },
+    {
+      "anonymous_game_key": "1d421b33547fb7a36e00189de1e6cceda83ec87c2b12dea4d9c27fe321930dbb",
+      "anonymous_player_key": "dcb238b211d26e024c494e9760f635eea394b1fed9a9dbdcc644296893cd94d9",
+      "candidate_decisions_considered": 2,
+      "central_story": {
+        "cause_family": "allowed_forced_mate",
+        "phase": "opening",
+        "source_ply": 13,
+        "statement": "O-O allowed the stored line to end in checkmate."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qf3, Qxe5 took the knight on e5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 518,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qf3",
+            "Qxe5",
+            "Nc3",
+            "Bb4",
+            "Qg3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Qf3",
+          "ply": 7,
+          "proposed_alternative": "d4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "O-O allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9612,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "O-O",
+            "Qxh2#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "opening",
+          "played_decision": "O-O",
+          "ply": 13,
+          "proposed_alternative": "b3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "0ee4ea13c0f0aa45abda696fd49016f0dcfb90960f5f19593ab96ef035239775",
+      "anonymous_player_key": "211ce8117ae2ad0f60c06e403fe59283f08cde0d6edda73449260bee3793181b",
+      "candidate_decisions_considered": 6,
+      "central_story": {
+        "cause_family": "missed_forced_mate",
+        "phase": "endgame",
+        "source_ply": 62,
+        "statement": "Black had a forced checkmate beginning with Rb6+."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Black had a forced checkmate beginning with Rb6+.",
+          "cause_family": "missed_forced_mate",
+          "cp_loss": 9274,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rb6+",
+            "Ka7",
+            "Rxa5#"
+          ],
+          "memory_cue": "When the king is exposed, calculate checks before anything else.",
+          "phase": "endgame",
+          "played_decision": "Rba2",
+          "ply": 62,
+          "proposed_alternative": "Rb6+",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 5
+    },
+    {
+      "anonymous_game_key": "0093cf71a378f8f4a8aae087825e9a8f4e5ef2d6b0bf6cf5dcc1dae0ba63db53",
+      "anonymous_player_key": "5d5810d92d6ae5f06c2fc4133a1f29b4ee8c820978d084478dc58147815aceba",
+      "candidate_decisions_considered": 11,
+      "central_story": {
+        "cause_family": "fork_geometry",
+        "phase": "middlegame",
+        "source_ply": 41,
+        "statement": "Qb5+ attacked the knight on a6 and the king on b7 together."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Ng5, Qxg5 took the knight on g5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 420,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ng5",
+            "Qxg5",
+            "e4",
+            "Qg4",
+            "f3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Ng5",
+          "ply": 11,
+          "proposed_alternative": "e4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Nh6, Bxb8 took the rook on b8.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 624,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nh6",
+            "Bxb8",
+            "Bc5",
+            "f3",
+            "Ng4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nh6",
+          "ply": 28,
+          "proposed_alternative": "Ra8",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Qb5+ attacked the knight on a6 and the king on b7 together.",
+          "cause_family": "fork_geometry",
+          "cp_loss": 749,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qb5+",
+            "Ka7",
+            "Qe2",
+            "Qh4",
+            "h3"
+          ],
+          "memory_cue": "Before committing, look for one move that attacks two targets.",
+          "phase": "middlegame",
+          "played_decision": "f3",
+          "ply": 41,
+          "proposed_alternative": "Qb5+",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "963834dfc152682baeb573e27107f6ef2f94297903123dbdd46149b61515ca08",
+      "anonymous_player_key": "64d6b583306f04b23767fdc4e72dc4249f3deda4b5cf25fb16e1d41995a14c98",
+      "candidate_decisions_considered": 8,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 47,
+        "statement": "After Bxe4, Nxe5 took the knight on e5."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Qxe1 could take the rook on e1 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 141,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxe1",
+            "Nf6",
+            "h3",
+            "Be6",
+            "Nc3"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "middlegame",
+          "played_decision": "Nxe1",
+          "ply": 31,
+          "proposed_alternative": "Qxe1",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Ne5, Nxd4 took the pawn on d4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 221,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ne5",
+            "Nxd4",
+            "Qe3",
+            "Nb3",
+            "Qg3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Ne5",
+          "ply": 43,
+          "proposed_alternative": "b4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Bxe4, Nxe5 took the knight on e5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 345,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxe4",
+            "Nxe5",
+            "Bxb7",
+            "Ng6",
+            "d5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Bxe4",
+          "ply": 47,
+          "proposed_alternative": "Rxe4",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "b5b11f1c0e04f7790f8d3c13cf704e57c6d9338c4ead4c34a5cd8866f98b37b8",
+      "anonymous_player_key": "70908edc94d0263a862679072a126909f5227c53be6d4e289c45701ec4dbf439",
+      "candidate_decisions_considered": 3,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "opening",
+        "source_ply": 12,
+        "statement": "After Qh4, Nxh4 took the queen on h4."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qh4, Nxh4 took the queen on h4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 618,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qh4",
+            "Nxh4",
+            "d6",
+            "h3",
+            "h5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Qh4",
+          "ply": 12,
+          "proposed_alternative": "h6",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "600-799",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "924adec9d11a899e596f35a5c3b1de92a3b762383273b9959682d5f12f13ae6e",
+      "anonymous_player_key": "3c4383ee2a4b098ff2f1f7c0c9b7edf95b2778e9db13da117272ff085413e45c",
+      "candidate_decisions_considered": 6,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 26,
+        "statement": "After Qxh4+, Rxh4 took the queen on h4."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxf2, Kxf2 took the knight on f2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 152,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxf2",
+            "Kxf2",
+            "Kg8",
+            "Bg5",
+            "Qe8"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxf2",
+          "ply": 20,
+          "proposed_alternative": "Nf6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qxh4+, Rxh4 took the queen on h4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 406,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxh4+",
+            "Rxh4",
+            "d6",
+            "Rc4",
+            "Be6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Qxh4+",
+          "ply": 26,
+          "proposed_alternative": "Qc6",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 2
+    },
+    {
+      "anonymous_game_key": "372f6ef7a088fcf0517d650ceea45f8351c8e45e59285ebb92986f54eaf5432d",
+      "anonymous_player_key": "92bcb736cbd142035afe53c8aabf7a490fe6458a12802aaca77326758597215e",
+      "candidate_decisions_considered": 0,
+      "central_story": null,
+      "moments": [],
+      "no_provable_central_story": true,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "10a34ab70b1005be7823c7c6e18cdf8ee5b50480072bfc13febbd8da9e2a21d1",
+      "anonymous_player_key": "9f2fd648f671a862b3e3343e543f2f87ab16efe51fefa444cf3f0e4e609ccfd2",
+      "candidate_decisions_considered": 5,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 35,
+        "statement": "After Nb3, Qxb4+ took the knight on b4."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Nb3, Qxb4+ took the knight on b4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 187,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nb3",
+            "Qxb4+",
+            "Ke2",
+            "Rc8",
+            "Nxa1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Nb3",
+          "ply": 35,
+          "proposed_alternative": "g4",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 4
+    },
+    {
+      "anonymous_game_key": "ea3800948c4877d9813655fa6664d4b80b1d51653d8104bbd12ba9fec78389b8",
+      "anonymous_player_key": "813f998512a3084f899ebed409011ff3d883d661ec85152cec969a7abab88d7d",
+      "candidate_decisions_considered": 5,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 37,
+        "statement": "After Rxd7, Nxd7 took the rook on d7."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After e5, dxe5 took the pawn on e5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 224,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "e5",
+            "dxe5",
+            "Qd2",
+            "Qxd2+",
+            "Nxd2"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "e5",
+          "ply": 19,
+          "proposed_alternative": "Qd2",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rxd7, Nxd7 took the rook on d7.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 657,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxd7",
+            "Nxd7",
+            "Nxa7",
+            "Rd6",
+            "Nb5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rxd7",
+          "ply": 37,
+          "proposed_alternative": "Bxf6",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 2
+    },
+    {
+      "anonymous_game_key": "1bd7e2f79373c5e05f9f7637d2213749d6913ebeab025683047a9b027f700daf",
+      "anonymous_player_key": "5fb6f4561061a07a0e0306d492e1e2ca0bd25ff1362cf41dc1f764badeab926a",
+      "candidate_decisions_considered": 0,
+      "central_story": null,
+      "moments": [],
+      "no_provable_central_story": true,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "6b9635a46dfbe64f5fe0da2f7f49bf29d2fda478a29a7976eb382e230ae41457",
+      "anonymous_player_key": "0680a9f964e6ca133373cb3f47758fe80719ca0ca5a13b94373898a13ee12efb",
+      "candidate_decisions_considered": 8,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 105,
+        "statement": "After b7, Rxd1+ took the rook on d1."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rb2, Rxg2+ took the pawn on g2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 292,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rb2",
+            "Rxg2+",
+            "Kf1",
+            "Rh2",
+            "cxb5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Rb2",
+          "ply": 63,
+          "proposed_alternative": "Kh1",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After a8=Q, Rxa8 took the queen on a8.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 597,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "a8=Q",
+            "Rxa8",
+            "Rd2",
+            "Rgc8",
+            "c4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "a8=Q",
+          "ply": 77,
+          "proposed_alternative": "Ra6",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After b7, Rxd1+ took the rook on d1.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 8830,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "b7",
+            "Rxd1+",
+            "Kc2",
+            "Rb1",
+            "b8=Q"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "b7",
+          "ply": 105,
+          "proposed_alternative": "Rxf1",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "ead9426dce0fccb963140080dcc4245fbfa8ea6abf9f242db96c546bda591261",
+      "anonymous_player_key": "12e31d1b8111df3058cf1d2b5a879913561559092c6742668102675dd685fcf2",
+      "candidate_decisions_considered": 5,
+      "central_story": {
+        "cause_family": "safe_missed_capture",
+        "phase": "endgame",
+        "source_ply": 39,
+        "statement": "Rxc7+ could take the pawn on c7 without an immediate recapture."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nf5, Bxf5 took the knight on f5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 179,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nf5",
+            "Bxf5",
+            "exf5",
+            "Qxd1",
+            "Rxd1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nf5",
+          "ply": 15,
+          "proposed_alternative": "Qxg4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "After Bxf2+, Rxf2 took the bishop on f2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 295,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxf2+",
+            "Rxf2",
+            "Nxf2",
+            "Bxh6",
+            "Rf6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Bxf2+",
+          "ply": 24,
+          "proposed_alternative": "Nxf2",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Rxc7+ could take the pawn on c7 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 9177,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxc7+",
+            "Kb5",
+            "a4+",
+            "Ka6",
+            "b4"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "endgame",
+          "played_decision": "Nxc7",
+          "ply": 39,
+          "proposed_alternative": "Rxc7+",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 0
+    },
+    {
+      "anonymous_game_key": "3e080f845729f933f1aba6e6cfe84b1b7f23c3e82d426d8b9a0681d4fb3331ef",
+      "anonymous_player_key": "8305cb3c5223ed6c60edb53ebadbd1a348ed73469d547d5d6f383d9897d6df19",
+      "candidate_decisions_considered": 10,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 39,
+        "statement": "After Bc3, Nxd5 took the pawn on d5."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After f4, exf4 took the pawn on f4.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 83,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "f4",
+            "exf4",
+            "Nf3",
+            "g5",
+            "Nc3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "f4",
+          "ply": 3,
+          "proposed_alternative": "Nf3",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Bd2, Nxd5 took the pawn on d5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 128,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bd2",
+            "Nxd5",
+            "Qb1",
+            "Kc7",
+            "Nd4"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Bd2",
+          "ply": 33,
+          "proposed_alternative": "Qb4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Bc3, Nxd5 took the pawn on d5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 130,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bc3",
+            "Nxd5",
+            "Qb1",
+            "Nxc3",
+            "bxc3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Bc3",
+          "ply": 39,
+          "proposed_alternative": "Qe2",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1400-1500",
+      "unsupported_candidate_decisions": 4
+    },
+    {
+      "anonymous_game_key": "781bde6c39387bf05bb86fe7637ef451ce29ca21404dd7df9059fe53283d6dca",
+      "anonymous_player_key": "1ab87f226e5cbdfdc7db6d70a6c8d693bce057a990f19fd05ef718368f5a58e5",
+      "candidate_decisions_considered": 9,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "endgame",
+        "source_ply": 64,
+        "statement": "After Qb7, Rxh6+ took the pawn on h6."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Qxe6 could take the pawn on e6 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 166,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxe6",
+            "Ba4",
+            "Rb7",
+            "Rbe1",
+            "a5"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "middlegame",
+          "played_decision": "fxe6",
+          "ply": 42,
+          "proposed_alternative": "Qxe6",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Ne4, Bxe8 took the bishop on e8.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 293,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ne4",
+            "Bxe8",
+            "Kg8",
+            "Bg6",
+            "Nxg3"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Ne4",
+          "ply": 54,
+          "proposed_alternative": "Qb8",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Qb7, Rxh6+ took the pawn on h6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 988,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qb7",
+            "Rxh6+",
+            "Kg8",
+            "Qe6+",
+            "Qf7"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "endgame",
+          "played_decision": "Qb7",
+          "ply": 64,
+          "proposed_alternative": "Qf7",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 1
+    },
+    {
+      "anonymous_game_key": "ceb5f62430f757f68a078e8173d5ca78a4b9ab07584d8abecebee129be56455a",
+      "anonymous_player_key": "18033cc9109a4cb56305a118e1b959c1b5b55e9a9a12a543f7cc49f61420f64d",
+      "candidate_decisions_considered": 7,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 42,
+        "statement": "After Nxh2, Nxh2 took the knight on h2."
+      },
+      "moments": [
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "Qxa7 could take the pawn on a7 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 154,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Qxa7",
+            "Bd6",
+            "Ndf3",
+            "O-O",
+            "Bxc6"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "opening",
+          "played_decision": "Nxc6",
+          "ply": 19,
+          "proposed_alternative": "Qxa7",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxh2, Nxh2 took the knight on h2.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 154,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxh2",
+            "Nxh2",
+            "Rxe2",
+            "Ng4",
+            "f6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Nxh2",
+          "ply": 42,
+          "proposed_alternative": "Rxe2",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 5
+    },
+    {
+      "anonymous_game_key": "5315cb6557eaa7a45321c5ca0046a1e3c0e92964ce3085af98777e4dcdfedc4d",
+      "anonymous_player_key": "327dcaedb72389f99f82dbaee0b43da028c2393808b9730859d62833b0cc61f4",
+      "candidate_decisions_considered": 6,
+      "central_story": {
+        "cause_family": "immediate_material_loss",
+        "phase": "middlegame",
+        "source_ply": 33,
+        "statement": "After Rxf7, Nxf7 took the rook on f7."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be3, Nxe3 took the bishop on e3.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 295,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be3",
+            "Nxe3",
+            "fxe3",
+            "Qxe3+",
+            "Qe2"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Be3",
+          "ply": 19,
+          "proposed_alternative": "O-O",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Rxf7, Nxf7 took the rook on f7.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 454,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Rxf7",
+            "Nxf7",
+            "Ng4",
+            "d6",
+            "Nf6+"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Rxf7",
+          "ply": 33,
+          "proposed_alternative": "Ng4",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "8f9e7ec49d6427e18515ac785423398a4b8cda0cd5054ba3243cba52f7c4ec64",
+      "anonymous_player_key": "2b6645260524543d5cad542301e8bcf0ed9e3bad1de929f6fc56c1d9905e08fd",
+      "candidate_decisions_considered": 5,
+      "central_story": {
+        "cause_family": "safe_missed_capture",
+        "phase": "endgame",
+        "source_ply": 81,
+        "statement": "Bxb3 could take the rook on b3 without an immediate recapture."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After e5, dxe5 took the pawn on e5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 118,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "e5",
+            "dxe5",
+            "h5",
+            "exf4",
+            "h6"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "e5",
+          "ply": 19,
+          "proposed_alternative": "h5",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Bxb3 could take the rook on b3 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 626,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Bxb3",
+            "Bh4",
+            "Rxb6",
+            "Bf2",
+            "Rb5"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "endgame",
+          "played_decision": "Kc4",
+          "ply": 81,
+          "proposed_alternative": "Bxb3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "d4b0907c9b4e2b579af1b67b505c78e83033eb2a11ada3573a77a7436f64ea69",
+      "anonymous_player_key": "be750872b2ec6dc9bcabe7acfb6d7b149aa6c430717d2d076fd9733ca2e9249a",
+      "candidate_decisions_considered": 12,
+      "central_story": {
+        "cause_family": "allowed_forced_mate",
+        "phase": "middlegame",
+        "source_ply": 48,
+        "statement": "Kxe6 allowed the stored line to end in checkmate."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxf2, Nxb6 took the bishop on b6.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 351,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxf2",
+            "Nxb6",
+            "axb6",
+            "Rxf2",
+            "b5"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxf2",
+          "ply": 28,
+          "proposed_alternative": "h4",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Be8, Bxe8 took the bishop on e8.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 335,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Be8",
+            "Bxe8",
+            "Kxe8",
+            "Rf7",
+            "Qxf7"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "middlegame",
+          "played_decision": "Be8",
+          "ply": 40,
+          "proposed_alternative": "Kc8",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "Kxe6 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9336,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Kxe6",
+            "Qd5#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "middlegame",
+          "played_decision": "Kxe6",
+          "ply": 48,
+          "proposed_alternative": "Kc8",
+          "side_to_move": "black"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "middlegame",
+        "opening"
+      ],
+      "rating_band": "1200-1399",
+      "unsupported_candidate_decisions": 2
+    },
+    {
+      "anonymous_game_key": "f1d2a7b52c92024b1c94dde446c297e7b7ce4282a56f0474e1f58f67a0df2638",
+      "anonymous_player_key": "c243bfce74288ea867c8720ddcbfae309bab3376745a73d47ac81447c823c9c2",
+      "candidate_decisions_considered": 10,
+      "central_story": {
+        "cause_family": "missed_forced_mate",
+        "phase": "endgame",
+        "source_ply": 83,
+        "statement": "White had a forced checkmate beginning with Ra7."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "After Nxc7+, Qxc7 took the knight on c7.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 445,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxc7+",
+            "Qxc7",
+            "O-O",
+            "Nf6",
+            "Re1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "Nxc7+",
+          "ply": 11,
+          "proposed_alternative": "Bc4",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "After d3, gxh5 took the queen on h5.",
+          "cause_family": "immediate_material_loss",
+          "cp_loss": 826,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "d3",
+            "gxh5",
+            "f4",
+            "Bc5+",
+            "Kh1"
+          ],
+          "memory_cue": "After choosing a move, scan what the opponent can capture.",
+          "phase": "opening",
+          "played_decision": "d3",
+          "ply": 19,
+          "proposed_alternative": "Nxg6",
+          "side_to_move": "white"
+        },
+        {
+          "actor": "player",
+          "causal_chess_fact": "White had a forced checkmate beginning with Ra7.",
+          "cause_family": "missed_forced_mate",
+          "cp_loss": 9047,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Ra7",
+            "h4",
+            "Rh8#"
+          ],
+          "memory_cue": "When the king is exposed, calculate checks before anything else.",
+          "phase": "endgame",
+          "played_decision": "Rh8+",
+          "ply": 83,
+          "proposed_alternative": "Ra7",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "endgame",
+        "opening"
+      ],
+      "rating_band": "800-999",
+      "unsupported_candidate_decisions": 3
+    },
+    {
+      "anonymous_game_key": "c3e4e24b85474f5cddf8ee9786d24044d1a2204699f1496f0f71101bf7f511d3",
+      "anonymous_player_key": "4cc6de3b045f8c7a6cff5c4c453a2a545fc5b62884121cfb95073b4a3e1bc941",
+      "candidate_decisions_considered": 3,
+      "central_story": {
+        "cause_family": "safe_missed_capture",
+        "phase": "opening",
+        "source_ply": 10,
+        "statement": "Nxe4 could take the pawn on e4 without an immediate recapture."
+      },
+      "moments": [
+        {
+          "actor": "player",
+          "causal_chess_fact": "Nxe4 could take the pawn on e4 without an immediate recapture.",
+          "cause_family": "safe_missed_capture",
+          "cp_loss": 131,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "Nxe4",
+            "Nxc6",
+            "bxc6",
+            "Qe2",
+            "Qe7"
+          ],
+          "memory_cue": "Before planning, look for an undefended piece you can take.",
+          "phase": "opening",
+          "played_decision": "Nxd4",
+          "ply": 10,
+          "proposed_alternative": "Nxe4",
+          "side_to_move": "black"
+        },
+        {
+          "actor": "opponent",
+          "causal_chess_fact": "dxc6 allowed the stored line to end in checkmate.",
+          "cause_family": "allowed_forced_mate",
+          "cp_loss": 9942,
+          "critical_false_claim": false,
+          "evidence_verdict": "proved",
+          "legal_settlement": [
+            "dxc6",
+            "Qd1#"
+          ],
+          "memory_cue": "Before moving, check every forcing reply: checks first.",
+          "phase": "opening",
+          "played_decision": "dxc6",
+          "ply": 19,
+          "proposed_alternative": "Bd3",
+          "side_to_move": "white"
+        }
+      ],
+      "no_provable_central_story": false,
+      "phases_reached": [
+        "opening"
+      ],
+      "rating_band": "1000-1199",
+      "unsupported_candidate_decisions": 1
+    }
+  ],
+  "method": "The exact detector-blind adjudicate_game function frozen on the development corpus was applied without changed predicates, thresholds, ranking, or exceptions. No engine, model, detector label, product caption, or source identity was used.",
+  "schema_version": "whole_game_teaching_review_codex_worksheet.v1",
+  "source": {
+    "frozen_adjudicator_source_commit": "76a411306b0066b4e585f6f23f2d0df8a7306e7e",
+    "games": 42,
+    "membership_sha256": "87daa7089e35060cfaeb0164c9a0e741ad799634b74b94878f2f11dc5250020b",
+    "packet_schema_version": "whole_game_teaching_review_evidence.v1",
+    "packet_sha256": "ee694af72dc95a7c0ea6807023c0fc1e98e37cfe8726eb452d941bddef0695f9"
+  },
+  "status": "codex_manual_review_required",
+  "summary": {
+    "cause_family": {
+      "allowed_forced_mate": 8,
+      "fork_geometry": 1,
+      "immediate_material_loss": 66,
+      "missed_forced_mate": 5,
+      "safe_missed_capture": 10
+    },
+    "critical_false_claims": 0,
+    "games": 42,
+    "games_with_proved_story": 38,
+    "proved_moments": 90
+  }
+}

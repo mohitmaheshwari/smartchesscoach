@@ -1,0 +1,14 @@
+{
+  "schema_version": "whole_game_review_implementation_freeze.v1",
+  "implementation_frozen": true,
+  "holdout_open_authorized": true,
+  "source_commit": "76a411306b0066b4e585f6f23f2d0df8a7306e7e",
+  "development_adjudication_sha256": "985c155d96bf9a74a95fd4d115cf51197763046bc894a1b3895a909ff57e34f2",
+  "frozen_on": "2026-09-13",
+  "tests": {
+    "backend_environment_independent": "325 passed",
+    "frontend_feature": "11 passed",
+    "frontend_production_build": "passed"
+  },
+  "post_freeze_rule": "The holdout may block rollout, but it may not be used to tune detectors, templates, ranking, or sampled-game exceptions."
+}
