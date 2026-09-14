@@ -28,6 +28,7 @@ from services.diagnostic_service import (
     select_diagnostic_puzzles,
     score_diagnostic,
     apply_diagnosis_to_training,
+    diagnosis_view,
     diagnostic_supersedes_after,
     # V2 (curated diagnostic_pool + consequence grading)
     CONCEPT_PRIORITY,
@@ -70,12 +71,29 @@ class AttemptRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _side_to_move(fen: Any) -> Optional[str]:
+    """Whose move it is, read off the position itself."""
+    try:
+        return "white" if chess.Board(str(fen)).turn == chess.WHITE else "black"
+    except Exception:
+        return None
+
+
 def _strip_puzzle_solution(puzzle: Dict[str, Any]) -> Dict[str, Any]:
     """Don't send best_move_san to the client until after the attempt
-    is submitted. Returns a copy with the answer removed."""
+    is submitted. Returns a copy with the answer removed.
+
+    side_to_move is stated explicitly, exactly as _v2_puzzle_payload does.
+    community_puzzles has no such field, so this payload used to omit it --
+    and the card renders `side_to_move === "white" ? "White" : "Black"`, which
+    prints "Black to move" for anything missing. Every position served on this
+    path claimed Black regardless of the truth, and 2,139 of 4,000 legacy
+    puzzles (53.5%) are White to move. The rest were right by accident.
+    """
     return {
         "puzzle_id": puzzle.get("puzzle_id"),
         "fen": puzzle.get("fen"),
+        "side_to_move": _side_to_move(puzzle.get("fen")),
         "user_color": puzzle.get("user_color"),
         "issue_type": puzzle.get("issue_type"),
         "difficulty": puzzle.get("difficulty"),
@@ -695,7 +713,7 @@ async def record_attempt(
             "status": "complete",
             "is_correct": is_correct,
             "best_move_san": graded.get("best_move_san"),
-            "diagnosis": diagnosis,
+            "diagnosis": diagnosis_view(diagnosis),
         }
 
     # More to go: return the next puzzle (without its answer).
@@ -757,7 +775,7 @@ async def exit_diagnostic(
         )
         return {
             "status": "in_progress",
-            "diagnosis": diagnosis,
+            "diagnosis": diagnosis_view(diagnosis),
             "checkpoint": True,
         }
     await db.diagnostic_sessions.update_one(
@@ -769,7 +787,11 @@ async def exit_diagnostic(
             "exited_early": True,
         }},
     )
-    return {"status": "complete", "diagnosis": diagnosis, "exited_early": True}
+    return {
+        "status": "complete",
+        "diagnosis": diagnosis_view(diagnosis),
+        "exited_early": True,
+    }
 
 
 @router.get("/result")
@@ -788,7 +810,9 @@ async def get_result(user: User = Depends(get_current_user)):
         else len(session.get("puzzle_ids", []))
     )
     return {
-        "diagnosis": session.get("diagnosis"),
+        # Normalised on read as well: diagnoses stored before the card and the
+        # v1 scorer agreed on field names still have to render.
+        "diagnosis": diagnosis_view(session.get("diagnosis")),
         "completed_at": session.get("completed_at"),
         "total_puzzles": total,
         "version": session.get("version", 1),

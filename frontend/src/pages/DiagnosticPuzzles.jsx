@@ -335,7 +335,8 @@ const DiagnosticPuzzles = () => {
   // Diagnosis screen (after all puzzles)
   // ──────────────────────────────────────────────────────────────
   if (diagnosis) {
-    const { per_concept, headline_gap, summary } = diagnosis;
+    const { per_concept, headline_gap, summary, rating_estimate } = diagnosis;
+    const hasReadout = Object.keys(per_concept || {}).length > 0;
 
     // Sort by level: Solid > Developing > Missing
     const levelOrder = { solid: 0, developing: 1, missing: 2 };
@@ -352,12 +353,33 @@ const DiagnosticPuzzles = () => {
       <Layout>
         <div className="experience-page experience-diagnostic-page cg-page max-w-3xl">
           <div className="cg-hero mb-8">
-            <p className="cg-eyebrow">I’ve seen enough to begin</p>
-            <h1 className="cg-title">Here’s what I understand about your chess.</h1>
-            <p className="cg-lede">{summary}</p>
+            <p className="cg-eyebrow">
+              {hasReadout ? "I’ve seen enough to begin" : "Thanks for playing those through"}
+            </p>
+            <h1 className="cg-title">
+              {hasReadout
+                ? "Here’s what I understand about your chess."
+                : "I need a little more before I can read your chess."}
+            </h1>
+            <p className="cg-lede">
+              {summary ||
+                (hasReadout
+                  ? ""
+                  : "Those positions were not enough for me to say something honest about how you play. Play a game with me and I will build it from your own moves.")}
+            </p>
+            {rating_estimate?.low && rating_estimate?.high && (
+              <p className="text-sm text-muted-foreground mt-3">
+                From what I saw, you are playing somewhere around{" "}
+                <span className="text-foreground font-medium">
+                  {rating_estimate.low}–{rating_estimate.high}
+                </span>
+                . It is a starting read, not a verdict.
+              </p>
+            )}
           </div>
 
           {/* Per-concept breakdown */}
+          {hasReadout && (
           <div className="space-y-3 mb-8">
             <p className="cg-eyebrow mb-3">
               What we’ll build on
@@ -382,6 +404,7 @@ const DiagnosticPuzzles = () => {
               </div>
             ))}
           </div>
+          )}
 
           {/* Headline gap focus area */}
           {headline_gap && (
@@ -406,11 +429,13 @@ const DiagnosticPuzzles = () => {
               className="cg-primary-action flex-1"
               onClick={() => {
                 track(ANALYTICS_EVENTS.DIAGNOSTIC_TRAINING_STARTED, { headline_gap: headline_gap || null });
-                headline_gap ? navigate(`/training/pattern/${headline_gap}`) : navigate("/training");
+                if (headline_gap) navigate(`/training/pattern/${headline_gap}`);
+                else if (!hasReadout) navigate("/play-with-coach");
+                else navigate("/training");
               }}
               data-testid="diagnostic-start-training"
             >
-              Start with your coach
+              {hasReadout ? "Start with your coach" : "Play a game with me"}
               <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
             <Button
@@ -440,7 +465,20 @@ const DiagnosticPuzzles = () => {
     );
   }
 
-  const orientation = (puzzle.user_color || "white") === "black" ? "black" : "white";
+  // Whose move it is, taken from the position itself. The server states it,
+  // but the board must never be able to contradict the board: a missing field
+  // used to render "Black to move" over a White position, on every puzzle the
+  // legacy path served.
+  const sideToMove = (() => {
+    try {
+      return new Chess(puzzle.fen).turn() === "w" ? "white" : "black";
+    } catch {
+      return puzzle.side_to_move || null;
+    }
+  })();
+  // Show the board from the side the player is being asked to move.
+  const orientation =
+    (puzzle.user_color || sideToMove || "white") === "black" ? "black" : "white";
 
   return (
     <Layout>
@@ -527,7 +565,7 @@ const DiagnosticPuzzles = () => {
                   Take your time
                 </p>
                 <p className="text-sm text-foreground/85">
-                  {puzzle.side_to_move === "white" ? "White" : "Black"} to move.
+                  {sideToMove === "black" ? "Black" : "White"} to move.
                 </p>
                 <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
                   Pick the move you would really play. There is no timer. I’m listening for how you understand the position, not how quickly you answer.

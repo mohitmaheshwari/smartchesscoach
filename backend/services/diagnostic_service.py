@@ -253,6 +253,59 @@ def _category_label(correct: int, total: int) -> str:
     return "Needs work"
 
 
+def diagnosis_view(diagnosis: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """One shape for the result screen, whichever scorer produced the result.
+
+    The two scorers emit different field names for the same ideas:
+
+        score_diagnostic    (v1)  per_category / summary_line / growth_areas
+        score_diagnostic_v2 (v2)  per_concept  / summary      / headline_gap
+
+    The result card reads the v2 names only. Every player is currently served
+    the v1 flow -- the v2 pool gate (`pool_version: 2` + frozen grades) matches
+    0 of the 60 pool documents -- so after answering twenty positions the card
+    found `per_concept` undefined, rendered no rows, hid the "where we'll
+    start" panel and showed an empty lede under the headline "Here's what I
+    understand about your chess."
+
+    Normalising here rather than in the card keeps it true for the stored
+    diagnoses too, which /diagnostic/result serves back long after scoring.
+    """
+    if not isinstance(diagnosis, dict):
+        return {}
+    if diagnosis.get("per_concept"):
+        return diagnosis  # already the shape the card reads
+
+    per_category = diagnosis.get("per_category") or {}
+    if not per_category:
+        return diagnosis
+
+    # "Strong" / "Needs work" / anything else -> the card's three levels.
+    level_for = {"Strong": "solid", "Needs work": "missing"}
+    per_concept: Dict[str, Any] = {}
+    headline_gap = diagnosis.get("headline_gap")
+    for key, cat in per_category.items():
+        if not isinstance(cat, dict):
+            continue
+        level = level_for.get(str(cat.get("label") or ""), "developing")
+        per_concept[key] = {
+            "level": level,
+            "display_name": cat.get("display_name"),
+            "correct": cat.get("correct"),
+            "total": cat.get("total"),
+        }
+        # The card routes to /training/pattern/<headline_gap>, so this has to
+        # be the issue_type KEY -- growth_areas holds display names.
+        if headline_gap is None and level == "missing":
+            headline_gap = key
+
+    view = dict(diagnosis)
+    view["per_concept"] = per_concept
+    view["headline_gap"] = headline_gap
+    view["summary"] = diagnosis.get("summary") or diagnosis.get("summary_line") or ""
+    return view
+
+
 def score_diagnostic(attempts: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Score a completed diagnostic. attempts is the list stored on the
     session; each entry has at minimum: issue_type, difficulty, is_correct.
