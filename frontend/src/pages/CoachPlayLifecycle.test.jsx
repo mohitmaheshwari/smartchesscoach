@@ -159,6 +159,7 @@ const flowState = () => ({
   activeCoachingMoment: null, liveChecklist: [], playerWeaknessList: [],
   playerProfile: null, rootProblem: null, clockState: "idle",
   handleClockTap: jest.fn(() => Promise.resolve(false)), resetFlow: jest.fn(),
+  acceptPendingMove: jest.fn(() => Promise.resolve(false)),
 });
 
 describe("CoachPlay lifecycle ownership", () => {
@@ -217,6 +218,93 @@ describe("CoachPlay lifecycle ownership", () => {
 
     expect(container.querySelector("[data-testid='board-session']").textContent).toBe("session-1");
     expect(container.querySelector("[data-testid='board-fen']").textContent).toBe(fen);
+  });
+
+  test("a resumed unified session restores its controller without legacy feedback", async () => {
+    const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    const toastSuccess = jest.requireMock("sonner").toast.success;
+    toastSuccess.mockClear();
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "unified-resume" }] }));
+      }
+      if (url.endsWith("/coach/play/state/unified-resume")) {
+        return Promise.resolve(response({
+          ...state("unified-resume", fen),
+          session: {
+            ...session("unified-resume"),
+            experience_version: "unified_v1",
+            game_mode: "play",
+            evidence_mode: "just_play",
+            coaching_context: {
+              primary_focus: { label: "Piece safety", topic_key: "piece_safety" },
+            },
+            move_history: [{ move: "e4", uci: "e2e4", by: "player" }],
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/trigger-coach-move")) {
+        return Promise.resolve(response({ success: true, is_player_turn: true, current_fen: fen }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+
+    expect(container.querySelector("[data-testid='board-session']").textContent).toBe("unified-resume");
+    expect(global.fetch.mock.calls.some(
+      ([url]) => url.endsWith("/coach/play/messages/unified-resume")
+    )).toBe(false);
+    expect(mockHandleStartLesson).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  test("a unified warning expands the single mobile coach sheet", async () => {
+    const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    useCoachFlow.mockReturnValue({
+      ...flowState(),
+      activeCoachingMoment: {
+        text: "That move leaves your queen open to capture.",
+        shownAt: Date.now(),
+      },
+      pendingMove: { san: "Qh5", uci: "d1h5", fenBefore: fen },
+      isInHold: true,
+    });
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "warning-session" }] }));
+      }
+      if (url.endsWith("/coach/play/state/warning-session")) {
+        return Promise.resolve(response({
+          ...state("warning-session", fen),
+          session: {
+            ...session("warning-session"),
+            experience_version: "unified_v1",
+            game_mode: "coach",
+            coaching_context: {
+              primary_focus: { label: "Piece safety", topic_key: "piece_safety" },
+            },
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/journey-event")) {
+        return Promise.resolve(response({ success: true }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+
+    expect(container.querySelector(".pwc-coach-col").classList).toContain("pwc-sheet-open");
+    expect(container.querySelectorAll("[data-testid='unified-coach-panel']")).toHaveLength(1);
   });
 
   test("a late message poll from the replaced session cannot enter the new game", async () => {
@@ -487,6 +575,87 @@ describe("CoachPlay lifecycle ownership", () => {
     )).toBe(true);
   });
 
+  test("a unified coached move uses one coach-flow evaluation and no Guardian evaluation", async () => {
+    jest.useFakeTimers();
+    const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+    mockHandleFlowUserMove.mockImplementation(async (_move, commit, timeSpent) => {
+      await commit("e4", timeSpent);
+      return { autoCommitted: true, moveQuality: "good" };
+    });
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({
+          experience_version: "unified_v1",
+          access: { coach: { allowed: true }, play: { allowed: true } },
+          coaching_context: {
+            primary_focus: { label: "Piece safety", topic_key: "piece_safety" },
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [] }));
+      }
+      if (url.endsWith("/coaching/current-prescriptions")) {
+        return Promise.resolve(response({ prescriptions: [] }));
+      }
+      if (url.endsWith("/coach/active-focus")) {
+        return Promise.resolve(response({ personal_improvement_cycle: { eligible: false } }));
+      }
+      if (url.endsWith("/lab-coach-pick")) return Promise.resolve(response({}));
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({
+          experience_version: "unified_v1",
+          session: {
+            ...session("unified-session"),
+            experience_version: "unified_v1",
+            game_mode: "coach",
+            coaching_context: {
+              primary_focus: { label: "Piece safety", topic_key: "piece_safety" },
+            },
+          },
+          current_fen: startFen,
+          is_player_turn: true,
+        }));
+      }
+      if (url.endsWith("/coach/play/move")) {
+        return Promise.resolve(response({
+          current_fen: afterE4,
+          awaiting_coach: false,
+          game_over: false,
+        }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    await act(async () => container.querySelector("[data-testid='start-game']").click());
+    await flush();
+    act(() => jest.advanceTimersByTime(2100));
+    await flush();
+    expect(global.fetch.mock.calls.some(
+      ([url]) => url.endsWith("/coach/play/messages/unified-session")
+    )).toBe(false);
+    act(() => container.querySelector("[data-testid='make-e4']").click());
+    await flush();
+
+    const startCall = global.fetch.mock.calls.find(
+      ([url]) => url.endsWith("/coach/play/start")
+    );
+    const startBody = JSON.parse(startCall[1].body);
+    expect(startBody.experience_version).toBe("unified_v1");
+    expect(startBody).not.toHaveProperty("evidence_mode");
+    expect(mockEvaluateMove).not.toHaveBeenCalled();
+    expect(mockHandleFlowUserMove).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls.filter(
+      ([url]) => url.endsWith("/coach/play/move")
+    )).toHaveLength(1);
+    expect(global.fetch.mock.calls.some(
+      ([url]) => url.includes("/v5/interactive-feedback")
+    )).toBe(false);
+  });
+
   test("a checkpoint downgraded by the server is explained to the player", async () => {
     const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     global.fetch = jest.fn((url) => {
@@ -607,5 +776,44 @@ describe("CoachPlay lifecycle ownership", () => {
     act(() => container.querySelector("[data-testid='new-game']").click());
     await flush();
     expect(container.querySelector("[data-testid='reflection-card']")).toBeNull();
+  });
+
+  test("unified postgame owns the resignation message without a legacy toast", async () => {
+    const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    const toastInfo = jest.requireMock("sonner").toast.info;
+    toastInfo.mockClear();
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "unified-resign" }] }));
+      }
+      if (url.endsWith("/coach/play/state/unified-resign")) {
+        return Promise.resolve(response({
+          ...state("unified-resign", fen),
+          session: {
+            ...session("unified-resign"),
+            experience_version: "unified_v1",
+            game_mode: "coach",
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/end")) {
+        return Promise.resolve(response({ summary: {}, cpr: {}, identity: {} }));
+      }
+      if (url.endsWith("/coach/play/improvement-proof")) {
+        return Promise.resolve(response({ show_proof: false }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='resign-game']").click());
+    await flush();
+
+    expect(toastInfo).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("one clear takeaway");
   });
 });

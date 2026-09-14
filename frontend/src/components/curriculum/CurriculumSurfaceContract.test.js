@@ -25,12 +25,21 @@ test("Lab, Progress, Game Review, and Play with Coach use one curriculum state p
   expect(progress).not.toContain("CurriculumStateStrip");
 });
 
-test("Play with Coach exposes all three evidence intents and sends the choice", () => {
+test("legacy Play with Coach exposes all three evidence intents and sends the choice", () => {
   const setup = source("components/coach/CoachPlaySetup.jsx");
   const page = source("pages/CoachPlay.jsx");
 
   expect(setup).toContain('data-testid="evidence-mode-practice"');
   expect(setup).toContain('data-testid="evidence-mode-checkpoint"');
   expect(setup).toContain('data-testid="evidence-mode-just-play"');
-  expect(page).toContain("evidence_mode:");
+  expect(page).toContain("requestBody.evidence_mode =");
+  expect(page).toContain('requestBody.experience_version = "unified_v1"');
+});
+
+test("mobile Play with Coach keeps its fixed coach sheet viewport-anchored", () => {
+  const theme = source("styles/pwc-theme.css");
+
+  expect(theme).toMatch(
+    /@media \(max-width: 1023px\)[\s\S]*?\.pwc-shell\s*{\s*transform: none !important;/
+  );
 });

@@ -220,6 +220,31 @@ describe("Acquisition-readiness analytics context", () => {
     );
   });
 
+  test("unified coaching events keep journey dimensions but drop chess content", () => {
+    track(ANALYTICS_EVENTS.PWC_UNIFIED_SESSION_STARTED, {
+      experience_version: "unified_v1",
+      game_mode: "coach",
+      entry_source: "opening",
+      has_selected_opening: true,
+      session_id: "private-session",
+      fen: "private-position",
+      move: "e4",
+      caption: "private coaching text",
+      focus_label: "private profile",
+    });
+
+    expect(window.posthog.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PWC_UNIFIED_SESSION_STARTED,
+      {
+        experience_version: "unified_v1",
+        game_mode: "coach",
+        entry_source: "opening",
+        has_selected_opening: true,
+        ...ANONYMOUS_CONTEXT,
+      }
+    );
+  });
+
   test("resets identity and restores anonymous context on logout", () => {
     configureAnalyticsContext({ user_id: "user_safe123", role: "user" });
     jest.clearAllMocks();

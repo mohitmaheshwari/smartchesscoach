@@ -119,6 +119,19 @@ def test_no_focus_is_explicit_and_never_uses_a_rival_fallback(monkeypatch):
     assert context["rollout"] == {"eligible": True, "reason": "enabled"}
 
 
+def test_missing_role_is_an_ordinary_user_in_the_context_cohort(monkeypatch):
+    monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
+    monkeypatch.setenv("COACHING_CONTEXT_V1_ROLES", "user")
+
+    context = _run(
+        build_coaching_context(_DB(PRIMARY, role=None), "u1", surface="coach_play")
+    )
+
+    assert context["state"] == "primary_only"
+    assert context["primary_focus"]["instruction_id"] == "instruction-1"
+    assert context["primary_focus"]["instruction_text"] == PRIMARY["instruction_text"]
+
+
 def test_context_flag_alone_can_read_the_stored_instruction(monkeypatch):
     monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
     monkeypatch.delenv("PWC_SURVIVING_INSTRUCTION_ENABLED", raising=False)
@@ -135,6 +148,10 @@ def test_context_flag_alone_can_read_the_stored_instruction(monkeypatch):
 
 def test_flag_on_still_preserves_legacy_path_for_ineligible_role(monkeypatch):
     monkeypatch.setenv("COACHING_CONTEXT_V1_ENABLED", "true")
+    monkeypatch.setenv(
+        "COACHING_CONTEXT_V1_ROLES",
+        "admin,super_admin",
+    )
 
     context = _run(
         build_coaching_context(_DB(PRIMARY, role="user"), "u1", surface="home")

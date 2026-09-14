@@ -46,7 +46,7 @@ jobs:
           python tests/test_predict_rate.py
           python tests/test_prescription_tracking.py
           python tests/test_opening_name_alignment.py
-          python tests/test_motif_drill_contract.py
+          python -m pytest --noconftest tests/test_motif_drill_contract.py -q
           python tests/test_royal_fork_evidence.py
           python tests/test_player_country.py
       - name: Caption-source guard (no new parallel caption paths)

@@ -25,6 +25,10 @@ const BORDER = "hsl(35 10% 87%)";
 const Onboarding = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  // Asked only when there is no account to read a rating from. Not a rating
+  // box: someone who has never played online cannot answer "what is your
+  // rating?", and they are exactly who this is for.
+  const [selfAssessedLevel, setSelfAssessedLevel] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -168,7 +172,7 @@ const Onboarding = () => {
       // import becomes impossible to retry after a reload.
       const profileRes = await fetch(`${API}/settings/profile`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null, player_motivation: playerMotivation || null }),
+        body: JSON.stringify({ fide_rating: fideRating ? parseInt(fideRating) : null, detected_rating: detectedRating, detected_platform: detectedPlatform, focus_intent: focusIntent || null, player_motivation: playerMotivation || null, self_assessed_level: selfAssessedLevel || null }),
       });
       const profileData = await profileRes.json().catch(() => ({}));
       if (!profileRes.ok) {
@@ -398,6 +402,42 @@ const Onboarding = () => {
             <div className="p-4 rounded-sm border" style={{ borderColor: BORDER }}>
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Your {detectedPlatform} games are connected</p>
               <p className="text-sm text-foreground mt-1">I’ll build your plan from the decisions inside those games—not from the number beside your name.</p>
+            </div>
+          )}
+
+          {/* No account to read: ask, rather than guessing. Selection used no
+              rating at all before this, so a first-time player met the same
+              ladder as a club player and got 12% of the first position right. */}
+          {!detectedRating && (
+            <div>
+              <label className="text-xs font-mono uppercase tracking-wider block mb-1.5" style={{ color: GOLD_TEXT }}>
+                Where are you with chess right now?
+              </label>
+              <p className="text-[11px] text-muted-foreground/70 mb-2.5 font-light">
+                No wrong answer. It only decides where I start.
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { value: "learning_moves", label: "I’m still learning how the pieces move" },
+                  { value: "know_rules", label: "I know the rules and play with friends" },
+                  { value: "plays_regularly", label: "I play regularly and know some openings" },
+                  { value: "experienced", label: "I’m experienced — I know my theory" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelfAssessedLevel(option.value)}
+                    className="text-[13px] font-light px-3 py-2.5 rounded-sm border text-left transition-colors"
+                    style={{
+                      borderColor: selfAssessedLevel === option.value ? WINE : BORDER,
+                      background: selfAssessedLevel === option.value ? "rgba(114,47,55,0.04)" : "white",
+                    }}
+                    data-testid={`self-level-${option.value}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

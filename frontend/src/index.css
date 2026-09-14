@@ -203,18 +203,18 @@
 }
 
 .experience-v1 .experience-activation-page {
-  color: hsl(var(--foreground));
+  color: hsl(222 47% 11%);
   background:
-    radial-gradient(circle at 82% 4%, hsl(var(--primary) / 0.18), transparent 25rem),
-    hsl(var(--background));
+    radial-gradient(circle at 82% 4%, rgb(15 91 71 / 0.12), transparent 25rem),
+    #f4efe4;
 }
 
 .experience-v1 .experience-activation-shell {
   padding: clamp(1.5rem, 5vw, 3rem);
-  border: 1px solid hsl(var(--border) / 0.78);
+  border: 1px solid hsl(35 10% 87%);
   border-radius: 2rem;
-  background: hsl(var(--card) / 0.88);
-  box-shadow: 0 34px 100px hsl(var(--experience-shadow) / 0.12);
+  background: rgb(255 253 248 / 0.96);
+  box-shadow: 0 34px 100px rgb(15 23 42 / 0.12);
 }
 
 .experience-v1 .experience-activation-primary {
@@ -224,8 +224,8 @@
 }
 
 .experience-v1 .experience-activation-secondary {
-  border-color: hsl(var(--border) / 0.86) !important;
-  background: hsl(var(--card)) !important;
+  border-color: hsl(35 10% 87%) !important;
+  background: white !important;
 }
 
 .experience-v1 .experience-activation-primary:hover,

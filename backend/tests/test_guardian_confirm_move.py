@@ -9,37 +9,48 @@ Bug being tested: Previously, clicking "Play Anyway" would reset the game
 instead of confirming the move because the endpoint didn't return `awaiting_coach: True`.
 """
 
+import ast
+from pathlib import Path
+
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
-from datetime import datetime, timezone
+
+
+ROUTE_FILE = Path(__file__).parents[1] / "routes" / "coach_play.py"
+
+
+def _confirm_endpoint_source() -> str:
+    source = ROUTE_FILE.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "confirm_risky_move"
+    )
+    return ast.get_source_segment(source, function) or ""
 
 
 class TestGuardianConfirmMove:
     """Tests for the /api/coach/play/move/confirm endpoint"""
 
-    @pytest.mark.asyncio
-    async def test_confirm_move_returns_awaiting_coach(self):
+    def test_confirm_move_returns_regular_move_contract(self):
         """
         Test that confirming a risky move returns awaiting_coach: True
         so the frontend knows to poll for the coach's response.
         """
-        # This tests the response format
-        expected_response_fields = {
-            "success": True,
-            "user_move_recorded": True,
-            "awaiting_coach": True,  # CRITICAL: This was missing before the fix
-            "game_over": False,
-            "intervention_consumed": True,
-            "remaining_interventions": 2  # Should be decremented
-        }
-        
-        # Verify our response model includes these fields
-        for field in expected_response_fields:
-            assert field in expected_response_fields, f"Response should include {field}"
+        endpoint = _confirm_endpoint_source()
+        for field in (
+            '"success"',
+            '"user_move_recorded"',
+            '"move"',
+            '"awaiting_coach"',
+            '"game_over"',
+            '"intervention_consumed"',
+            '"remaining_interventions"',
+        ):
+            assert field in endpoint, f"Confirm response should include {field}"
 
-    @pytest.mark.asyncio
-    async def test_confirm_move_async_flow(self):
+    def test_confirm_move_async_flow(self):
         """
         Test that confirm move uses async flow (background task)
         not the old synchronous make_player_move function.
@@ -51,40 +62,14 @@ class TestGuardianConfirmMove:
         # 3. Fires background task
         # 4. Returns with awaiting_coach: True
         
-        # Verify the endpoint doesn't use the old synchronous function
-        import server
-        import inspect
+        endpoint = _confirm_endpoint_source()
+        assert "_append_move_atomically" in endpoint
+        assert "asyncio.create_task" in endpoint
+        assert "_process_move_and_respond" in endpoint
+        assert "_play_mode_coach_move" in endpoint
+        assert "make_player_move" not in endpoint
+        assert "The move was not committed" in endpoint
         
-        # Get the source code of the confirm endpoint
-        # It should NOT contain "from coach_play import make_player_move"
-        # This is a structural test
-        
-    def test_response_format_matches_regular_move(self):
-        """
-        Verify /coach/play/move/confirm returns same format as /coach/play/move
-        plus intervention-specific fields.
-        """
-        regular_move_response = {
-            "success": True,
-            "user_move_recorded": True,
-            "move": "Nf3",
-            "current_fen": "...",
-            "awaiting_coach": True,
-            "game_over": False,
-            "result": None
-        }
-        
-        confirm_response_extra_fields = {
-            "intervention_consumed": True,
-            "remaining_interventions": 2
-        }
-        
-        # Confirm response should have all regular fields plus extras
-        all_fields = list(regular_move_response.keys()) + list(confirm_response_extra_fields.keys())
-        assert "awaiting_coach" in all_fields
-        assert "intervention_consumed" in all_fields
-
-
 class TestOpeningDetection:
     """Tests for opening detection accuracy"""
 

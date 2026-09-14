@@ -15,6 +15,7 @@ import Layout from "@/components/Layout";
 import CurriculumStateStrip from "@/components/curriculum/CurriculumStateStrip";
 import { PreGameStreakPopup } from "@/components/streak";
 import { API } from "@/App";
+import UnifiedCoachPlaySetup from "@/components/coach/UnifiedCoachPlaySetup";
 import {
   ArrowLeft,
   Swords,
@@ -135,8 +136,51 @@ const CoachPlaySetup = ({
   showPreGameStreakPopup,
   setShowPreGameStreakPopup,
   actuallyStartGame,
+  unifiedExperience = false,
+  experienceLoading = false,
+  experienceConfig = null,
+  upgradeInfo = null,
+  timeControl = "15+10",
+  onUnifiedModeSelected,
 }) => {
   const navigate = useNavigate();
+
+  if (experienceLoading && !experienceConfig) {
+    return (
+      <Layout user={user}>
+        <div
+          className="flex min-h-[55vh] items-center justify-center gap-3 text-sm text-muted-foreground"
+          data-testid="coach-play-experience-loading"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Preparing your game…
+        </div>
+      </Layout>
+    );
+  }
+
+  if (unifiedExperience) {
+    return (
+      <UnifiedCoachPlaySetup
+        user={user}
+        loading={loading}
+        experienceLoading={experienceLoading}
+        experienceConfig={experienceConfig}
+        upgradeInfo={upgradeInfo}
+        practiceMode={practiceMode}
+        practicePosition={practicePosition}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        selectedOpening={selectedOpening}
+        setSelectedOpening={setSelectedOpening}
+        gameMode={gameMode}
+        setGameMode={setGameMode}
+        timeControl={timeControl}
+        startGame={startGame}
+        onModeSelected={onUnifiedModeSelected}
+      />
+    );
+  }
 
   return (
     <Layout user={user}>

@@ -62,6 +62,9 @@ class CoachGameSession:
 
     # Game mode: "coach" (with captions) or "play" (pure chess)
     game_mode: str = "coach"
+    # Stored at session creation so rollout changes cannot switch an active
+    # game's interaction controller halfway through.
+    experience_version: str = "legacy"
     # Evidence intent is separate from presentation mode.  Coach mode is
     # assisted practice; a silent Play-mode game becomes a checkpoint only
     # when the player explicitly selected that purpose.
@@ -151,6 +154,14 @@ class CoachGameSession:
     
     # Move evaluations for post-game analysis
     evaluations: List[Dict] = field(default_factory=list)  # [{move_number, move, score, eval_before, eval_after}]
+
+    # Unified experience evidence must live on the session dataclass as well
+    # as in Mongo. Several legacy lifecycle functions replace the full session
+    # document; omitting these fields would silently erase the new controller's
+    # decisions, help requests, and journey measurements on resign/resume.
+    coaching_decisions: List[Dict] = field(default_factory=list)
+    coaching_help_events: List[Dict] = field(default_factory=list)
+    unified_journey: Dict = field(default_factory=dict)
     
     # Proactive Opening Teaching State
     opening_to_teach: Optional[str] = None  # Opening key to teach this game
@@ -231,6 +242,7 @@ async def start_coach_session(
     source_game_id: str = None,
     game_mode: str = "coach",  # "coach" (with captions) | "play" (pure chess)
     evidence_mode: str = None,
+    experience_version: str = "legacy",
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -491,6 +503,7 @@ async def start_coach_session(
         coaching_context=coaching_context,
         game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
         evidence_mode=effective_evidence_mode,
+        experience_version=experience_version,
     )
 
     logger.info(f"[start_coach_session] Created session with game_mode={session.game_mode}")
@@ -873,6 +886,14 @@ async def end_coach_session(
     session.result = GameResult.LOSS  # User loses if they resign/abandon
     session.termination_reason = reason
     session.ended_at = datetime.now(timezone.utc)
+    if session.experience_version == "unified_v1":
+        journey = dict(session.unified_journey or {})
+        journey["abandoned_at"] = session.ended_at.isoformat()
+        journey["abandonment_reason"] = reason
+        journey["abandonment_player_move_count"] = sum(
+            1 for item in session.move_history if item.get("by") == "player"
+        )
+        session.unified_journey = journey
     
     # Generate basic summary
     summary = _generate_session_summary(session)

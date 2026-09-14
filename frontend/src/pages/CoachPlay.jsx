@@ -25,6 +25,7 @@ import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckbo
 import CoachPlaySetup from "@/components/coach/CoachPlaySetup";
 import CoachPlayBoard from "@/components/coach/CoachPlayBoard";
 import CoachPlaySidebar from "@/components/coach/CoachPlaySidebar";
+import UnifiedCoachPanel from "@/components/coach/UnifiedCoachPanel";
 import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
@@ -48,6 +49,12 @@ const PREDICT_MOVE_ENABLED = true;  // re-enabled with the defer-at-source fix (
 const RATE_MOVE_ENABLED = true;     // ON 2026-07-14 (W4): verified fail-open live; self-grades now feed
                                     // the calibration insight (/coach/play/rate-move/calibration) shown
                                     // on /progress — the student model's first read consumer.
+const THINKING_MESSAGES = [
+  "Studying your move...",
+  "Looking at the board...",
+  "Working out the reply...",
+  "Checking the candidates...",
+];
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -68,6 +75,8 @@ const CoachPlay = ({ user }) => {
   const eventSourceRef = useRef(null);
   const coachResponsePollGenerationRef = useRef(0);
   const coachResponsePollAbortRef = useRef(null);
+  const unifiedSetupTrackedRef = useRef(false);
+  const unifiedFirstMoveTrackedRef = useRef(false);
 
   const invalidateCoachResponsePoll = useCallback(() => {
     coachResponsePollGenerationRef.current += 1;
@@ -89,6 +98,70 @@ const CoachPlay = ({ user }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [experienceConfig, setExperienceConfig] = useState(null);
+  const [experienceLoading, setExperienceLoading] = useState(true);
+  const [unifiedHelp, setUnifiedHelp] = useState(null);
+  const [unifiedHelpLoading, setUnifiedHelpLoading] = useState(false);
+  const unifiedExperience = (
+    session?.experience_version === "unified_v1"
+    || (!gameStarted && experienceConfig?.experience_version === "unified_v1")
+  );
+
+  useEffect(() => {
+    setUnifiedHelp(null);
+    setUnifiedHelpLoading(false);
+  }, [session?.session_id]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setExperienceLoading(true);
+    fetch(`${API}/coach/play/experience`, {
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setExperienceConfig(data);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") {
+          console.warn("[CoachPlay] Experience preload failed; using legacy setup.", error);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setExperienceLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (
+      experienceConfig?.experience_version !== "unified_v1"
+      || gameStarted
+      || unifiedSetupTrackedRef.current
+    ) return;
+    unifiedSetupTrackedRef.current = true;
+    const entrySource = trapFromUrl
+      ? "trap"
+      : geometryFocusFromUrl
+        ? "geometry"
+        : openingFromUrl
+          ? "opening"
+          : focusFromUrl
+            ? "focus"
+            : "direct";
+    track(ANALYTICS_EVENTS.PWC_UNIFIED_SETUP_VIEWED, {
+      experience_version: "unified_v1",
+      entry_source: entrySource,
+    });
+  }, [
+    experienceConfig?.experience_version,
+    gameStarted,
+    trapFromUrl,
+    geometryFocusFromUrl,
+    openingFromUrl,
+    focusFromUrl,
+  ]);
 
   useLayoutEffect(() => {
     const sessionId = session?.session_id || null;
@@ -316,7 +389,7 @@ const CoachPlay = ({ user }) => {
   
   // ── Hooks: Teaching, Player Data, Guardian ──
   const teaching = useTeachingMode({
-    session,
+    session: unifiedExperience ? null : session,
     currentFen,
     setChatMessages,
     setCurrentFen,
@@ -327,8 +400,8 @@ const CoachPlay = ({ user }) => {
 
   const playerData = usePlayerData({
     user,
-    session,
-    gameOver,
+    session: unifiedExperience ? null : session,
+    gameOver: unifiedExperience ? false : gameOver,
     selectedColor,
   });
 
@@ -342,7 +415,7 @@ const CoachPlay = ({ user }) => {
   }, []);
 
   const guardian = useGuardian({
-    session,
+    session: unifiedExperience ? null : session,
     onCancelRestore: handleCancelRestore,
   });
 
@@ -351,6 +424,7 @@ const CoachPlay = ({ user }) => {
     session,
     userRating: session?.coaching_rating || session?.user_rating || 1200,
     gameMode,
+    experienceVersion: session?.experience_version || "legacy",
   });
   const {
     setOpeningGuidance: setFlowOpeningGuidance,
@@ -710,6 +784,18 @@ const CoachPlay = ({ user }) => {
   // Mobile coach bottom-sheet: collapsed peek (board owns the screen) vs expanded.
   // Ignored at >=1024px where the coach is a static side column.
   const [coachSheetOpen, setCoachSheetOpen] = useState(false);
+
+  // On phones the coach is a collapsed bottom sheet. A verified warning is
+  // an explicit choice that blocks the previewed move, so reveal that choice
+  // immediately instead of leaving it clipped behind the peek state.
+  useEffect(() => {
+    if (
+      unifiedExperience
+      && (coachFlow.activeCoachingMoment || gameOver)
+    ) {
+      setCoachSheetOpen(true);
+    }
+  }, [unifiedExperience, coachFlow.activeCoachingMoment, gameOver]);
   
   // Pedagogical state (not in hooks)
   const [consequenceFeedback, setConsequenceFeedback] = useState(null);
@@ -788,7 +874,7 @@ const CoachPlay = ({ user }) => {
   useEffect(() => {
     const sessionId = session?.session_id;
     const curriculumActive = Boolean(session?.curriculum_active || session?.teaching_opening);
-    if (sessionId && gameStarted && !gameOver && !curriculumActive) {
+    if (sessionId && gameStarted && !gameOver && !curriculumActive && !unifiedExperience) {
       // Start polling for coach messages
       const interval = setInterval(() => pollCoachMessagesRef.current?.(), 2000);
       pollIntervalRef.current = interval;
@@ -798,7 +884,14 @@ const CoachPlay = ({ user }) => {
       };
     }
     return undefined;
-  }, [session?.session_id, session?.curriculum_active, session?.teaching_opening, gameStarted, gameOver]);
+  }, [
+    session?.session_id,
+    session?.curriculum_active,
+    session?.teaching_opening,
+    gameStarted,
+    gameOver,
+    unifiedExperience,
+  ]);
 
   // Poll for new coach messages
   const pollCoachMessages = async () => {
@@ -1031,7 +1124,7 @@ const CoachPlay = ({ user }) => {
   // Compute session reflection when game ends (Phase 1, 2026-07-09)
   useEffect(() => {
     const sessionId = session?.session_id;
-    if (!gameOver || !gameResult || !sessionId) return;
+    if (unifiedExperience || !gameOver || !gameResult || !sessionId) return;
 
     const controller = new AbortController();
     (async () => {
@@ -1051,7 +1144,7 @@ const CoachPlay = ({ user }) => {
       }
     })();
     return () => controller.abort();
-  }, [gameOver, gameResult, session?.session_id]);
+  }, [gameOver, gameResult, session?.session_id, unifiedExperience]);
 
   // Keyboard arrow navigation — browse through move history
   const [browseIndex, setBrowseIndex] = useState(-1); // -1 = live position
@@ -1147,7 +1240,28 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         if (!ownsRequest()) return;
+        const resumedUnified = data.session?.experience_version === "unified_v1";
+        const resumedGameMode = data.session?.game_mode || "coach";
         setSession(data.session);
+        unifiedFirstMoveTrackedRef.current = Boolean(
+          data.session?.move_history?.some((item) => item?.by === "player")
+        );
+        setGameMode(resumedGameMode);
+        setEvidenceMode(
+          data.session?.evidence_mode
+          || (resumedGameMode === "coach" ? "practice_assisted" : "just_play")
+        );
+        if (data.session?.coaching_context) {
+          const resumedRule = coachPlayFocusRule(
+            data.session.coaching_context,
+            resumedGameMode
+          );
+          setFocusRule(resumedRule);
+          setShowFocusBanner(!resumedUnified && Boolean(resumedRule));
+        } else if (resumedGameMode === "play") {
+          setFocusRule(null);
+          setShowFocusBanner(false);
+        }
         // Always ensure we have a valid FEN - fall back to starting position
         const validFen = data.current_fen || data.session?.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         setCurrentFen(validFen);
@@ -1169,10 +1283,14 @@ const CoachPlay = ({ user }) => {
             setLastMove([lastMoveData.uci.slice(0, 2), lastMoveData.uci.slice(2, 4)]);
           }
           
-          // Fetch feedback for the last move on resume
-          setTimeout(() => {
-            if (currentSessionIdRef.current === sessionId) fetchInteractiveCoaching(sessionId);
-          }, 500);
+          // Legacy sessions recover their legacy message surface. Unified
+          // sessions restore the one-panel state directly from the session
+          // contract and must never poll the old message pipeline.
+          if (!resumedUnified) {
+            setTimeout(() => {
+              if (currentSessionIdRef.current === sessionId) fetchInteractiveCoaching(sessionId);
+            }, 500);
+          }
         }
         
         if (data.is_player_turn) {
@@ -1187,7 +1305,7 @@ const CoachPlay = ({ user }) => {
         
         // Restore teaching mode state if session is in teaching mode
         // Don't auto-resume - show suggestion to continue instead
-        if (data.session.teaching_mode && data.session.teaching_data) {
+        if (!resumedUnified && data.session.teaching_mode && data.session.teaching_data) {
           const td = data.session.teaching_data;
           const lessonName = td.trap_name || td.variation_name;
           // Show as a suggestion, not active teaching
@@ -1210,7 +1328,7 @@ const CoachPlay = ({ user }) => {
           toast.info(`You were learning "${lessonName}" - click Start to continue`);
         }
         // If not in teaching mode, check for opening suggestion
-        else if (data.opening_teaching && !data.game_over) {
+        else if (!resumedUnified && data.opening_teaching && !data.game_over) {
           const ot = data.opening_teaching;
           const openingKey = ot.opening_key;
           const openingName = ot.opening_name || (openingKey ? openingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null);
@@ -1236,7 +1354,21 @@ const CoachPlay = ({ user }) => {
           setOpeningGuidance(ot);
         }
         
-        toast.success("Resumed your game!");
+        if (!resumedUnified) {
+          toast.success("Resumed your game!");
+        }
+        if (resumedUnified) {
+          track(ANALYTICS_EVENTS.PWC_UNIFIED_SESSION_RESUMED, {
+            experience_version: "unified_v1",
+            game_mode: resumedGameMode,
+          });
+          fetch(`${API}/coach/play/journey-event`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ session_id: sessionId, event: "resumed" }),
+          }).catch(() => {});
+        }
       }
     } catch (error) {
       if (ownsRequest()) console.error("Error resuming session:", error);
@@ -1268,7 +1400,7 @@ const CoachPlay = ({ user }) => {
           setCurrentFen(data.current_fen);
           setIsPlayerTurn(data.is_player_turn);
           
-          if (data.coach_move) {
+          if (data.coach_move && data.message) {
             toast.success(data.message || `Coach played ${data.coach_move}`);
             // Update last move highlight
             // The move format is UCI, parse it
@@ -1428,8 +1560,23 @@ const CoachPlay = ({ user }) => {
         user_color: selectedColor,
         time_control: timeControl,
         game_mode: gameMode, // "coach" (with captions) or "play" (no coaching)
-        evidence_mode: practiceMode ? "practice_assisted" : evidenceMode,
       };
+      if (unifiedExperience) {
+        requestBody.experience_version = "unified_v1";
+        requestBody.entry_source = practiceMode
+          ? "practice"
+          : trapFromUrl
+            ? "trap"
+            : geometryFocusFromUrl
+              ? "geometry"
+              : openingFromUrl
+                ? "opening"
+                : focusFromUrl
+                  ? "focus"
+                  : "direct";
+      } else {
+        requestBody.evidence_mode = practiceMode ? "practice_assisted" : evidenceMode;
+      }
 
       // If user selected a specific opening to practice, pass it
       console.log("[CoachPlay] selectedOpening:", selectedOpening, "openingFromUrl:", openingFromUrl);
@@ -1473,6 +1620,18 @@ const CoachPlay = ({ user }) => {
         // Surface as upsell modal, not an error toast.
         if (response.status === 402 && data.detail && typeof data.detail === "object") {
           setUpgradeInfo(data.detail);
+          if (unifiedExperience) {
+            setExperienceConfig((current) => ({
+              ...(current || {}),
+              access: {
+                ...(current?.access || {}),
+                coach: {
+                  ...data.detail,
+                  allowed: false,
+                },
+              },
+            }));
+          }
           setLoading(false);
           return;
         }
@@ -1480,6 +1639,7 @@ const CoachPlay = ({ user }) => {
       }
       const effectiveEvidenceMode = data.session?.evidence_mode || evidenceMode;
       if (
+        !unifiedExperience &&
         evidenceMode === "checkpoint_unassisted" &&
         effectiveEvidenceMode !== "checkpoint_unassisted"
       ) {
@@ -1489,10 +1649,19 @@ const CoachPlay = ({ user }) => {
         );
       }
       setSession(data.session);
+      unifiedFirstMoveTrackedRef.current = false;
+      if (data.session?.experience_version === "unified_v1") {
+        track(ANALYTICS_EVENTS.PWC_UNIFIED_SESSION_STARTED, {
+          experience_version: "unified_v1",
+          game_mode: data.session?.game_mode || gameMode,
+          has_selected_opening: Boolean(selectedOpening),
+          entry_source: requestBody.entry_source,
+        });
+      }
       if (data.coaching_context) {
         const canonicalRule = coachPlayFocusRule(data.coaching_context, gameMode);
         setFocusRule(canonicalRule);
-        setShowFocusBanner(Boolean(canonicalRule));
+        setShowFocusBanner(!unifiedExperience && Boolean(canonicalRule));
       } else if (gameMode === "play") {
         setFocusRule(null);
         setShowFocusBanner(false);
@@ -2311,13 +2480,6 @@ const CoachPlay = ({ user }) => {
   };
 
   // Coach is thinking
-  const THINKING_MESSAGES = [
-    "Studying your move...",
-    "Looking at the board...",
-    "Working out the reply...",
-    "Checking the candidates...",
-  ];
-  
   const [coachThinking, setCoachThinking] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState("");
   const [undoLoading, setUndoLoading] = useState(false);
@@ -2392,7 +2554,8 @@ const CoachPlay = ({ user }) => {
         body: JSON.stringify({
           session_id: sessionId,
           move: moveSan,
-          thinking_time_ms: Math.round(timeSpent * 1000)
+          thinking_time_ms: Math.round(timeSpent * 1000),
+          time_spent: timeSpent,
         })
       });
 
@@ -2402,6 +2565,13 @@ const CoachPlay = ({ user }) => {
       if (!response.ok) {
         toast.error(data.detail || "Invalid move");
         return false;
+      }
+      if (unifiedExperience && !unifiedFirstMoveTrackedRef.current) {
+        unifiedFirstMoveTrackedRef.current = true;
+        track(ANALYTICS_EVENTS.PWC_UNIFIED_FIRST_MOVE, {
+          experience_version: "unified_v1",
+          game_mode: gameMode,
+        });
       }
       
       // CURRICULUM ENFORCEMENT: Backend rejected the move
@@ -2463,7 +2633,9 @@ const CoachPlay = ({ user }) => {
         // reply. phase="user_move" returns only the user card (its eval is already
         // computed by evaluate-pending); the coach card still arrives after the coach
         // moves via the existing post-coach fetch. (Mohit 2026-06-27.)
-        fetchInteractiveCoaching(sessionId, "user_move");
+        if (!unifiedExperience) {
+          fetchInteractiveCoaching(sessionId, "user_move");
+        }
 
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
@@ -2607,7 +2779,7 @@ const CoachPlay = ({ user }) => {
           const data = await response.json();
           if (!ownsPoll()) return;
 
-          if (PREDICT_MOVE_ENABLED && data.session?.pending_prediction && !pendingPrediction) {
+          if (!unifiedExperience && PREDICT_MOVE_ENABLED && data.session?.pending_prediction && !pendingPrediction) {
             const prediction = data.session.pending_prediction;
             if (prediction.options?.length) {
               setPendingPrediction({ options: prediction.options, prompt: "What do you think I'll play?" });
@@ -2628,7 +2800,9 @@ const CoachPlay = ({ user }) => {
               setOpportunitiesFound(ped.opportunities_found || 0);
               setOpportunitiesMissed(ped.opportunities_missed || 0);
             }
-            setOpeningGuidance(data.opening_teaching || null);
+            if (!unifiedExperience) {
+              setOpeningGuidance(data.opening_teaching || null);
+            }
 
             const lastMove = data.session.last_coach_move;
             if (lastMove?.uci) {
@@ -2649,12 +2823,16 @@ const CoachPlay = ({ user }) => {
             } else {
               setIsPlayerTurn(data.is_player_turn ?? true);
               setMoveStartTime(Date.now());
-              if (openingIdeas.length) setGamePly(prev => prev + 1);
-              checkEscapeSquares();
+              if (!unifiedExperience && openingIdeas.length) {
+                setGamePly(prev => prev + 1);
+              }
+              if (!unifiedExperience) checkEscapeSquares();
             }
 
             setCoachThinking(false);
-            fetchInteractiveCoaching(expectedSessionId);
+            if (!unifiedExperience) {
+              fetchInteractiveCoaching(expectedSessionId);
+            }
             finishPoll();
             return;
           }
@@ -2950,6 +3128,189 @@ const CoachPlay = ({ user }) => {
     }
   };
 
+  const tryAnotherUnifiedMove = useCallback(() => {
+    if (!flowPendingMove) return;
+    const originalFen = flowPendingMove.fenBefore;
+    const shownAt = coachFlow.activeCoachingMoment?.shownAt;
+    fetch(`${API}/coach/play/intervention/revise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        session_id: session?.session_id,
+        uci: flowPendingMove.uci,
+        move_index: coachFlow.activeCoachingMoment?.moveIndex || 0,
+        interruption_duration_ms: shownAt
+          ? Math.max(0, Date.now() - shownAt)
+          : 0,
+      }),
+    }).catch(() => {});
+    cancelFlowPendingMove();
+    setCurrentFen(originalFen);
+    setLastMove(null);
+    setUserLastMoveSquare(null);
+    setIsPlayerTurn(true);
+    setIsCoachThinking(false);
+    setLoadingFeedback(false);
+    if (boardRef.current?.setPosition) {
+      boardRef.current.setPosition(originalFen);
+    }
+  }, [
+    flowPendingMove,
+    cancelFlowPendingMove,
+    coachFlow.activeCoachingMoment,
+    session?.session_id,
+  ]);
+
+  const commitUnifiedWarningMove = async (
+    moveSan,
+    timeSpent,
+    interruptionDurationMs,
+  ) => {
+    const sessionId = session?.session_id;
+    if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
+    const ownsSession = () => currentSessionIdRef.current === sessionId;
+    setIsPlayerTurn(false);
+    setIsCoachThinking(true);
+    setLoadingFeedback(true);
+
+    try {
+      const response = await fetch(`${API}/coach/play/move/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: sessionId,
+          move: moveSan,
+          time_spent: timeSpent,
+          risk_level: "verified_unified_warning",
+          interruption_duration_ms: interruptionDurationMs,
+        }),
+      });
+      const data = await response.json();
+      if (!ownsSession()) return false;
+      if (!response.ok || data.success === false) {
+        toast.error(data.detail || data.message || "Move failed. Try another move.");
+        setCurrentFen(flowPendingMove?.fenBefore || currentFen);
+        setIsPlayerTurn(true);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        return false;
+      }
+      if (!unifiedFirstMoveTrackedRef.current) {
+        unifiedFirstMoveTrackedRef.current = true;
+        track(ANALYTICS_EVENTS.PWC_UNIFIED_FIRST_MOVE, {
+          experience_version: "unified_v1",
+          game_mode: gameMode,
+        });
+      }
+
+      if (data.remaining_interventions !== undefined) {
+        setRemainingInterventions(data.remaining_interventions);
+      }
+      if (data.current_fen) {
+        setCurrentFen(data.current_fen);
+        setSession(previous => previous
+          ? { ...previous, current_fen: data.current_fen }
+          : previous);
+      }
+      if (data.game_over) {
+        setGameOver(true);
+        setGameResult(data.result);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        return true;
+      }
+      if (data.awaiting_coach) {
+        setCoachThinking(true);
+        setThinkingMessage(
+          THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]
+        );
+        pollForCoachResponse(sessionId);
+      } else {
+        setIsPlayerTurn(true);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+      }
+      return true;
+    } catch (error) {
+      if (!ownsSession()) return false;
+      console.error("Unified confirm move error:", error);
+      toast.error("Connection error. Your move was not committed.");
+      setCurrentFen(flowPendingMove?.fenBefore || currentFen);
+      setIsPlayerTurn(true);
+      setIsCoachThinking(false);
+      setLoadingFeedback(false);
+      return false;
+    }
+  };
+
+  const playUnifiedMoveAnyway = async () => {
+    if (!flowPendingMove) return;
+    const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+    const success = await coachFlow.acceptPendingMove(
+      commitUnifiedWarningMove,
+      timeSpent,
+    );
+    if (success) setIsPlayerTurn(false);
+  };
+
+  const requestUnifiedHelp = async (action) => {
+    const sessionId = session?.session_id;
+    if (!sessionId || !unifiedExperience || gameMode !== "coach") return;
+    track(ANALYTICS_EVENTS.PWC_UNIFIED_HELP_REQUESTED, {
+      experience_version: "unified_v1",
+      game_mode: "coach",
+      help_action: action,
+    });
+    setUnifiedHelpLoading(true);
+    try {
+      const response = await fetch(`${API}/coach/play/help`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId, action }),
+      });
+      const data = await response.json();
+      if (currentSessionIdRef.current !== sessionId) return;
+      if (!response.ok) {
+        toast.error(data.detail || "Coach help is unavailable right now.");
+        return;
+      }
+      setUnifiedHelp(data);
+    } catch (error) {
+      if (currentSessionIdRef.current === sessionId) {
+        console.error("Unified coach help failed:", error);
+        toast.error("Coach help is unavailable right now.");
+      }
+    } finally {
+      if (currentSessionIdRef.current === sessionId) {
+        setUnifiedHelpLoading(false);
+      }
+    }
+  };
+
+  const recordUnifiedPostgameAction = (actionKind) => {
+    const sessionId = session?.session_id;
+    if (!sessionId) return;
+    track(ANALYTICS_EVENTS.PWC_UNIFIED_POSTGAME_ACTION, {
+      experience_version: "unified_v1",
+      game_mode: gameMode,
+      action_kind: actionKind,
+    });
+    fetch(`${API}/coach/play/journey-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      keepalive: true,
+      body: JSON.stringify({
+        session_id: sessionId,
+        event: "postgame_action",
+        action_kind: actionKind,
+      }),
+    }).catch(() => {});
+  };
+
   const makeMove = useCallback(async (sourceSquare, targetSquare, piece) => {
     // If in teaching mode, use teaching move handler
     if (isInTeachingMode && activeLesson) {
@@ -2958,6 +3319,11 @@ const CoachPlay = ({ user }) => {
 
     // If in hold state, treat as move revision
     if (flowIsInHold) {
+      if (unifiedExperience) {
+        // Unified V1 makes the choice explicit in the coach panel. The board
+        // stays on the preview until the player chooses one of those actions.
+        return false;
+      }
       const chess = new Chess(currentFen);
       let moveObj;
       try {
@@ -3018,6 +3384,7 @@ const CoachPlay = ({ user }) => {
       );
       return false;
     }
+    if (unifiedExperience) setUnifiedHelp(null);
 
     // Clear coaching state for new move
     setCoachArrows([]);
@@ -3077,7 +3444,7 @@ const CoachPlay = ({ user }) => {
 
     // OPENING DEVIATION CHECK — if teaching is active and user plays wrong move
     let deviationHandled = false;
-    if (openingIdeas.length && gamePly < openingIdeas.length) {
+    if (!unifiedExperience && openingIdeas.length && gamePly < openingIdeas.length) {
       const expected = openingIdeas[gamePly];
       const playedSan = moveObj.san.replace(/[+#]/g, "").toLowerCase();
       const expectedSan = (expected?.move || "").replace(/[+#]/g, "").toLowerCase();
@@ -3201,7 +3568,11 @@ const CoachPlay = ({ user }) => {
 
     // GUARDIAN CHECK: Evaluate move before making it
     // Skip if deviation check already evaluated this move via evaluate-pending
-    const guardianResult = deviationHandled ? null : await evaluateMove(moveObj.san);
+    const guardianResult = (
+      unifiedExperience || deviationHandled
+        ? null
+        : await evaluateMove(moveObj.san)
+    );
 
     if (guardianResult?.should_intervene) {
       setGuardianPending(guardianResult, {
@@ -3244,7 +3615,7 @@ const CoachPlay = ({ user }) => {
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
 
     // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
-    if (moveQuality) {
+    if (moveQuality && !unifiedExperience) {
       setV5Coaching({ severity: moveQuality, move_san: moveData.san });
       console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
     }
@@ -3272,6 +3643,7 @@ const CoachPlay = ({ user }) => {
     branchPoint,
     selectedOpening,
     gameMode,
+    unifiedExperience,
     CLIENT_EVAL_ENABLED,
     sfEvalMove,
     handleTeachingMove,
@@ -3307,7 +3679,9 @@ const CoachPlay = ({ user }) => {
         setCprResult(data.cpr);
         setPlayerIdentity(data.identity);
         setCoachingLocked(false);
-        toast.info("You resigned. Better luck next time!");
+        if (!unifiedExperience) {
+          toast.info("You resigned. Better luck next time!");
+        }
 
         // Fetch improvement proof
         try {
@@ -3498,6 +3872,15 @@ const CoachPlay = ({ user }) => {
         showPreGameStreakPopup={showPreGameStreakPopup}
         setShowPreGameStreakPopup={setShowPreGameStreakPopup}
         actuallyStartGame={actuallyStartGame}
+        unifiedExperience={unifiedExperience}
+        experienceLoading={experienceLoading}
+        experienceConfig={experienceConfig}
+        upgradeInfo={upgradeInfo}
+        timeControl={timeControl}
+        onUnifiedModeSelected={(mode) => track(
+          ANALYTICS_EVENTS.PWC_UNIFIED_MODE_SELECTED,
+          { experience_version: "unified_v1", game_mode: mode }
+        )}
       />
     );
   }
@@ -3509,7 +3892,7 @@ const CoachPlay = ({ user }) => {
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
           overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
           always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
-      {pendingPrediction && (
+      {!unifiedExperience && pendingPrediction && (
         <div className="fixed z-50 top-24 right-6 w-80 max-w-[90vw]">
           <PredictMovePanel
             options={pendingPrediction.options}
@@ -3525,7 +3908,7 @@ const CoachPlay = ({ user }) => {
       )}
       {/* Rate-your-move ("grade your move") — shown before the verdict; fixed overlay, always
           resolvable (can't hang). onComplete re-fetches coaching to reveal the verdict. */}
-      {pendingRating && (
+      {!unifiedExperience && pendingRating && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
           <RateMovePanel
             playedMove={pendingRating.playedMove}
@@ -3542,7 +3925,7 @@ const CoachPlay = ({ user }) => {
       )}
       {/* Premium upsell modal — fires when /coach/play/start returns 402.
           Replaces the generic error toast with a clear path forward. */}
-      {upgradeInfo && (
+      {!unifiedExperience && upgradeInfo && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-amber-500/30 rounded-xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-start gap-3 mb-4">
@@ -3639,7 +4022,7 @@ const CoachPlay = ({ user }) => {
             </p>
             {timeControl && (
               <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums hidden sm:inline">
-                {timeControl} · coached
+                {timeControl} · {gameMode === "play" ? "review afterward" : "coached"}
               </span>
             )}
           </div>
@@ -3675,28 +4058,29 @@ const CoachPlay = ({ user }) => {
           gameOver={gameOver}
           evaluation={evaluation}
           selectedColor={selectedColor}
-          isInTeachingMode={isInTeachingMode}
-          activeLesson={activeLesson}
-          lessonInstruction={lessonInstruction}
-          lessonComplete={lessonComplete}
-          inlineOpening={inlineOpening}
-          inlineTrap={inlineTrap}
+          unifiedExperience={unifiedExperience}
+          isInTeachingMode={unifiedExperience ? false : isInTeachingMode}
+          activeLesson={unifiedExperience ? null : activeLesson}
+          lessonInstruction={unifiedExperience ? null : lessonInstruction}
+          lessonComplete={unifiedExperience ? false : lessonComplete}
+          inlineOpening={unifiedExperience ? null : inlineOpening}
+          inlineTrap={unifiedExperience ? null : inlineTrap}
           setInlineOpening={setInlineOpening}
           setInlineTrap={setInlineTrap}
-          openingGuidance={openingGuidance}
+          openingGuidance={unifiedExperience ? null : openingGuidance}
           openingCorrectionCount={openingCorrectionCount}
           setOpeningCorrectionCount={setOpeningCorrectionCount}
-          coachingLocked={coachingLocked}
+          coachingLocked={unifiedExperience ? false : coachingLocked}
           hideEvalBar={hideEvalBar}
-          coachArrows={gameMode === "play" ? [] : coachArrows}
+          coachArrows={gameMode === "play" || unifiedExperience ? [] : coachArrows}
           coachThinking={coachThinking}
           undoLoading={undoLoading}
           hasCastled={hasCastled}
           developedPieces={developedPieces}
           playerWeaknesses={playerWeaknesses}
-          showChecklist={showChecklist}
+          showChecklist={unifiedExperience ? false : showChecklist}
           setShowChecklist={setShowChecklist}
-          positionCoaching={positionCoaching}
+          positionCoaching={unifiedExperience ? null : positionCoaching}
           setPositionCoaching={setPositionCoaching}
           setChatMessages={setChatMessages}
           makeMove={makeMove}
@@ -3739,6 +4123,34 @@ const CoachPlay = ({ user }) => {
             aria-label={coachSheetOpen ? "Collapse coach panel" : "Expand coach panel"}
           />
           <div className="pwc-coach-body">
+        {unifiedExperience ? (
+          <UnifiedCoachPanel
+            key={session?.session_id}
+            gameMode={gameMode}
+            coachingContext={
+              session?.coaching_context || experienceConfig?.coaching_context
+            }
+            activeMoment={coachFlow.activeCoachingMoment}
+            stripMoment={coachFlow.activeStripCoaching}
+            pendingMove={flowPendingMove}
+            isPlayerTurn={isPlayerTurn}
+            isCoachThinking={isCoachThinking || coachThinking}
+            gameOver={gameOver}
+            gameResult={gameResult}
+            summary={summary}
+            canExplainLastMove={Boolean(
+              session?.move_history?.some((entry) => entry?.by === "coach")
+            )}
+            helpAnswer={unifiedHelp}
+            helpLoading={unifiedHelpLoading}
+            onAskCoach={requestUnifiedHelp}
+            onDismissHelp={() => setUnifiedHelp(null)}
+            onTryAnother={tryAnotherUnifiedMove}
+            onPlayAnyway={playUnifiedMoveAnyway}
+            onNewGame={newGame}
+            onPostgameAction={recordUnifiedPostgameAction}
+          />
+        ) : (
         <CoachPlaySidebar
           session={session}
           currentFen={currentFen}
@@ -3835,13 +4247,14 @@ const CoachPlay = ({ user }) => {
             });
           }}
         />
+        )}
           </div>
         </div>
       </motion.div>
       </div>
 
       {/* Level 3 Enforcement: Checkbox Modal */}
-      {guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (
+      {!unifiedExperience && guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (
         <EnforcementCheckboxModal
           isOpen={true}
           riskType={guardianIntervention.risk_type || guardianIntervention.enforcement?.risk_type}
@@ -3851,7 +4264,7 @@ const CoachPlay = ({ user }) => {
       )}
 
       {/* Post-Game Streak Result */}
-      {showPostGameStreakResult && postGameStreakResult && (
+      {!unifiedExperience && showPostGameStreakResult && postGameStreakResult && (
         <PostGameStreakResult
           result={postGameStreakResult}
           missionSummary={session?.mission_postgame_summary}
@@ -3861,7 +4274,7 @@ const CoachPlay = ({ user }) => {
       )}
 
       {/* Session Goal Reflection Card (Phase 1, 2026-07-09) */}
-      {sessionReflection && (
+      {!unifiedExperience && sessionReflection && (
         <SessionReflectionCard
           sessionId={session?.session_id}
           reflection={sessionReflection}

@@ -101,6 +101,14 @@
 //   lesson_started / explanation_completed — lesson entry and transition
 //   guided_attempt / independent_attempt / review_attempt — real attempts
 //   back_to_plan — lesson return to the future coach-owned plan
+//
+//   Unified Play with Coach V1 (2026-09-14). These events contain only
+//   coarse journey state; moves, FENs, captions, focus labels and session ids
+//   remain server-side. Server session evidence owns chess truth and transfer.
+//   pwc_unified_setup_viewed / pwc_unified_mode_selected /
+//   pwc_unified_session_started / pwc_unified_first_move /
+//   pwc_unified_help_requested / pwc_unified_session_resumed /
+//   pwc_unified_postgame_action
 
 // Canonical event IDs. Emitters import this object instead of repeating raw
 // strings, so a rename cannot silently split one funnel into two event names.
@@ -113,6 +121,13 @@ export const ANALYTICS_EVENTS = Object.freeze({
   FUNNEL_REVIEW_OPENED: "funnel_review_opened",
   FUNNEL_TRAINING_SOLVE: "funnel_training_solve",
   FUNNEL_PWC_STARTED: "funnel_pwc_started",
+  PWC_UNIFIED_SETUP_VIEWED: "pwc_unified_setup_viewed",
+  PWC_UNIFIED_MODE_SELECTED: "pwc_unified_mode_selected",
+  PWC_UNIFIED_SESSION_STARTED: "pwc_unified_session_started",
+  PWC_UNIFIED_FIRST_MOVE: "pwc_unified_first_move",
+  PWC_UNIFIED_HELP_REQUESTED: "pwc_unified_help_requested",
+  PWC_UNIFIED_SESSION_RESUMED: "pwc_unified_session_resumed",
+  PWC_UNIFIED_POSTGAME_ACTION: "pwc_unified_postgame_action",
   FUNNEL_PAYWALL_VIEWED: "funnel_paywall_viewed",
   FUNNEL_PAYMENT_ATTEMPTED: "funnel_payment_attempted",
   FUNNEL_PAYMENT_SUCCESS: "funnel_payment_success",
@@ -293,12 +308,16 @@ const ANALYTICS_ALLOWED_PROP_KEYS = new Set([
   "decision_id",
   "decision_source",
   "exited_early",
+  "experience_version",
   "explore_level",
   "flag_state",
   "games_together",
+  "game_mode",
   "has_conversation",
+  "has_selected_opening",
   "help_action",
   "insight_id",
+  "entry_source",
   "instrumentation_version",
   "is_recommended",
   "move_number",
@@ -401,6 +420,69 @@ export function resetAnalyticsContext() {
   }
 }
 
+// ── Our own sink ───────────────────────────────────────────────────────
+// Batched so a burst of events is one request, flushed on the way out with
+// keepalive so leaving the page does not lose the most interesting event in
+// the funnel -- the one just before someone left.
+const PRODUCT_EVENT_ENDPOINT = "/api/analytics/events";
+const PRODUCT_EVENT_FLUSH_MS = 4000;
+const PRODUCT_EVENT_MAX_BATCH = 50;
+
+let productEventQueue = [];
+let productEventTimer = null;
+
+function postProductEvents(events, { keepalive = false } = {}) {
+  if (!events.length) return;
+  try {
+    fetch(PRODUCT_EVENT_ENDPOINT, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      keepalive,
+      body: JSON.stringify({ events }),
+    }).catch(() => {});
+  } catch (_e) {
+    /* analytics must never break the product */
+  }
+}
+
+export function flushProductEvents({ keepalive = false } = {}) {
+  if (productEventTimer) {
+    clearTimeout(productEventTimer);
+    productEventTimer = null;
+  }
+  const batch = productEventQueue;
+  productEventQueue = [];
+  postProductEvents(batch, { keepalive });
+}
+
+function enqueueProductEvent(event, props) {
+  try {
+    if (typeof window === "undefined") return;
+    productEventQueue.push({ event, props });
+    if (productEventQueue.length >= PRODUCT_EVENT_MAX_BATCH) {
+      flushProductEvents();
+      return;
+    }
+    if (!productEventTimer) {
+      productEventTimer = setTimeout(
+        () => flushProductEvents(),
+        PRODUCT_EVENT_FLUSH_MS
+      );
+    }
+  } catch (_e) {
+    /* never break the product */
+  }
+}
+
+if (typeof window !== "undefined" && !window.__cgProductEventsBound) {
+  window.__cgProductEventsBound = true;
+  window.addEventListener("pagehide", () =>
+    flushProductEvents({ keepalive: true })
+  );
+}
+
+
 export function track(event, props = {}) {
   try {
     if (!KNOWN_EVENT_IDS.has(event)) {
@@ -418,6 +500,13 @@ export function track(event, props = {}) {
     if (typeof window !== "undefined" && window.posthog && typeof window.posthog.capture === "function") {
       window.posthog.capture(event, { ...safeProps, ...analyticsContext });
     }
+    // posthog is never initialised -- no init call, no project key, no env --
+    // so the line above has always been dead and nothing a player did was
+    // ever recorded. Everything we know about behaviour has had to be
+    // reconstructed from database side-effects. Queue to our own collection
+    // instead; it costs one request every few seconds and answers the
+    // questions we actually have.
+    enqueueProductEvent(event, { ...safeProps, ...analyticsContext });
   } catch (_e) {
     /* analytics must never break the product */
   }

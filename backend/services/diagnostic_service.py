@@ -127,6 +127,54 @@ async def _fetch_approved_pool(
     return by_issue
 
 
+# Which difficulty a player should meet FIRST, by band. The buckets are the
+# same three; only the order changes, and the order is what the player
+# experiences, because phase 1 takes one of each in this sequence.
+#
+# Selection used a fixed ("beginner", "intermediate", "advanced") for
+# everybody and never consulted a rating at all. Measured on production, new
+# players got 12% of the FIRST position right and 19% overall, and 62% were
+# gone by the fifth. You cannot diagnose someone who has stopped answering.
+# With three buckets and four possible answers, two beginner-ish answers
+# honestly start the same way. What must not happen -- and did in the first
+# draft -- is three of the four collapsing to the historical order, which
+# would make asking the question theatre.
+_DIFFICULTY_ORDER_BY_BAND = {
+    "beginner_low":  ("beginner", "intermediate", "advanced"),
+    "beginner_high": ("intermediate", "beginner", "advanced"),
+    "intermediate":  ("intermediate", "advanced", "beginner"),
+    "advanced":      ("advanced", "intermediate", "beginner"),
+}
+
+
+async def _difficulty_order_for(db, user_id: str) -> tuple:
+    """Start a player near their own level, then spread out from there.
+
+    Reads the canonical rating (rating_resolver), which picks up the
+    self-assessed level onboarding now collects when there is no account to
+    read. With no signal at all this returns the historical order, so a user
+    we know nothing about is no worse off than before.
+    """
+    try:
+        from services.rating_resolver import get_coaching_rating, get_rating_band
+
+        rating = await get_coaching_rating(db, user_id)
+        band = get_rating_band(int(rating))
+    except Exception:
+        return ("beginner", "intermediate", "advanced")
+    order = _DIFFICULTY_ORDER_BY_BAND.get(band)
+    if not order:
+        return ("beginner", "intermediate", "advanced")
+    # De-duplicate while keeping first-seen order: the weighting above is
+    # expressed by REPEATING a bucket, but the loops below want each bucket
+    # once. The repeats decide which comes first.
+    seen = []
+    for difficulty in order:
+        if difficulty not in seen:
+            seen.append(difficulty)
+    return tuple(seen)
+
+
 async def select_diagnostic_puzzles(db, user_id: str) -> List[Dict[str, Any]]:
     """Pick up to 20 stratified puzzles for the diagnostic. Each category
     contributes a SPREAD across difficulty buckets — that's what makes
@@ -145,7 +193,7 @@ async def select_diagnostic_puzzles(db, user_id: str) -> List[Dict[str, Any]]:
     if not non_empty:
         return []
 
-    diff_order = ("beginner", "intermediate", "advanced")
+    diff_order = await _difficulty_order_for(db, user_id)
     n_cats = len(non_empty)
     base_per_cat = max(MIN_PER_CATEGORY, TARGET_PUZZLES // n_cats)
     base_per_cat = min(base_per_cat, MAX_PER_CATEGORY)
