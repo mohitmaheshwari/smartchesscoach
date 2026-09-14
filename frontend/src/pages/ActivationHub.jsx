@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
-import { Sparkles, Swords, ArrowRight } from "lucide-react";
+import { Sparkles, Swords, ArrowRight, Link2 } from "lucide-react";
 
 const WINE = "#0F5B47";
 const GOLD_TEXT = "#28745D";
@@ -216,15 +216,54 @@ const ActivationHub = () => {
           ))}
         </div>
 
-        {/* Soft, benefit-framed account link */}
+        {/* Real games ARE the best coaching evidence, and a plain text link
+            undersold that to the players who have them. This is a proper card.
+
+            It stays BELOW the two doors deliberately. The hub exists because
+            leading with the account ask left 32% of signups dead on arrival
+            (docs/activation_hub_scope.md); promoting this above them would
+            rebuild the wall the hub replaced. Offered well, not offered first.
+
+            It does not call markSeen(): connecting is only finished once an
+            account is verified and its games import, and Onboarding completes
+            it there. Someone who opens this and backs out is not activated. */}
+        <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1" style={{ background: BORDER }} />
+          <span className="text-[10px] font-medium uppercase tracking-[0.16em]" style={{ color: INK_MUTED }}>
+            Already play online?
+          </span>
+          <span className="h-px flex-1" style={{ background: BORDER }} />
+        </div>
+
         <button
-          onClick={() => navigate("/onboarding")}
-          className="text-[13px] inline-flex items-center gap-1.5 transition-colors hover:underline"
-          style={{ color: WINE }}
+          onClick={() => {
+            track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "connect_games" });
+            navigate("/onboarding");
+          }}
+          disabled={busy}
+          className="w-full text-left rounded-xl border p-4 transition-all hover:bg-black/[0.02] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{ borderColor: BORDER, background: "white", "--tw-ring-color": WINE }}
           data-testid="hub-connect"
         >
-          Already play on Chess.com or Lichess? Connect so your coach can analyze your real games
-          <ArrowRight className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: "rgba(15,91,71,0.09)", color: WINE }}
+              >
+                <Link2 className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[15px] font-medium" style={{ color: INK }}>
+                  Connect your Chess.com or Lichess games
+                </div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>
+                  I’ll study the games you already played and build your plan from those.
+                </div>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
+          </div>
         </button>
       </div>
     </div>

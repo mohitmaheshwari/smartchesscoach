@@ -125,6 +125,46 @@ describe("ActivationHub", () => {
     expect(JSON.parse(call[1].body).self_assessed_level).toBeNull();
   });
 
+  // --- the connect option is offered well, but not offered first ------------
+  //
+  // Real games are the strongest coaching evidence and a bare text link
+  // undersold that. But the hub exists because leading with the account ask
+  // left 32% of signups dead on arrival, so a stronger affordance must not
+  // become a higher position.
+
+  test("offers connecting real games as a card, not a bare link", async () => {
+    await renderHub();
+
+    const connect = container.querySelector('[data-testid="hub-connect"]');
+    expect(connect).not.toBeNull();
+    expect(connect.textContent).toMatch(/Chess\.com or Lichess/);
+    // A card states the benefit; a link just points somewhere.
+    expect(connect.textContent).toMatch(/games you already played/);
+  });
+
+  test("keeps both no-account doors above the connect card", async () => {
+    await renderHub();
+
+    const html = container.innerHTML;
+    expect(html.indexOf('hub-diagnostic')).toBeLessThan(html.indexOf('hub-connect'));
+    expect(html.indexOf('hub-play')).toBeLessThan(html.indexOf('hub-connect'));
+  });
+
+  test("connecting does not mark the user activated on the way out", async () => {
+    // Activation is finished in Onboarding, once an account is verified and
+    // its games import. Someone who opens this and backs out is not activated,
+    // so the hub must not complete onboarding for them.
+    await renderHub();
+
+    click("hub-connect");
+
+    expect(mockNavigate).toHaveBeenCalledWith("/onboarding");
+    const saved = global.fetch.mock.calls.filter(
+      ([url]) => String(url).includes("/settings/profile")
+    );
+    expect(saved).toHaveLength(0);
+  });
+
   test("opens Coach Play immediately even while profile save is pending", async () => {
     await renderHub();
 
