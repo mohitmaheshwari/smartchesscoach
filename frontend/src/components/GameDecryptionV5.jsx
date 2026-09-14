@@ -1875,6 +1875,42 @@ const MoveCoachingCardV5 = ({
               </div>
             )}
 
+            {/* Board Geometry moment — the shape this move made, missed, or allowed.
+                Copy, arrows and highlights all come from board_geometry_service,
+                the same source the lessons and PWC moments use, so the wording
+                cannot drift between surfaces. */}
+            {move.geometry_moments && move.geometry_moments.length > 0 && (() => {
+              const g = move.geometry_moments[0];
+              const tone =
+                g.moment_type === "found"
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                  : g.moment_type === "allowed"
+                  ? "bg-rose-50 border-rose-300 text-rose-800"
+                  : "bg-amber-50 border-amber-300 text-amber-800";
+              return (
+                <div className={`mb-2 rounded-lg border px-3 py-2 ${tone}`} data-testid="geometry-moment">
+                  <div className="text-[10px] font-bold uppercase tracking-wide opacity-80">
+                    {g.eyebrow}
+                  </div>
+                  {g.explanation && (
+                    <p className="mt-1 text-[12px] leading-relaxed">{g.explanation}</p>
+                  )}
+                  {g.lesson && (
+                    <p className="mt-1 text-[12px] italic opacity-90">{g.lesson}</p>
+                  )}
+                  {g.module_id && (
+                    <a
+                      href={`/training/geometry/${g.module_id}`}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/30 px-2.5 py-1 text-[11px] font-medium hover:opacity-80"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      <span>Practise this shape</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* [PART B] Training plan badges — show which active training this relates to */}
             {move.related_training_plans && move.related_training_plans.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">

@@ -1019,6 +1019,36 @@ async def get_game_decryption_v5(
                                 "description": plan_info["description"]
                             })
 
+                # Board Geometry in Game Review (2026-09-15). The detection, the
+                # copy, the arrows and the highlights already exist in
+                # board_geometry_service -- the same source PWC moments and the
+                # /training/geometry lessons use. Review simply had no wiring to
+                # it, so the one surface where a player studies their own
+                # mistakes never named the shape. Measured: a geometry moment
+                # exists on 11.9% of stored moves (2,175 of 18,270).
+                #
+                # Gated on the same flag as the lessons: a moment that names a
+                # lesson the player cannot open would be a dead end.
+                try:
+                    from services.board_geometry_service import (
+                        feature_enabled as _geo_enabled,
+                        geometry_moments_for_move as _geo_moments,
+                    )
+                    if _geo_enabled(user):
+                        # The detector speaks stockfish move-evaluation shape
+                        # (ev["move"], ev["is_opponent_move"]); a stored V5 card
+                        # names the same facts move_san / is_user_move. Adapt
+                        # rather than duplicate the detector for a second shape.
+                        _ev = dict(move_data)
+                        _ev["move"] = move_data.get("move_san") or move_data.get("move")
+                        if move_data.get("is_user_move") is not None:
+                            _ev["is_opponent_move"] = not bool(move_data.get("is_user_move"))
+                        _moments = _geo_moments(_ev) or []
+                        if _moments:
+                            enriched_move["geometry_moments"] = _moments
+                except Exception as _geo_exc:
+                    logger.info(f"[GAME-REVIEW] geometry moment skipped: {_geo_exc}")
+
                 # Add training context
                 if related_plans:
                     enriched_move["related_training_plans"] = related_plans
