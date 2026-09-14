@@ -4826,6 +4826,46 @@ async def get_personal_curriculum(
         )
     return result
 
+async def _diagnostic_focus_fallback(user_id: str):
+    """A focus the player earned by answering positions, not by playing games.
+
+    Returns the same shape the endpoint returns, with provenance attached, or
+    None when there is nothing to say. Reads only.
+    """
+    try:
+        memory = await db.coach_memory.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "learning.current_focus": 1, "learning.focus_source": 1},
+        )
+    except Exception:
+        return None
+    learning = (memory or {}).get("learning") or {}
+    topic = str(learning.get("current_focus") or "").strip()
+    if not topic or learning.get("focus_source") != "diagnostic":
+        return None
+
+    label = topic.replace("_", " ").strip()
+    return {
+        "has_focus": True,
+        "has_strength": False,
+        "provisional": True,
+        "focus_source": "diagnostic",
+        "topic_key": topic,
+        "topic_label": label[:1].upper() + label[1:] if label else topic,
+        "days_remaining": None,
+        "baseline_metric": None,
+        "current_metric": None,
+        "moments_page_topic": topic,
+        "runners_up": [],
+        # Said plainly, because it is a read of twenty positions and not of
+        # the player's own games.
+        "evidence_note": (
+            "From the positions you played me. Once I have seen a few of your "
+            "own games I will sharpen this."
+        ),
+    }
+
+
 @router.get("/active-focus")
 async def get_active_focus(user: User = Depends(get_current_user)):
     """Return the user's currently-locked coaching focus (if any).
@@ -4894,6 +4934,22 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         ):
             strength = None
     if not focus and not strength:
+        # No proven focus. A player who has answered the diagnostic still told
+        # us something, and it is sitting in coach_memory where the picker
+        # cannot see it: user_active_focus is game evidence, gated on 10
+        # analysed games, and services/accepted_cause_service.py explains at
+        # length why a second writer into that collection is unsafe -- its
+        # one-active-row invariant is enforced by an unsorted find_one, so a
+        # competing row makes "the user's focus" non-deterministic across five
+        # consumers. So this is read-side only: nothing is written, and the
+        # payload says exactly where it came from.
+        #
+        # Marked provisional so no caller mistakes twenty puzzles for
+        # board-verified evidence. Reported 2026-09-14: a player finished the
+        # diagnostic and the home page still had no focus to show.
+        provisional = await _diagnostic_focus_fallback(user.user_id)
+        if provisional:
+            return provisional
         return {"has_focus": False, "has_strength": False}
 
     # days_remaining
