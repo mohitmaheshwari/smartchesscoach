@@ -5778,9 +5778,78 @@ async def evaluate_pending_move(
                     _timeout_commentary = read_board_like_a_coach(fen_before, user_color, user_rating)
                 except Exception:
                     pass
+
+            # The EVALUATION already finished -- eval_result carries the quality
+            # and the cp loss. What this branch used to discard was the cheap
+            # half: choosing a sentence. And because harder positions take
+            # longer to search, the budget was being blown precisely on the
+            # moves that most needed saying something.
+            #
+            # Measured on the live server, each in a fresh session so nothing
+            # was suppressed as a repeat:
+            #
+            #     159cp  mistake  advisory  "Stop. Your bishop on e6 is undefended."
+            #     581cp  blunder  silent    -- nothing --
+            #     479cp  blunder  silent    -- nothing --
+            #
+            # A player who hangs a queen got silence while a player who drifted
+            # 1.5 pawns got coached. So on timeout we now still say the one
+            # thing that matters. The skipped work is the expensive optional
+            # enrichment below (escalation history, focus enforcement,
+            # fundamentals); picking a template is microseconds.
+            _to_decision = {
+                "layer": "silent",
+                "gamePhase": "opening" if move_index_preview < 24 else "middlegame",
+            }
+            _to_quality = eval_result.get("move_quality", "good")
+            _to_cp = int(eval_result.get("cp_loss", 0) or 0)
+            if eval_result.get("depth", 0) > 0 and _to_quality in ("mistake", "blunder"):
+                try:
+                    from services.coaching_templates import pick_template
+                    _to_concept = "blunder" if _to_quality == "blunder" else "mistake"
+                    # board_before/board_after are not bound this early in the
+                    # function, so rebuild them from what the request gave us.
+                    _to_bb = chess.Board(fen_before)
+                    _to_ba = _to_bb.copy()
+                    try:
+                        _to_ba.push(chess.Move.from_uci(uci))
+                    except Exception:
+                        _to_ba = None
+                    _to_detail = _get_move_detail(
+                        _to_bb, _to_ba, user_color, _to_cp) if _to_ba else ""
+                    _to_tmpl = pick_template(
+                        "critical_interrupt", _to_concept,
+                        {"detail": _to_detail}, session_id) or {}
+                    _to_text = (_to_tmpl.get("text") or "").replace("{detail}", "").strip()
+                    if _to_text:
+                        _to_decision = {
+                            # advisory, not critical_interrupt: the hold path is
+                            # disabled (requires_hold is hard-coded False), and
+                            # the client only renders a strip for ambient and
+                            # advisory when it auto-commits. A critical layer
+                            # here would be correct-looking and invisible.
+                            "layer": "advisory",
+                            "category": "critical_tactic",
+                            "severity": "high" if _to_quality == "blunder" else "medium",
+                            "text": _to_text,
+                            "question": ({"prompt": _to_tmpl["question"]}
+                                         if _to_tmpl.get("question") else None),
+                            "conceptKey": _to_concept,
+                            "requiresHold": False,
+                            "minHoldMs": 0,
+                            "showInTimeline": True,
+                            "showInActiveStrip": True,
+                            "gamePhase": _to_decision["gamePhase"],
+                        }
+                        logger.info(
+                            f"[FAST-EVAL] timeout but spoke anyway: {_to_quality} "
+                            f"{_to_cp}cp -> {_to_text[:60]!r}")
+                except Exception as _to_exc:
+                    logger.warning(f"[FAST-EVAL] timeout coaching failed: {_to_exc}")
+
             return {
                 "shouldAutoCommit": True,
-                "coachingDecision": {"layer": "silent", "gamePhase": "opening" if move_index_preview < 24 else "middlegame"},
+                "coachingDecision": _to_decision,
                 "checklist": {},
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
@@ -5884,12 +5953,19 @@ async def evaluate_pending_move(
         # With the v2 Socratic coaching system, mistakes are teaching moments
         # that happen AFTER the move. Only hold for catastrophic blunders (4+ pawns).
         # Everything else auto-commits so the Socratic question can fire after.
-        if move_quality == "blunder" and cp_loss_val >= 400:
-            layer = "critical_interrupt"
-            severity = "high"
-        elif move_quality in ("mistake", "blunder"):
-            layer = "advisory"
-            severity = "medium"
+        if move_quality in ("mistake", "blunder"):
+            # Severity picks the LAYER. It must not decide whether there are
+            # any words at all. The >=400cp case used to set layer and
+            # severity and then fall straight past the template block below,
+            # so the single worst class of move -- a hung queen, a lost rook --
+            # was the one class that produced no text. Everything gentler got
+            # coached.
+            if move_quality == "blunder" and cp_loss_val >= 400:
+                layer = "critical_interrupt"
+                severity = "high"
+            else:
+                layer = "advisory"
+                severity = "medium"
 
             if fast_signals.get("hung_piece"):
                 hp = fast_signals["hung_piece"]

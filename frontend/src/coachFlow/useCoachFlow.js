@@ -248,10 +248,17 @@ export default function useCoachFlow({
       }
       setTrapWarning(result.trapWarning || null);
 
-      // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
+      // ─── AUTO-COMMIT (silent, ambient, advisory, critical) ─────
       if (layer === "silent" || result.shouldAutoCommit) {
-        // Show strip for ambient/advisory (but auto-commit continues)
-        if ((layer === "ambient" || layer === "advisory") && decision.text) {
+        // Show the strip for anything that has something to say. critical_
+        // interrupt is in this list deliberately: the server's hold path is
+        // disabled (requiresHold is hard-coded false, see coach_play.py), so a
+        // critical decision arrives here with shouldAutoCommit true and never
+        // reaches the hold branch below. Leaving it out of this condition made
+        // the most severe class of move -- the hung queen -- the one that
+        // showed nothing, while a 1.5-pawn drift got a full card.
+        if ((layer === "ambient" || layer === "advisory"
+             || layer === "critical_interrupt") && decision.text) {
           setActiveStripCoaching({
             layer,
             text: decision.text,
@@ -261,7 +268,7 @@ export default function useCoachFlow({
             gamePhase: decision.gamePhase,
           });
           // Timeline: ONLY advisory and above. Never ambient.
-          if (layer === "advisory") {
+          if (layer === "advisory" || layer === "critical_interrupt") {
             setTimeline(prev => [...prev, createTimelineItem({
               moveIndex: moveData.moveIndexPreview || 0,
               moveSan: pending.san,

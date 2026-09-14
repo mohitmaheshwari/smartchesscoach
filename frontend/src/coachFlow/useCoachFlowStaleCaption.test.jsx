@@ -122,6 +122,58 @@ describe("the board reading never outlives its position", () => {
     });
   });
 
+  test("a catastrophic blunder is shown, not swallowed", async () => {
+    // The server's hold path is disabled, so a critical_interrupt arrives
+    // with shouldAutoCommit true and never reaches the hold branch. Until
+    // this layer was added to the strip condition, the single most severe
+    // class of move was the one that displayed nothing, while a 1.5-pawn
+    // drift got a full card.
+    global.fetch = jest.fn(() => Promise.resolve(response({
+      shouldAutoCommit: true,
+      coachingDecision: {
+        layer: "critical_interrupt",
+        severity: "high",
+        text: "Stop. You are losing your bishop.",
+        question: { prompt: "What did your opponent just threaten?" },
+        category: "critical_tactic",
+        conceptKey: "blunder",
+      },
+      moveEvaluation: { moveQuality: "blunder", cpLoss: 522 },
+    })));
+
+    await render();
+    await act(async () => {
+      await api.handleUserMove(MOVE_ONE, jest.fn(), 4000);
+    });
+
+    expect(api.activeStripCoaching).not.toBeNull();
+    expect(api.activeStripCoaching.text).toBe("Stop. You are losing your bishop.");
+    expect(api.activeStripCoaching.layer).toBe("critical_interrupt");
+    // and it belongs in the game's record, like any advisory
+    expect(api.timeline.length).toBe(1);
+  });
+
+  test("an ambient nudge still stays out of the timeline", async () => {
+    // Widening the strip must not also widen what gets recorded.
+    global.fetch = jest.fn(() => Promise.resolve(response({
+      shouldAutoCommit: true,
+      coachingDecision: {
+        layer: "ambient",
+        text: "Development is not complete yet.",
+        conceptKey: "opening_phase",
+      },
+      moveEvaluation: { moveQuality: "good", cpLoss: 0 },
+    })));
+
+    await render();
+    await act(async () => {
+      await api.handleUserMove(MOVE_ONE, jest.fn(), 4000);
+    });
+
+    expect(api.activeStripCoaching.text).toBe("Development is not complete yet.");
+    expect(api.timeline.length).toBe(0);
+  });
+
   test("the reading that does arrive still belongs to the move that asked", async () => {
     // Clearing must not throw the answer away -- only the stale one.
     global.fetch = jest.fn(() => Promise.resolve(response({
