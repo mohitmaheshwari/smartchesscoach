@@ -112,7 +112,7 @@ services:
     deploy:
       replicas: 0
 
-  frontend:
+  frontend-builder:
     deploy:
       replicas: 0
 

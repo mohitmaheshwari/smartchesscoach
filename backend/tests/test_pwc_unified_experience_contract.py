@@ -108,3 +108,16 @@ def test_docker_services_receive_unified_rollout_flags():
         "COACHING_CONTEXT_V1_ROLES=${COACHING_CONTEXT_V1_ROLES:-admin,super_admin}"
         in production_text
     )
+
+
+def test_production_override_disables_only_services_defined_by_the_base_compose():
+    repo_root = Path(__file__).resolve().parents[2]
+    base_text = (repo_root / "docker-compose.yml").read_text(encoding="utf-8")
+    production_text = (repo_root / "docker-compose.prod.yml").read_text(
+        encoding="utf-8"
+    )
+    production_services = production_text.split("\nvolumes:", 1)[0]
+
+    assert "\n  frontend-builder:\n" in base_text
+    assert "\n  frontend-builder:\n" in production_services
+    assert "\n  frontend:\n" not in production_services
