@@ -1,7 +1,7 @@
 # QA Gate — Unified Play with Coach experience
 
 **Repo:** smartchesscoach
-**PR / Branch:** `codex/play-with-coach-unified-experience-scope` at `ddc8e984`
+**PR / Branch:** `codex/play-with-coach-unified-experience-scope` at `3ea2c5d8`
 **Engineer:** Codex
 **Date:** 2026-09-14
 **Mode:** ☒ Production   ☐ Prototype
@@ -18,9 +18,9 @@ This is a real user-facing coaching path, protected by a default-off rollout fla
 
 - **Isolated staging feature verdict:** PASS.
 - **Production deployment verdict:** HOLD.
-- **Why production is held:** the pre-existing combined production Compose project is invalid, remote post-deploy smoke testing has not run, and human UAT has not signed off.
+- **Why production is held:** no deployable remote staging environment is configured, remote post-deploy smoke testing has not run, and human UAT has not signed off.
 - **Data boundary:** the validation database was synthetic and explicitly tagged as containing no real player state. No production data or PII was copied.
-- **Branch integrity:** rebased after `origin/working-code` advanced during QA; final divergence was `0 behind / 6 ahead` before this evidence-only commit.
+- **Branch integrity:** rebased repeatedly as `origin/working-code` advanced during QA; the deployment-fix commit was `0 behind / 8 ahead` immediately before this report update.
 
 ## Component(s) touched
 
@@ -41,6 +41,7 @@ This is a real user-facing coaching path, protected by a default-off rollout fla
 |---|---|
 | Rollout flags were not passed into deployed services | Added default-off Compose pass-through and contract coverage. |
 | Production app service dropped canonical coaching-context flags | Added both context flags to the production service contract. |
+| Production Compose disabled a nonexistent `frontend` service | Aligned the override with the base `frontend-builder` service. Both base and combined production configurations now validate; topology contract passes 9/9. |
 | Existing users with a missing `role` could be eligible for PWC but receive no coaching context | Normalized a blank role to ordinary `user`; regression test and live API verification pass. |
 | Legacy setup flashed while the experience contract loaded | Replaced it with a neutral “Preparing your game…” state; component test passes. |
 | Light-mode activation contrast was broken | Corrected light background, shell, and secondary surfaces; browser capture reviewed. |
@@ -131,6 +132,19 @@ The API health endpoint returned:
 
 No `ERROR`, traceback, or exception appeared in the API logs during the final 15-minute inspection window.
 
+**Deployment configuration validation:**
+
+```text
+docker compose -f docker-compose.yml config --quiet
+base_exit=0
+
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+production_exit=0
+
+python -m pytest tests/test_pwc_unified_experience_contract.py -q
+9 passed
+```
+
 **Dedicated live API flow:**
 
 ```text
@@ -199,8 +213,8 @@ The final desktop and mobile postgame captures were also inspected visually afte
 
 ## Release blockers and required next validation
 
-1. **Production Compose is invalid.** `docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet` fails with `service "frontend" has neither an image nor a build context specified`. The `frontend` service is present on `origin/working-code`, so this was not introduced by the PWC branch. The base Compose file validates successfully with synthetic required variables.
-2. **Remote post-deploy smoke has not run.** This was an isolated local staging canary; no remote deployment was performed.
+1. **No deployable remote staging target is configured.** GitHub reports no deployment environments, the repository contains no staging host/deploy hook, and `coaching-board.preview.emergentagent.com` currently serves only an Emergent “Loading…” placeholder while `/api/health`, `/api/auth/dev-login`, and `/api/coach/play/experience` return 404. The only documented SSH deploy target is the live `chessguru.ai` production server, which was not treated as staging.
+2. **Remote post-deploy smoke has therefore not run.** The isolated local staging canary is complete, but it is not represented as a remote deployment.
 3. **Human UAT is not complete.** A real player must verify that Coach mode feels helpful, Play mode truly feels uninterrupted, and the postgame recommendation feels earned.
 4. **No load/performance or formal accessibility audit was performed.** The gate covers functional, responsive, network, console, and visual behavior.
 
@@ -210,7 +224,7 @@ The rollout flags remain default-off, so these blockers do not expose unvalidate
 
 ## Engineer's self-declaration
 
-I confirm the above reflects what actually ran, and every unchecked or failing item has a stated reason. I do not recommend a production deployment until the production Compose project validates and post-deploy smoke plus human UAT are complete.
+I confirm the above reflects what actually ran, and every unchecked or failing item has a stated reason. Production Compose now validates. I do not recommend a production deployment until a staging target is provisioned (or production cutover is separately approved) and post-deploy smoke plus human UAT are complete.
 
 **Signed:** Codex  **Date:** 2026-09-14
 
