@@ -95,7 +95,7 @@ def _coaching_context_rollout_roles() -> set[str]:
     raw = os.environ.get(
         "COACHING_CONTEXT_V1_ROLES", "admin,super_admin"
     )
-    return {role.strip() for role in raw.split(",") if role.strip()}
+    return {role.strip().lower() for role in raw.split(",") if role.strip()}
 
 
 def _pic_rollout_roles() -> set[str]:
@@ -130,15 +130,16 @@ def _pic_fields_eligible(user_role: Optional[str]) -> bool:
 
 
 def _instruction_fields_eligible(user_role: Optional[str]) -> bool:
+    normalised = str(user_role or "").strip().lower() or "user"
     pwc_eligible = (
         _instruction_flag_enabled()
-        and user_role in _INSTRUCTION_ROLLOUT_ROLES
+        and normalised in _INSTRUCTION_ROLLOUT_ROLES
     )
     context_eligible = (
         _coaching_context_flag_enabled()
-        and user_role in _coaching_context_rollout_roles()
+        and normalised in _coaching_context_rollout_roles()
     )
-    return pwc_eligible or _pic_fields_eligible(user_role) or context_eligible
+    return pwc_eligible or _pic_fields_eligible(normalised) or context_eligible
 
 
 async def get_instruction_eligibility_state(db, user_id: str) -> Dict[str, Any]:
@@ -976,9 +977,8 @@ async def build_coaching_context(
     complete_access = await get_complete_coaching_access(
         db, user_id, user_doc=user_doc
     )
-    legacy_eligible = (
-        (user_doc or {}).get("role") in _coaching_context_rollout_roles()
-    )
+    user_role = str((user_doc or {}).get("role") or "").strip().lower() or "user"
+    legacy_eligible = user_role in _coaching_context_rollout_roles()
     if not (legacy_eligible or complete_access.enabled):
         return None
 

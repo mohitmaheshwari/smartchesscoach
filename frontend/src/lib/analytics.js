@@ -101,6 +101,14 @@
 //   lesson_started / explanation_completed — lesson entry and transition
 //   guided_attempt / independent_attempt / review_attempt — real attempts
 //   back_to_plan — lesson return to the future coach-owned plan
+//
+//   Unified Play with Coach V1 (2026-09-14). These events contain only
+//   coarse journey state; moves, FENs, captions, focus labels and session ids
+//   remain server-side. Server session evidence owns chess truth and transfer.
+//   pwc_unified_setup_viewed / pwc_unified_mode_selected /
+//   pwc_unified_session_started / pwc_unified_first_move /
+//   pwc_unified_help_requested / pwc_unified_session_resumed /
+//   pwc_unified_postgame_action
 
 // Canonical event IDs. Emitters import this object instead of repeating raw
 // strings, so a rename cannot silently split one funnel into two event names.
@@ -113,6 +121,13 @@ export const ANALYTICS_EVENTS = Object.freeze({
   FUNNEL_REVIEW_OPENED: "funnel_review_opened",
   FUNNEL_TRAINING_SOLVE: "funnel_training_solve",
   FUNNEL_PWC_STARTED: "funnel_pwc_started",
+  PWC_UNIFIED_SETUP_VIEWED: "pwc_unified_setup_viewed",
+  PWC_UNIFIED_MODE_SELECTED: "pwc_unified_mode_selected",
+  PWC_UNIFIED_SESSION_STARTED: "pwc_unified_session_started",
+  PWC_UNIFIED_FIRST_MOVE: "pwc_unified_first_move",
+  PWC_UNIFIED_HELP_REQUESTED: "pwc_unified_help_requested",
+  PWC_UNIFIED_SESSION_RESUMED: "pwc_unified_session_resumed",
+  PWC_UNIFIED_POSTGAME_ACTION: "pwc_unified_postgame_action",
   FUNNEL_PAYWALL_VIEWED: "funnel_paywall_viewed",
   FUNNEL_PAYMENT_ATTEMPTED: "funnel_payment_attempted",
   FUNNEL_PAYMENT_SUCCESS: "funnel_payment_success",
@@ -292,12 +307,16 @@ const ANALYTICS_ALLOWED_PROP_KEYS = new Set([
   "decision_id",
   "decision_source",
   "exited_early",
+  "experience_version",
   "explore_level",
   "flag_state",
   "games_together",
+  "game_mode",
   "has_conversation",
+  "has_selected_opening",
   "help_action",
   "insight_id",
+  "entry_source",
   "instrumentation_version",
   "is_recommended",
   "move_number",

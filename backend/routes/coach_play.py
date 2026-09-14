@@ -637,6 +637,20 @@ async def get_active_coach_sessions(
     }
 
 
+@router.get("/experience")
+async def get_coach_play_experience(
+    user: User = Depends(get_current_user),
+):
+    """Return setup capability before the player commits to a session."""
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    from services.pwc_experience import build_experience_config
+
+    return await build_experience_config(db, user.user_id)
+
+
 @router.get("/history")
 async def get_coach_play_history(
     user: User = Depends(get_current_user),
@@ -1245,14 +1259,25 @@ async def end_coach_play_session(
                 "session_id": session_id,
                 "user_id": user.user_id,
             })
-            if ended_session and ended_session.get("geometry_focus_module"):
-                from services.board_geometry_service import postgame_summary
-                result.setdefault("session", {})["geometry_postgame_summary"] = (
-                    postgame_summary(ended_session)
-                )
+            if ended_session:
+                if ended_session.get("experience_version") == "unified_v1":
+                    from services.unified_pwc_coaching import (
+                        attach_unified_postgame_to_end_result,
+                    )
+
+                    attach_unified_postgame_to_end_result(
+                        result=result,
+                        session_doc=ended_session,
+                    )
+
+                if ended_session.get("geometry_focus_module"):
+                    from services.board_geometry_service import postgame_summary
+                    result.setdefault("session", {})["geometry_postgame_summary"] = (
+                        postgame_summary(ended_session)
+                    )
         except Exception as _geometry_end_error:
             logger.warning(
-                f"geometry end projection failed (non-fatal): {_geometry_end_error}"
+                f"end-session projection failed (non-fatal): {_geometry_end_error}"
             )
 
         return result
@@ -1944,53 +1969,32 @@ async def confirm_risky_move(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
 ):
-    """
-    Confirm a risky move after user acknowledges the warning.
-    
-    Decrements intervention count for this session.
-    """
+    """Atomically commit a warned move and continue the game."""
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
-    
+
     session_id = request.get("session_id")
     move = request.get("move")
     risk_level = request.get("risk_level", "medium")
-    
+    try:
+        interruption_duration_ms = max(
+            0, min(1_800_000, int(request.get("interruption_duration_ms") or 0))
+        )
+    except (TypeError, ValueError):
+        interruption_duration_ms = 0
+
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
     if not move:
         raise HTTPException(status_code=400, detail="move is required")
-    
+
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
-    # Decrement intervention count
-    remaining = session_doc.get("remaining_interventions", 3)
-    if remaining > 0:
-        remaining -= 1
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {"remaining_interventions": remaining}}
-        )
-    
-    # Log the override
-    guardian_overrides = session_doc.get("guardian_overrides", [])
-    guardian_overrides.append({
-        "move": move,
-        "risk_level": risk_level,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
-    
-    await db.coach_sessions.update_one(
-        {"session_id": session_id},
-        {"$set": {"guardian_overrides": guardian_overrides}}
-    )
-    
-    # Now actually execute the move (same as /move endpoint)
+
     time_spent = request.get("time_spent", 0)
     try:
         current_fen = session_doc.get("current_fen")
@@ -2001,10 +2005,12 @@ async def confirm_risky_move(
 
         move_history = session_doc.get("move_history", [])
         move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
+        action_revision = int(session_doc.get("action_revision") or 0) + 1
+        game_over = board.is_game_over()
+        result = None
+        if game_over:
+            result = "win" if board.is_checkmate() else "draw"
 
-        # Confirming a risky move is a second request for a move the client
-        # already tried, so it is the most likely path to double-append. Commit
-        # it as a compare-and-swap like every other writer.
         _confirmed_entry = {
             "move": move,
             "uci": chess_move.uci(),
@@ -2015,53 +2021,168 @@ async def confirm_risky_move(
             "risk_acknowledged": risk_level,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        if await _append_move_atomically(
+        extra_set = {
+            "coach_move_pending": not game_over,
+            "action_revision": action_revision,
+        }
+        is_unified = session_doc.get("experience_version") == "unified_v1"
+        if is_unified and move_number == 1:
+            extra_set["unified_journey.first_move_at"] = (
+                datetime.now(timezone.utc).isoformat()
+            )
+        if game_over:
+            extra_set.update({
+                "status": "completed",
+                "result": result,
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+            })
+            if is_unified:
+                extra_set["unified_journey.completed_at"] = (
+                    datetime.now(timezone.utc).isoformat()
+                )
+                extra_set["unified_journey.completion_result"] = result
+
+        committed = await _append_move_atomically(
             db,
             session_id,
             entry=_confirmed_entry,
             fen_before=current_fen,
             fen_after=fen_after_user,
             expected_history_length=len(move_history),
-            extra_set={"coach_move_pending": True},
-        ):
-            move_history.append(_confirmed_entry)
-        else:
-            logger.info(
-                "[move-cas] confirmed move %s already recorded for %s",
-                move, session_id[:8],
+            extra_set=extra_set,
+        )
+        if not committed:
+            latest = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "current_fen": 1, "move_history": {"$slice": -1},
+                 "remaining_interventions": 1, "coach_move_pending": 1,
+                 "status": 1, "result": 1},
+            )
+            latest_move = ((latest or {}).get("move_history") or [{}])[-1]
+            if (
+                latest_move.get("by") == "player"
+                and latest_move.get("move") == move
+                and latest_move.get("fen_before") == current_fen
+            ):
+                return {
+                    "success": True,
+                    "idempotent": True,
+                    "user_move_recorded": True,
+                    "move": move,
+                    "intervention_consumed": True,
+                    "remaining_interventions": (latest or {}).get(
+                        "remaining_interventions", 0
+                    ),
+                    "current_fen": (latest or {}).get("current_fen"),
+                    "awaiting_coach": bool(
+                        (latest or {}).get("coach_move_pending")
+                    ),
+                    "game_over": (latest or {}).get("status") == "completed",
+                    "result": (latest or {}).get("result"),
+                }
+            raise HTTPException(
+                status_code=409,
+                detail="The position changed before this move could be committed.",
             )
 
-        # Check if game is over
-        game_over = board.is_game_over()
-        if game_over:
-            result = "draw"
-            if board.is_checkmate():
-                result = "win"
+        move_history.append(_confirmed_entry)
+        remaining = max(
+            0, int(session_doc.get("remaining_interventions", 3)) - 1
+        )
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {
+                "$set": {"remaining_interventions": remaining},
+                "$push": {"guardian_overrides": {
+                    "move": move,
+                    "risk_level": risk_level,
+                    "interruption_duration_ms": interruption_duration_ms,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }},
+            },
+        )
+        if is_unified:
+            move_key = f"{len(move_history) - 1}:{chess_move.uci()}"
             await db.coach_sessions.update_one(
-                {"session_id": session_id},
-                {"$set": {"status": "completed", "result": result}}
+                {"session_id": session_id, "coaching_decisions.move_key": move_key},
+                {"$set": {
+                    "coaching_decisions.$.move_committed_at": datetime.now(
+                        timezone.utc
+                    ).isoformat(),
+                    "coaching_decisions.$.resolved_at": datetime.now(
+                        timezone.utc
+                    ).isoformat(),
+                    "coaching_decisions.$.outcome": "overridden",
+                    "coaching_decisions.$.interruption_duration_ms": (
+                        interruption_duration_ms
+                    ),
+                }},
             )
-            return {
-                "success": True,
-                "remaining_interventions": remaining,
-                "current_fen": fen_after_user,
-                "game_over": True,
-                "result": result,
-            }
+
+        # Confirmation is a complete commit path, not a logging prelude to
+        # /move. It must schedule the same opponent turn as a normal move.
+        import asyncio
+        user_rating = int(session_doc.get("user_rating") or 1200)
+        user_color = str(session_doc.get("user_color") or "white")
+        is_play_mode = session_doc.get("game_mode") == "play"
+        if is_unified:
+            asyncio.create_task(
+                _process_move_and_respond(
+                    session_id=session_id,
+                    user_move=move,
+                    fen_before=current_fen,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                    user_color=user_color,
+                    move_number=move_number,
+                    game_over=game_over,
+                    expected_action_revision=action_revision,
+                )
+            )
+        elif not is_play_mode:
+            asyncio.create_task(
+                _process_move_and_respond(
+                    session_id=session_id,
+                    user_move=move,
+                    fen_before=current_fen,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                    user_color=user_color,
+                    move_number=move_number,
+                    game_over=game_over,
+                    expected_action_revision=action_revision,
+                )
+            )
+        elif not game_over:
+            asyncio.create_task(
+                _play_mode_coach_move(
+                    session_id=session_id,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                )
+            )
 
         return {
             "success": True,
+            "user_move_recorded": True,
+            "move": move,
+            "intervention_consumed": True,
             "remaining_interventions": remaining,
             "current_fen": fen_after_user,
-            "awaiting_coach": True,
+            "awaiting_coach": not game_over,
+            "game_over": game_over,
+            "result": result,
         }
+    except HTTPException:
+        raise
+    except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError) as exc:
+        raise HTTPException(status_code=400, detail="Move is not legal here.") from exc
     except Exception as e:
         logger.error(f"[GUARDIAN] Move execution after confirm failed: {e}")
-        return {
-            "success": True,
-            "remaining_interventions": remaining,
-            "message": "Move confirmed but execution failed. Try again.",
-        }
+        raise HTTPException(
+            status_code=500,
+            detail="The move was not committed. Please try again.",
+        ) from e
 
 
 
@@ -2742,6 +2863,54 @@ async def trigger_coach_move_endpoint(
             "message": "It's already your turn!",
             "current_fen": current_fen,
             "is_player_turn": True
+        }
+
+    # A reconnect must not switch a unified session back onto the legacy
+    # opponent/message path. Resume through the same quiet controller used by
+    # the original move request, then report the stored board truth.
+    if session_doc.get("experience_version") == "unified_v1":
+        move_history = session_doc.get("move_history") or []
+        last_player_move = next(
+            (
+                item.get("move")
+                for item in reversed(move_history)
+                if item.get("by") == "player" and item.get("move")
+            ),
+            "",
+        )
+        await _unified_coach_turn(
+            session_id=session_id,
+            user_move=last_player_move,
+            fen_after_user=current_fen,
+            user_rating=int(session_doc.get("user_rating") or 1200),
+            move_number=sum(1 for item in move_history if item.get("by") == "player"),
+            game_over=False,
+            expected_action_revision=int(session_doc.get("action_revision") or 0),
+        )
+        latest = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "current_fen": 1, "move_history": 1},
+        ) or {}
+        latest_history = latest.get("move_history") or []
+        latest_move = latest_history[-1] if latest_history else {}
+        latest_fen = latest.get("current_fen") or current_fen
+        latest_board = chess.Board(latest_fen)
+        latest_is_white_turn = latest_board.turn == chess.WHITE
+        latest_is_player_turn = (
+            latest_is_white_turn and user_color == "white"
+        ) or (
+            not latest_is_white_turn and user_color == "black"
+        )
+        return {
+            "success": latest_is_player_turn,
+            "coach_move": (
+                latest_move.get("move")
+                if latest_move.get("by") == "coach"
+                else None
+            ),
+            "current_fen": latest_fen,
+            "is_player_turn": latest_is_player_turn,
+            "message": None,
         }
     
     # It's coach's turn - make a move
@@ -5358,10 +5527,69 @@ async def evaluate_pending_move(
              "coaching_decisions": 1, "last_coaching_move_index": 1,
              "opening_to_teach": 1, "opening_key": 1, "opening_teaching_active": 1,
              "opening_teaching_moves": 1, "opening_teaching_index": 1,
-             "behavior_summary": 1}
+             "behavior_summary": 1, "experience_version": 1, "game_mode": 1,
+             "coaching_context": 1, "user_rating": 1, "current_fen": 1,
+             "v5_fired_principles": 1, "v5_fired_state_keys": 1}
         )
         if not session_doc:
             return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
+        if session_doc.get("user_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Not your session")
+
+        # Unified V1 owns one controller and one verified narration path. It
+        # exits before any legacy focus reader, template picker, gap filler,
+        # opening enforcer, or behavioral message generator can compete.
+        from services.pwc_experience import UNIFIED_V1_EXPERIENCE
+        if session_doc.get("experience_version") == UNIFIED_V1_EXPERIENCE:
+            from services.unified_pwc_coaching import evaluate_unified_pending
+
+            unified_response = await evaluate_unified_pending(
+                session_doc=session_doc,
+                fen_before=fen_before,
+                uci=uci,
+                user_rating=int(session_doc.get("user_rating") or user_rating or 1200),
+            )
+            engine_evidence = unified_response.pop("_engineEvidence", {})
+            unified_decision = unified_response.get("coachingDecision") or {}
+            move_key = f"{move_index_preview}:{uci}"
+            decision_created_at = datetime.now(timezone.utc).isoformat()
+            visible_layer = unified_decision.get("layer") in {
+                "advisory", "critical_interrupt"
+            }
+            await db.coach_sessions.update_one(
+                {
+                    "session_id": session_id,
+                    "user_id": user.user_id,
+                    "coaching_decisions.move_key": {"$ne": move_key},
+                },
+                {"$push": {"coaching_decisions": {
+                    "move_index": move_index_preview,
+                    "move_key": move_key,
+                    "source": unified_decision.get("source"),
+                    "layer": unified_decision.get("layer", "silent"),
+                    "category": unified_decision.get("category"),
+                    "concept_key": unified_decision.get("conceptKey"),
+                    "text": unified_decision.get("text"),
+                    "move_quality": engine_evidence.get("move_quality"),
+                    "cp_loss": engine_evidence.get("cp_loss"),
+                    "best_move": engine_evidence.get("best_move"),
+                    "eval_before": engine_evidence.get("eval_before"),
+                    "eval_after": engine_evidence.get("eval_after"),
+                    "eval_valid": bool(engine_evidence.get("eval_valid")),
+                    "caption_verified": bool(
+                        (unified_decision.get("proof") or {}).get("caption_verified")
+                    ),
+                    "experience_version": UNIFIED_V1_EXPERIENCE,
+                    "proposed_at": decision_created_at,
+                    "delivered_at": decision_created_at if visible_layer else None,
+                    "outcome": (
+                        "awaiting_choice"
+                        if unified_decision.get("layer") == "critical_interrupt"
+                        else "delivered" if visible_layer else "silent"
+                    ),
+                }}},
+            )
+            return unified_response
 
         user_color = session_doc.get("user_color", "white")
         user_id = session_doc.get("user_id", "")
@@ -6130,6 +6358,8 @@ async def evaluate_pending_move(
             },
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         elapsed_total = (_time.monotonic() - start) * 1000
         logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
@@ -6142,6 +6372,142 @@ async def evaluate_pending_move(
         except NameError:
             _tw = None
         return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None, "openingGuidance": _og, "trapWarning": _tw}
+
+
+@router.post("/help")
+async def request_unified_coach_help(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Answer one bounded, non-blocking help request in the unified panel."""
+    session_id = str(request.get("session_id") or "").strip()
+    action = str(request.get("action") or "").strip()
+    if not session_id or not action:
+        raise HTTPException(status_code=400, detail="session_id and action are required")
+
+    session_doc = await db.coach_sessions.find_one(
+        {"session_id": session_id, "user_id": user.user_id}, {"_id": 0}
+    )
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if (
+        session_doc.get("experience_version") != "unified_v1"
+        or session_doc.get("game_mode") != "coach"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Contextual help is not active for this session.",
+        )
+    if session_doc.get("status") == "completed":
+        raise HTTPException(status_code=409, detail="This game is already complete.")
+
+    from services.unified_pwc_coaching import answer_unified_help
+
+    try:
+        result = await answer_unified_help(
+            session_doc=session_doc,
+            action=action,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    await db.coach_sessions.update_one(
+        {"session_id": session_id, "user_id": user.user_id},
+        {"$push": {"coaching_help_events": {
+            "action": action,
+            "source": result.get("source"),
+            "caption_verified": bool(
+                (result.get("proof") or {}).get("caption_verified")
+            ),
+            "abstained": bool((result.get("proof") or {}).get("abstained")),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }}},
+    )
+    return result
+
+
+@router.post("/intervention/revise")
+async def record_unified_intervention_revision(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Resolve a verified warning when the player chooses another move."""
+    session_id = str(request.get("session_id") or "").strip()
+    uci = str(request.get("uci") or "").strip().lower()
+    try:
+        move_index = max(0, int(request.get("move_index") or 0))
+        duration_ms = max(
+            0, min(1_800_000, int(request.get("interruption_duration_ms") or 0))
+        )
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid intervention evidence.")
+    if not session_id or not uci:
+        raise HTTPException(status_code=400, detail="session_id and uci are required")
+
+    move_key = f"{move_index}:{uci}"
+    result = await db.coach_sessions.update_one(
+        {
+            "session_id": session_id,
+            "user_id": user.user_id,
+            "experience_version": "unified_v1",
+            "game_mode": "coach",
+            "status": "active",
+            "coaching_decisions": {"$elemMatch": {
+                "move_key": move_key,
+                "source": "pwc_unified_v1",
+                "layer": "critical_interrupt",
+            }},
+        },
+        {"$set": {
+            "coaching_decisions.$.resolved_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
+            "coaching_decisions.$.outcome": "revised",
+            "coaching_decisions.$.interruption_duration_ms": duration_ms,
+        }},
+    )
+    if not result.matched_count:
+        raise HTTPException(
+            status_code=409,
+            detail="That coaching moment is no longer active.",
+        )
+    return {"success": True, "outcome": "revised"}
+
+
+@router.post("/journey-event")
+async def record_unified_journey_event(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Persist bounded UI actions that cannot be inferred from game state."""
+    session_id = str(request.get("session_id") or "").strip()
+    event = str(request.get("event") or "").strip()
+    action_kind = str(request.get("action_kind") or "").strip()
+    event_fields = {
+        "resumed": "resume_events",
+        "postgame_action": "postgame_action_events",
+    }
+    if not session_id or event not in event_fields:
+        raise HTTPException(status_code=400, detail="Unknown journey event.")
+    if event == "postgame_action" and action_kind not in {
+        "recommended_next_action", "new_game",
+    }:
+        raise HTTPException(status_code=400, detail="Unknown postgame action.")
+
+    evidence = {"created_at": datetime.now(timezone.utc).isoformat()}
+    if action_kind:
+        evidence["action_kind"] = action_kind
+    result = await db.coach_sessions.update_one(
+        {
+            "session_id": session_id,
+            "user_id": user.user_id,
+            "experience_version": "unified_v1",
+        },
+        {"$push": {f"unified_journey.{event_fields[event]}": evidence}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True}
 
 
 def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, signals: dict, session_id: str) -> Optional[Dict]:
@@ -6958,6 +7324,8 @@ async def start_play_with_coach(
     time_control = request.get("time_control", "15+10")
     game_mode = request.get("game_mode", "coach")  # "coach" (with captions) | "play" (pure chess)
     evidence_mode = request.get("evidence_mode")
+    requested_experience_version = request.get("experience_version")
+    entry_source = str(request.get("entry_source") or "direct")
     logger.info(f"[/coach/play/start] RECEIVED game_mode={game_mode} from client for user {user.user_id[:8]}")
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
@@ -6979,6 +7347,30 @@ async def start_play_with_coach(
 
         if str(evidence_mode) not in PWC_EVIDENCE_MODES:
             raise HTTPException(status_code=400, detail="unknown evidence_mode")
+
+    from services.pwc_experience import (
+        UNIFIED_V1_EXPERIENCE,
+        resolve_requested_experience_version,
+    )
+
+    rollout_user = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "role": 1, "feature_flags": 1},
+    )
+    try:
+        experience_version = resolve_requested_experience_version(
+            requested_experience_version,
+            rollout_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # The unified UI exposes only Coach and Play. Evidence purpose remains an
+    # internal learning-state decision rather than a third setup choice.
+    if experience_version == UNIFIED_V1_EXPERIENCE:
+        evidence_mode = None
 
     # Premium gate — Coach Mode only (1 session/day free tier); Play Mode = unlimited.
     # Play Mode is pure chess with no coaching overhead, so no rate limit.
@@ -7032,7 +7424,30 @@ async def start_play_with_coach(
             source_game_id=source_game_id,
             game_mode=game_mode,
             evidence_mode=evidence_mode,
+            experience_version=experience_version,
         )
+
+        if experience_version == UNIFIED_V1_EXPERIENCE:
+            allowed_entry_sources = {
+                "direct", "opening", "focus", "trap", "geometry", "practice",
+            }
+            if entry_source not in allowed_entry_sources:
+                entry_source = "direct"
+            journey_started_at = datetime.now(timezone.utc).isoformat()
+            unified_journey = {
+                "schema_version": "pwc_unified_journey.v1",
+                "started_at": journey_started_at,
+                "entry_source": entry_source,
+                "setup_choice": game_mode,
+                "selected_color": user_color,
+                "time_control": time_control,
+                "has_selected_opening": bool(opening_key or opening_name),
+            }
+            session.unified_journey = unified_journey
+            await db.coach_sessions.update_one(
+                {"session_id": session.session_id},
+                {"$set": {"unified_journey": unified_journey}},
+            )
 
         # The canonical snapshot is the only focus authority for eligible
         # flag-on sessions. Replace any earlier legacy prescription choice
@@ -7310,7 +7725,10 @@ async def start_play_with_coach(
                             "opening_teaching_active": False,
                         }}
                     )
-                elif not opening_name:
+                elif (
+                    not opening_name
+                    and experience_version != UNIFIED_V1_EXPERIENCE
+                ):
                     # Fallback: old system picks an opening ONLY if user didn't select one
                     opening_guidance = await suggest_opening_for_session(
                         db, user.user_id, user_color, session.user_rating
@@ -7345,29 +7763,33 @@ async def start_play_with_coach(
                 if coaching_context.get("focus_suggestion"):
                     welcome_message += f" {coaching_context['focus_suggestion']}."
             
-            # Surface focus concept from behavior tracker (replaces old watch_for)
-            try:
-                from services.player_behavior_tracker import get_focus_concept, get_session_focus_message
-                focus = await get_focus_concept(db, user.user_id)
-                if focus:
-                    focus_msg = get_session_focus_message(focus)
-                    if focus_msg:
-                        welcome_message += f"\n\n{focus_msg}"
-                    # Store focus concept in session for reference
-                    await db.coach_sessions.update_one(
-                        {"session_id": session.session_id},
-                        {"$set": {"focus_concept": focus}}
-                    )
-            except Exception as e:
-                logger.warning(f"Focus concept injection failed: {e}")
-                # Fallback to old watch_for system
-                if coaching_context.get("watch_for"):
-                    top_weakness = coaching_context["watch_for"][0] if coaching_context["watch_for"] else None
-                    if top_weakness and top_weakness["count"] >= 3:
-                        welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
+            # Surface focus concept from behavior tracker (replaces old
+            # watch_for). Unified sessions already own an immutable canonical
+            # focus snapshot, so neither this reader nor its fallback may add a
+            # second focus narrative.
+            if experience_version != UNIFIED_V1_EXPERIENCE:
+                try:
+                    from services.player_behavior_tracker import get_focus_concept, get_session_focus_message
+                    focus = await get_focus_concept(db, user.user_id)
+                    if focus:
+                        focus_msg = get_session_focus_message(focus)
+                        if focus_msg:
+                            welcome_message += f"\n\n{focus_msg}"
+                        # Store focus concept in session for reference
+                        await db.coach_sessions.update_one(
+                            {"session_id": session.session_id},
+                            {"$set": {"focus_concept": focus}}
+                        )
+                except Exception as e:
+                    logger.warning(f"Focus concept injection failed: {e}")
+                    # Fallback to old watch_for system
+                    if coaching_context.get("watch_for"):
+                        top_weakness = coaching_context["watch_for"][0] if coaching_context["watch_for"] else None
+                        if top_weakness and top_weakness["count"] >= 3:
+                            welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
             
             # Try Human Coach as fallback/enhancement — but NOT when curriculum is active
-            if not opening_key:
+            if not opening_key and experience_version != UNIFIED_V1_EXPERIENCE:
                 try:
                     from services.human_coach_service import create_human_coach
                     coach = await create_human_coach(db, user.user_id, session.user_rating)
@@ -7387,6 +7809,13 @@ async def start_play_with_coach(
         except Exception as e:
             logger.warning(f"Coach memory greeting failed: {e}")
             welcome_message = message
+
+        if experience_version == UNIFIED_V1_EXPERIENCE:
+            # The unified surface speaks from canonical_session_context below.
+            # Never let a legacy greeting or watch_for fallback become its
+            # default when verified personal context is thin.
+            welcome_message = message
+            coaching_context = {}
         
         # Coach Mode may present the canonical instruction. Play Mode keeps the
         # immutable snapshot in Mongo for postgame analysis but shows no live
@@ -7426,11 +7855,15 @@ async def start_play_with_coach(
                 "mate_in": mate_in
             },
             "practice_mode": practice_mode,
+            "experience_version": experience_version,
             "openingGuidance": (
                 _get_initial_opening_guidance(
                     update_fields if (opening_key or opening_name) else {}, logger
                 )
-                if game_mode == "coach"
+                if (
+                    game_mode == "coach"
+                    and experience_version != UNIFIED_V1_EXPERIENCE
+                )
                 else None
             ),
         }
@@ -7499,10 +7932,15 @@ async def make_coach_play_move(
 
     # Play Mode: no coaching feedback. Set to None upfront so response returns empty.
     is_play_mode = session_doc.get("game_mode") == "play"
+    is_unified = session_doc.get("experience_version") == "unified_v1"
     logger.info(f"[/move] session {session_id[:8]} game_mode={session_doc.get('game_mode')} is_play_mode={is_play_mode}")
 
     # CURRICULUM ENFORCEMENT: Check if move matches the curriculum's expected move
-    curriculum_active = session_doc.get("curriculum_active", False) and not is_play_mode
+    curriculum_active = (
+        session_doc.get("curriculum_active", False)
+        and not is_play_mode
+        and not is_unified
+    )
     curriculum_feedback = None
     if curriculum_active:
         teaching_opening = session_doc.get("teaching_opening")
@@ -7553,7 +7991,11 @@ async def make_coach_play_move(
         # (whether right or wrong); we just add a coaching feedback
         # layer. Clear the puzzle either way.
         puzzle_feedback = None
-        active_puzzle = session_doc.get("active_puzzle") if not is_play_mode else None
+        active_puzzle = (
+            session_doc.get("active_puzzle")
+            if not is_play_mode and not is_unified
+            else None
+        )
         if active_puzzle:
             try:
                 from coach_play.punishment_puzzle import evaluate_user_response
@@ -7634,11 +8076,20 @@ async def make_coach_play_move(
             "coach_move_pending": not game_over,
             "action_revision": action_revision,
         }
+        if is_unified and move_number == 1:
+            update_fields["unified_journey.first_move_at"] = (
+                datetime.now(timezone.utc).isoformat()
+            )
         if game_over:
             update_fields["status"] = "completed"
             update_fields["ended_at"] = datetime.now(timezone.utc).isoformat()
             if result is not None:
                 update_fields["result"] = result
+            if is_unified:
+                update_fields["unified_journey.completed_at"] = (
+                    datetime.now(timezone.utc).isoformat()
+                )
+                update_fields["unified_journey.completion_result"] = result
 
             # 2026-07-24: persist a final mission_scoreboard snapshot so
             # mastery_gate_service (which reads it from storage) sees the
@@ -7682,6 +8133,17 @@ async def make_coach_play_move(
                 "[move-cas] player move %s already recorded for %s; not duplicating",
                 move, session_id[:8],
             )
+        elif is_unified:
+            move_key = f"{len(move_history) - 1}:{chess_move.uci()}"
+            await db.coach_sessions.update_one(
+                {"session_id": session_id, "coaching_decisions.move_key": move_key},
+                {"$set": {
+                    "coaching_decisions.$.move_committed_at": datetime.now(
+                        timezone.utc
+                    ).isoformat(),
+                    "coaching_decisions.$.outcome": "continued",
+                }},
+            )
 
         # If the user's own move ends the game, no coach turn — push now.
         if game_over:
@@ -7692,7 +8154,11 @@ async def make_coach_play_move(
 
             # If this is a play-mode game, trigger profile aggregation (background)
             session = await db.coach_sessions.find_one({"session_id": session_id})
-            if session and session.get("game_mode") == "play":
+            if (
+                session
+                and session.get("game_mode") == "play"
+                and session.get("experience_version") != "unified_v1"
+            ):
                 asyncio.create_task(_trigger_profile_aggregation(db, user_id=user.user_id))
                 # Same gap as the coach-move-ends-game case: Play Mode never
                 # runs _process_move_and_respond, which is where Coach Mode
@@ -7713,7 +8179,21 @@ async def make_coach_play_move(
         # (coach_move_pending stayed True in the DB, but nothing was ever
         # queued to clear it, and awaiting_coach was hardcoded False so the
         # frontend didn't even poll for a reply).
-        if not is_play_mode:
+        if is_unified:
+            asyncio.create_task(
+                _process_move_and_respond(
+                    session_id=session_id,
+                    user_move=move,
+                    fen_before=fen_before,
+                    fen_after_user=fen_after_user,
+                    user_rating=user_rating,
+                    user_color=user_color,
+                    move_number=move_number,
+                    game_over=game_over,
+                    expected_action_revision=action_revision,
+                )
+            )
+        elif not is_play_mode:
             asyncio.create_task(
                 _process_move_and_respond(
                     session_id=session_id,
@@ -8109,6 +8589,14 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
     """
     import chess as _chess
     try:
+        surface_session = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "game_mode": 1, "experience_version": 1},
+        ) or {}
+        quiet_surface = (
+            surface_session.get("game_mode") == "play"
+            or surface_session.get("experience_version") == "unified_v1"
+        )
         board = _chess.Board(fen)
         chess_move = board.parse_san(coach_move_san)
         board.push(chess_move)
@@ -8130,7 +8618,11 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                 "move": coach_move_san,
                 "san": coach_move_san,
                 "uci": chess_move.uci(),
-                "explanation": get_coach_move_explanation(coach_move_san, fen),
+                "explanation": (
+                    None
+                    if quiet_surface
+                    else get_coach_move_explanation(coach_move_san, fen)
+                ),
             },
         }
 
@@ -8142,6 +8634,14 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             elif board.is_stalemate() or board.is_insufficient_material():
                 update["status"] = "completed"
                 update["result"] = "draw"
+            if (
+                update.get("status") == "completed"
+                and surface_session.get("experience_version") == "unified_v1"
+            ):
+                update["unified_journey.completed_at"] = datetime.now(
+                    timezone.utc
+                ).isoformat()
+                update["unified_journey.completion_result"] = update.get("result")
 
         # Compare-and-swap, not read-modify-write: trigger_coach_move_endpoint
         # and _process_move_and_respond can be resolving the same turn right now.
@@ -8164,6 +8664,22 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         # Keep the caller's local list consistent with what was stored.
         move_history.append(entry)
         logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
+
+        # Play mode is strictly silent. Unified Coach mode has one narration
+        # owner in evaluate-pending, so the shared move writer must not create
+        # legacy nags or a second V5 message after the opponent replies.
+        if quiet_surface:
+            publish_session_event(session_id, {
+                "type": "coach_turn_ready",
+                "move": coach_move_san,
+                "fen": fen_after,
+            })
+            if update.get("status") == "completed":
+                publish_session_event(session_id, {
+                    "type": "game_over",
+                    "result": update.get("result"),
+                })
+            return True
 
         # ── PHASE 3: PRE-MOVE NAG (2026-07-08, Mohit's Phase 2 follow-up) ──
         # After the coach's move, the position handed BACK to the user may be
@@ -8476,6 +8992,173 @@ async def _play_mode_coach_move(session_id: str, fen_after_user: str, user_ratin
         publish_session_event(session_id, {"type": "coach_turn_failed"})
 
 
+async def _unified_coach_turn(
+    *,
+    session_id: str,
+    user_move: str,
+    fen_after_user: str,
+    user_rating: int,
+    move_number: int,
+    game_over: bool,
+    expected_action_revision: int,
+):
+    """Persist one live eval, then make one quiet pedagogical reply.
+
+    Unified sessions never enter the legacy narration pipeline. The existing
+    PedagogicalOpponent remains responsible for choosing a sound, useful
+    reply; ``_apply_coach_move`` owns the atomic write and is silent for this
+    experience version.
+    """
+    try:
+        session_doc = await db.coach_sessions.find_one(
+            {"session_id": session_id}, {"_id": 0}
+        )
+        if not session_doc:
+            return
+        if int(session_doc.get("action_revision") or 0) != expected_action_revision:
+            logger.info(f"Skipping stale unified coach task for session {session_id}")
+            return
+        if session_doc.get("experience_version") != "unified_v1":
+            return
+
+        move_history = session_doc.get("move_history") or []
+        user_index = next(
+            (
+                index
+                for index in range(len(move_history) - 1, -1, -1)
+                if move_history[index].get("by") == "player"
+                and move_history[index].get("move") == user_move
+            ),
+            -1,
+        )
+        decisions = session_doc.get("coaching_decisions") or []
+        evidence = next(
+            (
+                item
+                for item in reversed(decisions)
+                if item.get("source") == "pwc_unified_v1"
+                and item.get("move_index") == user_index
+                and item.get("eval_valid")
+            ),
+            None,
+        )
+        if user_index >= 0 and evidence:
+            from services.unified_pwc_coaching import engine_evidence_for_player
+
+            evidence = engine_evidence_for_player(
+                evidence, session_doc.get("user_color") or "white"
+            )
+            enrichment = {
+                f"move_history.{user_index}.eval_before": evidence.get("eval_before"),
+                f"move_history.{user_index}.eval_after": evidence.get("eval_after"),
+                f"move_history.{user_index}.cp_loss": evidence.get("cp_loss"),
+                f"move_history.{user_index}.best_move": evidence.get("best_move"),
+                f"move_history.{user_index}.evaluation": evidence.get("move_quality"),
+            }
+            await db.coach_sessions.update_one(
+                {"session_id": session_id}, {"$set": enrichment}
+            )
+            await db.coach_sessions.update_one(
+                {
+                    "session_id": session_id,
+                    "evaluations.move_index": {"$ne": user_index},
+                },
+                {"$push": {"evaluations": {
+                    "move_index": user_index,
+                    "move_number": move_number,
+                    "move": user_move,
+                    "by": "player",
+                    "score": evidence.get("eval_after"),
+                    "eval_before": evidence.get("eval_before"),
+                    "eval_after": evidence.get("eval_after"),
+                    "cp_loss": evidence.get("cp_loss"),
+                    "best_move": evidence.get("best_move"),
+                    "move_quality": evidence.get("move_quality"),
+                    "source": "pwc_unified_v1",
+                }}},
+            )
+
+        if game_over:
+            await _promote_and_analyze_completed_game(
+                db, session_id, session_doc.get("user_id")
+            )
+            return
+
+        from coach_play.coach_opponent import PedagogicalOpponent
+
+        history_san = [
+            item.get("move") for item in move_history if item.get("move")
+        ]
+        primary_focus = (
+            (session_doc.get("coaching_context") or {}).get("primary_focus") or {}
+        ).get("topic_key")
+        opponent = PedagogicalOpponent(
+            user_rating=user_rating,
+            teaching_mode="balanced",
+            student_weaknesses=session_doc.get("student_weaknesses") or [],
+            teaching_focus=primary_focus,
+            move_history=history_san,
+            user_color=session_doc.get("user_color") or "white",
+            last_game_violations=[],
+        )
+        coach_move_san = None
+        teaching_moves = session_doc.get("opening_teaching_moves") or []
+        expected_index = len(move_history)
+        follows_requested_line = bool(teaching_moves)
+        if follows_requested_line:
+            for index, item in enumerate(move_history):
+                if index >= len(teaching_moves):
+                    break
+                played = str(item.get("move") or "").replace("+", "").replace("#", "").lower()
+                expected = str(teaching_moves[index]).replace("+", "").replace("#", "").lower()
+                if played != expected:
+                    follows_requested_line = False
+                    break
+        if follows_requested_line and expected_index < len(teaching_moves):
+            requested_reply = str(teaching_moves[expected_index] or "")
+            try:
+                requested_board = chess.Board(fen_after_user)
+                requested_board.parse_san(requested_reply)
+                coach_move_san = requested_reply
+            except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError):
+                coach_move_san = None
+        if not coach_move_san:
+            coach_move_san = await opponent.get_move(fen_after_user)
+        if not coach_move_san:
+            raise RuntimeError("opponent returned no legal reply")
+
+        fresh = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "action_revision": 1, "move_history": 1},
+        ) or {}
+        if int(fresh.get("action_revision") or 0) != expected_action_revision:
+            logger.info(f"Skipping stale unified reply for session {session_id}")
+            return
+        landed = await _apply_coach_move(
+            db,
+            session_id,
+            fen_after_user,
+            coach_move_san,
+            fresh.get("move_history") or [],
+        )
+        if not landed:
+            return
+        updated = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "status": 1, "user_id": 1},
+        )
+        if updated and updated.get("status") == "completed":
+            await _promote_and_analyze_completed_game(
+                db, session_id, updated.get("user_id")
+            )
+    except Exception as exc:
+        logger.error(f"[UNIFIED PWC] Coach turn failed for {session_id[:8]}: {exc}")
+        await db.coach_sessions.update_one(
+            {"session_id": session_id}, {"$set": {"coach_move_pending": False}}
+        )
+        publish_session_event(session_id, {"type": "coach_turn_failed"})
+
+
 async def _process_move_and_respond(
     session_id: str,
     user_move: str,
@@ -8512,6 +9195,17 @@ async def _process_move_and_respond(
     try:
         # FAST PATH: When curriculum is active, skip heavy analysis
         session_doc_check = await db.coach_sessions.find_one({"session_id": session_id})
+        if session_doc_check and session_doc_check.get("experience_version") == "unified_v1":
+            await _unified_coach_turn(
+                session_id=session_id,
+                user_move=user_move,
+                fen_after_user=fen_after_user,
+                user_rating=user_rating,
+                move_number=move_number,
+                game_over=game_over,
+                expected_action_revision=expected_action_revision,
+            )
+            return
         if session_doc_check and session_doc_check.get("curriculum_active") and not game_over:
             from services.coach_move_pipeline import get_curriculum_coach_move, get_simple_coach_move
             import asyncio as _asyncio
@@ -9895,7 +10589,10 @@ async def _process_move_and_respond(
                 # nothing can leak). The frontend shows the panel; /predict-move/answer logs the guess,
                 # then /trigger-coach-move applies THIS pending move. FAIL-OPEN: any error falls through
                 # to the normal apply below, so PWC can never break. See predict_coach_move_scope.md.
-                if coach_move:
+                if (
+                    coach_move
+                    and session_doc.get("experience_version") != "unified_v1"
+                ):
                     try:
                         import asyncio as _aio
                         import chess.engine as _ce
@@ -10563,6 +11260,30 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
                 "is_sacrifice": fb.get("is_sacrifice", False),
                 "is_brilliant": fb.get("is_brilliant", False),
             })
+    if not evaluations:
+        for item in session.get("evaluations") or []:
+            if item.get("by") not in (None, "player"):
+                continue
+            eval_before = item.get("eval_before")
+            eval_after = item.get("eval_after")
+            evaluations.append({
+                "move_number": item.get("move_number", 0),
+                "move": item.get("move", ""),
+                "user_move": item.get("move", ""),
+                "quality": item.get("move_quality") or item.get("evaluation") or "",
+                "evaluation": eval_after,
+                "eval_before": eval_before,
+                "eval_after": eval_after,
+                "eval_change": (
+                    float(eval_after) - float(eval_before)
+                    if eval_before is not None and eval_after is not None
+                    else 0
+                ),
+                "best_move": item.get("best_move", ""),
+                "fen_before": item.get("fen_before", ""),
+                "is_sacrifice": item.get("is_sacrifice", False),
+                "is_brilliant": item.get("is_brilliant", False),
+            })
 
     try:
         from services.postgame_analysis import analyze_postgame
@@ -10679,7 +11400,7 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
         from services.mission_scoreboard import build_instruction_verdict
 
         # Extract the key fields for the reflection UI
-        return {
+        response = {
             "has_data": True,
             "session_id": session_id,
             "result": game_result,
@@ -10739,12 +11460,19 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
             "training_suggestions": analysis.training_suggestions[:2] if analysis.training_suggestions else [],
             "games_together": analysis.games_together,
         }
+        if session.get("experience_version") == "unified_v1":
+            from services.unified_pwc_coaching import build_unified_postgame_summary
+
+            response["unified_summary"] = build_unified_postgame_summary(
+                session_doc=session,
+            )
+        return response
 
     except Exception as e:
         logger.error(f"Postgame analysis failed: {e}")
         # Return minimal reflection even if full analysis fails
         total_moves = len([m for m in move_history if m.get("by") == "player"])
-        return {
+        response = {
             "has_data": True,
             "session_id": session_id,
             "result": game_result,
@@ -10759,6 +11487,13 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
             "training_suggestions": [],
             "games_together": 0,
         }
+        if session.get("experience_version") == "unified_v1":
+            from services.unified_pwc_coaching import build_unified_postgame_summary
+
+            response["unified_summary"] = build_unified_postgame_summary(
+                session_doc=session,
+            )
+        return response
 
 
 # ─── FUNDAMENTALS SUMMARY ─────────────────────────────────────────
