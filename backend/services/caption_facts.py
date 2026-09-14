@@ -8975,6 +8975,86 @@ def _recapture_costs_him(
         return None
 
 
+def _recapture_cost_target_is_undefended(
+    board: chess.Board,
+    move: Optional[chess.Move],
+) -> Optional[Dict[str, Any]]:
+    """The piece that taking back would cost them -- and is it undefended?
+
+    _recapture_costs_him already finds "if he takes back it costs him the rook
+    on a8". Mohit (fb_f6050ba76406) pointed out the teachable half is missing:
+    WHICH piece has no defender. That is the scan a 900 can repeat -- look down
+    the file for something nobody is guarding.
+
+    Right-or-silent: the square is read off the board, so "nothing is defending
+    it" is only said when it is true. Measured 2026-09-14, _recapture_costs_him
+    fires on 12.56% of opponent moves and the named piece is genuinely
+    undefended in 28% of those.
+    """
+    if move is None:
+        return None
+    try:
+        found = _recapture_costs_him(board, move)
+    except Exception:
+        return None
+    if not found:
+        return None
+    name, square = found
+    try:
+        sq = chess.parse_square(square)
+    except (ValueError, TypeError):
+        return None
+    victim = board.piece_at(sq)
+    if victim is None:
+        return None
+    if board.attackers(victim.color, sq):
+        return None            # it IS defended -- do not claim otherwise
+    return {"piece": name, "square": square}
+
+
+def _opp_check_answered_by_hitting_it(
+    board_before: chess.Board,
+    move: Optional[chess.Move],
+) -> Optional[Dict[str, Any]]:
+    """A check where every legal answer also attacks the checking piece.
+
+    fb_ca8cc3ec9c5f: "Opponent's Qb1+ is a major blunder." with no why. The why
+    is concrete -- White had three legal answers to that check and all three
+    also hit the queen on b1, so the check only lost time.
+
+    Board-verified by enumeration, no engine and no judgement: if even one
+    answer leaves the checker alone, this stays silent.
+    """
+    if move is None:
+        return None
+    try:
+        after = board_before.copy()
+        after.push(move)
+    except Exception:
+        return None
+    if not after.is_check():
+        return None
+    checker_square = move.to_square
+    piece = after.piece_at(checker_square)
+    if piece is None:
+        return None
+    answers = list(after.legal_moves)
+    if not answers or len(answers) > 6:
+        # A wide choice is a different lesson; this one is about a check that
+        # every reply punishes.
+        return None
+    for answer in answers:
+        probe = after.copy()
+        probe.push(answer)
+        if not probe.is_attacked_by(not piece.color, checker_square):
+            return None
+    return {
+        "piece": PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+        "square": chess.square_name(checker_square),
+        "answer_count": len(answers),
+    }
+
+
 def _recommended_move_traps_piece(
     board: chess.Board,
     move: Optional[chess.Move],
