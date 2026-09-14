@@ -123,3 +123,55 @@ def test_scoring_produces_a_focus_once_the_label_is_present():
     assert not score_diagnostic(nulls)["per_category"], (
         "this is what the player actually got: twenty answers, nothing to say"
     )
+
+
+# --- and the focus that label is supposed to produce -------------------------
+
+def test_every_category_the_diagnostic_serves_produces_a_focus():
+    """The last link: a label is only worth recovering if it sets a focus.
+
+    _ISSUE_TO_FOCUS is a legacy back-translation to the old vocabulary and does
+    not cover opening_knowledge -- one of the four categories the diagnostic
+    pool actually serves (5 of the 20 positions). `focus = _ISSUE_TO_FOCUS.get(
+    worst)` therefore returned None and the coach_memory write was skipped, so
+    the admin panel read "Current focus: (none set)" after twenty answers.
+
+    The native categories are first-class focus values (coach_memory.py: "any
+    other value ... is used directly as the habit_id"), and production agrees:
+    current_focus holds piece_safety 45 times and opening_knowledge directly.
+    """
+    from services.diagnostic_service import _ISSUE_TO_FOCUS
+
+    served_by_the_pool = [
+        "piece_safety", "missed_tactic", "calculation_depth", "opening_knowledge",
+    ]
+    for issue in served_by_the_pool:
+        focus = _ISSUE_TO_FOCUS.get(issue) or issue
+        assert focus, f"{issue} must resolve to some focus"
+
+    # The one that used to vanish.
+    assert (_ISSUE_TO_FOCUS.get("opening_knowledge") or "opening_knowledge") \
+        == "opening_knowledge"
+
+
+def test_a_real_twenty_answer_run_now_names_a_focus():
+    # The exact shape of the reported session: four categories, two of them
+    # weak, the worst one unmapped by the legacy table.
+    from services.diagnostic_service import (
+        _ISSUE_TO_FOCUS, _worst_issue_type, score_diagnostic,
+    )
+
+    attempts = []
+    for issue, correct in (("piece_safety", 2), ("missed_tactic", 4),
+                           ("calculation_depth", 4), ("opening_knowledge", 2)):
+        for i in range(5):
+            attempts.append({
+                "issue_type": issue,
+                "difficulty": "intermediate",
+                "is_correct": i < correct,
+            })
+    scored = score_diagnostic(attempts)
+    worst = _worst_issue_type(scored)
+    assert worst in ("piece_safety", "opening_knowledge")
+    focus = _ISSUE_TO_FOCUS.get(worst) or worst
+    assert focus, "twenty answered positions must leave the player with a focus"

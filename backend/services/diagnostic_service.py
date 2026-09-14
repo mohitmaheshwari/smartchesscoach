@@ -410,6 +410,18 @@ _ISSUE_TO_WEAKNESS: Dict[str, tuple] = {
 
 # diagnostic issue_type -> coach_memory focus key (routes prescribed training).
 # Types with no clean focus key are omitted; top_weaknesses still drives /home.
+# Legacy translation only. The native cognitive_gap categories -- piece_safety,
+# missed_tactic, opening_knowledge, king_safety and the rest -- became
+# first-class focus values in 2026-07-21 (see the note in coach_memory.py:
+# "any other value ... is used directly as the habit_id"). Production bears
+# that out: current_focus holds piece_safety 45 times, and opening_knowledge,
+# missed_tactic and tactical_oversight directly too.
+#
+# So a missing entry here is not a reason to set no focus at all, which is what
+# used to happen: a player whose weakest area was opening_knowledge -- one of
+# the four categories the diagnostic actually serves -- got focus = None and
+# the coach_memory write was skipped entirely. Twenty answered positions, and
+# the admin panel read "Current focus: (none set)".
 _ISSUE_TO_FOCUS: Dict[str, str] = {
     "piece_safety":       "hanging_piece",
     "missed_tactic":      "missed_fork",
@@ -462,7 +474,8 @@ async def apply_diagnosis_to_training(db, user_id: str, attempts: List[Dict[str,
     except Exception as e:  # never let a wiring hiccup break the diagnostic
         logger.warning(f"diagnostic->weakness write failed for {user_id}: {e}")
 
-    focus = _ISSUE_TO_FOCUS.get(worst)
+    # Fall through to the category itself rather than dropping the focus.
+    focus = _ISSUE_TO_FOCUS.get(worst) or worst
     if focus:
         await db.coach_memory.update_one(
             {"user_id": user_id},
