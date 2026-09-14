@@ -35,8 +35,8 @@ def test_public_cases_are_identity_free_and_detector_blind():
 
     assert packet["blinded"] is True
     assert packet["promotion_eligible"] is False
-    assert len(packet["cases"]) == 250
-    assert len({case["case_id"] for case in packet["cases"]}) == 250
+    assert len(packet["cases"]) == 201
+    assert len({case["case_id"] for case in packet["cases"]}) == 201
     assert "@" not in encoded
     for forbidden in (
         "email",
@@ -59,9 +59,9 @@ def test_answer_key_records_real_family_shortfalls_without_authorizing_them():
 
     assert answer_key["family_counts"] == {
         "forced_mate_story": 33,
-        "multi_move_material_accounting": 165,
-        "queen_safety_or_greedy_capture": 20,
-        "unpunished_opponent_opportunity": 32,
+        "multi_move_material_accounting": 138,
+        "queen_safety_or_greedy_capture": 15,
+        "unpunished_opponent_opportunity": 15,
     }
     assert set(answer_key["family_counts"]) == set(
         TEACHING_OPPORTUNITY_QUALITY_IDS
@@ -70,6 +70,66 @@ def test_answer_key_records_real_family_shortfalls_without_authorizing_them():
     assert "three_families_have_fewer_than_50_available_claims" in (
         packet["promotion_gate"]["blockers"]
     )
+
+
+def test_every_material_caption_describes_visible_delta_not_total_balance():
+    source = _source()
+    old_overclaims = (
+        "material stays level",
+        "come out ahead",
+        "finish behind",
+        "no better off",
+        "stops that finish",
+    )
+
+    for candidate in source["candidates"]:
+        fact = candidate["fact"]
+        comparison = candidate["comparison"]
+        rendered = json.dumps(comparison).lower()
+        assert all(phrase not in rendered for phrase in old_overclaims)
+
+        if fact["played_visible_material_gain_cp"] is None:
+            continue
+        claimed_sides = (
+            ("played", "stronger")
+            if fact["family"] == "multi_move_material_accounting"
+            else ("played", "stronger")
+            if (
+                fact["family"] == "queen_safety_or_greedy_capture"
+                and fact["consequence_piece"] != "queen"
+            )
+            else ()
+        )
+        for side in claimed_sides:
+            score_key = (
+                "played_visible_material_gain_cp"
+                if side == "played"
+                else "best_visible_material_gain_cp"
+            )
+            score = fact[score_key]
+            summary = comparison[side]["summary"].lower()
+            if score > 0:
+                assert "wins" in summary
+            elif score < 0:
+                assert "loses" in summary or "costs" in summary
+            else:
+                assert "trades equal material" in summary
+
+
+def test_causal_capture_families_exclude_later_voluntary_walk_ins():
+    for candidate in _source()["candidates"]:
+        fact = candidate["fact"]
+        family = fact["family"]
+        if family == "queen_safety_or_greedy_capture":
+            if fact["consequence_piece"] == "queen":
+                assert fact["consequence_ply"] == 2
+            else:
+                assert fact["consequence_ply"] == 1
+        elif (
+            family == "unpunished_opponent_opportunity"
+            and fact["consequence_piece"] is not None
+        ):
+            assert fact["consequence_ply"] in {1, 3}
 
 
 def _complete_true_review(packet):

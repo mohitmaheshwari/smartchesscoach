@@ -1,0 +1,68 @@
+{
+  "caption_authorizations_changed": 0,
+  "development_only": true,
+  "family_scores": {
+    "forced_mate_story": {
+      "caption_promotion_gate_passed": false,
+      "critical_false_claims": 1,
+      "false": 2,
+      "invalid_case": 0,
+      "numeric_quality_gate_passed": false,
+      "promotion_blocker": "development_sample_is_not_promotion_eligible",
+      "reviewed_claims": 33,
+      "semantic_precision_pct": 93.9394,
+      "true": 31,
+      "uncertain": 0,
+      "wilson_95_lower_pct": 80.3938
+    },
+    "multi_move_material_accounting": {
+      "caption_promotion_gate_passed": false,
+      "critical_false_claims": 4,
+      "false": 35,
+      "invalid_case": 0,
+      "numeric_quality_gate_passed": false,
+      "promotion_blocker": "development_sample_is_not_promotion_eligible",
+      "reviewed_claims": 165,
+      "semantic_precision_pct": 78.7879,
+      "true": 130,
+      "uncertain": 0,
+      "wilson_95_lower_pct": 71.9318
+    },
+    "queen_safety_or_greedy_capture": {
+      "caption_promotion_gate_passed": false,
+      "critical_false_claims": 3,
+      "false": 4,
+      "invalid_case": 0,
+      "numeric_quality_gate_passed": false,
+      "promotion_blocker": "development_sample_is_not_promotion_eligible",
+      "reviewed_claims": 20,
+      "semantic_precision_pct": 75.0,
+      "true": 15,
+      "uncertain": 1,
+      "wilson_95_lower_pct": 53.1299
+    },
+    "unpunished_opponent_opportunity": {
+      "caption_promotion_gate_passed": false,
+      "critical_false_claims": 7,
+      "false": 7,
+      "invalid_case": 0,
+      "numeric_quality_gate_passed": false,
+      "promotion_blocker": "development_sample_is_not_promotion_eligible",
+      "reviewed_claims": 32,
+      "semantic_precision_pct": 71.875,
+      "true": 23,
+      "uncertain": 2,
+      "wilson_95_lower_pct": 54.6255
+    }
+  },
+  "independence_attestation": {
+    "answer_key_unseen": true,
+    "detector_code_unseen": true,
+    "independent_from_implementation": true
+  },
+  "next_step": "correct any independently found defects, freeze the implementation, then build fresh non-holdout packets with at least 50 claims per family",
+  "overall_promotion_gate_passed": false,
+  "sample": "development",
+  "schema_version": "deterministic_teaching_opportunity_review_score.v1",
+  "source_review_packet_sha256": "135d764c3a3253c299c8bfed941ef142a71de19a25cd17c598586e09981318f8"
+}

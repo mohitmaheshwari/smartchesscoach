@@ -38,9 +38,9 @@ DEFAULT_REVIEW = BACKEND / (
 )
 DEFAULT_OUTPUT = BACKEND / (
     "data/corpus_snapshots/"
-    "deterministic_teaching_opportunity_family_measurement_v3_2026-09-14.json"
+    "deterministic_teaching_opportunity_family_measurement_v4_2026-09-14.json"
 )
-SCHEMA_VERSION = "deterministic_teaching_opportunity_measurement.v2"
+SCHEMA_VERSION = "deterministic_teaching_opportunity_measurement.v3"
 
 
 def _sha256(path: Path) -> str:
@@ -254,9 +254,9 @@ def build_report(
         },
         "summary": {
             "proof_version": TEACHING_OPPORTUNITY_PROOF_VERSION,
-            "comparison_schema_version": "teaching_opportunity_comparison.v2",
+            "comparison_schema_version": "teaching_opportunity_comparison.v3",
             "shadow_summary_schema_version": (
-                "teaching_opportunity_shadow_summary.v2"
+                "teaching_opportunity_shadow_summary.v3"
             ),
             "positions_seen": sum(
                 len(game.get("stored_engine_evidence") or [])

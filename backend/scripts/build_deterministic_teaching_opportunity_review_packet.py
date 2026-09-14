@@ -30,15 +30,15 @@ ANSWER_KEY_SCHEMA_VERSION = (
 )
 DEFAULT_SOURCE = BACKEND / (
     "data/corpus_snapshots/"
-    "deterministic_teaching_opportunity_family_measurement_v3_2026-09-14.json"
+    "deterministic_teaching_opportunity_family_measurement_v4_2026-09-14.json"
 )
 DEFAULT_PACKET = BACKEND / (
     "data/detector_gold/"
-    "deterministic_teaching_opportunity_blinded_development_review_v1.json"
+    "deterministic_teaching_opportunity_blinded_development_review_v2.json"
 )
 DEFAULT_ANSWER_KEY = BACKEND / (
     "data/detector_gold/"
-    "deterministic_teaching_opportunity_blinded_development_answer_key_v1.json"
+    "deterministic_teaching_opportunity_blinded_development_answer_key_v2.json"
 )
 
 
@@ -65,7 +65,7 @@ def build_packets(
     summary = source.get("summary")
     if (
         source.get("schema_version")
-        != "deterministic_teaching_opportunity_measurement.v2"
+        != "deterministic_teaching_opportunity_measurement.v3"
         or source.get("status") != "development_shadow_evidence_only"
         or not isinstance(candidates, list)
         or not isinstance(summary, Mapping)
@@ -93,7 +93,7 @@ def build_packets(
             or quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[family]
             or fact.get("schema_version") != TEACHING_OPPORTUNITY_PROOF_VERSION
             or comparison.get("schema_version")
-            != "teaching_opportunity_comparison.v2"
+            != "teaching_opportunity_comparison.v3"
             or comparison.get("rollout_mode") != "shadow"
             or (comparison.get("display") or {}).get("authorized") is not False
             or comparison.get("opportunity_fingerprint") != fingerprint

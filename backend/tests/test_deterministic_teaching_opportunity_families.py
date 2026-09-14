@@ -62,17 +62,17 @@ def test_forced_mate_is_terminally_proved_and_story_key_is_stable():
     comparison = build_teaching_opportunity_comparisons((mate,))[0]
     assert comparison.headline == "A checkmating finish was here"
     assert comparison.stronger_line_moves[-1].endswith("#")
-    assert "ends in checkmate" in comparison.stronger_summary
+    assert comparison.stronger_summary.endswith("was the checkmating finish.")
 
 
 def test_material_family_requires_and_replays_more_than_one_capture():
     cause = _cause(
-        fen_before="r1bqk1nr/pppp1ppp/2n5/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4",
-        played_san="Nf6",
-        best_move_san="Qxg5",
-        pv_after_played=("Nxf7", "Bxf2+", "Kf1", "Qe7"),
-        pv_after_best=("O-O", "Qg6", "b4", "Bb6"),
-        cp_loss=550,
+        fen_before="2k3rr/ppp2R2/2np4/3N3p/1PPbP3/P2PB1qb/4K3/1R1Q4 b - - 1 24",
+        played_san="Qxe3+",
+        best_move_san="Bg4+",
+        pv_after_played=("Nxe3", "Ne5", "Qb3", "Nxf7"),
+        pv_after_best=("Kd2", "Bxe3+", "Nxe3", "Bxd1"),
+        cp_loss=516,
     )
 
     opportunity = next(
@@ -81,13 +81,18 @@ def test_material_family_requires_and_replays_more_than_one_capture():
         if item.family == "multi_move_material_accounting"
     )
     assert opportunity.quality_id == MULTI_MOVE_MATERIAL_QUALITY_ID
-    assert len(cause.played_captures) == 2
+    assert len(cause.best_captures) == 3
+    assert opportunity.visible_material_edge_cp >= 300
     assert opportunity.settled_material_edge_cp >= 300
     assert opportunity.consequence_owner == "player"
     comparison = build_teaching_opportunity_comparisons((opportunity,))[0]
     assert comparison.played_line_moves == cause.played_line_san
+    assert len(comparison.played_line_moves) == 5
     assert "whole capture sequence" in comparison.headline.lower()
-    assert "centipawn" not in str(comparison.contract_dict()).lower()
+    rendered = str(comparison.contract_dict()).lower()
+    assert "loses material for you" in comparison.played_summary.lower()
+    assert "wins material for you" in comparison.stronger_summary.lower()
+    assert all(word not in rendered for word in ("centipawn", "ahead", "behind", "level"))
 
 
 def test_capture_activity_without_settled_piece_size_edge_is_not_a_lesson():
@@ -134,7 +139,7 @@ def test_queen_family_names_the_exact_queen_capture_not_a_universal_rule():
     assert "always" not in rendered
 
 
-def test_queen_safety_after_a_knight_move_never_teaches_queen_capture_advice():
+def test_delayed_voluntary_queen_walk_in_is_not_blamed_on_the_root_move():
     cause = _cause(
         fen_before="1k3r2/1ppbr2p/p1nb4/3p2p1/3P1p2/2PQ1P1P/PP1N2P1/2KR2N1 w - - 0 21",
         played_san="Ne2",
@@ -144,21 +149,13 @@ def test_queen_safety_after_a_knight_move_never_teaches_queen_capture_advice():
         cp_loss=392,
     )
 
-    queen = next(
-        item
+    assert all(
+        item.family != "queen_safety_or_greedy_capture"
         for item in _families(cause)
-        if item.family == "queen_safety_or_greedy_capture"
     )
-    comparison = build_teaching_opportunity_comparisons((queen,))[0]
-
-    assert queen.moving_piece == "knight"
-    assert comparison.headline == "Your queen becomes the target"
-    assert "queen capture" not in comparison.memory_cue.lower()
-    assert "forcing" not in comparison.memory_cue.lower()
-    assert comparison.played_summary == "Ne2 lets Bxd3 take your queen on d3."
 
 
-def test_opponent_missed_chance_is_counterfactual_and_actor_safe():
+def test_cooperative_opponent_line_is_not_presented_as_a_causal_chance():
     cause = _cause(
         fen_before="r3kbnr/pp1npp1p/2p5/8/3qB3/5Q2/PP1B1PPP/R3K1NR w KQkq - 0 13",
         played_san="Bf5",
@@ -168,6 +165,22 @@ def test_opponent_missed_chance_is_counterfactual_and_actor_safe():
         cp_loss=468,
     )
 
+    assert all(
+        item.family != "unpunished_opponent_opportunity"
+        for item in _families(cause, mover_is_user=False)
+    )
+
+
+def test_direct_opponent_capture_is_counterfactual_and_actor_safe():
+    cause = _cause(
+        fen_before="r1bqr1k1/pppn1pbp/3p1np1/3Pp3/4PB2/2NB1N2/PPP1QPPP/R4RK1 b - - 0 9",
+        played_san="c6",
+        best_move_san="exf4",
+        pv_after_played=("dxc6", "bxc6", "Bg3", "Nh5"),
+        pv_after_best=("Qd2", "Nh5", "g4", "Nhf6"),
+        cp_loss=528,
+    )
+
     opponent = next(
         item
         for item in _families(cause, mover_is_user=False)
@@ -175,13 +188,83 @@ def test_opponent_missed_chance_is_counterfactual_and_actor_safe():
     )
     assert opponent.actor == "opponent"
     assert opponent.quality_id == UNPUNISHED_OPPONENT_QUALITY_ID
+    assert opponent.consequence_ply == 1
     comparison = build_teaching_opportunity_comparisons((opponent,))[0]
-    assert comparison.played_summary == "They played Bf5 and missed the chance."
-    assert comparison.stronger_summary.startswith(
-        "They could have played Bc3, starting a line that takes your rook on h8"
+    assert comparison.played_summary == "They played c6 and missed the chance."
+    assert comparison.stronger_summary == (
+        "They could have played exf4, taking your bishop on f4 immediately."
     )
-    assert "lost your rook" not in comparison.played_summary
     assert "strongest reply" not in comparison.memory_cue.lower()
+
+
+def test_greedy_queen_capture_describes_both_visible_lines_not_a_false_balance():
+    cause = _cause(
+        fen_before="6k1/2p4r/r7/pp1P2B1/2Q5/6P1/PP1K1P2/R7 w - - 0 30",
+        played_san="Qxb5",
+        best_move_san="Qg4",
+        pv_after_played=("Rb6", "Qe8+", "Kg7", "Rc1"),
+        pv_after_best=("Rh4", "Bxh4+", "Kf8", "Qc8+"),
+        cp_loss=760,
+    )
+
+    queen = next(
+        item
+        for item in _families(cause)
+        if item.family == "queen_safety_or_greedy_capture"
+    )
+    comparison = build_teaching_opportunity_comparisons((queen,))[0]
+    rendered = str(comparison.contract_dict()).lower()
+
+    assert comparison.headline == "Count beyond the queen capture"
+    assert "shown line" in comparison.played_summary.lower()
+    assert "shown line" in comparison.stronger_summary.lower()
+    assert "no better off" not in rendered
+    assert "material stays level" not in rendered
+
+
+def test_allowed_mate_alternative_is_not_claimed_to_stop_all_future_mate():
+    cause = _cause(
+        fen_before="4Q2k/8/5K2/8/8/8/8/6r1 b - - 44 77",
+        played_san="Rg8",
+        best_move_san="Kh7",
+        pv_after_played=("Qh5#",),
+        pv_after_best=("Qe4+", "Kg8", "Qa8+", "Kh7"),
+        cp_loss=9990,
+    )
+
+    mate = next(
+        item for item in _families(cause) if item.family == "forced_mate_story"
+    )
+    comparison = build_teaching_opportunity_comparisons((mate,))[0]
+
+    assert comparison.stronger_summary == (
+        "Kh7 avoids the checkmate shown in this replay."
+    )
+    assert "stops" not in comparison.stronger_summary.lower()
+
+
+def test_missed_mate_that_plays_stalemate_teaches_the_actual_draw():
+    cause = _cause(
+        fen_before="8/8/8/8/4k2K/5q2/8/8 b - - 15 77",
+        played_san="Kf4",
+        best_move_san="Qg2",
+        pv_after_played=(),
+        pv_after_best=("Kh5", "Kf5", "Kh4", "Qh2#"),
+        cp_loss=9970,
+    )
+
+    mate = next(
+        item for item in _families(cause) if item.family == "forced_mate_story"
+    )
+    comparison = build_teaching_opportunity_comparisons((mate,))[0]
+
+    assert mate.played_terminal_state == "stalemate"
+    assert comparison.headline == "This move ended the game in stalemate"
+    assert comparison.played_summary == (
+        "Kf4 leaves them no legal move, so the game is drawn."
+    )
+    assert comparison.stronger_summary.endswith("Qh2# was the checkmating finish.")
+    assert "legal move" in comparison.memory_cue.lower()
 
 
 def test_all_four_families_are_independently_shadow_and_copy_is_compact():

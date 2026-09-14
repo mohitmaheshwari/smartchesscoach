@@ -143,7 +143,7 @@ UNSAFE_RECAPTURE_PAWN_FORK_PROOF_VERSION = (
     "unsafe_recapture_pawn_fork_proof.v1"
 )
 VERIFIED_LINE_MIN_CP_LOSS = 100
-TEACHING_OPPORTUNITY_PROOF_VERSION = "verified_teaching_opportunity.v2"
+TEACHING_OPPORTUNITY_PROOF_VERSION = "verified_teaching_opportunity.v3"
 FORCED_MATE_STORY_QUALITY_ID = "review:forced_mate_story"
 MULTI_MOVE_MATERIAL_QUALITY_ID = "review:multi_move_material_accounting"
 QUEEN_SAFETY_QUALITY_ID = "review:queen_safety_or_greedy_capture"
@@ -1046,9 +1046,14 @@ class VerifiedTeachingOpportunity:
     consequence_owner: Optional[str] = None
     consequence_branch: Optional[str] = None
     consequence_ply: Optional[int] = None
+    played_visible_material_gain_cp: Optional[int] = None
+    best_visible_material_gain_cp: Optional[int] = None
+    visible_material_edge_cp: Optional[int] = None
     played_settled_material_gain_cp: Optional[int] = None
     best_settled_material_gain_cp: Optional[int] = None
     settled_material_edge_cp: Optional[int] = None
+    played_terminal_state: str = "nonterminal"
+    best_terminal_state: str = "nonterminal"
     proof_version: str = TEACHING_OPPORTUNITY_PROOF_VERSION
 
     def __post_init__(self) -> None:
@@ -1081,6 +1086,29 @@ class VerifiedTeachingOpportunity:
                 raise ValueError("teaching-opportunity consequence branch is invalid")
             if not isinstance(self.consequence_ply, int) or self.consequence_ply < 1:
                 raise ValueError("teaching-opportunity consequence ply is invalid")
+        if self.played_terminal_state not in {
+            "nonterminal",
+            "checkmate",
+            "stalemate",
+        } or self.best_terminal_state not in {
+            "nonterminal",
+            "checkmate",
+            "stalemate",
+        }:
+            raise ValueError("teaching-opportunity terminal state is invalid")
+        visible_values = (
+            self.played_visible_material_gain_cp,
+            self.best_visible_material_gain_cp,
+            self.visible_material_edge_cp,
+        )
+        if any(value is not None for value in visible_values):
+            if not all(value is not None for value in visible_values):
+                raise ValueError("visible material evidence must be complete")
+            if self.visible_material_edge_cp != (
+                self.best_visible_material_gain_cp
+                - self.played_visible_material_gain_cp
+            ):
+                raise ValueError("visible material edge does not match its branches")
         settled_values = (
             self.played_settled_material_gain_cp,
             self.best_settled_material_gain_cp,
@@ -1099,6 +1127,14 @@ class VerifiedTeachingOpportunity:
             "allowed_forced_mate",
         }:
             raise ValueError("forced-mate story requires a terminal mate cause")
+        if self.family == "forced_mate_story":
+            expected_mate_branch = (
+                self.best_terminal_state
+                if self.cause.lesson_kind == "missed_forced_mate"
+                else self.played_terminal_state
+            )
+            if expected_mate_branch != "checkmate":
+                raise ValueError("forced-mate story must end at checkmate")
         if (
             self.family == "unpunished_opponent_opportunity"
             and (
@@ -1134,8 +1170,12 @@ class VerifiedTeachingOpportunity:
         if material_family and (
             self.settled_material_edge_cp is None
             or self.settled_material_edge_cp < TARGET_LINE_MIN_PAYOFF_CP
+            or self.visible_material_edge_cp is None
+            or self.visible_material_edge_cp < TARGET_LINE_MIN_PAYOFF_CP
         ):
-            raise ValueError("material lesson requires a settled piece-size branch edge")
+            raise ValueError(
+                "material lesson requires visible and settled piece-size branch edges"
+            )
         if self.family == "multi_move_material_accounting":
             capture_count = max(
                 len(self.cause.played_captures),
@@ -1204,11 +1244,18 @@ class VerifiedTeachingOpportunity:
             "consequence_owner": self.consequence_owner,
             "consequence_branch": self.consequence_branch,
             "consequence_ply": self.consequence_ply,
+            "played_visible_material_gain_cp": (
+                self.played_visible_material_gain_cp
+            ),
+            "best_visible_material_gain_cp": self.best_visible_material_gain_cp,
+            "visible_material_edge_cp": self.visible_material_edge_cp,
             "played_settled_material_gain_cp": (
                 self.played_settled_material_gain_cp
             ),
             "best_settled_material_gain_cp": self.best_settled_material_gain_cp,
             "settled_material_edge_cp": self.settled_material_edge_cp,
+            "played_terminal_state": self.played_terminal_state,
+            "best_terminal_state": self.best_terminal_state,
             "story_key": self.story_key,
             "cause_fingerprint": self.cause.fingerprint,
             "cause": self.cause.contract_dict(),
@@ -1271,6 +1318,56 @@ def _settled_material_scores(
     return played, best, best - played
 
 
+def _visible_material_scores(cause: VerifiedLineCause) -> Tuple[int, int, int]:
+    played = cause.played_net_material_gain_cp
+    best = cause.best_net_material_gain_cp
+    return played, best, best - played
+
+
+def _terminal_state(replay: Any) -> str:
+    try:
+        board = chess.Board(replay.final_fen)
+    except (TypeError, ValueError):
+        return "nonterminal"
+    if board.is_checkmate():
+        return "checkmate"
+    if board.is_stalemate():
+        return "stalemate"
+    return "nonterminal"
+
+
+def _causal_best_material_capture(
+    cause: VerifiedLineCause,
+) -> Optional[Tuple[str, VerifiedLineCapture]]:
+    """Return only a capture caused by the best root move without cooperation.
+
+    A direct root capture is exact. A capture on ply three is exact only when
+    the root move leaves the other side exactly one legal reply. Later stored
+    PV captures can depend on voluntary choices and therefore cannot support
+    a causal player-facing claim about the root move.
+    """
+    branch = cause.branch_evidence
+    if branch is None or not branch.best_trace.events:
+        return None
+    root = branch.best_trace.events[0]
+    allowed_ply: Optional[int] = None
+    if root.actor == "initiator" and root.captured_piece is not None:
+        allowed_ply = 1
+    elif root.actor == "initiator" and root.legal_reply_count == 1:
+        allowed_ply = 3
+    if allowed_ply is None:
+        return None
+    capture = next(
+        (
+            item
+            for item in cause.best_captures
+            if item.actor == "initiator" and item.ply == allowed_ply
+        ),
+        None,
+    )
+    return ("best", capture) if capture is not None else None
+
+
 def build_verified_teaching_opportunities(
     *,
     fen_before: str,
@@ -1297,6 +1394,11 @@ def build_verified_teaching_opportunities(
     moving_piece = PIECE_TYPE_NAMES[moving.piece_type]
     actor = "player" if mover_is_user else "opponent"
     opportunities: List[VerifiedTeachingOpportunity] = []
+    visible = (
+        None
+        if cause.lesson_kind in {"missed_forced_mate", "allowed_forced_mate"}
+        else _visible_material_scores(cause)
+    )
     settled = (
         None
         if cause.lesson_kind in {"missed_forced_mate", "allowed_forced_mate"}
@@ -1325,6 +1427,15 @@ def build_verified_teaching_opportunities(
                 ),
                 consequence_branch=(consequence[0] if consequence else None),
                 consequence_ply=(consequence[1].ply if consequence else None),
+                played_visible_material_gain_cp=(
+                    visible[0] if include_settled and visible is not None else None
+                ),
+                best_visible_material_gain_cp=(
+                    visible[1] if include_settled and visible is not None else None
+                ),
+                visible_material_edge_cp=(
+                    visible[2] if include_settled and visible is not None else None
+                ),
                 played_settled_material_gain_cp=(
                     settled[0] if include_settled and settled is not None else None
                 ),
@@ -1333,6 +1444,12 @@ def build_verified_teaching_opportunities(
                 ),
                 settled_material_edge_cp=(
                     settled[2] if include_settled and settled is not None else None
+                ),
+                played_terminal_state=_terminal_state(
+                    cause.branch_evidence.played_trace
+                ),
+                best_terminal_state=_terminal_state(
+                    cause.branch_evidence.best_trace
                 ),
             )
         )
@@ -1344,10 +1461,19 @@ def build_verified_teaching_opportunities(
     ):
         if cause.lesson_kind == "missed_forced_mate":
             add("unpunished_opponent_opportunity")
-        elif settled is not None and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP:
+        elif (
+            settled is not None
+            and visible is not None
+            and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP
+            and visible[2] >= TARGET_LINE_MIN_PAYOFF_CP
+            and settled[1] > 0
+            and visible[1] > 0
+            and (opponent_consequence := _causal_best_material_capture(cause))
+            is not None
+        ):
             add(
                 "unpunished_opponent_opportunity",
-                _teaching_consequence_capture(cause),
+                opponent_consequence,
                 include_settled=True,
             )
 
@@ -1361,6 +1487,11 @@ def build_verified_teaching_opportunities(
             if item.actor == "opponent" and item.captured_piece == "queen"
         ),
         None,
+    )
+    immediate_player_queen_loss = (
+        player_queen_loss
+        if player_queen_loss is not None and player_queen_loss.ply == 2
+        else None
     )
     root_queen_capture = next(
         (
@@ -1383,11 +1514,12 @@ def build_verified_teaching_opportunities(
             "missed_material_opportunity",
         }
         and (
-            player_queen_loss is not None
+            immediate_player_queen_loss is not None
             or (
                 moving_piece == "queen"
                 and root_queen_capture is not None
-                and settled[0] <= 0
+                and visible is not None
+                and visible[2] >= TARGET_LINE_MIN_PAYOFF_CP
             )
         )
     ):
@@ -1395,7 +1527,7 @@ def build_verified_teaching_opportunities(
             "queen_safety_or_greedy_capture",
             (
                 "played",
-                player_queen_loss or root_queen_capture,
+                immediate_player_queen_loss or root_queen_capture,
             ),
             include_settled=True,
         )
@@ -1408,7 +1540,9 @@ def build_verified_teaching_opportunities(
             "missed_material_opportunity",
         }
         and settled is not None
+        and visible is not None
         and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP
+        and visible[2] >= TARGET_LINE_MIN_PAYOFF_CP
         and max(len(cause.played_captures), len(cause.best_captures)) >= 2
     ):
         add(

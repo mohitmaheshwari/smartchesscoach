@@ -1,0 +1,1523 @@
+{
+  "schema_version": "deterministic_teaching_opportunity_independent_review.v1",
+  "source_review_packet_sha256": "135d764c3a3253c299c8bfed941ef142a71de19a25cd17c598586e09981318f8",
+  "source_measurement_sha256": "94118ca95446a692e7aff7737c3149c74e26f03ccd4fc568d2b22273026a459e",
+  "selection_fingerprint_sha256": "465d0850a6b6a07da0af4d15f53bd8ae1763ab53175b5e017a3e12b83144def1",
+  "independence_attestation": {
+    "independent_from_implementation": true,
+    "answer_key_unseen": true,
+    "detector_code_unseen": true
+  },
+  "reviewed_sample": "development",
+  "cases_reviewed": 250,
+  "method": "every FEN and both continuations replayed with python-chess; material recomputed from the full board after each line (so en passant and promotions are counted); mate, stalemate and legal-move counts taken from the board; Stockfish depth 14 on the position before the move, after the played move and after the suggested move. Detector code, implementation files and the answer key were not opened.",
+  "summary": {
+    "true": 199,
+    "false": 48,
+    "uncertain": 3,
+    "invalid_case": 0,
+    "critical_false_claims": 15
+  },
+  "case_reviews": [
+    {
+      "case_id": "2433327dfca695e18b161b1d94c92328550bd0ae18d743eadccd5af1b3d521e3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Kh4, while Bg7 avoids it"
+    },
+    {
+      "case_id": "b4d7b2562154bbc7acf66bcf8e45be5a14c93daefbb3a510b9723c6228805ea9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +0 after the quoted line"
+    },
+    {
+      "case_id": "30f10b6594107223133143faa6ed672b39b8faa4318359302060f4aba925f400",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Re2, while Kf1 avoids it"
+    },
+    {
+      "case_id": "5235567b882310210df88e607a3d301da0208167ea5328f2498dbf38284dffd4",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay +4"
+    },
+    {
+      "case_id": "932326f76305aa2ccd81f7cbfa8fd0fe534901b8824c518d27a604d1b1b9ba5b",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 39 legal alternatives"
+    },
+    {
+      "case_id": "8ce072bc63cf9480fdbdb22f08b4ac2b2eed3b5d41a356481d744744ff3212b3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -1 after the quoted line"
+    },
+    {
+      "case_id": "f7e1bdd7fbe380425823d320aa393739c9449002a9176ffcdd28bf250b278a89",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "fb4b6c1e8b69bdbdec95f3f201e87557c04572357fda9b3dc5074341cd2e38f4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "a5250aaf14c3074bb12908a31de61819677587d859f554014c6559ee28bf60b4",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -6 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "53e2de6a380b3afc2da39c3df55b49628daf02d764814783e9a83a40915cd7fd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "0238798e13bb47c7db59e539257db64555b59ff6a23d9969bf8f886ec6d1d9a1",
+      "verdict": "uncertain",
+      "critical_false_claim": false,
+      "review_note": "after d6+ the actor has only Qxd6 or cxd6, so the queen loss is not forced by the blamed Ke7; cxd6 was available, which makes the causal wording arguable"
+    },
+    {
+      "case_id": "c9378414dad3c51fd5d1ccfa9fbee9b05c862d256e12a8e52eb3bf124128157f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "900f6770ecd426803377a276a6673f7cbd31e801d99513bb11c13dc0c16f354c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +4 after the quoted line"
+    },
+    {
+      "case_id": "5e944388a41bc940f8861d8fe98250bcde13466395390c1b4211629392f6ca5f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +2 after the quoted line"
+    },
+    {
+      "case_id": "27ccb768e63c582bad4294051956f48742f8aa28041a3db6896e1c48f885e5cf",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +6 after the quoted line"
+    },
+    {
+      "case_id": "c19f2be55cf13a2d584ffa0dbf2c46a7420f6d8073373febd49762d6a1971290",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "b3e7471bb40b2e42c26e52e32f972cba36e8d6da4d1e9d39ca481605670bb4cb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "67f37c6255c5a24bef5f1b8f1d3e430904c07d59aecbb5d50593c840267148d4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "6357f2c2c6f1a047ef23ea82cb8f284027c8f9f24944036ca59a27945d20130b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after h3, while Bf4 avoids it"
+    },
+    {
+      "case_id": "dfffc7a9fa67301ac84ea06f4a58a4243b3cc7e374effce016dab8f4d65de72d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "b97ea08f6cf33517ef339298341cbde188788212210b1d6157d0ea0abf3b3114",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "595dbb03a21c8800d3c3d30c75d8e55f2911f0a9de3ff224d2c7a95e79200026",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "316c9cf52ba181f1ce72f34e6c861c04a147a1278ac12c7c8458396cb9f7120b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "e809a61c8c3720b82c0c366365522d56b759914be6412c89a6d4b2af95d72f5b",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 36 legal alternatives"
+    },
+    {
+      "case_id": "561cbadaba7b4e8293eb70f10f235de5bff4be18dae1a92abadb414a184b6bf5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "49393d709f5a7cdd659c9cd291bb52fad9920e32d58bed0b039b1254cd80cbe6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "b0edcaaa673bd39bbb6109289f8ddafad116191ab02891bde2ab6d1fe585ca22",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "f3333657d968f3ac16e729026a0420051092b2bf41e0fa0f365c71b0f2f4a0a6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "20c725db0f2989fd00d097efb7fb51406064af92f1ed1b1fd712b83c6c55edbd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "014e771370bc141c11038e6f7d364c0821b72caa653b81e48e6f8b3708d47042",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "9f59a5336955ef61e9ef881df2e988697cfd6cbee6a2d9921e9590208b95c5aa",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is +2 and after the full 5-move replay +2"
+    },
+    {
+      "case_id": "7dedb0f114e6bd2f9e559c8e114da42c7e05c560c27e1b5c1574a70d7e63f1b2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +0 after the quoted line"
+    },
+    {
+      "case_id": "574d9cd5a8fd24aa47613fe635277bd41e7d3bfeeb3517867945cabd69683e08",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -9 after the quoted line"
+    },
+    {
+      "case_id": "6641e284802b146b4a3c8c9c57820ae23132b9c55ae00ad5603776f99c05e92c",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "1a359e3b695c080352eb38d35fde040df73c17d95e851f1d40886f53e893c962",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "afb75bc0ba623058e577ed7abb6a0a086a6b11bb1ef40fdf86f6038a9563690a",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 25 legal alternatives"
+    },
+    {
+      "case_id": "b7c7ec8c2358c9ac136498fa9b6b75bc84bf224b89bb1059624189c57dfb54a8",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-2 at the quoted end, +7 after the full line)"
+    },
+    {
+      "case_id": "efe99a117c8d5948abbad3a138805f44308264eba91d3e5dd86391d14e91c8d3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "277c3b74f35beca2be46c024c6181e734c269d7d3fa11e299577289d1664f552",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -7 after the quoted line"
+    },
+    {
+      "case_id": "62923dc7a6964e56014e44e35a6c3bca55ca84fdb82f66ec00356c8e5f3437cf",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Nxh8, while Nxe5 avoids it"
+    },
+    {
+      "case_id": "ce2d6773aaf11f153840a431c33b3faa550828c75f47064fb18106092e334444",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Rxg8+ gives it up"
+    },
+    {
+      "case_id": "d82bb6ad726f39ad02ab04e67cac03dd5d9bbab520b90d765342cd246bad509a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +12 after the quoted line"
+    },
+    {
+      "case_id": "c9ffe7ff969e0a09ee0ab04dd0b0ebb7b6a7ad5e9edc1a28fe7b94593456b70c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -2 after the quoted line"
+    },
+    {
+      "case_id": "7d9d318ad92b2b11dcc2145b1e25d575e70028532a20068da125ad7aaaa24a51",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "ad1f8a1110b462173daadca8168f42a7e8175893fbb3bd99009c83f78d592013",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "605d8b72973bb600b984186d8587d7e806c7db4508def58d8cc29bc6a40657f4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Rxd2, while Rbb8 avoids it"
+    },
+    {
+      "case_id": "7c8196ccc215bb45c25c4ffbc947176edc5834a735ec5b4663750db87fe809e0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "d0845adb3a23c3696094d90d5ca8a230343717ec2a3eef627e4282dbd1976d28",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "b6bd653b3a54b65179582749bbd2504473a81c3cb78a9c13c1e438867ad3dff0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +8 after the quoted line"
+    },
+    {
+      "case_id": "a54e6db4af32eb9f04abd690cab4cc3f5fc3d2c4e547dbe266ec702f5bbb9d0f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Rxe4 gives it up"
+    },
+    {
+      "case_id": "c636dd538dbaa503b8830bf2c027f86aaa3ceaac8972c98f025c2cc59cd23bf8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "e3b24f7869a4417f0dd714bbdb152b9004be2021fb513fde9af2c0c8c6275eb6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -2 after the quoted line"
+    },
+    {
+      "case_id": "e6797c372df469a1eee07f3a9b337ff191804b99273832bbb2e297d5458e4253",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -3 and after the full 5-move replay +2"
+    },
+    {
+      "case_id": "daf236d542e8eac1b2775e05160f10c91580da38ae5023bbb4a541853b3384ec",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +8 after the quoted line"
+    },
+    {
+      "case_id": "2a68eb17854fb542a01293788e786c3ab7bc9cb010b3ddd12fcfaa19366a4de7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "b2f75a9f86b05f348288b04f4cafe314f137c8361e42583e66cc5e7d250b93df",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "996e866036310469a980c58a990fd1ac656373ed59828df3adc0520ecc82719b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "4a0352f01f4d5154e6c872930bcf9033fe3a99e84ec284553e4035c4635b5c77",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "e06478b00e62955e7b20b7ba29b2fd52831186f3f406458e7baa2f8bc0d3ce76",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Qf3, while f6 avoids it"
+    },
+    {
+      "case_id": "ecbbc3db1b04ce706827fdb2a71e1802b59fd118225ac87a09dca3e031f009c3",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "523840b7c8527a8e3332e59b1b271cc1e4d68498a876b62d92a146a17c4c4902",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the played move Kf4 is STALEMATE (White has no legal move and is not in check), so the game is drawn on the spot; the cue about checks and captures does not name the real lesson"
+    },
+    {
+      "case_id": "4abeaec50fd39b7d25cac3d4c0431c5099d9430459b646a0e031b2476f48369a",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "af1fa28c53a0ac9d8e7900907420baeb66bb06e0df83e7ad75d9d6bf09df9af8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "62e6604d6d16e2a5948ef5b297518e1a8608845ab99528bdd1398beea61db4a2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "f99ad229207e294142b32eaf700f22474a0358ea2c9e05c8ceb54d722c6a78f8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +4 after the quoted line"
+    },
+    {
+      "case_id": "e8a50eb3e0be6c7bccf52c1979bbdd39cce6989100ff46e09da7719a12c3b637",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Qxe6, while Qg8+ avoids it"
+    },
+    {
+      "case_id": "5411ce8b8d62b20b33a57b3b2a3e2988d1a97b13abb5483695308bcbbb953186",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +9 after the quoted line"
+    },
+    {
+      "case_id": "15203a26735bb0b6bffc8a8d99bd674e7676b61ae894b36cc9ecb84c9302013b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "b325e9a3c0e464edf94bc6f10a0b5384446966943f6d9450f2519d5e0938b41b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "bfa61ea31ea16f4c914bf5b79136c14ac11a71cff620a0fce0fbe8369c8c394f",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-2 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "f26a5fb008a2077dcd6f324b5dd56f539f3ee8ad5fe940ce1f2140cb99f67bf6",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -3 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "cd005c6626161b94a474b889038507f87ae2d563396927a6310ec2436856f9a1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "8c24c55c58026fbd4d8ec9d5b937e9d2eb2700984f0073bd3ca49d04f2b029b4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "905971275a3c243f259a94c2ee8300d3eb4cb4a03d44022d7b23b62b1d5175ca",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -9 after the quoted line"
+    },
+    {
+      "case_id": "76f390a698a0d0877f7a7d3e71b9c6d537c6d2c16785921d9df8e705231ff4c7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "bef6bfb5933787d397e74351d95ec600d3753fba8eef2118cda89936a590817d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "9b7bd64f276b6b9ba0f7fd88aa8497ca2d56afce4f54df79c4e462898f0deb10",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Qe4, while c4 avoids it"
+    },
+    {
+      "case_id": "ffb5fc71c1049b416f1063a04b785052c7a5f0b3fb93fec5f3ac2cd28ff85265",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "f32cd86a90182974486c507893d3367580dd26c7625e9093cb438f038e468a81",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Kh7, while Rxf6 avoids it"
+    },
+    {
+      "case_id": "367b6ed2055bcbe87390643496bfbfdf4018fa4a843155c18e311272405bb180",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "d00e12b6e96b48b8ad3df75df6d34955d2698b5d20d45dd711547168b76682aa",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after h4, while Rf8 avoids it"
+    },
+    {
+      "case_id": "4b74f616455937830222f816b8ef28b05999ad7204b48fc14f7817ae59fc205b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Bd5+ gives it up"
+    },
+    {
+      "case_id": "7908bd3c462e823f54c101b00b85dc8079af93cb8ab76f52b84c6e26af42a984",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "71d604ea2977475c9d80b8613c8605c7d542fc951c22e7834c403b09eb91e53a",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "3908c7f7fe3984afe792151ba9f3985fb4c01ef1721aa0f1619c23e3c56aab39",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -12 after the quoted line"
+    },
+    {
+      "case_id": "c2af8f6e6dc35b44deb593eb726a487b32a3eac2d0faa5d5d594f16acdda65f8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Kd2 gives it up"
+    },
+    {
+      "case_id": "309c0f0f2374bfe45f42b9fcb2acb7454198feef6e6591d87793a97559470a62",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "950087736daa4a454a5b8c77148f7f71b1d3846d34580cd1de865df80dd4eea3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Ng5, while f5 avoids it"
+    },
+    {
+      "case_id": "7240a82df9de97286197928e860fb64cf44159ad343530fbe1ddd28c2eae09de",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "18586abf7d93a13918dc3bae9a718da8cbde584640ca49568d3dc6685e1f0978",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +5 after the quoted line"
+    },
+    {
+      "case_id": "9581692cec760b1bb248a91b0cd99020fb0ebc281cdfe8bfcb96be64c0ec5c2a",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-2 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "1d58d839c71573ef32d26e6c7cec86dc1201139503e0145ad804768a93cfa586",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "fc4d91f0589833246f8b767324dd943f00faee003f29601202e67bcf8f904059",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +9 after the quoted line"
+    },
+    {
+      "case_id": "27c3da22045b303ae31e99abd6d9fcb280c1944acf5f04a27a3b9cf4a32ff672",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Bxf5, while Bh5 avoids it"
+    },
+    {
+      "case_id": "162ab9138ade4991199a67fb77d4711bec39c9805fbb8df7bd8eb8963ff901b9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Rxg1, while Ke2 avoids it"
+    },
+    {
+      "case_id": "e95b11f29ae23bebaa32c1b7e56896b56820442e33adda20e3080aeca507f71a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Rxg8+ gives it up"
+    },
+    {
+      "case_id": "f0587ef6e016c548ad92b3c6b1cfe51b8a83d27d4b9542ca628a2a4b665cf29b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +5 after the quoted line"
+    },
+    {
+      "case_id": "ace912a6d91ec5ea5a9b99559776edcf4d773dfa0c782e7019d89e89207b0dec",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "b4bb0c9e2cad23cd2578e20826f042c72cbe4c4e407f273fd63f176c9c298c2c",
+      "verdict": "uncertain",
+      "critical_false_claim": false,
+      "review_note": "the block g3 is near-forced (2 legal moves) so the line is real, but the named prize is wrong: g3 is recaptured by hxg3 and the line actually wins the rook on h1 -- naming the pawn points a 600-1500 player at the wrong gain"
+    },
+    {
+      "case_id": "f8f0d819732a5af0f9098d0a96ef8ee33b0ca450447cf7eecada27eac5d38ceb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "544cf615dabec6615c8f7fb37531f134d5aa221b2aa1eaf724a819dd385ad34b",
+      "verdict": "uncertain",
+      "critical_false_claim": false,
+      "review_note": "the user walks into it with only 2 legal moves, so it is near-forced"
+    },
+    {
+      "case_id": "7159e65b3c38985a8cfc907826f405a7acab0f50bed7bd991d82845489ea0112",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +9 after the full line)"
+    },
+    {
+      "case_id": "dbf1d7b7969d51ea7f320966c2f8601ebef0df597c8f22d3c307118b7a8bc87b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "8c678a4c8dbd519bb9b05d835f8939018fbaf669ecef7f6c396220362c14f360",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "e10da340481d28affce9acb6abf9cbe9b23dbc3da0759135b2e58d3ee5105992",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "3b1c01e8d59518be6947e04a98d0b417673598dce14b48d00ce424344accc920",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "5e17eb3e9e683e73851f1a9f28df4ce6c2cb9cc7dde1c736928f14744334d3b6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "1881a90447e1f8c27498c40bbe93f3f4ccac6c51b525925b496bffe4ebcb8b86",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "f532e9503f2d6b26797ce98e88a2db99f31ace7bf5068e69e59ed8a1225017f2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Nxd4 gives it up"
+    },
+    {
+      "case_id": "68529ac5612fe823668db857c41377b3f975d7a58c3a05f3f5848de28cbd1464",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is +2 and after the full 5-move replay +2"
+    },
+    {
+      "case_id": "f93b3ffb8a5e270b342e21e0559db2a6422af86b814f9030593efb65d4982674",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Bc7, while h3 avoids it"
+    },
+    {
+      "case_id": "4c3c8ba56c41dc3d4f91a6c2c8c43185a7f0bfbdd2f102f8a3c094aa3c7faa0b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "8fd5c7b10175b171cce5137de8c66eecc45ab51c88d92c2fce50358b6b44f9cb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "35982c0ad75fb4b48317a97bd271fcc77bdde421660ba77d1d5a08bdc62e6763",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "5fe061d8a880df0d04611d423dc22240ffc0b4832e47e0e0037c8f4fb5cf708c",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 38 legal alternatives"
+    },
+    {
+      "case_id": "c66e4412016ac564e19d1acbd71e02548fb4c00ee7a1c41155c7e31bd6439a46",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay +4"
+    },
+    {
+      "case_id": "4b8abb76ab6f0398b830d7d49290180d1df36b22bdd8fb89724594b2b6b5bb36",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -1 after the quoted line"
+    },
+    {
+      "case_id": "9df700e691f17dd73fa7bca12c0344c67206d832e5f934b2ac1f79b46ae1789b",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 29 legal alternatives"
+    },
+    {
+      "case_id": "a506d101256818fba55ee22fcb8258b8dbc8074777c304e8bfb379d04de06e65",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "9d040b97fb03f5d359954ca211338b7b8b4b1f16617d03de580ba3fbadf5cc5f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "ffda5384aed9e288230abce1c2e89f60d3e04f34b7f24c7e88ca02243108d596",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Be4 gives it up"
+    },
+    {
+      "case_id": "e7fb0040c18ed164d2405be04bcd623e3a23e30ec2ce326e0d411ac8d4c95709",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "5949eb63fbe1524d62165072b07c7cc96ef7062ba250f45db62142bfbc1e6a7e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "36e65cb7d17aaf0640384629797daacfb1573655fb346ac05d3458898d1c8413",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +8 after the quoted line"
+    },
+    {
+      "case_id": "eeb34414ebed43aada24be689d80ed39669594f2c73461215f4abb8d4942a646",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +2 after the quoted line"
+    },
+    {
+      "case_id": "28bdd43d0b46756918e6988a29f48e2979d0b2c931c5866f2e76be4c14bb38fc",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +9 after the quoted line"
+    },
+    {
+      "case_id": "963b1946be2224bdfa4e3e684ca749dc08223a8680f6c3c0069e427934962896",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the blamed move does not lose the queen -- the actor later moves the queen onto that square voluntarily with 38 legal alternatives"
+    },
+    {
+      "case_id": "068be71db32c916b696d822151fec6dcc5a5adbbc5b2ff89b54ae627736c5b64",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "f9bbd2148dc3120ab8841e3ffa14bd56d978dcada818b15e3716c2b4949976e1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "d140aa19c67e14d8982e01646919ba440aebf5d141b91802775f7a95499b7aa7",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'leaves you no better off' is wrong in the other direction: after the shown line the actor is a clean pawn up (+1) and the engine gives +7.6, so the capture does gain something"
+    },
+    {
+      "case_id": "08c3fa856bfaadfcd5edeef9272b35f97f15609bb4eb9ad8eec0b96bd923aa67",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "5e13d09b571c22f517aa80445281b4a764462976ba39842ec247494c9aeaf73e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "0de2f93feca41420ce0101b275ea2ecc36bb997df8a881f294ce97b25755f32e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "46593eafefee3ac9723c69ad05b5193c1ce52402e02b1932d388301d0af70dd7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "66635b4896c539ce4384d49d52ca5c7fe02c6d886d0c1adfe94ab9b5e27fc26d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "acdbfb34d3789f0731d613c603f1176bc2b1553052957855610c2a23682a620b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "23c642e43ff8b1fde32b74d82d321b2c047e6daa5f9ee033a1d1976df6a2b8b6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "2decfb6a8f7970a5ff07f90c7337167c9bf9d7652e18c5c689ab239ff4f1763a",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "7c7bb1e01d12d62c5392c87db63737ae0d7d0e315c7de8ec94ad1ea24ef695be",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "cefee3c88c6d1944775385ad30564099c510ac8772d6fd8cdeadc36cfbf6d6b7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "eceebbadd55c2bd438609f6104ac2b7c895643ea97aa084670c63ea2dfdfb941",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay +3"
+    },
+    {
+      "case_id": "0dd9d2fa3f877be1425baa763d8159375d72809cd907e24902620ac66dd77315",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "'no better off' holds -- the actor ends 2 points down after the shown line (engine -4.0 vs -1.9 for the alternative); the wording understates the loss but does not assert a false fact"
+    },
+    {
+      "case_id": "1c5b8cdd4e7215ca477929f4ed0cb5be8084e82896cc3231065d27e494eeeb00",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay +8"
+    },
+    {
+      "case_id": "e5d7f8a9ff54fdea6f86185cfd6b022585b2c65428c60b1aa54eeba4ffc8c2ea",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Qd2+ gives it up"
+    },
+    {
+      "case_id": "aa9d0eb6f4fe477d900f2044ed62e2029d4361c08b4e32132e03660610cff369",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -1 after the quoted line"
+    },
+    {
+      "case_id": "e0c641e9da547212fec37463838b4355326a63bf8fba6055d991973ec83663c5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Rg7, while Rh2+ avoids it"
+    },
+    {
+      "case_id": "24e6bdf13d01ea6aaadc1341b181f62b990360cf5cd7de4c41f1febb46895b63",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -10 after the quoted line"
+    },
+    {
+      "case_id": "45f323c6cec19f2413880c140ab0167b01f0d2bc4a61d4041bc3b8ff04698520",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "9131af8598e700be69af9eec94a1281444e015692d1bf7ffb574ec9af5cfc1c4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +5 after the quoted line"
+    },
+    {
+      "case_id": "21faf59a4be69f45680ffe421dc3ed482e7f93e02e9d4d53b1df7e4051c6030d",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +9 after the full line)"
+    },
+    {
+      "case_id": "612846ae5952be662b571b2a305fa56a7efc655e5be69465a6c5eefd2f59ae4d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "e4a27d52bf14edb963233a33fd448efdc800e7e65c14303d36014f450ce684e0",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -3 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "a7776724313848524234b040b822a2016ed986d8b61f3c6b0b6ddc8648466d7e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -9 after the quoted line"
+    },
+    {
+      "case_id": "724a92a21663acb14d29fcebf1785673a27a3e533fd5f3b7a5d6aa77613325a6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "bbb2abe4d53fdaeae6d680d6e5616772fbc9d20025adf4c22a421cf2e9a3b4ab",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "675d5cf0840dff935d2a460b094bcb4eb96a94777139c24a5b3e434ef1e3789d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "34ee0c2d866c2a62981aa92eb964434460b111becf901f1e7d10c272e08bc71e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; e6+ gives it up"
+    },
+    {
+      "case_id": "03b99e70337d1632e300fcfbf5949137e4bb244b1cc8334922d351c4728bd8b1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "1f4c7b7e27b56c4faa9a899f2168183b61d35a8c2861c14c8c6842f7bcc4927b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -1 after the quoted line"
+    },
+    {
+      "case_id": "7a2e2cb25b4e5f1bd050681f311ff74a4c987d63e14aa91164a65800a15c5ed6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "accurate: the bishop is taken but material ends level after the shown line and the engine has the actor slightly worse (-0.7) versus +5.9 for the suggested move"
+    },
+    {
+      "case_id": "1c97c7812db32e3bac6bd992deda835bc918cf8c1ee8cc99b59ead56a5826f3e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -9 after the quoted line"
+    },
+    {
+      "case_id": "850ecf715b77376a68d5e5b1b21ee0f2f11d99c6a26c7cab87c9bb577f047b90",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "2cd6a9eb497fba97e84b4c202743f9b213c853dea25ca4659579d224c6f6ffa2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "d6612b6301ffecd07b1da86ff18078841754b63985b46ffbe3e4d29cbb385fd6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +8 after the quoted line"
+    },
+    {
+      "case_id": "43501a2d538ba544d92f9179703c3d962ec8b0b4f5b1160b1b7a2804be4e4174",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "fea98f5cfb49989b88d4ac600e02ce684a59b26494563b6c9817524c4786be2c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "530c2ca3a84a2d87631fdc68927883427f622fe6de04d2e1b8b4e865ad110c84",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Be4 gives it up"
+    },
+    {
+      "case_id": "92a3b83f12c6e11e2f7ac1e25bd2b61fb2f8e77c1a97b42bb9c579f4aa9f2471",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-1 at the quoted end, +2 after the full line)"
+    },
+    {
+      "case_id": "e00549d6347aca0038a6dd731e0ef8ba055f800034a8fa73265d929163c66755",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "dfbff027dd2303721ea0ff8c5cf401631d27a5cc5174736b38296967e9ecdb78",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "0bad5849b5d0f19b909289e97aa28c8f8ea57b2d5cecc35d7f0de459e700f895",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "578e28d2163268f9b6c1701079d5fd1c059e72abd7c7fe27180ff4b6ef97fac3",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 41 legal alternatives"
+    },
+    {
+      "case_id": "948c10e81f18ce1278de3f3a62d12c4f3ca3684c5d714e7513644f262d5f3897",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "57b720e944c85e2d616485f0dc8880de5e9ece0f61194ce085a98a50ba7b4d23",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "0e5b6a2ce3ad8f6fb2cb1c9f6f1639a0e849bed68a11962f7ded6cee1cf8b9c1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +1 after the quoted line"
+    },
+    {
+      "case_id": "2ee3e4e77eda5fcd32aed403ecd988aa2d25c0b037dc3cc453315d98be13dacd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "8810f1f0cd321173c1afaa5a4c75797d013bea3219c165c878a9555c24ab4905",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "b2186ee1e9f81920e3544dac7141d3f61fd1f8b033301f58ef6b324d0f939996",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "03ae1b1a2b37f1869732a9139808170df9651aa6f149362dca0520cf093b6ed3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "d60e984ec1371a9034095a94407dfdb3dfe30138ea0a296f9c9ba2f5653e8f45",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "df4f7359221c67920145eba190e99c537c7a83118b945d79c71d06862cb322f7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "76b4c532dcec54e691436f7dbfb9eea7534a567e64b3d4065255e7948a5ed727",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the opponent's move does not win the named piece -- the user moves it onto that square voluntarily with 33 legal alternatives"
+    },
+    {
+      "case_id": "c8f049a7f74550984d057903714d6679cb770da0fa531130d1e1766ed996e52a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Rxd2 gives it up"
+    },
+    {
+      "case_id": "1c03e417bb0c86cc2ad366e877a151093b87a46fb29f3096213dda46c0c377cd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Kd7, while Qd7 avoids it"
+    },
+    {
+      "case_id": "b96a01b30c40512913678e53ac011c6e50667ddfdc680de7136d28b343b654e9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "6f876765660ffe38e2f45be185bf42fe38a8455b4532b09b41d2281ef97bd143",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "6502e8295cc8e9a54e818cec9d4be582eb4ba9148af18d63681beaa459dec162",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "f9e88696d8771c81aed262f94a569d9fd460fe5cd5e1d18680eb8784bcb25ce0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +4 after the quoted line"
+    },
+    {
+      "case_id": "77cee90a3e2a8e030436191c65976fc233a92a4260d3bb0ef6e86590c92db646",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "ab04d3ef63f13d21d1a0f0912349347804f224508a4cea5a35c62c9a59eced0c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Rg8, while Rf8 avoids it"
+    },
+    {
+      "case_id": "bc3e210502071533e053607aa38ca02c683b2e31a217046021244a7c55ffa3d0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +9 after the quoted line"
+    },
+    {
+      "case_id": "715de25ed089624770e6b74dbbfd32b27938f63aa749587f637bb919a9dbfc56",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +1 after the quoted line"
+    },
+    {
+      "case_id": "dc2baf9473bdaca9cf164e735e1ea7c436ef6ea375889356d81dc8b3b0763708",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'finish behind' is wrong: after the 4 shown moves the actor is +0 and after the full 5-move replay +0"
+    },
+    {
+      "case_id": "0010b746e1172d36fced907004587579b56e9b4ef65f225cc138cc04c3fc9336",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -2 after the quoted line"
+    },
+    {
+      "case_id": "e105068580d2c41691b78266832584da47c9d765360ef5ad41575dab6babad7a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "48b89e3a88bb1d2fe3f780b5249ebf6e264243343d7e47249139ac302fe53761",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "4ac1be808d276f3dd423ff411819f6973096094dcc2d8334358648b90d6766ad",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "ca9a5dd21f01b84d0c1bcab42b9aedad3896faef34e0b933d02ed0f7edcee1ef",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -2 and after the full 5-move replay -2"
+    },
+    {
+      "case_id": "b3cdece669b65ed127198e169cd483c7721389bbba8551bf6da34630875ea70f",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +9 after the full line)"
+    },
+    {
+      "case_id": "36cacc37ea691d5baaf8df39552ceb991e668c5a128b9725a06cf725dbac7d43",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "48e72411df6d1d12928c01b2568e0409cfbd9737d96936d279b6dcdea3b0554c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "5b8f86d2d2ba1a09dbc544f2ba2799e2802da375615130886b48d88b99ed8dd1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "19692718e3c0a38386b7f96e79474954ccc613eca7a920d9e188544db7244c24",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +6 after the quoted line"
+    },
+    {
+      "case_id": "73e0dd6ea8d2d293ccd54190bccfa52e3cd10df7789e583926fe8e7f0c87531a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "7f7a867d74e5fdd9b2efa571eb2d11a5448385e4806d5d216dc83b4768ea5066",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "ce316caaab61aec0d59fe5b5ea9abcffea4d57d055cffdc0518915be4b87491c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "bdb6d95488d609a36b10000d91e21eb7c14fbe237802394f3d39c89491ccd01c",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-2 at the quoted end, +3 after the full line)"
+    },
+    {
+      "case_id": "febdca4d55e3e35c8e1b41197645b7ef80a59ef13766e59b718f1342c30e6f5f",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (+0 at the quoted end, +5 after the full line)"
+    },
+    {
+      "case_id": "00c61c42ca2d302655507c663d0fbac6d47765242801657267f6c74cab6db98f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "661a6e7b60afbd65062773105ff455cb5f41ff5007b02d8320b6eeafc9c1c1f7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "3a707b7b4d77c68f86bc7411058b8d88d90c8629dff265cd27b2906fd39693e1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "aebf5a9a42d7e22c845e04f4fc2715b39ef3720e5ea5978bbdbc53966572db8e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "d508ffb1323ba6a1621337b086ed55dc0fa80b247332e9d68e7535a9e650ba60",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +1 after the quoted line"
+    },
+    {
+      "case_id": "677a3cd6419d5ba4078cb7ae561f2f938d02d8618dd69f82cb0f9db03d258ef8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Nd2, while Na3 avoids it"
+    },
+    {
+      "case_id": "fafe9f68bf5cc1339e54492537642ea7eae3cc327b1625e4403a76518c943379",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "8741c8d99234219a904d3cc13b92d4ec378193f44bd46118381f28fbe8e027d9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -2 after the quoted line"
+    },
+    {
+      "case_id": "5e1eb93eea136ed0b021c367fd018e6f86c0f4c066bb9f3fdb06a7d1830ce5c7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "41f48f349c4f472c4d85b3ab133656cd04e0fe9d8f3e16b2b443d59ded9b5f0c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "2e8ec9768d748a8e212d0c7722686f3a8c2d11aa0a0fda8af030a2cc1893888b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; f3+ gives it up"
+    },
+    {
+      "case_id": "b70ed49c8bb097ed5f2a5f30a0d96f1f459dd3d1d2bba50e7b86c16af0af3609",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Rae8 gives it up"
+    },
+    {
+      "case_id": "b2bbd8642a3041b80cd11087c043f949b95f9b61a9a99bacfcb0118f88cf635e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Qa5, while Qxh1+ avoids it"
+    },
+    {
+      "case_id": "e642fa8c56a62eba70a6442b0368c3fdf26d105493b13a7b86c2a5d8bdd1669c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "5d73d99ae8248900d0e27d1bcc3bfd2e951703233ab31c6008e60af4a4017e45",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "164c987fdb58000169e89ffa63ac5711fc4c1047907c25f2910f68afe1cf441e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "5fdab8ca108a2eecb0dabd2f757f93e1ffea70b9a5288fdf5a4cb5b533ee8b8f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +6 after the quoted line"
+    },
+    {
+      "case_id": "7451aee7e3cab7a61128ba0a93db5a147bf39481294e90e34a18068e255de48b",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the blamed move does not lose the queen -- the actor later moves the queen onto that square voluntarily with 29 legal alternatives"
+    },
+    {
+      "case_id": "ae0c2a6d258582aef40efa83c81f1643b2e5ea90c8b5e46deac97f4708ed547a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -9 after the quoted line"
+    },
+    {
+      "case_id": "c2a4d60bb124a763f900e98a9e616ed6c40ae91424679deef5275570f7c6988d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +9 after the quoted line"
+    },
+    {
+      "case_id": "17346fdfea9e6a30b476a75c55cba4c671a8843407ca09e7f6b22f0082ab7736",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay +2"
+    },
+    {
+      "case_id": "0908bf51650e2154a008d02d46bce385f1160d59789b0336793eb3d445e24cb5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "015b9667afe27fdc2d02a7d297458f336dce7561f3421181c2eb28f7c695a478",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "the sentence names 4 moves but the verdict only holds after the 5th (-2 at the quoted end, +7 after the full line)"
+    },
+    {
+      "case_id": "af1183dbf94f78682f75d830bae21598af75689460c6c6af514cfe1027c79a66",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "causally wrong: the blamed move does not lose the queen -- the actor later moves the queen onto that square voluntarily with 50 legal alternatives"
+    },
+    {
+      "case_id": "7a4abc202be24de1aea263f432c3bbb1ed9382f0819a574ee32bbe56a8fc953c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Kh4, while Kf6 avoids it"
+    },
+    {
+      "case_id": "954b7e0fc9b013dc9ac83c328cd786bf502f7ed694cd0643f108739b7fd196d0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -5 after the quoted line"
+    },
+    {
+      "case_id": "5abb5c84d84671f39ce54299a6a0cadc71bfd2ff330ecc2110a08274d3dcfa4b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "8cdabe9620648bbf4266a7330ec3e960c51cb55d8323c4d5f99b745e1c2aefe6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -6 after the quoted line"
+    },
+    {
+      "case_id": "98579a8e80ab05e0d64a6fdeae2b4ceb091d2094f53ef8625e0827eb3946581b",
+      "verdict": "false",
+      "critical_false_claim": true,
+      "review_note": "'Kh7 stops that finish' is false -- after Kh7 the engine still shows forced mate (#-10); it delays mate by nine moves, it does not stop it"
+    },
+    {
+      "case_id": "8507183596b1a4521e4b999c720257b1f9cad82bf7be72a659b4288b81de48b7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named piece is won on that square as stated"
+    },
+    {
+      "case_id": "a843cd9c062c061668b30fc2b457bad9d935041a52083b120c9a5d4b0a184802",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Qe2, while Qxb4 avoids it"
+    },
+    {
+      "case_id": "9c20480c44108678ddb9ad7d9fcaa4d9fe319ee5c9ec338e27088b1477ed3925",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -8 after the quoted line"
+    },
+    {
+      "case_id": "195bb755548c1ceba5658bc87f408f3fd2f562c3a17041b9e801d5393cabb068",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +4 after the quoted line"
+    },
+    {
+      "case_id": "0d8e7b7015fa4ecda03e3804b91a82eec9ca22ea79dc08bec10e85cc2f5d6676",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: a forced mate existed before the move and the quoted line reaches legal checkmate; Qxf8 gives it up"
+    },
+    {
+      "case_id": "c873e16edffdbb8a5c3fee637591102f5cec5a385d15257f55f8cab4022eb442",
+      "verdict": "false",
+      "critical_false_claim": false,
+      "review_note": "'level' is wrong: after the 4 shown moves the actor is -1 and after the full 5-move replay -1"
+    },
+    {
+      "case_id": "26e25b366563225381c3cf9051317a89013a00e78a7ebe90f0da322a87ac2d6d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -4 after the quoted line"
+    },
+    {
+      "case_id": "767050ef3d7ae12c9a3a6165976146c19afdca8f7e81119d034cc4e1c6cf3322",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +3 after the quoted line"
+    },
+    {
+      "case_id": "0ad2f572c0e718cb5344746023226ed7bef3b24b683b501d6e87df276926b71b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "c7e10f7996506075042efd84fbd7701a71d56925b79213c051d6e507f8b6c212",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the named square as stated"
+    },
+    {
+      "case_id": "3edf9484b741e3266476f9c5c2afd6ff84ad3dd912944f25d24bb373529f4bc8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: -3 after the quoted line"
+    },
+    {
+      "case_id": "1fd73642dfd729b0559f10419f429a5501edeaded434053c094d53eb9d34f970",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material check holds: +6 after the quoted line"
+    },
+    {
+      "case_id": "3ff38b6a9d940242c637bd802edc89a46e7a40f240598a5360f690edceb5f01c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "confirmed: the shown line reaches legal checkmate and the engine has the actor mated after Rxd3, while Rc8 avoids it"
+    }
+  ]
+}

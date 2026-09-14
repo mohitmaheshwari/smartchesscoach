@@ -669,7 +669,7 @@ class TeachingOpportunityComparison:
     cause_fingerprint: str
     proof_authority: str
     proof_version: str
-    schema_version: str = "teaching_opportunity_comparison.v2"
+    schema_version: str = "teaching_opportunity_comparison.v3"
 
     def __post_init__(self) -> None:
         required = (
@@ -978,8 +978,8 @@ def build_candidate_comparison(
     return None
 
 
-def _short_line(moves: Tuple[str, ...], maximum: int = 4) -> str:
-    return " ".join(moves[:maximum])
+def _full_line(moves: Tuple[str, ...]) -> str:
+    return " ".join(moves)
 
 
 def _capture_for_consequence(
@@ -1007,18 +1007,33 @@ def _capture_for_consequence(
     return None
 
 
-def _material_outcome_phrase(score: int, *, actor: str) -> str:
-    if actor == "player":
-        if score >= TARGET_LINE_MIN_PAYOFF_CP:
-            return "you come out ahead"
-        if score <= -TARGET_LINE_MIN_PAYOFF_CP:
-            return "you finish behind"
-        return "the material stays level"
-    if score >= TARGET_LINE_MIN_PAYOFF_CP:
-        return "they come out ahead"
-    if score <= -TARGET_LINE_MIN_PAYOFF_CP:
-        return "they finish behind"
-    return "the material stays level"
+def _material_line_summary(
+    move_san: str,
+    score: int,
+    *,
+    actor: str,
+    compared_with: Optional[int] = None,
+) -> str:
+    """Describe only the material change proved inside the visible replay.
+
+    A branch delta is not the board's total material balance. Avoid phrases
+    such as "ahead", "behind" or "level", which turn a sequence delta into
+    a false position-wide claim.
+    """
+    beneficiary = "you" if actor == "player" else "them"
+    if compared_with is not None and score > compared_with:
+        if score > 0 and compared_with > 0:
+            return (
+                f"The shown line after {move_san} wins more material "
+                f"for {beneficiary}."
+            )
+        if score < 0 and compared_with < 0:
+            return f"The shown line after {move_san} costs {beneficiary} less material."
+    if score > 0:
+        return f"The shown line after {move_san} wins material for {beneficiary}."
+    if score < 0:
+        return f"The shown line after {move_san} loses material for {beneficiary}."
+    return f"The shown line after {move_san} trades equal material."
 
 
 def build_teaching_opportunity_comparisons(
@@ -1040,45 +1055,55 @@ def build_teaching_opportunity_comparisons(
             )
             if cause.lesson_kind == "missed_forced_mate":
                 subject = "You" if opportunity.actor == "player" else "They"
-                played_summary = (
-                    f"{subject} played {cause.played_move_san} and let the finish go."
-                )
-                stronger_summary = (
-                    f"{_short_line(stronger_line)} was the finish; "
-                    "the replay ends in checkmate."
-                )
-                memory = "Before leaving an attack, check every check and capture once more."
+                if opportunity.played_terminal_state == "stalemate":
+                    headline = "This move ended the game in stalemate"
+                    played_summary = (
+                        f"{cause.played_move_san} leaves them no legal move, "
+                        "so the game is drawn."
+                    )
+                    stronger_summary = (
+                        f"{_full_line(stronger_line)} was the checkmating finish."
+                    )
+                    memory = (
+                        "Before finishing, make sure your opponent still has a legal move."
+                    )
+                else:
+                    played_summary = (
+                        f"{subject} played {cause.played_move_san} and let the finish go."
+                    )
+                    stronger_summary = (
+                        f"{_full_line(stronger_line)} was the checkmating finish."
+                    )
+                    memory = (
+                        "Before leaving an attack, check every check and capture once more."
+                    )
             else:
                 played_summary = (
                     f"{cause.played_move_san} allows {cause.reply_san}; "
                     "the line ends in checkmate."
                 )
-                stronger_summary = f"{cause.best_move_san} stops that finish."
+                stronger_summary = (
+                    f"{cause.best_move_san} avoids the checkmate shown in this replay."
+                )
                 memory = "Before moving, scan every check your opponent gets next."
 
         elif opportunity.family == "multi_move_material_accounting":
             headline = "Count the whole capture sequence"
-            played_score = opportunity.played_settled_material_gain_cp
-            best_score = opportunity.best_settled_material_gain_cp
+            played_score = opportunity.played_visible_material_gain_cp
+            best_score = opportunity.best_visible_material_gain_cp
             if played_score is None or best_score is None:
                 continue
-            if cause.lesson_kind == "missed_material_opportunity":
-                subject = "You" if opportunity.actor == "player" else "They"
-                played_summary = (
-                    f"{subject} played {cause.played_move_san} and missed the full sequence."
-                )
-                stronger_summary = (
-                    f"After {_short_line(stronger_line)}, "
-                    f"{_material_outcome_phrase(best_score, actor=opportunity.actor)}."
-                )
-            else:
-                played_summary = (
-                    f"After {_short_line(played_line)}, "
-                    f"{_material_outcome_phrase(played_score, actor=opportunity.actor)}."
-                )
-                stronger_summary = (
-                    f"{cause.best_move_san} avoids that worse trade."
-                )
+            played_summary = _material_line_summary(
+                cause.played_move_san,
+                played_score,
+                actor=opportunity.actor,
+            )
+            stronger_summary = _material_line_summary(
+                cause.best_move_san,
+                best_score,
+                actor=opportunity.actor,
+                compared_with=played_score,
+            )
             memory = "After the first capture, count every capture back and check."
 
         elif opportunity.family == "queen_safety_or_greedy_capture":
@@ -1109,17 +1134,28 @@ def build_teaching_opportunity_comparisons(
                     f"{cause.played_move_san} lets {consequence.move_san} take "
                     f"your queen on {consequence.captured_square}."
                 )
+                stronger_summary = (
+                    f"{cause.best_move_san} avoids that immediate queen capture."
+                )
             else:
                 captured = root_queen_capture
                 if captured is None:
                     continue
-                played_summary = (
-                    f"{cause.played_move_san} takes their {captured.captured_piece}, "
-                    "but the full reply sequence leaves you no better off."
+                played_score = opportunity.played_visible_material_gain_cp
+                best_score = opportunity.best_visible_material_gain_cp
+                if played_score is None or best_score is None:
+                    continue
+                played_summary = _material_line_summary(
+                    cause.played_move_san,
+                    played_score,
+                    actor=opportunity.actor,
                 )
-            stronger_summary = (
-                f"{cause.best_move_san} keeps your queen out of that sequence."
-            )
+                stronger_summary = _material_line_summary(
+                    cause.best_move_san,
+                    best_score,
+                    actor=opportunity.actor,
+                    compared_with=played_score,
+                )
             memory = (
                 "Before taking with your queen, follow every check and capture to the end."
                 if greedy_queen_capture
@@ -1133,19 +1169,28 @@ def build_teaching_opportunity_comparisons(
             )
             if cause.lesson_kind == "missed_forced_mate":
                 stronger_summary = (
-                    f"They could have played {_short_line(stronger_line)}; "
+                    f"They could have played {_full_line(stronger_line)}; "
                     "the line ends in checkmate."
                 )
             elif consequence is not None:
-                stronger_summary = (
-                    f"They could have played {cause.best_move_san}, starting a "
-                    "line that takes your "
-                    f"{consequence.captured_piece} on "
-                    f"{consequence.captured_square}."
-                )
+                if consequence.ply == 1:
+                    stronger_summary = (
+                        f"They could have played {cause.best_move_san}, taking "
+                        f"your {consequence.captured_piece} on "
+                        f"{consequence.captured_square} immediately."
+                    )
+                else:
+                    stronger_summary = (
+                        f"They could have played {cause.best_move_san}. After your "
+                        f"only reply, {consequence.move_san} takes your "
+                        f"{consequence.captured_piece} on "
+                        f"{consequence.captured_square}."
+                    )
             else:
                 continue
-            memory = "After your move, ask what they could have done—even if they missed it."
+            memory = (
+                "After your move, look at their checks and captures—even if they miss them."
+            )
         else:
             continue
 

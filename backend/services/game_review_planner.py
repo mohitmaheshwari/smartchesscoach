@@ -35,7 +35,7 @@ QUALITY_V2_FORMULA = "E_transition_then_teaching"
 SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 TEACHING_OPPORTUNITY_SHADOW_SCHEMA_VERSION = (
-    "teaching_opportunity_shadow_summary.v2"
+    "teaching_opportunity_shadow_summary.v3"
 )
 
 
@@ -198,7 +198,7 @@ def build_teaching_opportunity_shadow_summary(
         display = row.get("display")
         if (
             row.get("schema_version")
-            != "teaching_opportunity_comparison.v2"
+            != "teaching_opportunity_comparison.v3"
             or row.get("rollout_mode") != "shadow"
             or family not in TEACHING_OPPORTUNITY_QUALITY_IDS
             or quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[family]

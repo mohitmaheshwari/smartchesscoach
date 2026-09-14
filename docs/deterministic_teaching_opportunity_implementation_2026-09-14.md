@@ -2,7 +2,7 @@
 
 Date: 2026-09-14
 Branch: `codex/deterministic-whole-game-teaching-review-v1`
-Status: implemented in Shadow; independent development review pending; no player-facing authorization
+Status: superseded development implementation; failed independent review and was repaired in `docs/deterministic_teaching_opportunity_review_repair_2026-09-14.md`; no player-facing authorization
 
 ## Outcome
 
@@ -45,7 +45,7 @@ Known false-claim classes are locked in tests: delayed recapture, fork beyond th
 
 Visible development copy names what happened on the board and supplies one short memory action. It does not expose centipawns, detector names, schema terms or generic rules such as “never trade queens.” Examples include:
 
-- “Ne2 lets Bxd3 take your queen on d3.”
+- “Qxd5 lets Rxd5 take your queen on d5.”
 - “After the first capture, count every capture back and check.”
 - “They could have played Bc3, starting a line that takes your rook on h8.”
 
