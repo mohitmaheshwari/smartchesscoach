@@ -54,6 +54,7 @@ describe("Onboarding", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    document.documentElement.classList.remove("dark");
   });
 
   const flush = () => act(async () => {
@@ -120,6 +121,19 @@ describe("Onboarding", () => {
       total_items: 12,
     });
     expect(mockNavigate).toHaveBeenCalledWith("/game/game_123");
+  });
+
+  test("keeps the account connection screen light and readable in global dark mode", async () => {
+    document.documentElement.classList.add("dark");
+
+    await act(async () => root.render(<Onboarding />));
+
+    const page = byTestId("onboarding-page");
+    const panel = byTestId("onboarding-panel");
+    expect(page.style.getPropertyValue("--foreground")).toBe("158 48% 7%");
+    expect(page.style.getPropertyValue("--muted-foreground")).toBe("157 8% 38%");
+    expect(panel.style.background).toBe("rgb(255, 252, 247)");
+    expect(byTestId("step1-continue-btn").style.color).toBe("rgb(102, 113, 108)");
   });
 
   test("stops visibly and emits no completion when game import fails", async () => {
