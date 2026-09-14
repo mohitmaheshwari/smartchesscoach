@@ -419,6 +419,69 @@ export function resetAnalyticsContext() {
   }
 }
 
+// ── Our own sink ───────────────────────────────────────────────────────
+// Batched so a burst of events is one request, flushed on the way out with
+// keepalive so leaving the page does not lose the most interesting event in
+// the funnel -- the one just before someone left.
+const PRODUCT_EVENT_ENDPOINT = "/api/analytics/events";
+const PRODUCT_EVENT_FLUSH_MS = 4000;
+const PRODUCT_EVENT_MAX_BATCH = 50;
+
+let productEventQueue = [];
+let productEventTimer = null;
+
+function postProductEvents(events, { keepalive = false } = {}) {
+  if (!events.length) return;
+  try {
+    fetch(PRODUCT_EVENT_ENDPOINT, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      keepalive,
+      body: JSON.stringify({ events }),
+    }).catch(() => {});
+  } catch (_e) {
+    /* analytics must never break the product */
+  }
+}
+
+export function flushProductEvents({ keepalive = false } = {}) {
+  if (productEventTimer) {
+    clearTimeout(productEventTimer);
+    productEventTimer = null;
+  }
+  const batch = productEventQueue;
+  productEventQueue = [];
+  postProductEvents(batch, { keepalive });
+}
+
+function enqueueProductEvent(event, props) {
+  try {
+    if (typeof window === "undefined") return;
+    productEventQueue.push({ event, props });
+    if (productEventQueue.length >= PRODUCT_EVENT_MAX_BATCH) {
+      flushProductEvents();
+      return;
+    }
+    if (!productEventTimer) {
+      productEventTimer = setTimeout(
+        () => flushProductEvents(),
+        PRODUCT_EVENT_FLUSH_MS
+      );
+    }
+  } catch (_e) {
+    /* never break the product */
+  }
+}
+
+if (typeof window !== "undefined" && !window.__cgProductEventsBound) {
+  window.__cgProductEventsBound = true;
+  window.addEventListener("pagehide", () =>
+    flushProductEvents({ keepalive: true })
+  );
+}
+
+
 export function track(event, props = {}) {
   try {
     if (!KNOWN_EVENT_IDS.has(event)) {
@@ -436,6 +499,13 @@ export function track(event, props = {}) {
     if (typeof window !== "undefined" && window.posthog && typeof window.posthog.capture === "function") {
       window.posthog.capture(event, { ...safeProps, ...analyticsContext });
     }
+    // posthog is never initialised -- no init call, no project key, no env --
+    // so the line above has always been dead and nothing a player did was
+    // ever recorded. Everything we know about behaviour has had to be
+    // reconstructed from database side-effects. Queue to our own collection
+    // instead; it costs one request every few seconds and answers the
+    // questions we actually have.
+    enqueueProductEvent(event, { ...safeProps, ...analyticsContext });
   } catch (_e) {
     /* analytics must never break the product */
   }
