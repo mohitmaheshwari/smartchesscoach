@@ -191,6 +191,17 @@ services:
       # plan overlay on the PWC board — green=your plan, amber=coach's plan,
       # every arrow board-verified. Phase 1.
       - PWC_GEOMETRY_ARROWS=true
+      # BOARD GEOMETRY (docs/board_geometry_learning_scope.md). Two separate
+      # gates, both enabled on Mohit explicit approval 2026-09-15:
+      #   PWC_BOARD_GEOMETRY      - the in-game moments during Play with Coach,
+      #                             at most one interruption per game.
+      #   BOARD_GEOMETRY_LEARNING - the /training/geometry lesson pages AND the
+      #                             Game Review moments. _require_board_geometry()
+      #                             404s without it, so before today the lessons
+      #                             were reachable only to reviewers and DEV_MODE.
+      # The review moment names a lesson, so it must not outlive the lesson gate.
+      - PWC_BOARD_GEOMETRY=true
+      - BOARD_GEOMETRY_LEARNING=true
       # PWC SKILL GATE (docs/pwc_skills_aware_coaching.md, shipped v2 2026-06-03):
       # DOWNGRADE mastered nudges → "You've handled this before — quick reminder."
       # ESCALATE struggle → "You've missed this pattern 3 times before — let's lock it in."
