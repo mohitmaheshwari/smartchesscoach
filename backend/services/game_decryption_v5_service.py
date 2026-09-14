@@ -3172,6 +3172,7 @@ async def generate_game_decryption_v5(
             _inputs = None
             _review_event_contract = None
             _review_prompt_contract = None
+            _teaching_opportunity_shadow = []
 
             # v70 (2026-05-23): "Play this line" support. Initialize the
             # per-iteration coach-line state here so it's defined even
@@ -3742,6 +3743,7 @@ async def generate_game_decryption_v5(
                         candidate_caption_evidence=eval_data.get(
                             "candidate_caption_evidence"
                         ),
+                        collect_teaching_opportunity_shadow=True,
                     )
                     _state = _CaptionCrossMoveState(
                         fired_principles=set(principles_fired_this_game),
@@ -3785,6 +3787,12 @@ async def generate_game_decryption_v5(
                     # (R15 good-move, opening intro, silent).
                     _caption_severity_word = _decision.teaching_meta.caption_severity_word
                     _caption_explanation = asdict(_decision.explanation)
+                    _teaching_opportunity_shadow = [
+                        item.contract_dict()
+                        for item in (
+                            _decision.teaching_opportunity_comparisons or ()
+                        )
+                    ]
                     if _decision.coach_line_moves:
                         _coach_line_moves_for_iter = list(
                             _decision.coach_line_moves
@@ -4587,6 +4595,10 @@ async def generate_game_decryption_v5(
                 "exact_endgame_probe_reason": _exact_endgame_probe_reason,
                 "human_policy_evidence": _human_policy_evidence,
                 "human_policy_reason": _human_policy_reason,
+                # Independently gated deterministic teaching candidates.
+                # Stored for evidence review only; every API projection strips
+                # this field until a family clears its own quality packet.
+                "teaching_opportunity_shadow": _teaching_opportunity_shadow,
 
                 # ── CAPTION CLASSIFICATION (v86) ─────────────────────
                 # Per Mohit 2026-05-25: many context/silent captions
@@ -4942,6 +4954,25 @@ async def generate_game_decryption_v5(
                         hidden_opportunity_evaluations=tuple(
                             _review_hidden_opportunity_evaluations
                         ),
+                    )
+                )
+                from services.game_review_planner import (
+                    build_teaching_opportunity_shadow_summary,
+                )
+                game_teaching_plan_output[
+                    "teaching_opportunity_shadow"
+                ] = build_teaching_opportunity_shadow_summary(
+                    tuple(
+                        {
+                            **dict(opportunity),
+                            "source_ply": source_ply,
+                        }
+                        for source_ply, move_row in enumerate(
+                            decryption_data, start=1
+                        )
+                        for opportunity in (
+                            move_row.get("teaching_opportunity_shadow") or ()
+                        )
                     )
                 )
                 _candidate_summary = {

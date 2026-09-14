@@ -656,6 +656,7 @@ def maybe_attach_phase2_review_fields(
         clean_move = dict(move)
         clean_move.pop("teachable_event", None)
         clean_move.pop("reflection_prompt", None)
+        clean_move.pop("teaching_opportunity_shadow", None)
         sanitized_moves.append(clean_move)
 
     augmented = dict(legacy_response)

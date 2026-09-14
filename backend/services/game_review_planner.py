@@ -14,6 +14,10 @@ import json
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from services.detector_quality import QualitySurface
+from services.caption_facts import (
+    TEACHING_OPPORTUNITY_PROOF_VERSION,
+    TEACHING_OPPORTUNITY_QUALITY_IDS,
+)
 from services.game_review_contracts import (
     ChapterRole,
     GameTeachingPlan,
@@ -30,6 +34,9 @@ SHADOW_FORMULA = "D_teaching_then_critical"
 QUALITY_V2_FORMULA = "E_transition_then_teaching"
 SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
+TEACHING_OPPORTUNITY_SHADOW_SCHEMA_VERSION = (
+    "teaching_opportunity_shadow_summary.v2"
+)
 
 
 @dataclass(frozen=True)
@@ -154,6 +161,118 @@ def _fingerprint(events: Sequence[TeachableEvent]) -> str:
         ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def build_teaching_opportunity_shadow_summary(
+    rows: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """Validate and deduplicate internal opportunity renderings.
+
+    This is ordering/aggregation only. Chess truth remains owned by the
+    typed cause and comparison contracts. The first occurrence of an exact
+    story key is the anchor. Consecutive mate proofs for the same side are one
+    episode, preventing one forcing sequence from appearing as several lessons.
+    """
+    accepted = []
+    seen_story_keys = set()
+    raw_by_family = {
+        family: 0 for family in TEACHING_OPPORTUNITY_QUALITY_IDS
+    }
+    deduplicated_by_family = {
+        family: 0 for family in TEACHING_OPPORTUNITY_QUALITY_IDS
+    }
+    previous_mate_ply: Optional[int] = None
+    previous_mate_payoff_side: Optional[str] = None
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ReviewContractViolation(
+                "teaching-opportunity shadow row must be a mapping"
+            )
+        family = str(row.get("family") or "")
+        quality_id = str(row.get("quality_id") or "")
+        story_key = str(row.get("story_key") or "")
+        actor = str(row.get("actor") or "")
+        cause_kind = str(row.get("cause_kind") or "")
+        source_ply = row.get("source_ply")
+        proof = row.get("proof")
+        display = row.get("display")
+        if (
+            row.get("schema_version")
+            != "teaching_opportunity_comparison.v2"
+            or row.get("rollout_mode") != "shadow"
+            or family not in TEACHING_OPPORTUNITY_QUALITY_IDS
+            or quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[family]
+            or not story_key
+            or not isinstance(proof, Mapping)
+            or proof.get("authority")
+            != "caption_facts.build_verified_teaching_opportunities"
+            or proof.get("version") != TEACHING_OPPORTUNITY_PROOF_VERSION
+            or not isinstance(display, Mapping)
+            or display.get("authorized") is not False
+            or actor not in {"player", "opponent"}
+            or cause_kind not in {
+                "missed_forced_mate",
+                "allowed_forced_mate",
+                "exchange_sequence",
+                "immediate_material_loss",
+                "missed_material_opportunity",
+            }
+            or not isinstance(source_ply, int)
+            or isinstance(source_ply, bool)
+            or source_ply < 1
+            or any(
+                len(value) != 64
+                or any(char not in "0123456789abcdef" for char in value)
+                for value in (
+                    story_key,
+                    str(row.get("opportunity_fingerprint") or ""),
+                    str(row.get("cause_fingerprint") or ""),
+                )
+            )
+        ):
+            raise ReviewContractViolation(
+                "teaching-opportunity Shadow contract is invalid"
+            )
+        raw_by_family[family] += 1
+        same_mate_episode = False
+        if family == "forced_mate_story":
+            payoff_side = (
+                actor
+                if cause_kind == "missed_forced_mate"
+                else ("opponent" if actor == "player" else "player")
+            )
+            same_mate_episode = bool(
+                previous_mate_ply is not None
+                and source_ply == previous_mate_ply + 1
+                and payoff_side == previous_mate_payoff_side
+            )
+            previous_mate_ply = source_ply
+            previous_mate_payoff_side = payoff_side
+        if story_key in seen_story_keys or same_mate_episode:
+            deduplicated_by_family[family] += 1
+            continue
+        seen_story_keys.add(story_key)
+        accepted.append(dict(row))
+
+    payload = {
+        "schema_version": TEACHING_OPPORTUNITY_SHADOW_SCHEMA_VERSION,
+        "rollout_mode": "shadow",
+        "raw_count": len(rows),
+        "candidate_count": len(accepted),
+        "deduplicated_count": len(rows) - len(accepted),
+        "raw_by_family": raw_by_family,
+        "deduplicated_by_family": deduplicated_by_family,
+        "candidates": accepted,
+    }
+    payload["fingerprint"] = hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    return payload
 
 
 def build_shadow_game_teaching_plan(

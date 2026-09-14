@@ -519,6 +519,41 @@ def test_phase5_exposes_only_plan_whose_chapters_remain_authorized():
     assert result["decryption_data"] == [{"move_san": "Bg5"}]
 
 
+def test_phase5_strips_shadow_opportunities_from_moves_and_nested_plan():
+    typed_event = adapt_move_teaching_decision(_decision(), _context())
+    event = typed_event.contract_dict()
+    shadow = {
+        "schema_version": "teaching_opportunity_comparison.v2",
+        "rollout_mode": "shadow",
+        "display": {"authorized": False},
+    }
+    envelope = _stored_plan_envelope(typed_event)
+    envelope["teaching_opportunity_shadow"] = {
+        "schema_version": "teaching_opportunity_shadow_summary.v2",
+        "candidates": [shadow],
+    }
+    result = maybe_attach_phase5_review_fields(
+        {
+            "decryption_data": [
+                {"move_san": "Bg5", "teaching_opportunity_shadow": [shadow]}
+            ]
+        },
+        stored_moves=(
+            {
+                "phase": "opening",
+                "teachable_event": event,
+                "teaching_opportunity_shadow": [shadow],
+            },
+        ),
+        stored_plan=envelope,
+        env={"PERSONALIZED_GAME_REVIEW_COACH_ENABLED": "true"},
+    )
+
+    assert result["decryption_data"] == [{"move_san": "Bg5"}]
+    assert "teaching_opportunity_shadow" not in result["game_teaching_plan"]
+    assert "teaching_opportunity_shadow" not in str(result)
+
+
 def test_phase5_rejects_a_plan_from_the_wrong_flag_formula():
     typed_event = adapt_move_teaching_decision(_decision(), _context())
     event = typed_event.contract_dict()

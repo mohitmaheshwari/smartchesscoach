@@ -64,10 +64,15 @@ from services.severity import (
 )
 from services.caption_facts import (
     IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
+    TARGET_LINE_MIN_PAYOFF_CP,
+    TEACHING_OPPORTUNITY_PROOF_VERSION,
+    TEACHING_OPPORTUNITY_QUALITY_IDS,
     LegalMaterialLossCause,
     ReviewTeachingCause,
+    VerifiedTeachingOpportunity,
     VerifiedLineCause,
     build_legal_material_loss_cause,
+    build_verified_teaching_opportunities,
     build_verified_line_cause,
 )
 from services.exact_endgame_service import (
@@ -395,6 +400,10 @@ class MoveInputs:
     # Immutable background evidence for the played and candidate branches.
     # The central pipeline validates its source fingerprint before use.
     candidate_caption_evidence: Optional[Dict[str, Any]] = None
+    # Batch Game Review may collect the separately gated teaching-opportunity
+    # families for offline evidence. Live PWC and secondary callers default
+    # off so unused Shadow settlement work cannot add move latency.
+    collect_teaching_opportunity_shadow: bool = False
 
 
 @dataclass
@@ -641,6 +650,111 @@ class CandidateComparison:
         }
 
 
+@dataclass(frozen=True)
+class TeachingOpportunityComparison:
+    """Internal Shadow rendering of one independently gated proof family."""
+
+    family: str
+    quality_id: str
+    actor: str
+    cause_kind: str
+    headline: str
+    played_summary: str
+    stronger_summary: str
+    memory_cue: str
+    played_line_moves: Tuple[str, ...]
+    stronger_line_moves: Tuple[str, ...]
+    story_key: str
+    opportunity_fingerprint: str
+    cause_fingerprint: str
+    proof_authority: str
+    proof_version: str
+    schema_version: str = "teaching_opportunity_comparison.v2"
+
+    def __post_init__(self) -> None:
+        required = (
+            self.family,
+            self.quality_id,
+            self.actor,
+            self.cause_kind,
+            self.headline,
+            self.played_summary,
+            self.stronger_summary,
+            self.memory_cue,
+            self.story_key,
+            self.opportunity_fingerprint,
+            self.cause_fingerprint,
+            self.proof_authority,
+            self.proof_version,
+        )
+        if any(not str(value).strip() for value in required):
+            raise ValueError("teaching opportunity comparison must be complete")
+        if self.actor not in {"player", "opponent"}:
+            raise ValueError("teaching opportunity comparison actor is invalid")
+        if (
+            self.family not in TEACHING_OPPORTUNITY_QUALITY_IDS
+            or self.quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[self.family]
+        ):
+            raise ValueError("teaching opportunity comparison identity is invalid")
+        if self.cause_kind not in {
+            "missed_forced_mate",
+            "allowed_forced_mate",
+            "exchange_sequence",
+            "immediate_material_loss",
+            "missed_material_opportunity",
+        }:
+            raise ValueError("teaching opportunity comparison cause is invalid")
+        if len((self.played_summary + " " + self.stronger_summary).split()) > 32:
+            raise ValueError("teaching opportunity exceeds the 32-word reading lock")
+        if len(self.memory_cue.split()) > 18:
+            raise ValueError("teaching opportunity cue exceeds the 18-word reading lock")
+        if not self.played_line_moves or not self.stronger_line_moves:
+            raise ValueError("teaching opportunity requires two replayable branches")
+        if (
+            self.proof_authority
+            != "caption_facts.build_verified_teaching_opportunities"
+            or self.proof_version != TEACHING_OPPORTUNITY_PROOF_VERSION
+        ):
+            raise ValueError("teaching opportunity proof identity is invalid")
+        for fingerprint in (
+            self.story_key,
+            self.opportunity_fingerprint,
+            self.cause_fingerprint,
+        ):
+            if len(fingerprint) != 64 or any(
+                char not in "0123456789abcdef" for char in fingerprint
+            ):
+                raise ValueError("teaching opportunity fingerprint is invalid")
+
+    def contract_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "rollout_mode": "shadow",
+            "family": self.family,
+            "quality_id": self.quality_id,
+            "actor": self.actor,
+            "cause_kind": self.cause_kind,
+            "headline": self.headline,
+            "played": {
+                "summary": self.played_summary,
+                "moves": list(self.played_line_moves),
+            },
+            "stronger": {
+                "summary": self.stronger_summary,
+                "moves": list(self.stronger_line_moves),
+            },
+            "memory_cue": self.memory_cue,
+            "story_key": self.story_key,
+            "opportunity_fingerprint": self.opportunity_fingerprint,
+            "cause_fingerprint": self.cause_fingerprint,
+            "proof": {
+                "authority": self.proof_authority,
+                "version": self.proof_version,
+            },
+            "display": {"authorized": False},
+        }
+
+
 @dataclass
 class MoveTeachingDecision:
     """The complete teaching product for one move.
@@ -711,6 +825,11 @@ class MoveTeachingDecision:
     # move. Callers render the contract; they never rebuild chess facts.
     reason_bundle: Optional["TeachingReasonBundle"] = None
     candidate_comparison: Optional[CandidateComparison] = None
+    # New chess-understanding families are generated here for evidence, not
+    # rendered by callers. Each contract carries its own Shadow quality ID.
+    teaching_opportunity_comparisons: Tuple[
+        TeachingOpportunityComparison, ...
+    ] = ()
 
 
 def build_reason_bundle_for_move(
@@ -857,6 +976,201 @@ def build_candidate_comparison(
             proof_version=cause.proof_version,
         )
     return None
+
+
+def _short_line(moves: Tuple[str, ...], maximum: int = 4) -> str:
+    return " ".join(moves[:maximum])
+
+
+def _capture_for_consequence(
+    opportunity: VerifiedTeachingOpportunity,
+):
+    cause = opportunity.cause
+    captures = (
+        cause.played_captures
+        if opportunity.consequence_branch == "played"
+        else cause.best_captures
+    )
+    for capture in captures:
+        captured_owner = (
+            opportunity.actor
+            if capture.actor == "opponent"
+            else ("opponent" if opportunity.actor == "player" else "player")
+        )
+        if (
+            capture.captured_piece == opportunity.consequence_piece
+            and capture.captured_square == opportunity.consequence_square
+            and capture.ply == opportunity.consequence_ply
+            and captured_owner == opportunity.consequence_owner
+        ):
+            return capture
+    return None
+
+
+def _material_outcome_phrase(score: int, *, actor: str) -> str:
+    if actor == "player":
+        if score >= TARGET_LINE_MIN_PAYOFF_CP:
+            return "you come out ahead"
+        if score <= -TARGET_LINE_MIN_PAYOFF_CP:
+            return "you finish behind"
+        return "the material stays level"
+    if score >= TARGET_LINE_MIN_PAYOFF_CP:
+        return "they come out ahead"
+    if score <= -TARGET_LINE_MIN_PAYOFF_CP:
+        return "they finish behind"
+    return "the material stays level"
+
+
+def build_teaching_opportunity_comparisons(
+    opportunities: Tuple[VerifiedTeachingOpportunity, ...],
+) -> Tuple[TeachingOpportunityComparison, ...]:
+    """Render strict typed slots for offline review; never authorize display."""
+    comparisons: List[TeachingOpportunityComparison] = []
+    for opportunity in opportunities:
+        cause = opportunity.cause
+        played_line = tuple(cause.played_line_san)
+        stronger_line = tuple(cause.best_line_san)
+        consequence = _capture_for_consequence(opportunity)
+
+        if opportunity.family == "forced_mate_story":
+            headline = (
+                "A checkmating finish was here"
+                if cause.lesson_kind == "missed_forced_mate"
+                else "This move allowed checkmate"
+            )
+            if cause.lesson_kind == "missed_forced_mate":
+                subject = "You" if opportunity.actor == "player" else "They"
+                played_summary = (
+                    f"{subject} played {cause.played_move_san} and let the finish go."
+                )
+                stronger_summary = (
+                    f"{_short_line(stronger_line)} was the finish; "
+                    "the replay ends in checkmate."
+                )
+                memory = "Before leaving an attack, check every check and capture once more."
+            else:
+                played_summary = (
+                    f"{cause.played_move_san} allows {cause.reply_san}; "
+                    "the line ends in checkmate."
+                )
+                stronger_summary = f"{cause.best_move_san} stops that finish."
+                memory = "Before moving, scan every check your opponent gets next."
+
+        elif opportunity.family == "multi_move_material_accounting":
+            headline = "Count the whole capture sequence"
+            played_score = opportunity.played_settled_material_gain_cp
+            best_score = opportunity.best_settled_material_gain_cp
+            if played_score is None or best_score is None:
+                continue
+            if cause.lesson_kind == "missed_material_opportunity":
+                subject = "You" if opportunity.actor == "player" else "They"
+                played_summary = (
+                    f"{subject} played {cause.played_move_san} and missed the full sequence."
+                )
+                stronger_summary = (
+                    f"After {_short_line(stronger_line)}, "
+                    f"{_material_outcome_phrase(best_score, actor=opportunity.actor)}."
+                )
+            else:
+                played_summary = (
+                    f"After {_short_line(played_line)}, "
+                    f"{_material_outcome_phrase(played_score, actor=opportunity.actor)}."
+                )
+                stronger_summary = (
+                    f"{cause.best_move_san} avoids that worse trade."
+                )
+            memory = "After the first capture, count every capture back and check."
+
+        elif opportunity.family == "queen_safety_or_greedy_capture":
+            root_queen_capture = next(
+                (
+                    item
+                    for item in cause.played_captures
+                    if item.ply == 1
+                    and item.actor == "initiator"
+                    and item.capturing_piece == "queen"
+                ),
+                None,
+            )
+            greedy_queen_capture = bool(
+                opportunity.moving_piece == "queen"
+                and root_queen_capture is not None
+            )
+            headline = (
+                "Count beyond the queen capture"
+                if greedy_queen_capture
+                else "Your queen becomes the target"
+            )
+            if (
+                consequence is not None
+                and opportunity.consequence_piece == "queen"
+            ):
+                played_summary = (
+                    f"{cause.played_move_san} lets {consequence.move_san} take "
+                    f"your queen on {consequence.captured_square}."
+                )
+            else:
+                captured = root_queen_capture
+                if captured is None:
+                    continue
+                played_summary = (
+                    f"{cause.played_move_san} takes their {captured.captured_piece}, "
+                    "but the full reply sequence leaves you no better off."
+                )
+            stronger_summary = (
+                f"{cause.best_move_san} keeps your queen out of that sequence."
+            )
+            memory = (
+                "Before taking with your queen, follow every check and capture to the end."
+                if greedy_queen_capture
+                else "Before moving, follow their checks and captures far enough to see whether they can reach your queen."
+            )
+
+        elif opportunity.family == "unpunished_opponent_opportunity":
+            headline = "A chance your opponent missed"
+            played_summary = (
+                f"They played {cause.played_move_san} and missed the chance."
+            )
+            if cause.lesson_kind == "missed_forced_mate":
+                stronger_summary = (
+                    f"They could have played {_short_line(stronger_line)}; "
+                    "the line ends in checkmate."
+                )
+            elif consequence is not None:
+                stronger_summary = (
+                    f"They could have played {cause.best_move_san}, starting a "
+                    "line that takes your "
+                    f"{consequence.captured_piece} on "
+                    f"{consequence.captured_square}."
+                )
+            else:
+                continue
+            memory = "After your move, ask what they could have done—even if they missed it."
+        else:
+            continue
+
+        comparisons.append(
+            TeachingOpportunityComparison(
+                family=opportunity.family,
+                quality_id=opportunity.quality_id,
+                actor=opportunity.actor,
+                cause_kind=cause.lesson_kind,
+                headline=headline,
+                played_summary=played_summary,
+                stronger_summary=stronger_summary,
+                memory_cue=memory,
+                played_line_moves=played_line,
+                stronger_line_moves=stronger_line,
+                story_key=opportunity.story_key,
+                opportunity_fingerprint=opportunity.fingerprint,
+                cause_fingerprint=cause.fingerprint,
+                proof_authority=(
+                    "caption_facts.build_verified_teaching_opportunities"
+                ),
+                proof_version=opportunity.proof_version,
+            )
+        )
+    return tuple(comparisons)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -5804,6 +6118,39 @@ def build_move_teaching_decision(
     selected_cause = _exact_endgame_cause or legal_material_loss_cause
     candidate_comparison = build_candidate_comparison(inputs, selected_cause)
 
+    # Build the four locked whole-game opportunity families from a stricter
+    # causal copy that includes complete branch evidence. This runs for both
+    # actors: an opponent's missed chance is a lesson only when their own
+    # stored played/best branches prove it. The existing selected_cause and
+    # visible caption remain unchanged.
+    opportunity_cause = None
+    if inputs.collect_teaching_opportunity_shadow and inputs.best_move_san:
+        opportunity_cause = build_verified_line_cause(
+            fen_before=inputs.fen_before,
+            played_san=inputs.played_san,
+            best_move_san=inputs.best_move_san,
+            pv_after_played=tuple(inputs.pv_after_played or ()),
+            pv_after_best=tuple(inputs.pv_after_best or ()),
+            cp_loss=int(
+                inputs.cp_loss
+                if inputs.mover_is_user
+                else (inputs.opp_cp_loss or 0)
+            ),
+            include_branch_evidence=True,
+        )
+    teaching_opportunities = (
+        build_verified_teaching_opportunities(
+            fen_before=inputs.fen_before,
+            mover_is_user=inputs.mover_is_user,
+            cause=opportunity_cause,
+        )
+        if inputs.collect_teaching_opportunity_shadow
+        else ()
+    )
+    teaching_opportunity_comparisons = (
+        build_teaching_opportunity_comparisons(teaching_opportunities)
+    )
+
     return MoveTeachingDecision(
         text=text,
         visual=visual,
@@ -5826,4 +6173,7 @@ def build_move_teaching_decision(
         ),
         human_policy_evidence=inputs.human_policy_evidence,
         candidate_comparison=candidate_comparison,
+        teaching_opportunity_comparisons=(
+            teaching_opportunity_comparisons
+        ),
     )

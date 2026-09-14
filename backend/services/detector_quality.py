@@ -179,6 +179,70 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "No recurrence, plan, mastery, or psychological claim is authorized.",
         ),
     ),
+    "review:forced_mate_story": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "docs/deterministic_teaching_intelligence_second_data_lock_2026-09-14.md"
+        ),
+        rationale=(
+            "A complete stored branch can prove terminal mate and carry a "
+            "stable episode identity, but the connected story has not yet "
+            "passed its own independent visible-claim review."
+        ),
+        limitations=(
+            "Diagnostic Shadow output only; no caption, plan, prompt, or mastery authority.",
+            "Adjacent mating positions must collapse to one story before promotion.",
+            "Centipawn loss or an incomplete line can never establish mate.",
+        ),
+    ),
+    "review:multi_move_material_accounting": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "docs/deterministic_teaching_intelligence_second_data_lock_2026-09-14.md"
+        ),
+        rationale=(
+            "Both stored branches are replayed legally and the typed cause "
+            "requires at least two captures, but the resulting player wording "
+            "has not passed an independent false-claim packet."
+        ),
+        limitations=(
+            "Diagnostic Shadow output only; no caption, plan, prompt, or mastery authority.",
+            "The line must settle delayed recaptures and forcing replies before naming a payoff.",
+            "A first capture by itself does not authorize a material conclusion.",
+        ),
+    ),
+    "review:queen_safety_or_greedy_capture": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "docs/deterministic_teaching_intelligence_second_data_lock_2026-09-14.md"
+        ),
+        rationale=(
+            "The typed family requires an exact queen relationship inside a "
+            "complete legal material branch. Position-specific coaching "
+            "quality remains unreviewed."
+        ),
+        limitations=(
+            "Diagnostic Shadow output only; no caption, plan, prompt, or mastery authority.",
+            "It cannot teach a universal rule against queen exchanges.",
+            "Purely positional queen choices remain silent without their own proof.",
+        ),
+    ),
+    "review:unpunished_opponent_opportunity": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "docs/deterministic_teaching_intelligence_second_data_lock_2026-09-14.md"
+        ),
+        rationale=(
+            "The branch begins before the opponent's decision and compares "
+            "their legal played and best continuations. Actor-safe "
+            "counterfactual wording remains independently unreviewed."
+        ),
+        limitations=(
+            "Diagnostic Shadow output only; no caption, plan, prompt, or mastery authority.",
+            "The text must say the chance was missed, never that the payoff occurred.",
+            "No blame, recurrence, intention, or psychological claim is authorized.",
+        ),
+    ),
     "gap:piece_safety:trapped_piece_exact": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="backend/tests/test_trapped_piece_puzzle_proof.py",

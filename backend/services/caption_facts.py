@@ -143,6 +143,17 @@ UNSAFE_RECAPTURE_PAWN_FORK_PROOF_VERSION = (
     "unsafe_recapture_pawn_fork_proof.v1"
 )
 VERIFIED_LINE_MIN_CP_LOSS = 100
+TEACHING_OPPORTUNITY_PROOF_VERSION = "verified_teaching_opportunity.v2"
+FORCED_MATE_STORY_QUALITY_ID = "review:forced_mate_story"
+MULTI_MOVE_MATERIAL_QUALITY_ID = "review:multi_move_material_accounting"
+QUEEN_SAFETY_QUALITY_ID = "review:queen_safety_or_greedy_capture"
+UNPUNISHED_OPPONENT_QUALITY_ID = "review:unpunished_opponent_opportunity"
+TEACHING_OPPORTUNITY_QUALITY_IDS = {
+    "forced_mate_story": FORCED_MATE_STORY_QUALITY_ID,
+    "multi_move_material_accounting": MULTI_MOVE_MATERIAL_QUALITY_ID,
+    "queen_safety_or_greedy_capture": QUEEN_SAFETY_QUALITY_ID,
+    "unpunished_opponent_opportunity": UNPUNISHED_OPPONENT_QUALITY_ID,
+}
 _LEGAL_MATERIAL_PURPOSES = frozenset({
     "moves_affected_piece",
     "removes_attacker",
@@ -1013,6 +1024,400 @@ class VerifiedLineCause:
 
 
 ReviewTeachingCause = LegalMaterialLossCause | VerifiedLineCause | ExactEndgameCause
+
+
+@dataclass(frozen=True)
+class VerifiedTeachingOpportunity:
+    """One selected teaching family proved by the canonical stored-line cause.
+
+    This is a semantic projection of VerifiedLineCause rather than a second
+    detector. It carries no player prose. The renderer consumes its typed
+    family, actor, line and consequence identity; the quality registry
+    independently decides whether any surface may expose it.
+    """
+
+    family: str
+    quality_id: str
+    actor: str
+    moving_piece: str
+    cause: VerifiedLineCause
+    consequence_piece: Optional[str] = None
+    consequence_square: Optional[str] = None
+    consequence_owner: Optional[str] = None
+    consequence_branch: Optional[str] = None
+    consequence_ply: Optional[int] = None
+    played_settled_material_gain_cp: Optional[int] = None
+    best_settled_material_gain_cp: Optional[int] = None
+    settled_material_edge_cp: Optional[int] = None
+    proof_version: str = TEACHING_OPPORTUNITY_PROOF_VERSION
+
+    def __post_init__(self) -> None:
+        if self.family not in TEACHING_OPPORTUNITY_QUALITY_IDS:
+            raise ValueError("unknown teaching-opportunity family")
+        if self.quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[self.family]:
+            raise ValueError("teaching-opportunity quality identity mismatch")
+        if self.actor not in {"player", "opponent"}:
+            raise ValueError("teaching-opportunity actor is invalid")
+        if self.moving_piece not in set(PIECE_TYPE_NAMES.values()):
+            raise ValueError("teaching-opportunity moving piece is invalid")
+        if self.cause.branch_evidence is None:
+            raise ValueError("teaching opportunity requires complete branch evidence")
+        consequence_values = (
+            self.consequence_piece,
+            self.consequence_square,
+            self.consequence_owner,
+            self.consequence_branch,
+            self.consequence_ply,
+        )
+        if any(consequence_values) and not all(consequence_values):
+            raise ValueError("consequence identity must be supplied together")
+        if self.consequence_piece is not None:
+            if self.consequence_piece not in set(PIECE_TYPE_NAMES.values()):
+                raise ValueError("teaching-opportunity consequence piece is invalid")
+            chess.parse_square(str(self.consequence_square))
+            if self.consequence_owner not in {"player", "opponent"}:
+                raise ValueError("teaching-opportunity consequence owner is invalid")
+            if self.consequence_branch not in {"played", "best"}:
+                raise ValueError("teaching-opportunity consequence branch is invalid")
+            if not isinstance(self.consequence_ply, int) or self.consequence_ply < 1:
+                raise ValueError("teaching-opportunity consequence ply is invalid")
+        settled_values = (
+            self.played_settled_material_gain_cp,
+            self.best_settled_material_gain_cp,
+            self.settled_material_edge_cp,
+        )
+        if any(value is not None for value in settled_values):
+            if not all(value is not None for value in settled_values):
+                raise ValueError("settled material evidence must be complete")
+            if self.settled_material_edge_cp != (
+                self.best_settled_material_gain_cp
+                - self.played_settled_material_gain_cp
+            ):
+                raise ValueError("settled material edge does not match its branches")
+        if self.family == "forced_mate_story" and self.cause.lesson_kind not in {
+            "missed_forced_mate",
+            "allowed_forced_mate",
+        }:
+            raise ValueError("forced-mate story requires a terminal mate cause")
+        if (
+            self.family == "unpunished_opponent_opportunity"
+            and (
+                self.actor != "opponent"
+                or self.cause.lesson_kind not in {
+                    "missed_forced_mate",
+                    "missed_material_opportunity",
+                }
+            )
+        ):
+            raise ValueError("opponent opportunity requires an opponent missed chance")
+        if (
+            self.family == "queen_safety_or_greedy_capture"
+            and (
+                self.actor != "player"
+                or (
+                    self.moving_piece != "queen"
+                    and not (
+                        self.consequence_piece == "queen"
+                        and self.consequence_owner == "player"
+                    )
+                )
+            )
+        ):
+            raise ValueError("queen lesson requires an exact queen relationship")
+        material_family = self.family in {
+            "multi_move_material_accounting",
+            "queen_safety_or_greedy_capture",
+        } or (
+            self.family == "unpunished_opponent_opportunity"
+            and self.cause.lesson_kind == "missed_material_opportunity"
+        )
+        if material_family and (
+            self.settled_material_edge_cp is None
+            or self.settled_material_edge_cp < TARGET_LINE_MIN_PAYOFF_CP
+        ):
+            raise ValueError("material lesson requires a settled piece-size branch edge")
+        if self.family == "multi_move_material_accounting":
+            capture_count = max(
+                len(self.cause.played_captures),
+                len(self.cause.best_captures),
+            )
+            if (
+                self.cause.lesson_kind
+                not in {
+                    "exchange_sequence",
+                    "immediate_material_loss",
+                    "missed_material_opportunity",
+                }
+                or capture_count < 2
+            ):
+                raise ValueError("multi-move material requires a settled capture sequence")
+
+    @property
+    def story_key(self) -> str:
+        branch = self.cause.branch_evidence
+        if branch is None:
+            raise ValueError("story identity requires branch evidence")
+        if self.family == "forced_mate_story":
+            trace = (
+                branch.best_trace
+                if self.cause.lesson_kind == "missed_forced_mate"
+                else branch.played_trace
+            )
+            identity = {
+                "family": self.family,
+                "actor": self.actor,
+                "terminal_fen": " ".join(trace.final_fen.split()[:4]),
+            }
+        else:
+            identity = {
+                "family": self.family,
+                "actor": self.actor,
+                "cause_fingerprint": self.cause.fingerprint,
+            }
+        return hashlib.sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+
+    @property
+    def fingerprint(self) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                self.contract_dict(include_fingerprint=False),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+
+    def contract_dict(
+        self, *, include_fingerprint: bool = True
+    ) -> Dict[str, Any]:
+        payload = {
+            "schema_version": self.proof_version,
+            "family": self.family,
+            "quality_id": self.quality_id,
+            "actor": self.actor,
+            "moving_piece": self.moving_piece,
+            "consequence_piece": self.consequence_piece,
+            "consequence_square": self.consequence_square,
+            "consequence_owner": self.consequence_owner,
+            "consequence_branch": self.consequence_branch,
+            "consequence_ply": self.consequence_ply,
+            "played_settled_material_gain_cp": (
+                self.played_settled_material_gain_cp
+            ),
+            "best_settled_material_gain_cp": self.best_settled_material_gain_cp,
+            "settled_material_edge_cp": self.settled_material_edge_cp,
+            "story_key": self.story_key,
+            "cause_fingerprint": self.cause.fingerprint,
+            "cause": self.cause.contract_dict(),
+            "proof": {
+                "authority": "caption_facts.build_verified_teaching_opportunities",
+                "version": self.proof_version,
+            },
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+def _teaching_consequence_capture(
+    cause: VerifiedLineCause,
+) -> Optional[Tuple[str, VerifiedLineCapture]]:
+    """Choose the exact piece/square that the verified line resolves."""
+    capture: Optional[VerifiedLineCapture] = None
+    if cause.lesson_kind == "immediate_material_loss":
+        capture = cause.immediate_reply_capture
+        branch = "played"
+    elif cause.lesson_kind == "missed_material_opportunity":
+        capture = next(
+            (item for item in cause.best_captures if item.actor == "initiator"),
+            None,
+        )
+        branch = "best"
+    elif cause.lesson_kind == "exchange_sequence":
+        capture = next(
+            (
+                item
+                for item in reversed(cause.played_captures)
+                if item.actor == "opponent"
+            ),
+            cause.played_captures[-1] if cause.played_captures else None,
+        )
+        branch = "played"
+    else:
+        branch = "played"
+    return (branch, capture) if capture is not None else None
+
+
+def _captured_owner(actor: str, capture: VerifiedLineCapture) -> str:
+    return actor if capture.actor == "opponent" else (
+        "opponent" if actor == "player" else "player"
+    )
+
+
+def _settled_material_scores(
+    cause: VerifiedLineCause,
+) -> Optional[Tuple[int, int, int]]:
+    if cause.branch_evidence is None:
+        return None
+    from services.stored_line_verifier import settled_material_gain_cp
+
+    played = settled_material_gain_cp(cause.branch_evidence.played_trace)
+    best = settled_material_gain_cp(cause.branch_evidence.best_trace)
+    if played is None or best is None:
+        return None
+    return played, best, best - played
+
+
+def build_verified_teaching_opportunities(
+    *,
+    fen_before: str,
+    mover_is_user: bool,
+    cause: Optional[VerifiedLineCause],
+) -> Tuple[VerifiedTeachingOpportunity, ...]:
+    """Project the four locked families from one complete stored-line cause.
+
+    The function intentionally abstains for legacy causes without typed
+    branch evidence. Multiple families may describe one position, but every
+    family keeps its own quality identity and story key so the planner can
+    deduplicate without borrowing authorization.
+    """
+    if cause is None or cause.branch_evidence is None:
+        return ()
+    try:
+        board = chess.Board(fen_before)
+        played = board.parse_san(cause.played_move_san)
+        moving = board.piece_at(played.from_square)
+    except (AssertionError, TypeError, ValueError):
+        return ()
+    if moving is None:
+        return ()
+    moving_piece = PIECE_TYPE_NAMES[moving.piece_type]
+    actor = "player" if mover_is_user else "opponent"
+    opportunities: List[VerifiedTeachingOpportunity] = []
+    settled = (
+        None
+        if cause.lesson_kind in {"missed_forced_mate", "allowed_forced_mate"}
+        else _settled_material_scores(cause)
+    )
+
+    def add(
+        family: str,
+        consequence: Optional[Tuple[str, VerifiedLineCapture]] = None,
+        *,
+        include_settled: bool = False,
+    ) -> None:
+        opportunities.append(
+            VerifiedTeachingOpportunity(
+                family=family,
+                quality_id=TEACHING_OPPORTUNITY_QUALITY_IDS[family],
+                actor=actor,
+                moving_piece=moving_piece,
+                cause=cause,
+                consequence_piece=(consequence[1].captured_piece if consequence else None),
+                consequence_square=(consequence[1].captured_square if consequence else None),
+                consequence_owner=(
+                    _captured_owner(actor, consequence[1])
+                    if consequence
+                    else None
+                ),
+                consequence_branch=(consequence[0] if consequence else None),
+                consequence_ply=(consequence[1].ply if consequence else None),
+                played_settled_material_gain_cp=(
+                    settled[0] if include_settled and settled is not None else None
+                ),
+                best_settled_material_gain_cp=(
+                    settled[1] if include_settled and settled is not None else None
+                ),
+                settled_material_edge_cp=(
+                    settled[2] if include_settled and settled is not None else None
+                ),
+            )
+        )
+
+    if (
+        not mover_is_user
+        and cause.lesson_kind
+        in {"missed_forced_mate", "missed_material_opportunity"}
+    ):
+        if cause.lesson_kind == "missed_forced_mate":
+            add("unpunished_opponent_opportunity")
+        elif settled is not None and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP:
+            add(
+                "unpunished_opponent_opportunity",
+                _teaching_consequence_capture(cause),
+                include_settled=True,
+            )
+
+    if cause.lesson_kind in {"missed_forced_mate", "allowed_forced_mate"}:
+        add("forced_mate_story")
+
+    player_queen_loss = next(
+        (
+            item
+            for item in cause.played_captures
+            if item.actor == "opponent" and item.captured_piece == "queen"
+        ),
+        None,
+    )
+    root_queen_capture = next(
+        (
+            item
+            for item in cause.played_captures
+            if item.ply == 1
+            and item.actor == "initiator"
+            and item.capturing_piece == "queen"
+        ),
+        None,
+    )
+    if (
+        mover_is_user
+        and settled is not None
+        and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP
+        and cause.lesson_kind
+        in {
+            "exchange_sequence",
+            "immediate_material_loss",
+            "missed_material_opportunity",
+        }
+        and (
+            player_queen_loss is not None
+            or (
+                moving_piece == "queen"
+                and root_queen_capture is not None
+                and settled[0] <= 0
+            )
+        )
+    ):
+        add(
+            "queen_safety_or_greedy_capture",
+            (
+                "played",
+                player_queen_loss or root_queen_capture,
+            ),
+            include_settled=True,
+        )
+
+    if (
+        cause.lesson_kind
+        in {
+            "exchange_sequence",
+            "immediate_material_loss",
+            "missed_material_opportunity",
+        }
+        and settled is not None
+        and settled[2] >= TARGET_LINE_MIN_PAYOFF_CP
+        and max(len(cause.played_captures), len(cause.best_captures)) >= 2
+    ):
+        add(
+            "multi_move_material_accounting",
+            _teaching_consequence_capture(cause),
+            include_settled=True,
+        )
+
+    return tuple(opportunities)
 
 # Phase boundary thresholds (mirrors detect_phase in game_decryption_v5_service)
 _OPENING_MAX_MOVE_HIGH_PIECES = 10  # if piece_count >= 28

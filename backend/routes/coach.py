@@ -1005,6 +1005,7 @@ async def get_game_decryption_v5(
                 # legacy move payload.
                 enriched_move.pop("teachable_event", None)
                 enriched_move.pop("reflection_prompt", None)
+                enriched_move.pop("teaching_opportunity_shadow", None)
 
                 # Check if this move's cognitive_gap matches any active training plan
                 move_gap = move_data.get("cognitive_gap")
