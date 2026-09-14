@@ -27,8 +27,28 @@ class LessonUnavailable(ValueError):
     pass
 
 
-def _reason_choices(kind: str) -> list[Dict[str, str]]:
-    """Return player-visible reasons while keeping the expected reason private."""
+def _reason_choices(
+    kind: str,
+    *,
+    expected_id: str = "",
+    seed: str = "",
+) -> list[Dict[str, str]]:
+    """Return player-visible reasons while keeping the expected reason private.
+
+    The order is shuffled deterministically from `seed` (the position identity).
+
+    Without this the expected answer was always the FIRST option in all three
+    kinds -- "continues_plan", "answers_threat", "keeps_piece_safe" are each
+    listed first -- so a player who always clicked the top choice was always
+    right and the reason question measured nothing.
+
+    The shuffle is seeded by the position, not random, so the same position
+    always renders the same order: a player cannot reroll it by reloading, and
+    a stored answer still means what it meant when it was given.
+
+    "I am not sure yet." stays last. It is an opt-out, not a candidate answer,
+    and burying it mid-list invites mis-clicks.
+    """
     choices = {
         "opening": (
             ("continues_plan", "It brings the next piece into my plan."),
@@ -43,10 +63,15 @@ def _reason_choices(kind: str) -> list[Dict[str, str]]:
             ("looks_active", "It looks active, even if a piece can be taken."),
         ),
     }[kind]
-    return [
-        {"id": key, "label": label}
-        for key, label in (*choices, ("not_sure", "I am not sure yet."))
-    ]
+    rendered = [{"id": key, "label": label} for key, label in choices]
+    if seed:
+        rendered.sort(
+            key=lambda choice: hashlib.sha256(
+                f"{seed}:{choice['id']}".encode("utf-8")
+            ).hexdigest()
+        )
+    rendered.append({"id": "not_sure", "label": "I am not sure yet."})
+    return rendered
 
 
 def _content_version(value: Mapping[str, Any]) -> str:
@@ -277,7 +302,11 @@ def _opening_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
             "orientation": player_color,
             "prompt": "What move continues your plan here?",
             "reason_prompt": "Why does your move belong here?",
-            "reason_choices": _reason_choices("opening"),
+            "reason_choices": _reason_choices(
+                "opening",
+                expected_id="continues_plan",
+                seed=f"{resolved}:{index}",
+            ),
             "_expected_reason": "continues_plan",
             "_help_squares": [uci[:2]],
             "_expected_san": san,
@@ -353,7 +382,11 @@ def _trap_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str, An
                 else "What move continues the line?"
             ),
             "reason_prompt": "What matters most before you move?",
-            "reason_choices": _reason_choices("trap"),
+            "reason_choices": _reason_choices(
+                "trap",
+                expected_id="answers_threat",
+                seed=str(uci),
+            ),
             "_expected_reason": "answers_threat",
             "_expected_san": str(san),
             "_expected_uci": uci,
@@ -651,7 +684,11 @@ async def _concept_descriptor(
             if blind_diagnostic
             else {
                 "reason_prompt": "What did you check before choosing the move?",
-                "reason_choices": _reason_choices("concept"),
+                "reason_choices": _reason_choices(
+                    "concept",
+                    expected_id="keeps_piece_safe",
+                    seed=str(item.get("puzzle_id") or item.get("fen") or ""),
+                ),
                 "_expected_reason": "keeps_piece_safe",
             }
         )
