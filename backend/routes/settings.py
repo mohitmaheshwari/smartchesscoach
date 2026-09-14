@@ -45,12 +45,31 @@ class EmailNotificationSettings(BaseModel):
     weakness_alert: bool = True
 
 
+# What a player says about themselves when there is no account to read.
+#
+# Deliberately NOT a rating box. Someone who has never played online cannot
+# answer "what is your rating?", and that is exactly the player this is for.
+# These are things anyone can answer about themselves, mapped to the middle of
+# a band so the first positions they see are at their level.
+#
+# Before this, puzzle selection used no rating at all -- one beginner, one
+# intermediate, one advanced from each category for everybody -- and new
+# players got 12% of the FIRST position right, then left.
+SELF_ASSESSED_LEVELS = {
+    "learning_moves": 500,    # still learning how the pieces move
+    "know_rules": 800,        # plays with friends, knows the rules well
+    "plays_regularly": 1200,  # plays online or at a club, knows some openings
+    "experienced": 1600,      # comfortable, knows theory
+}
+
+
 class ProfileSettingsRequest(BaseModel):
     fide_rating: Optional[int] = None
     detected_rating: Optional[int] = None  # Auto-detected from linked account
     detected_platform: Optional[str] = None  # chess.com or lichess
     focus_intent: Optional[str] = None  # tactics, openings, endgames, stability
     player_motivation: Optional[str] = None  # compete, improve, learn, fun (self-declared "why are you here")
+    self_assessed_level: Optional[str] = None  # one of SELF_ASSESSED_LEVELS
 
 
 class LinkAccountRequest(BaseModel):
@@ -225,6 +244,9 @@ async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depe
     global db
     
     update_data = {}
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id}, {"_id": 0, "detected_rating": 1}
+    )
     
     if req.fide_rating is not None:
         update_data["fide_rating"] = req.fide_rating
@@ -242,6 +264,23 @@ async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depe
         update_data["focus_intent"] = req.focus_intent
     if req.player_motivation is not None:
         update_data["player_motivation"] = req.player_motivation
+    if req.self_assessed_level is not None:
+        level = str(req.self_assessed_level).strip()
+        rating = SELF_ASSESSED_LEVELS.get(level)
+        if rating:
+            update_data["self_assessed_level"] = level
+            update_data["assessed_rating"] = rating
+            # rating_resolver checks users[users.rating_source] first, so this
+            # is what makes the answer actually reach puzzle selection. A real
+            # platform rating set later wins, because connecting an account
+            # overwrites rating_source with the platform.
+            if not (user_doc or {}).get("detected_rating"):
+                update_data["rating_source"] = "assessed_rating"
+            update_data["skill_level"] = (
+                "advanced" if rating >= 1800
+                else "intermediate" if rating >= 1200
+                else "developing"
+            )
 
     update_data["onboarding_completed"] = True
     update_data["onboarding_completed_at"] = datetime.now(timezone.utc).isoformat()
