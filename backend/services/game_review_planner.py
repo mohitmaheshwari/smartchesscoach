@@ -15,6 +15,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from services.detector_quality import QualitySurface
 from services.caption_facts import (
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
     TEACHING_OPPORTUNITY_PROOF_VERSION,
     TEACHING_OPPORTUNITY_QUALITY_IDS,
 )
@@ -35,7 +36,7 @@ QUALITY_V2_FORMULA = "E_transition_then_teaching"
 SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 TEACHING_OPPORTUNITY_SHADOW_SCHEMA_VERSION = (
-    "teaching_opportunity_shadow_summary.v3"
+    "teaching_opportunity_shadow_summary.v4"
 )
 
 
@@ -175,6 +176,7 @@ def build_teaching_opportunity_shadow_summary(
     """
     accepted = []
     seen_story_keys = set()
+    seen_visible_claim_fingerprints = set()
     raw_by_family = {
         family: 0 for family in TEACHING_OPPORTUNITY_QUALITY_IDS
     }
@@ -190,7 +192,14 @@ def build_teaching_opportunity_shadow_summary(
             )
         family = str(row.get("family") or "")
         quality_id = str(row.get("quality_id") or "")
+        claim_contract = str(row.get("claim_contract") or "")
         story_key = str(row.get("story_key") or "")
+        source_position_fingerprint = str(
+            row.get("source_position_fingerprint") or ""
+        )
+        visible_claim_fingerprint = str(
+            row.get("visible_claim_fingerprint") or ""
+        )
         actor = str(row.get("actor") or "")
         cause_kind = str(row.get("cause_kind") or "")
         source_ply = row.get("source_ply")
@@ -198,10 +207,13 @@ def build_teaching_opportunity_shadow_summary(
         display = row.get("display")
         if (
             row.get("schema_version")
-            != "teaching_opportunity_comparison.v3"
+            != "teaching_opportunity_comparison.v4"
             or row.get("rollout_mode") != "shadow"
             or family not in TEACHING_OPPORTUNITY_QUALITY_IDS
             or quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[family]
+            or claim_contract not in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[
+                family
+            ]
             or not story_key
             or not isinstance(proof, Mapping)
             or proof.get("authority")
@@ -225,6 +237,8 @@ def build_teaching_opportunity_shadow_summary(
                 or any(char not in "0123456789abcdef" for char in value)
                 for value in (
                     story_key,
+                    source_position_fingerprint,
+                    visible_claim_fingerprint,
                     str(row.get("opportunity_fingerprint") or ""),
                     str(row.get("cause_fingerprint") or ""),
                 )
@@ -248,10 +262,15 @@ def build_teaching_opportunity_shadow_summary(
             )
             previous_mate_ply = source_ply
             previous_mate_payoff_side = payoff_side
-        if story_key in seen_story_keys or same_mate_episode:
+        if (
+            story_key in seen_story_keys
+            or visible_claim_fingerprint in seen_visible_claim_fingerprints
+            or same_mate_episode
+        ):
             deduplicated_by_family[family] += 1
             continue
         seen_story_keys.add(story_key)
+        seen_visible_claim_fingerprints.add(visible_claim_fingerprint)
         accepted.append(dict(row))
 
     payload = {

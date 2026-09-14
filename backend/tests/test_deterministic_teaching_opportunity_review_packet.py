@@ -1,3 +1,4 @@
+import copy
 import json
 
 from scripts.build_deterministic_teaching_opportunity_review_packet import (
@@ -7,7 +8,11 @@ from scripts.build_deterministic_teaching_opportunity_review_packet import (
     build_packets,
     _sha256_path,
 )
-from services.caption_facts import TEACHING_OPPORTUNITY_QUALITY_IDS
+from services.caption_facts import (
+    QUEEN_SAFETY_QUALITY_ID,
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
+    TEACHING_OPPORTUNITY_QUALITY_IDS,
+)
 from scripts.score_deterministic_teaching_opportunity_review import (
     REVIEW_SCHEMA_VERSION,
     score_review,
@@ -35,8 +40,8 @@ def test_public_cases_are_identity_free_and_detector_blind():
 
     assert packet["blinded"] is True
     assert packet["promotion_eligible"] is False
-    assert len(packet["cases"]) == 201
-    assert len({case["case_id"] for case in packet["cases"]}) == 201
+    assert len(packet["cases"]) == 193
+    assert len({case["case_id"] for case in packet["cases"]}) == 193
     assert "@" not in encoded
     for forbidden in (
         "email",
@@ -59,15 +64,25 @@ def test_answer_key_records_real_family_shortfalls_without_authorizing_them():
 
     assert answer_key["family_counts"] == {
         "forced_mate_story": 33,
-        "multi_move_material_accounting": 138,
+        "multi_move_material_accounting": 130,
         "queen_safety_or_greedy_capture": 15,
         "unpunished_opponent_opportunity": 15,
     }
+    assert answer_key["claim_contract_counts"] == {
+        "allowed_checkmate": 23,
+        "complete_capture_sequence": 130,
+        "greedy_queen_capture": 9,
+        "immediate_queen_target": 6,
+        "missed_checkmating_finish": 9,
+        "opponent_missed_chance": 15,
+        "stalemate_instead_of_mate": 1,
+    }
+    assert answer_key["deduplicated_visible_claims"] == 1
     assert set(answer_key["family_counts"]) == set(
         TEACHING_OPPORTUNITY_QUALITY_IDS
     )
     assert packet["promotion_gate"]["caption_promotion_gate_passed"] is False
-    assert "three_families_have_fewer_than_50_available_claims" in (
+    assert "6_claim_contracts_have_fewer_than_50_available_claims" in (
         packet["promotion_gate"]["blockers"]
     )
 
@@ -87,6 +102,12 @@ def test_every_material_caption_describes_visible_delta_not_total_balance():
         comparison = candidate["comparison"]
         rendered = json.dumps(comparison).lower()
         assert all(phrase not in rendered for phrase in old_overclaims)
+        assert comparison["played"]["summary"].startswith(
+            ("You played ", "They played ")
+        )
+        assert comparison["stronger"]["summary"].startswith(
+            ("You could have played ", "They could have played ")
+        )
 
         if fact["played_visible_material_gain_cp"] is None:
             continue
@@ -174,6 +195,51 @@ def test_scorer_grades_each_family_separately_and_never_promotes_development():
         assert score["family_scores"][family]["numeric_quality_gate_passed"] is False
     assert score["caption_authorizations_changed"] == 0
     assert score["overall_promotion_gate_passed"] is False
+
+
+def test_scorer_does_not_pool_a_thin_claim_contract_into_a_large_family():
+    packet = json.loads(DEFAULT_PACKET.read_text(encoding="utf-8"))
+    answer_key = copy.deepcopy(
+        json.loads(DEFAULT_ANSWER_KEY.read_text(encoding="utf-8"))
+    )
+    for index, row in enumerate(answer_key["cases"]):
+        row["family"] = "queen_safety_or_greedy_capture"
+        row["quality_id"] = QUEEN_SAFETY_QUALITY_ID
+        row["claim_contract"] = (
+            "immediate_queen_target" if index < 13 else "greedy_queen_capture"
+        )
+    answer_key["family_counts"] = {
+        family: (
+            len(answer_key["cases"])
+            if family == "queen_safety_or_greedy_capture"
+            else 0
+        )
+        for family in TEACHING_OPPORTUNITY_QUALITY_IDS
+    }
+    answer_key["claim_contract_counts"] = {
+        claim_contract: (
+            13
+            if claim_contract == "immediate_queen_target"
+            else len(answer_key["cases"]) - 13
+            if claim_contract == "greedy_queen_capture"
+            else 0
+        )
+        for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+        for claim_contract in sorted(contracts)
+    }
+
+    score = score_review(
+        packet,
+        answer_key,
+        _complete_true_review(packet),
+        packet_sha256=_sha256_path(DEFAULT_PACKET),
+    )
+    queen_score = score["family_scores"][
+        "queen_safety_or_greedy_capture"
+    ]
+    assert queen_score["aggregate_numeric_quality_gate_passed"] is True
+    assert queen_score["all_claim_contract_gates_passed"] is False
+    assert queen_score["numeric_quality_gate_passed"] is False
 
 
 def test_scorer_rejects_an_incomplete_or_duplicate_review():

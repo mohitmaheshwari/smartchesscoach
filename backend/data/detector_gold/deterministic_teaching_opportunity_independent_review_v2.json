@@ -1,0 +1,1248 @@
+{
+  "schema_version": "deterministic_teaching_opportunity_independent_review.v1",
+  "source_review_packet_sha256": "53aae01fffc6af6edf7e3c05fbc41b8be6179ad3943f9b6ccda6b45d90c17b92",
+  "source_measurement_sha256": "c2282c63f2f0ba102161484f9cf963b136ae1de1d340712e77be7448e3864b8f",
+  "selection_fingerprint_sha256": "0f8c96773b100d396e49d69093c4f4828a5c83399d1a632912188b8b78fe6049",
+  "independence_attestation": {
+    "independent_from_implementation": true,
+    "answer_key_unseen": true,
+    "detector_code_unseen": true,
+    "v2_answer_key_unseen": true
+  },
+  "reviewed_sample": "development",
+  "cases_reviewed": 201,
+  "method": "every FEN and both continuations replayed with python-chess; material recomputed from the full board after the whole shown line (en passant and promotions counted); checkmate, stalemate and legal-move counts read from the board; Stockfish depth 16 on the position before the move, after the played move and after the suggested move. The v2 answer key, detector code and implementation files were not opened.",
+  "summary": {
+    "true": 200,
+    "false": 0,
+    "uncertain": 1,
+    "invalid_case": 0,
+    "critical_false_claims": 0
+  },
+  "systemic_findings": [
+    {
+      "id": "played_vs_counterfactual_framing",
+      "severity": "blocking_for_user_exposure",
+      "cases_affected": 146,
+      "finding": "in 146 of 201 cases what_happened and stronger_idea use the identical frame 'The shown line after <move> ...', so neither sentence says which move was actually played. The packet's own required check asks the visible wording to distinguish played history from counterfactual play; here only the field label carries that distinction.",
+      "why_it_matters": "a card that renders the sentence without its label -- a notification, an email line, a summary row -- becomes genuinely ambiguous, and v1 did not have this problem because it said 'You played X and ...' in the past tense",
+      "suggested_fix": "restore an explicit agent and tense on the played branch, e.g. 'You played X; the line then ...'"
+    },
+    {
+      "id": "duplicate_visible_claims",
+      "severity": "low",
+      "cases_affected": 8,
+      "finding": "8 rows repeat a claim already made about the same position and move: 1 pair inside 'Count the whole capture sequence' is byte-identical in every visible field and differs only in a hidden defensive continuation, and 7 more repeat the same sentence under a second family label",
+      "why_it_matters": "they inflate the review denominator and the per-family claim counts the promotion gate uses",
+      "suggested_fix": "deduplicate on (fen, played_move, visible_claim) before counting a family toward the gate"
+    }
+  ],
+  "case_reviews": [
+    {
+      "case_id": "693ef98244388910e295b2777b017db10c8e2b64fb2d9a021579e298191bc7e8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "52f2202de038601feeba69f1e3d24e797017d580b1ed6df169a7462a9d4faa40",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "b2e2c9d696bb9e74b7b65dcb044f01f0da9bdce8af8d314a23cfb6dfbdc32faf",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -2, matching the wording"
+    },
+    {
+      "case_id": "d5e9b9445813516681d4971ab573f89d64fa3d223fbbd1b5e3967983e0ecc6a1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "b628e7306dfdbcd1070490f6e3e6331cb1d6f217a2ee662132037762c63c29ca",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "02c7be5dfcde135c1d43d34fc321a407c965702efed83291204df3cbb2d37b44",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording; NOTE: an identical visible claim on this same position appears twice in the packet"
+    },
+    {
+      "case_id": "04371fd296c86a3f851c03c31b74e7372c98336ba474b908149845fa819c4459",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording; NOTE: an identical visible claim on this same position appears twice in the packet"
+    },
+    {
+      "case_id": "4974ad2f327d5f64b6e2447c299754edc91eec13b6971ecd47e37b41101d6b55",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "475946e2295e1abcfe42aac89522f3e01ffc6b49d26f8e1cda5fd6c502a5afa2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "45bea81ece7f3606f56f20bd9782b23b27f71749ba9262c4912e516da81670e1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -9, matching the wording"
+    },
+    {
+      "case_id": "3e79253f51eb24a45097e73f3bc410817377f255bd594a1b707f1a0cb8ffec83",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "c92ca3ad5ecd72eef95253904a5de1a17b3abe649887b67e0dd560be12044fae",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "0a459c5b36a6c924e470b48672e4f29bfbba01b9b402c053fcbc69b3ab3563b9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "5e4dcfd35e30226666ca22ee4e2b0ca64bec66e0ddffb8b7ff7ddcfbc0affc56",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "6cc6b1c4bba656a8dccfe92991860cda6d737f845c5f7ad97e57b7e4d038aa85",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "f9f6a13c915560689c978858df9fc5e64294918f4443f083667cd306c5b40ba7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "027961e3fb582f9b636ec7e009fb6b98f96eeb26f396f37b818fa7224d126204",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "cfab2563838ec27818cb4a3100d4bafa3492cf3cb0eeb740d4b5cf77f5d6da77",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "8d4f3364c9dea5b24e75241e34b884e1a74a46c2dcef47d25ee60eb7daedbbde",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "37c9199c97309fb094ad7d3f0d299cf1050daefe76f99fc521d94fab7325777b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "0bd2e8f2048a0faebd6e14b88a19223fac866d1aa1b7489173780feb70bfd311",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "b15d09e1a32944c2f08f6f608b1174352892b59039d25492259e4f86d940c4fe",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "d5f7a26a5e60ea5a1512c5548fcc942b8f93a3875b59913183881f88205fe210",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "44302501e8253236674dd6f529837a0af08491d1dbe4196fb91f5943a9e5bd72",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "82b0c7d0c9d58a1b44c584c3951b5a05672335d64816cbb9462710407af61506",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "49f8dba00fdd03ec5aa0777767151b08c86d6bfc5e720a285d4b9a31b0a404ac",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "c71d5c0cc0ed7ee0ef4348a58b5498ac16d16739934b3d0cb919ec175e7387d2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "de265118f40584db587bf0b15aeee1a07f8efd08cfa1d8f6b64eb7405275292c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -2, matching the wording"
+    },
+    {
+      "case_id": "b5108b2833867d66851a10819c94c210c358934037d2218ff706f302243a7926",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "76ba97e22813650e77fbeb26ffea3bc5a688efb8f9015fb17ecd58de642144e6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "083af5ff5d98fbc2b1431161d312e73f72238917b876b761f40cb98d83a3f7f1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "a8664edbc3f32ab3b40c40c723ede400f60d9b9f99bffb53751b3207b36e1ba5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +2, matching the wording"
+    },
+    {
+      "case_id": "8b38f34e939ece44f4239b11de0e01bb014591dcdb0cd42af8b6f21871836153",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "b6f4bededc27d801e282ce51009271b2f4dc8998e2fd9fa6960de4174c4f9744",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "6b43eed51cf09229be155aa2cd8660a40d1661ff0172684cbcaa3c82afed3e31",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "46f025fa5f7e6396ce47491faaf55dd0a983cac030219a616be52e0089176540",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "0566481cf60ca002336a29a718dce47b8cceef385b16d106887532a1ccf7efa3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "6312722fe7a8ee4f5d88db68578e9a9d176711e277fda5c2f2a3f2d5ebb00fa2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "999573f2f01a1f7c4e9b1123ffb7ea8366d53b9e9dc3f4ba60dcd7ed05e7307a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "6d47bef1441654cf087ba0ac60c791c8785a513482ce67d79132b16c58a616e2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "d13282a2a37902ffdd65ae38064feae87a809c0035dc080e950cf21c88cbe1e9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -7, matching the wording"
+    },
+    {
+      "case_id": "207be4b4ddb62e3090122921e80fb8778d89af4db3ba0f0540dee7a1a21233c9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "28f78ae8b0f3cb460744e64616fd1936685815fd514b076a6a473642f2b18eb0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "4a2d3fb7413b4f539ca02d25e482109c2f9ed325061e4537f7a1d00bc1da206f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "f3ef5c554363007552d450bca2e4eac0719ba0947f470203b9f0afc73bc7d418",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "48ff66bd8630afd082104bc3cb1a1d3b7c1e2515a6e94cd0b50c4b55e764c6de",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "ee41ad03d406d75bf7f6f35119c6cfec9554a5590cd77a6789bee363f7287010",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +2, matching the wording"
+    },
+    {
+      "case_id": "79452167593e997cba276c977ed93e6433738e01cb2556a211b16ffa5c04249f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played move is genuinely stalemate (no legal move, not in check); the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "a281ec6573512c75a869b58773040ba3e503707ae3d58633d14822049e1d167d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "ae0032db3d13963cc15d76c92f6e0754a06abff11265eb85ad688d2f6bffdcf8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "e84fe13b78515bcf48fd6cf7873aaaf0e3db45a0afb99b4e21807208c51864b7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "aae0a768f305c7a183bf7b702f383bea813ac1ca5a710b825c6b0b66516317b7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "41f76884af6dff347f2234bdd57f4b0bb024b66ca53a5c73aec782f9a3a58c5c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "621d72cc5385768addf3792c89551560ae20e8b270da9258964f4dbfb38949fd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "b7d2b90a11997121e5e386f3ed5b77217ebbc84c10908be5b02acbd88ab2fa72",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +2, matching the wording"
+    },
+    {
+      "case_id": "c6f499e56f2280dec13d0bf885f1e97c37ae21e0497b90dc91d594c2f0631c02",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "0baa5f574722f1c7c81d9eba0cbe2058ed712a2549f2386f98989140fa65f70d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "6faf94273d428cf26f7eb9e8c383b5017f984c02f8e9ae9dc4d94781a105e2f9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "88cbf83485e42c811dea565037e2be7c5744f1a8ac13ea8924f8cc534ed76e00",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "4358b56ea34146390c14b940371dace3e506fdff11e2351a329c9004429ca87c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "2e8c5cec3850da1cdb1f9385fe737be5b5a5e9c5bef144ec1aa11d1966571761",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "ff0b802f7cb7e7a31f46b73961030450413c7f6b465d2c7938899c067a37d980",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "043d3bc40b9ffb3f324c39264793b72b517e57477223797a5ac5bf5ba0c7087a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "52f2c5c8b2619bf10c6eed9e775465e88159f143baba83b2e7d10f0b420aa200",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "0ddf27120145ac2cd19eb90bdee147915fbd30ab875e0ced4ecfa525f45ad412",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "3900489e3b50e4ae3db36ffe2d69140b6ac556c5cecc630541fdc10af85325fa",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "fa431323c3d07cd1a9d2b38a3c5ce7594cd2e2556752557c7fb47ad7f92a1e2a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -12, matching the wording"
+    },
+    {
+      "case_id": "0fe7013c895b5a4c6bc5fed180eade56be4fc44a80c37c4351f2f7e272697118",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "92a932a32f328c972895f0adf8caa300680e3fdfacaa9d91f5b66cdd2fb420df",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "f41a4c1dd8be737086f5c4c3611243b05b4046189808b26441ee634d1511defb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "1f760cd3141ba32a2f50f044a3065e3387d360ba09cbc87e9a66fc721eeda754",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "2203a9e3fcf52c0ec6d435ddd176d864ffc37046480f231cb414c16d82eaa381",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "f4d557bfd37afb52713a0b10420cea1c03a12d0859b4c4e735ab056491dc6d1a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "3c042f9f40b2d30fd9a5e5dad385c88d9b5024de160777477134f772df4a3687",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "276df9949bdfe3f7771a7435c53a6460a34c4bb40e12a4299d88cde964ecded8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "4c724efbc90d57b912dcf6e6b62fc5fd7ca4aabc6209711f09f227d6cc577dcb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "992158115c1bf948cd54ba846df900217fa225c0c455ef124b498de238d42eb6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "9687971a89fe0af10a283870265b2d806ee27883bc7b4f902935f3d5d613f53d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "6d2d01f5584d4d9262990c996dbee630d054daf1dab4892f0458fe756908d3e9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "9bce8c8eb2e02f38e609bd8db442ad13db47a10420cdd39935fa49712979fd68",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "6e18e3911ba73bb1c23a011d9d7b21027076bc00b15a48325bf01e56fdefb078",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "524ba7f69d583244312b5cfea6a7bfa9f5e2af5b407e008e1e76b073d9fb8f16",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "55363b021573a17b0f9ef7aee029f2ce44b3e0a38dff6e2fe008ca1e4b7bac77",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "e4622363661a1e2b325d630831814b918343e702bc36b29e09631c8abc7e74ad",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "412973535f781a9262eb9df56d0a733e87cb2a22758d21bc01303793de4adeb6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -10, matching the wording"
+    },
+    {
+      "case_id": "895bebbae63fb3a31de2f5f20cf6fa8474edf3822904374906a7819b699dd71b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "e32f42a2295563dac9680e1097e83039b15145dc7693b314cc8580ce9ffdbb9e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "600f4aa75bc0688a6c344bcf9c1bef9882cc557f652dedbad23ae8c409fedd5d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "819784d29bb53e0376eefd2803e477229af6bd3c0701ecdaf33b8e847a763bdc",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "f9e760939f6055a2f3e6fe72f5077ab45964ff23d7b6349852120813139e7bc9",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "847f34d66c560c095afcadce0f9f4e00a2d9696de4e94ca11252342d493ec535",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "35f247a24740d536e89fa08a5ea686c6daeb3847211badcaac8e475430af6b35",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "fd72cb704c77c25fb3776a7648b50dd68843924066b5e188c4a84510bd71b224",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "b864486fa8bb71faf0083675c9655999c224a030dfae1f843c8903abf7f612b8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "c2c70313882617e1cad8221b3cf62a953f5859f718a16a98a802bff1f3a8f38f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "98f236384a55592e993e3bced5eb5d91e9d47251e24155ec3fbc9a56e3f18f37",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "eea3bfb9bd3e1cc5dd98063bb9ce4cf0ba0ccb67eaea27721d72e19c7115f158",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "f993844244e0be072e33355330be8fe22657b9b5b7bba9dc44c6702a7dbfa250",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "96842c1a0e9adea3c10a3c7340a36cb86e5f162db769bc2bcb72610f89e0b6db",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "2c43315104b02b7c411c5924e9c90a4198f7a1869615c1f2b289d1cd230ee5b1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +2, matching the wording"
+    },
+    {
+      "case_id": "139b2ed474057cd6e0e4fe35e64529095cee1eadbd45adabfc85ed3111304527",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "c80dff88a7312d5ebde43e73d76d550051f685eb9076096b6d28be6a5bddf1c4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "82a4726f5e9212fc494ef29756becdbb3b52d29dbbad9eb67dfd7ab703e1f66c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "ff7ef4b2195416eb1b9814e29c98860a43db22979f715b835aa86feaeecc1af5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "9777905d0d07c693ece0a0cdfdac4c61e9eb50f26c954c3aad80be60451d417a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "78a269a792d5692cd54332350a6db9c954b4e4d5adf2ba37d60cfcbab6426023",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +5, matching the wording"
+    },
+    {
+      "case_id": "82f6a359630b30c69042f690c5dcdef3de09863d6498e2aca78cadfe1a84a8b8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "774ebbe586ad863b2eb1353047ec1e1d939e0d4a79879e2b0e6f1cfbfb04729d",
+      "verdict": "uncertain",
+      "critical_false_claim": false,
+      "review_note": "literally true -- Kh7 does avoid the mate in this replay -- but the engine still has the actor mated in 6 afterwards, so a 600-1500 player may read it as an escape when the game is still lost"
+    },
+    {
+      "case_id": "d3d08cfa038e022bc855fd065e0e24ed30b444de9689686e97e1decae614598b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "a4f435ccb8e401ea916d3baf42d8a9dd78a1c6bb47b63317f2da2d04aebf9257",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "47091ed76437f447791b8a4c85f5c66eeed113f8347ce80aa8351bf478a45222",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "ecdea9cafdfda088cb92c3454f5c927c57b34bceac40be4381ad153f102ffdb0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "c076d4d304be5f4dd39bfbe0eeca7a990d7ecc1fa3fcddfe53a1f1da23667caa",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "c63a5e7d8e101d9d9bf477a994ad742c48d1f63d0bb787033b5d3f32f0abdc65",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "e213971d2e039207f10f55927414de64a32a6e2ee1df764c7317de880a14f339",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "cc7f3cecfcd6bca081fd732673853295dfeebe849fd53e2218e42febd6b0b2c6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -9, matching the wording"
+    },
+    {
+      "case_id": "bd3272e4c634b0a7a762d3efdc452ddc388bac3ddd135bd67708494951b7a66d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "c2260cafbebc0368f1a7b730bc64d0d92ab22c144e44670a443059851109c462",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "c6078ff91eca99cb27f77806af8689b5926257969856be179dd776d7b79408c8",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "73c455a7eebe016a95502649608f066c18cfc77b59384b77b3d6e8ae8c2a1f40",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "72e0b11942cd7565a4cdf0a24b8a4d46a3d53ab5f75e3b569be0dcdf80dfad14",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "ebcb9d2f6cf1ed403a517a728cf5e9711e956f32f17429c9a5a6d2fd713085e1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "5275c4248961baf28a5b06d260bb814f8e51363c882a022012a58b6473702d57",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "3b935344bb591d7a0d79bc1d3005a8f9563211096c864b1af9c9274efe139a81",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "712da987ac2773352aaeeef44d058354884537d922b9c8148d494246a7a114e3",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "d6d6c72038ed5c65958c747c6ed214166472cfd003851bab5507c33795343f8c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "b53f387b2891c95b76045623ea73c88ba04956fde5ced2a45ec07be58951ec48",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "3a611eb1cf76ef3290c26892c3547d0605f6f3119ef8f9c4cc80da80921c33ca",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "d18586396ae9dd46b432bd1c9090dc4e71a3424080e7088c4dc562da30e4bd83",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "23ed43ea2879445ef7477b81928582d7188bc03d8dfd32792c279be9efd89e7f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "32a57a2d3b2bc1a680826d45725450816839ee8458e7b53b232f557307361a95",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "390db490847e583b8c27cba5dbd4fe7e24fa5cfc271b44be09042aa934b87d25",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "a616423206b7d5bc1dc0a34dab664c9ad26e95aa0e51c92d7592b9e50163f035",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "d491d466a53a35d821ee086d283ae93bd29015182d7b5374dd62bbd2dbff0fed",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "3a1878aa858f22cb4a2eef98117066079b9b31c5d1dc8543a5de6af838a003e0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "2184be72fb01fd865fe2435851ea7a3f70fd9e832520aff117e139adb277a0af",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "9f65ea9fbef3b9a4ce7f81aaf96959425052fc0f598eb574e27246703a57dfdb",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "ab2f77a064e241ea2eba7107d8e1286c2c48a83d3b6681fbda6921b3cc9d20f6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "aa05b36f730bc9d5b7fae0b4026f6562c6af940c52de5bd78ff660492e01c19d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "5152969cde6b7361d9f31169d01b2d05fb4c2659add2a80fb4173fe728c3667b",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "dab88f09c5cda4a356c0ee9214cfb17bd6ac5a584f7f583b552e10b733e634c5",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "f2863707b3b59f3215bff4a97709f24d6ff981b18b063606330db800f8a81c8e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "36dabcf0315f0f81401957a2fc4a3a6b1c9e95978d4ffff4df7f8a5facba2c01",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "5b99c7d4ff183fa54ac97f61e7e4ca9a75ec9b633f5d12b01c69d6cceac57ce0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "7c7f0d633de5295a7a76c2d62d0b39e27b741d745a953583c8544c3ef5ed9e82",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "74f464de3703b3ed1c570b83e076b1665dce94d69f64e050aab03534db81c20d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -2, matching the wording"
+    },
+    {
+      "case_id": "a5cab610d175e0a12c371d64d998eb575f1fb3f0b7988c25df7fd3804ad00274",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "8a7062b1a0aadee684c68d6dd305aaea34f628c57ebe0549d06e015660b3b7c4",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the queen is captured on the very next move, so the blamed move is the cause"
+    },
+    {
+      "case_id": "4eca455c40b666b95b44a404b4955ecf4ed4e12f61ba3a4ae14a16f6b1134657",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "caa2b8b41bc8513c4d3c181a242a6822c59208c4276ccaa2bc00d2073e6aec84",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "9d5e6951b38e3433861a97b6b29e9353f2c94eac82163849d550bdc09aaa7ae1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "2dadfa8fdd30178ec59d956b980c7303a2c9e3330712a242c2e145f0debd3e4d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "d275ca7e0cfea79525a435f9536a18ab130e0e7ce9ceb55520f6061094335bbe",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "f8817afbf17fba8ecf8e1bcaa9edf350ce1bd331ca541fbb44c21f2d39d0e708",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "43bd326906669dd8b615674239a417f3d59b1e1bce1390d7cc93d687d25d571f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "0aeab5cc337bf2e07854cbc89375c54e5963e64e7279dec76e13fe730cea4e63",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "65ed0fd9c9852585276ed156bf0d1ff4990562afc06ad266772563970d4e1069",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "744ad370a455d3a9e0ba9780ba7d46aae8651fb433610867116945662ad87fa0",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "61430ae2b28253e720497a015a9697563ff2122d57e2b402069ec574e17b6861",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "062154bb66004faa89f362696746fa6eedf04e07e699bfc98e6ef5bc96932616",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "7107cee1ceb4f64fc975a34043685fe7d4d597cd2abfdc8902bc6459e918a914",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "28fb82e9a018ec11e42bfb04300c2c7c62756f43a9cdacc169e58da61cb41661",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -2, matching the wording"
+    },
+    {
+      "case_id": "46d19222dedf61246418a3603e1b13e40e1004b94a859b0fe886043ceee598e6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "865d988bebec69a187defe5d6af2fd83430bd0ad579480b389acc1c92d751032",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -5, matching the wording"
+    },
+    {
+      "case_id": "4e2fc03537726933f5f8842a92685b824bf8d632100c75858d94dc31710d010f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "0206c4608faf4694f3e4180835dff3dc9eabfadb022d3e41b217b497c4aa0979",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "b99abb69ef1bd09bc3b174b3add4c4d2ba9c8fa096ff600b095a0348c106f26f",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "f8047a6ac96934ec94d598c69521b52e7cd85287673dc8aca5cd2f87e4fc580d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "80f877b38e8776ec3df6c6b27efec47e6de9236106063b7c7e6c4208809c9b96",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "9b0f6d0144c26e03d16c134321c50346ffa3dfc78958b9f86878562a8ddc7cfd",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "7967a393daf2bbddbf755158270ac01b3e8189d0813091204f5f1e8e80e96036",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "ccbc2a4ac8234befd2010d3b200196fdb29e18824e0ad9985a21d1b8babcf081",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "59eacbf227cd6094f42125359e99d92776ba4f1f7d894455c816580444d07a1c",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "428b84dd6b73a079f48e16debefd94efb49b3f9d23c088139855c06b312486d7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "26146720b90abfdecede71ec2e9986b9a8c817d9ee61375ed2c523283c0a8458",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "a35c1305f0b0432c4dd2d40554065fb45328ce2e1e9e94ea17346663eb6f6132",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -2, matching the wording"
+    },
+    {
+      "case_id": "6c43737bd0edf3953157acb99ea52d017ad059a4fe097b3882b09dfaab215a08",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "8831f69487f16d4c5b8492b2f4cf8dd173e714d2d756d2ba9949805387f6e2f2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "523d7910e9dee51df97fd234a564fa292817708806b797fddac5b2b7dcdf62d2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "9793c6f7d110ed2b094be777231519dcf8355c599c98ea1aadb7ea783d76ea67",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "89b55e9390004fcefd20b084b46cb7107e87f137aa75a6663d01a45f6affddec",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "9cc16c720c081f120ab6cd9c3184b1dcc674e848e99cf8b422fce50784ed5593",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "dacc69a30d836103281a05337495cd4066595f07786dbf34daa0853e79ac9954",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -6, matching the wording"
+    },
+    {
+      "case_id": "10546f0465b9963d7ff62787484bafc244285464bb92a4746a86e771b6b8d969",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -1, matching the wording"
+    },
+    {
+      "case_id": "d9e51df4343d387f3b574acfc5f3046af7aadaae72c769b2a2e9269fbcf32984",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "e12515882450d01c7241ca82593553bc01e84114b234ba7cf2975bab52ae9d47",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "7c775e5b323142776125037943cca68dc88c8a829d05e371e3a6b9d9abdcf447",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    },
+    {
+      "case_id": "36c38ba65a86c6c02f51706e7511cf2d99b87e66b407198a4aaf59974161b81d",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "2cf5968d7a92e7962c3148feaada41cac57607e0e3d4a8a2c857152cde520bf1",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the named capture is the first move of the line, so it is genuinely immediate"
+    },
+    {
+      "case_id": "2260b0371278c3786a7ff3cd7f65fd367854901dc8ce2a60cf897cf1ee6cbd44",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "68a8b0ca8d7b7dab7f9387e73d2408fd691e11ce6eb0d0bbaf77d45901994de6",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +0, matching the wording"
+    },
+    {
+      "case_id": "06c9314c39401344c4f2b9f184cb77534da44bdff93019cb25654767aeacb1e7",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "8414cae5c26aea90e2b60d670a0b5192a8011e367293139bb2a9e8d6606f7021",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the quoted finish reaches legal checkmate"
+    },
+    {
+      "case_id": "dfc2069a34b94780beef865260ec583cca9d99f30f427ed490ee3fe4ea315787",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "beca60eedeeaaaf3f3bc20b8f9957eac427f22ee68bc61acad3e2193a103955a",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "0f28cdc5b1b7e72f3b64adb94d63015280c21bdaa634e2b825136ebc45dca34e",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -8, matching the wording"
+    },
+    {
+      "case_id": "e53ce543c1f5a30c26a23832ca89ef3b3657f9d2b122bb75ad3232707e38fcce",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +3, matching the wording"
+    },
+    {
+      "case_id": "38c1ea9ce377b9f803bb73fc574147c8ef007df8aa0be586fcdcf1302f7f0329",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -4, matching the wording"
+    },
+    {
+      "case_id": "729b8221634ecd1f0f89d83e2034f65d68333c8374eb508f47cef6e9032c7a27",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = -3, matching the wording"
+    },
+    {
+      "case_id": "b7c81fb6db16130ac528da7db350924581800e772d5a4d82bbfe913f6698b154",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "the played line reaches legal checkmate"
+    },
+    {
+      "case_id": "36b4d4e0434bad7c23bcf56b9057bab81f8f1457cd7051742b1bd8370acb06e2",
+      "verdict": "true",
+      "critical_false_claim": false,
+      "review_note": "material over the whole shown played line = +1, matching the wording"
+    }
+  ]
+}

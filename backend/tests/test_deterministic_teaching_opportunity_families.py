@@ -61,8 +61,12 @@ def test_forced_mate_is_terminally_proved_and_story_key_is_stable():
 
     comparison = build_teaching_opportunity_comparisons((mate,))[0]
     assert comparison.headline == "A checkmating finish was here"
+    assert comparison.claim_contract == "missed_checkmating_finish"
     assert comparison.stronger_line_moves[-1].endswith("#")
-    assert comparison.stronger_summary.endswith("was the checkmating finish.")
+    assert comparison.played_summary.startswith("You played Rg4")
+    assert comparison.stronger_summary == (
+        "You could have played Nf4+; that replay ends in checkmate."
+    )
 
 
 def test_material_family_requires_and_replays_more_than_one_capture():
@@ -90,6 +94,10 @@ def test_material_family_requires_and_replays_more_than_one_capture():
     assert len(comparison.played_line_moves) == 5
     assert "whole capture sequence" in comparison.headline.lower()
     rendered = str(comparison.contract_dict()).lower()
+    assert comparison.played_summary.startswith("You played Qxe3+.")
+    assert comparison.stronger_summary.startswith(
+        "You could have played Bg4+."
+    )
     assert "loses material for you" in comparison.played_summary.lower()
     assert "wins material for you" in comparison.stronger_summary.lower()
     assert all(word not in rendered for word in ("centipawn", "ahead", "behind", "level"))
@@ -134,7 +142,7 @@ def test_queen_family_names_the_exact_queen_capture_not_a_universal_rule():
     assert queen.consequence_ply == 2
     comparison = build_teaching_opportunity_comparisons((queen,))[0]
     rendered = str(comparison.contract_dict()).lower()
-    assert "take your queen on d5" in rendered
+    assert "takes your queen on d5" in rendered
     assert "avoid trading queens" not in rendered
     assert "always" not in rendered
 
@@ -216,8 +224,10 @@ def test_greedy_queen_capture_describes_both_visible_lines_not_a_false_balance()
     rendered = str(comparison.contract_dict()).lower()
 
     assert comparison.headline == "Count beyond the queen capture"
-    assert "shown line" in comparison.played_summary.lower()
-    assert "shown line" in comparison.stronger_summary.lower()
+    assert comparison.played_summary.startswith("You played Qxb5.")
+    assert comparison.stronger_summary.startswith(
+        "You could have played Qg4."
+    )
     assert "no better off" not in rendered
     assert "material stays level" not in rendered
 
@@ -238,9 +248,12 @@ def test_allowed_mate_alternative_is_not_claimed_to_stop_all_future_mate():
     comparison = build_teaching_opportunity_comparisons((mate,))[0]
 
     assert comparison.stronger_summary == (
-        "Kh7 avoids the checkmate shown in this replay."
+        "You could have played Kh7. Replay it, then keep checking for mate."
     )
-    assert "stops" not in comparison.stronger_summary.lower()
+    assert all(
+        word not in comparison.stronger_summary.lower()
+        for word in ("stops", "avoids", "escapes")
+    )
 
 
 def test_missed_mate_that_plays_stalemate_teaches_the_actual_draw():
@@ -261,9 +274,11 @@ def test_missed_mate_that_plays_stalemate_teaches_the_actual_draw():
     assert mate.played_terminal_state == "stalemate"
     assert comparison.headline == "This move ended the game in stalemate"
     assert comparison.played_summary == (
-        "Kf4 leaves them no legal move, so the game is drawn."
+        "You played Kf4. They have no legal move, so the game is drawn."
     )
-    assert comparison.stronger_summary.endswith("Qh2# was the checkmating finish.")
+    assert comparison.stronger_summary == (
+        "You could have played Qg2; that replay ends in checkmate."
+    )
     assert "legal move" in comparison.memory_cue.lower()
 
 
@@ -346,6 +361,16 @@ def _shadow_row(*, source_ply, actor="player", cause_kind="missed_forced_mate"):
                 f"{source_ply:02x}"
                 + ("c" if cause_kind == "missed_forced_mate" else "d") * 62
             )[:64],
+            "visible_claim_fingerprint": (
+                f"{source_ply:02x}"
+                + (
+                    "e"
+                    if actor == "player"
+                    and cause_kind == "missed_forced_mate"
+                    else "f"
+                )
+                * 62
+            )[:64],
         }
     )
     return comparison
@@ -406,6 +431,35 @@ def test_shadow_summary_rejects_tampered_proof_identity():
 
     with pytest.raises(ReviewContractViolation, match="Shadow contract is invalid"):
         build_teaching_opportunity_shadow_summary((row,))
+
+
+def test_shadow_summary_counts_one_visible_claim_across_two_families():
+    cause = _cause(
+        fen_before="3r2k1/3r1p2/p6p/3P3N/1pP3K1/6P1/Pq5P/1N1R4 b - - 0 36",
+        played_san="Qxa2",
+        best_move_san="Qe2+",
+        pv_after_played=("Nd2", "Rd6", "Kh3", "Qc2"),
+        pv_after_best=("Kf4", "Qxh5", "Re1", "Qxh2"),
+        cp_loss=244,
+    )
+    comparisons = build_teaching_opportunity_comparisons(_families(cause))
+    rows = tuple(
+        {**comparison.contract_dict(), "source_ply": 59}
+        for comparison in comparisons
+        if comparison.family in {
+            "queen_safety_or_greedy_capture",
+            "multi_move_material_accounting",
+        }
+    )
+
+    assert len(rows) == 2
+    assert len({row["visible_claim_fingerprint"] for row in rows}) == 1
+    summary = build_teaching_opportunity_shadow_summary(rows)
+    assert summary["candidate_count"] == 1
+    assert summary["deduplicated_count"] == 1
+    assert summary["candidates"][0]["family"] == (
+        "queen_safety_or_greedy_capture"
+    )
 
 
 def test_shared_pipeline_collects_review_shadow_only_when_explicitly_requested():

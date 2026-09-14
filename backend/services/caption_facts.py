@@ -143,7 +143,7 @@ UNSAFE_RECAPTURE_PAWN_FORK_PROOF_VERSION = (
     "unsafe_recapture_pawn_fork_proof.v1"
 )
 VERIFIED_LINE_MIN_CP_LOSS = 100
-TEACHING_OPPORTUNITY_PROOF_VERSION = "verified_teaching_opportunity.v3"
+TEACHING_OPPORTUNITY_PROOF_VERSION = "verified_teaching_opportunity.v4"
 FORCED_MATE_STORY_QUALITY_ID = "review:forced_mate_story"
 MULTI_MOVE_MATERIAL_QUALITY_ID = "review:multi_move_material_accounting"
 QUEEN_SAFETY_QUALITY_ID = "review:queen_safety_or_greedy_capture"
@@ -153,6 +153,23 @@ TEACHING_OPPORTUNITY_QUALITY_IDS = {
     "multi_move_material_accounting": MULTI_MOVE_MATERIAL_QUALITY_ID,
     "queen_safety_or_greedy_capture": QUEEN_SAFETY_QUALITY_ID,
     "unpunished_opponent_opportunity": UNPUNISHED_OPPONENT_QUALITY_ID,
+}
+TEACHING_OPPORTUNITY_CLAIM_CONTRACTS = {
+    "forced_mate_story": frozenset({
+        "missed_checkmating_finish",
+        "allowed_checkmate",
+        "stalemate_instead_of_mate",
+    }),
+    "multi_move_material_accounting": frozenset({
+        "complete_capture_sequence",
+    }),
+    "queen_safety_or_greedy_capture": frozenset({
+        "greedy_queen_capture",
+        "immediate_queen_target",
+    }),
+    "unpunished_opponent_opportunity": frozenset({
+        "opponent_missed_chance",
+    }),
 }
 _LEGAL_MATERIAL_PURPOSES = frozenset({
     "moves_affected_piece",
@@ -1056,11 +1073,46 @@ class VerifiedTeachingOpportunity:
     best_terminal_state: str = "nonterminal"
     proof_version: str = TEACHING_OPPORTUNITY_PROOF_VERSION
 
+    @property
+    def claim_contract(self) -> str:
+        """Return the independently reviewed visible wording contract.
+
+        Quality authorization remains attached to the four product families,
+        but evidence may not be pooled across visibly different claim shapes.
+        """
+        if self.family == "forced_mate_story":
+            if self.played_terminal_state == "stalemate":
+                return "stalemate_instead_of_mate"
+            if self.cause.lesson_kind == "missed_forced_mate":
+                return "missed_checkmating_finish"
+            return "allowed_checkmate"
+        if self.family == "multi_move_material_accounting":
+            return "complete_capture_sequence"
+        if self.family == "queen_safety_or_greedy_capture":
+            root_queen_capture = next(
+                (
+                    capture
+                    for capture in self.cause.played_captures
+                    if capture.ply == 1
+                    and capture.actor == "initiator"
+                    and capture.capturing_piece == "queen"
+                ),
+                None,
+            )
+            if self.moving_piece == "queen" and root_queen_capture is not None:
+                return "greedy_queen_capture"
+            return "immediate_queen_target"
+        return "opponent_missed_chance"
+
     def __post_init__(self) -> None:
         if self.family not in TEACHING_OPPORTUNITY_QUALITY_IDS:
             raise ValueError("unknown teaching-opportunity family")
         if self.quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[self.family]:
             raise ValueError("teaching-opportunity quality identity mismatch")
+        if self.claim_contract not in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[
+            self.family
+        ]:
+            raise ValueError("teaching-opportunity claim contract is invalid")
         if self.actor not in {"player", "opponent"}:
             raise ValueError("teaching-opportunity actor is invalid")
         if self.moving_piece not in set(PIECE_TYPE_NAMES.values()):
@@ -1237,6 +1289,7 @@ class VerifiedTeachingOpportunity:
             "schema_version": self.proof_version,
             "family": self.family,
             "quality_id": self.quality_id,
+            "claim_contract": self.claim_contract,
             "actor": self.actor,
             "moving_piece": self.moving_piece,
             "consequence_piece": self.consequence_piece,

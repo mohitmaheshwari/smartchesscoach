@@ -13,7 +13,10 @@ from scripts.build_deterministic_teaching_opportunity_review_packet import (
     ANSWER_KEY_SCHEMA_VERSION,
     SCHEMA_VERSION as PACKET_SCHEMA_VERSION,
 )
-from services.caption_facts import TEACHING_OPPORTUNITY_QUALITY_IDS
+from services.caption_facts import (
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
+    TEACHING_OPPORTUNITY_QUALITY_IDS,
+)
 
 
 SCHEMA_VERSION = "deterministic_teaching_opportunity_review_score.v1"
@@ -102,19 +105,52 @@ def score_review(
         raise ValueError("answer key belongs to a different packet selection")
 
     family_rows = {family: Counter() for family in TEACHING_OPPORTUNITY_QUALITY_IDS}
+    claim_contract_rows = {
+        claim_contract: Counter()
+        for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+        for claim_contract in contracts
+    }
+    key_family_counts = Counter()
+    key_claim_contract_counts = Counter()
     for case_id in packet_ids:
         family = str(key_by_id[case_id].get("family") or "")
         if family not in family_rows:
             raise ValueError("answer key contains an unknown family")
+        if key_by_id[case_id].get("quality_id") != (
+            TEACHING_OPPORTUNITY_QUALITY_IDS[family]
+        ):
+            raise ValueError("answer key quality identity is invalid")
+        claim_contract = str(
+            key_by_id[case_id].get("claim_contract") or ""
+        )
+        if claim_contract not in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[family]:
+            raise ValueError("answer key contains an invalid claim contract")
+        key_family_counts[family] += 1
+        key_claim_contract_counts[claim_contract] += 1
         response = review_by_id[case_id]
         verdict = str(response["verdict"])
         family_rows[family][verdict] += 1
         family_rows[family]["critical_false_claim"] += int(
             response["critical_false_claim"]
         )
+        claim_contract_rows[claim_contract][verdict] += 1
+        claim_contract_rows[claim_contract]["critical_false_claim"] += int(
+            response["critical_false_claim"]
+        )
+    if answer_key.get("family_counts") != {
+        family: key_family_counts[family]
+        for family in TEACHING_OPPORTUNITY_QUALITY_IDS
+    }:
+        raise ValueError("answer key family counts are inconsistent")
+    expected_contract_counts = {
+        claim_contract: key_claim_contract_counts[claim_contract]
+        for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+        for claim_contract in sorted(contracts)
+    }
+    if answer_key.get("claim_contract_counts") != expected_contract_counts:
+        raise ValueError("answer key claim-contract counts are inconsistent")
 
-    family_scores = {}
-    for family, counts in family_rows.items():
+    def _numeric_score(counts: Counter) -> Dict[str, Any]:
         denominator = counts["true"] + counts["false"] + counts["uncertain"]
         precision = counts["true"] / denominator if denominator else 0.0
         wilson = _wilson_lower(counts["true"], denominator)
@@ -124,7 +160,7 @@ def score_review(
             and wilson >= 0.85
             and counts["critical_false_claim"] == 0
         )
-        family_scores[family] = {
+        return {
             "reviewed_claims": denominator,
             "true": counts["true"],
             "false": counts["false"],
@@ -134,9 +170,41 @@ def score_review(
             "semantic_precision_pct": round(precision * 100, 4),
             "wilson_95_lower_pct": round(wilson * 100, 4),
             "numeric_quality_gate_passed": numeric_gate,
+        }
+
+    claim_contract_scores = {
+        claim_contract: {
+            **_numeric_score(counts),
             "caption_promotion_gate_passed": False,
             "promotion_blocker": "development_sample_is_not_promotion_eligible",
         }
+        for claim_contract, counts in sorted(claim_contract_rows.items())
+    }
+    family_scores = {}
+    for family, counts in family_rows.items():
+        score = _numeric_score(counts)
+        required_contracts = sorted(
+            TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[family]
+        )
+        contracts_pass = all(
+            claim_contract_scores[claim_contract][
+                "numeric_quality_gate_passed"
+            ]
+            for claim_contract in required_contracts
+        )
+        score["aggregate_numeric_quality_gate_passed"] = score[
+            "numeric_quality_gate_passed"
+        ]
+        score["numeric_quality_gate_passed"] = bool(
+            score["numeric_quality_gate_passed"] and contracts_pass
+        )
+        score["claim_contracts"] = required_contracts
+        score["all_claim_contract_gates_passed"] = contracts_pass
+        score["caption_promotion_gate_passed"] = False
+        score["promotion_blocker"] = (
+            "development_sample_is_not_promotion_eligible"
+        )
+        family_scores[family] = score
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -145,11 +213,13 @@ def score_review(
         "development_only": packet.get("development_only") is True,
         "independence_attestation": dict(attestation),
         "family_scores": family_scores,
+        "claim_contract_scores": claim_contract_scores,
         "caption_authorizations_changed": 0,
         "overall_promotion_gate_passed": False,
         "next_step": (
             "correct any independently found defects, freeze the implementation, "
-            "then build fresh non-holdout packets with at least 50 claims per family"
+            "then build fresh non-holdout packets with at least 50 claims per "
+            "visible claim contract"
         ),
     }
 

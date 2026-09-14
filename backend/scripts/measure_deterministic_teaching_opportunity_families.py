@@ -18,6 +18,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from services.caption_facts import (
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
     TEACHING_OPPORTUNITY_PROOF_VERSION,
     TEACHING_OPPORTUNITY_QUALITY_IDS,
     build_verified_line_cause,
@@ -38,9 +39,9 @@ DEFAULT_REVIEW = BACKEND / (
 )
 DEFAULT_OUTPUT = BACKEND / (
     "data/corpus_snapshots/"
-    "deterministic_teaching_opportunity_family_measurement_v4_2026-09-14.json"
+    "deterministic_teaching_opportunity_family_measurement_v5_2026-09-14.json"
 )
-SCHEMA_VERSION = "deterministic_teaching_opportunity_measurement.v3"
+SCHEMA_VERSION = "deterministic_teaching_opportunity_measurement.v4"
 
 
 def _sha256(path: Path) -> str:
@@ -120,6 +121,8 @@ def build_report(
     statuses = Counter()
     raw_family_counts = Counter()
     deduplicated_family_counts = Counter()
+    raw_claim_contract_counts = Counter()
+    deduplicated_claim_contract_counts = Counter()
     detected_games_by_family = defaultdict(set)
     candidates = []
 
@@ -175,6 +178,7 @@ def build_report(
                     statuses["render_abstained"] += 1
                     continue
                 raw_family_counts[opportunity.family] += 1
+                raw_claim_contract_counts[opportunity.claim_contract] += 1
                 comparison_contract = comparison.contract_dict()
                 comparison_contract["source_ply"] = int(row["ply"])
                 raw_game_candidates.append({
@@ -210,6 +214,9 @@ def build_report(
             family = str(candidate["fact"]["family"])
             statuses["candidate"] += 1
             deduplicated_family_counts[family] += 1
+            deduplicated_claim_contract_counts[
+                str(candidate["fact"]["claim_contract"])
+            ] += 1
             detected_games_by_family[family].add(game_key)
             candidates.append(candidate)
 
@@ -254,9 +261,9 @@ def build_report(
         },
         "summary": {
             "proof_version": TEACHING_OPPORTUNITY_PROOF_VERSION,
-            "comparison_schema_version": "teaching_opportunity_comparison.v3",
+            "comparison_schema_version": "teaching_opportunity_comparison.v4",
             "shadow_summary_schema_version": (
-                "teaching_opportunity_shadow_summary.v3"
+                "teaching_opportunity_shadow_summary.v4"
             ),
             "positions_seen": sum(
                 len(game.get("stored_engine_evidence") or [])
@@ -277,6 +284,18 @@ def build_report(
             "deduplicated_family_counts": {
                 family: deduplicated_family_counts[family]
                 for family in TEACHING_OPPORTUNITY_QUALITY_IDS
+            },
+            "raw_claim_contract_counts": {
+                claim_contract: raw_claim_contract_counts[claim_contract]
+                for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+                for claim_contract in sorted(contracts)
+            },
+            "deduplicated_claim_contract_counts": {
+                claim_contract: deduplicated_claim_contract_counts[
+                    claim_contract
+                ]
+                for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+                for claim_contract in sorted(contracts)
             },
             "caption_authorized_family_count": sum(
                 int(is_authorized(quality_id, QualitySurface.CAPTION))

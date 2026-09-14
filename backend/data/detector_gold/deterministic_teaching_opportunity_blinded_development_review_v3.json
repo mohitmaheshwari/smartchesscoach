@@ -1,0 +1,6157 @@
+{
+  "blinded": true,
+  "cases": [
+    {
+      "case_id": "eace3e6f71ffb140df15d89b877f064abd1bf457c815075bd182ea2c673fa062",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/8/6pk/P4p1p/3Q4/6R1/1PP5/1K2n3 w - - 5 38",
+        "played_move": "Qd2+",
+        "source_ply": 75,
+        "stronger_move": "Qh8#"
+      },
+      "replay": {
+        "played_line": [
+          "Qd2+",
+          "Kg7",
+          "Qxe1",
+          "Kf6",
+          "Rd3"
+        ],
+        "stronger_line": [
+          "Qh8#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Qh8#; that replay ends in checkmate.",
+        "what_happened": "You played Qd2+ and let the finish go."
+      }
+    },
+    {
+      "case_id": "1d4aa100409197ec3bc460b25f480ce485c3cd68580e649adc8cd1813040dbbd",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4rk1/ppB2ppp/2n1p3/1b6/1b1P4/8/PP2PPPP/R2K1B1R w - - 0 15",
+        "played_move": "Ba5",
+        "source_ply": 29,
+        "stronger_move": "e3"
+      },
+      "replay": {
+        "played_line": [
+          "Ba5",
+          "Nxa5",
+          "e3",
+          "Ba4+",
+          "b3"
+        ],
+        "stronger_line": [
+          "e3",
+          "Bxf1",
+          "Rxf1",
+          "Rfc8",
+          "Bg3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played e3. That line trades equal material.",
+        "what_happened": "You played Ba5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "759960356643a5ef5ec6f3169cfbb2d0ee48a6b73dad0ffdec5407a3b52c0f3f",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "7Q/4kpp1/1p2p1n1/p2p3P/6PK/8/R7/8 w - - 1 44",
+        "played_move": "Kg5",
+        "source_ply": 87,
+        "stronger_move": "hxg6"
+      },
+      "replay": {
+        "played_line": [
+          "Kg5",
+          "Nxh8",
+          "Kf4",
+          "f6",
+          "Rb2"
+        ],
+        "stronger_line": [
+          "hxg6",
+          "Kf6",
+          "Rf2+",
+          "Ke5",
+          "Qxg7+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played hxg6. That line wins material for them.",
+        "what_happened": "They played Kg5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "17b687781774887cf4bc4014a187f28324b14293938198ffa7b28f3b33fe2c78",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2kr1b1r/pbppq1pp/1p6/3pR3/P2P4/2PB4/1P3PPP/R1BQ2K1 b - - 0 13",
+        "played_move": "Qh4",
+        "source_ply": 26,
+        "stronger_move": "Qf7"
+      },
+      "replay": {
+        "played_line": [
+          "Qh4",
+          "Bg5",
+          "Qxg5",
+          "Rxg5",
+          "g6"
+        ],
+        "stronger_line": [
+          "Qf7",
+          "Bg5",
+          "Bd6",
+          "Rf5",
+          "Qe6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qf7. That line trades equal material.",
+        "what_happened": "They played Qh4. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "7520ab6b5a3794c76a11718e13a6ede5c0d144d116c8ef4df0af2b56be6c0a88",
+      "position": {
+        "actor": "player",
+        "fen_before": "rnbqk2r/pp3ppp/5n2/3pp3/1b6/1B1P1Q2/PPP2PPP/RNBK2NR b kq - 3 7",
+        "played_move": "e4",
+        "source_ply": 14,
+        "stronger_move": "Bg4"
+      },
+      "replay": {
+        "played_line": [
+          "e4",
+          "Qg3",
+          "O-O",
+          "Nc3",
+          "exd3"
+        ],
+        "stronger_line": [
+          "Bg4",
+          "Bg5",
+          "Bxf3+",
+          "Nxf3",
+          "Nc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bg4. That line wins more material for you.",
+        "what_happened": "You played e4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "b953bb34f550d0c94984ab03fe3028f55df498bc46827ee0cac8028c22c032ba",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rnb1kbnr/ppp1pppp/5q2/3N2R1/2B5/5N2/PPPP1P1P/R1BQK3 b Qkq - 7 9",
+        "played_move": "Qc6",
+        "source_ply": 18,
+        "stronger_move": "Qd6"
+      },
+      "replay": {
+        "played_line": [
+          "Qc6",
+          "Bb5",
+          "Kd8",
+          "Bxc6",
+          "Nxc6"
+        ],
+        "stronger_line": [
+          "Qd6",
+          "d4",
+          "c6",
+          "Bf4",
+          "Qe6+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qd6. That line trades equal material.",
+        "what_happened": "They played Qc6. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "703fea3be5dc2f2bfe26032118c631d0f4f95836f0ebe59266fed4016a14e4c6",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4k1r/1bp5/1p6/p3n1B1/2Pb2Q1/2NP2P1/PP3PBq/R3RK2 w - - 3 21",
+        "played_move": "Qxd4",
+        "source_ply": 41,
+        "stronger_move": "Qf4+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxd4",
+          "Bxg2+",
+          "Ke2",
+          "Qh5+",
+          "f3"
+        ],
+        "stronger_line": [
+          "Qf4+",
+          "Kg8",
+          "Bxb7",
+          "Nc6",
+          "Bxa8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Qf4+. That line wins material for you.",
+        "what_happened": "You played Qxd4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "ae88b6fba5ae2d0440f9af2db71789eee2c91a3051b6944b4315c7fc77593ea0",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q1rk1/pbp2p1p/1p1np1p1/6N1/1n2P3/2N3P1/PPP2PBP/R2QR1K1 b - - 1 13",
+        "played_move": "c5",
+        "source_ply": 26,
+        "stronger_move": "Qxg5"
+      },
+      "replay": {
+        "played_line": [
+          "c5",
+          "Qc1",
+          "Nc4",
+          "Nf3",
+          "f6"
+        ],
+        "stronger_line": [
+          "Qxg5",
+          "e5",
+          "Bxg2",
+          "Kxg2",
+          "Ne8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxg5. That line wins material for them.",
+        "what_happened": "They played c5. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "a3def79bc16eb9ad5abaedf827bdbdb07d0e35d2b8ca58bd3b248ccf35c2af81",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2rk4/p2n1Q1p/1qpBrp2/3p4/1P6/P7/5PPP/2Rn2K1 w - - 0 30",
+        "played_move": "Qxe6",
+        "source_ply": 59,
+        "stronger_move": "Qg8+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxe6",
+          "Qxf2+",
+          "Kh1",
+          "Qf1#"
+        ],
+        "stronger_line": [
+          "Qg8+",
+          "Re8",
+          "Qxe8+",
+          "Kxe8",
+          "Rxd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Qg8+. Replay it, then keep checking for mate.",
+        "what_happened": "They played Qxe6. After Qxf2+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "057457d4d4811a1e4ace3812a558cf6633641e43caebbd6c5d635779f47c9d9c",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qkb1r/ppp2ppp/4pn2/3p4/3P1Bb1/2NPPN2/PP3PPP/R2Q1RK1 b kq - 1 8",
+        "played_move": "Bb4",
+        "source_ply": 16,
+        "stronger_move": "Nh5"
+      },
+      "replay": {
+        "played_line": [
+          "Bb4",
+          "Qa4+",
+          "c6",
+          "Qxb4",
+          "Bxf3"
+        ],
+        "stronger_line": [
+          "Nh5",
+          "Be5",
+          "f6",
+          "h3",
+          "Bxf3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nh5. That line wins material for you.",
+        "what_happened": "You played Bb4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "2f88035c770c1f5d53e20c312febfeed742ff3c7687935b8218944f8173b90f9",
+      "position": {
+        "actor": "player",
+        "fen_before": "4rrk1/pppq1ppp/2n2n2/8/4B1P1/P1N2Q1P/1PP2P2/2KR3R b - - 0 16",
+        "played_move": "Nxe4",
+        "source_ply": 32,
+        "stronger_move": "Nd4"
+      },
+      "replay": {
+        "played_line": [
+          "Nxe4",
+          "Rxd7",
+          "Ng5",
+          "Qg3",
+          "Ne5"
+        ],
+        "stronger_line": [
+          "Nd4",
+          "Qd3",
+          "Nxe4",
+          "Nxe4",
+          "Qc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nd4. That line trades equal material.",
+        "what_happened": "You played Nxe4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "68ecb0a461dee1a9ca64f85dbb02ede14b28d8b77b965c688fde113a8d02a19f",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qkb1r/pQp2ppp/4p3/4n3/5PPP/8/PPbP4/R1B1KBNR b KQkq - 0 12",
+        "played_move": "Nxg4",
+        "source_ply": 24,
+        "stronger_move": "Rb8"
+      },
+      "replay": {
+        "played_line": [
+          "Nxg4",
+          "Qc6+",
+          "Qd7",
+          "Qxa8+",
+          "Ke7"
+        ],
+        "stronger_line": [
+          "Rb8",
+          "Qg2",
+          "Nd3+",
+          "Bxd3",
+          "Bxd3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rb8. That line trades equal material.",
+        "what_happened": "You played Nxg4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "c7fed811dc4845a5229d4dd604247ef6a79e90ac2bb1c08eb6553b664a8bbd4d",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4r2/1p2Qbkp/p1p3p1/8/8/8/PKP2P1P/3R4 w - - 1 26",
+        "played_move": "Qxb7",
+        "source_ply": 51,
+        "stronger_move": "Rd7"
+      },
+      "replay": {
+        "played_line": [
+          "Qxb7",
+          "Rfb8",
+          "Rd7",
+          "Rxb7+",
+          "Rxb7"
+        ],
+        "stronger_line": [
+          "Rd7",
+          "b5",
+          "h4",
+          "Rae8",
+          "Qg5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Rd7. That line trades equal material.",
+        "what_happened": "You played Qxb7. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "d2896edbe324e0e33319855364d2e6aa93b7b57057df84a5f2dcb80d344730c2",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r1k1/pp3pp1/1Pp5/2n5/1BP2pq1/5R2/1P2r1P1/1Q4RK b - - 1 29",
+        "played_move": "axb6",
+        "source_ply": 58,
+        "stronger_move": "R8e3"
+      },
+      "replay": {
+        "played_line": [
+          "axb6",
+          "Bxc5",
+          "bxc5",
+          "Rh3",
+          "g6"
+        ],
+        "stronger_line": [
+          "R8e3",
+          "Rxe3",
+          "fxe3",
+          "Qf5",
+          "Qxf5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played R8e3. That line wins more material for you.",
+        "what_happened": "You played axb6. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "f001757e69647b8dc6a6f5b611a36114878b5a628ef77b0c7182107f23a6123b",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5r1k/6pp/8/6q1/5p2/Q2p1B2/P2r1PPP/3RR1K1 w - - 0 27",
+        "played_move": "Rxd2",
+        "source_ply": 53,
+        "stronger_move": "Qxf8#"
+      },
+      "replay": {
+        "played_line": [
+          "Rxd2",
+          "Qf5",
+          "Rxd3",
+          "h6",
+          "Rdd1"
+        ],
+        "stronger_line": [
+          "Qxf8#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qxf8#; the line ends in checkmate.",
+        "what_happened": "They played Rxd2 and missed the chance."
+      }
+    },
+    {
+      "case_id": "c09e56fedc635f0ca2da5d0c64e132989586166586ef161b843c26da3b1d116b",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r3/2R5/3p4/R7/1P2k2r/1N1p3N/1P1K1P2/8 w - - 0 43",
+        "played_move": "f3+",
+        "source_ply": 85,
+        "stronger_move": "Ng5+"
+      },
+      "replay": {
+        "played_line": [
+          "f3+",
+          "Kxf3",
+          "Ng1+",
+          "Kf2",
+          "Rg5"
+        ],
+        "stronger_line": [
+          "Ng5+",
+          "Kf4",
+          "Rc4+",
+          "Re4",
+          "Rxe4#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Ng5+; that replay ends in checkmate.",
+        "what_happened": "You played f3+ and let the finish go."
+      }
+    },
+    {
+      "case_id": "07427bb04303ec2342ba5a739118ba330aba67bdcfb6cc2e736aaf1a5ef9c652",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2rkr3/p2n1Q1p/1qpB1p2/3p4/1P6/P4N2/1n3PPP/2RR2K1 w - - 7 28",
+        "played_move": "Nd4",
+        "source_ply": 55,
+        "stronger_move": "Re1"
+      },
+      "replay": {
+        "played_line": [
+          "Nd4",
+          "Nxd1",
+          "Rxd1",
+          "Qxd4",
+          "Qxe8+"
+        ],
+        "stronger_line": [
+          "Re1",
+          "Qxf2+",
+          "Kxf2",
+          "Nd3+",
+          "Kg1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Re1. That line wins material for them.",
+        "what_happened": "They played Nd4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "36960fbdf135341851ca7caebbf26a16abfd62b58931c8c9fe9006acf9439ace",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rnb2kr1/pp1q1p1p/8/1N1pR3/8/3B4/PP3PPP/R2Q2K1 w - - 1 17",
+        "played_move": "Rxd5",
+        "source_ply": 33,
+        "stronger_move": "Bxh7"
+      },
+      "replay": {
+        "played_line": [
+          "Rxd5",
+          "Qxd5",
+          "g3",
+          "Bh3",
+          "Bf1"
+        ],
+        "stronger_line": [
+          "Bxh7",
+          "Nc6",
+          "Rxd5",
+          "Rxg2+",
+          "Kxg2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bxh7. That line wins material for them.",
+        "what_happened": "They played Rxd5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "748bb5142a386895ecd9fb105e8b8fcb4dd23e9d886af28b19bfff2d0f232c0b",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qkb1r/ppp2ppp/2n1bn2/4p3/2BPP3/2N2N2/PP3PPP/R1BQK2R w KQkq - 1 7",
+        "played_move": "Bxe6",
+        "source_ply": 13,
+        "stronger_move": "d5"
+      },
+      "replay": {
+        "played_line": [
+          "Bxe6",
+          "fxe6",
+          "d5",
+          "exd5",
+          "exd5"
+        ],
+        "stronger_line": [
+          "d5",
+          "Na5",
+          "Qa4+",
+          "Bd7",
+          "Qxa5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played d5. That line wins material for them.",
+        "what_happened": "They played Bxe6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "82c75714f22e41367f1b6e62868c20e11eb403da2b29cdd555f448f58aaec809",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqr1k1/pp3pbp/3p2p1/2nP4/4B3/5NB1/PPP1QPPP/R4RK1 w - - 1 14",
+        "played_move": "Ng5",
+        "source_ply": 27,
+        "stronger_move": "Nd2"
+      },
+      "replay": {
+        "played_line": [
+          "Ng5",
+          "Qxg5",
+          "Rae1",
+          "Bd7",
+          "Bf3"
+        ],
+        "stronger_line": [
+          "Nd2",
+          "Nxe4",
+          "Nxe4",
+          "f5",
+          "Bh4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nd2. That line trades equal material.",
+        "what_happened": "You played Ng5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "e7ffed3318fb20016bbf7b93f2528748fcec9f88db8a2658e81128023ced6db4",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r3k/6pp/8/6q1/5p2/Q2R1B2/P4PPP/4R1K1 b - - 0 28",
+        "played_move": "Rxd3",
+        "source_ply": 56,
+        "stronger_move": "Rc8"
+      },
+      "replay": {
+        "played_line": [
+          "Rxd3",
+          "Qf8#"
+        ],
+        "stronger_line": [
+          "Rc8",
+          "Rdd1",
+          "Qg6",
+          "Qe7",
+          "h6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Rc8. Replay it, then keep checking for mate.",
+        "what_happened": "You played Rxd3. After Qf8#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "b96a858af9460e6b1f1dfe9750be89d671c4a50f04c8e7b2006e97f0294ceede",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk1nr/pppp1ppp/2n5/4p3/1bB1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5",
+        "played_move": "Ng5",
+        "source_ply": 9,
+        "stronger_move": "Nd5"
+      },
+      "replay": {
+        "played_line": [
+          "Ng5",
+          "Qxg5",
+          "O-O",
+          "Bxc3",
+          "bxc3"
+        ],
+        "stronger_line": [
+          "Nd5",
+          "Nf6",
+          "Nxb4",
+          "Nxb4",
+          "Nxe5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nd5. That line wins material for you.",
+        "what_happened": "You played Ng5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "3e0e42d3339d9bb5192ebaa4c098ed94ef5ce435ceaa3c24dae71aaaa6129984",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r1rk1/3b1ppp/p7/3PQ3/8/3P4/PPP1N1qP/R1BK2R1 b - - 1 20",
+        "played_move": "Qf3",
+        "source_ply": 40,
+        "stronger_move": "f6"
+      },
+      "replay": {
+        "played_line": [
+          "Qf3",
+          "Qxg7#"
+        ],
+        "stronger_line": [
+          "f6",
+          "Qg3",
+          "Qxg3",
+          "Rxg3",
+          "h5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played f6. Replay it, then keep checking for mate.",
+        "what_happened": "You played Qf3. After Qxg7#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "59bf3c9cbadc820211b68833d1a1ae25fe663ff9f1e92614f6958c573f5d9328",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r3k2r/ppp2ppp/2n2n2/b2q2N1/3Pp1b1/1PP1B3/P3BPPP/RN1QK2R w KQkq - 1 11",
+        "played_move": "O-O",
+        "source_ply": 21,
+        "stronger_move": "Bxg4"
+      },
+      "replay": {
+        "played_line": [
+          "O-O",
+          "Bxe2",
+          "Qxe2",
+          "O-O",
+          "b4"
+        ],
+        "stronger_line": [
+          "Bxg4",
+          "Nxg4",
+          "Qxg4",
+          "f5",
+          "Qd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bxg4. That line wins material for them.",
+        "what_happened": "They played O-O. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "80cc1ae879a780b10272290d1de5c1df0fb18776ebbe0392751beb530b16208d",
+      "position": {
+        "actor": "player",
+        "fen_before": "7k/PR6/8/7p/KP6/5r2/8/8 b - - 0 42",
+        "played_move": "h4",
+        "source_ply": 84,
+        "stronger_move": "Rf8"
+      },
+      "replay": {
+        "played_line": [
+          "h4",
+          "a8=R+",
+          "Rf8",
+          "Rxf8#"
+        ],
+        "stronger_line": [
+          "Rf8",
+          "Ka5",
+          "Kg8",
+          "Rb8",
+          "Rxb8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Rf8. Replay it, then keep checking for mate.",
+        "what_happened": "You played h4. After a8=R+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "390caf18959a79545a5356c021aa37e0e7c85f14729b342da0ca4f418515643d",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "1r1qk1nr/p5pp/2p1bp2/2b1p3/1P6/P1N2N2/2PP1PPP/R1BQ1RK1 b k - 0 11",
+        "played_move": "Rc8",
+        "source_ply": 22,
+        "stronger_move": "Bb6"
+      },
+      "replay": {
+        "played_line": [
+          "Rc8",
+          "bxc5",
+          "Ne7",
+          "Rb1",
+          "Nd5"
+        ],
+        "stronger_line": [
+          "Bb6",
+          "d4",
+          "Bg4",
+          "dxe5",
+          "Qxd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bb6. That line wins material for them.",
+        "what_happened": "They played Rc8. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "01bf8899a1f66aa6bda379eb4522cbe42b3871a76cfc9d28d2186732cbf6fc44",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k2r/pp2b1p1/2p2p2/3q3p/8/P2b1N1P/1B2QPP1/R4RK1 w kq - 0 18",
+        "played_move": "Rfd1",
+        "source_ply": 35,
+        "stronger_move": "Qe3"
+      },
+      "replay": {
+        "played_line": [
+          "Rfd1",
+          "Bxe2",
+          "Rxd5",
+          "cxd5",
+          "Nd4"
+        ],
+        "stronger_line": [
+          "Qe3",
+          "Bxf1",
+          "Rxf1",
+          "Kf7",
+          "Qc1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qe3. That line costs you less material.",
+        "what_happened": "You played Rfd1. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "de165c0001111e06573aa391d64626a64093cb9f1b33eef61c54018c67135fd0",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r3k/p1p3pp/8/8/1Q3R2/7P/PP1q1PPK/8 b - - 6 26",
+        "played_move": "Qe2",
+        "source_ply": 52,
+        "stronger_move": "Qxb4"
+      },
+      "replay": {
+        "played_line": [
+          "Qe2",
+          "Rf8+",
+          "Rxf8",
+          "Qxf8#"
+        ],
+        "stronger_line": [
+          "Qxb4",
+          "Rxb4",
+          "h6",
+          "Kg3",
+          "Rd2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Qxb4. Replay it, then keep checking for mate.",
+        "what_happened": "You played Qe2. After Rf8+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "ba871227b42f0a10014e94b4070f612c2703920797c6089e4fbf27c1ef6afa33",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r4rk1/5p1p/p2p1P2/q1p1p3/4P2P/3pBP2/1P3Q2/5K1R b - - 1 26",
+        "played_move": "Qa1+",
+        "source_ply": 52,
+        "stronger_move": "Kh8"
+      },
+      "replay": {
+        "played_line": [
+          "Qa1+",
+          "Kg2",
+          "Qxh1+",
+          "Kxh1",
+          "Kh8"
+        ],
+        "stronger_line": [
+          "Kh8",
+          "Bh6",
+          "Rg8",
+          "Bg7+",
+          "Rxg7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Kh8. That line wins material for them.",
+        "what_happened": "They played Qa1+. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "cc68d66f55baf61293206f93f9d610223bdd3a7aa825b4b4307d069c800e31b5",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/5k2/R1qrp1pp/2bp1p2/5P2/1QPB4/1P4PP/5R1K b - - 0 31",
+        "played_move": "Qxa6",
+        "source_ply": 62,
+        "stronger_move": "Qc7"
+      },
+      "replay": {
+        "played_line": [
+          "Qxa6",
+          "Bxa6",
+          "Rb6",
+          "Qa4",
+          "Be3"
+        ],
+        "stronger_line": [
+          "Qc7",
+          "Rxd6",
+          "Bxd6",
+          "Ba6",
+          "Bxf4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Qc7, avoiding that immediate queen capture.",
+        "what_happened": "You played Qxa6. Bxa6 takes your queen on a6."
+      }
+    },
+    {
+      "case_id": "37de66608c94e7a8d5d850dc8e6ae244d2b6cac216e91ccaae0181f518bb570b",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k1r1/pbqp4/1p2p3/2p1N1Pp/1n1P2nP/8/PPP1QPB1/RN2K2R w KQq - 0 18",
+        "played_move": "c3",
+        "source_ply": 35,
+        "stronger_move": "Bxb7"
+      },
+      "replay": {
+        "played_line": [
+          "c3",
+          "Bxg2",
+          "Rg1",
+          "Nxe5",
+          "dxe5"
+        ],
+        "stronger_line": [
+          "Bxb7",
+          "Qxb7",
+          "O-O",
+          "cxd4",
+          "Nxg4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxb7. That line wins material for you.",
+        "what_happened": "You played c3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "18528bbeb27f22f32ef6b20e524f09743cd416d60ef6c87db892ddf24082aa2a",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2q2k1/pp2p1bp/2p1prp1/3p4/1n6/NP1BP2Q/P1PP1PPP/R3K2R b KQ - 1 13",
+        "played_move": "Nxd3+",
+        "source_ply": 26,
+        "stronger_move": "Qa5"
+      },
+      "replay": {
+        "played_line": [
+          "Nxd3+",
+          "cxd3",
+          "Qa5",
+          "Nc2",
+          "Raf8"
+        ],
+        "stronger_line": [
+          "Qa5",
+          "Be2",
+          "Qxa3",
+          "O-O",
+          "Na6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qa5. That line wins material for you.",
+        "what_happened": "You played Nxd3+. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "4aff85ceba1a7d90175274adbdb73b3eab8ec2c5aab85372b0da3f504add4f23",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rnb1k2r/ppppqppp/8/4N3/4nP2/P1P5/1PP3PP/R1BQKB1R b KQkq - 0 7",
+        "played_move": "Nd6",
+        "source_ply": 14,
+        "stronger_move": "Qh4+"
+      },
+      "replay": {
+        "played_line": [
+          "Nd6",
+          "Be2",
+          "O-O",
+          "O-O",
+          "Nf5"
+        ],
+        "stronger_line": [
+          "Qh4+",
+          "g3",
+          "Nxg3",
+          "hxg3",
+          "Qxh1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qh4+. That line wins material for them.",
+        "what_happened": "They played Nd6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "db1c6cd7488b37518116ff5d3cb698648404289f9ba4236bdbe1fa08f5704f89",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b1k2r/pppp1Npp/2n5/4p3/2B5/6P1/PPPP1K2/RNBQ3q b kq - 1 10",
+        "played_move": "Qh2+",
+        "source_ply": 20,
+        "stronger_move": "Qxd1"
+      },
+      "replay": {
+        "played_line": [
+          "Qh2+",
+          "Ke3",
+          "Rf8",
+          "Na3",
+          "d5"
+        ],
+        "stronger_line": [
+          "Qxd1",
+          "b4",
+          "Nd4",
+          "Nxh8",
+          "Qf3+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxd1. That line wins material for you.",
+        "what_happened": "You played Qh2+. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "1439420a361753c50e351ec16f4ecf76417b6c82b31ad543b01c75717b6e5f4a",
+      "position": {
+        "actor": "player",
+        "fen_before": "4rr1k/pQp3pp/8/5q2/4R3/8/PP3PPP/4R1K1 b - - 2 21",
+        "played_move": "Rxe4",
+        "source_ply": 42,
+        "stronger_move": "Qxf2+"
+      },
+      "replay": {
+        "played_line": [
+          "Rxe4",
+          "f3",
+          "Rxe1+",
+          "Kf2",
+          "Rfe8"
+        ],
+        "stronger_line": [
+          "Qxf2+",
+          "Kh1",
+          "Qxe1+",
+          "Rxe1",
+          "Rxe1#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Qxf2+; that replay ends in checkmate.",
+        "what_happened": "You played Rxe4 and let the finish go."
+      }
+    },
+    {
+      "case_id": "d5c4430738cac72ced35b8b413cc826c4240d0fea12ee78762f578a2690ce924",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2k2r2/ppp3pp/3pn1q1/4p3/4P2b/3B2QP/PPP2PP1/R3R1K1 w - - 3 18",
+        "played_move": "Qxg6",
+        "source_ply": 35,
+        "stronger_move": "Qxh4"
+      },
+      "replay": {
+        "played_line": [
+          "Qxg6",
+          "Bxf2+",
+          "Kh2",
+          "hxg6",
+          "Rf1"
+        ],
+        "stronger_line": [
+          "Qxh4",
+          "Rf4",
+          "Qg3",
+          "Qf6",
+          "Re3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxh4. That line wins material for them.",
+        "what_happened": "They played Qxg6. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "7868508555103a248df75d93221acddd1ff2bcacde0b0677ee94b73eb30303f3",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r1rk1/2Qb1ppp/p7/3Pp3/4N1n1/8/PPPPNqPP/R1BK3R b - - 2 16",
+        "played_move": "Qf5",
+        "source_ply": 32,
+        "stronger_move": "Qxg2"
+      },
+      "replay": {
+        "played_line": [
+          "Qf5",
+          "d3",
+          "Qh5",
+          "Bg5",
+          "f6"
+        ],
+        "stronger_line": [
+          "Qxg2",
+          "Rg1",
+          "Qxe4",
+          "b3",
+          "Bf5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxg2. That line wins material for you.",
+        "what_happened": "You played Qf5. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "42fac663dff1c37a7ae8fe7c586418a97d0e8db931286ef589a260fd5b1ad196",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r2k/ppp2R2/2n1B1pp/8/4P3/2b1B3/P1P3PP/3R2K1 w - - 6 24",
+        "played_move": "Bxa7",
+        "source_ply": 47,
+        "stronger_move": "Rdd7"
+      },
+      "replay": {
+        "played_line": [
+          "Bxa7",
+          "Rxe6",
+          "Rxc7",
+          "Be5",
+          "Rxb7"
+        ],
+        "stronger_line": [
+          "Rdd7",
+          "Ne7",
+          "Rdxe7",
+          "Rxe7",
+          "Rxe7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rdd7. That line wins material for you.",
+        "what_happened": "You played Bxa7. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "697e0556c8a78196d2c9559b2d3cdc2d82a1a0b03ad29178e35d61afb1556409",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn4rk/pp3p1p/2q1b3/1N4R1/1Q6/3B4/PP3PPP/R5K1 w - - 7 21",
+        "played_move": "Be4",
+        "source_ply": 41,
+        "stronger_move": "Qd4+"
+      },
+      "replay": {
+        "played_line": [
+          "Be4",
+          "Rxg5",
+          "Qd4+",
+          "Rg7",
+          "Qd8+"
+        ],
+        "stronger_line": [
+          "Qd4+",
+          "f6",
+          "Qxf6+",
+          "Rg7",
+          "Qxg7#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qd4+ f6 Qxf6+ Rg7 Qxg7#; the line ends in checkmate.",
+        "what_happened": "They played Be4 and missed the chance."
+      }
+    },
+    {
+      "case_id": "3a64f76370ca0bcafe77fd15b0c2281a7976681eb0ea3d9bf3074a0991b80035",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5b1r/1k3q1p/p3p3/1pPr2p1/1P1PQ3/6P1/5P1P/R1B2RK1 b - - 0 22",
+        "played_move": "Kc8",
+        "source_ply": 44,
+        "stronger_move": "Bg7"
+      },
+      "replay": {
+        "played_line": [
+          "Kc8",
+          "Rxa6",
+          "Bxc5",
+          "bxc5",
+          "Rf8"
+        ],
+        "stronger_line": [
+          "Bg7",
+          "Bb2",
+          "h5",
+          "Rfe1",
+          "Rf8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bg7. That line trades equal material.",
+        "what_happened": "They played Kc8. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a9c60a5ac5d8dcd8c1c30d6932039b911135af19a8c3cdebe63730b00adcc626",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qk2r/pbppppbp/1p4pn/3P4/2n1P3/2N2N2/PPPQ1PPP/R3K2R w KQkq - 0 9",
+        "played_move": "O-O-O",
+        "source_ply": 17,
+        "stronger_move": "Qe2"
+      },
+      "replay": {
+        "played_line": [
+          "O-O-O",
+          "Nxd2",
+          "Rxd2",
+          "Qc8",
+          "e5"
+        ],
+        "stronger_line": [
+          "Qe2",
+          "Nxb2",
+          "e5",
+          "c6",
+          "d6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qe2. That line costs you less material.",
+        "what_happened": "You played O-O-O. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "89ef7bc8459b094651ede31ef922d00c76878c4e895910afc195e472c4dad0bb",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r4rk1/5p1p/p2p1P2/2p1p3/4P2P/3pBP2/1P3QK1/q6R b - - 3 27",
+        "played_move": "Qa5",
+        "source_ply": 54,
+        "stronger_move": "Qxh1+"
+      },
+      "replay": {
+        "played_line": [
+          "Qa5",
+          "Qg3+",
+          "Kh8",
+          "Qg7#"
+        ],
+        "stronger_line": [
+          "Qxh1+",
+          "Kxh1",
+          "Kh8",
+          "Bh6",
+          "Rg8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Qxh1+. Replay it, then keep checking for mate.",
+        "what_happened": "They played Qa5. After Qg3+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "976c72848eb0424d161c2702a0ba91e5f25d77ecac5a6ee0c959a3571fb34ebc",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r3r1k1/p1p2ppp/1p6/3bP3/P2PNP2/4Q1Pq/7P/R4RK1 w - - 3 22",
+        "played_move": "Ng5",
+        "source_ply": 43,
+        "stronger_move": "f5"
+      },
+      "replay": {
+        "played_line": [
+          "Ng5",
+          "Qg2#"
+        ],
+        "stronger_line": [
+          "f5",
+          "c5",
+          "Rad1",
+          "Rad8",
+          "Qf4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played f5. Replay it, then keep checking for mate.",
+        "what_happened": "They played Ng5. After Qg2#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "cafd4305f3ec87abe79de0039f010d3dc76a6987e1b3cac251c6035993c31d3c",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qkbnr/pp1n1ppp/2p1p3/5b2/3PN3/3B1P2/PPP3PP/R1BQK1NR w KQkq - 2 7",
+        "played_move": "Nd6+",
+        "source_ply": 13,
+        "stronger_move": "Qe2"
+      },
+      "replay": {
+        "played_line": [
+          "Nd6+",
+          "Bxd6",
+          "Bxf5",
+          "exf5",
+          "Qd3"
+        ],
+        "stronger_line": [
+          "Qe2",
+          "Ngf6",
+          "Bd2",
+          "c5",
+          "dxc5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qe2. That line wins material for you.",
+        "what_happened": "You played Nd6+. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "ec531ddfd23231a6087441d1bbcefe69e633d011ac759c071262e6b28c2f4e16",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b1kbnr/ppp2ppp/2q5/4p3/8/2N1P3/PP3PPP/R1BQKBNR w KQkq - 0 8",
+        "played_move": "e4",
+        "source_ply": 15,
+        "stronger_move": "Bb5"
+      },
+      "replay": {
+        "played_line": [
+          "e4",
+          "Bb4",
+          "Bd2",
+          "Bxc3",
+          "Bxc3"
+        ],
+        "stronger_line": [
+          "Bb5",
+          "Ne7",
+          "Nf3",
+          "Bd7",
+          "Bxc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bb5. That line wins material for you.",
+        "what_happened": "You played e4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "e82ebed3aed524a0ffe87a2ce8cc1632bde0190923c23f6c5cb8688efeff9b43",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b1kbnr/ppppqppp/8/4n3/8/2N2N2/PPP1PPPP/R1BQKB1R w KQkq - 0 5",
+        "played_move": "Bg5",
+        "source_ply": 9,
+        "stronger_move": "e4"
+      },
+      "replay": {
+        "played_line": [
+          "Bg5",
+          "Nxf3+",
+          "gxf3",
+          "Qxg5",
+          "f4"
+        ],
+        "stronger_line": [
+          "e4",
+          "c6",
+          "Be3",
+          "d6",
+          "Qd2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played e4. That line trades equal material.",
+        "what_happened": "You played Bg5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "e15207d43fca134f8583e91e969439f291e572a0645304a5ccf55d0a538fc772",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qrk2/ppp3p1/7p/3PPQ2/2B2p2/1P2R3/PB1N1PPP/R5K1 b - - 1 25",
+        "played_move": "Ke7",
+        "source_ply": 50,
+        "stronger_move": "Kg8"
+      },
+      "replay": {
+        "played_line": [
+          "Ke7",
+          "d6+",
+          "Qxd6",
+          "exd6+",
+          "Kd8"
+        ],
+        "stronger_line": [
+          "Kg8",
+          "d6+",
+          "Re6",
+          "Bxe6+",
+          "Kh8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Kg8. That line costs you less material.",
+        "what_happened": "You played Ke7. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "7217b90a731329ae00ef962019d798a4de93fabd6627bdd5906381eb22088991",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r1rk1/p1p3q1/b5p1/8/8/2P2Q2/P1P2PP1/R5KR w - - 6 24",
+        "played_move": "Rd1",
+        "source_ply": 47,
+        "stronger_move": "Qg3"
+      },
+      "replay": {
+        "played_line": [
+          "Rd1",
+          "Rxf3",
+          "Rxd8+",
+          "Rf8",
+          "Rd4"
+        ],
+        "stronger_line": [
+          "Qg3",
+          "Bc8",
+          "Rh4",
+          "Rde8",
+          "Rb1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qg3. That line trades equal material.",
+        "what_happened": "You played Rd1. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "700cc6b3b75cb8683d3a4f0ec3e726e0e194741c9a3883cb24c596faa13a270a",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qr1k1/ppp2pp1/5n1p/2bPP3/2B5/1P4Q1/P1bN1PPP/R1B1R1K1 b - - 0 15",
+        "played_move": "Bd6",
+        "source_ply": 30,
+        "stronger_move": "Bd4"
+      },
+      "replay": {
+        "played_line": [
+          "Bd6",
+          "Bb2",
+          "Rxe5",
+          "Bxe5",
+          "Bc5"
+        ],
+        "stronger_line": [
+          "Bd4",
+          "Rb1",
+          "b5",
+          "Bxb5",
+          "Qxd5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bd4. That line trades equal material.",
+        "what_happened": "You played Bd6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "b6fb5a0ecc1ad4673d1f323aa4903a8ef310c910a0a13a587b3d8d7d766b1a4c",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5r1k/1p4b1/pBb1Q3/2Pp3p/5r2/8/6PP/4R2K w - - 3 35",
+        "played_move": "Bc7",
+        "source_ply": 69,
+        "stronger_move": "h3"
+      },
+      "replay": {
+        "played_line": [
+          "Bc7",
+          "Rf1+",
+          "Rxf1",
+          "Rxf1#"
+        ],
+        "stronger_line": [
+          "h3",
+          "Re8",
+          "Qxe8+",
+          "Bxe8",
+          "Rxe8+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played h3. Replay it, then keep checking for mate.",
+        "what_happened": "They played Bc7. After Rf1+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "cd0f415a3e4c1b26aa4c3aa407530433eafb31af8a7ee54fe0bcac2baf5536de",
+      "position": {
+        "actor": "player",
+        "fen_before": "4rrk1/pppq1ppp/2n2n2/8/4B1P1/P1N2Q1P/1PP2P2/2KR3R b - - 0 16",
+        "played_move": "Nxe4",
+        "source_ply": 32,
+        "stronger_move": "Nd4"
+      },
+      "replay": {
+        "played_line": [
+          "Nxe4",
+          "Rxd7",
+          "Ng5",
+          "Qg3",
+          "Ne5"
+        ],
+        "stronger_line": [
+          "Nd4",
+          "Qd3",
+          "Nxe4",
+          "Nxe4",
+          "Qc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played Nd4, avoiding that immediate queen capture.",
+        "what_happened": "You played Nxe4. Rxd7 takes your queen on d7."
+      }
+    },
+    {
+      "case_id": "2094015a1e06b63779228de11f9682cb4b57caa6643142dd8a12fe3dac27350e",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "3r3k/p1p3pp/8/8/1Q2R3/7P/PP1q1PPK/8 w - - 5 26",
+        "played_move": "Rf4",
+        "source_ply": 51,
+        "stronger_move": "Qxd2"
+      },
+      "replay": {
+        "played_line": [
+          "Rf4",
+          "Qxb4",
+          "Rxb4",
+          "h6",
+          "Kg3"
+        ],
+        "stronger_line": [
+          "Qxd2",
+          "Rf8",
+          "Qb4",
+          "Rc8",
+          "Qe7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qxd2, taking your queen on d2 immediately.",
+        "what_happened": "They played Rf4 and missed the chance."
+      }
+    },
+    {
+      "case_id": "603d10da69a842b4677210de9fff73fa91438b9e1936203adb8e877d6fc34ee3",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bq3k/bp1p1Bpp/p2P1n2/P4p2/4p3/3nP3/1B3PPP/RN1Q1RK1 w - - 2 20",
+        "played_move": "Bc4",
+        "source_ply": 39,
+        "stronger_move": "Qb3"
+      },
+      "replay": {
+        "played_line": [
+          "Bc4",
+          "Nxb2",
+          "Qc2",
+          "Nxc4",
+          "Qxc4"
+        ],
+        "stronger_line": [
+          "Qb3",
+          "Bc5",
+          "Bd4",
+          "Bxd4",
+          "exd4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qb3. That line trades equal material.",
+        "what_happened": "You played Bc4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "faf4d95b7b976773f43dc4cc73debbef97ec97e2fe3b2519a22682d704a7dbf3",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "1r6/8/7P/3k4/5K2/1p4P1/1R3P2/8 b - - 0 43",
+        "played_move": "Re8",
+        "source_ply": 86,
+        "stronger_move": "Kd4"
+      },
+      "replay": {
+        "played_line": [
+          "Re8",
+          "Rxb3",
+          "Rf8+",
+          "Kg5",
+          "Rg8+"
+        ],
+        "stronger_line": [
+          "Kd4",
+          "g4",
+          "Kc3",
+          "Rxb3+",
+          "Kxb3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Kd4. That line wins material for them.",
+        "what_happened": "They played Re8. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "fa09768ef4b9ba1de1a059be5abdf418dc6a84409c75672ffafb5baa4ea39cca",
+      "position": {
+        "actor": "player",
+        "fen_before": "rn1qkbnr/3p1ppp/p3p3/1N6/1p2b3/5N2/1PPPBPPP/R1BQK2R w KQkq - 0 9",
+        "played_move": "O-O",
+        "source_ply": 17,
+        "stronger_move": "Nbd4"
+      },
+      "replay": {
+        "played_line": [
+          "O-O",
+          "axb5",
+          "Rxa8",
+          "Bxa8",
+          "Ne5"
+        ],
+        "stronger_line": [
+          "Nbd4",
+          "Nf6",
+          "d3",
+          "Bb7",
+          "c4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nbd4. That line trades equal material.",
+        "what_happened": "You played O-O. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "4e9d9391b8537dcaf62b811398e14090885e064ab9c5892e2efcb37cb15316dc",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "4rrk1/pppq1ppp/2n5/8/4n1P1/P1N2Q1P/1PP2P2/2KR3R w - - 0 17",
+        "played_move": "Nxe4",
+        "source_ply": 33,
+        "stronger_move": "Rxd7"
+      },
+      "replay": {
+        "played_line": [
+          "Nxe4",
+          "Qe6",
+          "Rhe1",
+          "Qc4",
+          "Qh1"
+        ],
+        "stronger_line": [
+          "Rxd7",
+          "Ng5",
+          "Qg3",
+          "Ne4",
+          "Nxe4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Rxd7. That line wins more material for them.",
+        "what_happened": "They played Nxe4. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "67f1974dc70de96794f85285f17e89621279e36dbfe099edf6ee396e918aafbd",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "8/3r1pk1/p6p/3P1K2/1pq5/6P1/7P/1N1R4 w - - 0 40",
+        "played_move": "Nd2",
+        "source_ply": 79,
+        "stronger_move": "Na3"
+      },
+      "replay": {
+        "played_line": [
+          "Nd2",
+          "Rxd5#"
+        ],
+        "stronger_line": [
+          "Na3",
+          "bxa3",
+          "d6",
+          "Qc2+",
+          "Kg4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Na3. Replay it, then keep checking for mate.",
+        "what_happened": "They played Nd2. After Rxd5#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "97c125d210f81a5c7084c44e0ffb453a0a4d3bd4def89687fbac5e1fbcd65f86",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qkbnr/pp2p1pp/2p2p2/3pPQ2/1n1P4/2N2N2/PPP2PPP/R1B1K2R b KQkq - 2 8",
+        "played_move": "Nh6",
+        "source_ply": 16,
+        "stronger_move": "g6"
+      },
+      "replay": {
+        "played_line": [
+          "Nh6",
+          "Bxh6",
+          "Qc8",
+          "Qh5+",
+          "g6"
+        ],
+        "stronger_line": [
+          "g6",
+          "Qe6",
+          "Nxc2+",
+          "Kd1",
+          "Nxa1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played g6. That line wins material for them.",
+        "what_happened": "They played Nh6. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "5893f9faa731a69db93d5513f74c6730d45ca4eb799087186ca065b1e6f79cd2",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qr3/ppp1k1p1/7p/3PP3/2B2Q2/1P2R3/PB1N1PPP/R5K1 b - - 0 26",
+        "played_move": "Kd7",
+        "source_ply": 52,
+        "stronger_move": "Qd7"
+      },
+      "replay": {
+        "played_line": [
+          "Kd7",
+          "Qg4+",
+          "Ke7",
+          "Qxg7#"
+        ],
+        "stronger_line": [
+          "Qd7",
+          "e6",
+          "Qd6",
+          "Qf7+",
+          "Kd8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Qd7. Replay it, then keep checking for mate.",
+        "what_happened": "You played Kd7. After Qg4+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "fc42ea2c9987c2300fca0a0491d88ad8ceae92e55c5293dab348618d06f1f9e6",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k2r/ppp2ppp/2n2n2/3q2N1/1b1Pp1b1/1PP1B3/P3BPPP/RN1QK2R b KQkq - 0 10",
+        "played_move": "Ba5",
+        "source_ply": 20,
+        "stronger_move": "Bxe2"
+      },
+      "replay": {
+        "played_line": [
+          "Ba5",
+          "Bxg4",
+          "Nxg4",
+          "Qxg4",
+          "f5"
+        ],
+        "stronger_line": [
+          "Bxe2",
+          "Qxe2",
+          "h6",
+          "Nh3",
+          "Bd6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxe2. That line trades equal material.",
+        "what_happened": "You played Ba5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "07060d0c540289eb6b3af4109c302340da13aa58a8b58bb224a55363fc123810",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b1kbnr/pp3ppp/1qn1p3/3pP3/Q2P4/5N2/P2B1PPP/RN2KB1R w KQkq - 4 10",
+        "played_move": "Ba5",
+        "source_ply": 19,
+        "stronger_move": "Nc3"
+      },
+      "replay": {
+        "played_line": [
+          "Ba5",
+          "Qxa5+",
+          "Qxa5",
+          "Nxa5",
+          "Bd3"
+        ],
+        "stronger_line": [
+          "Nc3",
+          "a6",
+          "Rb1",
+          "Qa7",
+          "Bd3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nc3. That line trades equal material.",
+        "what_happened": "They played Ba5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "ebce4067b68ab1aeebeea8209604c06f5c9354734587ce0f167cdee9f6c526bd",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqr1k1/1p2npp1/p1Pb3p/4p3/2P1N3/P4N1P/1P3PP1/R1BQR1K1 b - - 0 15",
+        "played_move": "Nxc6",
+        "source_ply": 30,
+        "stronger_move": "Bc7"
+      },
+      "replay": {
+        "played_line": [
+          "Nxc6",
+          "Nxd6",
+          "Bxh3",
+          "Nxe8",
+          "Qxe8"
+        ],
+        "stronger_line": [
+          "Bc7",
+          "cxb7",
+          "Bxb7",
+          "Nc5",
+          "Qxd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bc7. That line wins material for you.",
+        "what_happened": "You played Nxc6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "fa4e4808fd705cd94558bc59c0b03d049d3bc7957ace2d83ab1f0b1669847a0f",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "3r2k1/3r1p2/p4n1p/1p1P2p1/1pP2N2/1P3QPK/Pq5P/1N1R4 w - - 0 33",
+        "played_move": "Nh5",
+        "source_ply": 65,
+        "stronger_move": "Nd3"
+      },
+      "replay": {
+        "played_line": [
+          "Nh5",
+          "g4+",
+          "Qxg4+",
+          "Nxg4",
+          "Rd2"
+        ],
+        "stronger_line": [
+          "Nd3",
+          "g4+",
+          "Qxg4+",
+          "Nxg4",
+          "Nxb2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nd3. That line wins material for them.",
+        "what_happened": "They played Nh5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "ed7ee2e0d811d56f0358c52f18295a4285a9cffd0a0066a345c5c62b71ad90dd",
+      "position": {
+        "actor": "player",
+        "fen_before": "4R3/pppk4/3p4/7p/1PP1P3/P1br4/6K1/8 w - - 2 37",
+        "played_move": "Rh8",
+        "source_ply": 73,
+        "stronger_move": "Rf8"
+      },
+      "replay": {
+        "played_line": [
+          "Rh8",
+          "Bxh8",
+          "b5",
+          "Rxa3",
+          "Kg1"
+        ],
+        "stronger_line": [
+          "Rf8",
+          "h4",
+          "Rf7+",
+          "Ke6",
+          "Rh7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rf8. That line trades equal material.",
+        "what_happened": "You played Rh8. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "7e915541d8e79710439ff1a52787edcd71b2b072e5ecb3e6af9b9fa530ef5d56",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk1nr/pppp1ppp/2n5/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4",
+        "played_move": "Nf6",
+        "source_ply": 8,
+        "stronger_move": "Qxg5"
+      },
+      "replay": {
+        "played_line": [
+          "Nf6",
+          "Nxf7",
+          "Bxf2+",
+          "Kf1",
+          "Qe7"
+        ],
+        "stronger_line": [
+          "Qxg5",
+          "O-O",
+          "Qg6",
+          "b4",
+          "Bb6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxg5. That line wins material for you.",
+        "what_happened": "You played Nf6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "26748ca038638e0e167c380b0816a7ccc12deebd4a687b3539cd664e6f624585",
+      "position": {
+        "actor": "player",
+        "fen_before": "6rk/1R4pp/p7/3n1p2/4p3/4b1Q1/5PPP/6K1 w - - 0 40",
+        "played_move": "Ra7",
+        "source_ply": 79,
+        "stronger_move": "fxe3"
+      },
+      "replay": {
+        "played_line": [
+          "Ra7",
+          "Bxa7",
+          "Qd6",
+          "Nf6",
+          "Qf4"
+        ],
+        "stronger_line": [
+          "fxe3",
+          "a5",
+          "Qe5",
+          "Nxe3",
+          "Rb8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played fxe3. That line wins material for you.",
+        "what_happened": "You played Ra7. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "bbc2560744c2de22a75ff2eb526ff42c026f850cc51f5a1032af85312f5cdc16",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qr1k1/ppp2pp1/6bp/3PP3/1bB2n2/1P2RNQ1/PB3PPP/R5K1 b - - 10 20",
+        "played_move": "Bd2",
+        "source_ply": 40,
+        "stronger_move": "Nxd5"
+      },
+      "replay": {
+        "played_line": [
+          "Bd2",
+          "Nxd2",
+          "Nxd5",
+          "e6",
+          "Kh7"
+        ],
+        "stronger_line": [
+          "Nxd5",
+          "e6",
+          "Bf8",
+          "exf7+",
+          "Bxf7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nxd5. That line wins material for you.",
+        "what_happened": "You played Bd2. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "c19e3eaf8f3f45b482e94ba4b071634c187611e377c2f286dba7cdd004e155c4",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/ppQ5/6p1/6k1/6P1/P6P/1PP2P2/2K5 b - - 0 28",
+        "played_move": "Kh4",
+        "source_ply": 56,
+        "stronger_move": "Kf6"
+      },
+      "replay": {
+        "played_line": [
+          "Kh4",
+          "Qf4",
+          "Kxh3",
+          "Qg3#"
+        ],
+        "stronger_line": [
+          "Kf6",
+          "Qxb7",
+          "a5",
+          "Kd2",
+          "g5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Kf6. Replay it, then keep checking for mate.",
+        "what_happened": "You played Kh4. After Qf4, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "0cf8452b1a3221cb2d8d78a12e71147256fb3c6eebcb94ebb6d10b622d5880e0",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r4k2/p4p1p/b1pq3Q/3p3n/B3p1pP/2NP4/PPP2PP1/R4RK1 b - - 1 17",
+        "played_move": "Ng7",
+        "source_ply": 34,
+        "stronger_move": "Qxh6"
+      },
+      "replay": {
+        "played_line": [
+          "Ng7",
+          "Qxd6+",
+          "Kg8",
+          "Qxc6",
+          "Rc8"
+        ],
+        "stronger_line": [
+          "Qxh6",
+          "g3",
+          "Rb8",
+          "Bb3",
+          "exd3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxh6. That line wins material for them.",
+        "what_happened": "They played Ng7. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "3db205b06644f968bd82e1bc8f516af0d3947e04023b4978efd08939ae7e55fa",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk2r/ppp1nppp/8/3p4/3n4/2N5/PPP1QPPP/R3KBNR w KQkq - 0 8",
+        "played_move": "O-O-O",
+        "source_ply": 15,
+        "stronger_move": "Qd2"
+      },
+      "replay": {
+        "played_line": [
+          "O-O-O",
+          "Nxe2+",
+          "Ngxe2",
+          "Bf5",
+          "Nf4"
+        ],
+        "stronger_line": [
+          "Qd2",
+          "c5",
+          "O-O-O",
+          "O-O",
+          "Nge2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played Qd2, avoiding that immediate queen capture.",
+        "what_happened": "You played O-O-O. Nxe2+ takes your queen on e2."
+      }
+    },
+    {
+      "case_id": "d8f28e2231f2e11bed321a77769d0859a8eef708a55bec5406283c4c67d20513",
+      "position": {
+        "actor": "player",
+        "fen_before": "2k2r1r/1p1qn3/1p2N3/2pPQ3/2P5/6Pp/P4P1P/R4K1R b - - 0 29",
+        "played_move": "Rf5",
+        "source_ply": 58,
+        "stronger_move": "Re8"
+      },
+      "replay": {
+        "played_line": [
+          "Rf5",
+          "Qxh8+",
+          "Ng8",
+          "Qxg8+",
+          "Rf8"
+        ],
+        "stronger_line": [
+          "Re8",
+          "Re1",
+          "Ng6",
+          "Qc3",
+          "Qa4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Re8. That line trades equal material.",
+        "what_happened": "You played Rf5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "99169a5ded15c9702dcaf49be99b8c136d23c61e0ccd626aa4c256afa927e2a8",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r2k1/3r1p2/p6p/3P3N/1pP3K1/6P1/Pq5P/1N1R4 b - - 0 36",
+        "played_move": "Qxa2",
+        "source_ply": 72,
+        "stronger_move": "Qe2+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxa2",
+          "Nd2",
+          "Rd6",
+          "Kh3",
+          "Qc2"
+        ],
+        "stronger_line": [
+          "Qe2+",
+          "Kf4",
+          "Qxh5",
+          "Re1",
+          "Qxh2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Qe2+. That line wins more material for you.",
+        "what_happened": "You played Qxa2. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "5fc5504e7d0bbf67d3b9b62933e2751d24239e56ad664c6060d77b0fa94f149e",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn2q1rk/pp3p1p/4b3/1N4R1/1Q2B3/8/PP3PPP/R5K1 w - - 9 22",
+        "played_move": "Rxg8+",
+        "source_ply": 43,
+        "stronger_move": "Qd4+"
+      },
+      "replay": {
+        "played_line": [
+          "Rxg8+",
+          "Kxg8",
+          "Nc7",
+          "Nc6",
+          "Bxh7+"
+        ],
+        "stronger_line": [
+          "Qd4+",
+          "f6",
+          "Qxf6+",
+          "Rg7",
+          "Qxg7#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qd4+ f6 Qxf6+ Rg7 Qxg7#; the line ends in checkmate.",
+        "what_happened": "They played Rxg8+ and missed the chance."
+      }
+    },
+    {
+      "case_id": "c727542c9d0771fcf81684baefed6fc1f65ad08ac6b69d0e3f00fb2bc2f3b4f3",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r1k1/pp1rb1p1/2p2p2/3q3p/3B4/P2RQN1P/5PP1/3R2K1 w - - 5 24",
+        "played_move": "Qd2",
+        "source_ply": 47,
+        "stronger_move": "Bxa7"
+      },
+      "replay": {
+        "played_line": [
+          "Qd2",
+          "Red8",
+          "Be3",
+          "Qxd3",
+          "Qa2+"
+        ],
+        "stronger_line": [
+          "Bxa7",
+          "Qxd3",
+          "Rxd3",
+          "Rxd3",
+          "Qxd3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxa7. That line wins material for you.",
+        "what_happened": "You played Qd2. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "46732ccb0859a4805bb52ccfb02c8fcf337202a0ee83663d35eded25c433e146",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "3r3k/p1p3pp/8/8/1Q2R3/7P/PP1q1PPK/8 w - - 5 26",
+        "played_move": "Rf4",
+        "source_ply": 51,
+        "stronger_move": "Qxd2"
+      },
+      "replay": {
+        "played_line": [
+          "Rf4",
+          "Qxb4",
+          "Rxb4",
+          "h6",
+          "Kg3"
+        ],
+        "stronger_line": [
+          "Qxd2",
+          "Rf8",
+          "Qb4",
+          "Rc8",
+          "Qe7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxd2. That line wins material for them.",
+        "what_happened": "They played Rf4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "5bafc92f9409425774428b670cb3a0d276d6ed751595f6ab5f6c696a8b1c0345",
+      "position": {
+        "actor": "player",
+        "fen_before": "rnb1kbnr/ppp1pppp/2q5/3N2R1/2B5/5N2/PPPP1P1P/R1BQK3 w Qkq - 8 10",
+        "played_move": "Ne5",
+        "source_ply": 19,
+        "stronger_move": "Bb5"
+      },
+      "replay": {
+        "played_line": [
+          "Ne5",
+          "Qd6",
+          "Nxf7",
+          "Qxh2",
+          "Qf3"
+        ],
+        "stronger_line": [
+          "Bb5",
+          "Kd8",
+          "Bxc6",
+          "Nxc6",
+          "d4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bb5. That line wins material for you.",
+        "what_happened": "You played Ne5. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "9b6f8f7804b9220cc580d8d7c6b42d106ee385e6aed9da44a2ebfbd5e2d4335f",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2rqk1nr/p5pp/2p1bp2/2P1p3/8/P1N2N2/2PP1PPP/R1BQ1RK1 b k - 0 12",
+        "played_move": "Qd4",
+        "source_ply": 24,
+        "stronger_move": "Ne7"
+      },
+      "replay": {
+        "played_line": [
+          "Qd4",
+          "Nxd4",
+          "exd4",
+          "Ne2",
+          "d3"
+        ],
+        "stronger_line": [
+          "Ne7",
+          "d4",
+          "O-O",
+          "Re1",
+          "Nd5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Ne7. That line trades equal material.",
+        "what_happened": "They played Qd4. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a9bc8147433ee6d7e15363129cd8f8c8aad79ec16acf5d72f9c60f52b74c79f8",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r4r1k/ppp3pp/8/4qN2/4n3/1Q6/PP3PPP/R3R1K1 w - - 0 19",
+        "played_move": "Qxb7",
+        "source_ply": 37,
+        "stronger_move": "Ng3"
+      },
+      "replay": {
+        "played_line": [
+          "Qxb7",
+          "Qxf5",
+          "Qxe4",
+          "Qxf2+",
+          "Kh1"
+        ],
+        "stronger_line": [
+          "Ng3",
+          "Rxf2",
+          "Qxb7",
+          "Raf8",
+          "Qxe4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Ng3. That line wins material for them.",
+        "what_happened": "They played Qxb7. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "07287d2bce8807cf084c278e2a5e6213a4ffd848500bf04b72062c2cf82a8cd0",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q3r/1pp3kp/p3Rbp1/3b4/6Q1/8/PPP2P1P/2KR4 b - - 0 20",
+        "played_move": "c6",
+        "source_ply": 40,
+        "stronger_move": "Bxe6"
+      },
+      "replay": {
+        "played_line": [
+          "c6",
+          "Rxf6",
+          "Qxf6",
+          "c4",
+          "Bf7"
+        ],
+        "stronger_line": [
+          "Bxe6",
+          "Qxe6",
+          "Bg5+",
+          "Qe3",
+          "Bxe3+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bxe6. That line wins more material for them.",
+        "what_happened": "They played c6. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "5ab5152b2af79b754dfc1a516e20f5d63bcd7ff53772643439e50e45cfbd98b4",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b1kb1r/pppp1pp1/5q1p/n7/2B1PpP1/5N2/PPPP3P/R1BQK2R b KQkq g3 0 8",
+        "played_move": "Bc5",
+        "source_ply": 16,
+        "stronger_move": "Nxc4"
+      },
+      "replay": {
+        "played_line": [
+          "Bc5",
+          "e5",
+          "Qc6",
+          "Be2",
+          "d6"
+        ],
+        "stronger_line": [
+          "Nxc4",
+          "O-O",
+          "d5",
+          "b3",
+          "Nb6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Nxc4, taking your bishop on c4 immediately.",
+        "what_happened": "They played Bc5 and missed the chance."
+      }
+    },
+    {
+      "case_id": "921c4c56f675026a4af0aa85b68a48a7d122cdfa8b179e80ddd545bcb545170c",
+      "position": {
+        "actor": "player",
+        "fen_before": "5r2/p6p/3Q4/3p2pk/8/NP1PP3/P2PK1PP/b7 b - - 2 23",
+        "played_move": "Kh4",
+        "source_ply": 46,
+        "stronger_move": "Bg7"
+      },
+      "replay": {
+        "played_line": [
+          "Kh4",
+          "Qh6+",
+          "Kg4",
+          "Qh3#"
+        ],
+        "stronger_line": [
+          "Bg7",
+          "Qxd5",
+          "Kg6",
+          "d4",
+          "h5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Bg7. Replay it, then keep checking for mate.",
+        "what_happened": "You played Kh4. After Qh6+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "8c122210af434b9ee002a6b35a188a0c7c81e60d323c0fb4b396e5ada276dd8c",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn2q1rk/pp3p1p/4b3/1N4R1/1Q2B3/8/PP3PPP/R5K1 w - - 9 22",
+        "played_move": "Rxg8+",
+        "source_ply": 43,
+        "stronger_move": "Qd4+"
+      },
+      "replay": {
+        "played_line": [
+          "Rxg8+",
+          "Kxg8",
+          "Nc7",
+          "Nc6",
+          "Bxh7+"
+        ],
+        "stronger_line": [
+          "Qd4+",
+          "f6",
+          "Qxf6+",
+          "Rg7",
+          "Qxg7#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "They could have played Qd4+; that replay ends in checkmate.",
+        "what_happened": "They played Rxg8+ and let the finish go."
+      }
+    },
+    {
+      "case_id": "92ea926f6232cc0f79ded651e6ea047f0c40b713abb2fdd11f625cf7595f52f2",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r2k1/pp2b3/2p2p2/3r3p/8/P4N1P/3Q1PP1/3R2K1 w - - 0 27",
+        "played_move": "Qh6",
+        "source_ply": 53,
+        "stronger_move": "Qa2"
+      },
+      "replay": {
+        "played_line": [
+          "Qh6",
+          "Rxd1+",
+          "Kh2",
+          "R8d5",
+          "Qg6+"
+        ],
+        "stronger_line": [
+          "Qa2",
+          "a5",
+          "Rxd5",
+          "Rxd5",
+          "g3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qa2. That line trades equal material.",
+        "what_happened": "You played Qh6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "5599c791bb94fedfc378869af3c76c3731988a41cdeba9570decaeb9c738cd5b",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r2k1/3r1p2/p6p/1p1P3N/1pP3K1/1P4P1/Pq5P/1N1R4 b - - 0 35",
+        "played_move": "bxc4",
+        "source_ply": 70,
+        "stronger_move": "Qe2+"
+      },
+      "replay": {
+        "played_line": [
+          "bxc4",
+          "Re1",
+          "Kh8",
+          "Na3",
+          "Qf2"
+        ],
+        "stronger_line": [
+          "Qe2+",
+          "Kf4",
+          "Qxh5",
+          "Re1",
+          "Qxh2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qe2+. That line wins more material for you.",
+        "what_happened": "You played bxc4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "41a179bd7de3bdfecfacfd1488b8686d912a1d6a7f5d4515f2e93df6d7203a54",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r1k1/pp3pp1/2p2qnp/3p4/5Pb1/2N1rNP1/PPP1B2P/2KR1R2 w - - 6 18",
+        "played_move": "Rde1",
+        "source_ply": 35,
+        "stronger_move": "f5"
+      },
+      "replay": {
+        "played_line": [
+          "Rde1",
+          "Bxf3",
+          "Rf2",
+          "Bg4",
+          "f5"
+        ],
+        "stronger_line": [
+          "f5",
+          "Nf8",
+          "Nd4",
+          "Bxe2",
+          "Ncxe2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played f5. That line trades equal material.",
+        "what_happened": "You played Rde1. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "3b6cba3aad65f49ad001c22f6e0cc22bf7f735087d4fa2fe82afc4d26013e9d5",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q3r/1pp3kp/p3Rbp1/3b4/6Q1/8/PPP2P1P/2KR4 b - - 0 20",
+        "played_move": "c6",
+        "source_ply": 40,
+        "stronger_move": "Bxe6"
+      },
+      "replay": {
+        "played_line": [
+          "c6",
+          "Rxf6",
+          "Qxf6",
+          "c4",
+          "Bf7"
+        ],
+        "stronger_line": [
+          "Bxe6",
+          "Qxe6",
+          "Bg5+",
+          "Qe3",
+          "Bxe3+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Bxe6, taking your rook on e6 immediately.",
+        "what_happened": "They played c6 and missed the chance."
+      }
+    },
+    {
+      "case_id": "61c5a36b1679f23a969ded02a794be07e37c259b71726b4be5c31087ca19f968",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "6kr/2p1Q3/6r1/p2P2B1/5P2/6P1/PP1K4/4R3 b - - 4 34",
+        "played_move": "Rg7",
+        "source_ply": 68,
+        "stronger_move": "Rh2+"
+      },
+      "replay": {
+        "played_line": [
+          "Rg7",
+          "Qe8+",
+          "Kh7",
+          "Rh1#"
+        ],
+        "stronger_line": [
+          "Rh2+",
+          "Re2",
+          "Rxe2+",
+          "Kxe2",
+          "Rg7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Rh2+. Replay it, then keep checking for mate.",
+        "what_happened": "They played Rg7. After Qe8+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "3fe96d64ecbfcc37ba13feeaa13d258e8096bdb9fcd3cfd98cefeb88ba48cedd",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qk2r/pbp1bpp1/1p3n1p/3PN3/1PBn4/P1NPB3/2P2PPP/R2QK2R b KQkq - 0 10",
+        "played_move": "c5",
+        "source_ply": 20,
+        "stronger_move": "Nf5"
+      },
+      "replay": {
+        "played_line": [
+          "c5",
+          "dxc6",
+          "Nxc6",
+          "Nxf7",
+          "Qc7"
+        ],
+        "stronger_line": [
+          "Nf5",
+          "Bb5+",
+          "Kf8",
+          "Bc6",
+          "Bxc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nf5. That line wins material for them.",
+        "what_happened": "They played c5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "95ddf5e7db6ace34a467366bf380dd3e0cae48ea0e7f29afa96f53b24ba2a0f4",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2r3k1/5p2/7p/6NP/1p2b1Q1/pP2B1K1/q4P2/8 b - - 0 37",
+        "played_move": "Rc5",
+        "source_ply": 74,
+        "stronger_move": "f5"
+      },
+      "replay": {
+        "played_line": [
+          "Rc5",
+          "Nxe4+",
+          "Rg5",
+          "Nxg5",
+          "Qa1"
+        ],
+        "stronger_line": [
+          "f5",
+          "Qh4",
+          "Qa1",
+          "Nxe4",
+          "Qe5+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played f5. That line costs them less material.",
+        "what_happened": "They played Rc5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "cdf0c6bf4209c84dba0a4c7d3c7ed70ed987364b342442e4d9621d282de9f6c8",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2r2rk1/pQ3ppp/4b3/8/q2p4/3P4/1PP2PPP/2KR1B1R w - - 1 16",
+        "played_move": "Qe4",
+        "source_ply": 31,
+        "stronger_move": "c4"
+      },
+      "replay": {
+        "played_line": [
+          "Qe4",
+          "Qxc2#"
+        ],
+        "stronger_line": [
+          "c4",
+          "dxc3",
+          "bxc3",
+          "Qa1+",
+          "Kd2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played c4. Replay it, then keep checking for mate.",
+        "what_happened": "They played Qe4. After Qxc2#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "037f5834dd46159fefdb11f7d774abafff9654affff6a3e88bc0a730d10f0071",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5b1r/1k3q1p/p3p3/1pPr1pp1/1P1PP3/5QP1/5P1P/R1B2RK1 b - - 0 21",
+        "played_move": "fxe4",
+        "source_ply": 42,
+        "stronger_move": "Bh6"
+      },
+      "replay": {
+        "played_line": [
+          "fxe4",
+          "Qxf7+",
+          "Kb8",
+          "Rxa6",
+          "Bxc5"
+        ],
+        "stronger_line": [
+          "Bh6",
+          "exd5",
+          "exd5",
+          "c6+",
+          "Kb6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bh6. That line costs them less material.",
+        "what_happened": "They played fxe4. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a1f2be1fe88425f4814a7bb77765e4fedc87d374c84da796cfda13efaf8fdfce",
+      "position": {
+        "actor": "player",
+        "fen_before": "6kr/2p1Q3/6r1/p2P2B1/5P2/6P1/PP1K4/R7 w - - 3 34",
+        "played_move": "Re1",
+        "source_ply": 67,
+        "stronger_move": "Qd8+"
+      },
+      "replay": {
+        "played_line": [
+          "Re1",
+          "Rh2+",
+          "Re2",
+          "Rxe2+",
+          "Kxe2"
+        ],
+        "stronger_line": [
+          "Qd8+",
+          "Kf7",
+          "Qxh8",
+          "Rd6",
+          "Qe5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qd8+. That line wins material for you.",
+        "what_happened": "You played Re1. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "8242e7564eb70f1129773e6d7fe881cbb3587bac66ae46df5df1bbe25d823ea1",
+      "position": {
+        "actor": "player",
+        "fen_before": "rnb1k2r/ppppqppp/3n4/4N3/5P2/P1P5/1PP3PP/R1BQKB1R w KQkq - 1 8",
+        "played_move": "Bc4",
+        "source_ply": 15,
+        "stronger_move": "Be2"
+      },
+      "replay": {
+        "played_line": [
+          "Bc4",
+          "Nxc4",
+          "O-O",
+          "Nxe5",
+          "fxe5"
+        ],
+        "stronger_line": [
+          "Be2",
+          "O-O",
+          "O-O",
+          "Ne4",
+          "Ng4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Be2. That line trades equal material.",
+        "what_happened": "You played Bc4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "07c933ab791818deae6c43f6258bdad3f80dae80443a9d5243bf68cd5f1c318b",
+      "position": {
+        "actor": "player",
+        "fen_before": "2kr1b1r/1b3q1p/p3p3/1pP2pp1/1P1P4/4P1P1/5PBP/R1BQ1RK1 w - - 0 19",
+        "played_move": "Bxb7+",
+        "source_ply": 37,
+        "stronger_move": "c6"
+      },
+      "replay": {
+        "played_line": [
+          "Bxb7+",
+          "Qxb7",
+          "Qc2",
+          "h5",
+          "Qa2"
+        ],
+        "stronger_line": [
+          "c6",
+          "Rd6",
+          "cxb7+",
+          "Kb8",
+          "Qc2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played c6. That line wins material for you.",
+        "what_happened": "You played Bxb7+. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "1256d629b9719e2907ef01dcbe8eed616c083c6a257d7d9127aef8465994777e",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r3k1nr/pbpn1ppp/1p3q2/3pN3/Pb6/6P1/1BPPPPBP/RN1QK2R w KQkq - 1 8",
+        "played_move": "f4",
+        "source_ply": 15,
+        "stronger_move": "Nd3"
+      },
+      "replay": {
+        "played_line": [
+          "f4",
+          "Nxe5",
+          "Bxe5",
+          "Qg6",
+          "Na3"
+        ],
+        "stronger_line": [
+          "Nd3",
+          "Qe7",
+          "Bxg7",
+          "f6",
+          "Bxh8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nd3. That line wins material for them.",
+        "what_happened": "They played f4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "d21cb41b451da13858049b4f1b44d355821b7d260497d7c35ce66d7b3209fc4f",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk2r/2pp1p2/1pnbpn2/p5pp/2P1P3/2NP2PP/PP2NPB1/R1BQ1RK1 w kq - 0 10",
+        "played_move": "Kh2",
+        "source_ply": 19,
+        "stronger_move": "Bxg5"
+      },
+      "replay": {
+        "played_line": [
+          "Kh2",
+          "e5",
+          "d4",
+          "g4",
+          "h4"
+        ],
+        "stronger_line": [
+          "Bxg5",
+          "Rg8",
+          "f4",
+          "Rxg5",
+          "fxg5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxg5. That line wins material for you.",
+        "what_happened": "You played Kh2. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "c3c6fcb469affe4fd83228604722fef9be02a9123e39cbe4487a8a8c310e1ae8",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q1rk1/pp2ppbp/n1p1bnp1/3p2N1/8/1P1BP1Q1/PBPP1PPP/RN2K2R w KQ - 6 10",
+        "played_move": "Nxe6",
+        "source_ply": 19,
+        "stronger_move": "Qh4"
+      },
+      "replay": {
+        "played_line": [
+          "Nxe6",
+          "fxe6",
+          "Qh3",
+          "Nc5",
+          "Be2"
+        ],
+        "stronger_line": [
+          "Qh4",
+          "Nh5",
+          "Bxg7",
+          "Kxg7",
+          "Nxe6+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qh4. That line wins material for them.",
+        "what_happened": "They played Nxe6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "1c2573cc404a174882be37cecd2e8f2fb33bd495dc616e20a2110dd34cde50ee",
+      "position": {
+        "actor": "player",
+        "fen_before": "1k3r2/1ppbr2p/p1nb4/3p2p1/3P1p2/2PQ1P1P/PP1N2P1/2KR2N1 w - - 0 21",
+        "played_move": "Ne2",
+        "source_ply": 41,
+        "stronger_move": "Qf1"
+      },
+      "replay": {
+        "played_line": [
+          "Ne2",
+          "Bf5",
+          "Nxf4",
+          "Bxd3",
+          "Nxd3"
+        ],
+        "stronger_line": [
+          "Qf1",
+          "Rfe8",
+          "Nb3",
+          "Bf5",
+          "h4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qf1. That line trades equal material.",
+        "what_happened": "You played Ne2. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "18916e71ac957ba50d490f45bfd8c5640cbf9a1f54087fa9c0fc6c7194c43e0d",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2rkr3/p2n1Q1p/1qpB1p2/3p4/nP6/P4N2/5PPP/2R2RK1 w - - 5 27",
+        "played_move": "Rfd1",
+        "source_ply": 53,
+        "stronger_move": "Rfe1"
+      },
+      "replay": {
+        "played_line": [
+          "Rfd1",
+          "c5",
+          "bxc5",
+          "Naxc5",
+          "Rxd5"
+        ],
+        "stronger_line": [
+          "Rfe1",
+          "Qe3",
+          "Rxe3",
+          "Ne5",
+          "Qxf6+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Rfe1. That line wins more material for them.",
+        "what_happened": "They played Rfd1. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "7fcfe08c3e1400c5d39c319682cca032e90eb26a0a478db2453ab4f2a5944a57",
+      "position": {
+        "actor": "player",
+        "fen_before": "5b1r/1k3q1p/p3p3/1pPr2p1/1P1Pp3/5QP1/5P1P/R1B2RK1 w - - 0 22",
+        "played_move": "Qxe4",
+        "source_ply": 43,
+        "stronger_move": "Qxf7+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxe4",
+          "Bg7",
+          "Bb2",
+          "Qd7",
+          "Rfe1"
+        ],
+        "stronger_line": [
+          "Qxf7+",
+          "Be7",
+          "Qxe7+",
+          "Kb8",
+          "Rxa6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Qxf7+. That line wins more material for you.",
+        "what_happened": "You played Qxe4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "5c10061dfedec004f76ba29adeff32c4669949c8cf479bb6edcf2bfa5cdbce4f",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qk2r/p2nb2p/2p1pp2/3p4/n6B/PN3N2/1P2QPPP/1R3RK1 w kq - 6 20",
+        "played_move": "Na5",
+        "source_ply": 39,
+        "stronger_move": "Qxe6"
+      },
+      "replay": {
+        "played_line": [
+          "Na5",
+          "Qxa5",
+          "Qxe6",
+          "Nac5",
+          "Qxc6"
+        ],
+        "stronger_line": [
+          "Qxe6",
+          "Nac5",
+          "Nxc5",
+          "Nxc5",
+          "Qxc6+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxe6. That line wins material for them.",
+        "what_happened": "They played Na5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "d861bf19c018fae760401b16bd6aa53f138ca4ad025ba58932dec6408143a72b",
+      "position": {
+        "actor": "player",
+        "fen_before": "rn2kb1r/p1Qp1pp1/3npq1p/8/3P4/3B1N2/PP3PPP/R1B1K2R w KQkq - 0 11",
+        "played_move": "Bf4",
+        "source_ply": 21,
+        "stronger_move": "Ne5"
+      },
+      "replay": {
+        "played_line": [
+          "Bf4",
+          "Qxf4",
+          "Rc1",
+          "Be7",
+          "O-O"
+        ],
+        "stronger_line": [
+          "Ne5",
+          "Qd8",
+          "Qxd8+",
+          "Kxd8",
+          "Be4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Ne5. That line trades equal material.",
+        "what_happened": "You played Bf4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "46ca5bdc1f8fc9c762549e8e9cac3963ee2ad920b4fd061d4ed0fc0e5ed744dc",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b4r/pp3kbp/4pnp1/1B1pqpB1/1Q6/2N5/PPP2PPP/R4RK1 w - - 4 16",
+        "played_move": "f4",
+        "source_ply": 31,
+        "stronger_move": "Bf4"
+      },
+      "replay": {
+        "played_line": [
+          "f4",
+          "Qc7",
+          "Bh4",
+          "Bd7",
+          "Rae1"
+        ],
+        "stronger_line": [
+          "Bf4",
+          "Ng4",
+          "Bxe5",
+          "Bxe5",
+          "h3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bf4. That line wins material for them.",
+        "what_happened": "They played f4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "3475b699bb8d6f312787e1740cd6e1a8e2256282ab3d6bb1487b5285f299ce98",
+      "position": {
+        "actor": "player",
+        "fen_before": "b3Rbk1/p4p1p/2p3pB/2p5/3P4/2Pp1N2/P4PPP/2q3K1 w - - 2 21",
+        "played_move": "Ne1",
+        "source_ply": 41,
+        "stronger_move": "Bxc1"
+      },
+      "replay": {
+        "played_line": [
+          "Ne1",
+          "Qxh6",
+          "f4",
+          "Kg7",
+          "Nxd3"
+        ],
+        "stronger_line": [
+          "Bxc1",
+          "Kg7",
+          "Rxa8",
+          "cxd4",
+          "Bd2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxc1. That line wins material for you.",
+        "what_happened": "You played Ne1. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "a221ac63fa3fec03fc1fb2878bcd5c28dc37f238f010d88fbe0ac248b65cdd49",
+      "position": {
+        "actor": "player",
+        "fen_before": "4R3/3k4/8/3p4/3N4/3K4/8/2R5 w - - 3 71",
+        "played_move": "Rf1",
+        "source_ply": 141,
+        "stronger_move": "Rcc8"
+      },
+      "replay": {
+        "played_line": [
+          "Rf1",
+          "Kxe8",
+          "Rf5",
+          "Ke7",
+          "Rxd5"
+        ],
+        "stronger_line": [
+          "Rcc8",
+          "Kd6",
+          "Red8+",
+          "Ke7",
+          "Rxd5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rcc8. That line wins material for you.",
+        "what_happened": "You played Rf1. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "426f87d16a1247fc76c3af71a7e013c791d3870e171a28bc1851b492472f6d8a",
+      "position": {
+        "actor": "player",
+        "fen_before": "6k1/pp2r1p1/2p3np/3p1p2/3q1PB1/2N3P1/PPP4P/2K5 w - - 0 24",
+        "played_move": "Bxf5",
+        "source_ply": 47,
+        "stronger_move": "Bh5"
+      },
+      "replay": {
+        "played_line": [
+          "Bxf5",
+          "Re1+",
+          "Nd1",
+          "Qxd1#"
+        ],
+        "stronger_line": [
+          "Bh5",
+          "Qe3+",
+          "Kb1",
+          "Qg1+",
+          "Nd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Bh5. Replay it, then keep checking for mate.",
+        "what_happened": "You played Bxf5. After Re1+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "08a9b369ff22c85832451ca67e0c92526a2a84830a50cb927a3cc1e9d941b3ce",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b1kbnr/1p3ppp/p3p3/2PpP3/3B1P2/8/q2N2PP/2RQKB1R b Kkq - 0 13",
+        "played_move": "Ne7",
+        "source_ply": 26,
+        "stronger_move": "Qa5"
+      },
+      "replay": {
+        "played_line": [
+          "Ne7",
+          "Ra1",
+          "Qxa1",
+          "Bxa1",
+          "Bd7"
+        ],
+        "stronger_line": [
+          "Qa5",
+          "Bd3",
+          "Ne7",
+          "O-O",
+          "Nc6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qa5. That line trades equal material.",
+        "what_happened": "You played Ne7. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "4ed24d44de1449be2bbc149a893f064090dfde748da91ab6ecb9ed8fb930ac47",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "4rrk1/1ppq2bp/5np1/p7/P1PN4/1PN1B1PP/7K/1Q3R2 w - - 1 22",
+        "played_move": "Rd1",
+        "source_ply": 43,
+        "stronger_move": "Qe1"
+      },
+      "replay": {
+        "played_line": [
+          "Rd1",
+          "Rxe3",
+          "Nc2",
+          "Rd3",
+          "Nd5"
+        ],
+        "stronger_line": [
+          "Qe1",
+          "Ng4+",
+          "hxg4",
+          "Rxf1",
+          "Qxf1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qe1. That line wins material for them.",
+        "what_happened": "They played Rd1. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "60a64b3df9dde161ecd80532532839699a1b0c36407a1197939876cb473f86e6",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/5k2/R1qrp1pp/2bp1p2/5P2/1QPB4/1P4PP/5R1K b - - 0 31",
+        "played_move": "Qxa6",
+        "source_ply": 62,
+        "stronger_move": "Qc7"
+      },
+      "replay": {
+        "played_line": [
+          "Qxa6",
+          "Bxa6",
+          "Rb6",
+          "Qa4",
+          "Be3"
+        ],
+        "stronger_line": [
+          "Qc7",
+          "Rxd6",
+          "Bxd6",
+          "Ba6",
+          "Bxf4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qc7. That line wins material for you.",
+        "what_happened": "You played Qxa6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "2f85f1cd3e1aa046992c4d77f132b55618fede6885ea1113babb85a08e2d1f9b",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "6k1/pp3pp1/2p1bn1p/4R3/PP2N3/8/3r1PPP/4R1K1 b - - 1 28",
+        "played_move": "Ng4",
+        "source_ply": 56,
+        "stronger_move": "Nxe4"
+      },
+      "replay": {
+        "played_line": [
+          "Ng4",
+          "Nxd2",
+          "Nxe5",
+          "Rxe5",
+          "Kf8"
+        ],
+        "stronger_line": [
+          "Nxe4",
+          "R5xe4",
+          "Ra2",
+          "a5",
+          "b6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nxe4. That line trades equal material.",
+        "what_happened": "They played Ng4. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "8beb01454914b4c506dbc36ef16926c7c93a15595584e68344043d5c56d26e15",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1bq1rk1/ppp3pp/8/4p1N1/1b1n1p2/2PB4/PP3PPP/R1BQ1RK1 w - - 0 14",
+        "played_move": "Ne4",
+        "source_ply": 27,
+        "stronger_move": "Bxh7+"
+      },
+      "replay": {
+        "played_line": [
+          "Ne4",
+          "f3",
+          "cxd4",
+          "fxg2",
+          "Kxg2"
+        ],
+        "stronger_line": [
+          "Bxh7+",
+          "Kh8",
+          "Qh5",
+          "Qxg5",
+          "Qxg5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Bxh7+, taking your pawn on h7 immediately.",
+        "what_happened": "They played Ne4 and missed the chance."
+      }
+    },
+    {
+      "case_id": "e9b548d33703f72b4f7349044b732225a9ebe58f96393a3b85849fbe944652f2",
+      "position": {
+        "actor": "player",
+        "fen_before": "rn2kb1r/p1pp1ppp/4pq2/8/Q1bPn3/3B1N2/PP3PPP/R1B1K2R w KQkq - 0 9",
+        "played_move": "Qxc4",
+        "source_ply": 17,
+        "stronger_move": "Bxe4"
+      },
+      "replay": {
+        "played_line": [
+          "Qxc4",
+          "Qf5",
+          "O-O",
+          "Nd6",
+          "Qc2"
+        ],
+        "stronger_line": [
+          "Bxe4",
+          "Bd5",
+          "Bg5",
+          "Bxe4",
+          "Bxf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Bxe4. That line wins more material for you.",
+        "what_happened": "You played Qxc4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "acc5ffe96e7c718392fb9d8c46279f526689d50fd852a48b13f8a9d887d8ef88",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qr3/pppk2p1/7p/3PP3/2B2Q2/1P2R3/PB1N1PPP/R5K1 w - - 1 27",
+        "played_move": "e6+",
+        "source_ply": 53,
+        "stronger_move": "Qg4+"
+      },
+      "replay": {
+        "played_line": [
+          "e6+",
+          "Kc8",
+          "Qg3",
+          "g5",
+          "Rae1"
+        ],
+        "stronger_line": [
+          "Qg4+",
+          "Re6",
+          "Qxe6#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qg4+ Re6 Qxe6#; the line ends in checkmate.",
+        "what_happened": "They played e6+ and missed the chance."
+      }
+    },
+    {
+      "case_id": "42f0abd1c6d811d319dcaa12ca62810b6a7c3f15f09b835fe15d011dd81ba5e3",
+      "position": {
+        "actor": "player",
+        "fen_before": "r5k1/2p4r/1p6/p2b2B1/2PQ4/6P1/PP1K1P2/R7 w - - 0 28",
+        "played_move": "cxd5",
+        "source_ply": 55,
+        "stronger_move": "Qxd5+"
+      },
+      "replay": {
+        "played_line": [
+          "cxd5",
+          "Rf8",
+          "Bf6",
+          "Re8",
+          "Qd3"
+        ],
+        "stronger_line": [
+          "Qxd5+",
+          "Rf7",
+          "Qxa8+",
+          "Kg7",
+          "Ke2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxd5+. That line wins more material for you.",
+        "what_happened": "You played cxd5. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "679960870f84308275f61ecfb8cf75a6c9fb4491e0a3897f34e378f36bf55ff7",
+      "position": {
+        "actor": "player",
+        "fen_before": "2kr4/ppp3K1/4Q1p1/8/6P1/P7/1Pq4r/R7 b - - 0 33",
+        "played_move": "Kb8",
+        "source_ply": 66,
+        "stronger_move": "Rd7+"
+      },
+      "replay": {
+        "played_line": [
+          "Kb8",
+          "Re1",
+          "Qxb2+",
+          "Qe5",
+          "Qf2"
+        ],
+        "stronger_line": [
+          "Rd7+",
+          "Qxd7+",
+          "Kxd7",
+          "Rf1",
+          "Qxb2+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rd7+. That line wins more material for you.",
+        "what_happened": "You played Kb8. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "120ce28ce9d92d14274e4fee8c96969ff5962632f5dea1c9fd1ec8293659999a",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "3B4/8/5pkp/8/5KbP/8/8/8 w - - 0 49",
+        "played_move": "Be7",
+        "source_ply": 97,
+        "stronger_move": "Kxg4"
+      },
+      "replay": {
+        "played_line": [
+          "Be7",
+          "h5",
+          "Bc5",
+          "Be6",
+          "Bf2"
+        ],
+        "stronger_line": [
+          "Kxg4",
+          "f5+",
+          "Kf4",
+          "Kh5",
+          "Bf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Kxg4, taking your bishop on g4 immediately.",
+        "what_happened": "They played Be7 and missed the chance."
+      }
+    },
+    {
+      "case_id": "3ec51e8ebed8d4e01cc9d7e0195d1e85f8e41961485ca28ace2bdc40e0712147",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k2r/pp2b1p1/2p2p2/3q3p/8/P2b1N1P/1B2QPP1/R4RK1 w kq - 0 18",
+        "played_move": "Rfd1",
+        "source_ply": 35,
+        "stronger_move": "Qe3"
+      },
+      "replay": {
+        "played_line": [
+          "Rfd1",
+          "Bxe2",
+          "Rxd5",
+          "cxd5",
+          "Nd4"
+        ],
+        "stronger_line": [
+          "Qe3",
+          "Bxf1",
+          "Rxf1",
+          "Kf7",
+          "Qc1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played Qe3, avoiding that immediate queen capture.",
+        "what_happened": "You played Rfd1. Bxe2 takes your queen on e2."
+      }
+    },
+    {
+      "case_id": "ce9783e7478cfec2d74d646eb306a5b4c151059852e11390a97c32b8b047fd99",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2qr3/ppp1k1p1/7p/3PPQ2/2B2p2/1P2R3/PB1N1PPP/R5K1 w - - 2 26",
+        "played_move": "Qxf4",
+        "source_ply": 51,
+        "stronger_move": "d6+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxf4",
+          "Qd7",
+          "Rae1",
+          "Kd8",
+          "e6"
+        ],
+        "stronger_line": [
+          "d6+",
+          "Qxd6",
+          "exd6+",
+          "Kd8",
+          "Rxe8+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played d6+. That line wins more material for them.",
+        "what_happened": "They played Qxf4. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "8522c1564b5e175b7c9a7b9bb6aec4de167c1733560af319a90fc8e0ee1f7455",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4rk1/ppq2ppp/2n1p3/1Q2Nb2/1b1P1B2/8/PP2PPPP/R2K1B1R w - - 6 13",
+        "played_move": "Nd3",
+        "source_ply": 25,
+        "stronger_move": "Nxc6"
+      },
+      "replay": {
+        "played_line": [
+          "Nd3",
+          "Bxd3",
+          "Bxc7",
+          "Bxb5",
+          "e3"
+        ],
+        "stronger_line": [
+          "Nxc6",
+          "Qxf4",
+          "Nxb4",
+          "Qxf2",
+          "Nd3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nxc6. That line wins material for you.",
+        "what_happened": "You played Nd3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "22902875065d583aff8626d03d89d4096c61ec5aa45b2ce954d35a6d414de626",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b3kr/ppp3p1/1q1pn3/6N1/5p1P/8/PPP2K2/R1BQ3R w - - 0 18",
+        "played_move": "Be3",
+        "source_ply": 35,
+        "stronger_move": "Kg2"
+      },
+      "replay": {
+        "played_line": [
+          "Be3",
+          "Qxe3+",
+          "Kf1",
+          "Nxg5",
+          "Qd5+"
+        ],
+        "stronger_line": [
+          "Kg2",
+          "Nxg5",
+          "Qd5+",
+          "Ne6",
+          "Re1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Kg2. That line costs you less material.",
+        "what_happened": "You played Be3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "b96a92f159156b08c8d78a3385aecf762831b4bcd4e4db90b3b6a79adbe71dae",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2rkr3/p2n1Q1p/1qpB1p2/3p4/1P1N4/P7/5PPP/2Rn2K1 w - - 0 29",
+        "played_move": "Ne6+",
+        "source_ply": 57,
+        "stronger_move": "Rxd1"
+      },
+      "replay": {
+        "played_line": [
+          "Ne6+",
+          "Rxe6",
+          "Qg8+",
+          "Re8",
+          "Qxe8+"
+        ],
+        "stronger_line": [
+          "Rxd1",
+          "Qxd4",
+          "Qxe8+",
+          "Kxe8",
+          "Rxd4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Rxd1. That line wins more material for them.",
+        "what_happened": "They played Ne6+. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "fd5347c7aab7055e0a57032e0f06f69c760c6fe435bd8f797536a133d492a39b",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1bq1rk1/ppp3pp/8/4p1N1/1b1n1p2/2PB4/PP3PPP/R1BQ1RK1 w - - 0 14",
+        "played_move": "Ne4",
+        "source_ply": 27,
+        "stronger_move": "Bxh7+"
+      },
+      "replay": {
+        "played_line": [
+          "Ne4",
+          "f3",
+          "cxd4",
+          "fxg2",
+          "Kxg2"
+        ],
+        "stronger_line": [
+          "Bxh7+",
+          "Kh8",
+          "Qh5",
+          "Qxg5",
+          "Qxg5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bxh7+. That line wins more material for them.",
+        "what_happened": "They played Ne4. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "6000011d13b22eb4dee56f78310ab81fc1fc1ad61d89694ea4a9822ca19153b7",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5rk1/pp3p1p/1q2p1p1/4P3/3r4/3Q3P/P4PP1/R5K1 w - - 0 26",
+        "played_move": "Rb1",
+        "source_ply": 51,
+        "stronger_move": "Qf3"
+      },
+      "replay": {
+        "played_line": [
+          "Rb1",
+          "Rxd3",
+          "Rxb6",
+          "axb6",
+          "h4"
+        ],
+        "stronger_line": [
+          "Qf3",
+          "Rc8",
+          "Rf1",
+          "Rd5",
+          "Re1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qf3. That line trades equal material.",
+        "what_happened": "They played Rb1. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "3819e6a97d8ba3512d35a9bd576dbd7af947866b17b86eb9b4e652e4ac8203de",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b2k2/p4p1p/2pq4/3pp2n/B5pP/2NP4/PPP2PP1/R2Q1RK1 b - - 1 15",
+        "played_move": "Ba6",
+        "source_ply": 30,
+        "stronger_move": "f5"
+      },
+      "replay": {
+        "played_line": [
+          "Ba6",
+          "Qxg4",
+          "Nf4",
+          "Ne2",
+          "Qg6"
+        ],
+        "stronger_line": [
+          "f5",
+          "Re1",
+          "Qf6",
+          "Nxd5",
+          "cxd5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played f5. That line wins material for them.",
+        "what_happened": "They played Ba6. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "98a139c490e83c23938169cd51ba84edf467d4d1beb7812a6820afb873e1fd49",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r3k2r/ppp2ppp/2n2n2/b2q2N1/3Pp1b1/1PP1B3/P3BPPP/RN1QK2R w KQkq - 1 11",
+        "played_move": "O-O",
+        "source_ply": 21,
+        "stronger_move": "Bxg4"
+      },
+      "replay": {
+        "played_line": [
+          "O-O",
+          "Bxe2",
+          "Qxe2",
+          "O-O",
+          "b4"
+        ],
+        "stronger_line": [
+          "Bxg4",
+          "Nxg4",
+          "Qxg4",
+          "f5",
+          "Qd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Bxg4, taking your bishop on g4 immediately.",
+        "what_happened": "They played O-O and missed the chance."
+      }
+    },
+    {
+      "case_id": "22a17edb735fda678d993df89737b0140f0065de9f8ba8beccb8bdbc28cb03ae",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r6r/1p1QRbkp/pqp2bp1/8/8/8/PPP2P1P/2KR4 b - - 5 23",
+        "played_move": "Bxe7",
+        "source_ply": 46,
+        "stronger_move": "Qxb2+"
+      },
+      "replay": {
+        "played_line": [
+          "Bxe7",
+          "Qxe7",
+          "Qxf2",
+          "Rd2",
+          "Qf4"
+        ],
+        "stronger_line": [
+          "Qxb2+",
+          "Kd2",
+          "Qb4+",
+          "c3",
+          "Qxe7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxb2+. That line wins more material for them.",
+        "what_happened": "They played Bxe7. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "61cab27736fa303d7a3139580c389edfb6edaff262177895681fc9d24dcf9d7a",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5r2/p6p/3Q4/3p2p1/7k/NP1PP3/P2PK1PP/b7 w - - 3 24",
+        "played_move": "Qxf8",
+        "source_ply": 47,
+        "stronger_move": "Qh6+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxf8",
+          "Kh5",
+          "Qf7+",
+          "Kh6",
+          "g4"
+        ],
+        "stronger_line": [
+          "Qh6+",
+          "Kg4",
+          "Qh3#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qh6+ Kg4 Qh3#; the line ends in checkmate.",
+        "what_happened": "They played Qxf8 and missed the chance."
+      }
+    },
+    {
+      "case_id": "6f663ffc39400aaffc0c3bc6f890815150dead6f84e3e6f5d9861bae4760b2e6",
+      "position": {
+        "actor": "player",
+        "fen_before": "6k1/5p2/7p/2r3NP/1p2b1Q1/pP2B1K1/q4P2/8 w - - 1 38",
+        "played_move": "Ne6+",
+        "source_ply": 75,
+        "stronger_move": "Nxe4+"
+      },
+      "replay": {
+        "played_line": [
+          "Ne6+",
+          "Rg5",
+          "Nxg5",
+          "hxg5",
+          "Qxg5+"
+        ],
+        "stronger_line": [
+          "Nxe4+",
+          "Rg5",
+          "Nxg5",
+          "Qa1",
+          "Ne6+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nxe4+. That line wins more material for you.",
+        "what_happened": "You played Ne6+. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "3ee4e35c1d91f8826455280266758d2764b45d48c344bbf1ff7cddd783d57f92",
+      "position": {
+        "actor": "player",
+        "fen_before": "4rrk1/ppp2ppp/2n2Q2/6N1/6P1/P6P/1PP2P2/2KR3R b - - 0 19",
+        "played_move": "g6",
+        "source_ply": 38,
+        "stronger_move": "gxf6"
+      },
+      "replay": {
+        "played_line": [
+          "g6",
+          "Nxh7",
+          "Kxh7",
+          "Rhe1",
+          "Kg8"
+        ],
+        "stronger_line": [
+          "gxf6",
+          "Nf3",
+          "Re4",
+          "Rhf1",
+          "Rf4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played gxf6. That line wins more material for you.",
+        "what_happened": "You played g6. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "f2e7ce5cce056aa586adf6cecffabbf2d99f805e20f007969f5e418999fa44d9",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r4k2/2p4r/1p6/p5B1/2PQ4/2N2bP1/PP1K1Pq1/R5R1 b - - 2 25",
+        "played_move": "Kg8",
+        "source_ply": 50,
+        "stronger_move": "Qh3"
+      },
+      "replay": {
+        "played_line": [
+          "Kg8",
+          "Rxg2",
+          "c5",
+          "Qf6",
+          "Bxg2"
+        ],
+        "stronger_line": [
+          "Qh3",
+          "Qf6+",
+          "Rf7",
+          "Bh6+",
+          "Kg8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qh3. That line trades equal material.",
+        "what_happened": "They played Kg8. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "c49c101dfb13b630c3cafb3b6e7bd6445ee2c4fc3bc2d87fa44c1f9773a9692d",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b1kbnr/ppp2ppp/2Pq4/4p3/8/2N1P3/PP3PPP/R1BQKBNR b KQkq - 0 7",
+        "played_move": "Qxc6",
+        "source_ply": 14,
+        "stronger_move": "Qxd1+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxc6",
+          "Bb5",
+          "Qd7",
+          "Bxd7+",
+          "Bxd7"
+        ],
+        "stronger_line": [
+          "Qxd1+",
+          "Nxd1",
+          "Bb4+",
+          "Nc3",
+          "Bf5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxd1+. That line trades equal material.",
+        "what_happened": "They played Qxc6. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a2c31de9930fb55e4671454a8111eb23e1ecca8694d9af8f051c9ca56f7dfd35",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "5rk1/pp3p1p/1q2p1p1/4P3/2rN4/7P/P2Q1PP1/R5K1 w - - 0 25",
+        "played_move": "Qd3",
+        "source_ply": 49,
+        "stronger_move": "Nf3"
+      },
+      "replay": {
+        "played_line": [
+          "Qd3",
+          "Qxd4",
+          "Qxd4",
+          "Rxd4",
+          "g3"
+        ],
+        "stronger_line": [
+          "Nf3",
+          "Rfc8",
+          "Rf1",
+          "Qc5",
+          "Kh2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nf3. That line trades equal material.",
+        "what_happened": "They played Qd3. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "efb1ee4176300195f5a975558003fe3d36de9023ee78f91f6661d0224e721453",
+      "position": {
+        "actor": "player",
+        "fen_before": "2kr3r/pppbqppp/2nb1n2/3p4/3P4/2PBBN1P/PP1N1PP1/R2QK2R w KQ - 5 10",
+        "played_move": "Qa4",
+        "source_ply": 19,
+        "stronger_move": "O-O"
+      },
+      "replay": {
+        "played_line": [
+          "Qa4",
+          "Nb4",
+          "Qxb4",
+          "Bxb4",
+          "cxb4"
+        ],
+        "stronger_line": [
+          "O-O",
+          "Rhg8",
+          "Re1",
+          "Qf8",
+          "b4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played O-O. That line trades equal material.",
+        "what_happened": "You played Qa4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "cc2c153361c1e5c7dee40424e9660bd74dddf6638145533ac6dba50be4a75b36",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk2r/pppp1pQp/2n2n2/2b1p3/2B1P3/2N5/PPPP1PPP/R1B1K1NR b KQkq - 0 5",
+        "played_move": "Rg8",
+        "source_ply": 10,
+        "stronger_move": "Rf8"
+      },
+      "replay": {
+        "played_line": [
+          "Rg8",
+          "Qxf7#"
+        ],
+        "stronger_line": [
+          "Rf8",
+          "d3",
+          "Nd4",
+          "Nf3",
+          "c6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Rf8. Replay it, then keep checking for mate.",
+        "what_happened": "You played Rg8. After Qxf7#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "434d3a58573a3b98735b92d8eddd32a85f68c5a5b7b038817314aff5e90a968c",
+      "position": {
+        "actor": "player",
+        "fen_before": "5r1k/6pp/8/6q1/5p2/Q2p1B2/Pr1B1PPP/3RR1K1 b - - 1 26",
+        "played_move": "Rxd2",
+        "source_ply": 52,
+        "stronger_move": "Rbb8"
+      },
+      "replay": {
+        "played_line": [
+          "Rxd2",
+          "Qxf8#"
+        ],
+        "stronger_line": [
+          "Rbb8",
+          "Qxd3",
+          "Qg6",
+          "Qe2",
+          "Qf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Rbb8. Replay it, then keep checking for mate.",
+        "what_happened": "You played Rxd2. After Qxf8#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "b9e663fe15d453272a54f114c4e3fbe8d99510fc2ba947feed47809c3917de00",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "4rrk1/pppq1ppp/2n5/8/4n1P1/P1N2Q1P/1PP2P2/2KR3R w - - 0 17",
+        "played_move": "Nxe4",
+        "source_ply": 33,
+        "stronger_move": "Rxd7"
+      },
+      "replay": {
+        "played_line": [
+          "Nxe4",
+          "Qe6",
+          "Rhe1",
+          "Qc4",
+          "Qh1"
+        ],
+        "stronger_line": [
+          "Rxd7",
+          "Ng5",
+          "Qg3",
+          "Ne4",
+          "Nxe4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Rxd7, taking your queen on d7 immediately.",
+        "what_happened": "They played Nxe4 and missed the chance."
+      }
+    },
+    {
+      "case_id": "c188650eb6b9719aa89cb6aac936fc6ca1163b1344c290cd2b1707c570f7b839",
+      "position": {
+        "actor": "player",
+        "fen_before": "4r3/2R5/3p3r/R7/1P2k2P/1N1p3N/1P3P2/3K4 w - - 14 42",
+        "played_move": "Kd2",
+        "source_ply": 83,
+        "stronger_move": "Ng5+"
+      },
+      "replay": {
+        "played_line": [
+          "Kd2",
+          "Re5",
+          "Ng5+",
+          "Kf4",
+          "Rxe5"
+        ],
+        "stronger_line": [
+          "Ng5+",
+          "Kf4",
+          "Rc4+",
+          "Re4",
+          "Rxe4#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Ng5+; that replay ends in checkmate.",
+        "what_happened": "You played Kd2 and let the finish go."
+      }
+    },
+    {
+      "case_id": "a55184e76d375c2a905163c08111680b92ef080ad4c6af374abc73c9ee86762a",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn1qk2r/pp3ppp/5n2/3p3b/1b6/1B1P1PQ1/PPP4P/RNBK2NR w kq - 1 11",
+        "played_move": "Qxg7",
+        "source_ply": 21,
+        "stronger_move": "Nc3"
+      },
+      "replay": {
+        "played_line": [
+          "Qxg7",
+          "Rg8",
+          "Bh6",
+          "Rxg7",
+          "Bxg7"
+        ],
+        "stronger_line": [
+          "Nc3",
+          "O-O",
+          "Nge2",
+          "Nc6",
+          "Bg5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Nc3. That line trades equal material.",
+        "what_happened": "They played Qxg7. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "b55de0e9f3fc429eb482838173d409bb64f649fda9a9bb9a5da98eccadbd922c",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4rk1/4bppb/4p2p/q3n2P/1p1pPNP1/pP2B3/P1B2P2/R2Q1RK1 w - - 0 27",
+        "played_move": "Qxd4",
+        "source_ply": 53,
+        "stronger_move": "Bd2"
+      },
+      "replay": {
+        "played_line": [
+          "Qxd4",
+          "Nf3+",
+          "Kg2",
+          "Nxd4",
+          "Bxd4"
+        ],
+        "stronger_line": [
+          "Bd2",
+          "Rfd8",
+          "Nd3",
+          "Bxe4",
+          "Nxe5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Bd2. That line wins material for you.",
+        "what_happened": "You played Qxd4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "9e4874e50090bc854ed4d2bcb371641bc1c85c81ae400e7ad98eed56adc986c3",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4r1k/pQp3pp/8/5q2/4R3/8/PP3PPP/R5K1 b - - 0 20",
+        "played_move": "Rae8",
+        "source_ply": 40,
+        "stronger_move": "Qxf2+"
+      },
+      "replay": {
+        "played_line": [
+          "Rae8",
+          "f3",
+          "Qc5+",
+          "Kh1",
+          "Rb8"
+        ],
+        "stronger_line": [
+          "Qxf2+",
+          "Kh1",
+          "Qf1+",
+          "Rxf1",
+          "Rxf1#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Qxf2+; that replay ends in checkmate.",
+        "what_happened": "You played Rae8 and let the finish go."
+      }
+    },
+    {
+      "case_id": "8dc32d4a4c3130b47981de4c1add9f1cd2feaeb4f36135a95483dfc04befdc00",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qk2r/pbppppbp/1p4pn/n2P4/2B1P3/2N2N2/PPP2PPP/R2QK2R w KQkq - 1 8",
+        "played_move": "Qd2",
+        "source_ply": 15,
+        "stronger_move": "Bd3"
+      },
+      "replay": {
+        "played_line": [
+          "Qd2",
+          "Nxc4",
+          "Qe2",
+          "Nxb2",
+          "e5"
+        ],
+        "stronger_line": [
+          "Bd3",
+          "e6",
+          "e5",
+          "Ng4",
+          "b4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bd3. That line trades equal material.",
+        "what_happened": "You played Qd2. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "8fe5f9328ef530eca1f7f3ef60792d526294bac93a505fb55f48e4810fb4e61b",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k2r/p1qnb2p/2p1pp2/3p4/nP6/P4NB1/4QPPP/1R3RK1 b kq - 2 22",
+        "played_move": "Bd6",
+        "source_ply": 44,
+        "stronger_move": "e5"
+      },
+      "replay": {
+        "played_line": [
+          "Bd6",
+          "Qxe6+",
+          "Kd8",
+          "Bxd6",
+          "Qb6"
+        ],
+        "stronger_line": [
+          "e5",
+          "Nd4",
+          "h5",
+          "Rbc1",
+          "c5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played e5. That line trades equal material.",
+        "what_happened": "You played Bd6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "f0ade7561b5a2b187646d3d41e40d9175150493110387c2fd8859645a6c221f7",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rnb1k2r/p1ppq1pp/3n1p2/1p2N2Q/5P2/PBP5/1PP3PP/R1B1K2R b KQkq - 1 10",
+        "played_move": "Nf7",
+        "source_ply": 20,
+        "stronger_move": "g6"
+      },
+      "replay": {
+        "played_line": [
+          "Nf7",
+          "Bxf7+",
+          "Kd8",
+          "O-O",
+          "Rf8"
+        ],
+        "stronger_line": [
+          "g6",
+          "Qe2",
+          "fxe5",
+          "fxe5",
+          "Nc4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played g6. That line wins material for them.",
+        "what_happened": "They played Nf7. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "56f1d1f1b0cc82b2c05909929cbc8376639be9906314a7e75098407daf50b41c",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "4r1k1/1p3pP1/5Bbp/8/1Pr5/7P/4pKP1/4R3 b - - 3 38",
+        "played_move": "Rxb4",
+        "source_ply": 76,
+        "stronger_move": "Rf4+"
+      },
+      "replay": {
+        "played_line": [
+          "Rxb4",
+          "Bc3",
+          "Rf4+",
+          "Kg1",
+          "Rfe4"
+        ],
+        "stronger_line": [
+          "Rf4+",
+          "Kg1",
+          "Rxf6",
+          "g4",
+          "Kxg7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Rf4+. That line wins more material for them.",
+        "what_happened": "They played Rxb4. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "6a65a6765331e20b57f13c56cdd48198062a342c13f06097fbcd155de5eb8889",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1bqr1k1/pppn1pbp/3p1np1/3Pp3/4PB2/2NB1N2/PPP1QPPP/R4RK1 b - - 0 9",
+        "played_move": "c6",
+        "source_ply": 18,
+        "stronger_move": "exf4"
+      },
+      "replay": {
+        "played_line": [
+          "c6",
+          "dxc6",
+          "bxc6",
+          "Bg3",
+          "Nh5"
+        ],
+        "stronger_line": [
+          "exf4",
+          "Qd2",
+          "Nh5",
+          "g4",
+          "Nhf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played exf4, taking your bishop on f4 immediately.",
+        "what_happened": "They played c6 and missed the chance."
+      }
+    },
+    {
+      "case_id": "94e76bb7140646af662f19145c1ae9d037892b8721b0bb301299f44318a16903",
+      "position": {
+        "actor": "player",
+        "fen_before": "4Q2k/8/5K2/8/8/8/8/6r1 b - - 44 77",
+        "played_move": "Rg8",
+        "source_ply": 154,
+        "stronger_move": "Kh7"
+      },
+      "replay": {
+        "played_line": [
+          "Rg8",
+          "Qh5#"
+        ],
+        "stronger_line": [
+          "Kh7",
+          "Qe4+",
+          "Kg8",
+          "Qa8+",
+          "Kh7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Kh7. Replay it, then keep checking for mate.",
+        "what_happened": "You played Rg8. After Qh5#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "117d9198c36243d9ca50c42b2a1c2ba5075be12656b4b832b7255cb792809b89",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b2rk1/pp3ppp/2p2n2/4q3/B5n1/P1P5/2P3PP/R1BQ1RK1 w - - 0 16",
+        "played_move": "h3",
+        "source_ply": 31,
+        "stronger_move": "Bf4"
+      },
+      "replay": {
+        "played_line": [
+          "h3",
+          "Qh2#"
+        ],
+        "stronger_line": [
+          "Bf4",
+          "Qc5+",
+          "Qd4",
+          "Ne4",
+          "Qxc5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Bf4. Replay it, then keep checking for mate.",
+        "what_happened": "You played h3. After Qh2#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "66d1975d7c1f36e41308fd4e5bedd588c479045f1b80202f74d632042b1fb18c",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q1rk1/ppp3p1/2n1p3/3pPppB/3P4/N1P5/PP2Q3/R1B2RK1 w - - 0 19",
+        "played_move": "Kg2",
+        "source_ply": 37,
+        "stronger_move": "Bg6"
+      },
+      "replay": {
+        "played_line": [
+          "Kg2",
+          "g6",
+          "Rh1",
+          "Kg7",
+          "Bxg6"
+        ],
+        "stronger_line": [
+          "Bg6",
+          "Rf6",
+          "exf6",
+          "Qxf6",
+          "Qh5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bg6. That line wins more material for them.",
+        "what_happened": "They played Kg2. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "c4102495d7e11809bde0585c299218e91d6d3af06709e7722de1b19b975fbb7b",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqkb1r/pp1pn1pp/2p2p2/1N6/2BpP3/P7/1PPP1PPP/R1BQK2R w KQkq - 0 8",
+        "played_move": "Nxd4",
+        "source_ply": 15,
+        "stronger_move": "Nd6#"
+      },
+      "replay": {
+        "played_line": [
+          "Nxd4",
+          "d5",
+          "exd5",
+          "cxd5",
+          "Bb3"
+        ],
+        "stronger_line": [
+          "Nd6#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Nd6#; that replay ends in checkmate.",
+        "what_happened": "You played Nxd4 and let the finish go."
+      }
+    },
+    {
+      "case_id": "47426b64584792aba3ec94f1c739f8ef06d8733f51196d6940909034eef64850",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b2rk1/p4p1p/2pq1n1b/3pp1p1/B6P/3P4/PPP2PP1/RNBQ1RK1 b - - 0 12",
+        "played_move": "g4",
+        "source_ply": 24,
+        "stronger_move": "e4"
+      },
+      "replay": {
+        "played_line": [
+          "g4",
+          "Bxh6",
+          "Nh5",
+          "Qd2",
+          "Nf4"
+        ],
+        "stronger_line": [
+          "e4",
+          "dxe4",
+          "Ng4",
+          "g3",
+          "gxh4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played e4. That line trades equal material.",
+        "what_happened": "They played g4. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "726c15656dee726398262e0738d4a4a0f787e6534f37f397b918d55a67aa5b5a",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r6r/1p1QRbkp/pqp2bp1/8/8/8/PPP2P1P/2KR4 b - - 5 23",
+        "played_move": "Bxe7",
+        "source_ply": 46,
+        "stronger_move": "Qxb2+"
+      },
+      "replay": {
+        "played_line": [
+          "Bxe7",
+          "Qxe7",
+          "Qxf2",
+          "Rd2",
+          "Qf4"
+        ],
+        "stronger_line": [
+          "Qxb2+",
+          "Kd2",
+          "Qb4+",
+          "c3",
+          "Qxe7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qxb2+, taking your pawn on b2 immediately.",
+        "what_happened": "They played Bxe7 and missed the chance."
+      }
+    },
+    {
+      "case_id": "c23534ae29c07104b8a28a02d88488ee33966e87f7a75ca19d4a96e9975acb26",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/5pkp/1Rp4b/pbP5/5p2/2P3P1/P6P/6K1 w - - 6 31",
+        "played_move": "gxf4",
+        "source_ply": 61,
+        "stronger_move": "Rxb5"
+      },
+      "replay": {
+        "played_line": [
+          "gxf4",
+          "Bxf4",
+          "Kg2",
+          "Be5",
+          "a4"
+        ],
+        "stronger_line": [
+          "Rxb5",
+          "fxg3",
+          "Rxa5",
+          "Be3+",
+          "Kh1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rxb5. That line wins material for you.",
+        "what_happened": "You played gxf4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "409ab1b2493d46f73a336a5f7238e46a22c30abc4bf3ffc4060680229bfa974b",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn4rk/pp3p1p/2q1b3/1N4R1/1Q6/3B4/PP3PPP/R5K1 w - - 7 21",
+        "played_move": "Be4",
+        "source_ply": 41,
+        "stronger_move": "Qd4+"
+      },
+      "replay": {
+        "played_line": [
+          "Be4",
+          "Rxg5",
+          "Qd4+",
+          "Rg7",
+          "Qd8+"
+        ],
+        "stronger_line": [
+          "Qd4+",
+          "f6",
+          "Qxf6+",
+          "Rg7",
+          "Qxg7#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "They could have played Qd4+; that replay ends in checkmate.",
+        "what_happened": "They played Be4 and let the finish go."
+      }
+    },
+    {
+      "case_id": "57943da5553401a9454676b9902e4720ec3eefc0c10ef286aed371c1830ae598",
+      "position": {
+        "actor": "player",
+        "fen_before": "2r2rk1/1B1b1pbp/q5p1/N1p1p3/PP6/2P2Q1P/5PP1/R3R1K1 b - - 1 21",
+        "played_move": "cxb4",
+        "source_ply": 42,
+        "stronger_move": "e4"
+      },
+      "replay": {
+        "played_line": [
+          "cxb4",
+          "Bxa6",
+          "Rxc3",
+          "Qb7",
+          "Bc8"
+        ],
+        "stronger_line": [
+          "e4",
+          "Rxe4",
+          "Qf6",
+          "Qxf6",
+          "Bxf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played e4. That line costs you less material.",
+        "what_happened": "You played cxb4. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "6d7e6c5ff413fe0e1300748b8d4cd9f9568bb29e3961a9905a642dd29a2d5e58",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1bqk2r/pppp1Npp/2n2n2/4p3/2B1P3/8/PPPP1bPP/RNBQK2R w KQkq - 0 6",
+        "played_move": "Kxf2",
+        "source_ply": 11,
+        "stronger_move": "Kf1"
+      },
+      "replay": {
+        "played_line": [
+          "Kxf2",
+          "Nxe4+",
+          "Ke3",
+          "Qh4",
+          "g3"
+        ],
+        "stronger_line": [
+          "Kf1",
+          "Qe7",
+          "Nxh8",
+          "d5",
+          "exd5"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Kf1. That line wins more material for them.",
+        "what_happened": "They played Kxf2. That line wins material for them."
+      }
+    },
+    {
+      "case_id": "a6e9caa07b40284e45eef32fdb8b3b3a5320e61f2256f05edd1f8ee60ff5f80a",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1nq1rk1/2p2p2/2n1pPpp/1p1pNb2/p2P4/P1N4P/BPPQ1PP1/R3K2R b KQ - 2 16",
+        "played_move": "Qxf6",
+        "source_ply": 32,
+        "stronger_move": "b4"
+      },
+      "replay": {
+        "played_line": [
+          "Qxf6",
+          "Nxc6",
+          "Nd6",
+          "Rc1",
+          "Kg7"
+        ],
+        "stronger_line": [
+          "b4",
+          "axb4",
+          "Nxb4",
+          "Bb1",
+          "Qxf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played b4. That line wins material for you.",
+        "what_happened": "You played Qxf6. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "4e14ceedc98b8aefa72903ee8faa75d5d6608542e6fef2b9069e5ed0301ba28a",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qk2r/pbppppbp/1p4pn/3P4/2n1P3/2N2N2/PPPQ1PPP/R3K2R w KQkq - 0 9",
+        "played_move": "O-O-O",
+        "source_ply": 17,
+        "stronger_move": "Qe2"
+      },
+      "replay": {
+        "played_line": [
+          "O-O-O",
+          "Nxd2",
+          "Rxd2",
+          "Qc8",
+          "e5"
+        ],
+        "stronger_line": [
+          "Qe2",
+          "Nxb2",
+          "e5",
+          "c6",
+          "d6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played Qe2, avoiding that immediate queen capture.",
+        "what_happened": "You played O-O-O. Nxd2 takes your queen on d2."
+      }
+    },
+    {
+      "case_id": "46d8dc04e8de465ae9c64987da8a53935cd68a09be58a9fb3da6c2c820a6cc68",
+      "position": {
+        "actor": "player",
+        "fen_before": "2r1k2N/p2qb1p1/1p3n1p/1P6/3B4/P1NP1Q2/2P2P1P/R3K3 w Q - 3 19",
+        "played_move": "O-O-O",
+        "source_ply": 37,
+        "stronger_move": "Ne2"
+      },
+      "replay": {
+        "played_line": [
+          "O-O-O",
+          "Bxa3+",
+          "Kd2",
+          "Qxd4",
+          "Ne2"
+        ],
+        "stronger_line": [
+          "Ne2",
+          "Qg4",
+          "Qxg4",
+          "Nxg4",
+          "Ng6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Ne2. That line trades equal material.",
+        "what_happened": "You played O-O-O. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "848fcb588b54a176ccb8c7affc3abc976da78d91639d58549dc38886e2f7bab9",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2q1rk1/pp2ppbp/n1p2np1/3p2N1/6b1/1P1BP1Q1/PBPP1PPP/RN2K2R b KQ - 5 9",
+        "played_move": "Be6",
+        "source_ply": 18,
+        "stronger_move": "Nh5"
+      },
+      "replay": {
+        "played_line": [
+          "Be6",
+          "Qh4",
+          "Re8",
+          "Nxe6",
+          "fxe6"
+        ],
+        "stronger_line": [
+          "Nh5",
+          "Bxg7",
+          "Nxg3",
+          "hxg3",
+          "Kxg7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Nh5. That line wins material for you.",
+        "what_happened": "You played Be6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "eee641fabe502c9c32ef1aff93d5be4a8ffcc9ace88ea314b1564482e5cad17b",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqkb1r/ppp2ppp/5n2/n2Pp3/1QB5/8/PPPPNPPP/RNB1K2R b KQkq - 2 7",
+        "played_move": "Nxc4",
+        "source_ply": 14,
+        "stronger_move": "Bxb4"
+      },
+      "replay": {
+        "played_line": [
+          "Nxc4",
+          "Qxc4",
+          "Nxd5",
+          "Qe4",
+          "Be7"
+        ],
+        "stronger_line": [
+          "Bxb4",
+          "Bd3",
+          "e4",
+          "Bb5+",
+          "c6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bxb4. That line wins more material for you.",
+        "what_happened": "You played Nxc4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "39d3eea49974f2097a4b1cabfe248fe3b1ffe21f0359a4c0b720312c4cf40194",
+      "position": {
+        "actor": "player",
+        "fen_before": "2rkr3/p2n1Q1p/1qpB1p2/3p4/nP6/P4N2/5PPP/2RR2K1 b - - 6 27",
+        "played_move": "Nb2",
+        "source_ply": 54,
+        "stronger_move": "Rc7"
+      },
+      "replay": {
+        "played_line": [
+          "Nb2",
+          "Re1",
+          "Rxe1+",
+          "Rxe1",
+          "Qxf2+"
+        ],
+        "stronger_line": [
+          "Rc7",
+          "Rxd5",
+          "Re4",
+          "Rd4",
+          "Rxd4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rc7. That line wins more material for you.",
+        "what_happened": "You played Nb2. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "69fd348a16484cbc8f2a108b9b9585ab8310ab74394860d255ea7cf574916365",
+      "position": {
+        "actor": "player",
+        "fen_before": "2r2rk1/1B1b1pbp/q5p1/N1p1p3/PP6/2P2Q1P/5PP1/R3R1K1 b - - 1 21",
+        "played_move": "cxb4",
+        "source_ply": 42,
+        "stronger_move": "e4"
+      },
+      "replay": {
+        "played_line": [
+          "cxb4",
+          "Bxa6",
+          "Rxc3",
+          "Qb7",
+          "Bc8"
+        ],
+        "stronger_line": [
+          "e4",
+          "Rxe4",
+          "Qf6",
+          "Qxf6",
+          "Bxf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played e4, avoiding that immediate queen capture.",
+        "what_happened": "You played cxb4. Bxa6 takes your queen on a6."
+      }
+    },
+    {
+      "case_id": "84506d25d48eeef9f258c3f6d21250e6c3ac4ede4492b25ed1baefc04ace7f1a",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "b3Rbk1/p4p1p/2p3pB/2p5/3P4/2Pp1N2/Pq3PPP/6K1 b - - 1 20",
+        "played_move": "Qc1+",
+        "source_ply": 40,
+        "stronger_move": "Qb1+"
+      },
+      "replay": {
+        "played_line": [
+          "Qc1+",
+          "Bxc1",
+          "h6",
+          "Rxa8",
+          "g5"
+        ],
+        "stronger_line": [
+          "Qb1+",
+          "Ne1",
+          "Qxe1+",
+          "Rxe1",
+          "Bxh6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qb1+. That line costs them less material.",
+        "what_happened": "They played Qc1+. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "3d97512ceee94885c8ea15f13ecdc2b2ddfb931dd94221388247bfefb96e17a3",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "2k3rr/ppp2R2/2np4/3N3p/1PPbP3/P2PB1qb/4K3/1R1Q4 b - - 1 24",
+        "played_move": "Qxe3+",
+        "source_ply": 48,
+        "stronger_move": "Bg4+"
+      },
+      "replay": {
+        "played_line": [
+          "Qxe3+",
+          "Nxe3",
+          "Ne5",
+          "Qb3",
+          "Nxf7"
+        ],
+        "stronger_line": [
+          "Bg4+",
+          "Kd2",
+          "Bxe3+",
+          "Nxe3",
+          "Bxd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bg4+. That line wins material for them.",
+        "what_happened": "They played Qxe3+. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "b35171a9a1817a719ae124febfb0c8d815d393017d1d4565b272a1f1688af263",
+      "position": {
+        "actor": "player",
+        "fen_before": "2r2rk1/pp3p1p/1q2p1p1/4P3/2PN4/7P/P2Q1PP1/R5K1 b - - 0 24",
+        "played_move": "Rxc4",
+        "source_ply": 48,
+        "stronger_move": "Rfd8"
+      },
+      "replay": {
+        "played_line": [
+          "Rxc4",
+          "Nf3",
+          "Rfc8",
+          "Qg5",
+          "Qd8"
+        ],
+        "stronger_line": [
+          "Rfd8",
+          "Qg5",
+          "Qxd4",
+          "Rb1",
+          "Qxc4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rfd8. That line wins more material for you.",
+        "what_happened": "You played Rxc4. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "fcfc5ee7e61f86a80d7ba7e3a8004fa656e93f4049734ce5c83a64df3690e56c",
+      "position": {
+        "actor": "player",
+        "fen_before": "4k3/pp3r1p/n1p2q1p/3p4/3P2Q1/P1N5/1PP2PPP/5RK1 w - - 0 20",
+        "played_move": "Re1+",
+        "source_ply": 39,
+        "stronger_move": "Qc8+"
+      },
+      "replay": {
+        "played_line": [
+          "Re1+",
+          "Kd8",
+          "Qg8+",
+          "Kc7",
+          "Qg3+"
+        ],
+        "stronger_line": [
+          "Qc8+",
+          "Ke7",
+          "Qxb7+",
+          "Kd8",
+          "Qxa6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qc8+. That line wins material for you.",
+        "what_happened": "You played Re1+. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "b4e40d7cb34c413163f04c90b520222ac439d5713c4cea4f7d87a40e18dd2195",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "rn1qk3/pp3p1p/5n1Q/3p3b/1b6/1B1P1P2/PPP4P/RNBK2rR w q - 0 13",
+        "played_move": "Rxg1",
+        "source_ply": 25,
+        "stronger_move": "Ke2"
+      },
+      "replay": {
+        "played_line": [
+          "Rxg1",
+          "Bxf3#"
+        ],
+        "stronger_line": [
+          "Ke2",
+          "Rxh1",
+          "Qe3+",
+          "Qe7",
+          "Qxe7+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Ke2. Replay it, then keep checking for mate.",
+        "what_happened": "They played Rxg1. After Bxf3#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "44c2e653aae1075fe3209729ac489b2d221c7d627b27183ca27a7fab452aa6f0",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b1k2r/pppp1Npp/8/4p3/2Bn4/3K2P1/PPPP4/RNBq4 w kq - 0 14",
+        "played_move": "Nxh8",
+        "source_ply": 27,
+        "stronger_move": "Nxe5"
+      },
+      "replay": {
+        "played_line": [
+          "Nxh8",
+          "Qf3#"
+        ],
+        "stronger_line": [
+          "Nxe5",
+          "d6",
+          "Kxd4",
+          "dxe5+",
+          "Kc3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "They could have played Nxe5. Replay it, then keep checking for mate.",
+        "what_happened": "They played Nxh8. After Qf3#, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "034173695d00fb510e3e10871ce55f7a123d941f1952105479b5b96ad0075bcc",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2qkb1r/pp2pppp/3p1n2/2p5/2BnP1b1/2NP2Q1/PPP2PPP/R1B1K1NR w KQkq - 3 7",
+        "played_move": "Be3",
+        "source_ply": 13,
+        "stronger_move": "Bb3"
+      },
+      "replay": {
+        "played_line": [
+          "Be3",
+          "Nxc2+",
+          "Kd2",
+          "Nxa1",
+          "Nf3"
+        ],
+        "stronger_line": [
+          "Bb3",
+          "Be6",
+          "Kd1",
+          "g6",
+          "Nge2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bb3. That line trades equal material.",
+        "what_happened": "You played Be3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "b4e2909553ccd0bd51b6e9d0bff0e02b0d1c2a4d84b1302ae3f0db64d5f9384e",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "3r1rk1/1p3pp1/p4n1p/3Pq3/1pP1pN2/1P6/P3QPPP/1N1R2K1 w - - 2 26",
+        "played_move": "f3",
+        "source_ply": 51,
+        "stronger_move": "g3"
+      },
+      "replay": {
+        "played_line": [
+          "f3",
+          "Qxf4",
+          "Nd2",
+          "exf3",
+          "Nxf3"
+        ],
+        "stronger_line": [
+          "g3",
+          "Rfe8",
+          "Re1",
+          "b5",
+          "Nd2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played g3. That line trades equal material.",
+        "what_happened": "They played f3. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a469f23c650da9df27f61dad7344e4b04134ef7f60e18b33959cb5e7073b6119",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2q1rk1/pbp2p1p/1p1np1p1/8/1n2P3/2N2NP1/PPP2PBP/R2QR1K1 w - - 0 13",
+        "played_move": "Ng5",
+        "source_ply": 25,
+        "stronger_move": "a3"
+      },
+      "replay": {
+        "played_line": [
+          "Ng5",
+          "Qxg5",
+          "e5",
+          "Bxg2",
+          "Kxg2"
+        ],
+        "stronger_line": [
+          "a3",
+          "Nc6",
+          "e5",
+          "Nf5",
+          "Qc1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played a3. That line trades equal material.",
+        "what_happened": "You played Ng5. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "2c57028d94a1600a771555e95f1177b62b0b3643905b4bbda585712c764d1d7a",
+      "position": {
+        "actor": "player",
+        "fen_before": "2kr4/ppp3pp/8/4p3/8/2P5/P1R2PPP/6K1 w - - 1 22",
+        "played_move": "Re2",
+        "source_ply": 43,
+        "stronger_move": "Kf1"
+      },
+      "replay": {
+        "played_line": [
+          "Re2",
+          "Rd1+",
+          "Re1",
+          "Rxe1#"
+        ],
+        "stronger_line": [
+          "Kf1",
+          "Kd7",
+          "Ke1",
+          "Rf8",
+          "Rd2+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Kf1. Replay it, then keep checking for mate.",
+        "what_happened": "You played Re2. After Rd1+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "14789f8d2c5ac591710399c77d94b4d62278c5104fc9027780a93b070cef4e1e",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r2q1rk1/pbp2p1p/1p1np1p1/6N1/1n2P3/2N3P1/PPP2PBP/R2QR1K1 b - - 1 13",
+        "played_move": "c5",
+        "source_ply": 26,
+        "stronger_move": "Qxg5"
+      },
+      "replay": {
+        "played_line": [
+          "c5",
+          "Qc1",
+          "Nc4",
+          "Nf3",
+          "f6"
+        ],
+        "stronger_line": [
+          "Qxg5",
+          "e5",
+          "Bxg2",
+          "Kxg2",
+          "Ne8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A chance your opponent missed",
+        "memory_cue": "After your move, look at their checks and captures\u2014even if they miss them.",
+        "stronger_idea": "They could have played Qxg5, taking your knight on g5 immediately.",
+        "what_happened": "They played c5 and missed the chance."
+      }
+    },
+    {
+      "case_id": "9d1809a3e0dee7aec8c87deab328201aa9231941dac1dc177e33efcc47280671",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1bqk2r/ppp1nppp/8/3p4/3n4/2N5/PPP1QPPP/R3KBNR w KQkq - 0 8",
+        "played_move": "O-O-O",
+        "source_ply": 15,
+        "stronger_move": "Qd2"
+      },
+      "replay": {
+        "played_line": [
+          "O-O-O",
+          "Nxe2+",
+          "Ngxe2",
+          "Bf5",
+          "Nf4"
+        ],
+        "stronger_line": [
+          "Qd2",
+          "c5",
+          "O-O-O",
+          "O-O",
+          "Nge2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qd2. That line trades equal material.",
+        "what_happened": "You played O-O-O. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "a3af79a60b9f6f9b014794761b95a848115e51cc5d03c6d3b0236006c7de37bc",
+      "position": {
+        "actor": "player",
+        "fen_before": "r1b3k1/p1P2p1p/6p1/8/4rB2/8/P3N1PP/RN1K3R b - - 0 19",
+        "played_move": "Rxe2",
+        "source_ply": 38,
+        "stronger_move": "Bg4"
+      },
+      "replay": {
+        "played_line": [
+          "Rxe2",
+          "Kxe2",
+          "f6",
+          "Kd2",
+          "g5"
+        ],
+        "stronger_line": [
+          "Bg4",
+          "Kc1",
+          "Rxe2",
+          "Nc3",
+          "Rxg2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Bg4. That line wins material for you.",
+        "what_happened": "You played Rxe2. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "ff170f9a023fca185a958565d6f55604b58514e5a6cd87a685f546ab7abe7d58",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4rk1/ppp1q1p1/8/3pP1B1/3P2Q1/2P2p2/PPN2K2/R5R1 b - - 0 29",
+        "played_move": "Qf7",
+        "source_ply": 58,
+        "stronger_move": "Qe8"
+      },
+      "replay": {
+        "played_line": [
+          "Qf7",
+          "Bf6",
+          "g6",
+          "Qh5",
+          "Qxf6"
+        ],
+        "stronger_line": [
+          "Qe8",
+          "Bf6",
+          "g6",
+          "Qxg6+",
+          "Qxg6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qe8. That line wins more material for you.",
+        "what_happened": "You played Qf7. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "32a89c9687c219b3e97cd166a3c4f3df276bac92e6ccca09ab4cfe28da53e3b9",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1b1k2r/pppp1Npp/2n5/4p3/2B5/6P1/PPPP4/RNBQK2q w kq - 4 12",
+        "played_move": "Ke2",
+        "source_ply": 23,
+        "stronger_move": "Bf1"
+      },
+      "replay": {
+        "played_line": [
+          "Ke2",
+          "Nd4+",
+          "Kd3",
+          "Qxd1",
+          "Nxe5"
+        ],
+        "stronger_line": [
+          "Bf1",
+          "Rf8",
+          "c3",
+          "d5",
+          "Qe2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Bf1. That line trades equal material.",
+        "what_happened": "They played Ke2. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "5f8f9fb96ac248136294b78c4ada7fbbb4a471cc77271ed5e9f091c9cd122d04",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r6r/1p2Qbkp/pqp3p1/8/8/8/PPP2P1P/2KR4 b - - 0 24",
+        "played_move": "Qxb2+",
+        "source_ply": 48,
+        "stronger_move": "Qxf2"
+      },
+      "replay": {
+        "played_line": [
+          "Qxb2+",
+          "Kxb2",
+          "Rhe8",
+          "Qc7",
+          "Rac8"
+        ],
+        "stronger_line": [
+          "Qxf2",
+          "Qe5+",
+          "Qf6",
+          "Qg3",
+          "Rhe8"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qxf2. That line wins material for them.",
+        "what_happened": "They played Qxb2+. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "6eaacc4dc5163254852d434ca01ad4c27bdfabad461c79e58473eec163cd322c",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r2k1/rb3pp1/1p2p2p/1Bq5/Pn4QP/1K4R1/2Pb1PP1/8 b - - 3 30",
+        "played_move": "Bd5+",
+        "source_ply": 60,
+        "stronger_move": "Qxc2+"
+      },
+      "replay": {
+        "played_line": [
+          "Bd5+",
+          "c4",
+          "f5",
+          "Qd1",
+          "Be4"
+        ],
+        "stronger_line": [
+          "Qxc2+",
+          "Ka3",
+          "Qa2#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "A checkmating finish was here",
+        "memory_cue": "Before leaving an attack, check every check and capture once more.",
+        "stronger_idea": "You could have played Qxc2+; that replay ends in checkmate.",
+        "what_happened": "You played Bd5+ and let the finish go."
+      }
+    },
+    {
+      "case_id": "b8989b20df6614627092b3d209fb6059ede8fe3c4794637d0b6bce656dd6da22",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1bqr1k1/pppn1pbp/3p1np1/3Pp3/4PB2/2NB1N2/PPP1QPPP/R4RK1 b - - 0 9",
+        "played_move": "c6",
+        "source_ply": 18,
+        "stronger_move": "exf4"
+      },
+      "replay": {
+        "played_line": [
+          "c6",
+          "dxc6",
+          "bxc6",
+          "Bg3",
+          "Nh5"
+        ],
+        "stronger_line": [
+          "exf4",
+          "Qd2",
+          "Nh5",
+          "g4",
+          "Nhf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played exf4. That line wins material for them.",
+        "what_happened": "They played c6. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "57a30eb9e200f2085e13ac55f2ba66edd7c7527e9b19bd3f8e96a31e018b4726",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r3kbnr/ppp1q1p1/2npb3/4p1NB/4P3/2P4P/PP3PP1/RNBQ1RK1 b kq - 0 10",
+        "played_move": "Kd7",
+        "source_ply": 20,
+        "stronger_move": "Kd8"
+      },
+      "replay": {
+        "played_line": [
+          "Kd7",
+          "Nxe6",
+          "Nf6",
+          "Nc5+",
+          "Kd8"
+        ],
+        "stronger_line": [
+          "Kd8",
+          "Nxe6+",
+          "Qxe6",
+          "Na3",
+          "Nf6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Kd8. That line trades equal material.",
+        "what_happened": "They played Kd7. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "56c320c9e604cf9e5456c51673279dbc1cc57d44ae90f62dadfd985924d5413d",
+      "position": {
+        "actor": "player",
+        "fen_before": "3r1rk1/p1p3q1/b5p1/8/8/2P2Q2/P1P2PP1/R5KR w - - 6 24",
+        "played_move": "Rd1",
+        "source_ply": 47,
+        "stronger_move": "Qg3"
+      },
+      "replay": {
+        "played_line": [
+          "Rd1",
+          "Rxf3",
+          "Rxd8+",
+          "Rf8",
+          "Rd4"
+        ],
+        "stronger_line": [
+          "Qg3",
+          "Bc8",
+          "Rh4",
+          "Rde8",
+          "Rb1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Your queen becomes the target",
+        "memory_cue": "Before moving, follow their checks and captures far enough to see whether they can reach your queen.",
+        "stronger_idea": "You could have played Qg3, avoiding that immediate queen capture.",
+        "what_happened": "You played Rd1. Rxf3 takes your queen on f3."
+      }
+    },
+    {
+      "case_id": "4002ed3b83843556e862bb5dc6cf313c1368b35c1f5a7311f5657dd6b11ceaa1",
+      "position": {
+        "actor": "player",
+        "fen_before": "r4rk1/ppp3p1/5B2/3pP3/3P2R1/2P1Np2/PP3K2/R7 b - - 0 32",
+        "played_move": "Kh7",
+        "source_ply": 64,
+        "stronger_move": "Rxf6"
+      },
+      "replay": {
+        "played_line": [
+          "Kh7",
+          "Rh1+",
+          "Kg8",
+          "Rxg7#"
+        ],
+        "stronger_line": [
+          "Rxf6",
+          "exf6",
+          "g6",
+          "Rxg6+",
+          "Kf7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move allowed checkmate",
+        "memory_cue": "Before moving, scan every check your opponent gets next.",
+        "stronger_idea": "You could have played Rxf6. Replay it, then keep checking for mate.",
+        "what_happened": "You played Kh7. After Rh1+, the replay ends in checkmate."
+      }
+    },
+    {
+      "case_id": "beb97efba0dddbf4aae17e7e1d26cdad769e6ec3036f9e1d17052d80fadf28aa",
+      "position": {
+        "actor": "player",
+        "fen_before": "r3k1nr/ppQ2ppp/3R2b1/6q1/8/4PP2/PPP2P1P/2K2B1R w kq - 1 13",
+        "played_move": "Bc4",
+        "source_ply": 25,
+        "stronger_move": "Qxb7"
+      },
+      "replay": {
+        "played_line": [
+          "Bc4",
+          "Nf6",
+          "f4",
+          "Qf5",
+          "Bd3"
+        ],
+        "stronger_line": [
+          "Qxb7",
+          "Nf6",
+          "Bb5+",
+          "Qxb5",
+          "Qxb5+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxb7. That line wins material for you.",
+        "what_happened": "You played Bc4. That line trades equal material."
+      }
+    },
+    {
+      "case_id": "9fa3f0e19a8867413dfdd6590aebcd35dc84159e83393dbbf499eb4fcfed11f3",
+      "position": {
+        "actor": "player",
+        "fen_before": "r2kr3/p2n1Q1p/1qpB1p2/3p4/nP6/P4N2/5PPP/2R2RK1 b - - 4 26",
+        "played_move": "Rc8",
+        "source_ply": 52,
+        "stronger_move": "c5"
+      },
+      "replay": {
+        "played_line": [
+          "Rc8",
+          "Rfe1",
+          "Qe3",
+          "Rxe3",
+          "Ne5"
+        ],
+        "stronger_line": [
+          "c5",
+          "Qxd5",
+          "Rc8",
+          "Rfe1",
+          "Rxe1+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played c5. That line wins material for you.",
+        "what_happened": "You played Rc8. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "ee880722f41aec64d0d0db398f483f535111ae1a50c0fb254512aa94b5a4cea2",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/7p/1Rp3pk/p2b4/1r6/8/1KP2P1P/8 w - - 4 36",
+        "played_move": "Kc3",
+        "source_ply": 71,
+        "stronger_move": "Rxb4"
+      },
+      "replay": {
+        "played_line": [
+          "Kc3",
+          "Rxb6",
+          "h4",
+          "Rb4",
+          "Kd3"
+        ],
+        "stronger_line": [
+          "Rxb4",
+          "axb4",
+          "Kc1",
+          "Kg5",
+          "Kb2"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Rxb4. That line trades equal material.",
+        "what_happened": "You played Kc3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "d601795d23890e328fdcbbdb6f222a6b47a230fe9637a88d07404281680bd09a",
+      "position": {
+        "actor": "player",
+        "fen_before": "6rk/R5pp/p7/5p2/4p3/2n1b1Q1/5PPP/6K1 w - - 2 41",
+        "played_move": "fxe3",
+        "source_ply": 81,
+        "stronger_move": "Qxe3"
+      },
+      "replay": {
+        "played_line": [
+          "fxe3",
+          "Ne2+",
+          "Kf2",
+          "Nxg3",
+          "Kxg3"
+        ],
+        "stronger_line": [
+          "Qxe3",
+          "Nd5",
+          "Qd4",
+          "Nf4",
+          "Qd7"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxe3. That line wins material for you.",
+        "what_happened": "You played fxe3. That line loses material for you."
+      }
+    },
+    {
+      "case_id": "86f8edb4e2184b08d5e467a65c122caace7cb42e6e61e45131f21c7ee222ef90",
+      "position": {
+        "actor": "player",
+        "fen_before": "rnb2kr1/pp1q1p1p/8/1N1R4/8/3B4/PP3PPP/R2Q2K1 b - - 0 17",
+        "played_move": "Qc6",
+        "source_ply": 34,
+        "stronger_move": "Qxd5"
+      },
+      "replay": {
+        "played_line": [
+          "Qc6",
+          "Rd8+",
+          "Kg7",
+          "Qh5",
+          "Rxd8"
+        ],
+        "stronger_line": [
+          "Qxd5",
+          "f3",
+          "Bh3",
+          "Bf1",
+          "Qxd1"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "You could have played Qxd5. That line wins more material for you.",
+        "what_happened": "You played Qc6. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "08aa281aa2040066b42d8cf80856f7c5ebdc1ae6564af7153612229bcc7ace6f",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "8/p5rk/4N2p/3p4/2n5/P2R4/1PP4P/7K b - - 9 37",
+        "played_move": "Rd7",
+        "source_ply": 74,
+        "stronger_move": "Re7"
+      },
+      "replay": {
+        "played_line": [
+          "Rd7",
+          "Nf8+",
+          "Kg8",
+          "Nxd7",
+          "Nxb2"
+        ],
+        "stronger_line": [
+          "Re7",
+          "Nf4",
+          "Nxb2",
+          "Rxd5",
+          "Nc4"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Re7. That line trades equal material.",
+        "what_happened": "They played Rd7. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "76d6a4784b02a632ab109543e865bec9b3784b6e496a489c837061f05be03ba7",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "r1r3k1/4qppp/2n1p3/1p1p4/p2P4/P1B2NQ1/BPP2PPP/4R1K1 b - - 1 21",
+        "played_move": "Na5",
+        "source_ply": 42,
+        "stronger_move": "b4"
+      },
+      "replay": {
+        "played_line": [
+          "Na5",
+          "Bxd5",
+          "Rxc3",
+          "Bxa8",
+          "Rc8"
+        ],
+        "stronger_line": [
+          "b4",
+          "Bd2",
+          "bxa3",
+          "bxa3",
+          "Qxa3"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played b4. That line wins material for them.",
+        "what_happened": "They played Na5. That line loses material for them."
+      }
+    },
+    {
+      "case_id": "a57ed631b7c6275e0ea1c0b15379c348f617c910fe5aa66a46b5081b5f90dbc6",
+      "position": {
+        "actor": "player",
+        "fen_before": "6k1/2p4r/r7/pp1P2B1/2Q5/6P1/PP1K1P2/R7 w - - 0 30",
+        "played_move": "Qxb5",
+        "source_ply": 59,
+        "stronger_move": "Qg4"
+      },
+      "replay": {
+        "played_line": [
+          "Qxb5",
+          "Rb6",
+          "Qe8+",
+          "Kg7",
+          "Rc1"
+        ],
+        "stronger_line": [
+          "Qg4",
+          "Rh4",
+          "Bxh4+",
+          "Kf8",
+          "Qc8+"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count beyond the queen capture",
+        "memory_cue": "Before taking with your queen, follow every check and capture to the end.",
+        "stronger_idea": "You could have played Qg4. That line wins more material for you.",
+        "what_happened": "You played Qxb5. That line wins material for you."
+      }
+    },
+    {
+      "case_id": "67ef7c3ad96fc722d13fdf81ab990836ac10de140b532cc0a95a4eee5ed3b840",
+      "position": {
+        "actor": "player",
+        "fen_before": "8/8/8/8/4k2K/5q2/8/8 b - - 15 77",
+        "played_move": "Kf4",
+        "source_ply": 154,
+        "stronger_move": "Qg2"
+      },
+      "replay": {
+        "played_line": [
+          "Kf4"
+        ],
+        "stronger_line": [
+          "Qg2",
+          "Kh5",
+          "Kf5",
+          "Kh4",
+          "Qh2#"
+        ]
+      },
+      "visible_claim": {
+        "headline": "This move ended the game in stalemate",
+        "memory_cue": "Before finishing, make sure your opponent still has a legal move.",
+        "stronger_idea": "You could have played Qg2; that replay ends in checkmate.",
+        "what_happened": "You played Kf4. They have no legal move, so the game is drawn."
+      }
+    },
+    {
+      "case_id": "2f4dd09f8a8a57feca94000d59623e1dc583db5612ce4c35c8eb4f131d237da3",
+      "position": {
+        "actor": "opponent",
+        "fen_before": "q7/5k2/b2rp1pp/2bp1p2/5P2/1QPB4/1P4PP/R4R1K w - - 2 30",
+        "played_move": "Ra4",
+        "source_ply": 59,
+        "stronger_move": "Qa4"
+      },
+      "replay": {
+        "played_line": [
+          "Ra4",
+          "Qb7",
+          "Qxb7+",
+          "Bxb7",
+          "Re1"
+        ],
+        "stronger_line": [
+          "Qa4",
+          "d4",
+          "cxd4",
+          "Rxd4",
+          "Qxa6"
+        ]
+      },
+      "visible_claim": {
+        "headline": "Count the whole capture sequence",
+        "memory_cue": "After the first capture, count every capture back and check.",
+        "stronger_idea": "They could have played Qa4. That line wins material for them.",
+        "what_happened": "They played Ra4. That line trades equal material."
+      }
+    }
+  ],
+  "detector_labels_exposed": false,
+  "development_only": true,
+  "promotion_eligible": false,
+  "promotion_gate": {
+    "blockers": [
+      "development_sample_is_not_promotion_eligible",
+      "independent_blinded_review_pending",
+      "6_claim_contracts_have_fewer_than_50_available_claims"
+    ],
+    "caption_promotion_gate_passed": false,
+    "critical_false_claims_allowed": 0,
+    "independent_review_complete": false,
+    "minimum_reviewed_visible_claims_per_claim_contract": 50,
+    "minimum_reviewed_visible_claims_per_family": 50,
+    "minimum_semantic_precision_pct": 95.0,
+    "minimum_wilson_95_lower_pct": 85.0
+  },
+  "review_rubric": {
+    "required_checks": [
+      "both displayed branches replay legally from the supplied FEN",
+      "the visible wording distinguishes played history from counterfactual play",
+      "every named piece, square, owner and move matches the board",
+      "mate wording reaches legal checkmate rather than an incomplete threat",
+      "material wording survives captures, recaptures and forcing replies",
+      "the memory cue follows from this position and is not a universal false rule"
+    ],
+    "response_contract": {
+      "case_id": "copy exactly",
+      "critical_false_claim": "boolean",
+      "review_note": "short chess reason naming the refuting or confirming line",
+      "verdict": "one verdict_values entry"
+    },
+    "verdict_values": [
+      "true",
+      "false",
+      "uncertain",
+      "invalid_case"
+    ]
+  },
+  "sample": "development",
+  "schema_version": "deterministic_teaching_opportunity_blinded_review.v2",
+  "selection_fingerprint_sha256": "202e0b345e968db2ee8c98bc5512ebf164b5f46e83f6c17a1c6fa7770990fc78",
+  "source_measurement_sha256": "fe6175086033bd76f18984e28d6f75fad336cd2a9b7724dae2ad9fd888fa67b1"
+}

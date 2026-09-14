@@ -19,26 +19,27 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from services.caption_facts import (  # noqa: E402
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
     TEACHING_OPPORTUNITY_PROOF_VERSION,
     TEACHING_OPPORTUNITY_QUALITY_IDS,
 )
 
 
-SCHEMA_VERSION = "deterministic_teaching_opportunity_blinded_review.v1"
+SCHEMA_VERSION = "deterministic_teaching_opportunity_blinded_review.v2"
 ANSWER_KEY_SCHEMA_VERSION = (
-    "deterministic_teaching_opportunity_blinded_review_answer_key.v1"
+    "deterministic_teaching_opportunity_blinded_review_answer_key.v2"
 )
 DEFAULT_SOURCE = BACKEND / (
     "data/corpus_snapshots/"
-    "deterministic_teaching_opportunity_family_measurement_v4_2026-09-14.json"
+    "deterministic_teaching_opportunity_family_measurement_v5_2026-09-14.json"
 )
 DEFAULT_PACKET = BACKEND / (
     "data/detector_gold/"
-    "deterministic_teaching_opportunity_blinded_development_review_v2.json"
+    "deterministic_teaching_opportunity_blinded_development_review_v3.json"
 )
 DEFAULT_ANSWER_KEY = BACKEND / (
     "data/detector_gold/"
-    "deterministic_teaching_opportunity_blinded_development_answer_key_v2.json"
+    "deterministic_teaching_opportunity_blinded_development_answer_key_v3.json"
 )
 
 
@@ -65,7 +66,7 @@ def build_packets(
     summary = source.get("summary")
     if (
         source.get("schema_version")
-        != "deterministic_teaching_opportunity_measurement.v3"
+        != "deterministic_teaching_opportunity_measurement.v4"
         or source.get("status") != "development_shadow_evidence_only"
         or not isinstance(candidates, list)
         or not isinstance(summary, Mapping)
@@ -77,7 +78,10 @@ def build_packets(
     public_cases = []
     answer_rows = []
     seen_fingerprints = set()
+    seen_visible_claim_fingerprints = set()
     family_counts = Counter()
+    claim_contract_counts = Counter()
+    deduplicated_visible_claims = 0
     for candidate in candidates:
         if not isinstance(candidate, Mapping):
             raise ValueError("candidate must be a mapping")
@@ -87,21 +91,45 @@ def build_packets(
             raise ValueError("candidate fact and comparison are required")
         family = str(fact.get("family") or "")
         quality_id = str(fact.get("quality_id") or "")
+        claim_contract = str(fact.get("claim_contract") or "")
         fingerprint = str(fact.get("fingerprint") or "")
+        visible_claim_fingerprint = str(
+            comparison.get("visible_claim_fingerprint") or ""
+        )
+        source_position_fingerprint = str(
+            comparison.get("source_position_fingerprint") or ""
+        )
         if (
             family not in TEACHING_OPPORTUNITY_QUALITY_IDS
             or quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[family]
+            or claim_contract not in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[
+                family
+            ]
+            or comparison.get("claim_contract") != claim_contract
             or fact.get("schema_version") != TEACHING_OPPORTUNITY_PROOF_VERSION
             or comparison.get("schema_version")
-            != "teaching_opportunity_comparison.v3"
+            != "teaching_opportunity_comparison.v4"
             or comparison.get("rollout_mode") != "shadow"
             or (comparison.get("display") or {}).get("authorized") is not False
             or comparison.get("opportunity_fingerprint") != fingerprint
             or fingerprint in seen_fingerprints
+            or len(visible_claim_fingerprint) != 64
+            or len(source_position_fingerprint) != 64
+            or any(
+                char not in "0123456789abcdef"
+                for char in (
+                    visible_claim_fingerprint + source_position_fingerprint
+                )
+            )
         ):
             raise ValueError("candidate identity or proof binding is invalid")
         seen_fingerprints.add(fingerprint)
+        if visible_claim_fingerprint in seen_visible_claim_fingerprints:
+            deduplicated_visible_claims += 1
+            continue
+        seen_visible_claim_fingerprints.add(visible_claim_fingerprint)
         family_counts[family] += 1
+        claim_contract_counts[claim_contract] += 1
         case_id = _case_id(fingerprint)
         public_cases.append(
             {
@@ -136,6 +164,7 @@ def build_packets(
                 "case_id": case_id,
                 "family": family,
                 "quality_id": quality_id,
+                "claim_contract": claim_contract,
                 "opportunity_fingerprint": fingerprint,
                 "anonymous_source_unit": candidate.get("anonymous_game_key"),
             }
@@ -178,6 +207,7 @@ def build_packets(
         },
         "promotion_gate": {
             "minimum_reviewed_visible_claims_per_family": 50,
+            "minimum_reviewed_visible_claims_per_claim_contract": 50,
             "minimum_semantic_precision_pct": 95.0,
             "minimum_wilson_95_lower_pct": 85.0,
             "critical_false_claims_allowed": 0,
@@ -186,7 +216,10 @@ def build_packets(
             "blockers": [
                 "development_sample_is_not_promotion_eligible",
                 "independent_blinded_review_pending",
-                "three_families_have_fewer_than_50_available_claims",
+                (
+                    f"{sum(claim_contract_counts[claim_contract] < 50 for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values() for claim_contract in contracts)}"
+                    "_claim_contracts_have_fewer_than_50_available_claims"
+                ),
             ],
         },
     }
@@ -198,6 +231,12 @@ def build_packets(
             family: family_counts[family]
             for family in TEACHING_OPPORTUNITY_QUALITY_IDS
         },
+        "claim_contract_counts": {
+            claim_contract: claim_contract_counts[claim_contract]
+            for contracts in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS.values()
+            for claim_contract in sorted(contracts)
+        },
+        "deduplicated_visible_claims": deduplicated_visible_claims,
         "cases": answer_rows,
     }
     return packet, answer_key
@@ -227,6 +266,10 @@ def main() -> None:
             {
                 "cases": len(packet["cases"]),
                 "family_counts": answer_key["family_counts"],
+                "claim_contract_counts": answer_key["claim_contract_counts"],
+                "deduplicated_visible_claims": (
+                    answer_key["deduplicated_visible_claims"]
+                ),
                 "promotion_eligible": packet["promotion_eligible"],
             },
             indent=2,

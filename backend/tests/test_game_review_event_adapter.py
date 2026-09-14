@@ -523,13 +523,13 @@ def test_phase5_strips_shadow_opportunities_from_moves_and_nested_plan():
     typed_event = adapt_move_teaching_decision(_decision(), _context())
     event = typed_event.contract_dict()
     shadow = {
-        "schema_version": "teaching_opportunity_comparison.v3",
+        "schema_version": "teaching_opportunity_comparison.v4",
         "rollout_mode": "shadow",
         "display": {"authorized": False},
     }
     envelope = _stored_plan_envelope(typed_event)
     envelope["teaching_opportunity_shadow"] = {
-        "schema_version": "teaching_opportunity_shadow_summary.v3",
+        "schema_version": "teaching_opportunity_shadow_summary.v4",
         "candidates": [shadow],
     }
     result = maybe_attach_phase5_review_fields(

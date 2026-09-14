@@ -50,6 +50,8 @@ MIGRATION STATUS (2026-05-26):
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 from dataclasses import dataclass, field
@@ -65,6 +67,7 @@ from services.severity import (
 from services.caption_facts import (
     IMMEDIATE_REPLY_MATERIAL_QUALITY_ID,
     TARGET_LINE_MIN_PAYOFF_CP,
+    TEACHING_OPPORTUNITY_CLAIM_CONTRACTS,
     TEACHING_OPPORTUNITY_PROOF_VERSION,
     TEACHING_OPPORTUNITY_QUALITY_IDS,
     LegalMaterialLossCause,
@@ -656,6 +659,7 @@ class TeachingOpportunityComparison:
 
     family: str
     quality_id: str
+    claim_contract: str
     actor: str
     cause_kind: str
     headline: str
@@ -665,16 +669,19 @@ class TeachingOpportunityComparison:
     played_line_moves: Tuple[str, ...]
     stronger_line_moves: Tuple[str, ...]
     story_key: str
+    source_position_fingerprint: str
+    visible_claim_fingerprint: str
     opportunity_fingerprint: str
     cause_fingerprint: str
     proof_authority: str
     proof_version: str
-    schema_version: str = "teaching_opportunity_comparison.v3"
+    schema_version: str = "teaching_opportunity_comparison.v4"
 
     def __post_init__(self) -> None:
         required = (
             self.family,
             self.quality_id,
+            self.claim_contract,
             self.actor,
             self.cause_kind,
             self.headline,
@@ -682,6 +689,8 @@ class TeachingOpportunityComparison:
             self.stronger_summary,
             self.memory_cue,
             self.story_key,
+            self.source_position_fingerprint,
+            self.visible_claim_fingerprint,
             self.opportunity_fingerprint,
             self.cause_fingerprint,
             self.proof_authority,
@@ -696,6 +705,10 @@ class TeachingOpportunityComparison:
             or self.quality_id != TEACHING_OPPORTUNITY_QUALITY_IDS[self.family]
         ):
             raise ValueError("teaching opportunity comparison identity is invalid")
+        if self.claim_contract not in TEACHING_OPPORTUNITY_CLAIM_CONTRACTS[
+            self.family
+        ]:
+            raise ValueError("teaching opportunity claim contract is invalid")
         if self.cause_kind not in {
             "missed_forced_mate",
             "allowed_forced_mate",
@@ -718,6 +731,8 @@ class TeachingOpportunityComparison:
             raise ValueError("teaching opportunity proof identity is invalid")
         for fingerprint in (
             self.story_key,
+            self.source_position_fingerprint,
+            self.visible_claim_fingerprint,
             self.opportunity_fingerprint,
             self.cause_fingerprint,
         ):
@@ -732,6 +747,7 @@ class TeachingOpportunityComparison:
             "rollout_mode": "shadow",
             "family": self.family,
             "quality_id": self.quality_id,
+            "claim_contract": self.claim_contract,
             "actor": self.actor,
             "cause_kind": self.cause_kind,
             "headline": self.headline,
@@ -745,6 +761,8 @@ class TeachingOpportunityComparison:
             },
             "memory_cue": self.memory_cue,
             "story_key": self.story_key,
+            "source_position_fingerprint": self.source_position_fingerprint,
+            "visible_claim_fingerprint": self.visible_claim_fingerprint,
             "opportunity_fingerprint": self.opportunity_fingerprint,
             "cause_fingerprint": self.cause_fingerprint,
             "proof": {
@@ -938,7 +956,10 @@ def build_candidate_comparison(
         elif cause.lesson_kind == "allowed_forced_mate":
             headline = "This move opened the door to mate"
             played_text = f"{inputs.played_san} allows {cause.reply_san} and a forced checkmate."
-            stronger_text = f"{cause.best_move_san} stops that finish."
+            stronger_text = (
+                f"You could have played {cause.best_move_san}. "
+                "Keep checking for mate."
+            )
             memory = "Before moving, scan every check your opponent gets next."
         elif cause.lesson_kind == "exchange_sequence":
             headline = "The capture sequence ends badly"
@@ -1012,6 +1033,7 @@ def _material_line_summary(
     score: int,
     *,
     actor: str,
+    historical: bool,
     compared_with: Optional[int] = None,
 ) -> str:
     """Describe only the material change proved inside the visible replay.
@@ -1020,20 +1042,51 @@ def _material_line_summary(
     such as "ahead", "behind" or "level", which turn a sequence delta into
     a false position-wide claim.
     """
+    subject = "You" if actor == "player" else "They"
+    verb = "played" if historical else "could have played"
+    lead = f"{subject} {verb} {move_san}."
     beneficiary = "you" if actor == "player" else "them"
     if compared_with is not None and score > compared_with:
         if score > 0 and compared_with > 0:
-            return (
-                f"The shown line after {move_san} wins more material "
-                f"for {beneficiary}."
-            )
+            return f"{lead} That line wins more material for {beneficiary}."
         if score < 0 and compared_with < 0:
-            return f"The shown line after {move_san} costs {beneficiary} less material."
+            return f"{lead} That line costs {beneficiary} less material."
     if score > 0:
-        return f"The shown line after {move_san} wins material for {beneficiary}."
+        return f"{lead} That line wins material for {beneficiary}."
     if score < 0:
-        return f"The shown line after {move_san} loses material for {beneficiary}."
-    return f"The shown line after {move_san} trades equal material."
+        return f"{lead} That line loses material for {beneficiary}."
+    return f"{lead} That line trades equal material."
+
+
+def _source_position_fingerprint(opportunity: VerifiedTeachingOpportunity) -> str:
+    branch = opportunity.cause.branch_evidence
+    if branch is None:
+        raise ValueError("teaching opportunity requires source position evidence")
+    canonical_fen = " ".join(branch.played_trace.initial_fen.split()[:4])
+    return hashlib.sha256(canonical_fen.encode("utf-8")).hexdigest()
+
+
+def _visible_claim_fingerprint(
+    opportunity: VerifiedTeachingOpportunity,
+    played_summary: str,
+) -> str:
+    """Identify one observed claim without borrowing its family label.
+
+    A specific queen lesson and a generic capture-sequence lesson can prove
+    the same historical fact. That fact counts once, even if two product
+    families could teach it.
+    """
+    payload = {
+        "source_position_fingerprint": _source_position_fingerprint(opportunity),
+        "actor": opportunity.actor,
+        "played_move": opportunity.cause.played_move_san,
+        "played_summary": played_summary,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 def build_teaching_opportunity_comparisons(
@@ -1057,12 +1110,16 @@ def build_teaching_opportunity_comparisons(
                 subject = "You" if opportunity.actor == "player" else "They"
                 if opportunity.played_terminal_state == "stalemate":
                     headline = "This move ended the game in stalemate"
+                    blocked_side = (
+                        "They" if opportunity.actor == "player" else "You"
+                    )
                     played_summary = (
-                        f"{cause.played_move_san} leaves them no legal move, "
-                        "so the game is drawn."
+                        f"{subject} played {cause.played_move_san}. "
+                        f"{blocked_side} have no legal move, so the game is drawn."
                     )
                     stronger_summary = (
-                        f"{_full_line(stronger_line)} was the checkmating finish."
+                        f"{subject} could have played {cause.best_move_san}; "
+                        "that replay ends in checkmate."
                     )
                     memory = (
                         "Before finishing, make sure your opponent still has a legal move."
@@ -1072,18 +1129,21 @@ def build_teaching_opportunity_comparisons(
                         f"{subject} played {cause.played_move_san} and let the finish go."
                     )
                     stronger_summary = (
-                        f"{_full_line(stronger_line)} was the checkmating finish."
+                        f"{subject} could have played {cause.best_move_san}; "
+                        "that replay ends in checkmate."
                     )
                     memory = (
                         "Before leaving an attack, check every check and capture once more."
                     )
             else:
+                subject = "You" if opportunity.actor == "player" else "They"
                 played_summary = (
-                    f"{cause.played_move_san} allows {cause.reply_san}; "
-                    "the line ends in checkmate."
+                    f"{subject} played {cause.played_move_san}. After "
+                    f"{cause.reply_san}, the replay ends in checkmate."
                 )
                 stronger_summary = (
-                    f"{cause.best_move_san} avoids the checkmate shown in this replay."
+                    f"{subject} could have played {cause.best_move_san}. "
+                    "Replay it, then keep checking for mate."
                 )
                 memory = "Before moving, scan every check your opponent gets next."
 
@@ -1097,11 +1157,13 @@ def build_teaching_opportunity_comparisons(
                 cause.played_move_san,
                 played_score,
                 actor=opportunity.actor,
+                historical=True,
             )
             stronger_summary = _material_line_summary(
                 cause.best_move_san,
                 best_score,
                 actor=opportunity.actor,
+                historical=False,
                 compared_with=played_score,
             )
             memory = "After the first capture, count every capture back and check."
@@ -1131,11 +1193,13 @@ def build_teaching_opportunity_comparisons(
                 and opportunity.consequence_piece == "queen"
             ):
                 played_summary = (
-                    f"{cause.played_move_san} lets {consequence.move_san} take "
+                    f"You played {cause.played_move_san}. "
+                    f"{consequence.move_san} takes "
                     f"your queen on {consequence.captured_square}."
                 )
                 stronger_summary = (
-                    f"{cause.best_move_san} avoids that immediate queen capture."
+                    f"You could have played {cause.best_move_san}, avoiding "
+                    "that immediate queen capture."
                 )
             else:
                 captured = root_queen_capture
@@ -1149,11 +1213,13 @@ def build_teaching_opportunity_comparisons(
                     cause.played_move_san,
                     played_score,
                     actor=opportunity.actor,
+                    historical=True,
                 )
                 stronger_summary = _material_line_summary(
                     cause.best_move_san,
                     best_score,
                     actor=opportunity.actor,
+                    historical=False,
                     compared_with=played_score,
                 )
             memory = (
@@ -1198,6 +1264,7 @@ def build_teaching_opportunity_comparisons(
             TeachingOpportunityComparison(
                 family=opportunity.family,
                 quality_id=opportunity.quality_id,
+                claim_contract=opportunity.claim_contract,
                 actor=opportunity.actor,
                 cause_kind=cause.lesson_kind,
                 headline=headline,
@@ -1207,6 +1274,12 @@ def build_teaching_opportunity_comparisons(
                 played_line_moves=played_line,
                 stronger_line_moves=stronger_line,
                 story_key=opportunity.story_key,
+                source_position_fingerprint=(
+                    _source_position_fingerprint(opportunity)
+                ),
+                visible_claim_fingerprint=(
+                    _visible_claim_fingerprint(opportunity, played_summary)
+                ),
                 opportunity_fingerprint=opportunity.fingerprint,
                 cause_fingerprint=cause.fingerprint,
                 proof_authority=(

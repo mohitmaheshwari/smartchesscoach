@@ -1,0 +1,1567 @@
+{
+  "cases": [
+    {
+      "anonymous_source_unit": "63a3ed4665417cadddd5423b6a7491a22574fc445b45511a77fe4d43fe0536fb",
+      "case_id": "01bf8899a1f66aa6bda379eb4522cbe42b3871a76cfc9d28d2186732cbf6fc44",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "d41024e8e3444dd02e1a19ceaa5e4bb3e2bcb0ed0db4e1eed6b6b4c089ff554e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "82675e922a75e2ba2fcf7339a53ee6d61b7ae4e9e10700edf6ae1e9ab801d4f1",
+      "case_id": "034173695d00fb510e3e10871ce55f7a123d941f1952105479b5b96ad0075bcc",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b55508249feee2f112d4c7a04f24961d6e32522e0c47cd61554d42e3b9ce38c5",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d9f3eafe1aa722ceafa3f81e63923ab079993c1c88ffb056f3ad77dd5187f29",
+      "case_id": "037f5834dd46159fefdb11f7d774abafff9654affff6a3e88bc0a730d10f0071",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "1f324e1fcb4eba2e21e746d6b7eb87f5e799c9ce690aa59e9e4f6356fefcc5bd",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "12cfb9f1cde6350655753bfd2a4d092315d1750a90ed71737527aee79358d46d",
+      "case_id": "057457d4d4811a1e4ace3812a558cf6633641e43caebbd6c5d635779f47c9d9c",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a4f2495cdfb422441b3af3336ac0a906b3cbfc4ea6f172a8bcecea58c69aaf66",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "93caae8b5207f43ff92011105977b89743fa7f8fec212face6eddea6e02fcba8",
+      "case_id": "07060d0c540289eb6b3af4109c302340da13aa58a8b58bb224a55363fc123810",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3442ecd83f3e879ef2631b868162ef06fd9369f8986914c3c4714306a7c83372",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "07287d2bce8807cf084c278e2a5e6213a4ffd848500bf04b72062c2cf82a8cd0",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "42b18c1cd551171f653addcd8a244a6b3c1b4761a84bab0f9b9f3a98f003b8d0",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "07427bb04303ec2342ba5a739118ba330aba67bdcfb6cc2e736aaf1a5ef9c652",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "4fd0c683d970950ab4d6de65fc6b907dae8f359b84726367553b58517d56f88f",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d9f3eafe1aa722ceafa3f81e63923ab079993c1c88ffb056f3ad77dd5187f29",
+      "case_id": "07c933ab791818deae6c43f6258bdad3f80dae80443a9d5243bf68cd5f1c318b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "eb523137dca7ef045c5e9f0241f7c0232b0d6deb4a59cbc77a2f9d1f45bc875c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "b068de37a67bbba4576e0d3ac33c4fd7d8f53fb1907ec32cfa82a4192e9acdd3",
+      "case_id": "08a9b369ff22c85832451ca67e0c92526a2a84830a50cb927a3cc1e9d941b3ce",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f8a7a006ff4316b8faf08902386881639c3b840fdb343064412f97771048595b",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "f0b5dcc473caee4817f00dd140aca198db8266ecc028e76c0b8121c4ae4ae0e3",
+      "case_id": "08aa281aa2040066b42d8cf80856f7c5ebdc1ae6564af7153612229bcc7ace6f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "9769a14dedfd7c782b676e058acc07137015ecd6595f5b10d48cb45bcfcf7bbd",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "96349a7c02caff010bc87588d5aac0732b26fe69ac28d2c3c5325157eb143a75",
+      "case_id": "0cf8452b1a3221cb2d8d78a12e71147256fb3c6eebcb94ebb6d10b622d5880e0",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "14f044fef51c7f0a68505e1c962385419c7d36b16e8fb607ff66fc11eb4f2199",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4a556a62e2863ec202c78c04870d41f05a417627dcfd71dc40fb5f083273ff22",
+      "case_id": "117d9198c36243d9ca50c42b2a1c2ba5075be12656b4b832b7255cb792809b89",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "3201999fd39b8018c0d007e6017b9090fd893f6c2f8ab3a20007a0a7cb486685",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "b8e911951cefb68665cb519d3f527007c0bb451aac8ab0bd05714b7658e64ab4",
+      "case_id": "120ce28ce9d92d14274e4fee8c96969ff5962632f5dea1c9fd1ec8293659999a",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "0c8c58d2ae402826853db8347516f517f5c1411c23644874d159faf8912d6b2b",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "08cfb169ed2bb3151ec32c461bd0340fba709364424843f21d0f9abd47a4422b",
+      "case_id": "1256d629b9719e2907ef01dcbe8eed616c083c6a257d7d9127aef8465994777e",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "d9df5cd3aaafb820486e1aa9505cfd9f4d26e6f2004022c623666bc9e3d36ce0",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "1439420a361753c50e351ec16f4ecf76417b6c82b31ad543b01c75717b6e5f4a",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "7b2df9cf0e0465aaa52ad782dcdfdd624725149753ae79a3084e55dada61b45f",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "77742137aecf0fd669a2c4938b2b4923c87b9a79a017221b4bbdea6f6197c263",
+      "case_id": "14789f8d2c5ac591710399c77d94b4d62278c5104fc9027780a93b070cef4e1e",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "8e0c96a4234b42cf2ad4d57ac450c64cafb785ab171e6d5908fc18281f9a418f",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "85e1d17ff863231abf5ce8b59a017d786db6aea729ace84e0693bb89e8414200",
+      "case_id": "17b687781774887cf4bc4014a187f28324b14293938198ffa7b28f3b33fe2c78",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "8adab9f9290bd95f289764ee7e01de5aa8ae9125dd825dd48f3d77338922d27e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4d28c4cd465248038d8b1dd45cfb7692999b85d90378b129a764c27fb601159f",
+      "case_id": "18528bbeb27f22f32ef6b20e524f09743cd416d60ef6c87db892ddf24082aa2a",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "d4f588c5d05dc7306f6be95707b76bd3f1a04d3b1628813d1164f3a3669c55cf",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "18916e71ac957ba50d490f45bfd8c5640cbf9a1f54087fa9c0fc6c7194c43e0d",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "98633b14748dbd4643b505f85998a89715662234436495b4e7b67b50e884976f",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "7897e2f7970f7004c411d57fa5dd6b5d80fd62e8e2ef7e26b049c89795d95b2c",
+      "case_id": "1c2573cc404a174882be37cecd2e8f2fb33bd495dc616e20a2110dd34cde50ee",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "bc0ff57fc115276e4859d85acd119550e9962b49205863db79f9deaedf2f65c6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4133655e9bc990028e770372c584b67026d2b3140d1bac88593948c6efcf7808",
+      "case_id": "1d4aa100409197ec3bc460b25f480ce485c3cd68580e649adc8cd1813040dbbd",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b265d62cb6ea197d868299a8d1e65624add9235ffe6788a7587f6f0ed676f6c8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "2094015a1e06b63779228de11f9682cb4b57caa6643142dd8a12fe3dac27350e",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "5c4b2ba41c3b6cd0582a7d7101130454ee52eadb67f8fb0213bb2f58d2e08057",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "1dbef5d560a93b66c95a50392329553bd655b2a115538c6e2c5c0868c08f5d38",
+      "case_id": "22902875065d583aff8626d03d89d4096c61ec5aa45b2ce954d35a6d414de626",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "13f32eb85b35aae89454193b5b8be5d65e4239f7433543ed3927dc9f50c06546",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "22a17edb735fda678d993df89737b0140f0065de9f8ba8beccb8bdbc28cb03ae",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "7056c4e30833e8a6c9ac611ba0fe6bb79fe651f85381dd39d3c38fe4526535b8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0a26c90d1a30f30e3e6ac237d5232b6ed3286fa296f801c145a63c159927ec77",
+      "case_id": "26748ca038638e0e167c380b0816a7ccc12deebd4a687b3539cd664e6f624585",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "48d3df70045f5032c131760b36fd25da1dc80c8e99dcf52485bda62bbb9e4ecb",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "63cce93517022b407735b5aa493de813d928a7679ba164ee8528726189c8eef3",
+      "case_id": "2c57028d94a1600a771555e95f1177b62b0b3643905b4bbda585712c764d1d7a",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "627d467b4253e8c00149a87c794f6ae490ce85c8cf7717ea8c148607fa6b4ac4",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "1f51af3d6d0c8547dcaecca2d3e4795274b9d722052d50f3380cabf9a6df03cb",
+      "case_id": "2f4dd09f8a8a57feca94000d59623e1dc583db5612ce4c35c8eb4f131d237da3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6fed45015ec20a3ceb4d99230e69b86c908201fc2ce01ebe30299c727b8a4cb9",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "8e111c2de89f963effd3112dd12c315797bd1a61b613a90677a21afa04bf0a1b",
+      "case_id": "2f85f1cd3e1aa046992c4d77f132b55618fede6885ea1113babb85a08e2d1f9b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "e878da53bdc1636be990a26f24ea3a2122fd34969b19e5958f4fbac9b40000a0",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "2f88035c770c1f5d53e20c312febfeed742ff3c7687935b8218944f8173b90f9",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f5ddeddcead481d50cc4c138ae79cc97313040986e2a3b4f3145ec3e9c39e30a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1a37b6ea4b193f1b06082c25c44fe943205ea1e30e6f62f105e44dd7b8cf66a0",
+      "case_id": "32a89c9687c219b3e97cd166a3c4f3df276bac92e6ccca09ab4cfe28da53e3b9",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "18802c0be8918554ca10665d531b9538a6c79d9155a547de611018cc121791e3",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "5cbf8cc61fe1457599627eb5eb608077bbe8844919e09c3c3656fcaff2ae8bb4",
+      "case_id": "3475b699bb8d6f312787e1740cd6e1a8e2256282ab3d6bb1487b5285f299ce98",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "68ae8f10244b880e87c06016b2bbdb10347df7b307faa83fd0c71a96e4c2daea",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "36960fbdf135341851ca7caebbf26a16abfd62b58931c8c9fe9006acf9439ace",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6d381cf11e424f9dee4b3395b9ade6bddf57c5e562b6d27d4399b4b6072a6332",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "09e5fffc0677331c716ccde47358e4474616acfff7e4946999638842c0d7dcd2",
+      "case_id": "37de66608c94e7a8d5d850dc8e6ae244d2b6cac216e91ccaae0181f518bb570b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "c443649ed63305b2d954a40935d01b1a1b4e63d43d7d62fe64468ceedb785efc",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "96349a7c02caff010bc87588d5aac0732b26fe69ac28d2c3c5325157eb143a75",
+      "case_id": "3819e6a97d8ba3512d35a9bd576dbd7af947866b17b86eb9b4e652e4ac8203de",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "ef3dbeac2bdc01e380828374769bbf281e63698f0c08d10c2469ea2bb83319e1",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "75f33b52d31292a31c0880f2e3984392345400a6a4a683e3f861f70352e65bc6",
+      "case_id": "390caf18959a79545a5356c021aa37e0e7c85f14729b342da0ca4f418515643d",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a1292f9c721e59ea0f26219979c514fba16ca8bd79fc7f75f4d5916be2f101bd",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "39d3eea49974f2097a4b1cabfe248fe3b1ffe21f0359a4c0b720312c4cf40194",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a5d55c3b1023fd0af16084da24f23000623591641270eddd2db3a9d1d2379d99",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d9f3eafe1aa722ceafa3f81e63923ab079993c1c88ffb056f3ad77dd5187f29",
+      "case_id": "3a64f76370ca0bcafe77fd15b0c2281a7976681eb0ea3d9bf3074a0991b80035",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f76e535324e69d013104dbc3ea8bb19db9bb6e99e7915ff7a79db589be94e541",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "3b6cba3aad65f49ad001c22f6e0cc22bf7f735087d4fa2fe82afc4d26013e9d5",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "0d7a99d81e47bf0b9c461b139dfde52bd78263480462677e8af2a25e6516d407",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "7e750f5e32500bdfe2cfb18f7d7b34d79cbb9fc9dff9ded7c6e25e6072735e58",
+      "case_id": "3d97512ceee94885c8ea15f13ecdc2b2ddfb931dd94221388247bfefb96e17a3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "0de195178422f6e39f9ec0d9391fc5ae756643519118541109fa26e7d7d1f01d",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "f523333cee374ea948a5f642bc8f74c67ec9c5e97666b7143f120b0712d15227",
+      "case_id": "3db205b06644f968bd82e1bc8f516af0d3947e04023b4978efd08939ae7e55fa",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "66818f67ef84a3ec96d799919df1e8b9b9f143def0dc1c58f21c6d9b47fbdab0",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "4a1dc159f4463a62db5202e2d89c0d3ee8e57ff37a1dec828887f64c54a1aaa6",
+      "case_id": "3e0e42d3339d9bb5192ebaa4c098ed94ef5ce435ceaa3c24dae71aaaa6129984",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "dad18a9cb5a9c40e66c891b0e22c439875d36f555e0496dde08499e17b949273",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "63a3ed4665417cadddd5423b6a7491a22574fc445b45511a77fe4d43fe0536fb",
+      "case_id": "3ec51e8ebed8d4e01cc9d7e0195d1e85f8e41961485ca28ace2bdc40e0712147",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "e5af662f6ce775d7a0ba8ee7f3d32f189003e73a85a88ee9ebf15148210334f6",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "3ee4e35c1d91f8826455280266758d2764b45d48c344bbf1ff7cddd783d57f92",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a2bae24dacb6ea07937bc0458e92aff5f825ec1cc7e1b08395bd62737884b2fd",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c753826ef2a80f5fe51fe9de890448e483691955b469631f1d5e6c6b282f8258",
+      "case_id": "3fe96d64ecbfcc37ba13feeaa13d258e8096bdb9fcd3cfd98cefeb88ba48cedd",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3723ab41e58d5b0c9497722cf190cb69e0a642f735d022a4351a1d539bbb2e1c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "11e62c53f6be45f23da3bd2c659d192afabc6aadaffaaae245bf9b617626ed56",
+      "case_id": "4002ed3b83843556e862bb5dc6cf313c1368b35c1f5a7311f5657dd6b11ceaa1",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "b963c203c370e45bf1a140cadc6e32c87e3e85bfa473220e77b30252affb97ac",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "409ab1b2493d46f73a336a5f7238e46a22c30abc4bf3ffc4060680229bfa974b",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "eb588e957f5e8719418d683c94d16e78bddb340a969da5ebb71d31a6af7a06c1",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "f523333cee374ea948a5f642bc8f74c67ec9c5e97666b7143f120b0712d15227",
+      "case_id": "41a179bd7de3bdfecfacfd1488b8686d912a1d6a7f5d4515f2e93df6d7203a54",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6cf229a8f4f1d97559e95855665dda39f8cfbb564dfabb856b5c4d3904f6abf8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "f523333cee374ea948a5f642bc8f74c67ec9c5e97666b7143f120b0712d15227",
+      "case_id": "426f87d16a1247fc76c3af71a7e013c791d3870e171a28bc1851b492472f6d8a",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "faa96489a321f36a04f130954e1ccbe094d9eb8f9eebcdbac336d8d26fb1694b",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "42f0abd1c6d811d319dcaa12ca62810b6a7c3f15f09b835fe15d011dd81ba5e3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f1af542556788aa9a609d0e4502f496f0c597c5c22acf17481d3ca010e15c2c1",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d392de7ed00b3030fead098e317420a489af48faf960053accc1a8184678d839",
+      "case_id": "42fac663dff1c37a7ae8fe7c586418a97d0e8db931286ef589a260fd5b1ad196",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "178dffdf2bc6aae366a9b4f19e44ae53e7b3d00e88f90805bd92abf0d75535e6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d3ae5c8dd4fc60ebff5ce9d03eba6473cc58faa06afba3db3f2799b4d2fc5751",
+      "case_id": "434d3a58573a3b98735b92d8eddd32a85f68c5a5b7b038817314aff5e90a968c",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "c766970df9e7b29aeda3b610925ff3c245d0c799ca545ab0af344195a3b294b8",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "1a37b6ea4b193f1b06082c25c44fe943205ea1e30e6f62f105e44dd7b8cf66a0",
+      "case_id": "44c2e653aae1075fe3209729ac489b2d221c7d627b27183ca27a7fab452aa6f0",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "3954c05a6db8e7435d89e9e3bd56f8b329bd22e9a28f57180feb521caed3e782",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "46732ccb0859a4805bb52ccfb02c8fcf337202a0ee83663d35eded25c433e146",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "df8d46aab813d2c440953eba5bc0e71322a7bdeda48fbf938e15f269972420ca",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1f51af3d6d0c8547dcaecca2d3e4795274b9d722052d50f3380cabf9a6df03cb",
+      "case_id": "46ca5bdc1f8fc9c762549e8e9cac3963ee2ad920b4fd061d4ed0fc0e5ed744dc",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "afead6043b84a75364b5933d244d1cee5c16ff594890d1044203a932e94505d2",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c753826ef2a80f5fe51fe9de890448e483691955b469631f1d5e6c6b282f8258",
+      "case_id": "46d8dc04e8de465ae9c64987da8a53935cd68a09be58a9fb3da6c2c820a6cc68",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6cc447904d3bf58dc2ecb18b2666f670bdccb2dfc8139f34495aeb8523239a4e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "96349a7c02caff010bc87588d5aac0732b26fe69ac28d2c3c5325157eb143a75",
+      "case_id": "47426b64584792aba3ec94f1c739f8ef06d8733f51196d6940909034eef64850",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "8ae763bc4c57eb0a09bb34e7f1b237037d5ef2d9a66a791e4b5e223129c7acfb",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a827d9dbe11ace3d8aa96b96e62c3bf1a9b6d1086329070339f7eae628f7b56",
+      "case_id": "4aff85ceba1a7d90175274adbdb73b3eab8ec2c5aab85372b0da3f504add4f23",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "367da7f2168d0e75a66a930c46f2808d493bbbaeeb575034b8cfa568595b89ba",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "2b9191db8e5fa357ecd51c3682311d7af389e11db86a3d9d2a3bf8ba1888c34b",
+      "case_id": "4e14ceedc98b8aefa72903ee8faa75d5d6608542e6fef2b9069e5ed0301ba28a",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "11f43ec2131d9ad53593046ee22fa9ba115bc9c8bfda9c482ffc11bbabe285f9",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "4e9d9391b8537dcaf62b811398e14090885e064ab9c5892e2efcb37cb15316dc",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a1ad257e6b0b7d76cad94430c6879d1e2af7283ef0980c51f512d9f09f14b7ee",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "904c91447dd756343ba79f986a21bb4250213ecef770e862759a3b49373de1c2",
+      "case_id": "4ed24d44de1449be2bbc149a893f064090dfde748da91ab6ecb9ed8fb930ac47",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "10deb03a9d5be51e793ef6c1c0ce3086bcf68fffd65b2e428bf24ebbedadc9af",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "5599c791bb94fedfc378869af3c76c3731988a41cdeba9570decaeb9c738cd5b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "fa7ab79e4ebe048e817f0a3a27b415b19f7278b275aadf4a5c0297206d94b25d",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "96fc7153ef6a8e06053b7782ca41bb612bb38618d1f63b9145123b89eaf4279b",
+      "case_id": "56c320c9e604cf9e5456c51673279dbc1cc57d44ae90f62dadfd985924d5413d",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "1b18143d8700f15797dd4bfe07f14c1c76fc08e5402521ccc3285ff96f00d428",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "ebddd09d470ce464edd566d44eb49fff1a827618a14ab75ece0016d63f2e6365",
+      "case_id": "56f1d1f1b0cc82b2c05909929cbc8376639be9906314a7e75098407daf50b41c",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "bb272521cc0d18b672afad3f21ddc2775e851cab7ba9dfa4f05cc9b0af7f0b3a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d13601c035870a47763c097bf6f3d123115629b2cc33e537d35cf92c7c5418a",
+      "case_id": "57943da5553401a9454676b9902e4720ec3eefc0c10ef286aed371c1830ae598",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "76342f047e464b730bbafe6decee25b0f7a584b295cc53c5fdab58d3710d3754",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "b3e34a3829691a6a54867eecd6288abbd8d427e25348650336a393d1b28f9aac",
+      "case_id": "57a30eb9e200f2085e13ac55f2ba66edd7c7527e9b19bd3f8e96a31e018b4726",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3192bb9db8c2c266c7c8ebec9c22f81b161cf330c07805bb7c20bea1cbab8139",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "5893f9faa731a69db93d5513f74c6730d45ca4eb799087186ca065b1e6f79cd2",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "ddf8d5d6f1036628090d80700c6a61e0ebbc9d52e07032d6df41a1abaf799c10",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "59bf3c9cbadc820211b68833d1a1ae25fe663ff9f1e92614f6958c573f5d9328",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "a3f49d1fe46d8bc4917c0a6effbf79fe565628b4d157bfc0a3ef007fad1fc06f",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1dbef5d560a93b66c95a50392329553bd655b2a115538c6e2c5c0868c08f5d38",
+      "case_id": "5ab5152b2af79b754dfc1a516e20f5d63bcd7ff53772643439e50e45cfbd98b4",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "f6078b8eefe6dcc3b20dd867deb181df0d60bbc7aa38b1917d19a5c69d0645de",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "bcdc639f24b107b76d8e67c97e71a1a9943434a3b9901ebd3313377c55f35f09",
+      "case_id": "5bafc92f9409425774428b670cb3a0d276d6ed751595f6ab5f6c696a8b1c0345",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "ffcb59b005a3015503f74b4130a1e658853c16298f35a02b6d8ffe514c15eba3",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "5c10061dfedec004f76ba29adeff32c4669949c8cf479bb6edcf2bfa5cdbce4f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "29d6831f2298299746db68f52a16a9c27825ff77219f83a3e15f8e08bbdf32f4",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "5f8f9fb96ac248136294b78c4ada7fbbb4a471cc77271ed5e9f091c9cd122d04",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "18d2719c52e0eddd8c839e3d43b6656d1d230ca4ee6dfb3ccfff66123f06d3f0",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "5fc5504e7d0bbf67d3b9b62933e2751d24239e56ad664c6060d77b0fa94f149e",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "a3cb14b20b1da898481065f59dbe6470acae1cc2825f85ed49cf48c4a81303e3",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "01b806f644ac0e02a55faad039a22607bce6e3ef1b3a685b94d4bcc2888996bc",
+      "case_id": "6000011d13b22eb4dee56f78310ab81fc1fc1ad61d89694ea4a9822ca19153b7",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "883a9cf39f762fefaeb326613741a6050878cc88a58abf9c27856dedf15a182c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0a26c90d1a30f30e3e6ac237d5232b6ed3286fa296f801c145a63c159927ec77",
+      "case_id": "603d10da69a842b4677210de9fff73fa91438b9e1936203adb8e877d6fc34ee3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "e0e911cd5828120f28cdca122ed6294f6893a05fa63227db466ff7cd3531d087",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1f51af3d6d0c8547dcaecca2d3e4795274b9d722052d50f3380cabf9a6df03cb",
+      "case_id": "60a64b3df9dde161ecd80532532839699a1b0c36407a1197939876cb473f86e6",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b5e1f699b8ddb22e695a7452e331afda1d4b2dc4def995d867bbd44c5f1d2dc8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "61c5a36b1679f23a969ded02a794be07e37c259b71726b4be5c31087ca19f968",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "ac8d43d75419fc569428e69967a97d1a032a7f54b8f8898abcc9719542101aa2",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "4d28c4cd465248038d8b1dd45cfb7692999b85d90378b129a764c27fb601159f",
+      "case_id": "61cab27736fa303d7a3139580c389edfb6edaff262177895681fc9d24dcf9d7a",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "cdad172169bb0dcdc6443fdd86bd49f8b6cb0f8ccf2a6330f05f3bdbd40244cd",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "11e62c53f6be45f23da3bd2c659d192afabc6aadaffaaae245bf9b617626ed56",
+      "case_id": "66d1975d7c1f36e41308fd4e5bedd588c479045f1b80202f74d632042b1fb18c",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "726cd5ec330013af6550ddc9fc3eb8c7c021ed33baf783b819d69bb2b6d41bd6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0e79a6532f7ff64857629489472bf73d23b6ab5a9e463058ef9322a2eadfea1a",
+      "case_id": "679960870f84308275f61ecfb8cf75a6c9fb4491e0a3897f34e378f36bf55ff7",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b47210a596bc161fcb9f05eac0d8816c92df4bad242e328a83879225f59fc4f4",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "93caae8b5207f43ff92011105977b89743fa7f8fec212face6eddea6e02fcba8",
+      "case_id": "67ef7c3ad96fc722d13fdf81ab990836ac10de140b532cc0a95a4eee5ed3b840",
+      "claim_contract": "stalemate_instead_of_mate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "b7e174b49cf13c5839c8982a466e477392d66d2c562839c7ff93828a13801231",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "67f1974dc70de96794f85285f17e89621279e36dbfe099edf6ee396e918aafbd",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "f2820ce9c4b34b531e54434f9c199333dcb38fe36b56c2c0bce1132278350dc2",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "d3ee182aaed31e2aa441524c21bdfeef0294d634c79a2943db82abe67f8e8c57",
+      "case_id": "68ecb0a461dee1a9ca64f85dbb02ede14b28d8b77b965c688fde113a8d02a19f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "450167fe0b5146ab17bb57100a0a0d195bb16590ce3e735801961d308c8fc62c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "697e0556c8a78196d2c9559b2d3cdc2d82a1a0b03ad29178e35d61afb1556409",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "3432568fa897b393c5bff2a8fd13189a95eb1c89c885da6747952f96b21529ca",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "1d13601c035870a47763c097bf6f3d123115629b2cc33e537d35cf92c7c5418a",
+      "case_id": "69fd348a16484cbc8f2a108b9b9585ab8310ab74394860d255ea7cf574916365",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "46fe2d6e534b7c658fecf8f79f787bfb5ec08252e33c8c759eea68caa3bc2869",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "29f3bfcb7f5c53c8b81cf446a7db59dff9b977ed275de7b9081b44a796281678",
+      "case_id": "6a65a6765331e20b57f13c56cdd48198062a342c13f06097fbcd155de5eb8889",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "cbd3b56117669d7c492c11c0b7c5959c266d0171f95154db6ce8b070a138821e",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "1a37b6ea4b193f1b06082c25c44fe943205ea1e30e6f62f105e44dd7b8cf66a0",
+      "case_id": "6d7e6c5ff413fe0e1300748b8d4cd9f9568bb29e3961a9905a642dd29a2d5e58",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "2c230b1e73a7dde2e4fd5bf31801187f2d7d076040dcaad16909969e269bd20e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "b560019ad2c5ecbb557a6f91858fd731cc8ae34f2883507d7cba01545321b20e",
+      "case_id": "6eaacc4dc5163254852d434ca01ad4c27bdfabad461c79e58473eec163cd322c",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "565a3ec5cb603a95b715bccb786aa67ad7acfe7c9562c6ce96e52fdeb0120fe9",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "50f1ad539b4b4653dd591bf2e92c558edc3fb5af09025fe700864986841b13a4",
+      "case_id": "6f663ffc39400aaffc0c3bc6f890815150dead6f84e3e6f5d9861bae4760b2e6",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "7f46771f3a2564a9f0aab844ab7fe3bad7fc97cedf228950ef9fb27fc702a13a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "700cc6b3b75cb8683d3a4f0ec3e726e0e194741c9a3883cb24c596faa13a270a",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "7ceb0775acb0b48225e33973a2d7c7b11f06b7a6446dc05858e6bc0385dd3075",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "703fea3be5dc2f2bfe26032118c631d0f4f95836f0ebe59266fed4016a14e4c6",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "20502b24f3df5b5553b182969a47e03fc4bc9fffe2a5af088c4a0a8ec33ecdc4",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "96fc7153ef6a8e06053b7782ca41bb612bb38618d1f63b9145123b89eaf4279b",
+      "case_id": "7217b90a731329ae00ef962019d798a4de93fabd6627bdd5906381eb22088991",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "d3d453c9be0ecc76d04dc3a8b08c60e932f3743e4b226a06c967a8369773794b",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "726c15656dee726398262e0738d4a4a0f787e6534f37f397b918d55a67aa5b5a",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "cd295537a0427af4b32b8701d4162722b41c70969050954e2f658415362a8d86",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "748bb5142a386895ecd9fb105e8b8fcb4dd23e9d886af28b19bfff2d0f232c0b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "dd363dc663485b24d20b26a2bef6706ecaf7509bd0f9f5ab0e01e122b6ed90a6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "a1556df902cfa7cc40fa99ba3fe5ec7278da8120e07a28a2c1fb11aa67dfdb30",
+      "case_id": "7520ab6b5a3794c76a11718e13a6ede5c0d144d116c8ef4df0af2b56be6c0a88",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "48047f836005fab626d9f66eacdeb8877f861217fa1b452385a6d6ee8a54933f",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "93caae8b5207f43ff92011105977b89743fa7f8fec212face6eddea6e02fcba8",
+      "case_id": "759960356643a5ef5ec6f3169cfbb2d0ee48a6b73dad0ffdec5407a3b52c0f3f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f17aebe2fbbd77a3a975a30cae95eabf08c5b697176712d69c6fe571090ec0a8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "dad5d1304a953a7f44dfc8ae7e38e5b2505cb4296c901ea776fbd33844aa3282",
+      "case_id": "76d6a4784b02a632ab109543e865bec9b3784b6e496a489c837061f05be03ba7",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "20d67157f400f221346ee25109f1416802eb8998d21f8d523ebbbf77f665b990",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4a1dc159f4463a62db5202e2d89c0d3ee8e57ff37a1dec828887f64c54a1aaa6",
+      "case_id": "7868508555103a248df75d93221acddd1ff2bcacde0b0677ee94b73eb30303f3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6fe79fd05527849671de002b50c5fb1db9fee3297e2046a151298c15ee3ac416",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1a37b6ea4b193f1b06082c25c44fe943205ea1e30e6f62f105e44dd7b8cf66a0",
+      "case_id": "7e915541d8e79710439ff1a52787edcd71b2b072e5ecb3e6af9b9fa530ef5d56",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "9e2d2f46b4b6f37ae0fca1d9b6ec547e8ee9ecc5344ae2777717c28b8b85528c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d9f3eafe1aa722ceafa3f81e63923ab079993c1c88ffb056f3ad77dd5187f29",
+      "case_id": "7fcfe08c3e1400c5d39c319682cca032e90eb26a0a478db2453ab4f2a5944a57",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "235992da4b625487841dd1a64ba74690f47cf71cfadd927ff02ea509923e025a",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "586201ebc9624a62b30c2029f9881cfdc61e1cf343c9a9a9a10dfc7623885833",
+      "case_id": "80cc1ae879a780b10272290d1de5c1df0fb18776ebbe0392751beb530b16208d",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "29eb605ef0ca8ae4107d8a2958c4d82b771e3900601406c3ad87fc717bdeb3ba",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "6a827d9dbe11ace3d8aa96b96e62c3bf1a9b6d1086329070339f7eae628f7b56",
+      "case_id": "8242e7564eb70f1129773e6d7fe881cbb3587bac66ae46df5df1bbe25d823ea1",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "78985a0e9c167d09c2c67cf478a3d674d288ec62ff9c2b40095ec6998d8d5690",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "29f3bfcb7f5c53c8b81cf446a7db59dff9b977ed275de7b9081b44a796281678",
+      "case_id": "82c75714f22e41367f1b6e62868c20e11eb403da2b29cdd555f448f58aaec809",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b6ceb53a9561014db52a52e5f664b674f5bc03b2451134f6e73b829af69cee39",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "5cbf8cc61fe1457599627eb5eb608077bbe8844919e09c3c3656fcaff2ae8bb4",
+      "case_id": "84506d25d48eeef9f258c3f6d21250e6c3ac4ede4492b25ed1baefc04ace7f1a",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "aa3d659154ab612fdedce7f8a1c04d142c17d9ef1007323c59ae5af759365897",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4d28c4cd465248038d8b1dd45cfb7692999b85d90378b129a764c27fb601159f",
+      "case_id": "848fcb588b54a176ccb8c7affc3abc976da78d91639d58549dc38886e2f7bab9",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f4034c844da8d407d5881d056f5f8ec8c49bd2244579357035fcd515cfa1022b",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4133655e9bc990028e770372c584b67026d2b3140d1bac88593948c6efcf7808",
+      "case_id": "8522c1564b5e175b7c9a7b9bb6aec4de167c1733560af319a90fc8e0ee1f7455",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f6004ce63efba3bd93efe2791bff7e3ffd43065b33d1d54ae7c1a5edcc26256c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "86f8edb4e2184b08d5e467a65c122caace7cb42e6e61e45131f21c7ee222ef90",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "7e36804bc23c9c1a7bf437ab062192ceafddf4f4402e44df2f8d3c3b213686b1",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "82675e922a75e2ba2fcf7339a53ee6d61b7ae4e9e10700edf6ae1e9ab801d4f1",
+      "case_id": "89ef7bc8459b094651ede31ef922d00c76878c4e895910afc195e472c4dad0bb",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "7f4372d972b566d2a3e56a1598a9973e3328ae32c3af0180e6537e213e02b8be",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "d3ae5c8dd4fc60ebff5ce9d03eba6473cc58faa06afba3db3f2799b4d2fc5751",
+      "case_id": "8beb01454914b4c506dbc36ef16926c7c93a15595584e68344043d5c56d26e15",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "3708a6ab86fff4f642aaba950156dd8e0c9d05cc4710a8d1b267d2753e108fee",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "9d920bad0fa11abdee2c5c6977a2bd8db859ddf8ff86e4ad16ad407f3fd3ddfb",
+      "case_id": "8c122210af434b9ee002a6b35a188a0c7c81e60d323c0fb4b396e5ada276dd8c",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "df7a66a0eafde7571a920988f0b37c94e0bbf7314a22d6bff3ba321a10ea5d20",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "2b9191db8e5fa357ecd51c3682311d7af389e11db86a3d9d2a3bf8ba1888c34b",
+      "case_id": "8dc32d4a4c3130b47981de4c1add9f1cd2feaeb4f36135a95483dfc04befdc00",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "92777fe18b866441fa7b37fa82a4c5cca7cd0e3bb99db12cb751a445d8ff9145",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "8fe5f9328ef530eca1f7f3ef60792d526294bac93a505fb55f48e4810fb4e61b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6f260386acba9cb2d97ae7f0e51010122aaa78ee92141fd3fb5cd9e9e617776c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4d28c4cd465248038d8b1dd45cfb7692999b85d90378b129a764c27fb601159f",
+      "case_id": "921c4c56f675026a4af0aa85b68a48a7d122cdfa8b179e80ddd545bcb545170c",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "cd4216bc395b34de7a450a892460257eddb1b2bd65fe3860d1b1855b1d44ba64",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "63a3ed4665417cadddd5423b6a7491a22574fc445b45511a77fe4d43fe0536fb",
+      "case_id": "92ea926f6232cc0f79ded651e6ea047f0c40b713abb2fdd11f625cf7595f52f2",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "9b1b57e81a04e2c1412382010b49dd3f9d7602dc2f40e6e170010ceb179976b6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0f85adcf45ad0982b7247daf954682f3c40ce00ea39bbbe23bbd95558caa20a4",
+      "case_id": "94e76bb7140646af662f19145c1ae9d037892b8721b0bb301299f44318a16903",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "0dbfb0a76358e73bdb1a3f1b28447616de6e60b4c6f61e84fdc32bbbe17df04e",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "50f1ad539b4b4653dd591bf2e92c558edc3fb5af09025fe700864986841b13a4",
+      "case_id": "95ddf5e7db6ace34a467366bf380dd3e0cae48ea0e7f29afa96f53b24ba2a0f4",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "cb982008c0cc9b7dfc7e2f6279fba7bd9f3b11086178627b2608f226fd42d439",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "08cfb169ed2bb3151ec32c461bd0340fba709364424843f21d0f9abd47a4422b",
+      "case_id": "976c72848eb0424d161c2702a0ba91e5f25d77ecac5a6ee0c959a3571fb34ebc",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "3c9b558cc3afe8c6512f3f01f4b2dea36ca2ed622f890c29a7003010f4507021",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "f0b5dcc473caee4817f00dd140aca198db8266ecc028e76c0b8121c4ae4ae0e3",
+      "case_id": "97c125d210f81a5c7084c44e0ffb453a0a4d3bd4def89687fbac5e1fbcd65f86",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "e672019374d12c8c2ceced470b232d25c45288b4fd50d270a68f7589d7762764",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "98a139c490e83c23938169cd51ba84edf467d4d1beb7812a6820afb873e1fd49",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "bb0b5028084669f559893c53b9a9a7a1b74c5b6c7a9a320bfe5e40aeb7ae9c1a",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "99169a5ded15c9702dcaf49be99b8c136d23c61e0ccd626aa4c256afa927e2a8",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "b5e1b69b69d5b8127a3f3317e56f3a950c19f76a8f4a27c3b97dd0f861ec698d",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "75f33b52d31292a31c0880f2e3984392345400a6a4a683e3f861f70352e65bc6",
+      "case_id": "9b6f8f7804b9220cc580d8d7c6b42d106ee385e6aed9da44a2ebfbd5e2d4335f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "af6fcdbe3baa462dc4422263cc2e8f56880244ffed0569cada56845c43dfa2ec",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "f523333cee374ea948a5f642bc8f74c67ec9c5e97666b7143f120b0712d15227",
+      "case_id": "9d1809a3e0dee7aec8c87deab328201aa9231941dac1dc177e33efcc47280671",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "83de5639278105b4d10fcf2103d225e408ee88a7e546370de29a4d63ac6f436a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "9e4874e50090bc854ed4d2bcb371641bc1c85c81ae400e7ad98eed56adc986c3",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "d8099c28c8eb0778f257ecf2eaa8514330a14d73740c8fccd1a76c7758dc8a57",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "9fa3f0e19a8867413dfdd6590aebcd35dc84159e83393dbbf499eb4fcfed11f3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f951b3bda7155ebbf83cce2a452e6b89d4a6f3625c7b7207167fceaa2e3a9646",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "a1f2be1fe88425f4814a7bb77765e4fedc87d374c84da796cfda13efaf8fdfce",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "dad016c7b4946fdb4f60152e74836d2f0d371a4ccde16d963578112e28e19578",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "09e5fffc0677331c716ccde47358e4474616acfff7e4946999638842c0d7dcd2",
+      "case_id": "a221ac63fa3fec03fc1fb2878bcd5c28dc37f238f010d88fbe0ac248b65cdd49",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f0ae01163c4c052a1cd923fb375dc8dd54110ed94e5f95f82f42e1bc85c22d05",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "01b806f644ac0e02a55faad039a22607bce6e3ef1b3a685b94d4bcc2888996bc",
+      "case_id": "a2c31de9930fb55e4671454a8111eb23e1ecca8694d9af8f051c9ca56f7dfd35",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6ec6068265cd07d7b8fa17c7dd422b589a45f6893839d4cc730ea608bebafda1",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "da0fc9869e85c2d41c7466e8d738532a6b7f91bdff62376814d0207e529bbe1d",
+      "case_id": "a3af79a60b9f6f9b014794761b95a848115e51cc5d03c6d3b0236006c7de37bc",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "580709435953cb7a1f7748a58098bb66f91d883043c5c4cd408c437e6df3726c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "a3def79bc16eb9ad5abaedf827bdbdb07d0e35d2b8ca58bd3b248ccf35c2af81",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "eb8a1c89fa7b0ca4040421303e2b02594bad56a4cd89e66c927800a0dd7e5b59",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "77742137aecf0fd669a2c4938b2b4923c87b9a79a017221b4bbdea6f6197c263",
+      "case_id": "a469f23c650da9df27f61dad7344e4b04134ef7f60e18b33959cb5e7073b6119",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f7752d7e42e2abf574c4f5479d63997f54981bfdfac6e1a0738177c88121d10d",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "a1556df902cfa7cc40fa99ba3fe5ec7278da8120e07a28a2c1fb11aa67dfdb30",
+      "case_id": "a55184e76d375c2a905163c08111680b92ef080ad4c6af374abc73c9ee86762a",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "93f1f3522acf2bc877305553f218270d6c0049dfb88ebce7fe8b0d29ebf252d6",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "a57ed631b7c6275e0ea1c0b15379c348f617c910fe5aa66a46b5081b5f90dbc6",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "12c5fb8ace6df1403cd81aebc71f68ace7e2e5414fe2ad5ea9694b378f15bfad",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "5f97aefe860b4472a1962d66d67b3ffc631f7c7d5f3b3ebba02749148b5267e3",
+      "case_id": "a6e9caa07b40284e45eef32fdb8b3b3a5320e61f2256f05edd1f8ee60ff5f80a",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "673b84addb5c6cdbc179f0341c64b4bf7b8dcadcbffa4ca21d55522d270fb1b9",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "a9bc8147433ee6d7e15363129cd8f8c8aad79ec16acf5d72f9c60f52b74c79f8",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "19795ad5107fb4f946e99f2aa64b007bf9398860be9654297da54e7944d42424",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "2b9191db8e5fa357ecd51c3682311d7af389e11db86a3d9d2a3bf8ba1888c34b",
+      "case_id": "a9c60a5ac5d8dcd8c1c30d6932039b911135af19a8c3cdebe63730b00adcc626",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "59dbd17f5a453bc9f00691a8e2f0afaad349e4aff2558e54e939f98bc0c6b2ef",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "acc5ffe96e7c718392fb9d8c46279f526689d50fd852a48b13f8a9d887d8ef88",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "6c9f1368195c61affea8996451a9fc03d527a71372223d9258906e08d0813500",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "77742137aecf0fd669a2c4938b2b4923c87b9a79a017221b4bbdea6f6197c263",
+      "case_id": "ae88b6fba5ae2d0440f9af2db71789eee2c91a3051b6944b4315c7fc77593ea0",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "0c092603fa422da052faf9c497182aafe203ee184629609fbf23314b3bbbb57e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "01b806f644ac0e02a55faad039a22607bce6e3ef1b3a685b94d4bcc2888996bc",
+      "case_id": "b35171a9a1817a719ae124febfb0c8d815d393017d1d4565b272a1f1688af263",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "47167589c46bca3c3ba4a49fad61f766390602b734f8578e8ec88617d8a088bc",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "b4e2909553ccd0bd51b6e9d0bff0e02b0d1c2a4d84b1302ae3f0db64d5f9384e",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "918a25ef842ec3eea06de9fd49bc27e9a9ae7aa368904b253c22f5f485fa4a88",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "a1556df902cfa7cc40fa99ba3fe5ec7278da8120e07a28a2c1fb11aa67dfdb30",
+      "case_id": "b4e40d7cb34c413163f04c90b520222ac439d5713c4cea4f7d87a40e18dd2195",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "cdc92f21ffc02c3ed388c14b50fd742bc22c660fc0fedfc66f79588f4d33f3a9",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "50f1ad539b4b4653dd591bf2e92c558edc3fb5af09025fe700864986841b13a4",
+      "case_id": "b55de0e9f3fc429eb482838173d409bb64f649fda9a9bb9a5da98eccadbd922c",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "f30b08bad251e8392cb3b38859a5223e918a4209ac9626eda49a44ae16418b43",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "b068de37a67bbba4576e0d3ac33c4fd7d8f53fb1907ec32cfa82a4192e9acdd3",
+      "case_id": "b6fb5a0ecc1ad4673d1f323aa4903a8ef310c910a0a13a587b3d8d7d766b1a4c",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "097343ddb5c43d8060b6d064179d523f83dcb2a85d88a536178a2ac91d9ed055",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "29f3bfcb7f5c53c8b81cf446a7db59dff9b977ed275de7b9081b44a796281678",
+      "case_id": "b8989b20df6614627092b3d209fb6059ede8fe3c4794637d0b6bce656dd6da22",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "4f8b1b9c9d2bbda3caf16a058119cf2633e02380668682424a46c1354c952136",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "76d7a73ad30915a060560c860ad8158fb893f909175109288cdda78b1368b285",
+      "case_id": "b953bb34f550d0c94984ab03fe3028f55df498bc46827ee0cac8028c22c032ba",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "6fc44e4e1d1626d14c293e9ea62cef524febab63f54855da7434998f69bb5664",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4a556a62e2863ec202c78c04870d41f05a417627dcfd71dc40fb5f083273ff22",
+      "case_id": "b96a858af9460e6b1f1dfe9750be89d671c4a50f04c8e7b2006e97f0294ceede",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "31fc52ae6f494d277fff8bd84633b90cb691110fc8d0281bbb7121ec44921a5a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "6a6dfd934c68f4abc2766570b1a8b40402890abf40d25f2620809658c23791d4",
+      "case_id": "b96a92f159156b08c8d78a3385aecf762831b4bcd4e4db90b3b6a79adbe71dae",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "7bb126c09ae6975603a5e113cae250ace14d8c4b18ebe7aecb1b2d28cf5fb5ab",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "b9e663fe15d453272a54f114c4e3fbe8d99510fc2ba947feed47809c3917de00",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "bfb5a94b6491efd4225f5a1abe4da9feecca851989eb0735292ccef6c92467b0",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "82675e922a75e2ba2fcf7339a53ee6d61b7ae4e9e10700edf6ae1e9ab801d4f1",
+      "case_id": "ba871227b42f0a10014e94b4070f612c2703920797c6089e4fbf27c1ef6afa33",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "aed630a77511d766f7bc84211715613eed892917c34be7be2d36b427993d7317",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "bbc2560744c2de22a75ff2eb526ff42c026f850cc51f5a1032af85312f5cdc16",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b51f3ce39b136733a3b1d22ad11cd26219730afb11f42f843b46f898850a1943",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "790bc4434bbb8a29fbcfa8df57e78a0fa2c4bafdcb19ef590c917f2f94632b01",
+      "case_id": "beb97efba0dddbf4aae17e7e1d26cdad769e6ec3036f9e1d17052d80fadf28aa",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "25f2b88f2e0e748d3aca5f3a0925f4490a6978d2d908a0708dd37d6bc0b275c7",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "09e5fffc0677331c716ccde47358e4474616acfff7e4946999638842c0d7dcd2",
+      "case_id": "c09e56fedc635f0ca2da5d0c64e132989586166586ef161b843c26da3b1d116b",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "90d2850bddccd385e2677950abd3f3ef6b217848b668517bb9138bfa70aa9458",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "09e5fffc0677331c716ccde47358e4474616acfff7e4946999638842c0d7dcd2",
+      "case_id": "c188650eb6b9719aa89cb6aac936fc6ca1163b1344c290cd2b1707c570f7b839",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "27e2725762c47f141e42b01724bd6e14ada66a312911ee22a3ad6e2c4aecf006",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "c19e3eaf8f3f45b482e94ba4b071634c187611e377c2f286dba7cdd004e155c4",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "1e4392f6f6ffb85e1231fb65bf3ec8a0332a168a01ce30e7f04a8063960e3062",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "5cbf8cc61fe1457599627eb5eb608077bbe8844919e09c3c3656fcaff2ae8bb4",
+      "case_id": "c23534ae29c07104b8a28a02d88488ee33966e87f7a75ca19d4a96e9975acb26",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3fd37ed405dea17f535648ea02947691dbb56f057a216372bf29c45d989d3b59",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4d28c4cd465248038d8b1dd45cfb7692999b85d90378b129a764c27fb601159f",
+      "case_id": "c3c6fcb469affe4fd83228604722fef9be02a9123e39cbe4487a8a8c310e1ae8",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "92aa67f4d5ca4e1c48cedf0a122debd51fac5f6480b0bc6242680556f5c05db5",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "63a3ed4665417cadddd5423b6a7491a22574fc445b45511a77fe4d43fe0536fb",
+      "case_id": "c4102495d7e11809bde0585c299218e91d6d3af06709e7722de1b19b975fbb7b",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "335015b9b8b1d560634cf607d13c2d1a5c422a5ed15f06aa0183b056b132aa95",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "8e111c2de89f963effd3112dd12c315797bd1a61b613a90677a21afa04bf0a1b",
+      "case_id": "c49c101dfb13b630c3cafb3b6e7bd6445ee2c4fc3bc2d87fa44c1f9773a9692d",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "89262fbec33f8709a2c11434ad4f5bafb63d1a0ef159d4e293dd2787381ede1e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "63a3ed4665417cadddd5423b6a7491a22574fc445b45511a77fe4d43fe0536fb",
+      "case_id": "c727542c9d0771fcf81684baefed6fc1f65ad08ac6b69d0e3f00fb2bc2f3b4f3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "b87f90a5d69e40a69fb9be96360e6e82476dd55473d6fdd8d5cbdd83311f5988",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "c7fed811dc4845a5229d4dd604247ef6a79e90ac2bb1c08eb6553b664a8bbd4d",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "bc224d5131737dcf12b7c20e0515d6da707cb15058a3569591eb5fc460263e9f",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "c0f7dbd0b1ad1eb723cdcab3d446da80260ebad7e347ceb762f3fd8f99e8ffb9",
+      "case_id": "cafd4305f3ec87abe79de0039f010d3dc76a6987e1b3cac251c6035993c31d3c",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f3dc3065861204732dac8af7ead9ad00ce314ee361de490030449cda1a3fb09e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d91b259b6f8d677401494c78489f052c2534356b8d481d870c1006eb0d19500c",
+      "case_id": "cc2c153361c1e5c7dee40424e9660bd74dddf6638145533ac6dba50be4a75b36",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "b7124ed43b2e27a4e03b8e84fb6890f262ed2e653ac11b30317be582dad58933",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "1f51af3d6d0c8547dcaecca2d3e4795274b9d722052d50f3380cabf9a6df03cb",
+      "case_id": "cc68d66f55baf61293206f93f9d610223bdd3a7aa825b4b4307d069c800e31b5",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "108029238f8a3807c6f5a64d8cc1ed7ff99cab7674a41feaeec6f414eacecafc",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "783415468fcf61d565b344906e9658445840c2df8f800fac1dc2abe99016b377",
+      "case_id": "cd0f415a3e4c1b26aa4c3aa407530433eafb31af8a7ee54fe0bcac2baf5536de",
+      "claim_contract": "immediate_queen_target",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "baaaf55c27f374732e2de560df3bf50bb60c78b849a524e72cd8f56401a6ab7c",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "cc97238310e2e23f220ef4712876961834df8f354894c514717b6e6e6434381e",
+      "case_id": "cdf0c6bf4209c84dba0a4c7d3c7ed70ed987364b342442e4d9621d282de9f6c8",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "bdd989b5e838083bfae825c4774c676dd699dc1b766640947552c1b85797493a",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "ce9783e7478cfec2d74d646eb306a5b4c151059852e11390a97c32b8b047fd99",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f124c3841b86f8d4c89b9b45870f64a460e92347ecc665ace375f3e75760a36a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "d21cb41b451da13858049b4f1b44d355821b7d260497d7c35ce66d7b3209fc4f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "8e63923daf2c5e15e4f7cd2aeb147d7be74c319f1d436154fe5fb6ffbfbc4e9b",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0762c291b908b0f637d372b1146651c00a1ecf643096fbd9855b07487efae256",
+      "case_id": "d2896edbe324e0e33319855364d2e6aa93b7b57057df84a5f2dcb80d344730c2",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "047823a9328ee319249578317361a5538a53886adc8813de61bf43c6a468acf8",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "bbacb653a99df92328b98557cee4a9d06ca119ab43bab2afd1a58543379a916a",
+      "case_id": "d5c4430738cac72ced35b8b413cc826c4240d0fea12ee78762f578a2690ce924",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "fc60d883cd8ffee822b84ae157af2fa18a65b7753ea2f4fd3e0ae053823aab73",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "0a26c90d1a30f30e3e6ac237d5232b6ed3286fa296f801c145a63c159927ec77",
+      "case_id": "d601795d23890e328fdcbbdb6f222a6b47a230fe9637a88d07404281680bd09a",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "696659b1a4fb97d0428df6ed2574e5c230f04fa1e353c540c7e4bcefbaeb2f31",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "5d550acbe0a78041ea62b51f9ef7487d9562707cfdc5a02b479829701f3648d0",
+      "case_id": "d861bf19c018fae760401b16bd6aa53f138ca4ad025ba58932dec6408143a72b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "eb8b5ef5f5e570e56783d123441338ab7f90ae3ec5715ea5b5a54d1d2d2c52ad",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "57127acc724e798b7a293756034cfabade712f79322f0201e0309bce344d680b",
+      "case_id": "d8f28e2231f2e11bed321a77769d0859a8eef708a55bec5406283c4c67d20513",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "626bb1e8f66e4dc4ee49172a7bb9a6a3203ff24416a8aad01804ff5863a2296a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1a37b6ea4b193f1b06082c25c44fe943205ea1e30e6f62f105e44dd7b8cf66a0",
+      "case_id": "db1c6cd7488b37518116ff5d3cb698648404289f9ba4236bdbe1fa08f5704f89",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "afe366a062215c1a1e85feecc49ce06b5cb0e31dde30ec286275ae910208ad21",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4f4f6ebed7c9f1cf9a32dd82ad91a296bbf719aad42a9e03216427d514c8bc6d",
+      "case_id": "de165c0001111e06573aa391d64626a64093cb9f1b33eef61c54018c67135fd0",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "4a4d9fc1f7cb319a8cca4b6c6d0b64dbb6215f9c93d93b23a587cec8b664d161",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "43b224b697a4ff3111190bef5a04a0882f341714dc951b9e75dc46ad66095fbe",
+      "case_id": "e15207d43fca134f8583e91e969439f291e572a0645304a5ccf55d0a538fc772",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "2e9380c60c054af4524a3f1b525aa3b4eb3ef94f877ebdf9c64a5233429d12f2",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d3ae5c8dd4fc60ebff5ce9d03eba6473cc58faa06afba3db3f2799b4d2fc5751",
+      "case_id": "e7ffed3318fb20016bbf7b93f2528748fcec9f88db8a2658e81128023ced6db4",
+      "claim_contract": "allowed_checkmate",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "63a8242358ca0e46d1a7926f00c54061c055bfdab04405986a9891473a1a7b0b",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "790bc4434bbb8a29fbcfa8df57e78a0fa2c4bafdcb19ef590c917f2f94632b01",
+      "case_id": "e82ebed3aed524a0ffe87a2ce8cc1632bde0190923c23f6c5cb8688efeff9b43",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "f48ad0816b607bd8e4c6edab0bafafd18de949f559b1813b54b0f1f4b02d3ee9",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "5d550acbe0a78041ea62b51f9ef7487d9562707cfdc5a02b479829701f3648d0",
+      "case_id": "e9b548d33703f72b4f7349044b732225a9ebe58f96393a3b85849fbe944652f2",
+      "claim_contract": "greedy_queen_capture",
+      "family": "queen_safety_or_greedy_capture",
+      "opportunity_fingerprint": "ba35ee668985d581b92cdfaa4449ae934ad100e73d27e46d634f1db50a6887ee",
+      "quality_id": "review:queen_safety_or_greedy_capture"
+    },
+    {
+      "anonymous_source_unit": "70a2a353e5a516f4144ea217a20b53ee151e21d86166f36e5bad3981c208bca3",
+      "case_id": "eace3e6f71ffb140df15d89b877f064abd1bf457c815075bd182ea2c673fa062",
+      "claim_contract": "missed_checkmating_finish",
+      "family": "forced_mate_story",
+      "opportunity_fingerprint": "217a4fd11037cce3f9a8cb5daa78148576d7f43473c914dd61c90a856a83fcbb",
+      "quality_id": "review:forced_mate_story"
+    },
+    {
+      "anonymous_source_unit": "b8e911951cefb68665cb519d3f527007c0bb451aac8ab0bd05714b7658e64ab4",
+      "case_id": "ebce4067b68ab1aeebeea8209604c06f5c9354734587ce0f167cdee9f6c526bd",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "45c38b447a7b6adfc54cb7314c39e6db491e0feb52fec1a436aa6edd6a4a9856",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "8e111c2de89f963effd3112dd12c315797bd1a61b613a90677a21afa04bf0a1b",
+      "case_id": "ec531ddfd23231a6087441d1bbcefe69e633d011ac759c071262e6b28c2f4e16",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3337c7c7f6688457e05a368165bcaa06536a5cf8e76c09d2a00e1db5df6db562",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "7e750f5e32500bdfe2cfb18f7d7b34d79cbb9fc9dff9ded7c6e25e6072735e58",
+      "case_id": "ed7ee2e0d811d56f0358c52f18295a4285a9cffd0a0066a345c5c62b71ad90dd",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "36a0972e6edbc8ea4deb9b32886342a79975bfd5a69790658800076369925a3a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "92007ee222dbffc5a70dcb386e2d840e6c84b561708062e03983ec82fc130814",
+      "case_id": "ee880722f41aec64d0d0db398f483f535111ae1a50c0fb254512aa94b5a4cea2",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3846483412b5bb3ab71a22c0490aefcd9faa1d19db19e424957e1aad371a8452",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "4a1dc159f4463a62db5202e2d89c0d3ee8e57ff37a1dec828887f64c54a1aaa6",
+      "case_id": "eee641fabe502c9c32ef1aff93d5be4a8ffcc9ace88ea314b1564482e5cad17b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "23b8bfac47212b242d09459f8839a4b519a7ea486385fdc63ececf4007090f43",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "7897e2f7970f7004c411d57fa5dd6b5d80fd62e8e2ef7e26b049c89795d95b2c",
+      "case_id": "efb1ee4176300195f5a975558003fe3d36de9023ee78f91f6661d0224e721453",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "899c1726743a18c9869b435529cb77f1899c808cdb35d2cecd6cbdea4404c4ba",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d3ae5c8dd4fc60ebff5ce9d03eba6473cc58faa06afba3db3f2799b4d2fc5751",
+      "case_id": "f001757e69647b8dc6a6f5b611a36114878b5a628ef77b0c7182107f23a6123b",
+      "claim_contract": "opponent_missed_chance",
+      "family": "unpunished_opponent_opportunity",
+      "opportunity_fingerprint": "7ff2ae1bdb5e9e279a177ccf1b2e1788d6b13a76bc0a33ab83131a14c670da84",
+      "quality_id": "review:unpunished_opponent_opportunity"
+    },
+    {
+      "anonymous_source_unit": "6a827d9dbe11ace3d8aa96b96e62c3bf1a9b6d1086329070339f7eae628f7b56",
+      "case_id": "f0ade7561b5a2b187646d3d41e40d9175150493110387c2fd8859645a6c221f7",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "ae5de39b19a50b6113380628ee88d1835dc59d1f88dd500cd818ecfd14e6ec3c",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "c9a61a3d18ac5ad444562948121b6a5c32f723d129cb62f62a9c483c63e12c8c",
+      "case_id": "f2e7ce5cce056aa586adf6cecffabbf2d99f805e20f007969f5e418999fa44d9",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "61b3e2d38ede4045c7880e84e1714060afd7dbd81285753177f524a464e08acb",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "b183d8de61aec9e0d3fe18e71dbdaabd2dff705b71a4f08ca74a97dfb13b7c60",
+      "case_id": "fa09768ef4b9ba1de1a059be5abdf418dc6a84409c75672ffafb5baa4ea39cca",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "577da3226d3c9e8173358e01dcfb7d7798ee791984bbe00ce6789ffb623c756a",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "fa4e4808fd705cd94558bc59c0b03d049d3bc7957ace2d83ab1f0b1669847a0f",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "1bee8306af6cb426472c7c726df127381082dc99f7aac683ba83d4351c93c87e",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "1d9f3eafe1aa722ceafa3f81e63923ab079993c1c88ffb056f3ad77dd5187f29",
+      "case_id": "faf4d95b7b976773f43dc4cc73debbef97ec97e2fe3b2519a22682d704a7dbf3",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "5b7eba4351b780682dabfa8dff593c0f80cc9f5196127ca56d67d5f8afffe1d5",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d42275228a4c9bf8465eba5c1ecd866c750d6be95cc964e876e5a6e9a1af4365",
+      "case_id": "fc42ea2c9987c2300fca0a0491d88ad8ceae92e55c5293dab348618d06f1f9e6",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "2822c520c33a8b68300cb2d36774cdb989448d9bdb0c446dc363f5d52fd35e02",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "f0b5dcc473caee4817f00dd140aca198db8266ecc028e76c0b8121c4ae4ae0e3",
+      "case_id": "fcfc5ee7e61f86a80d7ba7e3a8004fa656e93f4049734ce5c83a64df3690e56c",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "3304792f3835a184f89424aed5385d33ceccb3193a49a2acf6da3911899e5f35",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "d3ae5c8dd4fc60ebff5ce9d03eba6473cc58faa06afba3db3f2799b4d2fc5751",
+      "case_id": "fd5347c7aab7055e0a57032e0f06f69c760c6fe435bd8f797536a133d492a39b",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "c6502bfdea12d7aed89358b61e2171396f73b88241b8daa2cad46de4febc9e9d",
+      "quality_id": "review:multi_move_material_accounting"
+    },
+    {
+      "anonymous_source_unit": "11e62c53f6be45f23da3bd2c659d192afabc6aadaffaaae245bf9b617626ed56",
+      "case_id": "ff170f9a023fca185a958565d6f55604b58514e5a6cd87a685f546ab7abe7d58",
+      "claim_contract": "complete_capture_sequence",
+      "family": "multi_move_material_accounting",
+      "opportunity_fingerprint": "52b9322ed4c95d38d9a5cc7304dd087b79137d142d20b7b4e8908450206e6671",
+      "quality_id": "review:multi_move_material_accounting"
+    }
+  ],
+  "claim_contract_counts": {
+    "allowed_checkmate": 23,
+    "complete_capture_sequence": 130,
+    "greedy_queen_capture": 9,
+    "immediate_queen_target": 6,
+    "missed_checkmating_finish": 9,
+    "opponent_missed_chance": 15,
+    "stalemate_instead_of_mate": 1
+  },
+  "deduplicated_visible_claims": 1,
+  "family_counts": {
+    "forced_mate_story": 33,
+    "multi_move_material_accounting": 130,
+    "queen_safety_or_greedy_capture": 15,
+    "unpunished_opponent_opportunity": 15
+  },
+  "review_packet_selection_fingerprint_sha256": "202e0b345e968db2ee8c98bc5512ebf164b5f46e83f6c17a1c6fa7770990fc78",
+  "schema_version": "deterministic_teaching_opportunity_blinded_review_answer_key.v2",
+  "source_measurement_sha256": "fe6175086033bd76f18984e28d6f75fad336cd2a9b7724dae2ad9fd888fa67b1"
+}

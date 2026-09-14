@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "backend/scripts/check_caption_sources.py"
 CHANGED_GATE_PATH = REPO_ROOT / "backend/scripts/check_changed_caption_sources.py"
 WORKFLOW_PATH = REPO_ROOT / ".github/workflows/ci.yml"
+CAPTION_PIPELINE_PATH = REPO_ROOT / "backend/services/caption_pipeline.py"
 
 SPEC = importlib.util.spec_from_file_location("check_caption_sources", SCRIPT_PATH)
 guard = importlib.util.module_from_spec(SPEC)
@@ -21,6 +22,13 @@ CHANGED_SPEC = importlib.util.spec_from_file_location(
 changed_gate = importlib.util.module_from_spec(CHANGED_SPEC)
 assert CHANGED_SPEC.loader is not None
 CHANGED_SPEC.loader.exec_module(changed_gate)
+
+
+def test_allowed_mate_alternative_never_claims_the_danger_is_over():
+    source = CAPTION_PIPELINE_PATH.read_text(encoding="utf-8")
+
+    assert 'stronger_text = f"{cause.best_move_san} stops that finish."' not in source
+    assert "Keep checking for mate." in source
 
 
 def test_scan_detects_noncentral_chess_teaching_prose(tmp_path):
