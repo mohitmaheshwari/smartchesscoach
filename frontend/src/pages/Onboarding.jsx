@@ -17,10 +17,30 @@ import {
 } from "lucide-react";
 import InstantDNA from "@/components/InstantDNA";
 
-const WINE = "#722F37";
-const GOLD_TEXT = "#8B6F1F";
-const GOLD = "#CBA135";
-const BORDER = "hsl(35 10% 87%)";
+const BRAND = "#0F5B47";
+const BRAND_TEXT = "#28745D";
+const LIME = "#B6FF3D";
+const INK = "#071B14";
+const MUTED_INK = "#596861";
+const BORDER = "#DDD8CC";
+const ERROR = "#9B2C35";
+
+// Onboarding is intentionally theme-independent. Mixing dark-mode text tokens
+// with hard-coded white inputs produced an almost-black page with washed-out
+// labels and an unreadable primary action. Local variables keep every state in
+// the same warm, high-contrast visual system as the Activation Hub.
+const ONBOARDING_THEME = {
+  "--background": "40 33% 94%",
+  "--foreground": "158 48% 7%",
+  "--card": "40 60% 99%",
+  "--muted-foreground": "157 8% 38%",
+  "--border": "38 18% 80%",
+  "--primary": "158 72% 21%",
+  "--accent": "82 100% 62%",
+  "--experience-shadow": "158 48% 8%",
+  color: INK,
+  background: "radial-gradient(circle at 78% 8%, rgba(182,255,61,0.16), transparent 27rem), radial-gradient(circle at 10% 82%, rgba(15,91,71,0.08), transparent 30rem), #F4EFE4",
+};
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -245,7 +265,10 @@ const Onboarding = () => {
     const trainingUrl = topWeakness ? `/training?focus=${topWeakness}` : "/training";
 
     return (
-      <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
+      <div
+        className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-[#F4EFE4]"
+        style={ONBOARDING_THEME}
+      >
         <div className="experience-onboarding-shell w-full max-w-lg py-8">
           <InstantDNA
             data={instantDNA}
@@ -278,10 +301,10 @@ const Onboarding = () => {
 
         {/* Primary Weakness */}
         {primaryPattern && (
-          <div className="p-4 rounded-sm border mb-6" style={{ borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: WINE }}>
+          <div className="p-4 rounded-xl border mb-6 bg-white" style={{ borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: BRAND }}>
             <div className="flex items-center gap-2 mb-1.5">
-              <Target className="w-3.5 h-3.5" style={{ color: WINE }} />
-              <p className="text-[10px] uppercase tracking-[0.15em] font-mono" style={{ color: WINE }}>Where we’ll start</p>
+              <Target className="w-3.5 h-3.5" style={{ color: BRAND }} />
+              <p className="text-[10px] uppercase tracking-[0.15em] font-mono" style={{ color: BRAND }}>Where we’ll start</p>
             </div>
             <p className="text-base text-foreground font-heading">
               {primaryPattern[0].replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
@@ -290,13 +313,13 @@ const Onboarding = () => {
           </div>
         )}
 
-        <WineButton onClick={() => {
+        <PrimaryButton onClick={() => {
           window.sessionStorage.removeItem("demo_mode_bypass");
           const pattern = primaryPattern ? primaryPattern[0] : "";
           navigate(pattern ? `/training?focus=${pattern}` : "/training");
         }} testId="start-training-btn">
           Start with your coach <ArrowRight className="w-4 h-4 ml-1.5" />
-        </WineButton>
+        </PrimaryButton>
       </Shell>
     );
   }
@@ -308,7 +331,7 @@ const Onboarding = () => {
     return (
       <Shell>
         <div className="text-center py-6">
-          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-5" style={{ color: GOLD }} />
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-5" style={{ color: BRAND }} />
           <h2 className="text-xl text-foreground tracking-tight mb-1 font-heading">
             I’m reading your games
           </h2>
@@ -335,15 +358,15 @@ const Onboarding = () => {
     <Shell>
       <p className="cg-eyebrow">A short conversation before we begin</p>
 
-      <h1 className="text-xl text-foreground tracking-tight mb-1 font-heading">
+      <h1 className="cg-title !mt-2 !text-[clamp(1.9rem,5vw,2.65rem)] !leading-[1.05]" style={{ color: INK }}>
         {step === 1 ? "Show me where you play." : "What do you want from your chess?"}
       </h1>
-      <p className="text-sm text-muted-foreground font-light mb-6">
+      <p className="mt-3 text-[15px] leading-relaxed mb-7" style={{ color: MUTED_INK }}>
         {step === 1 ? "Your real games are the best way for me to understand you." : "Your rating is context, not your curriculum. Tell me what matters to you."}
       </p>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-sm text-sm mb-4 font-light" style={{ background: "rgba(114,47,55,0.06)", color: WINE }}>
+        <div className="flex items-center gap-2 p-3 rounded-xl border text-sm mb-4" style={{ background: "#FFF1F2", borderColor: "#F3C3C7", color: ERROR }}>
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
         </div>
       )}
@@ -364,7 +387,7 @@ const Onboarding = () => {
 
           <div className="flex items-center gap-4">
             <div className="h-px flex-1" style={{ background: BORDER }} />
-            <span className="text-[10px] text-muted-foreground font-mono">OR</span>
+            <span className="text-[10px] font-semibold tracking-[0.12em]" style={{ color: MUTED_INK }}>OR</span>
             <div className="h-px flex-1" style={{ background: BORDER }} />
           </div>
 
@@ -380,12 +403,13 @@ const Onboarding = () => {
           />
 
           <div className="pt-3 space-y-2.5">
-            <WineButton onClick={handleStep1Continue} disabled={!hasLinkedAccount} testId="step1-continue-btn">
+            <PrimaryButton onClick={handleStep1Continue} disabled={!hasLinkedAccount} testId="step1-continue-btn">
               Tell me what you want next <ArrowRight className="w-4 h-4 ml-1.5" />
-            </WineButton>
+            </PrimaryButton>
             <button
               onClick={handleDemoMode}
-              className="w-full py-2.5 text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors font-light"
+              className="w-full rounded-xl py-3 text-sm font-medium transition-colors hover:bg-black/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{ color: BRAND_TEXT, "--tw-ring-color": BRAND }}
               data-testid="demo-mode-btn"
             >
               Start without connecting a game account
@@ -410,7 +434,7 @@ const Onboarding = () => {
               ladder as a club player and got 12% of the first position right. */}
           {!detectedRating && (
             <div>
-              <label className="text-xs font-mono uppercase tracking-wider block mb-1.5" style={{ color: GOLD_TEXT }}>
+              <label className="text-xs font-mono uppercase tracking-wider block mb-1.5" style={{ color: BRAND_TEXT }}>
                 Where are you with chess right now?
               </label>
               <p className="text-[11px] text-muted-foreground/70 mb-2.5 font-light">
@@ -429,8 +453,8 @@ const Onboarding = () => {
                     onClick={() => setSelfAssessedLevel(option.value)}
                     className="text-[13px] font-light px-3 py-2.5 rounded-sm border text-left transition-colors"
                     style={{
-                      borderColor: selfAssessedLevel === option.value ? WINE : BORDER,
-                      background: selfAssessedLevel === option.value ? "rgba(114,47,55,0.04)" : "white",
+                      borderColor: selfAssessedLevel === option.value ? BRAND : BORDER,
+                      background: selfAssessedLevel === option.value ? "#EAF6F0" : "white",
                     }}
                     data-testid={`self-level-${option.value}`}
                   >
@@ -443,14 +467,14 @@ const Onboarding = () => {
 
           {/* FIDE Rating */}
           <div>
-            <label className="text-xs text-muted-foreground font-mono uppercase tracking-wider block mb-1.5" style={{ color: GOLD_TEXT }}>
+            <label className="text-xs text-muted-foreground font-mono uppercase tracking-wider block mb-1.5" style={{ color: BRAND_TEXT }}>
               Official FIDE rating (only if you want to share it)
             </label>
             <input
               type="number"
               placeholder="Leave blank if you don't have one"
-              className="w-full px-3 py-2.5 text-sm bg-white border rounded-sm font-light focus:outline-none focus:ring-1"
-              style={{ borderColor: BORDER, "--tw-ring-color": WINE }}
+              className="w-full h-12 px-3.5 text-sm bg-white border rounded-lg focus:outline-none focus:ring-2 text-[#071B14] placeholder:text-[#7A8580]"
+              style={{ borderColor: BORDER, "--tw-ring-color": BRAND }}
               value={fideRating}
               onChange={(e) => setFideRating(e.target.value)}
               data-testid="fide-input"
@@ -460,22 +484,22 @@ const Onboarding = () => {
 
           {/* Focus Intent */}
           <div>
-            <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: GOLD_TEXT }}>
+            <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: BRAND_TEXT }}>
               What would you most like to understand better?
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { value: "tactics", label: "Tactical awareness", icon: <Zap className="w-4 h-4" style={{ color: GOLD }} /> },
-                { value: "openings", label: "Opening discipline", icon: <BookOpen className="w-4 h-4" style={{ color: GOLD_TEXT }} /> },
+                { value: "tactics", label: "Tactical awareness", icon: <Zap className="w-4 h-4" style={{ color: BRAND }} /> },
+                { value: "openings", label: "Opening discipline", icon: <BookOpen className="w-4 h-4" style={{ color: BRAND_TEXT }} /> },
                 { value: "endgames", label: "Endgame precision", icon: <Target className="w-4 h-4 text-emerald-600" /> },
-                { value: "stability", label: "Decision stability", icon: <Brain className="w-4 h-4" style={{ color: WINE }} /> },
+                { value: "stability", label: "Decision stability", icon: <Brain className="w-4 h-4" style={{ color: BRAND }} /> },
               ].map((opt) => (
                 <button
                   key={opt.value}
                   className="flex items-center gap-2.5 p-3 rounded-sm border text-left transition-all text-sm font-light"
                   style={{
-                    borderColor: focusIntent === opt.value ? WINE : BORDER,
-                    background: focusIntent === opt.value ? "rgba(114,47,55,0.04)" : "white",
+                    borderColor: focusIntent === opt.value ? BRAND : BORDER,
+                    background: focusIntent === opt.value ? "#EAF6F0" : "white",
                   }}
                   onClick={() => setFocusIntent(opt.value)}
                   data-testid={`focus-${opt.value}`}
@@ -489,7 +513,7 @@ const Onboarding = () => {
 
           {/* Player Motivation — self-declared "why are you here" (segments the user base) */}
           <div>
-            <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: GOLD_TEXT }}>
+            <label className="text-xs font-mono uppercase tracking-wider block mb-2.5" style={{ color: BRAND_TEXT }}>
               What brings you to ChessGuru?
             </label>
             <div className="grid grid-cols-1 gap-2">
@@ -503,8 +527,8 @@ const Onboarding = () => {
                   key={opt.value}
                   className="flex items-center gap-2.5 p-3 rounded-sm border text-left transition-all text-sm font-light"
                   style={{
-                    borderColor: playerMotivation === opt.value ? WINE : BORDER,
-                    background: playerMotivation === opt.value ? "rgba(114,47,55,0.04)" : "white",
+                    borderColor: playerMotivation === opt.value ? BRAND : BORDER,
+                    background: playerMotivation === opt.value ? "#EAF6F0" : "white",
                   }}
                   onClick={() => setPlayerMotivation(opt.value)}
                   data-testid={`motivation-${opt.value}`}
@@ -520,16 +544,20 @@ const Onboarding = () => {
           <div className="pt-2 flex gap-2">
             <button
               onClick={() => setStep(1)}
-              className="flex-1 py-2.5 text-sm text-foreground border rounded-sm font-light flex items-center justify-center gap-1.5 transition-colors hover:bg-black/[0.02]"
-              style={{ borderColor: BORDER }}
+              className="flex-1 min-h-12 text-sm border rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-colors hover:bg-black/[0.03]"
+              style={{ borderColor: BORDER, color: INK, background: "white" }}
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back
             </button>
             <button
               onClick={handleStep2Complete}
               disabled={isLoading}
-              className="flex-1 py-2.5 text-sm text-white rounded-sm font-light flex items-center justify-center gap-1.5 transition-opacity"
-              style={{ background: WINE, opacity: isLoading ? 0.6 : 1 }}
+              className="flex-1 min-h-12 text-sm rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-all hover:-translate-y-px disabled:hover:translate-y-0"
+              style={{
+                background: isLoading ? "#E4E5E0" : LIME,
+                color: isLoading ? "#66716C" : INK,
+                boxShadow: isLoading ? "none" : "0 12px 28px rgba(127,181,32,0.22)",
+              }}
               data-testid="complete-onboarding-btn"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Build my first plan <ArrowRight className="w-4 h-4" /></>}
@@ -544,40 +572,50 @@ const Onboarding = () => {
 // ── SHARED COMPONENTS ──
 
 const Shell = ({ children }) => (
-  <div className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center p-4 bg-background">
-    <div className="experience-onboarding-shell cg-panel w-full max-w-lg !p-8">
+  <div
+    className="experience-page experience-onboarding-page min-h-screen flex items-center justify-center px-4 py-8 md:py-12 bg-[#F4EFE4]"
+    style={ONBOARDING_THEME}
+    data-testid="onboarding-page"
+  >
+    <div
+      className="experience-onboarding-shell cg-panel w-full max-w-[560px] !p-6 sm:!p-8 md:!p-10"
+      style={{ background: "#FFFCF7", borderColor: "rgba(7,27,20,0.12)", boxShadow: "0 28px 80px rgba(7,27,20,0.10)" }}
+      data-testid="onboarding-panel"
+    >
       {children}
     </div>
   </div>
 );
 
 const AccountInput = ({ label, placeholder, value, onChange, verified, verifying, onVerify, testId }) => (
-  <div>
-    <label className="text-xs font-mono uppercase tracking-wider block mb-1.5" style={{ color: GOLD_TEXT }}>
+  <div className="rounded-xl border bg-white p-4" style={{ borderColor: verified ? "#7CC7AA" : BORDER }}>
+    <label className="text-[11px] font-semibold uppercase tracking-[0.14em] block mb-2" style={{ color: BRAND_TEXT }}>
       {label} Username
     </label>
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-2 sm:flex-row">
       <input
         placeholder={placeholder}
-        className="flex-1 px-3 py-2.5 text-sm bg-white border rounded-sm font-light focus:outline-none focus:ring-1"
-        style={{ borderColor: BORDER, "--tw-ring-color": WINE }}
+        className="min-w-0 flex-1 h-12 px-3.5 text-sm bg-white border rounded-lg focus:outline-none focus:ring-2 text-[#071B14] placeholder:text-[#7A8580] disabled:bg-[#F2F2EE]"
+        style={{ borderColor: BORDER, "--tw-ring-color": BRAND }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={verifying}
         data-testid={`${testId}-input`}
       />
       <button
-        className="px-3 py-2.5 border rounded-sm transition-colors flex items-center justify-center"
+        className="min-h-12 shrink-0 px-4 border rounded-lg transition-all flex items-center justify-center gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         style={{
-          borderColor: verified ? "#16a34a" : BORDER,
-          background: verified ? "rgba(22,163,74,0.06)" : "white",
-          opacity: !value.trim() || verifying ? 0.4 : 1,
+          borderColor: verified ? "#159267" : BRAND,
+          background: verified ? "#EAF8F2" : (!value.trim() || verifying ? "#ECEDE8" : BRAND),
+          color: verified ? "#0B6A49" : (!value.trim() || verifying ? "#69746F" : "white"),
+          "--tw-ring-color": BRAND,
         }}
         onClick={onVerify}
         disabled={!value.trim() || verifying}
         data-testid={`verify-${testId}-btn`}
       >
-        {verifying ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : verified ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <LinkIcon className="w-4 h-4 text-muted-foreground" />}
+        {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : verified ? <CheckCircle2 className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+        <span>{verifying ? "Checking…" : verified ? "Connected" : "Connect"}</span>
       </button>
     </div>
     {verified && (
@@ -588,10 +626,15 @@ const AccountInput = ({ label, placeholder, value, onChange, verified, verifying
   </div>
 );
 
-const WineButton = ({ children, onClick, disabled, testId }) => (
+const PrimaryButton = ({ children, onClick, disabled, testId }) => (
   <button
-    className="w-full py-2.5 text-sm text-white rounded-sm font-light flex items-center justify-center transition-opacity"
-    style={{ background: WINE, opacity: disabled ? 0.4 : 1 }}
+    className="w-full min-h-12 px-4 text-sm rounded-xl font-semibold flex items-center justify-center transition-all hover:-translate-y-px disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+    style={{
+      background: disabled ? "#E4E5E0" : LIME,
+      color: disabled ? "#66716C" : INK,
+      boxShadow: disabled ? "none" : "0 12px 28px rgba(127,181,32,0.22)",
+      "--tw-ring-color": BRAND,
+    }}
     onClick={onClick}
     disabled={disabled}
     data-testid={testId}
