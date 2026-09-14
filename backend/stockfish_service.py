@@ -953,13 +953,18 @@ def get_best_moves_for_position(fen: str, num_moves: int = 3, depth: int = DEFAU
         board = chess.Board(fen)
         
         with StockfishEngine() as engine:
-            # Use multipv to get multiple lines
-            engine.engine.configure({"MultiPV": num_moves})
-            
+            # MultiPV is passed to analyse() below and NOT configured here.
+            # python-chess manages that option itself and raises
+            # "cannot set MultiPV which is automatically managed" if you set
+            # it directly -- so the configure() call that used to sit here
+            # made this function raise on EVERY invocation. It returned
+            # {"success": False} every time from 2026-02-04 until this fix,
+            # which is why `pv_top_moves` was always empty and the
+            # punish-the-blunder puzzle never once fired in a coached game.
             info = engine.engine.analyse(
-                board, 
+                board,
                 chess.engine.Limit(depth=depth),
-                multipv=num_moves
+                multipv=num_moves,
             )
             
             moves = []
