@@ -1,19 +1,20 @@
 /**
  * ACTIVATION HUB — value-first landing for new (and un-activated) users.
  *
- * Replaces the account wall: instead of "link your chess account" first, we
- * give instant value (a Chess-DNA puzzle check or a coached game) and ask to
- * connect later. Built for docs/activation_hub_scope.md (32% dead-on-arrival).
+ * Gives new players three honest ways to begin. Connecting existing games is
+ * the recommended path because it lets the coach build from real evidence;
+ * the diagnostic and coached game remain available without an account link.
  *
- * Taking ANY primary action marks onboarding_completed (POST /settings/profile
- * sets it server-side) so the redirect-gate doesn't trap the user on /welcome.
+ * The two no-link alternatives mark onboarding_completed before leaving. The
+ * connect path deliberately does not: Onboarding completes it only after the
+ * selected account has been verified and its games have crossed import.
  */
 
 import { useEffect, useState } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
-import { Sparkles, Swords, ArrowRight } from "lucide-react";
+import { Sparkles, Swords, ArrowRight, Link2 } from "lucide-react";
 
 const WINE = "#0F5B47";
 const GOLD_TEXT = "#28745D";
@@ -124,17 +125,77 @@ const ActivationHub = () => {
           You don’t need to know what is holding you back. That is my job. Show me how you think, and I’ll choose where we begin.
         </p>
 
-        {/* Asked before the doors, not after: "Show me a few positions"
-            starts the diagnostic immediately, so an answer collected below it
-            arrives too late to choose the opening tier. Optional -- neither
-            door is gated on it. */}
+        {/* RECOMMENDED — real games provide the strongest coaching evidence. */}
+        <button
+          onClick={() => {
+            track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "connect_games" });
+            navigate("/onboarding");
+          }}
+          disabled={busy}
+          className="relative w-full overflow-hidden rounded-2xl border-2 p-5 md:p-6 mb-6 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{
+            borderColor: WINE,
+            background: "linear-gradient(135deg, rgba(182,255,61,0.22) 0%, rgba(232,255,200,0.5) 48%, rgba(255,255,255,0.96) 100%)",
+            boxShadow: "0 18px 45px rgba(15, 91, 71, 0.12)",
+            "--tw-ring-color": WINE,
+          }}
+          data-testid="hub-connect"
+        >
+          <div
+            aria-hidden="true"
+            className="absolute -right-10 -top-12 h-32 w-32 rounded-full blur-2xl"
+            style={{ background: "rgba(182,255,61,0.35)" }}
+          />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-4">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: WINE, color: "white" }}
+              >
+                <Link2 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <span
+                  className="mb-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                  style={{ background: "rgba(15,91,71,0.1)", color: WINE }}
+                >
+                  Recommended
+                </span>
+                <div className="text-[17px] md:text-[19px] font-semibold leading-snug" style={{ color: INK }}>
+                  Connect my Chess.com or Lichess games
+                </div>
+                <div className="mt-1.5 max-w-[420px] text-[13px] leading-relaxed" style={{ color: INK_MUTED }}>
+                  I’ll study the games you already played, find what keeps showing up, and build your personal plan.
+                </div>
+              </div>
+            </div>
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-hover:translate-x-1"
+              style={{ background: "#B6FF3D", color: "#071B14" }}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </div>
+        </button>
+
+        <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1" style={{ background: BORDER }} />
+          <span className="text-[10px] font-medium uppercase tracking-[0.16em]" style={{ color: INK_MUTED }}>
+            Or start without connecting
+          </span>
+          <span className="h-px flex-1" style={{ background: BORDER }} />
+        </div>
+
+        {/* This only calibrates the no-account diagnostic path. Keeping it
+            below the real-game action means account linking stays immediate,
+            while the diagnostic still receives a level before it starts. */}
         <p className="text-[12px] uppercase tracking-wider mb-1" style={{ color: GOLD_TEXT }}>
           Where are you with chess right now?
         </p>
         <p className="text-[12px] mb-2.5" style={{ color: INK_MUTED }}>
           No wrong answer. It only decides where I start.
         </p>
-        <div className="grid grid-cols-1 gap-2 mb-6">
+        <div className="grid grid-cols-1 gap-2 mb-5">
           {SELF_LEVELS.map((l) => (
             <button
               key={l.value}
@@ -153,12 +214,12 @@ const ActivationHub = () => {
           ))}
         </div>
 
-        {/* PRIMARY — Chess DNA (instant, unlimited) */}
+        {/* ALTERNATIVE — Chess DNA (instant, unlimited) */}
         <button
           onClick={() => { track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "diagnostic" }); go("/diagnostic"); }}
           disabled={busy}
-          className="experience-activation-primary w-full text-left rounded-xl border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
-          style={{ borderColor: WINE, background: "rgba(114,47,55,0.03)" }}
+          className="experience-activation-primary w-full text-left rounded-xl border p-4 mb-3 transition-all hover:-translate-y-px hover:bg-black/[0.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{ borderColor: BORDER, background: "white", "--tw-ring-color": WINE }}
           data-testid="hub-diagnostic"
         >
           <div className="flex items-center justify-between gap-3">
@@ -169,7 +230,7 @@ const ActivationHub = () => {
                 <div className="text-[12.5px]" style={{ color: INK_MUTED }}>No timer. I’ll watch what you notice and what you overlook.</div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-60 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" style={{ color: WINE }} />
           </div>
         </button>
 
@@ -177,8 +238,8 @@ const ActivationHub = () => {
         <button
           onClick={() => { track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "coached_game" }); go("/play-with-coach"); }}
           disabled={busy}
-          className="experience-activation-secondary w-full text-left rounded-xl border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
-          style={{ borderColor: BORDER, background: "white" }}
+          className="experience-activation-secondary w-full text-left rounded-xl border p-4 mb-7 transition-all hover:-translate-y-px hover:bg-black/[0.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{ borderColor: BORDER, background: "white", "--tw-ring-color": WINE }}
           data-testid="hub-play"
         >
           <div className="flex items-center justify-between gap-3">
@@ -189,7 +250,7 @@ const ActivationHub = () => {
                 <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Make the moves yourself; your coach steps in only when it matters.</div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-60 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" style={{ color: GOLD_TEXT }} />
           </div>
         </button>
 
@@ -197,7 +258,7 @@ const ActivationHub = () => {
         <p className="text-[12px] uppercase tracking-wider mb-2.5" style={{ color: GOLD_TEXT }}>
           What brings you here?
         </p>
-        <div className="grid grid-cols-1 gap-2 mb-7">
+        <div className="grid grid-cols-1 gap-2">
           {MOTIVATIONS.map((m) => (
             <button
               key={m.value}
@@ -216,16 +277,6 @@ const ActivationHub = () => {
           ))}
         </div>
 
-        {/* Soft, benefit-framed account link */}
-        <button
-          onClick={() => navigate("/onboarding")}
-          className="text-[13px] inline-flex items-center gap-1.5 transition-colors hover:underline"
-          style={{ color: WINE }}
-          data-testid="hub-connect"
-        >
-          Already play on Chess.com or Lichess? Connect so your coach can analyze your real games
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
       </div>
     </div>
   );

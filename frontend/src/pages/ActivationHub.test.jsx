@@ -77,7 +77,7 @@ describe("ActivationHub", () => {
   // without an account was shown only to people who had one, and a new player
   // went into the diagnostic with no rating at all behind the selection.
 
-  test("asks where the player is with chess, before either door", async () => {
+  test("asks where the player is with chess before either no-account door", async () => {
     await renderHub();
 
     for (const value of ["learning_moves", "know_rules", "plays_regularly",
@@ -87,8 +87,9 @@ describe("ActivationHub", () => {
       ).not.toBeNull();
     }
 
-    // Order matters: clicking a door navigates away immediately, so an answer
-    // rendered below the doors would arrive too late to pick the tier.
+    // Order matters for the no-account paths: clicking one navigates away
+    // immediately, so an answer below them would arrive too late to pick the
+    // diagnostic tier. The recommended account-link path does not need it.
     const html = container.innerHTML;
     expect(html.indexOf('hub-self-level-learning_moves'))
       .toBeLessThan(html.indexOf('hub-diagnostic'));
@@ -133,5 +134,21 @@ describe("ActivationHub", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/play-with-coach", {
       state: { fromActivationHub: true },
     });
+  });
+
+  test("makes real-game import the first and recommended onboarding action", async () => {
+    await renderHub();
+
+    const buttons = [...container.querySelectorAll("button[data-testid]")];
+    const connect = container.querySelector('[data-testid="hub-connect"]');
+
+    expect(buttons[0]).toBe(connect);
+    expect(connect.textContent).toContain("Recommended");
+    expect(connect.textContent).toContain("Connect my Chess.com or Lichess games");
+    expect(connect.textContent).toContain("build your personal plan");
+
+    click("hub-connect");
+
+    expect(mockNavigate).toHaveBeenCalledWith("/onboarding");
   });
 });
