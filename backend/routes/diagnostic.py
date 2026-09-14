@@ -210,10 +210,45 @@ def _v2_overall_verdict(step_verdicts: List[str]) -> str:
     return "UNDERSTOOD"
 
 
+# Which tier a player opens on, by rating band. The staircase corrects itself
+# after the first answer either way, but opening in the wrong place spends the
+# player's patience proving something they already told us: measured on the
+# legacy flow, new players got 12% of the FIRST position right and 62% were
+# gone by the fifth.
+_BAND_TO_TIER = {
+    "beginner_low": "low",      # under 1000
+    "beginner_high": "mid",     # 1000-1399
+    "intermediate": "high",     # 1400-1799
+    "advanced": "high",         # 1800+
+}
+
+
+async def _v2_opening_tier(user_id: str) -> str:
+    """Open near what the player told us about themselves.
+
+    Onboarding asks a player with no account to place themselves, and stores
+    it as `assessed_rating` -- but v2 selection is tiered where the legacy
+    flow was difficulty-bucketed, so `_difficulty_order_for` (which reads that
+    answer) is never consulted on this path. Without this the answer is
+    collected and ignored, and every player starts at mid regardless.
+
+    Falls back to "mid", the historical behaviour, whenever there is no signal
+    -- so this can only help.
+    """
+    try:
+        from services.rating_resolver import get_coaching_rating, get_rating_band
+
+        rating = await get_coaching_rating(db, user_id)
+        return _BAND_TO_TIER.get(get_rating_band(int(rating)), "mid")
+    except Exception:
+        return "mid"
+
+
 async def _v2_start_session(user_id: str) -> Dict[str, Any]:
-    """Create a fresh v2 session on the first concept at the mid tier."""
+    """Create a fresh v2 session on the first concept, at the player's tier."""
     concept = CONCEPT_PRIORITY[0]
-    first = await _v2_pick_puzzle(concept, "mid", [])
+    tier = await _v2_opening_tier(user_id)
+    first = await _v2_pick_puzzle(concept, tier, [])
     if not first:
         return {"status": "no_pool"}
 
@@ -225,6 +260,9 @@ async def _v2_start_session(user_id: str) -> Dict[str, Any]:
         "started_at": now,
         "completed_at": None,
         "concept_order": list(CONCEPT_PRIORITY),
+        # Where this player opens, so every later concept starts in the same
+        # place rather than snapping back to mid.
+        "opening_tier": tier,
         "concept_index": 0,
         "concept_progress": {},
         "attempts": [],
@@ -496,7 +534,10 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
     }
 
     progress = session.get("concept_progress", {})
-    prog = progress.get(concept) or {"verdicts": [], "tiers": [], "tier_current": "mid", "done": False}
+    opening_tier = session.get("opening_tier") or "mid"
+    prog = progress.get(concept) or {
+        "verdicts": [], "tiers": [], "tier_current": opening_tier, "done": False,
+    }
     prog["verdicts"] = list(prog.get("verdicts", [])) + [verdict]
     prog["tiers"] = list(prog.get("tiers", [])) + [tier]
     prog["tier_current"] = next_tier(tier, verdict)
@@ -510,8 +551,8 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
     concept_order = session.get("concept_order", list(CONCEPT_PRIORITY))
     used_ids = list(session.get("used_puzzle_ids", []))
 
-    # Pick what comes next: adaptive/staircase puzzle in this concept,
-    # or the next concept's opener at mid tier.
+    # Pick what comes next: adaptive/staircase puzzle in this concept, or the
+    # next concept's opener at the tier this player started on.
     next_puzzle = None
     next_concept = concept
     next_tier_name = prog["tier_current"]
@@ -526,8 +567,10 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
         while concept_index + 1 < len(concept_order) and not next_puzzle:
             concept_index += 1
             next_concept = concept_order[concept_index]
-            next_tier_name = "mid"
-            next_puzzle = await _v2_pick_puzzle(next_concept, "mid", used_ids)
+            next_tier_name = opening_tier
+            next_puzzle = await _v2_pick_puzzle(
+                next_concept, opening_tier, used_ids
+            )
 
     base_update = {
         "concept_progress": progress,
