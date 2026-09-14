@@ -69,6 +69,62 @@ describe("ActivationHub", () => {
     );
   });
 
+  // --- the level question has to be ON the screen the player actually sees ---
+  //
+  // It was built for players with no chess.com or Lichess account, and it was
+  // put on /onboarding -- which is reachable only through the "Already play on
+  // Chess.com or Lichess?" link. So the one question written for people
+  // without an account was shown only to people who had one, and a new player
+  // went into the diagnostic with no rating at all behind the selection.
+
+  test("asks where the player is with chess, before either door", async () => {
+    await renderHub();
+
+    for (const value of ["learning_moves", "know_rules", "plays_regularly",
+                         "experienced"]) {
+      expect(
+        container.querySelector(`[data-testid="hub-self-level-${value}"]`)
+      ).not.toBeNull();
+    }
+
+    // Order matters: clicking a door navigates away immediately, so an answer
+    // rendered below the doors would arrive too late to pick the tier.
+    const html = container.innerHTML;
+    expect(html.indexOf('hub-self-level-learning_moves'))
+      .toBeLessThan(html.indexOf('hub-diagnostic'));
+  });
+
+  test("sends the chosen level with the profile save", async () => {
+    await renderHub();
+
+    click("hub-self-level-plays_regularly");
+    click("hub-diagnostic");
+
+    const call = global.fetch.mock.calls.find(
+      ([url]) => String(url).includes("/settings/profile")
+    );
+    expect(JSON.parse(call[1].body)).toEqual(
+      expect.objectContaining({ self_assessed_level: "plays_regularly" })
+    );
+  });
+
+  test("neither door is gated on answering it", async () => {
+    // Optional by design. A question that blocks the value action would cost
+    // more than the tier it buys -- the hub exists because 32% of arrivals
+    // were dead on arrival.
+    await renderHub();
+
+    click("hub-diagnostic");
+
+    expect(mockNavigate).toHaveBeenCalledWith("/diagnostic", {
+      state: { fromActivationHub: true },
+    });
+    const call = global.fetch.mock.calls.find(
+      ([url]) => String(url).includes("/settings/profile")
+    );
+    expect(JSON.parse(call[1].body).self_assessed_level).toBeNull();
+  });
+
   test("opens Coach Play immediately even while profile save is pending", async () => {
     await renderHub();
 

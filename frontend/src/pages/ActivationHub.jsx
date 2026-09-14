@@ -27,6 +27,19 @@ const BORDER = "hsl(35 10% 87%)";
 const INK = "hsl(222 47% 11%)";
 const INK_MUTED = "hsl(220 9% 46%)";
 
+// Asked here, on the screen a player with no account actually lands on.
+// This question used to live on /onboarding -- which is reached ONLY via the
+// "Already play on Chess.com or Lichess?" link, so the one question built for
+// players without an account was shown only to players who had one. It
+// decides which tier the diagnostic opens on; unanswered falls back to mid,
+// which is the behaviour that existed before it was asked at all.
+const SELF_LEVELS = [
+  { value: "learning_moves", label: "I’m still learning how the pieces move" },
+  { value: "know_rules", label: "I know the rules and play with friends" },
+  { value: "plays_regularly", label: "I play regularly and know some openings" },
+  { value: "experienced", label: "I’m experienced — I know my theory" },
+];
+
 const MOTIVATIONS = [
   { value: "compete", label: "Prepare for serious games" },
   { value: "improve", label: "Get steadily better" },
@@ -37,6 +50,7 @@ const MOTIVATIONS = [
 const ActivationHub = () => {
   const navigate = useNavigate();
   const [motivation, setMotivation] = useState("");
+  const [selfLevel, setSelfLevel] = useState("");
   const [busy, setBusy] = useState(false);
   // Until this resolves we render nothing, so an already-activated user never
   // sees "Let's build a plan from your chess" flash before being sent home.
@@ -78,7 +92,10 @@ const ActivationHub = () => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         keepalive: true,
-        body: JSON.stringify({ player_motivation: motivation || null }),
+        body: JSON.stringify({
+          player_motivation: motivation || null,
+          self_assessed_level: selfLevel || null,
+        }),
       });
     } catch (e) { /* best-effort — never block the action */ }
   };
@@ -106,6 +123,35 @@ const ActivationHub = () => {
         <p className="cg-lede mb-8" style={{ color: INK_MUTED }}>
           You don’t need to know what is holding you back. That is my job. Show me how you think, and I’ll choose where we begin.
         </p>
+
+        {/* Asked before the doors, not after: "Show me a few positions"
+            starts the diagnostic immediately, so an answer collected below it
+            arrives too late to choose the opening tier. Optional -- neither
+            door is gated on it. */}
+        <p className="text-[12px] uppercase tracking-wider mb-1" style={{ color: GOLD_TEXT }}>
+          Where are you with chess right now?
+        </p>
+        <p className="text-[12px] mb-2.5" style={{ color: INK_MUTED }}>
+          No wrong answer. It only decides where I start.
+        </p>
+        <div className="grid grid-cols-1 gap-2 mb-6">
+          {SELF_LEVELS.map((l) => (
+            <button
+              key={l.value}
+              type="button"
+              onClick={() => setSelfLevel(l.value)}
+              className="text-[13px] px-3 py-2.5 rounded-lg border text-left transition-colors"
+              style={{
+                borderColor: selfLevel === l.value ? WINE : BORDER,
+                background: selfLevel === l.value ? "rgba(114,47,55,0.04)" : "white",
+                color: INK,
+              }}
+              data-testid={`hub-self-level-${l.value}`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
 
         {/* PRIMARY — Chess DNA (instant, unlimited) */}
         <button
