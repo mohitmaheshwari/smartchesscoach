@@ -65,8 +65,15 @@ def test_a_recommended_move_is_not_scolded():
 
 
 def test_the_generic_lesson_still_applies_when_we_did_not_recommend_it():
-    # The lesson is not wrong in general -- it must survive for moves we never
-    # prescribed, or this fix would be a silent coverage loss.
-    plain = try_distilled_caption(_inputs(move_was_our_recommendation=False))
+    """The lesson is not wrong in general -- it must survive for moves we never
+    prescribed, or gating it would be a silent coverage loss.
+
+    The move here must also not be the engine's own choice: since 2026-09-14 a
+    best move does not get hedged about either (fb_fbdee5ee58be), so pointing
+    best_move_san at the played move would prove nothing about recommendations.
+    """
+    plain = try_distilled_caption(
+        _inputs(move_was_our_recommendation=False, best_move_san="Nc4", cp_loss=30)
+    )
     assert plain is not None
     assert plain[1] == "distilled:good_space"
