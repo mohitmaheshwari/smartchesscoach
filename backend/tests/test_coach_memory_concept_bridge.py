@@ -88,15 +88,22 @@ def test_every_alias_states_why_that_concept(stored):
 
 
 def test_the_unmapped_ids_each_carry_a_structural_reason():
-    """These are not pending opinions -- none is resolvable by any reviewer.
+    """What is left is not a pending opinion -- none is resolvable by anyone.
 
-    Each is an umbrella over several concepts, a category, a context-free
-    singleton, or absent from the 238 curriculum ids.
+    Three earlier entries (opening_principles, king_pawn_endgame, conversion)
+    DID look like judgement calls and were resolved as umbrellas above. These
+    six are different: a trap lesson has no concept counterpart at all, and
+    Philidor and the two basic mates are absent from the curriculum vocabulary.
+    Those are content gaps, and inventing a pair would write false history.
     """
     unmapped = CATALOG["_doc"]["coach_memory_bridge"]["deliberately_unmapped"]
-    for stored in ("opening_principles", "king_pawn_endgame", "conversion",
-                   "endgame_philidor", "mate_kq_vs_k", "mate_kr_vs_k"):
-        assert len(unmapped[stored]) > 40, stored
+    assert set(unmapped) == {
+        "endgame_philidor", "mate_kq_vs_k", "mate_kr_vs_k",
+        "italian_game_fried_liver_attack", "queens_gambit_elephant_trap",
+        "trap_set_italian",
+    }, "the unmapped set changed -- update the reasoning, not just the list"
+    for stored, reason in unmapped.items():
+        assert len(reason) > 30, stored
         assert canonical_concept_id(stored) == stored
 
 
@@ -178,3 +185,83 @@ def test_an_unknown_concept_widens_to_nothing():
     assert concept_aliases("NOT_A_CONCEPT") == ()
     assert concept_aliases("") == ()
     assert concept_aliases(None) == ()
+
+
+# ---------------------------------------------------------------------------
+# Umbrella entries close the last 28 records (added 2026-09-14).
+#
+# Three stored ids name a GROUP of concepts rather than one: "opening_principles"
+# is develop/centre/castle, "king_pawn_endgame" is a whole class of ending,
+# "conversion" is endgame technique. Mapping each to a single concept would
+# assert detail the record does not carry, so each maps to its group and is
+# marked broader-than-exact. Production after this change: 113/113 concept
+# records, 11/11 distinct ids, 43/43 players holding one.
+# ---------------------------------------------------------------------------
+
+UMBRELLAS = {
+    "opening_principles": ["OP_FINISH_DEVELOPMENT", "OP_CLAIM_CENTER", "OP_NOT_CASTLED"],
+    "king_pawn_endgame": ["END_OPPOSITION", "END_PASSED_PAWN", "END_KING_ACTIVE",
+                          "END_RULE_OF_SQUARE", "king_and_pawn_opposition"],
+    "conversion": ["END_PASSED_PAWN", "END_KING_ACTIVE", "rook_endgame_activity"],
+}
+
+
+@pytest.mark.parametrize("stored,concepts", sorted(UMBRELLAS.items()))
+def test_every_concept_in_the_group_reaches_the_umbrella(stored, concepts):
+    for concept in concepts:
+        assert stored in concept_aliases(concept), f"{concept} should reach {stored}"
+        assert stored in lesson_skill_aliases(
+            "concept", "", requested_skill_id=concept)
+
+
+@pytest.mark.parametrize("stored,concepts", sorted(UMBRELLAS.items()))
+def test_an_umbrella_is_never_offered_as_an_exact_match(stored, concepts):
+    """It is real history, but broader than the question asked."""
+    for concept in concepts:
+        assert stored not in concept_aliases(concept, exact_only=True)
+
+
+def test_exact_aliases_survive_the_exact_only_filter():
+    """The strict path must keep what genuinely is the same idea."""
+    assert concept_aliases("TAC_PIN_PATTERN", exact_only=True) == ("pin",)
+    assert "pre_move_check" in concept_aliases(
+        "TAC_CHECKS_CAPTURES_THREATS", exact_only=True)
+
+
+def test_an_umbrella_does_not_answer_for_an_unrelated_concept():
+    """The group is a list, not a wildcard."""
+    for unrelated in ("TAC_PIN_PATTERN", "TAC_FORK_PATTERN", "MID_BAD_BISHOP"):
+        assert "opening_principles" not in concept_aliases(unrelated)
+        assert "king_pawn_endgame" not in concept_aliases(unrelated)
+
+
+def test_a_lesson_still_cannot_be_reached_through_an_umbrella():
+    """END_OPPOSITION gains king_pawn_endgame but must not gain the lesson."""
+    reached = concept_aliases("END_OPPOSITION")
+    assert "king_pawn_endgame" in reached
+    assert "endgame_opposition" not in reached, (
+        "the endgame lesson is attendance; an umbrella must not smuggle it in"
+    )
+
+
+def test_every_stored_concept_id_is_reachable():
+    """100% coverage of the stored concept vocabulary, locked.
+
+    The eleven ids are what production holds in coach_memory concept records.
+    """
+    stored_ids = set(ALIASES) | set(UMBRELLAS) | {"free_piece_capture"}
+    catalog_concepts = {
+        c
+        for entry in PATTERNS.values()
+        if isinstance(entry, dict)
+        for c in ([entry.get("canonical_concept_id")]
+                  + list(entry.get("umbrella_concept_ids") or []))
+        if c
+    }
+    reachable = {
+        alias
+        for concept in catalog_concepts
+        for alias in concept_aliases(concept)
+    }
+    missing = sorted(stored_ids - reachable)
+    assert not missing, f"unreachable stored concept ids: {missing}"

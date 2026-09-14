@@ -111,7 +111,7 @@ def canonical_concept_id(pattern_id: str) -> str:
     return str(entry.get("canonical_concept_id") or pattern_id)
 
 
-def concept_aliases(concept_id: str) -> Tuple[str, ...]:
+def concept_aliases(concept_id: str, *, exact_only: bool = False) -> Tuple[str, ...]:
     """Every older spelling that resolves to this canonical concept.
 
     The reverse of canonical_concept_id. A lookup holds a curriculum id --
@@ -119,7 +119,14 @@ def concept_aliases(concept_id: str) -> Tuple[str, ...]:
     "pin", so asking for the curriculum id alone finds nothing. Measured on
     production 2026-09-13: a strict lookup matched 0 of 124 players.
 
-    Only `canonical_concept_id` entries are reversed. Entries carrying
+    Two strengths come back, exact first. An EXACT alias is the same idea
+    under an older name ("pin" / "TAC_PIN_PATTERN"). An UMBRELLA entry names a
+    group the concept belongs to: "opening_principles" is the develop/centre/
+    castle habit, so it answers for all three of those concepts and none of
+    them alone. Umbrella history is real history, but it is broader than the
+    question asked -- pass exact_only=True where that matters.
+
+    Only `canonical_concept_id` and `umbrella_concept_ids` entries are reversed. Entries carrying
     `teaches_concept_id` are LESSONS -- "endgame_opposition" is the lesson that
     teaches END_OPPOSITION -- and a player who sat through one has attendance,
     not demonstrated understanding. Returning those here would let lesson
@@ -129,14 +136,17 @@ def concept_aliases(concept_id: str) -> Tuple[str, ...]:
     wanted = str(concept_id or "").strip()
     if not wanted:
         return ()
-    aliases = [
-        str(pattern_id)
-        for pattern_id, entry in (get_catalog().get("patterns") or {}).items()
-        if isinstance(entry, dict)
-        and str(entry.get("canonical_concept_id") or "").strip() == wanted
-        and str(pattern_id) != wanted
-    ]
-    return tuple(sorted(aliases))
+    exact, umbrella = [], []
+    for pattern_id, entry in (get_catalog().get("patterns") or {}).items():
+        if not isinstance(entry, dict) or str(pattern_id) == wanted:
+            continue
+        if str(entry.get("canonical_concept_id") or "").strip() == wanted:
+            exact.append(str(pattern_id))
+        elif wanted in [str(c) for c in (entry.get("umbrella_concept_ids") or [])]:
+            umbrella.append(str(pattern_id))
+    if exact_only:
+        return tuple(sorted(exact))
+    return tuple(sorted(exact) + sorted(umbrella))
 
 
 def resolve_pattern_ids(caption_facts: Dict) -> List[str]:
