@@ -529,7 +529,20 @@ def _facts_caption(inp):
     if not cap:
         return None
     san = inp.played_san
-    defs = f.get("effective_defenders_on_target") or []
+    # WHO CAN TAKE BACK. The facts are measured on the board AFTER the move
+    # (caption_facts: attackers_on_target = _attackers_of(board_after, opp_color)),
+    # so after a capture the recapturers live in ATTACKERS -- "defenders" there
+    # means our own pieces guarding the square we just landed on. Reading the
+    # defender list made every capture of a guarded piece look free: measured
+    # 2026-09-14, 198 of 414 "wins it for nothing" captions were false, the
+    # piece could be recaptured. Mohit flagged Bxf6 on a knight guarded twice
+    # (fb_6a7c9f8823ac).
+    #
+    # The RAW list is deliberate, not the SEE-filtered one: a student looking at
+    # the board sees the bishop that can recapture, whether or not taking back is
+    # objectively best. Claiming "nothing guards it" while a defender sits there
+    # is the falsehood being fixed.
+    defs = f.get("attackers_on_target") or []
     # net-material guard: a capture while BEHIND is restoring lost material (a
     # recapture/trade), not "free" — even if nothing guards the square this ply.
     try:
