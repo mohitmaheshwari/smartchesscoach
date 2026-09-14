@@ -1990,6 +1990,23 @@ def inject_opp_side_narration_facts(
 
     MUTATES caption_facts in place.
     """
+
+    # A check the opponent cannot profit from: every legal answer also
+    # attacks the checking piece. fb_ca8cc3ec9c5f shipped as a bare
+    # "Opponent's Qb1+ is a major blunder." with no why at all.
+    if not is_user:
+        try:
+            from services.caption_facts import (
+                _opp_check_answered_by_hitting_it as _ocah,
+            )
+            _pc = _ocah(board, move)
+            if _pc:
+                caption_facts["opp_check_every_answer_hits_it"] = True
+                caption_facts["opp_check_piece"] = _pc["piece"]
+                caption_facts["opp_check_square"] = _pc["square"]
+                caption_facts["opp_check_answer_count"] = _pc["answer_count"]
+        except Exception:
+            pass
     if not ((not is_user) and (opp_cp_loss or 0) >= 30):
         return None
 
@@ -2094,6 +2111,17 @@ def inject_opp_side_narration_facts(
                 from services.caption_facts import (
                     _recommended_move_traps_piece as _rmtp,
                 )
+                # WHICH piece has no defender -- the scan Mohit asked for
+                # (fb_f6050ba76406). Separate from the trapped-piece family: here the
+                # piece is safe until they take back, and then nothing guards it.
+                from services.caption_facts import (
+                    _recapture_cost_target_is_undefended as _rctu,
+                )
+                _undef = _rctu(_post_opp_board, _reply_mv)
+                if _undef:
+                    caption_facts["opp_reply_exposes_undefended"] = True
+                    caption_facts["opp_undefended_piece"] = _undef["piece"]
+                    caption_facts["opp_undefended_square"] = _undef["square"]
                 _trap = _rmtp(_post_opp_board, _reply_mv)
                 if _trap:
                     caption_facts["opp_reply_traps_piece"] = True

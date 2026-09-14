@@ -419,6 +419,35 @@ def _good_caption(inp):
     # The previous card told them to play this move. A generic lesson that
     # then hedges ("that can be okay, but first ...") contradicts our own
     # advice one move earlier, so confirm the move instead.
+    # Do not hedge about a move the player had no choice about, or that was the
+    # best move on the board. fb_fbdee5ee58be: Qd1 was played IN CHECK with only
+    # three legal moves and was the engine's own choice, and the caption answered
+    # "that keeps it safe, but it does not do much". Mohit: "wrong fact, it is
+    # doing a very big job". All three signals are read off the board or the
+    # stored best move -- nothing is inferred.
+    if is_user:
+        _was_best = bool(
+            inp.best_move_san
+            and str(inp.best_move_san).replace("+", "").replace("#", "")
+            == str(san).replace("+", "").replace("#", "")
+        )
+        _in_check = b.is_check()
+        _legal = b.legal_moves.count()
+        if _in_check or _was_best or _legal <= 3:
+            if _in_check and _legal <= 3:
+                return ("good_forced_reply",
+                        f"You were in check with only {_legal} legal moves, and {san} "
+                        "is the best of them.")
+            if _in_check:
+                return ("good_answers_check",
+                        f"{san} answers the check, and it is the move to play here.")
+            if _legal <= 3:
+                return ("good_forced_reply",
+                        f"With only {_legal} legal moves, {san} was close to forced "
+                        "and it is the right one.")
+            return ("good_was_best",
+                    f"{san} is the best move in this position.")
+
     if is_user and getattr(inp, "move_was_our_recommendation", False):
         return ("good_followed_coach",
                 f"Good — {san} is exactly the move to play here.")
@@ -529,7 +558,20 @@ def _facts_caption(inp):
     if not cap:
         return None
     san = inp.played_san
-    defs = f.get("effective_defenders_on_target") or []
+    # WHO CAN TAKE BACK. The facts are measured on the board AFTER the move
+    # (caption_facts: attackers_on_target = _attackers_of(board_after, opp_color)),
+    # so after a capture the recapturers live in ATTACKERS -- "defenders" there
+    # means our own pieces guarding the square we just landed on. Reading the
+    # defender list made every capture of a guarded piece look free: measured
+    # 2026-09-14, 198 of 414 "wins it for nothing" captions were false, the
+    # piece could be recaptured. Mohit flagged Bxf6 on a knight guarded twice
+    # (fb_6a7c9f8823ac).
+    #
+    # The RAW list is deliberate, not the SEE-filtered one: a student looking at
+    # the board sees the bishop that can recapture, whether or not taking back is
+    # objectively best. Claiming "nothing guards it" while a defender sits there
+    # is the falsehood being fixed.
+    defs = f.get("attackers_on_target") or []
     # net-material guard: a capture while BEHIND is restoring lost material (a
     # recapture/trade), not "free" — even if nothing guards the square this ply.
     try:

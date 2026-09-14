@@ -15,16 +15,14 @@
       "authority": "A record's own skill_type field decides its kind. See services/personal_teaching_profile.skill_kind.",
       "measured": "2026-09-13, all 8,166 production skill records: 7,910 openings, 113 concepts across 11 ids, 143 lesson records.",
       "deliberately_unmapped": {
-        "opening_principles": "An umbrella over the six golden_opening_principle_7..12 leaves. Picking one would assert the player worked on a specific principle the record does not name.",
-        "king_pawn_endgame": "A category, not a concept: END_OPPOSITION, END_PASSED_PAWN, END_KING_ACTIVE and END_RULE_OF_SQUARE all sit inside it.",
-        "conversion": "One record, no position context. 'Converting' spans every endgame technique in the curriculum; the id carries nothing that narrows it.",
         "endgame_philidor": "The Philidor third-rank rook defence has no counterpart among the 238 curriculum concepts. A curriculum gap, not a naming gap.",
         "mate_kq_vs_k": "Basic K+Q mate is absent from the 238 curriculum concepts.",
         "mate_kr_vs_k": "Basic K+R mate is absent from the 238 curriculum concepts.",
-        "italian_game_fried_liver_attack": "A trap lesson. Traps have no concept counterpart; the DEFENCE does (see defend_fried_liver -> OP_F2_F7_STRIKE).",
-        "queens_gambit_elephant_trap": "A trap lesson — see above.",
-        "trap_set_italian": "A trap lesson — see above."
-      }
+        "italian_game_fried_liver_attack": "A trap lesson -- playing the Fried Liver rather than defending it. Traps have no concept counterpart; the DEFENCE does, and defend_fried_liver maps to OP_F2_F7_STRIKE.",
+        "queens_gambit_elephant_trap": "A trap lesson. The Elephant Trap punishes 5.Nxd5 in the Queen's Gambit Declined; the curriculum has no concept for a specific opening trap, and the general idea it rests on (a pinned knight) is already reachable through the pin alias.",
+        "trap_set_italian": "A trap lesson: setting a trap in the Italian. The curriculum carries no trap concepts at all, and 'setting a trap' is a choice a player makes, not a fundamental the system measures."
+      },
+      "umbrella": "Entries with family 'coach_memory umbrella' carry umbrella_concept_ids: the stored id names a GROUP of concepts, so a lookup for any concept in the group reaches that history. This is broader than an exact alias and concept_aliases(cid, exact_only=True) excludes it, so a consumer that needs a precise match can still ask for one."
     }
   },
   "patterns": {
@@ -252,6 +250,47 @@
       "teaches_concept_id": "END_RULE_OF_SQUARE",
       "alias_of_record": "coach_memory.learning.skills",
       "why_this_concept": "endgames.json key `rule_of_square`, stored with the endgame_ prefix."
+    },
+    "opening_principles": {
+      "human_name": "Opening principles, worked as one habit.",
+      "short_description": "Opening principles, worked as one habit.",
+      "family": "coach_memory umbrella",
+      "example_fen": null,
+      "umbrella_concept_ids": [
+        "OP_FINISH_DEVELOPMENT",
+        "OP_CLAIM_CENTER",
+        "OP_NOT_CASTLED"
+      ],
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "The habit is 'develop your pieces, take the centre, castle' -- exactly these three concepts. It names the group, so it resolves to the group. The six golden_opening_principle_* ids were NOT used: they are filler, sharing one generic message with 79 other ids."
+    },
+    "king_pawn_endgame": {
+      "human_name": "King-and-pawn endings.",
+      "short_description": "King-and-pawn endings.",
+      "family": "coach_memory umbrella",
+      "example_fen": null,
+      "umbrella_concept_ids": [
+        "END_OPPOSITION",
+        "END_PASSED_PAWN",
+        "END_KING_ACTIVE",
+        "END_RULE_OF_SQUARE",
+        "king_and_pawn_opposition"
+      ],
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "A whole class of ending, not one idea. The concepts inside it are the opposition, the passed pawn, the active king and the rule of the square."
+    },
+    "conversion": {
+      "human_name": "Turning a won position into a win.",
+      "short_description": "Turning a won position into a win.",
+      "family": "coach_memory umbrella",
+      "example_fen": null,
+      "umbrella_concept_ids": [
+        "END_PASSED_PAWN",
+        "END_KING_ACTIVE",
+        "rook_endgame_activity"
+      ],
+      "alias_of_record": "coach_memory.learning.skills",
+      "why_this_concept": "Converting an advantage is endgame technique: push the passed pawn, activate the king, keep the rook active. One record, so the group is the honest answer -- narrowing it to a single concept would invent detail the record does not carry."
     }
   }
 }

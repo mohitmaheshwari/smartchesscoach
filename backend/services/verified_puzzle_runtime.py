@@ -178,6 +178,23 @@ async def _resolve_pool_row(
                     row.get("source") or row.get("source_type") or "community"
                 ),
             })
+            # The rebuild owns the BOARD -- fen, best move, fresh verdict --
+            # but not the teaching labels, which live on the curated row. They
+            # were being dropped here, and the diagnostic records issue_type
+            # straight from this dict: every attempt stored issue_type=null,
+            # so per_category came back empty, growth_areas came back empty,
+            # _worst_issue_type returned None, and apply_diagnosis_to_training
+            # returned before writing anything. A player answered all twenty
+            # positions and ended with no profile, no focus and a blank result
+            # card (user_ed32375808ad, 2026-09-14).
+            for label in ("issue_type", "difficulty", "opening_name",
+                          "move_number"):
+                if imported.get(label) is None and row.get(label) is not None:
+                    imported[label] = row.get(label)
+            # A row with no curated label still has to classify as something;
+            # the rebuild's own broad category is the same taxonomy.
+            if imported.get("issue_type") is None:
+                imported["issue_type"] = imported.get("pattern_type")
             return imported
 
     if stored_verdict_is_structurally_current(row):

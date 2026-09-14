@@ -144,4 +144,20 @@ t4 = generate_truth_line(decryption_v5_data=cards, game_reason="one_move_blunder
 check("D1 still renders without trajectory", bool(t4))
 
 print("\n%s (%d failures)" % ("ALL PASS" if not FAILS else "FAILURES: " + ", ".join(FAILS), len(FAILS)))
-sys.exit(1 if FAILS else 0)
+
+
+def test_review_truth_layer_checks_all_pass():
+    """Expose the module-level checks above as a real test.
+
+    This file was written as a standalone script and ended in a bare
+    sys.exit() at import time. pytest imports every test module during
+    collection, so that SystemExit aborted the ENTIRE suite with
+    INTERNALERROR -- a crash, not a failure -- and the run then reported
+    "0 failures" because it had never run. Guarding the exit keeps the
+    script usable while letting the suite collect.
+    """
+    assert not FAILS, "truth-layer checks failed: " + ", ".join(FAILS)
+
+
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)
