@@ -949,52 +949,179 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     return focus
 
 
+# A rate is only a rate once there is something behind it. These floors are
+# what separates "we measured no change" from "we measured nothing".
+MIN_DECISIONS_FOR_PROOF = 100   # piece-safety decisions, each side of the split
+MIN_GAMES_FOR_OUTCOME = 3       # analysed games played since the focus began
+
+
+async def _games_split_by_play_date(db, user_id: str, started_at: Any):
+    """The player's analysed games, split at the moment the focus was locked.
+
+    Deliberately `date_played`, not `analyzed_at`. Analysis runs long after the
+    fact -- on production the median game is analysed 19 days after it was
+    played and 42% more than 30 days after -- so an `analyzed_at` window counts
+    games played *before* the coaching started as evidence *of* the coaching.
+    `games.date_played` is stored as an ISO string, so the bound is stringified
+    to match; comparing it against a datetime silently matches nothing.
+    """
+    started = started_at
+    if isinstance(started, datetime):
+        started = started.isoformat()
+    started = str(started)
+    base = {"user_id": user_id, "is_analyzed": True}
+    before = await db.games.distinct(
+        "game_id", dict(base, date_played={"$lt": started})
+    )
+    after = await db.games.distinct(
+        "game_id", dict(base, date_played={"$gte": started})
+    )
+    return before, after
+
+
+async def _pic_proof_rates(db, user_id: str, before_ids, after_ids):
+    """Miss rate per piece-safety decision, before and after, same detector.
+
+    This is the measurement the PIC focus itself declares
+    (`proof_detector_id: piece_safety.d_live.v1`), and it is a rate per
+    *decision faced* rather than per game, so it does not move when someone
+    simply plays longer games.
+
+    The before half is RE-DERIVED here rather than read from
+    `evidence_summary.baseline`. That stored number was produced by whatever
+    the detector looked like on the day the focus was locked; differencing
+    today's count against it scores every detector change we have shipped
+    since as if the player had changed. Measured on production, that one
+    difference turned "13 focuses improved, 0 regressed" into 4 better, 6
+    worse, 2 flat -- the entire apparent effect was ours, not theirs.
+    """
+    from services.focus_bridge import get_d_live_evidence_summary
+
+    before = await get_d_live_evidence_summary(db, user_id, before_ids)
+    after = await get_d_live_evidence_summary(db, user_id, after_ids)
+    before_n = int(before.get("decisions") or 0)
+    after_n = int(after.get("decisions") or 0)
+    if before_n < MIN_DECISIONS_FOR_PROOF or after_n < MIN_DECISIONS_FOR_PROOF:
+        return None
+    return (
+        {"value": round(int(before.get("misses") or 0) / before_n, 4),
+         "name": "piece_safety_misses_per_decision",
+         "occurrence_count": int(before.get("misses") or 0),
+         "n_decisions": before_n},
+        {"value": round(int(after.get("misses") or 0) / after_n, 4),
+         "name": "piece_safety_misses_per_decision",
+         "occurrence_count": int(after.get("misses") or 0),
+         "n_decisions": after_n},
+    )
+
+
+async def _topic_rates(db, user_id: str, topic: str, before_ids, after_ids):
+    """Occurrences per game, before and after, counted identically.
+
+    Mirrors `_compute_baseline_metric` -- including the authorized-subtype
+    filter, which must be applied to BOTH halves or the gate alone reads as
+    improvement.
+    """
+    from services.detector_quality import (
+        authorized_gap_subtypes,
+        enforcement_enabled,
+    )
+
+    query: Dict[str, Any] = {"user_id": user_id, "missed_pattern": topic}
+    if enforcement_enabled():
+        authorized = authorized_gap_subtypes(topic)
+        if not authorized:
+            return None
+        query["subtype"] = {"$in": list(authorized)}
+
+    async def rate(game_ids):
+        if not game_ids:
+            return None
+        total = await db.move_observations.count_documents(
+            dict(query, game_id={"$in": list(game_ids)})
+        )
+        return {"value": round(total / len(game_ids), 3),
+                "name": f"{topic}_per_game",
+                "occurrence_count": total,
+                "n_games": len(game_ids)}
+
+    before = await rate(before_ids)
+    after = await rate(after_ids)
+    if before is None or after is None:
+        return None
+    return before, after
+
+
 async def check_focus_outcome(db, focus: Dict[str, Any]) -> Dict[str, Any]:
-    """Called at locked_until. Returns {resolution, action, delta_pct}."""
-    if focus.get("cycle_version") == 1:
-        return {
-            "resolution": "measurement_pending",
-            "action": "hold",
-            "delta_pct": None,
-            "current_metric": None,
-        }
+    """Called at locked_until. Returns {resolution, action, delta_pct}.
+
+    Every active focus on production sat here unmeasured: the 43 PIC focuses
+    returned `measurement_pending` unconditionally, and the other 10 returned
+    `no_data` because their window was built from `analyzed_at`. Each answer
+    sends the focus back round the loop for another 14 days, so nobody could
+    ever finish one, and `current_metric` was never written for anyone.
+
+    Both halves of every comparison below are measured here, now, by the same
+    function. A stored baseline is provenance, not a comparand.
+    """
     topic = focus["topic_key"]
     user_id = focus["user_id"]
-    started_at = focus["started_at"]
-    baseline_rate = focus["baseline_metric"]["value"]
+    started_at = focus.get("started_at")
+    if not started_at:
+        return {"resolution": "measurement_pending", "action": "hold",
+                "delta_pct": None, "current_metric": None}
 
-    # Games analyzed since lock started
-    games_since = await db.games.count_documents({
-        "user_id": user_id,
-        "is_analyzed": True,
-        "analyzed_at": {"$gte": started_at},
-    })
-    if games_since == 0:
-        return {"resolution": "no_data", "action": "extend", "delta_pct": None}
+    before_ids, after_ids = await _games_split_by_play_date(
+        db, user_id, started_at
+    )
+    if len(after_ids) < MIN_GAMES_FOR_OUTCOME:
+        # Not a failure, and not "stuck": they simply have not played enough
+        # since we named this. Keep the focus open and say so.
+        return {"resolution": "no_data", "action": "extend", "delta_pct": None,
+                "current_metric": None, "n_games_since_start": len(after_ids)}
 
-    obs_since = await db.move_observations.find({
-        "user_id": user_id,
-        "missed_pattern": topic,
-        "derived_at": {"$gte": started_at},
-    }).to_list(length=None)
-    current_rate = len(obs_since) / games_since
+    if focus.get("cycle_version") == 1:
+        rates = await _pic_proof_rates(db, user_id, before_ids, after_ids)
+    else:
+        rates = await _topic_rates(db, user_id, topic, before_ids, after_ids)
+
+    if rates is None:
+        # Measurable in principle, not yet in fact. Saying "stuck" here would
+        # be a claim about the player made from an absence of evidence.
+        return {"resolution": "measurement_pending", "action": "extend",
+                "delta_pct": None, "current_metric": None,
+                "n_games_since_start": len(after_ids)}
+
+    before, after = rates
+    baseline_rate = before["value"]
+    current_rate = after["value"]
     delta = (current_rate - baseline_rate) / max(baseline_rate, 0.01)
+
+    current_metric = {
+        "schema_version": "focus_outcome.v2",
+        "name": after["name"],
+        "value": current_rate,
+        "occurrence_count": after["occurrence_count"],
+        "n_games_since_start": len(after_ids),
+        "n_decisions": after.get("n_decisions"),
+        # The before half, re-derived by this code over the pre-focus games.
+        # This -- not `baseline_metric` -- is what `delta_pct` differences.
+        "measured_baseline": before,
+        "stored_baseline": focus.get("baseline_metric"),
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+    }
 
     if delta <= IMPROVEMENT_THRESHOLD:
         return {"resolution": "improved", "action": "celebrate",
                 "delta_pct": round(delta * 100, 1),
-                "current_metric": {"value": round(current_rate, 3),
-                                   "n_games_since_start": games_since}}
+                "current_metric": current_metric}
     if delta >= REGRESSION_THRESHOLD:
         return {"resolution": "regressed", "action": "escalate",
                 "delta_pct": round(delta * 100, 1),
-                "current_metric": {"value": round(current_rate, 3),
-                                   "n_games_since_start": games_since}}
+                "current_metric": current_metric}
     return {"resolution": "stuck", "action": "extend",
             "delta_pct": round(delta * 100, 1),
-            "current_metric": {"value": round(current_rate, 3),
-                               "n_games_since_start": games_since}}
-
+            "current_metric": current_metric}
 
 async def close_focus(db, focus: Dict[str, Any], outcome: Dict[str, Any]) -> None:
     """Mark a focus completed with outcome data."""

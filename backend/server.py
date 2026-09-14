@@ -109,11 +109,20 @@ async def focus_outcome_loop():
             n_improved = 0
             n_regressed = 0
             n_stuck = 0
+            # `type` was added to this collection after the first focuses
+            # were written, so an equality match on it silently skips every
+            # legacy row -- 8 of the 53 active focuses on production, which
+            # could therefore never be measured or closed at all. Two $or
+            # clauses cannot share one object, hence the explicit $and.
             async for f in db[COLLECTION].find({
-                "type": "weakness", "status": "active",
-                "$or": [
-                    {"locked_until": {"$type": "date", "$lte": now}},
-                    {"locked_until": {"$type": "string", "$lte": now_iso}},
+                "status": "active",
+                "$and": [
+                    {"$or": [{"type": {"$exists": False}},
+                             {"type": "weakness"}]},
+                    {"$or": [
+                        {"locked_until": {"$type": "date", "$lte": now}},
+                        {"locked_until": {"$type": "string", "$lte": now_iso}},
+                    ]},
                 ],
             }):
                 try:
