@@ -294,6 +294,40 @@ async def start_coach_session(
     user_rating = rating_data.get('rating', 1200)
     rating_source = rating_data.get('source', 'default')
 
+    # `get_user_rating_from_games` reads synced games and platform profiles
+    # only. A player who has never connected an account has neither, so it
+    # returned a hard 1200 -- and onboarding had just asked that player where
+    # they are with chess and stored the answer as `assessed_rating`.
+    #
+    # The effect was worst for exactly the person the question was added for:
+    # someone who answered "I'm still learning how the pieces move" was given a
+    # 1200 opponent and addressed as a 1200, because the beginner register is
+    # gated on `user_rating < 1000` (realtime_coaching_feedback). Their honest
+    # answer was on file and this path never looked at it.
+    #
+    # Only consulted when the games read found NOTHING ('default'). A real
+    # platform rating always wins over self-assessment -- the canonical
+    # resolver orders it that way too, but narrowing it here means this cannot
+    # change what an existing player with games already gets.
+    if rating_source == 'default':
+        try:
+            from services.rating_resolver import get_coaching_rating
+            resolved = int(await get_coaching_rating(db, user_id))
+            if resolved > 0 and resolved != user_rating:
+                logger.info(
+                    "[coach_play] no game history for %s; using the level they "
+                    "gave us at onboarding: %s (was a blind %s)",
+                    user_id, resolved, user_rating,
+                )
+                user_rating = resolved
+                rating_source = 'self_assessed'
+        except Exception as exc:
+            # A missing rating must never stop someone starting a game.
+            logger.warning(
+                "[coach_play] self-assessed rating lookup failed for %s: %s",
+                user_id, exc,
+            )
+
     # The imported platform rating is kept separately as the COACHING REGISTER:
     # how the coach should speak to this player. One number used to drive both
     # that and the opponent's strength, and the move-quality override below
