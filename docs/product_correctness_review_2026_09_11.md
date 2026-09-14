@@ -426,6 +426,83 @@ baseline, is the measurable one.
 
 No claim about coaching effect should be published from this data.
 
+### 15. The outcome loop could never finish a focus, and the obvious fix would have lied
+
+*Fixed and deployed, `6077b004` — 2026-09-14.*
+
+`user_active_focus` carried a `baseline_metric` on every one of its 53 active
+weakness focuses and a `current_metric` on none of them. The loop that was
+supposed to close that gap has been running daily for months.
+
+Three separate things wedged it, and each returned an answer that re-extended
+the lock for another fourteen days, so no focus could ever finish:
+
+- every `cycle_version: 1` focus returned `measurement_pending` before reading
+  anything — 43 of the 53. Those focuses declare their own proof detector
+  (`piece_safety.d_live.v1`) and the generic per-game counter would have been
+  the wrong instrument for them, so abstaining was right; never measuring them
+  was not.
+- the other 10 returned `no_data`, because the window was built from
+  `analyzed_at` — when we got round to analysing a game, not when it was
+  played. The median production game is analysed 19 days after the fact and
+  42% more than 30 days after, so that window sweeps in games played long
+  before the coaching began and counts them as evidence of it.
+- `server.py`'s daily loop matched `type: "weakness"` exactly. That field was
+  added to the collection after the first focuses were written, so the 8
+  legacy rows were never selected at all.
+
+**The part that matters is the fourth one, because it would have produced a
+wrong answer rather than no answer.** The stored `baseline_metric` was written
+the day each focus was locked, by whatever the detector looked like then.
+Differencing today's count against it scores our own detector changes as if
+the player had changed. Measured on production:
+
+| | improved | stuck | regressed |
+|---|---|---|---|
+| differenced against the **stored** baseline | 13 | 4 | 0 |
+| both halves re-derived by **today's** code | 4 | 3 | 6 |
+
+Pooled piece-safety miss rate: **9.01% before the focus, 9.35% after.** The
+entire apparent effect was ours, not the players'.
+
+A control matters for the same reason. A focus is *chosen* because that rate
+was the player's worst, so it falls by regression to the mean whatever we do.
+Measuring the patterns we did not teach over the same split, with the same
+counter, turned an apparent 14-out-of-14 result into 8 versus 6 — a coin flip.
+
+**Now:** both halves are measured in one place, in one run, by one function
+(`check_focus_outcome`). The stored number is kept as provenance and nothing
+is differenced against it. 13 of 53 focuses get a real `current_metric`; the
+other 40 return `no_data` or `measurement_pending`, which is the true answer —
+those players have not played enough since we named the weakness, and saying
+"stuck" from an absence of evidence would be a claim about them we cannot
+support. Locked in by
+`backend/tests/test_focus_outcome_is_measured_fairly.py` (8 tests).
+
+Not done deliberately: `run_focus_outcome_checks.py` was not force-run.
+`close_focus` would resolve and escalate roughly ten live accounts, which is a
+product decision. The first locks came due on their own the next day.
+
+### 16. The "You're improving" banner compares a window against a baseline that contains it
+
+*Open.*
+
+`FocusResolutionBanner` does not read `resolution` at all — it reads a live
+`focus_trend` computed in `routes/coach.py` (~line 5035), and renders
+**"You're improving — N% fewer events per game since your focus started."**
+
+Its baseline is `lifetime_events / lifetime_games`: the player's whole
+history, *including* the post-focus games being measured. Both halves at least
+come from one function, which is more than the outcome check managed, but the
+comparison is a small recent window against a lifetime average that contains
+it, and the render gate is one game and two days.
+
+It shows nothing today — `focus_trend` has no data for any of the 53 users, so
+nobody is being told anything false. That is why this is open rather than
+urgent. But it is a user-facing improvement claim resting on the same shape of
+comparison that finding 15 disproved, and it should be repointed at a
+pre-focus baseline before it ever fires.
+
 ---
 
 ## Test suite
