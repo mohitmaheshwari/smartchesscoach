@@ -577,6 +577,74 @@ evaluated-move-count distribution pulled and a data-backed floor set.
 
 ---
 
+**Date:** 2026-09-14
+
+**Decision:** The activation hub keeps the diagnostic as its primary
+action. Connecting a Chess.com or Lichess account is offered as a proper
+card below both no-account doors, not promoted above them. Codex's
+elevated card treatment was kept and moved onto the primary action
+instead of being discarded.
+
+**Why:** A branch arrived described as onboarding UI polish. It carried
+two commits. `e40b5c33` was the polish as described. `ec92883c` — a
+one-line commit message, no body — made account-connect the RECOMMENDED
+card at the top of the hub, moved the diagnostic and coached game under
+"Or start without connecting", and deleted the file header comment
+citing `docs/activation_hub_scope.md (32% dead-on-arrival)`.
+
+That is the wall the hub was built to replace. The scope doc is explicit:
+*32% of signups are dead on arrival because onboarding forces a
+chess-account link before delivering any value*; it specifies the
+diagnostic as the primary action and the account link as "a soft,
+benefit-framed option", against a target of <15%.
+
+But Codex's underlying observation was correct and worth keeping: the
+connect affordance was a 13px underlined link sitting below a motivation
+quiz, and real games genuinely are the strongest coaching evidence the
+product has. A weak affordance was being mistaken for a settled product
+decision. The answer was to fix the affordance without moving the
+position — offer it well, do not offer it first.
+
+**Evidence available then:** The 32% dead-on-arrival figure and the
+<15% target, both from `activation_hub_scope.md`. That figure measures
+the old account-wall onboarding specifically, which is what those users
+actually experienced, so it is valid evidence about an account-first
+flow even though ChessGuru is not launched and most engagement numbers
+from this cohort are not signal. Against it: no measurement at all of
+how the hub's own ordering performs, because nobody has run it yet —
+this decision preserves a prior data-backed call, it does not add
+evidence for it.
+
+**Alternatives rejected:**
+- *Deploy `ec92883c` as-is.* Rejected: reverses a signed-off, data-backed
+  decision and deletes the comment recording why, so the next person to
+  read the file would not know a decision was ever made.
+- *Discard `ec92883c` entirely.* Rejected: throws away real craft and
+  leaves the legitimate complaint unfixed. The branch is now pushed to
+  `origin/codex/import-onboarding-primary-v1` so none of it is lost.
+- *Give the connect card the elevated treatment in place.* Rejected:
+  gradient, lifted shadow and a lime arrow are how you signal THE action.
+  Dressing a deliberately-secondary option that way inverts the hierarchy
+  in everything except DOM order.
+
+**Who decided:** Mohit, from three options with the layouts drawn out.
+Claude flagged the fork rather than deploying the branch as handed over,
+and deployed only `e40b5c33` until the call was made.
+
+**Expected outcome:** Players with an account get a real offer instead of
+a link they skim past. Players without one still meet the diagnostic
+first, so dead-on-arrival should keep tracking toward <15% rather than
+back toward 32%. Three tests now assert the hierarchy holds
+(`the connect card does not outrank the primary action`), so a future
+restyle cannot quietly invert it again.
+
+**When we'll revisit:** when the hub has enough real traffic to measure
+dead-on-arrival directly. If connect-card conversion is high and DOA
+stays low, promoting it becomes an evidence question rather than a
+preference one. Until then the scope doc stands.
+
+---
+
 *Add a new entry above whenever a major decision is made — not after
 the fact, when someone's already forgotten the alternatives that were
 actually on the table.*

@@ -153,23 +153,59 @@ const ActivationHub = () => {
           ))}
         </div>
 
-        {/* PRIMARY — Chess DNA (instant, unlimited) */}
+        {/* PRIMARY — Chess DNA (instant, unlimited).
+
+            The elevated treatment here came from Codex's connect-first card.
+            The craft was good; the placement was not. A gradient, a lifted
+            shadow and a lime arrow are how you signal THE action -- so they
+            belong on the one the scope doc names primary, where they make the
+            hierarchy more legible rather than inverting it. */}
         <button
           onClick={() => { track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "diagnostic" }); go("/diagnostic"); }}
           disabled={busy}
-          className="experience-activation-primary w-full text-left rounded-xl border p-4 mb-3 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
-          style={{ borderColor: WINE, background: "rgba(114,47,55,0.03)" }}
+          className="experience-activation-primary relative w-full overflow-hidden text-left rounded-2xl border-2 p-5 md:p-6 mb-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{
+            borderColor: WINE,
+            background: "linear-gradient(135deg, rgba(182,255,61,0.22) 0%, rgba(232,255,200,0.5) 48%, rgba(255,255,255,0.96) 100%)",
+            boxShadow: "0 18px 45px rgba(15, 91, 71, 0.12)",
+            "--tw-ring-color": WINE,
+          }}
           data-testid="hub-diagnostic"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 shrink-0" style={{ color: WINE }} />
-              <div>
-                <div className="text-[15px] font-medium" style={{ color: INK }}>Show me a few positions</div>
-                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>No timer. I’ll watch what you notice and what you overlook.</div>
+          <div
+            aria-hidden="true"
+            className="absolute -right-10 -top-12 h-32 w-32 rounded-full blur-2xl"
+            style={{ background: "rgba(182,255,61,0.35)" }}
+          />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-4">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: WINE, color: "white" }}
+              >
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <span
+                  className="mb-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                  style={{ background: "rgba(15,91,71,0.1)", color: WINE }}
+                >
+                  Start here
+                </span>
+                <div className="text-[17px] md:text-[19px] font-semibold leading-snug" style={{ color: INK }}>
+                  Show me a few positions
+                </div>
+                <div className="mt-1.5 max-w-[420px] text-[13px] leading-relaxed" style={{ color: INK_MUTED }}>
+                  No timer. I’ll watch what you notice and what you overlook.
+                </div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-hover:translate-x-1"
+              style={{ background: "#B6FF3D", color: "#071B14" }}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </span>
           </div>
         </button>
 
@@ -177,8 +213,8 @@ const ActivationHub = () => {
         <button
           onClick={() => { track(ANALYTICS_EVENTS.FUNNEL_ACTIVATION_CTA, { cta: "coached_game" }); go("/play-with-coach"); }}
           disabled={busy}
-          className="experience-activation-secondary w-full text-left rounded-xl border p-4 mb-6 transition-all hover:bg-black/[0.02] disabled:opacity-50 cursor-pointer group"
-          style={{ borderColor: BORDER, background: "white" }}
+          className="experience-activation-secondary w-full text-left rounded-xl border p-4 mb-6 transition-all hover:-translate-y-px hover:bg-black/[0.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 cursor-pointer group"
+          style={{ borderColor: BORDER, background: "white", "--tw-ring-color": WINE }}
           data-testid="hub-play"
         >
           <div className="flex items-center justify-between gap-3">
@@ -189,7 +225,7 @@ const ActivationHub = () => {
                 <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Make the moves yourself; your coach steps in only when it matters.</div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-60 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" style={{ color: GOLD_TEXT }} />
           </div>
         </button>
 
@@ -262,7 +298,7 @@ const ActivationHub = () => {
                 </div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: WINE }} />
+            <ArrowRight className="w-4 h-4 shrink-0 opacity-60 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" style={{ color: WINE }} />
           </div>
         </button>
       </div>

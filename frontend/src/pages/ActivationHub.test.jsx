@@ -165,6 +165,46 @@ describe("ActivationHub", () => {
     expect(saved).toHaveLength(0);
   });
 
+  // --- the hierarchy has to be visible, not just ordered ------------------
+  //
+  // Codex built an elevated card -- gradient, lifted shadow, lime arrow --
+  // and put it on "connect your account", which would have inverted the
+  // hub's whole reason for existing. The craft was right and the placement
+  // was wrong, so the treatment moved to the action that IS primary. These
+  // assert it stayed there.
+
+  test("the primary action carries the elevated treatment", async () => {
+    await renderHub();
+
+    const primary = container.querySelector('[data-testid="hub-diagnostic"]');
+    expect(primary.className).toMatch(/rounded-2xl/);
+    expect(primary.className).toMatch(/border-2/);
+  });
+
+  test("the connect card does not outrank the primary action", async () => {
+    await renderHub();
+
+    const primary = container.querySelector('[data-testid="hub-diagnostic"]');
+    const connect = container.querySelector('[data-testid="hub-connect"]');
+    // Whatever the styling, connecting must not be dressed as THE action.
+    expect(connect.className).not.toMatch(/border-2/);
+    expect(connect.textContent).not.toMatch(/recommended/i);
+    expect(primary.className).toMatch(/rounded-2xl/);
+  });
+
+  test("every action is reachable and visible without a mouse", async () => {
+    // An arrow that only appears on hover does not exist for keyboard or
+    // touch users, and a control with no focus ring cannot be tabbed to
+    // visibly.
+    await renderHub();
+
+    for (const id of ["hub-diagnostic", "hub-play", "hub-connect"]) {
+      const el = container.querySelector(`[data-testid="${id}"]`);
+      expect(el.className).toMatch(/focus-visible:ring-2/);
+    }
+    expect(container.innerHTML).not.toMatch(/opacity-0 group-hover:opacity-100/);
+  });
+
   test("opens Coach Play immediately even while profile save is pending", async () => {
     await renderHub();
 
