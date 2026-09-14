@@ -111,6 +111,26 @@ export default function useCoachFlow({
     setPendingMove(pending);
     setInteractionState(INTERACTION_STATES.PENDING_USER_MOVE);
     setActiveCoachingMoment(null);
+    // Everything below describes the position we have just LEFT. Until this
+    // was added, only resetFlow() cleared it -- and that runs on a new game,
+    // not on a new move. So after each move the panel kept showing the
+    // previous move's board reading against the new position, and then
+    // rewrote itself when the evaluation came back.
+    //
+    // That is the "the caption says one thing and then redoes itself a few
+    // seconds later" report, and the first half of it was not merely stale,
+    // it was wrong: commentary about a position no longer on the board. The
+    // evaluation is raced against a 3000ms timeout below and the coach's
+    // reply takes several seconds more, so that window is easily long enough
+    // to read.
+    //
+    // Cleared, not kept: showing nothing while we work it out is honest,
+    // showing the last move's answer is not.
+    setCommentary(null);
+    setLiveChecklist(null);
+    setRootProblem(null);
+    setOpeningGuidance(null);
+    setTrapWarning(null);
     if (experienceVersion === "unified_v1") {
       setActiveStripCoaching(null);
     }
