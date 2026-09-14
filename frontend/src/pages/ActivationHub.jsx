@@ -140,7 +140,7 @@ const ActivationHub = () => {
               <Swords className="w-5 h-5 shrink-0" style={{ color: GOLD_TEXT }} />
               <div>
                 <div className="text-[15px] font-medium" style={{ color: INK }}>Play a game with your coach</div>
-                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Make the moves yourself; ask for help when you want it.</div>
+                <div className="text-[12.5px]" style={{ color: INK_MUTED }}>Make the moves yourself; your coach steps in only when it matters.</div>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD_TEXT }} />

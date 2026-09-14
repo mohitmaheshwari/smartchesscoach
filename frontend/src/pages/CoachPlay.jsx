@@ -1354,7 +1354,9 @@ const CoachPlay = ({ user }) => {
           setOpeningGuidance(ot);
         }
         
-        toast.success("Resumed your game!");
+        if (!resumedUnified) {
+          toast.success("Resumed your game!");
+        }
         if (resumedUnified) {
           track(ANALYTICS_EVENTS.PWC_UNIFIED_SESSION_RESUMED, {
             experience_version: "unified_v1",
@@ -3677,7 +3679,9 @@ const CoachPlay = ({ user }) => {
         setCprResult(data.cpr);
         setPlayerIdentity(data.identity);
         setCoachingLocked(false);
-        toast.info("You resigned. Better luck next time!");
+        if (!unifiedExperience) {
+          toast.info("You resigned. Better luck next time!");
+        }
 
         // Fetch improvement proof
         try {
@@ -4054,6 +4058,7 @@ const CoachPlay = ({ user }) => {
           gameOver={gameOver}
           evaluation={evaluation}
           selectedColor={selectedColor}
+          unifiedExperience={unifiedExperience}
           isInTeachingMode={unifiedExperience ? false : isInTeachingMode}
           activeLesson={unifiedExperience ? null : activeLesson}
           lessonInstruction={unifiedExperience ? null : lessonInstruction}

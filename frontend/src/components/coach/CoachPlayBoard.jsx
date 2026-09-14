@@ -42,6 +42,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     evaluation,
     selectedColor,
     gameMode,
+    unifiedExperience = false,
     /* teaching state */
     isInTeachingMode,
     activeLesson,
@@ -107,6 +108,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
           <div
             className="experience-board-stage flex-1 relative rounded-lg overflow-hidden aspect-square"
+            data-testid="coach-play-board-stage"
             style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
           >
             <LichessBoard
@@ -427,6 +429,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
         )}
 
         {/* Controls */}
+        {(!unifiedExperience || !gameOver) && (
         <div className="flex items-center justify-center gap-2 mt-4">
           <Button variant="outline" size="sm" onClick={flipBoard}>
             <RotateCcw className="w-4 h-4 mr-1" />
@@ -444,7 +447,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               Resign
             </Button>
           )}
-          {gameOver && (
+          {gameOver && !unifiedExperience && (
             <Button
               variant="default"
               size="sm"
@@ -456,6 +459,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
             </Button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

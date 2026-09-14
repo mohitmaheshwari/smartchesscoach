@@ -48,6 +48,16 @@ services:
       - PWC_CENTRAL_CAPTION_TELEMETRY=true
       - PWC_COACH_CONDUCTOR=true
       - PWC_EVERY_MOVE_TEACHES=true
+      # Unified experience kill switch + bounded first cohort. Defaults off;
+      # the combined production app otherwise ignores values present in .env.
+      - PWC_UNIFIED_EXPERIENCE_V1_ENABLED=${PWC_UNIFIED_EXPERIENCE_V1_ENABLED:-false}
+      - PWC_UNIFIED_EXPERIENCE_V1_ROLES=${PWC_UNIFIED_EXPERIENCE_V1_ROLES:-admin,super_admin}
+      # Unified PWC reads the canonical cross-surface focus through this
+      # independently fail-closed bridge. Without passing these variables to
+      # the combined image, every eligible returning player receives the
+      # thin-history fallback even when a verified active focus exists.
+      - COACHING_CONTEXT_V1_ENABLED=${COACHING_CONTEXT_V1_ENABLED:-false}
+      - COACHING_CONTEXT_V1_ROLES=${COACHING_CONTEXT_V1_ROLES:-admin,super_admin}
       # GEOMETRY ARROWS (2026-07-10, docs/coach_geometry_arrows_scope.md): living
       # plan overlay — verified pins/forks/loose-targets/open-files/latent lines as
       # green(you)/amber(coach) arrows on the PWC board.

@@ -567,13 +567,13 @@ def build_unified_postgame_summary(
     if focus_label and focus_moments:
         noun = "moment" if focus_moments == 1 else "moments"
         story = (
-            f"Your {focus_label.lower()} work showed up in "
-            f"{focus_moments} clear {noun} today."
+            f"We found {focus_moments} clear {noun} where today's focus "
+            "mattered."
         )
     elif focus_label:
         story = (
-            f"This game did not give me a clear {focus_label.lower()} "
-            "moment, so I am not calling the habit fixed."
+            "I did not see a clear moment to measure this focus in this "
+            "game, so I am not claiming you have fixed it yet."
         )
     elif decisions:
         story = "One clear moment from this game is worth carrying forward."
@@ -610,6 +610,31 @@ def build_unified_postgame_summary(
     }
 
 
+def attach_unified_postgame_to_end_result(
+    *,
+    result: Dict[str, Any],
+    session_doc: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Attach the unified summary to the legacy-compatible end response.
+
+    The resign endpoint returns its postgame payload under ``summary`` while
+    the dedicated postgame endpoint returns it at the top level. Keep that
+    established API shape, but make both paths use the same deterministic
+    summary builder so the player's focus survives every way a game can end.
+    """
+    if session_doc.get("experience_version") != "unified_v1":
+        return result
+
+    summary = result.get("summary")
+    if not isinstance(summary, dict):
+        summary = {}
+        result["summary"] = summary
+    summary["unified_summary"] = build_unified_postgame_summary(
+        session_doc=session_doc,
+    )
+    return result
+
+
 __all__ = [
     "MAX_CRITICAL_PER_SESSION",
     "MAX_NONCRITICAL_PER_WINDOW",
@@ -617,6 +642,7 @@ __all__ = [
     "UNIFIED_DECISION_SOURCE",
     "UNIFIED_HELP_ACTIONS",
     "answer_unified_help",
+    "attach_unified_postgame_to_end_result",
     "build_unified_postgame_summary",
     "engine_evidence_for_player",
     "build_verified_caption",

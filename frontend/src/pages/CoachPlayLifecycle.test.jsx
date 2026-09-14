@@ -222,6 +222,8 @@ describe("CoachPlay lifecycle ownership", () => {
 
   test("a resumed unified session restores its controller without legacy feedback", async () => {
     const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    const toastSuccess = jest.requireMock("sonner").toast.success;
+    toastSuccess.mockClear();
     global.fetch = jest.fn((url) => {
       if (url.endsWith("/coach/play/experience")) {
         return Promise.resolve(response({ experience_version: "legacy" }));
@@ -258,6 +260,7 @@ describe("CoachPlay lifecycle ownership", () => {
       ([url]) => url.endsWith("/coach/play/messages/unified-resume")
     )).toBe(false);
     expect(mockHandleStartLesson).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 
   test("a unified warning expands the single mobile coach sheet", async () => {
@@ -773,5 +776,44 @@ describe("CoachPlay lifecycle ownership", () => {
     act(() => container.querySelector("[data-testid='new-game']").click());
     await flush();
     expect(container.querySelector("[data-testid='reflection-card']")).toBeNull();
+  });
+
+  test("unified postgame owns the resignation message without a legacy toast", async () => {
+    const fen = "8/8/8/8/8/8/4K3/6k1 w - - 0 1";
+    const toastInfo = jest.requireMock("sonner").toast.info;
+    toastInfo.mockClear();
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({ active_sessions: [{ session_id: "unified-resign" }] }));
+      }
+      if (url.endsWith("/coach/play/state/unified-resign")) {
+        return Promise.resolve(response({
+          ...state("unified-resign", fen),
+          session: {
+            ...session("unified-resign"),
+            experience_version: "unified_v1",
+            game_mode: "coach",
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/end")) {
+        return Promise.resolve(response({ summary: {}, cpr: {}, identity: {} }));
+      }
+      if (url.endsWith("/coach/play/improvement-proof")) {
+        return Promise.resolve(response({ show_proof: false }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+    act(() => container.querySelector("[data-testid='resign-game']").click());
+    await flush();
+
+    expect(toastInfo).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("one clear takeaway");
   });
 });

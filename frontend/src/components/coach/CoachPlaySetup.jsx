@@ -145,6 +145,20 @@ const CoachPlaySetup = ({
 }) => {
   const navigate = useNavigate();
 
+  if (experienceLoading && !experienceConfig) {
+    return (
+      <Layout user={user}>
+        <div
+          className="flex min-h-[55vh] items-center justify-center gap-3 text-sm text-muted-foreground"
+          data-testid="coach-play-experience-loading"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Preparing your game…
+        </div>
+      </Layout>
+    );
+  }
+
   if (unifiedExperience) {
     return (
       <UnifiedCoachPlaySetup

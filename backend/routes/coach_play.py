@@ -1259,14 +1259,25 @@ async def end_coach_play_session(
                 "session_id": session_id,
                 "user_id": user.user_id,
             })
-            if ended_session and ended_session.get("geometry_focus_module"):
-                from services.board_geometry_service import postgame_summary
-                result.setdefault("session", {})["geometry_postgame_summary"] = (
-                    postgame_summary(ended_session)
-                )
+            if ended_session:
+                if ended_session.get("experience_version") == "unified_v1":
+                    from services.unified_pwc_coaching import (
+                        attach_unified_postgame_to_end_result,
+                    )
+
+                    attach_unified_postgame_to_end_result(
+                        result=result,
+                        session_doc=ended_session,
+                    )
+
+                if ended_session.get("geometry_focus_module"):
+                    from services.board_geometry_service import postgame_summary
+                    result.setdefault("session", {})["geometry_postgame_summary"] = (
+                        postgame_summary(ended_session)
+                    )
         except Exception as _geometry_end_error:
             logger.warning(
-                f"geometry end projection failed (non-fatal): {_geometry_end_error}"
+                f"end-session projection failed (non-fatal): {_geometry_end_error}"
             )
 
         return result

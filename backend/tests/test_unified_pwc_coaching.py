@@ -7,6 +7,7 @@ from services.unified_pwc_coaching import (
     MAX_CRITICAL_PER_SESSION,
     UNIFIED_DECISION_SOURCE,
     answer_unified_help,
+    attach_unified_postgame_to_end_result,
     build_unified_postgame_summary,
     engine_evidence_for_player,
     evaluate_unified_pending,
@@ -266,7 +267,7 @@ def test_unified_postgame_uses_verified_focus_moment_and_canonical_action():
             "guardian_overrides": [{"move": "Bg5"}],
         },
     )
-    assert "1 clear moment" in result["story"]
+    assert result["story"] == "We found 1 clear moment where today's focus mattered."
     assert result["detail"].startswith("Moving the bishop")
     assert result["next_action"]["href"] == "/training/pattern/piece_safety"
     assert result["evidence"] == {
@@ -289,7 +290,10 @@ def test_unified_postgame_never_calls_no_observation_improvement():
             "coaching_decisions": [],
         },
     )
-    assert "not calling the habit fixed" in result["story"]
+    assert result["story"] == (
+        "I did not see a clear moment to measure this focus in this game, "
+        "so I am not claiming you have fixed it yet."
+    )
     assert result["turning_point"] is None
 
 
@@ -299,3 +303,49 @@ def test_unified_play_postgame_promises_review_without_claiming_progress():
     )
     assert result["story"] == "The game is complete. Your review is ready."
     assert result["next_action"] == {"label": "Review the game", "href": "/lab"}
+
+
+def test_unified_resign_response_carries_personal_focus_into_nested_summary():
+    result = {"success": True, "summary": {"move_count": 1}}
+    returned = attach_unified_postgame_to_end_result(
+        result=result,
+        session_doc={
+            "experience_version": "unified_v1",
+            "game_mode": "coach",
+            "coaching_context": {
+                "primary_focus": {
+                    "topic_key": "piece_safety",
+                    "label": "Keep the piece you move safe",
+                    "instruction_text": (
+                        "Before you move a piece, check whether it can be "
+                        "captured on its new square."
+                    ),
+                },
+                "next_action": {
+                    "label": "Practise this check",
+                    "href": "/training/pattern/piece_safety",
+                },
+            },
+            "coaching_decisions": [],
+        },
+    )
+
+    assert returned is result
+    assert returned["summary"]["move_count"] == 1
+    unified_summary = returned["summary"]["unified_summary"]
+    assert unified_summary["focus_label"] == "Keep the piece you move safe"
+    assert unified_summary["next_action"]["href"] == "/training/pattern/piece_safety"
+
+
+def test_legacy_end_response_is_unchanged_by_unified_projection():
+    result = {"success": True, "summary": {"move_count": 1}}
+    original_summary = result["summary"]
+
+    returned = attach_unified_postgame_to_end_result(
+        result=result,
+        session_doc={"experience_version": "legacy"},
+    )
+
+    assert returned is result
+    assert returned["summary"] is original_summary
+    assert "unified_summary" not in returned["summary"]
