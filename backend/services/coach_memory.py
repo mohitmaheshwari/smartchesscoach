@@ -1705,6 +1705,10 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
         # Get user's rating
         rating_info = await get_user_rating_from_games(db, user_id)
         user_rating = rating_info.get('rating', 1200)
+        # get_user_rating_from_games already tells us whether the number is
+        # real or the hardcoded fallback; that signal used to be discarded.
+        _rating_is_measured = (rating_info.get('source') or 'default') != 'default'
+
 
         # Fetch analyzed games (up to 30 recent ones)
         games_analyzed = 0
@@ -1718,7 +1722,17 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
 
         if not analyses:
             # No analyzed games yet - just set initialized flag
-            memory.performance.best_performance_rating = user_rating
+            # 2026-09-15: never seed the baseline from the fabricated 1200
+            # default. best_performance_rating is a MAX (see the guard in
+            # update_memory_after_game), so a seeded 1200 can never be
+            # corrected downward by a real, lower rating - it latches.
+            # Measured: 19 of 69 users were stuck at 1200 while chess.com
+            # /lichess reported their true rating as 120-1065 (median 546).
+            # Consequence: they were rating-gated out of the 0-999
+            # curriculum root (coached_development), which blocks 7 further
+            # skills, and were given harsher move-classification thresholds.
+            if _rating_is_measured:
+                memory.performance.best_performance_rating = user_rating
             await update_memory_after_game(
                 db, user_id,
                 game_result="unknown",
@@ -1761,8 +1775,10 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
                 if pattern not in memory.recurring_patterns:
                     memory.recurring_patterns.append(pattern)
 
-        # Set performance baseline
-        memory.performance.best_performance_rating = user_rating
+        # Set performance baseline. Same rule as above: only a MEASURED
+        # rating may seed the max, never the 1200 fallback.
+        if _rating_is_measured:
+            memory.performance.best_performance_rating = user_rating
         memory.performance.games_played = games_analyzed
 
         # If patterns detected, set one as current focus for coaching
