@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 import hashlib
+import json
 
 import pytest
 
+from services.caption_facts import LegalMaterialLossCause, PieceOnSquare
 from services import community_game_study_service as service
 
 
@@ -56,6 +58,85 @@ def _source_event(chapter=None):
             "principle": "Before moving a defender, check what it leaves behind.",
         },
     }
+
+
+def _personalized_typed_source_event(chapter=None):
+    event = _source_event(chapter)
+    cause = LegalMaterialLossCause(
+        affected=PieceOnSquare(piece="rook", square="d2"),
+        attacker=PieceOnSquare(piece="queen", square="c2"),
+        punishment_san="Qxd2",
+        material_loss_cp=500,
+        best_move_san="Rd1",
+        best_move_purpose="moves_affected_piece",
+        best_move_from="d3",
+        best_move_to="d1",
+        avoidable_with_san="Rd1",
+    )
+    event["teaching"] = {
+        "headline": "You left one piece behind",
+        "caption": "You left your rook on d2 available to their queen.",
+        "principle": "Before moving, check what their next capture wins.",
+        "cause_fingerprint": cause.fingerprint,
+    }
+    event["cause"] = cause.contract_dict()
+    return event
+
+
+def _personalized_verified_line_event(chapter=None):
+    event = _source_event(chapter)
+    cause = {
+        "schema_version": "verified_line_cause.v1",
+        "kind": "verified_stored_line",
+        "lesson_kind": "missed_material_opportunity",
+        "phase": "middlegame",
+        "position_kind": "general",
+        "played_move_san": "Rab8",
+        "best_move_san": "Rfb8",
+        "best_move_from": "f8",
+        "best_move_to": "b8",
+        "played_line_san": ["Rab8", "Qg3"],
+        "best_line_san": ["Rfb8", "Qg3", "Rxb2"],
+        "played_captures": [],
+        "best_captures": [
+            {
+                "ply": 3,
+                "actor": "initiator",
+                "move_san": "Rxb2",
+                "origin": "b8",
+                "destination": "b2",
+                "capturing_piece": "rook",
+                "captured_piece": "pawn",
+                "captured_square": "b2",
+                "captured_value_cp": 100,
+            }
+        ],
+        "played_net_material_gain_cp": 0,
+        "best_net_material_gain_cp": 100,
+        "played_purposes": [],
+        "mate_in": None,
+        "reply_san": None,
+        "reply_from": None,
+        "reply_to": None,
+        "relationships": [],
+        "proof": {
+            "authority": "stored_line_verifier.replay_stored_line",
+            "version": "verified_line_cause.v1",
+        },
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(cause, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    cause["fingerprint"] = fingerprint
+    event["move"]["san"] = "Rab8"
+    event["teaching"] = {
+        "headline": "You missed a material win",
+        "caption": "You could have won material here.",
+        "principle": "Look for forcing moves.",
+        "cause_fingerprint": fingerprint,
+    }
+    event["cause"] = cause
+    return event
 
 
 def _study(
@@ -203,13 +284,56 @@ def test_neutral_projection_rejects_personalization_and_reference_drift():
     chapter = _chapter("event-1")
     personalized = _source_event(chapter)
     personalized["teaching"]["caption"] = "You left your rook loose."
-    with pytest.raises(service.CommunityGameStudyError, match="personalized"):
+    with pytest.raises(
+        service.CommunityGameStudyError,
+        match="personalized without a typed cause",
+    ):
         service.project_neutral_chapter(personalized, chapter)
 
     mismatched = _source_event(chapter)
     mismatched["concept"]["id"] = "piece_safety.simple_hang"
     with pytest.raises(service.CommunityGameStudyError, match="concept does not match"):
         service.project_neutral_chapter(mismatched, chapter)
+
+
+def test_neutral_projection_renders_real_personalized_event_from_typed_cause():
+    chapter = _chapter("event-1")
+    projected = service.project_neutral_chapter(
+        _personalized_typed_source_event(chapter), chapter
+    )
+    assert projected["headline"] == "The rook on d2 is the key"
+    assert projected["explanation"] == (
+        "After Rd2, Qxd2 starts an exchange that costs the rook on d2. "
+        "Rd1 was the stronger move."
+    )
+    assert "you" not in " ".join(str(value) for value in projected.values()).lower()
+
+
+def test_neutral_projection_rejects_cause_or_teaching_fingerprint_drift():
+    chapter = _chapter("event-1")
+    stale_cause = _personalized_typed_source_event(chapter)
+    stale_cause["cause"]["material_loss_cp"] = 300
+    with pytest.raises(service.CommunityGameStudyError, match="fingerprint is stale"):
+        service.project_neutral_chapter(stale_cause, chapter)
+
+    stale_teaching = _personalized_typed_source_event(chapter)
+    stale_teaching["teaching"]["cause_fingerprint"] = _sha("wrong")
+    with pytest.raises(service.CommunityGameStudyError, match="not bound"):
+        service.project_neutral_chapter(stale_teaching, chapter)
+
+
+def test_neutral_projection_names_verified_material_target_in_plain_language():
+    chapter = _chapter("event-1")
+    projected = service.project_neutral_chapter(
+        _personalized_verified_line_event(chapter), chapter
+    )
+    assert projected["headline"] == "The pawn on b2 could be won"
+    assert projected["explanation"] == (
+        "Rab8 missed the chance. Rfb8 starts the sequence that wins the pawn on b2."
+    )
+    assert projected["principle"] == (
+        "Check captures and follow each reply until the gain is clear."
+    )
 
 
 def test_focus_match_requires_both_canonical_identities():
