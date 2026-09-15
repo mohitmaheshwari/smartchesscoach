@@ -665,12 +665,29 @@ async def _concept_descriptor(
             continue
         seen_fens.add(normalized_fen)
         board = chess.Board(item["fen"])
-        attacked_piece_squares = [
+        # A piece being ATTACKED is not the same as being in danger: a defended
+        # pawn is attacked every game and is perfectly safe. Highlighting those
+        # as help squares in a "keep every piece safe" lesson points the student
+        # at pieces that are not the problem.
+        #
+        # mission_scoreboard.find_hanging_pieces is the owner of that judgement
+        # (attackers > 0 and defenders == 0). Prefer what it finds; fall back to
+        # the merely-attacked set only when nothing genuinely hangs, so the hint
+        # is never empty.
+        from services.mission_scoreboard import find_hanging_pieces
+
+        hanging_squares = [
+            str(h["square"])
+            for h in find_hanging_pieces(item["fen"], board.turn == chess.WHITE)
+            if h.get("square")
+        ]
+        merely_attacked = [
             chess.square_name(square)
             for square, piece in board.piece_map().items()
             if piece.color == board.turn
             and board.is_attacked_by(not board.turn, square)
         ]
+        attacked_piece_squares = hanging_squares or merely_attacked
         item_number = len(items) + 1
         verified_admission = item.get("verified_admission") or {}
         item_quality_id = str(
