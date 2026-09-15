@@ -2,11 +2,11 @@
 
 **Date:** 2026-09-15
 **Owner boundary:** Codex builds and verifies. Claude pushes and deploys.
-**Current release state:** **BLOCKED / SHADOW. Do not deploy or run the v3 admission sequence in this document.** The independent v3 review failed the coherent-story and assignment-worthy gates. Both runtime flags must remain false. The repair state and only valid next sequence are recorded in `docs/community_game_coherent_walkthrough_v3_failure_and_v4_repair_2026_09_15.md`.
+**Current release state:** **BLOCKED pending independent v4 review. Do not deploy or run the historical v3 admission sequence in this document.** The exact terminal-checkmate fact passed its separate blinded Caption gate, and a fresh v4 packet now exists, but no v4 study has been independently admitted. Both runtime flags must remain false. The repair state and only valid next sequence are recorded in `docs/community_game_coherent_walkthrough_v3_failure_and_v4_repair_2026_09_15.md`.
 
 ## 0. Superseded rollout warning
 
-The v3 source packet is now immutable failed evidence, not a deployment candidate. Sections 3 through 9 below are retained only as the historical plan that the review graded. They must not be executed. There is no admitted v4 packet yet, and the exact terminal-checkmate family remains Shadow pending its separate blinded Caption review.
+The v3 source packet is now immutable failed evidence, not a deployment candidate. Sections 3 through 9 below are retained only as the historical plan that the review graded. They must not be executed. There is no admitted v4 study yet. The terminal-checkmate family is Caption-authorized by its separate immutable evidence, but community visibility remains blocked until v4 clears every whole-game gate.
 
 ## 1. What this release changes
 

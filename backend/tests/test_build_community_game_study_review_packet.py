@@ -91,3 +91,14 @@ def test_blank_reviewer_response_is_machine_checkable_and_unanswered():
     assert response["whole_game_story_is_coherent"] is None
     assert response["repeats_primary_principle_as_separate_chapters"] is None
     assert response["chapter_verdicts"] == []
+
+
+def test_packet_level_attestation_contract_matches_the_admission_gate():
+    assert set(builder.REQUIRED_INDEPENDENT_REVIEW_FIELDS) == {
+        "reviewer",
+        "reviewed_on",
+        "source_packet_sha256",
+        "method",
+        "blinding_holds",
+        "frozen",
+    }

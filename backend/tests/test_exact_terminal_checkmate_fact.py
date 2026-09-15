@@ -12,9 +12,7 @@ from services.caption_facts import (
 )
 from services.caption_pipeline import build_exact_terminal_teaching
 from services.caption_pipeline import render_exact_terminal_teaching_claim
-from services.detector_quality import QualityGrade, grade_for
-from services.detector_quality import Authorization
-from services import detector_quality
+from services.detector_quality import QualityGrade, get_authorization, grade_for
 from services.game_review_shadow_runtime import adapt_exact_terminal_event
 from services.community_game_study_service import (
     CommunityGameStudyError,
@@ -102,7 +100,7 @@ def test_review_renderer_matches_verified_player_copy_without_granting_truth():
     assert preview["explanation"].startswith("Qh4 ends the game.")
 
 
-def test_terminal_event_stays_absent_until_caption_promotion():
+def test_terminal_event_is_bound_to_caption_promotion_evidence():
     board = _fools_mate_position()
     pair = adapt_exact_terminal_event(
         fen_before=board.fen(),
@@ -112,22 +110,14 @@ def test_terminal_event_stays_absent_until_caption_promotion():
         move_number=2,
         phase="opening",
     )
-    assert grade_for(EXACT_TERMINAL_QUALITY_ID) == QualityGrade.SHADOW
-    assert pair is None
-
-
-def test_promoted_terminal_event_reaches_finish_planner_without_mistake_frame(
-    monkeypatch,
-):
-    monkeypatch.setitem(
-        detector_quality._AUTHORIZATIONS,
-        EXACT_TERMINAL_QUALITY_ID,
-        Authorization(
-            grade=QualityGrade.CAPTION,
-            evidence_ref="independent-test-evidence",
-            rationale="Test-only simulation of a completed promotion.",
-        ),
+    assert grade_for(EXACT_TERMINAL_QUALITY_ID) == QualityGrade.CAPTION
+    assert get_authorization(EXACT_TERMINAL_QUALITY_ID).evidence_ref.endswith(
+        "exact_terminal_checkmate_caption_promotion_v1.json"
     )
+    assert pair is not None
+
+
+def test_promoted_terminal_event_reaches_finish_planner_without_mistake_frame():
     pair = adapt_exact_terminal_event(
         fen_before=_fools_mate_position().fen(),
         played_move="Qh4#",
@@ -183,18 +173,7 @@ def test_promoted_terminal_event_reaches_finish_planner_without_mistake_frame(
     assert verified_projection["role"] == "finish"
 
 
-def test_terminal_projection_rederives_board_truth_instead_of_trusting_document(
-    monkeypatch,
-):
-    monkeypatch.setitem(
-        detector_quality._AUTHORIZATIONS,
-        EXACT_TERMINAL_QUALITY_ID,
-        Authorization(
-            grade=QualityGrade.CAPTION,
-            evidence_ref="independent-test-evidence",
-            rationale="Test-only simulation of a completed promotion.",
-        ),
-    )
+def test_terminal_projection_rederives_board_truth_instead_of_trusting_document():
     pair = adapt_exact_terminal_event(
         fen_before=_fools_mate_position().fen(),
         played_move="Qh4#",

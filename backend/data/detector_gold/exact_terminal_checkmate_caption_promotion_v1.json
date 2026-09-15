@@ -1,0 +1,56 @@
+{
+  "schema_version": "exact_terminal_checkmate.caption_review_score.v1",
+  "generated_on": "2026-09-15",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "quality_id": "review:exact_terminal_checkmate",
+  "proof_version": "exact_terminal_checkmate_fact.v1",
+  "sources": {
+    "packet": {
+      "path": "data\\detector_gold\\exact_terminal_checkmate_caption_review_v1.json",
+      "sha256": "ce4a47e77a3a0391395dd896d7af77ec25824e94ea1410523fe63f91ce780c30"
+    },
+    "review": {
+      "path": "data\\detector_gold\\exact_terminal_checkmate_caption_review_v1.reviewed.json",
+      "sha256": "f6ba15e41ee9d6becc5622e4968088f15a0e0c768edab15b766200eed5ffb483"
+    },
+    "sealed_answer_key": {
+      "path": "data\\corpus_snapshots\\exact_terminal_checkmate_caption_answer_key_v1.json",
+      "sha256": "4314178207f1e675fb44e59514eecaf531be8f6d718901fda6e0efc15a8d51bb"
+    }
+  },
+  "confusion_matrix": {
+    "true_positive": 50,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 20
+  },
+  "caption_evidence": {
+    "semantic_precision_pct": 100.0,
+    "wilson_lower_bound_pct": 92.87,
+    "candidate_copy_correct_and_teachable": 50,
+    "candidate_critical_false_claims": 0,
+    "control_critical_flags": 0,
+    "teaching_verdicts_all_cases": {
+      "correct_and_teachable": 50,
+      "incorrect_or_overclaimed": 20
+    }
+  },
+  "promotion_gate": {
+    "reviewed_fire_minimum_met": true,
+    "exact_fact_has_zero_false_positives": true,
+    "semantic_precision_met": true,
+    "wilson_lower_bound_met": true,
+    "true_negative_minimum_met": true,
+    "zero_candidate_critical_false_claims": true,
+    "all_candidate_copy_correct_and_teachable": true,
+    "independent_review_complete": true,
+    "caption_promotion_gate_passed": true,
+    "status": "caption_eligible",
+    "blockers": []
+  },
+  "disagreements": []
+}

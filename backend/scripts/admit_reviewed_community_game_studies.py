@@ -46,6 +46,7 @@ sys.path.insert(0, str(BACKEND))
 from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 
 from scripts.build_community_game_study_review_packet import (  # noqa: E402
+    REQUIRED_INDEPENDENT_REVIEW_FIELDS,
     REVIEW_RESPONSE_SCHEMA_VERSION,
     SCHEMA_VERSION as REVIEW_PACKET_SCHEMA_VERSION,
     blank_reviewer_response,
@@ -306,10 +307,20 @@ def evaluate_packets(
     independent = reviewed.get("independent_review")
     if not isinstance(independent, Mapping):
         raise AdmissionError("reviewed packet lacks independent_review")
+    missing_attestation = sorted(
+        field for field in REQUIRED_INDEPENDENT_REVIEW_FIELDS if field not in independent
+    )
+    if missing_attestation:
+        raise AdmissionError(
+            "independent review is missing required attestation fields: "
+            + ", ".join(missing_attestation)
+        )
     if independent.get("source_packet_sha256") != source_sha256:
         raise AdmissionError("independent review is bound to another packet")
     if independent.get("blinding_holds") is not True:
         raise AdmissionError("independent reviewer did not attest blinding")
+    if independent.get("frozen") is not True:
+        raise AdmissionError("independent review is not frozen")
     _nonempty(independent.get("reviewer"), "independent_review.reviewer")
     _nonempty(independent.get("method"), "independent_review.method")
     _nonempty(independent.get("reviewed_on"), "independent_review.reviewed_on")

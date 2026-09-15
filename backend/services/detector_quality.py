@@ -65,22 +65,23 @@ _EXACT_ENDGAME_CURRICULUM = Authorization(
 # evidence-reviewed edit here.
 _AUTHORIZATIONS: Mapping[str, Authorization] = {
     "review:exact_terminal_checkmate": Authorization(
-        grade=QualityGrade.SHADOW,
+        grade=QualityGrade.CAPTION,
         evidence_ref=(
             "backend/data/detector_gold/"
-            "exact_terminal_checkmate_caption_review_v1.json"
+            "exact_terminal_checkmate_caption_promotion_v1.json"
         ),
         rationale=(
-            "A legal board replay proves the played move leaves the checked "
-            "king with zero legal replies. The independent Caption promotion "
-            "packet is not yet complete."
+            "Independent legal replay confirmed 50/50 exact terminal "
+            "checkmates and 20/20 stratified abstentions, including check "
+            "with legal replies, non-checking endings and stalemate. The "
+            "sealed scorer found 100% precision, a 92.87% Wilson lower bound, "
+            "zero false positives and 50/50 correct-and-teachable captions."
         ),
         limitations=(
-            "Shadow only until at least 50 fires and 20 negatives clear the "
-            "existing Caption evidence gate.",
             "It proves the played terminal state, not that every earlier "
             "defence loses or that a forced mate was available beforehand.",
-            "No recurrence, plan, mastery or learner diagnosis authority.",
+            "Caption only; no recurrence, plan, mastery or learner diagnosis "
+            "authority.",
         ),
     ),
     "review:board_transformation_causal_proof": Authorization(

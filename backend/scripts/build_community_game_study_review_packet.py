@@ -69,6 +69,14 @@ SCHEMA_VERSION = "community_game_study.neutral_review_packet.v4"
 REVIEW_RESPONSE_SCHEMA_VERSION = (
     "community_game_study.independent_review_response.v1"
 )
+REQUIRED_INDEPENDENT_REVIEW_FIELDS = {
+    "reviewer": "non-empty independent reviewer identity",
+    "reviewed_on": "review completion date",
+    "source_packet_sha256": "SHA-256 recomputed from this frozen packet",
+    "method": "non-empty independent review method",
+    "blinding_holds": "must be true",
+    "frozen": "must be true after every verdict is final",
+}
 GENERATED_ON = "2026-09-15"
 TERMS_REVIEWED_AT = "2026-09-15"
 DEFAULT_OUTPUT = BACKEND / (
@@ -844,6 +852,7 @@ def build_packet(
                 "critical_false_claim": "boolean",
                 "why": "concise independent reason for the verdict",
             },
+            "required_attestation_fields": REQUIRED_INDEPENDENT_REVIEW_FIELDS,
         },
         "promotion_boundary": {
             "player_visible_community_studies_allowed": False,

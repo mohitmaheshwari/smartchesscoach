@@ -68,6 +68,7 @@ def _packet():
         "source_packet_sha256": _file_sha(SOURCE_PATH),
         "method": "Legally replayed every displayed line.",
         "blinding_holds": True,
+        "frozen": True,
     }
     return source, reviewed, sealed
 
@@ -110,6 +111,13 @@ def test_review_cannot_change_a_headline_or_any_non_review_content():
     with pytest.raises(
         admission.AdmissionError, match="outside reviewer_response"
     ):
+        _evaluate(source, reviewed, sealed)
+
+
+def test_review_must_include_the_published_frozen_attestation():
+    source, reviewed, sealed = _packet()
+    reviewed["independent_review"]["frozen"] = False
+    with pytest.raises(admission.AdmissionError, match="not frozen"):
         _evaluate(source, reviewed, sealed)
 
 

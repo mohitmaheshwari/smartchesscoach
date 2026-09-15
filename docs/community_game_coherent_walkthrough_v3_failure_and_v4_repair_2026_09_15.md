@@ -170,9 +170,34 @@ the learner to choose between unexplained notation.
 9. Only if every gate passes may Claude prepare a dark deployment. Visibility
    remains a later isolated-cohort decision.
 
+### 4.1 Current checkpoint
+
+Steps 1 through 6 are complete:
+
+- frozen terminal review packet SHA-256:
+  `ce4a47e77a3a0391395dd896d7af77ec25824e94ea1410523fe63f91ce780c30`;
+- frozen promotion score SHA-256:
+  `ab691ba6a0449e37a2ef5344c5735c0b66ad8f438160d155fa123f2c953432ff`;
+- sealed scorer result: 50 true positives, zero false positives, zero false
+  negatives and 20 true negatives; 100% precision; 92.87% Wilson lower
+  bound; all 50 candidate captions correct and teachable;
+- `review:exact_terminal_checkmate` is therefore Caption-authorized only;
+- fresh v4 whole-game review packet SHA-256:
+  `c9b99a2e0f6bbbd638d81d2bb77f01fac4dd4c087d47b189aff6714d4940dcb7`;
+- v4 contains 39 studies and 93 chapters: 24 two-chapter studies and 15
+  three-chapter studies;
+- all 22 checkmate games contain an exact `finish` chapter;
+- the sealed answer-position derivation is split 42 at index 0 and 51 at
+  index 1;
+- the public v4 packet contains the exact required packet-level attestation
+  fields and exposes neither the answer key nor source identity.
+
+These are structural prechecks, not a whole-game quality pass. Step 7 is the
+current gate: independent review of v4.
+
 ## 5. Stop conditions
 
-Keep both community flags false and keep the terminal family Shadow on any:
+Keep both community flags false. Revert the terminal family to Shadow on any:
 
 - terminal candidate that is not exact legal checkmate;
 - incorrect or unteachable candidate copy;
@@ -187,13 +212,15 @@ Keep both community flags false and keep the terminal family Shadow on any:
 - changed personal-review behavior with the flags off.
 
 No production database read or write, engine run, model call, push, deployment,
-admission or flag change is part of this repair state.
+admission or flag change is part of this repair state. Caption authorization is
+a code-level evidence grade, not runtime community-study visibility.
 
 ## 6. Local verification
 
 The complete affected in-process regression selection passed:
 
-- 317 backend tests passed;
+- 319 backend tests passed after the evidence-bound Caption promotion and v4
+  attestation hardening;
 - Python compilation passed for `backend/services`, `backend/scripts` and
   `backend/tests`;
 - `git diff --check` passed (Windows line-ending warnings only).
