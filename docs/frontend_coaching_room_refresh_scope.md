@@ -45,6 +45,14 @@ If the plan cannot load: “Your practice is complete, but I couldn't load your
 next step.” [Try again] [Return to your plan]. If pause fails, stay on the board
 with “I couldn't save your place. Please try Continue later again.”
 
+Further approved continuation repairs existing review/play/progress transitions:
+Progress request failure says “I couldn't load your progress.” [Try again]
+[Back to your coach], rather than implying an absence of learning evidence.
+If only the lesson request fails, keep valid game evidence visible and offer a
+retry. Postgame action labels must match their supplied destination; without a
+recommendation, the new-game action says “Play another game”. Successful review
+completion and postgame summaries invalidate the old cached coaching decision.
+
 ## 4. Out of scope for the visual pass
 
 New diagnoses, recommendation ranking, content authorization and mastery changes.

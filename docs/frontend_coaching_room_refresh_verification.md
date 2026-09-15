@@ -78,3 +78,33 @@ material claims, notation-led headline, or generated chess teaching path added.
 Remaining: production account round-trip after integration/deployment; deeper
 resume persistence and coherence across game review/PWC/Progress. No claim that
 the whole personalized journey has now been redesigned or validated.
+
+## Review / coach-game / Progress continuity
+
+Further continuation approved with “go ahead”. Repairs to existing surfaces:
+
+- Progress HTTP/network/malformed-response failures now have a distinct retry
+  state. They no longer masquerade as an absence of learning evidence.
+- If the curriculum request alone fails, available game evidence stays visible
+  with a lesson-loading warning. A valid disabled response retains the original
+  honest evidence state. Transfer interpretation is unchanged.
+- Unified PWC postgame buttons pair the label and destination from the same
+  server recommendation. A label without a destination no longer promises
+  practice while silently starting a new game; it says “Play another game”.
+- Successful review saves, game end, and arriving unified postgame summaries
+  invalidate the existing curriculum cache. Failed review saves do not.
+- Progress uses the shell's main landmark rather than nesting another main.
+
+Combined verification: **14 suites / 61 tests passing**. Includes HTTP/network/
+malformed Progress failures and retry, partial curriculum failure with evidence
+preserved, legitimate disabled state, clicked postgame route assertions, late
+summary invalidation, successful/failed review completion, and all prior lesson
+flow regressions. This includes both interaction tests and existing source-contract
+tests; it is not a full API or production E2E run.
+Production build exited 0; the same browserslist, chess.ts sourcemap, and bundle
+size warnings remain. `git diff --check` passed.
+
+No fresh browser screenshots were taken for this continuation. The new failure
+card reuses the already-rendered shared visual primitives; visual verification of
+this specific state and the real-account combined journey remains outstanding.
+No detector, caption fact, mastery threshold, role gate, or production data changed.

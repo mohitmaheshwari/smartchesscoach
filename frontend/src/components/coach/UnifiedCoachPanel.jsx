@@ -1,8 +1,9 @@
 import { AlertTriangle, Brain, CheckCircle2, RotateCcw, Target } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { invalidatePersonalCurriculum } from "@/lib/personalCurriculum";
 
 
 const UnifiedCoachPanel = ({
@@ -32,6 +33,11 @@ const UnifiedCoachPanel = ({
   const verdict = summary?.pattern_verdict;
   const visibleMoment = activeMoment || stripMoment;
 
+  useEffect(() => {
+    // The game may end before its summary arrives; refresh again when it does.
+    if (gameOver) invalidatePersonalCurriculum();
+  }, [gameOver, summary]);
+
   if (gameOver) {
     const unifiedSummary = summary?.unified_summary;
     const story = unifiedSummary?.story
@@ -44,12 +50,16 @@ const UnifiedCoachPanel = ({
       || verdict?.detail
       || summary?.instruction_verdict?.message
       || null;
-    const actionLabel = unifiedSummary?.next_action?.label
-      || verdict?.cta_label
-      || (summary?.has_data ? "Use the next step" : "Play another game");
+    // A label must come from the same recommendation as its destination.
+    const action = unifiedSummary?.next_action?.href
+      ? unifiedSummary.next_action
+      : verdict?.cta_href
+        ? { href: verdict.cta_href, label: verdict.cta_label }
+        : null;
+    const actionLabel = action ? action.label || "Continue with your coach" : "Play another game";
 
     const takeNextAction = () => {
-      const actionHref = unifiedSummary?.next_action?.href || verdict?.cta_href;
+      const actionHref = action?.href;
       onPostgameAction?.(
         actionHref ? "recommended_next_action" : "new_game"
       );

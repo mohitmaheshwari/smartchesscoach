@@ -4,6 +4,10 @@ import { createRoot } from "react-dom/client";
 import LabV2 from "./LabV2";
 
 const mockNavigate = jest.fn();
+const mockInvalidate = jest.fn();
+jest.mock("@/lib/personalCurriculum", () => ({
+  invalidatePersonalCurriculum: (...args) => mockInvalidate(...args),
+}), { virtual: true });
 
 jest.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
@@ -38,6 +42,7 @@ describe("LabV2 keyboard listener ownership", () => {
   let root;
 
   beforeEach(() => {
+    mockInvalidate.mockClear();
     global.IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -49,6 +54,30 @@ describe("LabV2 keyboard listener ownership", () => {
     container.remove();
     delete global.fetch;
     jest.restoreAllMocks();
+  });
+
+  test.each([true, false])("review save success=%s refreshes the plan only after persistence", async (ok) => {
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/lab/game-1/complete-review")) {
+        return Promise.resolve({ ok, json: async () => ({ lesson: "Review saved" }) });
+      }
+      if (url.endsWith("/games/game-1")) {
+        return Promise.resolve(response({
+          game_id: "game-1", user_color: "white", opponent_name: "Opponent",
+          pgn: '[Result "*"]\n\n1. e4 e5 *',
+        }));
+      }
+      return Promise.resolve(response({}));
+    });
+    await act(async () => {
+      root.render(<LabV2 user={{ user_id: "student-1" }} />);
+      for (let i = 0; i < 16; i += 1) await Promise.resolve();
+    });
+    expect(mockInvalidate).not.toHaveBeenCalled();
+    await act(async () => container.querySelector('[data-testid="done-reviewing-btn"]').click());
+    expect(global.fetch.mock.calls.filter(([url]) => url.endsWith("/complete-review"))).toHaveLength(1);
+    expect(mockInvalidate).toHaveBeenCalledTimes(ok ? 1 : 0);
+    expect(Boolean(container.querySelector('[data-testid="review-complete-overlay"]'))).toBe(ok);
   });
 
   test("one listener stays installed while using the latest move index and PGN", async () => {

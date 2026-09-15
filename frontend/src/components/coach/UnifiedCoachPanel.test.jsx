@@ -2,9 +2,12 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 
 import UnifiedCoachPanel from "./UnifiedCoachPanel";
+const mockNavigate = jest.fn();
+const mockInvalidate = jest.fn();
+jest.mock("@/lib/personalCurriculum", () => ({ invalidatePersonalCurriculum: () => mockInvalidate() }));
 
 jest.mock("react-router-dom", () => ({
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
 }), { virtual: true });
 jest.mock("@/components/ui/button", () => ({
   Button: ({ children, ...props }) => <button {...props}>{children}</button>,
@@ -20,6 +23,8 @@ describe("UnifiedCoachPanel", () => {
 
   beforeEach(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
+    mockNavigate.mockReset();
+    mockInvalidate.mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -94,8 +99,8 @@ describe("UnifiedCoachPanel", () => {
     ).toBeNull();
   });
 
-  test("postgame shows one story and one next action", () => {
-    renderPanel({
+  test("a postgame practice label without a destination cannot secretly start a game", () => {
+    const props = renderPanel({
       gameOver: true,
       gameResult: "loss",
       summary: {
@@ -111,11 +116,14 @@ describe("UnifiedCoachPanel", () => {
     expect(container.textContent).toMatch(/protected your pieces/i);
     const buttons = container.querySelectorAll("button");
     expect(buttons).toHaveLength(1);
-    expect(buttons[0].textContent).toContain("Practise this check");
+    expect(buttons[0].textContent).toBe("Play another game");
+    act(() => buttons[0].click());
+    expect(props.onNewGame).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   test("postgame prefers the unified focus story and canonical next action", () => {
-    renderPanel({
+    const props = renderPanel({
       gameOver: true,
       summary: {
         has_data: true,
@@ -136,6 +144,28 @@ describe("UnifiedCoachPanel", () => {
     expect(container.textContent).toContain("1 verified moment");
     expect(container.textContent).not.toContain("Legacy summary");
     expect(container.querySelectorAll("button")).toHaveLength(1);
+    act(() => container.querySelector('button').click());
+    expect(mockNavigate).toHaveBeenCalledWith('/training/pattern/piece_safety');
+    expect(props.onNewGame).not.toHaveBeenCalled();
+  });
+
+  test("a partial unified action never lends its label to another destination", () => {
+    renderPanel({ gameOver: true, summary: {
+      unified_summary: { next_action: { label: 'Learn an endgame' } },
+      pattern_verdict: { cta_label: 'Review this game', cta_href: '/game/example' },
+    } });
+    expect(container.querySelector('button').textContent).toBe('Review this game');
+    act(() => container.querySelector('button').click());
+    expect(mockNavigate).toHaveBeenCalledWith('/game/example');
+  });
+
+  test("game end and arriving summary each invalidate the old coaching plan", () => {
+    renderPanel();
+    expect(mockInvalidate).not.toHaveBeenCalled();
+    renderPanel({ gameOver: true });
+    expect(mockInvalidate).toHaveBeenCalledTimes(1);
+    renderPanel({ gameOver: true, summary: { has_data: true } });
+    expect(mockInvalidate).toHaveBeenCalledTimes(2);
   });
 
   test("ask coach opens two bounded no-typing actions", () => {
