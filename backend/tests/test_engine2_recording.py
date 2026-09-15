@@ -124,8 +124,16 @@ def test_playing_tracked_opening_records_attempt():
     assert skill.outcomes == ["seen"]
 
 
-def test_playing_opening_out_of_rating_range_skipped():
-    """A 1700 player who plays London System — that's a tier-1 node (1000-1499). Skip."""
+def test_playing_opening_out_of_rating_range_still_records():
+    """Exposure is a FACT and is recorded regardless of the node's band.
+
+    Changed 2026-09-15 (was: out-of-band play recorded nothing). Recording
+    answers "did they play it"; the rating band answers "should we teach it",
+    and that gate still lives in find_ready_skills(). Gating the fact meant a
+    correctly-rated 546 player could never accumulate exposure on an opening
+    banded 1000-1499 that they play every single game - which is exactly the
+    population the beginner content is for.
+    """
     mem = _fresh_memory()
     recorded = record_engine2_skills_from_game(
         memory=mem,
@@ -138,8 +146,8 @@ def test_playing_opening_out_of_rating_range_skipped():
         endgame_reached=False,
         opening_played="london_system",
     )
-    assert "opening_london_white" not in recorded
-    assert _find_skill(mem, "opening_london_white") is None
+    assert "opening_london_white" in recorded
+    assert _find_skill(mem, "opening_london_white") is not None
 
 
 def test_no_opening_no_recording():
@@ -421,14 +429,35 @@ def test_pick_next_respects_rating_band():
         assert pick_1600["tier"] >= 1
 
 
-def test_prerequisites_enforced():
-    """Tier-1 openings require coached_development; tier-2 require tier-1 etc."""
+def test_tier1_openings_no_longer_gated_on_coached_development():
+    """Tier-1 openings are reachable without completing coached_development.
+
+    Changed 2026-09-15. Nothing in the codebase ever calls
+    record_skill_attempt for coached_development - measured 0 recorded
+    attempts across all 69 production users - so it could not be completed
+    even in principle, and the 7 openings behind it (London, Caro-Kann,
+    Scandinavian, Four Knights, King's Gambit, Pirc, Alekhine) were
+    permanently unreachable. It is a phantom gate until it has a real
+    completion path.
+    """
     mem = _fresh_memory()
-    # At 1100 without coached_development, london_white is blocked by prereq
-    # (it requires coached_development)
     ready = find_ready_skills(mem, 1100)
-    assert "opening_london_white" not in ready, \
-        "london_white needs coached_development first"
+    assert "opening_london_white" in ready
+    assert "opening_caro_kann_black" in ready
+
+
+def test_real_prerequisite_chains_still_enforced():
+    """Removing the phantom root must NOT disable genuine prerequisites."""
+    mem = _fresh_memory()
+    # Italian (tier 2) still sits behind London (tier 1), which is unlearned.
+    assert "opening_italian_white" not in find_ready_skills(mem, 1500)
+
+    # Learn London, and Italian becomes reachable at an in-band rating.
+    for _ in range(5):
+        record_skill_attempt(mem, "opening_london_white", "opening", "correct")
+    assert "opening_london_white" in mem.learning.openings_learned
+    assert "opening_italian_white" in find_ready_skills(mem, 1500)
+
 
 
 # ── LEARNED DEMOTION (carried over from v1) ──────────────────────────
@@ -481,3 +510,94 @@ def _smoke():
 
 if __name__ == "__main__":
     sys.exit(0 if _smoke() else 1)
+
+
+# ── OPENING ID BRIDGE (2026-09-15) ───────────────────────────────────
+# Opening attempts used to be recorded under the recognizer's DISPLAY NAME
+# ("Italian Game Two Knights Open") while the tree gates on ids
+# ("opening_italian_white"). The namespaces never intersected, so learned_at
+# stayed None on all 7,792 recorded opening attempts across 65 production
+# users and no opening could ever graduate.
+
+from services.engine2_skill_builder import resolve_opening_skill_ids  # noqa: E402
+
+
+def test_bare_family_name_resolves():
+    assert resolve_opening_skill_ids("Italian Game") == ["opening_italian_white"]
+    assert resolve_opening_skill_ids("Scandinavian Defense") == [
+        "opening_scandinavian_black"
+    ]
+
+
+def test_variation_with_move_text_resolves_to_its_family():
+    """The shape the recognizer actually emits - this is what used to fail."""
+    assert resolve_opening_skill_ids(
+        "Caro Kann Defense Exchange Variation 3...cxd5 4.c3 Nf6"
+    ) == ["opening_caro_kann_black"]
+    assert resolve_opening_skill_ids(
+        "Indian Game London System 3...b6 4.e3 Bb7 5.Nbd2"
+    ) == ["opening_london_white"]
+
+
+def test_punctuation_and_case_are_normalised():
+    assert resolve_opening_skill_ids("caro-kann defense") == [
+        "opening_caro_kann_black"
+    ]
+
+
+def test_unknown_opening_resolves_to_nothing():
+    """Right-or-silent: never guess a skill_id."""
+    assert resolve_opening_skill_ids("Total Nonsense Opening") == []
+    assert resolve_opening_skill_ids("") == []
+    assert resolve_opening_skill_ids(None) == []
+
+
+def test_recording_uses_the_canonical_id_not_the_display_name():
+    mem = _fresh_memory()
+    recorded = record_engine2_skills_from_game(
+        memory=mem,
+        user_rating=1100,
+        mistake_types=[],
+        blunders=0,
+        accuracy=60.0,
+        game_result="draw",
+        was_winning=False,
+        endgame_reached=False,
+        opening_played="Caro Kann Defense Exchange Variation 3...cxd5 4.c3 Nf6",
+    )
+    assert recorded == ["opening_caro_kann_black"]
+    assert _find_skill(mem, "opening_caro_kann_black") is not None
+    # the display name must NOT be recorded as its own skill any more
+    assert _find_skill(
+        mem, "Caro Kann Defense Exchange Variation 3...cxd5 4.c3 Nf6"
+    ) is None
+
+
+def test_repeated_exposure_accumulates_on_one_canonical_skill():
+    """Five different Caro-Kann variations are five attempts at ONE skill.
+
+    Previously they were five separate display-name skills, each stuck at
+    seen=1, so the 5-seen graduation bar was unreachable by construction.
+    """
+    mem = _fresh_memory()
+    for variation in [
+        "Caro Kann Defense",
+        "Caro Kann Defense Advance Variation",
+        "Caro Kann Defense Exchange Variation 3...cxd5",
+        "Caro Kann Defense 2.Nc3 d5",
+        "Caro Kann Defense Classical Variation 4...Bf5",
+    ]:
+        record_engine2_skills_from_game(
+            memory=mem,
+            user_rating=1100,
+            mistake_types=[],
+            blunders=0,
+            accuracy=60.0,
+            game_result="draw",
+            was_winning=False,
+            endgame_reached=False,
+            opening_played=variation,
+        )
+    skill = _find_skill(mem, "opening_caro_kann_black")
+    assert skill is not None
+    assert skill.seen == 5

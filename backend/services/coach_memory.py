@@ -624,14 +624,16 @@ async def update_memory_after_game(
     # "Correct" if game won or drew with decent accuracy; "wrong" if blundered hard;
     # "seen" otherwise (just played it). Promotion to openings_learned happens
     # automatically when 5 seen / 3 correct / no recent failure is met.
-    if opening_played:
-        if game_result == "win" and accuracy >= 70 and blunders == 0:
-            skill_outcome = "correct"
-        elif game_result == "loss" and blunders >= 2:
-            skill_outcome = "wrong"
-        else:
-            skill_outcome = "seen"
-        record_skill_attempt(memory, opening_played, "opening", skill_outcome, now)
+    # 2026-09-15: this used to call
+    #     record_skill_attempt(memory, opening_played, "opening", ...)
+    # with the RECOGNIZER'S DISPLAY NAME ("Italian Game Two Knights Open")
+    # as the skill_id, while the Engine-2 tree gates on ids
+    # ("opening_italian_white"). The namespaces never intersected, so
+    # learned_at stayed None on all 7,792 recorded opening attempts across
+    # 65 users, no opening ever graduated, and every skill below tier 1 was
+    # unreachable. Opening exposure is now recorded once, canonically, by
+    # record_engine2_skills_from_game() below - which resolves the name to
+    # real tree skill_ids via resolve_opening_skill_ids().
     
     # Track loss phase for this opening (helps identify WHERE user struggles)
     if opening_played and game_result == "loss" and loss_phase:
@@ -912,15 +914,24 @@ def record_engine2_skills_from_game(
 
     # ── Opening exposure ──
     if opening_played:
-        opening_slug = _normalize_opening_key(opening_played)
-        from services.engine2_skill_builder import list_skills_by_kind, get_skill_node
-        for sid in list_skills_by_kind("opening"):
-            node = get_skill_node(sid) or {}
-            if node.get("content_ref") != opening_slug:
-                continue
-            # Rating gate
-            if not (node.get("rating_min", 0) <= user_rating <= node.get("rating_max", 9999)):
-                continue
+        from services.engine2_skill_builder import resolve_opening_skill_ids
+        # resolve_opening_skill_ids matches the recognizer's name against the
+        # curriculum family name, so "Caro Kann Defense Exchange Variation
+        # 3...cxd5" resolves to opening_caro_kann_black. The old exact-slug
+        # comparison only ever matched bare family names, which is why
+        # variations - the overwhelming majority - recorded nothing usable.
+        for sid in resolve_opening_skill_ids(opening_played):
+            # NO rating gate here. Recording is a statement of fact: the user
+            # played this opening. Whether we should TEACH it at their rating
+            # is decided later by find_ready_skills(). Gating the fact meant a
+            # correctly-rated 546 player could never accumulate exposure on an
+            # opening banded 1000-1499 that they actually play every game.
+            # Outcome stays "seen" on purpose. A game result plus a broad
+            # accuracy number cannot prove opening KNOWLEDGE - that stance is
+            # locked by test_italian_in_intermediate_range_records_exposure_
+            # not_knowledge. Graduation's `correct` half comes from lesson
+            # attempts (routes/training_advanced.py), not from winning games.
+            # Changing that is a product decision, not a bug fix.
             record_skill_attempt(memory, sid, "opening", "seen", timestamp)
             recorded.append(sid)
 

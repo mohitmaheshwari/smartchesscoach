@@ -19,6 +19,7 @@
   },
   "skills": {
     "_tier_0_note": "Tier 0 (beginner_low, 0-999) — 'Don't lose'. Live coached games are the medium; there's no content library for beginners below this level because they don't learn well from reading.",
+    "_coached_development_note": "2026-09-15: London/Caro-Kann/Scandinavian/Four-Knights/King's-Gambit/Pirc/Alekhine used to list coached_development as a prerequisite. Nothing in the codebase ever calls record_skill_attempt for it - measured 0 recorded attempts across all 69 users - so it could not be completed even in principle, and every opening behind it was permanently unreachable. Prerequisites emptied until coached_development has a real completion path. Keys starting with _ are stripped by engine2_skill_builder._load_tree.",
     "coached_development": {
       "kind": "coached_play",
       "label": "Develop your pieces",
@@ -67,9 +68,7 @@
       "label": "London System (White)",
       "fixes": "not knowing what to play as White",
       "content_ref": "london_system",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1000,
       "rating_max": 1499,
       "tier": 1
@@ -79,9 +78,7 @@
       "label": "Caro-Kann (Black vs 1.e4)",
       "fixes": "not knowing what to play vs 1.e4",
       "content_ref": "caro_kann",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1000,
       "rating_max": 1499,
       "tier": 1
@@ -91,9 +88,7 @@
       "label": "Scandinavian (Black vs 1.e4)",
       "fixes": "wanting a simple vs-1.e4 defense",
       "content_ref": "scandinavian_defense",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1000,
       "rating_max": 1499,
       "tier": 1
@@ -485,9 +480,7 @@
       "label": "King's Gambit (White)",
       "fixes": "not knowing how to attack as White after 1.e4 e5",
       "content_ref": "kings_gambit",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1200,
       "rating_max": 1799,
       "tier": 2
@@ -497,9 +490,7 @@
       "label": "Four Knights (White)",
       "fixes": "not knowing what to play as White after 1.e4 e5",
       "content_ref": "four_knights_game",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1000,
       "rating_max": 1499,
       "tier": 1
@@ -509,9 +500,7 @@
       "label": "Pirc Defense (White, Classical)",
       "fixes": "not knowing how to meet Black's d6/g6 (Pirc/Modern) setups",
       "content_ref": "pirc_defense",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1200,
       "rating_max": 1799,
       "tier": 2
@@ -521,9 +510,7 @@
       "label": "Alekhine Defense (Black vs 1.e4)",
       "fixes": "not knowing what to play vs 1.e4",
       "content_ref": "alekhine_defense",
-      "prerequisites": [
-        "coached_development"
-      ],
+      "prerequisites": [],
       "rating_min": 1200,
       "rating_max": 1799,
       "tier": 2
