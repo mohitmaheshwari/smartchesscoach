@@ -31,6 +31,7 @@ jest.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => false
 jest.mock("framer-motion", () => ({
   motion: { div: ({ children, ...props }) => <div {...props}>{children}</div> },
   AnimatePresence: ({ children }) => <>{children}</>,
+  useReducedMotion: () => false,
 }));
 
 
@@ -85,6 +86,22 @@ describe("Layout notification polling", () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+  });
+
+  test("provides a skip destination and named navigation controls", async () => {
+    await act(async () => root.render(
+      <Layout user={{ user_id: "user-1", name: "Student" }}><div>Page</div></Layout>
+    ));
+    await flush();
+    expect(container.querySelector('a[href="#coaching-content"]')).toBeTruthy();
+    expect(container.querySelectorAll('main#coaching-content')).toHaveLength(1);
+    expect(container.querySelector('main').getAttribute('tabindex')).toBe('-1');
+    expect(container.querySelector('[aria-label="Notifications"]')).toBeTruthy();
+    const toggle = container.querySelector('[data-testid="mobile-menu-toggle"]');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('#mobile-navigation')).toBeTruthy();
   });
 
   test("an unread-count update does not restart or immediately duplicate the poll", async () => {

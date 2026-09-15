@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -42,6 +42,7 @@ const Layout = ({ children, user }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const reduceMotion = useReducedMotion();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -223,6 +224,7 @@ const Layout = ({ children, user }) => {
 
   return (
     <div className={`min-h-screen flex bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
+      <a className="experience-skip-link" href="#coaching-content">Skip to coaching</a>
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
@@ -243,6 +245,7 @@ const Layout = ({ children, user }) => {
           </Link>
           {!sidebarCollapsed && (
             <button
+              aria-label="Collapse sidebar"
               className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
               onClick={() => setSidebarCollapsed(true)}
             >
@@ -252,12 +255,12 @@ const Layout = ({ children, user }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
-              <Link key={item.href} to={item.href}>
+              <Link key={item.href} to={item.href} aria-label={item.name} aria-current={active ? "page" : undefined}>
                 <div
                   className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
@@ -280,7 +283,7 @@ const Layout = ({ children, user }) => {
 
           {/* Play with Coach — Golden CTA */}
           <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-0'}`}>
-            <Link to="/play-with-coach">
+            <Link to="/play-with-coach" aria-label="Play with Coach">
               <div
                 className={`experience-coach-cta relative w-full flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all duration-200 text-black font-semibold hover:scale-[1.02] active:scale-[0.98] ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
@@ -343,7 +346,7 @@ const Layout = ({ children, user }) => {
         {/* Collapse toggle */}
         {sidebarCollapsed && (
           <div className="px-3 pb-2">
-            <button className="w-full h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
+            <button aria-label="Expand sidebar" className="w-full h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
               onClick={() => setSidebarCollapsed(false)}>
               <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
             </button>
@@ -354,6 +357,7 @@ const Layout = ({ children, user }) => {
         <div className="p-3 space-y-1 border-t border-border/50">
           <button
             onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
             data-testid="sidebar-theme-toggle"
           >
@@ -361,7 +365,7 @@ const Layout = ({ children, user }) => {
             {!sidebarCollapsed && <span className="text-[13px]">{theme === "dark" ? "Light" : "Dark"}</span>}
           </button>
 
-          <Link to="/settings">
+          <Link to="/settings" aria-label="Settings">
             <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
               <Settings className="w-[18px] h-[18px]" strokeWidth={1.5} />
               {!sidebarCollapsed && <span className="text-[13px]">Settings</span>}
@@ -371,7 +375,7 @@ const Layout = ({ children, user }) => {
           {/* User */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
+              <Button variant="ghost" aria-label="Account menu" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
                 <div className="relative">
                   <Avatar className="h-8 w-8 ring-2 ring-primary/20">
                     <AvatarImage src={userPicture} alt={userName} />
@@ -416,7 +420,7 @@ const Layout = ({ children, user }) => {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-8 h-8 relative" data-testid="notifications-bell">
+                <Button variant="ghost" size="icon" aria-label="Notifications" className="w-11 h-11 relative" data-testid="notifications-bell">
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 experience-acid-badge text-[10px] font-bold text-black rounded-full flex items-center justify-center">
@@ -449,15 +453,15 @@ const Layout = ({ children, user }) => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} data-testid="mobile-menu-toggle">
+            <Button variant="ghost" size="icon" className="w-11 h-11" aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} data-testid="mobile-menu-toggle">
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </Button>
           </div>
         </div>
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="border-t border-border bg-card overflow-hidden">
-              <nav className="flex flex-col p-3 gap-1">
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.2 }} className="border-t border-border bg-card overflow-hidden">
+              <nav id="mobile-navigation" aria-label="Mobile menu" className="flex flex-col p-3 gap-1 max-h-[70dvh] overflow-y-auto">
                 {navigation.map((item) => { const IconComponent = item.icon; const active = isActive(item.href); return (
                   <Link key={item.href} to={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button variant={active ? "secondary" : "ghost"} className={`w-full justify-start gap-3 ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={"mobile-nav-" + item.name.toLowerCase().replaceAll(" ", "-")}>
@@ -493,9 +497,9 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`experience-main flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+      <main id="coaching-content" tabIndex={-1} className={`experience-main min-w-0 flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
         <div className={`${EXPERIENCE_V1_ENABLED ? 'max-w-[1440px]' : 'max-w-6xl'} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`}>
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+          <motion.div initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.25 }}>
             {children}
           </motion.div>
         </div>
