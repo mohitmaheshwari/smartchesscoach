@@ -1,8 +1,9 @@
 # Complete Coaching System — Scope
 
-**Status:** LOCKED — MOHIT APPROVED 2026-08-28
+**Status:** LOCKED — MOHIT APPROVED 2026-08-28; community-game extension locked 2026-09-15
 **Product owner and primary chess adjudicator:** Mohit, 2100 Elo  
 **Decision already confirmed:** extend the existing product, consolidate or replace duplicate authorities, and validate with an isolated database rather than altering real player records
+**Supersession:** The community-game and social-play exclusions in docs/personal_improvement_cycle_scope.md and docs/play_with_coach_unified_experience_scope.md are superseded only for the two bounded experiences defined here: coach-selected community-game study and opted-in coach-guided human matches. Generic social features remain out of scope.
 
 ## 0. Existing surfaces audit
 
@@ -22,22 +23,26 @@
 | `teaching_engine`, RepRunner/PIC lessons and older teaching integrations | Trap, opening, endgame and piece-safety lesson lifecycles plus several parallel interaction shapes | **CONSOLIDATE.** `teaching_engine` owns lifecycle; one board-first lesson contract supports every teaching method. |
 | Detector families and `detector_quality` | Broad tactical, positional, behavioral, opening and endgame recognizers, with one quality authority controlling Plan/Caption/Shadow/Disabled status | **EXTEND THE AUTHORITY; CONSOLIDATE DUPLICATE FACTS.** No detector influences a player beyond the surface it has earned. |
 | Opening, trap and endgame curricula | 79 top-level opening entries, approximately 54 traps and 18 routed endgame lessons, plus recognizers and mastery services | **CURATE AND CONNECT.** Preserve the content, but let the coach sequence it instead of presenting it as the product. |
+| Community puzzle and training pools | Verified positions from other players already supplement a learner's own positions, with provenance and admission controls | **EXTEND TO WHOLE-GAME STUDY.** Admit complete analyzed community games only when they provide a coach-selected lesson for this learner; do not create an open game feed. |
+| Coach-selected Game Review | Selects one of the learner's analyzed games and prepares a bounded review journey | **EXTEND THE SAME SELECTOR AND CHAPTER CONTRACT.** It may select an admitted community game when that game teaches the current lesson better than another isolated exercise. |
+| Play with Coach sessions | Supports one learner playing an engine opponent, followed by analysis and personal evidence | **EXTEND WITH A HUMAN-OPPONENT MODE INSIDE THIS PROGRAM.** Keep personal preparation and follow-up private; add a neutral shared review after an opted-in community match. |
+| Coach Ladder and community-learning services | Preserve puzzle contribution, community attribution and future peer-coach ideas but do not provide whole-game study or human-versus-human play | **REUSE LATER IN THE SAME PROGRAM.** No parallel community profile, feed, XP authority or coaching engine is created. |
 
 ### Overlap and genuine differentiation
 
 The existing product already contains nearly every visible component needed by a complete coach. The missing value is not another page. It is the shared relationship between the pages: one understanding of the player, one ordered focus set, one teaching history, one definition of improvement and one coach policy.
 
-The genuine new product is therefore the **complete coaching system**, not a new “AI Coach” surface. It connects and governs the existing surfaces so they behave like one coach across months.
+The genuine new product is therefore the **complete coaching system**, not a new “AI Coach” surface. It connects and governs the existing surfaces so they behave like one coach across months. Community games extend that relationship only when the coach selects and teaches them for a specific learner; community participation is not a competing destination.
 
 ### Overlap decision
 
 **EXTEND the five main player surfaces. CONSOLIDATE or REPLACE the duplicate authorities behind them. Do not create a parallel coach, focus store, lesson store, progress engine, caption path or player dashboard.**
 
-Home remains the conversation, Review the evidence, Training the assigned work, Play with Coach the assisted application, and Progress the proof. Old routes and services are retired only after their replacement has passed contract comparison and rollout.
+Home remains the conversation, Review the evidence, Training the assigned work, Play with Coach the assisted application, and Progress the proof. Coach-selected community study enters through Review; an opted-in human match enters through Play with Coach and returns to a neutral shared review plus private personal follow-up. Old routes and services are retired only after their replacement has passed contract comparison and rollout.
 
 ## 1. What it is
 
-The Complete Coaching System turns ChessGuru into a persistent personal chess coach for 600–1500 players. It studies the player's games across fundamentals, tactics, thinking, positional play, time management, openings, traps, endgames, conversion and defense; identifies what matters at the player's current stage; keeps a clear set of active and requested learning goals; teaches with the right board-based activity; remembers what has already been tried; and checks later unassisted games before saying that the player improved. It can discuss several important issues in a game, while still guiding the player toward a manageable next action instead of becoming a library of unlimited choices.
+The Complete Coaching System turns ChessGuru into a persistent personal chess coach for 600–1500 players. It studies the player's games across fundamentals, tactics, thinking, positional play, time management, openings, traps, endgames, conversion and defense; identifies what matters at the player's current stage; keeps a clear set of active and requested learning goals; teaches with the right board-based activity; remembers what has already been tried; and checks later unassisted games before saying that the player improved. It can discuss several important issues in a game, while still guiding the player toward a manageable next action instead of becoming a library of unlimited choices. When useful, it may teach through a verified game from a similarly rated community player or arrange an opted-in human match whose shared review remains fair, neutral and separate from each player's private coaching plan.
 
 ## 2. What the user sees
 
@@ -289,6 +294,48 @@ New lesson
 [ Start the next coaching block ]
 ```
 
+### Coach-selected community game study
+
+The coach may decide that another player's game is the clearest way to teach the current lesson. The player is not sent into a community library to browse:
+
+```text
+I chose this game for you.
+
+Both players were close to your level, and this position asks the same
+question you are working on: when should you exchange queens?
+
+We will study four moments:
+1. the opening plan they both understood
+2. the first tempting queen exchange
+3. the missed defensive resource
+4. the endgame decision that settled the game
+
+[ Start the guided game ]
+```
+
+At each selected chapter the learner predicts, compares or replays before the coach explains. The session ends with one instruction and the exact next prescribed activity. Community study is assisted learning evidence; it does not by itself prove transfer.
+
+### Coach-guided community match and shared review
+
+Two opted-in learners may play a fair human-versus-human game. Live help is either absent or explicitly symmetric; private profile knowledge never leaks to the opponent.
+
+```text
+You and Asha played the same position very differently.
+
+SHARED REVIEW
+Move 14: what was White trying to achieve?
+Move 19: Black had a defensive resource neither player considered.
+Move 31: this rook ending rewarded the more active king.
+
+[ Review together ]
+
+YOUR PRIVATE FOLLOW-UP
+Your active lesson appeared twice. I have prepared one position for you.
+[ Continue with my coach ]
+```
+
+The shared review contains mutually visible board facts and neutral teaching. Diagnosis, remembered weaknesses, reflections and prescribed next actions remain private to each learner.
+
 ## 3. In scope (V1)
 
 - One continuous coaching journey for both new and existing players: observe, diagnose, prioritize, teach, rehearse, test, observe later games, issue an honest verdict and adapt.
@@ -301,6 +348,11 @@ New lesson
 - One coach conductor governing when to speak, when to stay silent, which focus is relevant, which teaching method to use, how much assistance to offer and how tone changes from observable context.
 - Coach continuity: the same focus, instruction, evidence and unfinished commitment survive across surfaces and sessions.
 - Player-requested openings, traps, endgames or other subjects enter the guided plan without silently replacing the coach-selected priority.
+- Coach-selected whole-game studies from an admitted community pool, chosen for active-focus fit, rating/readiness fit, chapter quality, novelty and understandable learning value rather than fame or engine accuracy alone.
+- A guided community-game experience that teaches a bounded set of opening, middlegame, tactical/positional and endgame chapters through prediction, comparison, replay and explanation, then returns to the same personal plan.
+- An opted-in human-opponent mode under Play with Coach, with fair pairing, reliable clocks/reconnection, symmetric assistance rules and a neutral coach-led shared review.
+- Strict shared/private separation for community matches: shared board facts and game events may be discussed together; each player's history, diagnosis, reflections and next prescription remain private.
+- Moderation, reporting, blocking, fair-play controls, disconnect handling, deletion behavior and consent as release requirements for human-opponent play rather than post-launch polish.
 - A canonical concept registry covering fundamentals, tactics, calculation/thinking, positional play, time management, openings, traps, endgames, conversion, defense and practical decision-making.
 - Every registered concept declares whether it may support a caption, become a plan, provide curriculum only, or remain research-only.
 - Every concept capable of becoming a focus declares a detection opportunity, safe explanation, teaching methods, unassisted checkpoint and later-game transfer fact.
@@ -339,7 +391,7 @@ New lesson
 - Public claims that ChessGuru caused Elo improvement without a separate appropriately designed outcome study.
 - A course marketplace, creator-content marketplace or restoration of the entire content catalog as the Home experience.
 - Native mobile applications solely for feature parity; responsive web quality remains required.
-- Social leagues, leaderboards, badges or streak economies unrelated to the coaching relationship.
+- Generic community feeds, follower graphs, public weakness profiles, social leagues, leaderboards, badges or streak economies unrelated to the coaching relationship. The coach-selected study and bounded human-match experiences above are the only community features in this scope.
 - A general-purpose unlimited chat coach in V1. Bounded questions about a reviewed position may use the verified coaching context.
 - Academy management, coach dashboards or a separate B2B product. Coaches may participate as reviewers/distribution partners without creating another product line.
 - Multilingual coaching before the English coaching truth, continuity and learning loop pass their release gates.
@@ -361,6 +413,10 @@ New lesson
 - The player can request an opening, trap, endgame or concept and always receives a visible answer: begin, support current work, schedule next, or learn a prerequisite first.
 - All learner-facing progress claims link to inspectable evidence and use an insufficient-evidence state when the proof window is incomplete.
 - Mohit can review a sampled player's diagnosis, Review narrative, assigned lesson and verdict and find that they form one coherent human coaching plan.
+- For an eligible learner, the coach can select an admitted similarly rated community game, explain why it was chosen, teach its bounded chapters and return the learner to the correct personal next action without exposing an open browsing feed.
+- Every player-visible community-game chapter passes legal replay, stored-analysis provenance and the same applicable fact/caption authorization gates as a personal-game chapter.
+- Two test learners can complete a human match through pairing, clocks, reconnect and termination; receive a neutral shared review; and receive different private follow-ups without either learner's private coaching context appearing in the other's payload or UI.
+- Human-match release tests cover consent, reporting, blocking, disconnects, abandoned games, cheating/fair-play escalation and deletion before any ordinary-user rollout.
 - The isolated validation database can reproduce every release scenario without reading or writing a real player's mutable coaching state.
 - The real-user pilot demonstrates the intended behaviors: players understand their focus, complete assigned work, return after another game and continue into a later coaching cycle. Numeric launch thresholds are locked from baseline/pilot distributions before rollout, not invented in this scope.
 - Paid promises remain disabled until a free value event is reproducible, entitlements are provider-backed and some activated players return for continued coaching rather than only consuming the first report.
@@ -407,6 +463,22 @@ New lesson
   - **Why unresolved:** competitor pricing establishes a range but ChessGuru has no verified payment/renewal evidence.
   - **Unblocking step:** complete the free value event and subscription lifecycle, then run a controlled packaging test on activated users.
 
+- **Question:** Which community games and chapters are good enough to assign to a particular learner?
+  - **Why unresolved:** engine accuracy, rating proximity and fame do not prove that a game contains an understandable lesson that fits the learner's active need.
+  - **Unblocking step:** build a read-only candidate packet across rating bands and focus types; compare selection formulas using focus fit, rating/readiness fit, chapter density, novelty and repetition; then lock the rule through blinded Mohit review.
+
+- **Question:** What consent and provenance permit a complete community game to become teaching material?
+  - **Why unresolved:** an imported public game, an opted-in ChessGuru game and a private coach game do not have the same display, retention, attribution or deletion rights.
+  - **Unblocking step:** inventory every source and its terms, anonymization, attribution, deletion and opt-out behavior; record the product/legal decision before admitting any whole game.
+
+- **Question:** Should the first human-match mode be immediate, scheduled or asynchronous?
+  - **Why unresolved:** the right promise depends on real concurrent demand, acceptable wait time, rating distribution, time-control preference and reconnect reliability.
+  - **Unblocking step:** measure concurrency and time-control distributions, prototype the feasible modes and data-lock the first promise rather than presenting an engine as a human fallback.
+
+- **Question:** What live coaching assistance is fair in a human-versus-human game?
+  - **Why unresolved:** private asymmetric hints can turn coaching into outside assistance and make the match unfair.
+  - **Unblocking step:** validate an unassisted competitive default first; any coached format must be clearly labeled, explicitly accepted and mechanically symmetric for both players.
+
 ## 7. Pre-code requirements
 
 - Mohit explicitly signs off this complete scope document after reviewing the literal new-player and existing-player experiences.
@@ -421,6 +493,12 @@ New lesson
 - Production distributions are collected read-only for opportunity frequency, focus-set size, clock coverage, legacy migration coverage and player-stage coverage.
 - Numeric choices—including focus-set limit, evidence windows, ranking formula, intervention budget, lesson length and rollout thresholds—are passed through `/lock-via-data`; none are selected from intuition.
 - Mohit reviews initial gold packets across fundamentals, tactics, positional play, time, openings, traps and endgames; legal replay/tablebase checks are included where applicable.
+- Every whole community-game source has an approved consent, provenance, attribution, anonymization, retention, deletion and opt-out decision before it enters the assignable pool.
+- Community-game selection has a versioned candidate packet, formula bake-off and blinded Mohit review. Engine accuracy alone cannot authorize a game or chapter for teaching.
+- Personal games and community games reuse one Game Review renderer, fact verifier, lesson handoff and evidence interpretation; no parallel community-review coaching engine is created.
+- Human-opponent play has an approved architecture and threat model covering matchmaking, clocks, reconnect, termination, fair play, cheating escalation, reporting, blocking, moderation, retention and abuse.
+- Shared-review contract tests prove that neither player's private focus, history, reflections, misconceptions, memory or prescribed next action can enter the other player's payload or interface.
+- Production concurrency evidence supports the match mode promised to users. The product never disguises an engine opponent as a community player.
 - The existing test baseline is recorded honestly, including collection failures and routes not exercised by CI.
 - A staging/validation end-to-end harness can run new-player and existing-player journeys with MongoDB, Stockfish and the frontend without pointing state-changing tests at real production users.
 - Migration scripts are additive, idempotent, dry-run-first and restricted to explicitly selected test/validation users until a separate production rollout is approved.
