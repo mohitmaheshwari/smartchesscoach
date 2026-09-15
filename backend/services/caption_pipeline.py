@@ -875,6 +875,19 @@ class SeverityComputation:
     severity_canonical: str          # raw cp_loss-based tier
     practical: PracticalSeverity
     is_forced_recapture: bool
+    # v159 (2026-09-15): set when the played move IS the engine's top
+    # choice, so no caller fault-frames it. The old downgrade lived
+    # inline in V5 service gated on `is_user`, so opponent moves were
+    # never covered ("Opponent's Nxh4 is an inaccuracy" on a move the
+    # engine itself plays). Measured on the 426 user-flagged moves
+    # carrying FEN+caption: 67 were the engine's own top move at depth
+    # 16, ~15 of them captioned as a fault.
+    is_best_equals_played: bool = False
+    # Set when the played move delivers checkmate. Mate dominates every
+    # positional read: Qf8# was captioned "Weak Squares - their bishop is
+    # the wrong colour..." and b8=Q# "Free Pawn - push it to promote",
+    # both on the move that ended the game.
+    played_is_mate: bool = False
 
 
 def compute_severity_for_move(
@@ -898,6 +911,11 @@ def compute_severity_for_move(
     board_before: chess.Board,
     played_move: Optional[chess.Move],
     prev_move: Optional[chess.Move],
+    # v159: engine truth for the best-equals-played sanity downgrade.
+    # Both optional - when either is missing the downgrade is skipped
+    # (right-or-silent; we never guess that a move was best).
+    best_move_san: Optional[str] = None,
+    played_san: Optional[str] = None,
 ) -> SeverityComputation:
     """Replicates game_decryption_v5_service.py lines 2988-3082 (severity
     classification + practical-severity + forced-recapture detection),
@@ -987,11 +1005,48 @@ def compute_severity_for_move(
                 is_forced_recapture = True
                 severity = "good"
 
+    # --- Best-equals-played sanity downgrade (v159) ----------------
+    # You cannot lose centipawns by playing the engine's own top choice,
+    # so a cp_loss that says otherwise is internally inconsistent, and
+    # captioning the move as a fault contradicts the very move we would
+    # recommend ("Opponent's Rxd6 is an inaccuracy. Play Rxd6 ..."
+    # shipped to a real user).
+    #
+    # This used to live inline in game_decryption_v5_service.py gated on
+    # `is_user`, so it covered review-side USER moves only. NOTE: PWC does
+    # not reach this helper - it calls build_move_teaching_decision, which
+    # classifies severity itself, so the same guard is applied there too.
+    is_best_equals_played = False
+    _best_norm = (best_move_san or "").strip().rstrip("!?+#")
+    _played_norm = (played_san or "").strip().rstrip("!?+#")
+    if _best_norm and _played_norm and _best_norm == _played_norm:
+        is_best_equals_played = True
+        if severity_canonical in ("inaccuracy", "mistake", "serious", "blunder"):
+            severity = "good" if is_user else "context"
+            severity_canonical = "good"
+
+    # --- Mate dominance (v159) -------------------------------------
+    # A move that ends the game is never an inaccuracy and never a
+    # positional footnote. Board-verified, so right-or-silent.
+    played_is_mate = False
+    if played_move is not None:
+        try:
+            _b = board_before.copy(stack=False)
+            _b.push(played_move)
+            played_is_mate = _b.is_checkmate()
+        except Exception:
+            played_is_mate = False
+    if played_is_mate:
+        severity = "good" if is_user else "context"
+        severity_canonical = "good"
+
     return SeverityComputation(
         severity_user_facing=severity,
         severity_canonical=severity_canonical,
         practical=practical,
         is_forced_recapture=is_forced_recapture,
+        is_best_equals_played=is_best_equals_played,
+        played_is_mate=played_is_mate,
     )
 
 
@@ -4430,6 +4485,47 @@ def build_move_teaching_decision(
         int(inputs.cp_loss or 0) if inputs.mover_is_user else int(inputs.opp_cp_loss or 0),
         mover_is_user=bool(inputs.mover_is_user),
     )
+
+    # --- Best-equals-played + mate dominance (v159, 2026-09-15) ----
+    # compute_severity_for_move() carries these for the V5 review path,
+    # but this function classifies severity itself and is what PWC calls,
+    # so the guards have to hold here too or PWC stays unguarded.
+    # Right-or-silent: with no best_move_san we never guess it was best.
+    import dataclasses as _dc
+
+    def _norm_san(x: Any) -> str:
+        return str(x or "").strip().rstrip("!?+#")
+
+    _best_eq_played = bool(
+        _norm_san(inputs.best_move_san)
+        and _norm_san(inputs.best_move_san) == _norm_san(inputs.played_san)
+    )
+    try:
+        _b_after = board_before.copy(stack=False)
+        _b_after.push(played_move)
+        _played_is_mate = _b_after.is_checkmate()
+    except Exception:
+        _played_is_mate = False
+
+    if _best_eq_played or _played_is_mate:
+        if canonical.tier != "good" or practical.practical_tier != "good":
+            logger.info(
+                "[SEVERITY-SANITY] %s: canonical=%s practical=%s downgraded to "
+                "good (best_equals_played=%s, is_mate=%s, is_user=%s)",
+                inputs.played_san, canonical.tier, practical.practical_tier,
+                _best_eq_played, _played_is_mate, inputs.mover_is_user,
+            )
+        canonical = _dc.replace(
+            canonical,
+            tier="good",
+            user_facing_tier="good" if inputs.mover_is_user else "context",
+        )
+        # practical_tier drives R12 variant selection and the shape gate
+        # (caption_facts["severity_practical"]), so leaving it on a fault
+        # tier would still render fault-framed prose.
+        practical = _dc.replace(
+            practical, practical_tier="good", canonical_tier="good",
+        )
 
     caption_facts: Dict[str, Any] = {}
 
