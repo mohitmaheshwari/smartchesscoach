@@ -126,6 +126,7 @@ def candidate_from_projection(
     }
     chapters = []
     focus_match = False
+    focus_event_id = ""
     for chapter in plan.get("chapters") or []:
         if not isinstance(chapter, Mapping):
             return None
@@ -133,7 +134,10 @@ def candidate_from_projection(
         preview = _event_preview(event, str(chapter.get("role") or "")) if event else None
         if preview is None:
             return None
-        focus_match = focus_match or _focus_matches(focus_key, event)
+        event_matches_focus = _focus_matches(focus_key, event)
+        focus_match = focus_match or event_matches_focus
+        if event_matches_focus and not focus_event_id:
+            focus_event_id = str(event.get("event_id") or "")
         chapters.append(preview)
     if not chapters:
         return None
@@ -152,6 +156,7 @@ def candidate_from_projection(
         "takeaway": str(plan.get("takeaway") or ""),
         "chapters": chapters,
         "focus_match": focus_match,
+        "focus_event_id": focus_event_id,
         "focus_key": focus_key if focus_match else "",
         "authorized_chapter_count": len(chapters),
         "recency": max(
@@ -204,14 +209,31 @@ def _public_game(game: Mapping[str, Any]) -> Dict[str, Any]:
 
 def public_prescription(document: Mapping[str, Any], candidate: Mapping[str, Any]) -> Dict[str, Any]:
     focus_match = bool(candidate.get("focus_match"))
-    reason = {
-        "headline": (
-            "I picked this game for your current lesson."
-            if focus_match
-            else "I found a game worth understanding."
+    chapters = list(candidate.get("chapters") or [])
+    focus_event_id = str(candidate.get("focus_event_id") or "")
+    first_chapter = next(
+        (
+            chapter
+            for chapter in chapters
+            if focus_event_id
+            and str(chapter.get("event_id") or "") == focus_event_id
         ),
+        chapters[0] if chapters else {},
+    )
+    pattern_headline = str(
+        first_chapter.get("headline")
+        or first_chapter.get("principle")
+        or candidate.get("takeaway")
+        or candidate.get("game_arc")
+        or first_chapter.get("explanation")
+    ).strip()
+    reason = {
+        # The safe GameTeachingPlan already owns the chess idea. Reuse it as
+        # the memorable headline instead of hiding it behind generic product
+        # copy such as "I picked this game".
+        "headline": pattern_headline,
         "body": (
-            "It puts the idea you are working on inside a real decision from one of your games."
+            "This is where your current lesson shows up in a real game."
             if focus_match
             else str(candidate.get("game_arc") or "").strip()
         ),
@@ -225,7 +247,7 @@ def public_prescription(document: Mapping[str, Any], candidate: Mapping[str, Any
         "state": str(document.get("state") or "recommended"),
         "game": _public_game(candidate.get("game") or {}),
         "reason": reason,
-        "chapters": list(candidate.get("chapters") or []),
+        "chapters": chapters,
         "takeaway": str(candidate.get("takeaway") or ""),
         "resume": {"move_index": move_index, "updated_at": _iso(resume.get("updated_at"))},
         "review_url": f"/game/{game_id}?prescription={prescription_id}&resume={move_index}",

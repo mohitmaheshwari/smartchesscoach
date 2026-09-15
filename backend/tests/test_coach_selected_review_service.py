@@ -123,6 +123,7 @@ def _candidate(game_id, *, focus=False, chapters=1, recency=1):
             for index in range(chapters)
         ],
         "focus_match": focus,
+        "focus_event_id": f"{game_id}-0" if focus else "",
         "focus_key": "piece_safety" if focus else "",
         "authorized_chapter_count": chapters,
         "recency": recency,
@@ -165,6 +166,7 @@ def test_candidate_uses_only_projected_event_text_and_fails_closed():
         focus_key="piece_safety",
     )
     assert candidate["focus_match"] is True
+    assert candidate["focus_event_id"] == "e1"
     assert candidate["chapters"][0]["explanation"].startswith("Rd2")
 
     projection["game_teaching_plan"]["chapters"][0]["event_id"] = "missing"
@@ -209,10 +211,46 @@ def test_public_contract_excludes_identity_private_selector_evidence():
     }
     public = service.public_prescription(document, candidate)
     assert public["review_url"].endswith("prescription=p1&resume=9")
+    assert public["reason"] == {
+        "headline": "The rook needed one more check.",
+        "body": "This is where your current lesson shows up in a real game.",
+    }
     serialized = repr(public)
     assert "private-user" not in serialized
     assert "private-fingerprint" not in serialized
     assert service.SELECTOR_VERSION not in serialized
+
+
+def test_public_reason_falls_back_through_verified_teaching_fields():
+    candidate = _candidate("g1")
+    candidate["chapters"][0]["headline"] = ""
+    candidate["chapters"][0]["principle"] = "Check the destination square."
+    public = service.public_prescription(
+        {
+            "prescription_id": "p1",
+            "state": "recommended",
+            "resume": {"move_index": -1},
+        },
+        candidate,
+    )
+    assert public["reason"]["headline"] == "Check the destination square."
+    assert public["reason"]["body"] == candidate["game_arc"]
+
+
+def test_public_reason_uses_the_exact_focus_matching_chapter():
+    candidate = _candidate("g1", focus=True, chapters=2)
+    candidate["chapters"][0]["headline"] = "A different lesson."
+    candidate["chapters"][1]["headline"] = "The loose rook decides the position."
+    candidate["focus_event_id"] = "g1-1"
+    public = service.public_prescription(
+        {
+            "prescription_id": "p1",
+            "state": "recommended",
+            "resume": {"move_index": -1},
+        },
+        candidate,
+    )
+    assert public["reason"]["headline"] == "The loose rook decides the position."
 
 
 @pytest.mark.asyncio

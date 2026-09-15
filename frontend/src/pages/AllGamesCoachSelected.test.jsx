@@ -41,8 +41,8 @@ const prescription = {
       opening: "Italian Game",
     },
     reason: {
-      headline: "I picked this game for your current lesson.",
-      body: "It puts your lesson inside one real decision.",
+      headline: "Your rook needed one more check.",
+      body: "This is where your current lesson shows up in a real game.",
     },
     chapters: [{
       event_id: "e1",
@@ -109,7 +109,7 @@ describe("coach-selected Game Review", () => {
     });
 
     expect(container.textContent).toContain("This is the game I want to study with you.");
-    expect(container.textContent).toContain("I picked this game for your current lesson.");
+    expect(container.textContent).toContain("Your rook needed one more check.");
     expect(container.textContent).toContain("What was possible here");
     expect(container.textContent).toContain("Coach’s pick");
 
