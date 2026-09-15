@@ -288,7 +288,7 @@ const AllGames = ({ user }) => {
           {recommendationFailed ? (
             <section className="cg-hero" data-testid="coach-selected-review-error">
               <p className="cg-eyebrow">Game Review</p>
-              <h1 className="cg-title !text-[clamp(2rem,4vw,3.35rem)]">
+              <h1 className="cg-title">
                 I could not load the right game just now.
               </h1>
               <p className="cg-lede mt-3">
@@ -316,13 +316,13 @@ const AllGames = ({ user }) => {
                 </div>
 
                 {selected ? (
-                  <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr]">
+                  <div className="grid items-start gap-7 lg:grid-cols-[1.2fr_0.8fr]">
                     <div>
                       <p className="text-xs text-muted-foreground mb-3">
                         {selected.game.result} against {selected.game.opponent}
                         {selected.game.played_at ? ` · ${fmtDate(selected.game)}` : ""}
                       </p>
-                      <h1 className="cg-title !text-[clamp(2rem,4vw,3.35rem)]">
+                      <h1 className="cg-title">
                         {selected.state === "started"
                           ? "Let’s continue where we stopped."
                           : "This is the game I want to study with you."}
@@ -364,10 +364,10 @@ const AllGames = ({ user }) => {
                       ) : null}
                     </div>
 
-                    <div className="rounded-[24px] border border-emerald-900/10 bg-white/55 p-5 md:p-6 backdrop-blur">
+                    <div className="rounded-[24px] border border-border bg-card/70 p-5 md:p-6 backdrop-blur">
                       <div className="flex items-center gap-2 mb-4">
-                        <BookOpen className="w-4 h-4 text-emerald-700" />
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
+                        <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+                        <p className="cg-eyebrow">
                           What we’ll uncover
                         </p>
                       </div>
@@ -397,7 +397,7 @@ const AllGames = ({ user }) => {
                 ) : (
                   <div className="max-w-2xl">
                     <p className="cg-eyebrow">No guesswork</p>
-                    <h1 className="cg-title !text-[clamp(2rem,4vw,3.35rem)]">
+                    <h1 className="cg-title">
                       {recommendation?.empty?.headline}
                     </h1>
                     <p className="cg-lede mt-3">{recommendation?.empty?.body}</p>
@@ -432,7 +432,7 @@ const AllGames = ({ user }) => {
                 </button>
                 <p className="cg-eyebrow">Your games</p>
               </div>
-              <h1 className="cg-title !text-[clamp(2rem,5vw,3.6rem)]">Let’s find the moment worth understanding.</h1>
+              <h1 className="cg-title">Let’s find the moment worth understanding.</h1>
               <p className="cg-lede">
                 You do not need to study every move. Choose a game and I’ll take you to the decision that can teach you something useful.
               </p>

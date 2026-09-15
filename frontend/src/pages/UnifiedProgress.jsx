@@ -379,7 +379,7 @@ export default function UnifiedProgress({ user }) {
       >
         <motion.header variants={fadeInUp} className="cg-hero mb-8 md:mb-10">
           <p className="cg-eyebrow">Progress · what is changing in your chess</p>
-          <h1 className="cg-title !max-w-[780px] !text-[clamp(2.2rem,5vw,4.2rem)]">
+          <h1 className="cg-title !max-w-[780px]">
             {view.headline}
           </h1>
           <p

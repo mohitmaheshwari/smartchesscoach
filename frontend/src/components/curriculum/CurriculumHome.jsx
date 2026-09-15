@@ -9,7 +9,7 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
 
   return (
     <Layout user={user}>
-      <main
+      <div
         className="cg-page max-w-[960px]"
         data-testid="personal-curriculum-home"
       >
@@ -37,7 +37,7 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
         >
           See the rest of my plan
         </button>
-      </main>
+      </div>
     </Layout>
   );
 }
